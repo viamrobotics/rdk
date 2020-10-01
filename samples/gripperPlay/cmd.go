@@ -2,7 +2,7 @@ package main
 
 import (
 	"time"
-	
+
 	"github.com/echolabsinc/robotcore/gripper"
 )
 

@@ -6,10 +6,9 @@ import (
 	"gocv.io/x/gocv"
 )
 
-
 func main() {
-    // set to use a video capture device 0
-    deviceID := 0
+	// set to use a video capture device 0
+	deviceID := 0
 
 	// open webcam
 	webcam, err := gocv.OpenVideoCapture(deviceID)
@@ -26,7 +25,7 @@ func main() {
 	// prepare image matrix
 	img := gocv.NewMat()
 	defer img.Close()
-	
+
 	fmt.Printf("start reading camera device: %v\n", deviceID)
 	for {
 		if ok := webcam.Read(&img); !ok {
@@ -38,7 +37,7 @@ func main() {
 		}
 
 		gocv.IMWrite("data.bmp", img)
-		
+
 		window.IMShow(img)
 		window.WaitKey(1)
 	}

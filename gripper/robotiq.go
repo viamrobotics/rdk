@@ -23,4 +23,3 @@ func (g *Gripper) Set(what string, to string) error {
 	time.Sleep(10 * time.Millisecond)
 	return err
 }
-

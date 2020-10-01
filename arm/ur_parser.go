@@ -89,6 +89,11 @@ type CartesianInfo struct {
 	TCPOffsetRz float64
 }
 
+func (c CartesianInfo) SimpleString() string {
+	return fmt.Sprintf("x: %f | y: %f | z: %f | Rx: %f | Ry: %f | Rz : %f",
+		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
+}
+
 type KinematicInfo struct {
 	Cheksum int32
 	DHtheta float64
