@@ -27,17 +27,53 @@ func URArmConnect(host string) (*URArm, error) {
 	return arm, nil
 }
 
-func movej(conn net.Conn, base float64, shoulder float64, elbow float64, w1 float64, w2 float64, w3 float64) error {
-	return movejRadians(conn, convertDtoR(base), convertDtoR(shoulder), convertDtoR(elbow), convertDtoR(w1), convertDtoR(w2), convertDtoR(w3))
+func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
+	if joint < 0 || joint > 5 {
+		return fmt.Errorf("invalid joint")
+	}
+
+	radians := []float64{}
+	for _, j := range arm.State.Joints {
+		radians = append(radians, j.Qactual)
+	}
+
+	radians[joint] += amount
+
+	return arm.MoveToJointPositionRadians(radians)
 }
 
-func movejRadians(conn net.Conn, base float64, shoulder float64, elbow float64, w1 float64, w2 float64, w3 float64) error {
-	//fmt.Printf("moving to %f %f %f %f %f %f\n", base, shoulder, elbow, w1, w2, w3)
-	_, err := fmt.Fprintf(conn, "movej([%f,%f,%f,%f,%f,%f],a=0.1, v=0.1, t=0, r=0)\r\n", base, shoulder, elbow, w1, w2, w3)
-	if err == nil {
-		time.Sleep(500 * time.Millisecond)
+func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
+	if len(radians) != 6 {
+		return fmt.Errorf("need 6 joints")
 	}
-	return err
+
+	_, err := fmt.Fprintf(arm.conn, "movej([%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n",
+		radians[0],
+		radians[1],
+		radians[2],
+		radians[3],
+		radians[4],
+		radians[5])
+	if err != nil {
+		return err
+	}
+
+	for {
+		good := true
+		for idx, r := range radians {
+			if math.Round(r*100) != math.Round(arm.State.Joints[idx].Qactual*100) {
+				//fmt.Printf("joint %d want: %f have: %f\n", idx, r, arm.State.Joints[idx].Qactual)
+				good = false
+			}
+		}
+
+		if good {
+			return nil
+		}
+
+		time.Sleep(10 * time.Millisecond) // TODO: make responsive on new message
+	}
+
 }
 
 func (arm *URArm) MoveToPositionC(c CartesianInfo) error {
