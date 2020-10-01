@@ -84,6 +84,12 @@ func main() {
 			c.Z += .01
 		case "D":
 			c.Z -= .01
+		case ".":
+			myArm.JointMoveDelta(5, .05)
+			changed = false
+		case ",":
+			myArm.JointMoveDelta(5, -.05)
+			changed = false
 		case "Q":
 			w.Close()
 		default:
