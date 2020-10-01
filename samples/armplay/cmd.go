@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math"
+	"sync/atomic"
 	"time"
 
 	"gocv.io/x/gocv"
@@ -16,6 +18,8 @@ import (
 )
 
 func main() {
+	wantPicture := int32(0)
+
 	myArm, err := arm.URArmConnect("192.168.2.155")
 	if err != nil {
 		panic(err)
@@ -90,6 +94,10 @@ func main() {
 		case ",":
 			myArm.JointMoveDelta(5, -.05)
 			changed = false
+		case "P":
+			// take a picture
+			atomic.StoreInt32(&wantPicture, 1)
+			changed = false
 		case "Q":
 			w.Close()
 		default:
@@ -126,6 +134,13 @@ func main() {
 			i2.SetMinSize(fyne.Size{600, 480})
 			pcs[0] = i2
 			w.SetContent(widget.NewVBox(pcs...))
+
+			if atomic.LoadInt32(&wantPicture) != 0 {
+				fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
+				log.Printf("saving image %s\n", fn)
+				gocv.IMWrite(fn, img)
+				atomic.StoreInt32(&wantPicture, 0)
+			}
 		}
 	}()
 
