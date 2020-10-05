@@ -31,7 +31,7 @@ func process(img gocv.Mat) {
 	defer lines.Close()
 
 	gocv.Canny(img, &edges, 50, 200)
-	gocv.HoughLinesP(edges, &lines, 1, math.Pi/180, 0)
+	gocv.HoughLinesP(edges, &lines, 1, math.Pi/180, 5)
 
 	for i := 0; i < lines.Rows(); i++ {
 		pt1 := image.Pt(int(lines.GetVeciAt(i, 0)[0]), int(lines.GetVeciAt(i, 0)[1]))
