@@ -7,7 +7,7 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func Test1(t *testing.T) {
+func TestChess1(t *testing.T) {
 	
 	files, err := filepath.Glob("data/*.jpg")
 	if err != nil {
