@@ -104,6 +104,9 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 		return err
 	}
 
+	retried := false
+
+	slept := 0
 	for {
 		if math.Round(x*100) == math.Round(arm.State.CartesianInfo.X*100) &&
 			math.Round(y*100) == math.Round(arm.State.CartesianInfo.Y*100) &&
@@ -113,7 +116,25 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 			math.Round(rz*100) == math.Round(arm.State.CartesianInfo.Rz*100) {
 			return nil
 		}
+		slept = slept + 10
+
+		if slept > 5000 && !retried {
+			_, err = fmt.Fprintf(arm.conn, "movel(p[%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n", x, y, z, rx, ry, rz)
+			if err != nil {
+				return err
+			}
+			retried = true
+		}
+
+		if slept > 10000 {
+			return fmt.Errorf("can't reach position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f\n",
+				x, y, z, rx, ry, rz,
+				arm.State.CartesianInfo.X, arm.State.CartesianInfo.Y, arm.State.CartesianInfo.Z,
+				arm.State.CartesianInfo.Rx, arm.State.CartesianInfo.Ry, arm.State.CartesianInfo.Rz)
+
+		}
 		time.Sleep(10 * time.Millisecond)
+
 	}
 
 }
