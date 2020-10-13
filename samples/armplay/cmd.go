@@ -15,7 +15,73 @@ import (
 	"fyne.io/fyne/widget"
 
 	"github.com/echolabsinc/robotcore/arm"
+	"github.com/echolabsinc/robotcore/gripper"
 )
+
+type pos struct {
+	x float64
+	y float64
+}
+
+var (
+	A1             = pos{.31, -.08}
+	H8             = pos{.69, .3}
+	SafeMoveHeight = .1
+)
+
+func getCoord(chess string) pos {
+	var x = float64(chess[0] - 'A')
+	var y = float64(chess[1] - '1')
+
+	if x < 0 || x > 7 || y < 0 || y > 7 {
+		panic(fmt.Errorf("invalid position: %s", chess))
+	}
+
+	x = A1.x + (x * (H8.x - A1.x) / 7)
+	y = A1.y + (y * (H8.y - A1.y) / 7)
+
+	return pos{x, y}
+}
+
+func movePiece(myArm *arm.URArm, from, to string) error {
+
+	// first make sure in safe position
+	where := myArm.State.CartesianInfo
+	where.Z = SafeMoveHeight
+
+	myArm.MoveToPositionC(where)
+
+	// move to from
+	f := getCoord(from)
+	where.X = f.x
+	where.Y = f.y
+	myArm.MoveToPositionC(where)
+
+	// grab piece
+	// TODO
+
+	// move to where
+	t := getCoord(to)
+	where.X = t.x
+	where.Y = t.y
+	myArm.MoveToPositionC(where)
+
+	// drop piece
+	// TODO
+	return nil
+}
+
+func initArm(myArm *arm.URArm) error {
+	// temp init, what to do?
+	rx := -math.Pi
+	ry := 0.0
+	rz := 0.0
+
+	foo := getCoord("D4")
+	myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
+
+	return nil
+}
 
 func main() {
 	wantPicture := int32(0)
@@ -25,20 +91,32 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	err = initArm(myArm)
+	if err != nil {
+		panic(err)
+	}
 
-	rx := -math.Pi
-	ry := 0.0
-	rz := 0.0
+	myGripper, err := gripper.NewGripper("192.168.2.155")
+	if err != nil {
+		panic(err)
+	}
 
 	if false {
-		myArm.MoveToPosition(.3, .4, 0.3, rx, ry, rz)   // desk back left
-		myArm.MoveToPosition(.3, -.15, 0.3, rx, ry, rz) // desk front left
-		myArm.MoveToPosition(.6, -.15, 0.3, rx, ry, rz) // desck front right
-		myArm.MoveToPosition(.6, .4, 0.3, rx, ry, rz)   // desk back right
+		for _, s := range []string{"A1", "B1", "G5", "F4"} {
+			c := getCoord(s)
 
-		myArm.MoveToPosition(.45, .1, 0, rx, ry, rz)   // desk middle down
-		myArm.MoveToPosition(.45, .1, 0.5, rx, ry, rz) // desk middle up
+			where := myArm.State.CartesianInfo
+			where.X = c.x
+			where.Y = c.y
+			where.Z = SafeMoveHeight
+
+			fmt.Printf("%s %f %f\n", s, c.x, c.y)
+
+			myArm.MoveToPositionC(where)
+		}
+
+		movePiece(myArm, "F3", "G5")
+		return
 	}
 
 	// open webcam
@@ -98,6 +176,20 @@ func main() {
 			// take a picture
 			atomic.StoreInt32(&wantPicture, 1)
 			changed = false
+
+		case "O":
+			_, err := myGripper.Open()
+			if err != nil {
+				panic(err)
+			}
+			changed = false
+		case "C":
+			_, err := myGripper.Close()
+			if err != nil {
+				panic(err)
+			}
+			changed = false
+
 		case "Q":
 			w.Close()
 		default:
