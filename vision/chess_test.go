@@ -10,19 +10,17 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func TestChess1(t *testing.T) {
+func TestChessBoard1(t *testing.T) {
 	os.MkdirAll("out/data/", 0775)
-	files, err := filepath.Glob("data/*.jpg")
+	files, err := filepath.Glob("data/*.png")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, f := range files {
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
-		process(img)
-		//process2(img)
+		hardCodedEliot(img)
 		gocv.IMWrite("out/"+f, img)
-
 	}
 
 }
@@ -42,8 +40,8 @@ func TestChess2(t *testing.T) {
 
 	for _, f := range files {
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
-		process(img)
-		//process2(img)
+
+		closeupProcess(img)
 
 		out := filepath.Join(root, "out", filepath.Base(f))
 		gocv.IMWrite(out, img)
