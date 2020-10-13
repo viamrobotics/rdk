@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -26,7 +27,8 @@ type pos struct {
 var (
 	A1             = pos{.31, -.08}
 	H8             = pos{.69, .3}
-	SafeMoveHeight = .1
+	SafeMoveHeight = .09
+	BottomHeight   = .01
 )
 
 func getCoord(chess string) pos {
@@ -43,12 +45,11 @@ func getCoord(chess string) pos {
 	return pos{x, y}
 }
 
-func movePiece(myArm *arm.URArm, from, to string) error {
+func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
 
 	// first make sure in safe position
 	where := myArm.State.CartesianInfo
 	where.Z = SafeMoveHeight
-
 	myArm.MoveToPositionC(where)
 
 	// move to from
@@ -58,7 +59,32 @@ func movePiece(myArm *arm.URArm, from, to string) error {
 	myArm.MoveToPositionC(where)
 
 	// grab piece
-	// TODO
+	for {
+		closed, err := myGripper.Close()
+		if err != nil {
+			return err
+		}
+		if !closed {
+			// got the piece
+			break
+		}
+		_, err = myGripper.Open()
+		if err != nil {
+			return err
+		}
+		where.Z = where.Z - .01
+		if where.Z <= BottomHeight {
+			return fmt.Errorf("no piece")
+		}
+		myArm.MoveToPositionC(where)
+	}
+
+	saveZ := where.Z // save the height to bring the piece down to
+
+	// pick piece up above other pieces
+	where = myArm.State.CartesianInfo
+	where.Z = SafeMoveHeight + .1
+	myArm.MoveToPositionC(where)
 
 	// move to where
 	t := getCoord(to)
@@ -67,7 +93,16 @@ func movePiece(myArm *arm.URArm, from, to string) error {
 	myArm.MoveToPositionC(where)
 
 	// drop piece
-	// TODO
+	where = myArm.State.CartesianInfo
+	where.Z = saveZ
+	myArm.MoveToPositionC(where)
+
+	myGripper.Open()
+
+	where = myArm.State.CartesianInfo
+	where.Z = SafeMoveHeight
+	myArm.MoveToPositionC(where)
+
 	return nil
 }
 
@@ -84,6 +119,11 @@ func initArm(myArm *arm.URArm) error {
 }
 
 func main() {
+	webcamDeviceId := 0
+
+	flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
+	flag.Parse()
+
 	wantPicture := int32(0)
 
 	myArm, err := arm.URArmConnect("192.168.2.155")
@@ -101,7 +141,7 @@ func main() {
 		panic(err)
 	}
 
-	if false {
+	if false { // test 1
 		for _, s := range []string{"A1", "B1", "G5", "F4"} {
 			c := getCoord(s)
 
@@ -114,14 +154,17 @@ func main() {
 
 			myArm.MoveToPositionC(where)
 		}
-
-		movePiece(myArm, "F3", "G5")
+	}
+	if true { // test 2
+		err = movePiece(myArm, myGripper, "F3", "G5")
+		if err != nil {
+			panic(err)
+		}
 		return
 	}
 
 	// open webcam
-	deviceID := 0
-	webcam, err := gocv.OpenVideoCapture(0)
+	webcam, err := gocv.OpenVideoCapture(webcamDeviceId)
 	if err != nil {
 		panic(err)
 	}
@@ -148,9 +191,26 @@ func main() {
 		}
 	}()
 
+	nextChessPos := ""
+
 	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		c := myArm.State.CartesianInfo
 		pre := c.SimpleString()
+
+		if len(nextChessPos) > 0 {
+			nextChessPos = nextChessPos + string(k.Name)
+			if len(nextChessPos) == 3 {
+
+				foo := getCoord(nextChessPos[1:])
+				c.X = foo.x
+				c.Y = foo.y
+				c.Z = SafeMoveHeight
+				myArm.MoveToPositionC(c)
+
+				nextChessPos = ""
+			}
+			return
+		}
 
 		changed := true
 		switch k.Name {
@@ -192,6 +252,10 @@ func main() {
 
 		case "Q":
 			w.Close()
+
+		case "/":
+			nextChessPos = "-"
+			return
 		default:
 			log.Printf("unknown: %s\n", k.Name)
 			changed = false
@@ -207,10 +271,10 @@ func main() {
 		img := gocv.NewMat()
 		defer img.Close()
 
-		log.Printf("start reading camera device: %v\n", deviceID)
+		log.Printf("start reading camera device: %v\n", webcamDeviceId)
 		for {
 			if ok := webcam.Read(&img); !ok {
-				log.Printf("cannot read device %v\n", deviceID)
+				log.Printf("cannot read device %v\n", webcamDeviceId)
 				continue
 			}
 			if img.Empty() {
