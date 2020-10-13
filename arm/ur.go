@@ -9,9 +9,10 @@ import (
 )
 
 type URArm struct {
-	conn  net.Conn
-	State RobotState
-	Debug bool
+	conn     net.Conn
+	State    RobotState
+	Debug    bool
+	haveData bool
 }
 
 func URArmConnect(host string) (*URArm, error) {
@@ -20,9 +21,19 @@ func URArmConnect(host string) (*URArm, error) {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, Debug: false}
+	arm := &URArm{conn: conn, Debug: false, haveData: false}
 
 	go reader(conn, arm) // TODO: how to shutdown
+
+	slept := 0
+	for !arm.haveData {
+		time.Sleep(100 * time.Millisecond)
+		slept += 1
+
+		if slept > 20 {
+			return nil, fmt.Errorf("arm isn't respond")
+		}
+	}
 
 	return arm, nil
 }
@@ -137,6 +148,7 @@ func reader(conn net.Conn, arm *URArm) {
 				panic(err)
 			}
 			arm.State = state
+			arm.haveData = true
 			if arm.Debug {
 				fmt.Printf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
