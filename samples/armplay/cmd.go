@@ -26,9 +26,11 @@ type pos struct {
 
 var (
 	A1             = pos{.31, -.08}
-	H8             = pos{.69, .3}
-	SafeMoveHeight = .09
+	H8             = pos{.70, .3}
+	SafeMoveHeight = .092
 	BottomHeight   = .01
+
+	wantPicture = int32(0)
 )
 
 func getCoord(chess string) pos {
@@ -45,18 +47,30 @@ func getCoord(chess string) pos {
 	return pos{x, y}
 }
 
-func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
-
+func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	// first make sure in safe position
 	where := myArm.State.CartesianInfo
-	where.Z = SafeMoveHeight
-	myArm.MoveToPositionC(where)
+	where.Z = SafeMoveHeight + heightMod
+	err := myArm.MoveToPositionC(where)
+	if err != nil {
+		return err
+	}
 
-	// move to from
-	f := getCoord(from)
+	// move
+	f := getCoord(chess)
 	where.X = f.x
 	where.Y = f.y
-	myArm.MoveToPositionC(where)
+	return myArm.MoveToPositionC(where)
+}
+
+func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
+
+	err := moveTo(myArm, from, 0)
+	if err != nil {
+		return err
+	}
+
+	where := myArm.State.CartesianInfo
 
 	// grab piece
 	for {
@@ -65,6 +79,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 			return err
 		}
 		if !closed {
+			fmt.Printf("got a piece at height %f\n", where.Z)
 			// got the piece
 			break
 		}
@@ -72,6 +87,8 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 		if err != nil {
 			return err
 		}
+		fmt.Println("no piece")
+		where = myArm.State.CartesianInfo
 		where.Z = where.Z - .01
 		if where.Z <= BottomHeight {
 			return fmt.Errorf("no piece")
@@ -81,16 +98,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 
 	saveZ := where.Z // save the height to bring the piece down to
 
-	// pick piece up above other pieces
-	where = myArm.State.CartesianInfo
-	where.Z = SafeMoveHeight + .1
-	myArm.MoveToPositionC(where)
-
-	// move to where
-	t := getCoord(to)
-	where.X = t.x
-	where.Y = t.y
-	myArm.MoveToPositionC(where)
+	moveTo(myArm, to, .1)
 
 	// drop piece
 	where = myArm.State.CartesianInfo
@@ -104,6 +112,65 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 	myArm.MoveToPositionC(where)
 
 	return nil
+}
+
+func doTraining(myArm *arm.URArm, myGripper *gripper.Gripper) {
+	for x := 'A'; x <= 'H'; x = x + 1 {
+		for y := '1'; y <= '8'; y = y + 1 {
+			spot := string(x) + string(y)
+			fmt.Println(spot)
+
+			err := moveTo(myArm, spot, 0)
+			if err != nil {
+				panic(err)
+			}
+
+			if true {
+				time.Sleep(time.Millisecond * 300) // let camera focus
+				// just take a picture at the top
+				atomic.StoreInt32(&wantPicture, 1)
+				for {
+					time.Sleep(time.Millisecond * 2)
+					if atomic.LoadInt32(&wantPicture) == 0 {
+						break
+					}
+				}
+			} else {
+				// find the pieces
+				for {
+					where := myArm.State.CartesianInfo
+					closed, err := myGripper.Close()
+					if err != nil {
+						panic(err)
+					}
+					if !closed {
+						fmt.Printf("\t got a piece at height %f\n", where.Z)
+						break
+					}
+					_, err = myGripper.Open()
+					if err != nil {
+						panic(err)
+					}
+
+					where.Z = where.Z - .01
+					if where.Z <= BottomHeight {
+						fmt.Printf("\t no piece")
+						break
+					}
+					myArm.MoveToPositionC(where)
+				}
+
+				myGripper.Open()
+
+				err = moveTo(myArm, spot, 0)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+		}
+	}
+
 }
 
 func initArm(myArm *arm.URArm) error {
@@ -123,8 +190,6 @@ func main() {
 
 	flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
 	flag.Parse()
-
-	wantPicture := int32(0)
 
 	myArm, err := arm.URArmConnect("192.168.2.155")
 	if err != nil {
@@ -155,8 +220,8 @@ func main() {
 			myArm.MoveToPositionC(where)
 		}
 	}
-	if true { // test 2
-		err = movePiece(myArm, myGripper, "F3", "G5")
+	if false { // test 2
+		err = movePiece(myArm, myGripper, "E2", "E4")
 		if err != nil {
 			panic(err)
 		}
@@ -199,14 +264,12 @@ func main() {
 
 		if len(nextChessPos) > 0 {
 			nextChessPos = nextChessPos + string(k.Name)
+			fmt.Printf("nextChessPos [%s]\n", nextChessPos)
 			if len(nextChessPos) == 3 {
-
-				foo := getCoord(nextChessPos[1:])
-				c.X = foo.x
-				c.Y = foo.y
-				c.Z = SafeMoveHeight
-				myArm.MoveToPositionC(c)
-
+				moveTo(myArm, nextChessPos[1:], 0)
+				nextChessPos = ""
+			} else if len(nextChessPos) > 3 {
+				fmt.Printf("broken")
 				nextChessPos = ""
 			}
 			return
@@ -299,6 +362,8 @@ func main() {
 			}
 		}
 	}()
+
+	go doTraining(myArm, myGripper)
 
 	w.ShowAndRun()
 }
