@@ -9,6 +9,9 @@ import (
 
 type Gripper struct {
 	conn net.Conn
+
+	openLimit  string
+	closeLimit string
 }
 
 func NewGripper(host string) (*Gripper, error) {
@@ -16,15 +19,20 @@ func NewGripper(host string) (*Gripper, error) {
 	if err != nil {
 		return nil, err
 	}
-	g := &Gripper{conn}
+	g := &Gripper{conn, "0", "255"}
 
 	g.Set("ACT", "1")   // robot activate
 	g.Set("GTO", "1")   // gripper activate
 	g.Set("FOR", "200") // force (0-255)
-	g.Set("SPE", "200") // speed (0-255)
+	g.Set("SPE", "255") // speed (0-255)
 
 	// wait for init
 	time.Sleep(1500 * time.Millisecond) // TODO: how to make better
+
+	err = g.Calibrate() // TODO: should this live elsewhere?
+	if err != nil {
+		return nil, err
+	}
 
 	return g, nil
 }
@@ -75,19 +83,24 @@ func (g *Gripper) SetPos(pos string) (bool, error) {
 	}
 
 	prev := ""
+	prevCount := 0
 
 	for {
 		x, err := g.Get("POS")
 		if err != nil {
 			return false, err
 		}
-		fmt.Printf("got: [%s]\n", x)
 		if x == "POS "+pos {
 			return true, nil
 		}
 
 		if prev == x {
-			return false, nil
+			if prevCount >= 5 {
+				return false, nil
+			}
+			prevCount = prevCount + 1
+		} else {
+			prevCount = 0
 		}
 		prev = x
 
@@ -97,9 +110,36 @@ func (g *Gripper) SetPos(pos string) (bool, error) {
 }
 
 func (g *Gripper) Open() (bool, error) {
-	return g.SetPos("3")
+	return g.SetPos(g.openLimit)
 }
 
 func (g *Gripper) Close() (bool, error) {
-	return g.SetPos("249")
+	return g.SetPos(g.closeLimit)
+}
+
+func (g *Gripper) Calibrate() error {
+	_, err := g.Open()
+	if err != nil {
+		return err
+	}
+
+	x, err := g.Get("POS")
+	if err != nil {
+		return err
+	}
+	g.openLimit = x[4:]
+
+	_, err = g.Close()
+	if err != nil {
+		return err
+	}
+
+	x, err = g.Get("POS")
+	if err != nil {
+		return err
+	}
+	g.closeLimit = x[4:]
+
+	fmt.Printf("limits %s %s\n", g.openLimit, g.closeLimit)
+	return nil
 }
