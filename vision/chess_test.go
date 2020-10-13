@@ -8,7 +8,7 @@ import (
 )
 
 func TestChess1(t *testing.T) {
-	
+
 	files, err := filepath.Glob("data/*.jpg")
 	if err != nil {
 		t.Fatal(err)
@@ -18,8 +18,8 @@ func TestChess1(t *testing.T) {
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 		process(img)
 		//process2(img)
-		gocv.IMWrite("out/" + f, img)
-		
+		gocv.IMWrite("out/"+f, img)
+
 	}
-	
+
 }
