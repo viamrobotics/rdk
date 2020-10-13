@@ -30,9 +30,9 @@ func process(img gocv.Mat) {
 	lines := gocv.NewMat()
 	defer lines.Close()
 
-	gocv.Canny(img, &edges, 50, 200)
-	gocv.HoughLinesP(edges, &lines, 1, math.Pi/180, 5)
-
+	gocv.Canny(img, &edges, 100, 500)
+	gocv.HoughLinesP(edges, &lines, 1000, math.Pi/180, 150)
+	fmt.Printf("num lines: %d\n", lines.Rows())
 	for i := 0; i < lines.Rows(); i++ {
 		pt1 := image.Pt(int(lines.GetVeciAt(i, 0)[0]), int(lines.GetVeciAt(i, 0)[1]))
 		pt2 := image.Pt(int(lines.GetVeciAt(i, 0)[2]), int(lines.GetVeciAt(i, 0)[3]))
@@ -41,7 +41,32 @@ func process(img gocv.Mat) {
 
 }
 
-func main() {
+func fromGithub(img gocv.Mat) {
+	gocv.CvtColor(img, &img, gocv.ColorRGBToGray)
+
+	/*
+		# Setting all pixels above the threshold value to white and those below to black
+		# Adaptive thresholding is used to combat differences of illumination in the picture
+		adaptiveThresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 125, 1)
+		if debug:
+			# Show thresholded image
+			cv2.imshow("Adaptive Thresholding", adaptiveThresh)
+			cv2.waitKey(0)
+			cv2.destroyAllWindows()
+
+		return adaptiveThresh,img
+
+*/
+}
+
+func closeupProcess(img gocv.Mat) {
+	//gocv.GaussianBlur(img, &img, image.Pt(23, 23), 30, 50, 4) // TODO: play with params
+	//process(img)
+	fromGithub(img)
+	process(img)
+}
+
+func webcamDisplaySilly() {
 	// set to use a video capture device 0
 	deviceID := 0
 
@@ -77,4 +102,9 @@ func main() {
 		window.WaitKey(1)
 		time.Sleep(1000 * time.Millisecond)
 	}
+}
+
+func hardCodedEliot(img gocv.Mat) {
+	rotationMatrix := gocv.GetRotationMatrix2D(image.Point{img.Rows() / 2, img.Cols() / 2}, 45, 1.0)
+	gocv.WarpAffine(img, &img, rotationMatrix, image.Point{img.Rows(), img.Cols()})
 }
