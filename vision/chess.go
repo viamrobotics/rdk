@@ -105,6 +105,31 @@ func webcamDisplaySilly() {
 }
 
 func hardCodedEliot(img gocv.Mat) {
-	rotationMatrix := gocv.GetRotationMatrix2D(image.Point{img.Rows() / 2, img.Cols() / 2}, 45, 1.0)
-	gocv.WarpAffine(img, &img, rotationMatrix, image.Point{img.Rows(), img.Cols()})
+	rotationMatrix := gocv.GetRotationMatrix2D(image.Point{img.Rows() / 2, img.Cols() / 2}, -54, 1.0)
+	gocv.WarpAffine(img, &img, rotationMatrix, image.Point{
+		int(float64(img.Rows()) * 1.5),
+		int(float64(img.Cols()) * 1.5)})
+
+
+	src := []image.Point{
+		image.Pt(0, 0),
+		image.Pt(img.Rows() - 200, 75),
+		image.Pt(img.Rows() - 65, img.Cols()-120),
+		image.Pt(0, img.Cols()+50),
+	}
+	dst := []image.Point{
+		image.Pt(0, 0),
+		image.Pt(img.Rows(), 0),
+		image.Pt(img.Rows(), img.Cols()),
+		image.Pt(0, img.Cols()),
+	}
+	
+	m := gocv.GetPerspectiveTransform(src, dst)
+	defer m.Close()
+
+	gocv.WarpPerspective(img, &img, m, image.Point{img.Rows(), img.Cols()})
+	
+	croppedMat := img.Region(image.Rect(170, 160, 580, 600))
+	croppedMat.CopyTo(&img)
+
 }
