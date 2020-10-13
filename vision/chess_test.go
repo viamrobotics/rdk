@@ -10,30 +10,31 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func TestChessBoard1(t *testing.T) {
-	os.MkdirAll("out/data/", 0775)
-	files, err := filepath.Glob("data/*.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, f := range files {
-		img := gocv.IMRead(f, gocv.IMReadUnchanged)
-		hardCodedEliot(img)
-		gocv.IMWrite("out/"+f, img)
-	}
-
+type FileTestStuff struct {
+	prefix string
+	glob string
+	root string
+	out string
 }
 
-func TestChess2(t *testing.T) {
+type P func(gocv.Mat)
 
-	root := filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/chess/upclose1/")
+func NewFileTestStuff(prefix, glob string) FileTestStuff {
+	fts := FileTestStuff{}
+	fts.prefix = prefix
+	fts.glob = glob
+	fts.root = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", fts.prefix)
+	fts.out = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", fts.prefix, "out")
 
-	os.MkdirAll(filepath.Join(root, "out"), 0775)
+	os.MkdirAll(fts.out, 0775)
 
-	files, err := filepath.Glob(filepath.Join(root, "*.jpg"))
+	return fts
+}
+
+func (fts *FileTestStuff)Process(outputfile string, x P) {
+	files, err := filepath.Glob(filepath.Join(fts.root, fts.glob))
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 
 	html := "<html><body><table>"
@@ -41,18 +42,29 @@ func TestChess2(t *testing.T) {
 	for _, f := range files {
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
-		closeupProcess(img)
+		x(img)
 
-		out := filepath.Join(root, "out", filepath.Base(f))
+		out := filepath.Join(fts.out, filepath.Base(f))
 		gocv.IMWrite(out, img)
 
 		html = fmt.Sprintf("%s<tr><td><img src='%s' width=300 /></td><td><img src='%s' width=300 /></td></tr>\n", html, f, out)
 	}
 
 	html = html + "</table></body></html>"
-	err = ioutil.WriteFile("upclose1-all.html", []byte(html), 0640)
+	err = ioutil.WriteFile(outputfile, []byte(html), 0640)
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
+	
+}
 
+func TestChessBoard1(t *testing.T) {
+	fts := NewFileTestStuff("chess/boardseliot1", "*.png")
+	fts.Process("boardseliot1-output.html", hardCodedEliot)
+}
+
+func TestChess2(t *testing.T) {
+
+	fts := NewFileTestStuff("chess/upclose1", "*.jpg")
+	fts.Process("upclose1-all.html", closeupProcess)
 }
