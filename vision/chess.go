@@ -130,17 +130,16 @@ func hardCodedEliot(img gocv.Mat) {
 	croppedMat := img.Region(image.Rect(170, 160, 580, 600))
 	croppedMat.CopyTo(&img)
 
-	
 	boardOffset := 10
 	boardWidth := img.Cols() - (boardOffset * 2)
 	boardHeight := img.Rows() - (boardOffset * 2)
 
 	squareWidth := boardWidth / 8
 	squareHeight := boardHeight / 8
-	
-	for x := boardOffset + squareWidth / 2; x < boardWidth; x = x + squareWidth {
-		for y := boardOffset + squareHeight / 2; y < boardHeight; y = y + squareHeight {
-			gocv.Circle(&img, image.Point{x,y}, 5, Blue, 2)
+
+	for x := boardOffset + squareWidth/2; x < boardWidth; x = x + squareWidth {
+		for y := boardOffset + squareHeight/2; y < boardHeight; y = y + squareHeight {
+			gocv.Circle(&img, image.Point{x, y}, 5, Blue, 2)
 		}
 	}
 }
