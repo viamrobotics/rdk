@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	blue = color.RGBA{0, 0, 255, 0}
+	Blue = color.RGBA{0, 0, 255, 0}
 )
 
 func initialize_mask(adaptiveThresh, img gocv.Mat) {
@@ -36,7 +36,7 @@ func process(img gocv.Mat) {
 	for i := 0; i < lines.Rows(); i++ {
 		pt1 := image.Pt(int(lines.GetVeciAt(i, 0)[0]), int(lines.GetVeciAt(i, 0)[1]))
 		pt2 := image.Pt(int(lines.GetVeciAt(i, 0)[2]), int(lines.GetVeciAt(i, 0)[3]))
-		gocv.Line(&img, pt1, pt2, blue, 2)
+		gocv.Line(&img, pt1, pt2, Blue, 2)
 	}
 
 }
@@ -56,7 +56,7 @@ func fromGithub(img gocv.Mat) {
 
 		return adaptiveThresh,img
 
-*/
+	*/
 }
 
 func closeupProcess(img gocv.Mat) {
@@ -110,11 +110,10 @@ func hardCodedEliot(img gocv.Mat) {
 		int(float64(img.Rows()) * 1.5),
 		int(float64(img.Cols()) * 1.5)})
 
-
 	src := []image.Point{
 		image.Pt(0, 0),
-		image.Pt(img.Rows() - 200, 75),
-		image.Pt(img.Rows() - 65, img.Cols()-120),
+		image.Pt(img.Rows()-200, 75),
+		image.Pt(img.Rows()-65, img.Cols()-120),
 		image.Pt(0, img.Cols()+50),
 	}
 	dst := []image.Point{
@@ -123,12 +122,12 @@ func hardCodedEliot(img gocv.Mat) {
 		image.Pt(img.Rows(), img.Cols()),
 		image.Pt(0, img.Cols()),
 	}
-	
+
 	m := gocv.GetPerspectiveTransform(src, dst)
 	defer m.Close()
 
 	gocv.WarpPerspective(img, &img, m, image.Point{img.Rows(), img.Cols()})
-	
+
 	croppedMat := img.Region(image.Rect(170, 160, 580, 600))
 	croppedMat.CopyTo(&img)
 
