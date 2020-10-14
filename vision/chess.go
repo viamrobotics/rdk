@@ -31,7 +31,7 @@ func process(img gocv.Mat) {
 	defer lines.Close()
 
 	gocv.Canny(img, &edges, 100, 500)
-	gocv.HoughLinesP(edges, &lines, 1000, math.Pi/180, 150)
+	gocv.HoughLinesP(edges, &lines, 1000, math.Pi/180, 1200)
 	fmt.Printf("num lines: %d\n", lines.Rows())
 	for i := 0; i < lines.Rows(); i++ {
 		pt1 := image.Pt(int(lines.GetVeciAt(i, 0)[0]), int(lines.GetVeciAt(i, 0)[1]))
@@ -63,7 +63,7 @@ func closeupProcess(img gocv.Mat) {
 	//gocv.GaussianBlur(img, &img, image.Pt(23, 23), 30, 50, 4) // TODO: play with params
 	//process(img)
 	fromGithub(img)
-	process(img)
+	//process(img)
 }
 
 func webcamDisplaySilly() {
@@ -127,8 +127,20 @@ func hardCodedEliot(img gocv.Mat) {
 	defer m.Close()
 
 	gocv.WarpPerspective(img, &img, m, image.Point{img.Rows(), img.Cols()})
-
 	croppedMat := img.Region(image.Rect(170, 160, 580, 600))
 	croppedMat.CopyTo(&img)
 
+	
+	boardOffset := 10
+	boardWidth := img.Cols() - (boardOffset * 2)
+	boardHeight := img.Rows() - (boardOffset * 2)
+
+	squareWidth := boardWidth / 8
+	squareHeight := boardHeight / 8
+	
+	for x := boardOffset + squareWidth / 2; x < boardWidth; x = x + squareWidth {
+		for y := boardOffset + squareHeight / 2; y < boardHeight; y = y + squareHeight {
+			gocv.Circle(&img, image.Point{x,y}, 5, Blue, 2)
+		}
+	}
 }
