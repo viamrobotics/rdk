@@ -12,9 +12,9 @@ import (
 
 type FileTestStuff struct {
 	prefix string
-	glob string
-	root string
-	out string
+	glob   string
+	root   string
+	out    string
 }
 
 type P func(gocv.Mat)
@@ -31,7 +31,7 @@ func NewFileTestStuff(prefix, glob string) FileTestStuff {
 	return fts
 }
 
-func (fts *FileTestStuff)Process(outputfile string, x P) {
+func (fts *FileTestStuff) Process(outputfile string, x P) {
 	files, err := filepath.Glob(filepath.Join(fts.root, fts.glob))
 	if err != nil {
 		panic(err)
@@ -55,7 +55,7 @@ func (fts *FileTestStuff)Process(outputfile string, x P) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 }
 
 func TestChessBoard1(t *testing.T) {
