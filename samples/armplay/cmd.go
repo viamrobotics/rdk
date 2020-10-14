@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
 	"log"
 	"math"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 type pos struct {
@@ -343,6 +345,8 @@ func main() {
 			if img.Empty() {
 				continue
 			}
+
+			gocv.Circle(&img, image.Point{img.Cols() / 2, img.Rows() / 2}, 40, vision.Blue, 5)
 
 			i, err := img.ToImage()
 			if err != nil {
