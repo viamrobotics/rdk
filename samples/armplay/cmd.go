@@ -188,12 +188,14 @@ func initArm(myArm *arm.URArm) error {
 }
 
 func main() {
+	robotIp := "192.168.2.2"
+
 	webcamDeviceId := 0
 
 	flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
 	flag.Parse()
 
-	myArm, err := arm.URArmConnect("192.168.2.155")
+	myArm, err := arm.URArmConnect(robotIp)
 	if err != nil {
 		panic(err)
 	}
@@ -203,7 +205,7 @@ func main() {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper("192.168.2.155")
+	myGripper, err := gripper.NewGripper(robotIp)
 	if err != nil {
 		panic(err)
 	}
