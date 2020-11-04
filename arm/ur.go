@@ -99,7 +99,9 @@ func (arm *URArm) MoveToPositionC(c CartesianInfo) error {
 }
 
 func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
-	_, err := fmt.Fprintf(arm.conn, "movel(p[%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n", x, y, z, rx, ry, rz)
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=2, r=0)\r\n", x, y, z, rx, ry, rz)
+	//fmt.Println(cmd)
+	_, err := arm.conn.Write([]byte(cmd))
 	if err != nil {
 		return err
 	}
@@ -111,15 +113,15 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 		if math.Round(x*100) == math.Round(arm.State.CartesianInfo.X*100) &&
 			math.Round(y*100) == math.Round(arm.State.CartesianInfo.Y*100) &&
 			math.Round(z*100) == math.Round(arm.State.CartesianInfo.Z*100) &&
-			math.Round(rx*100) == math.Round(arm.State.CartesianInfo.Rx*100) &&
-			math.Round(ry*100) == math.Round(arm.State.CartesianInfo.Ry*100) &&
-			math.Round(rz*100) == math.Round(arm.State.CartesianInfo.Rz*100) {
+			math.Round(rx*20) == math.Round(arm.State.CartesianInfo.Rx*20) &&
+			math.Round(ry*20) == math.Round(arm.State.CartesianInfo.Ry*20) &&
+			math.Round(rz*20) == math.Round(arm.State.CartesianInfo.Rz*20) {
 			return nil
 		}
 		slept = slept + 10
 
 		if slept > 5000 && !retried {
-			_, err = fmt.Fprintf(arm.conn, "movel(p[%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n", x, y, z, rx, ry, rz)
+			_, err = fmt.Fprintf(arm.conn, "movej(p[%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n", x, y, z, rx, ry, rz)
 			if err != nil {
 				return err
 			}
