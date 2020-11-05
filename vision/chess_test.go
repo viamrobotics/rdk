@@ -1,5 +1,6 @@
 package vision
 
+/*
 import (
 	"fmt"
 	"io/ioutil"
@@ -9,7 +10,9 @@ import (
 
 	"gocv.io/x/gocv"
 )
+*/
 
+/*
 type FileTestStuff struct {
 	prefix string
 	glob   string
@@ -68,3 +71,4 @@ func TestChess2(t *testing.T) {
 	fts := NewFileTestStuff("chess/upclose1", "*.jpg")
 	fts.Process("upclose1-all.html", closeupProcess)
 }
+*/
