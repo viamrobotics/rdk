@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"image"
 	"log"
 	"math"
 	"sync/atomic"
@@ -27,8 +26,8 @@ type pos struct {
 }
 
 var (
-	A1             = pos{.31, -.08}
-	H8             = pos{.70, .3}
+	A1             = pos{.344, -.195}
+	H8             = pos{A1.x + .381, A1.y + .381}
 	SafeMoveHeight = .092
 	BottomHeight   = .01
 
@@ -187,6 +186,17 @@ func initArm(myArm *arm.URArm) error {
 	return nil
 }
 
+func matToFyne(img gocv.Mat) (*canvas.Image, error) {
+	i, err := img.ToImage()
+	if err != nil {
+		return nil, err
+	}
+
+	i2 := canvas.NewImageFromImage(i)
+	i2.SetMinSize(fyne.Size{img.Cols(), img.Rows()})
+	return i2, nil
+}
+
 func main() {
 	robotIp := "192.168.2.2"
 
@@ -232,8 +242,8 @@ func main() {
 		return
 	}
 
-	// open webcam
-	webcam, err := gocv.OpenVideoCapture(webcamDeviceId)
+	//webcam, err := vision.NewWebcamSource(webcamDeviceId)
+	webcam := vision.NewHttpSourceIntelEliot("127.0.0.1:8181")
 	if err != nil {
 		panic(err)
 	}
@@ -242,16 +252,14 @@ func main() {
 	a := app.New()
 	w := a.NewWindow("Hello")
 
-	imgBox := canvas.NewImageFromFile("data.jpg")
-	imgBox.SetMinSize(fyne.Size{600, 480})
-
 	stateDisplay := arm.NewStateDisplay()
 
 	pcs := []fyne.CanvasObject{
-		imgBox,
+		widget.NewLabel("Hello Fyne!"),
+		widget.NewLabel("Hello Fyne!"),
 		stateDisplay.TheContainer,
 	}
-	w.SetContent(widget.NewVBox(pcs...))
+	w.SetContent(widget.NewHBox(pcs...))
 
 	go func() {
 		for {
@@ -334,31 +342,34 @@ func main() {
 	})
 
 	go func() {
-		// prepare image matrix
-		img := gocv.NewMat()
-		defer img.Close()
-
-		log.Printf("start reading camera device: %v\n", webcamDeviceId)
 		for {
-			if ok := webcam.Read(&img); !ok {
-				log.Printf("cannot read device %v\n", webcamDeviceId)
-				continue
-			}
-			if img.Empty() {
+			img, depth, err := webcam.NextColorDepthPair()
+			defer img.Close()
+			if err != nil || img.Empty() {
+				log.Printf("error reading device: %s\n", err)
 				continue
 			}
 
-			gocv.Circle(&img, image.Point{img.Cols() / 2, img.Rows() / 2}, 40, vision.Blue, 5)
-
-			i, err := img.ToImage()
+			pcs[0], err = matToFyne(img)
 			if err != nil {
 				panic(err)
 			}
 
-			i2 := canvas.NewImageFromImage(i)
-			i2.SetMinSize(fyne.Size{600, 480})
-			pcs[0] = i2
-			w.SetContent(widget.NewVBox(pcs...))
+			corners, err := vision.FindChessCorners(img)
+			if err != nil {
+				panic(err)
+			}
+			warped, _, err := vision.WarpColorAndDepthToChess(img, depth, corners)
+			if err != nil {
+				panic(err)
+			}
+
+			pcs[1], err = matToFyne(warped)
+			if err != nil {
+				panic(err)
+			}
+
+			w.SetContent(widget.NewHBox(pcs...))
 
 			if atomic.LoadInt32(&wantPicture) != 0 {
 				fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
@@ -369,7 +380,7 @@ func main() {
 		}
 	}()
 
-	go doTraining(myArm, myGripper)
+	//go doTraining(myArm, myGripper)
 
 	w.ShowAndRun()
 }
