@@ -1,7 +1,9 @@
 package vision
 
 import (
+	"fmt"
 	"image"
+	"sort"
 
 	"gocv.io/x/gocv"
 )
@@ -37,4 +39,43 @@ func FindChessCorners(img gocv.Mat) ([]image.Point, error) {
 	h8Corner := image.Point{545, 440}
 
 	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
+}
+
+func getMinChessCorner(chess string) image.Point {
+	var x = int(chess[0]-'A') * 100
+	var y = 100 * (7 - int(chess[1]-'1'))
+	return image.Point{x, y}
+}
+
+func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
+	if warpedDepth.Cols() != 800 || warpedDepth.Rows() != 800 {
+		panic("bad image size pased to GetChessPieceHeight")
+	}
+	data := []float64{}
+
+	corner := getMinChessCorner(square)
+	for x := corner.X + 33; x < corner.X+66; x++ {
+		for y := corner.Y + 33; y < corner.Y+66; y++ {
+			d := warpedDepth.GetDoubleAt(y, x)
+			data = append(data, d)
+		}
+	}
+
+	sort.Float64s(data)
+
+	for idx, f := range data {
+		fmt.Printf("%d %f\n", idx, f)
+	}
+	fmt.Println("--------")
+
+	// since there is some noise, let's try and remove the outliers
+	// TODO: make this smarter
+	takeOff := len(data) / 10
+	data = data[takeOff:]
+	data = data[0 : len(data)-takeOff]
+
+	min := data[0]
+	max := data[len(data)-1]
+
+	return max - min
 }
