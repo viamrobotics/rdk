@@ -28,11 +28,13 @@ type pos struct {
 var (
 	A1             = pos{.344, -.195}
 	H8             = pos{A1.x + .381, A1.y + .381}
-	SafeMoveHeight = .092
-	BottomHeight   = .01
+	BoardHeight    = -.010
+	SafeMoveHeight = BoardHeight + .15
 
 	wantPicture = int32(0)
 )
+
+var grossGlobalDepth gocv.Mat
 
 func getCoord(chess string) pos {
 	var x = float64(chess[0] - 'A')
@@ -71,7 +73,16 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 		return err
 	}
 
+	// open before going down
+	_, err = myGripper.Open()
+	if err != nil {
+		return err
+	}
+
+	height := vision.GetChessPieceHeight(from, grossGlobalDepth)
 	where := myArm.State.CartesianInfo
+	where.Z = BoardHeight + (height / 1000)
+	myArm.MoveToPositionC(where)
 
 	// grab piece
 	for {
@@ -91,7 +102,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 		fmt.Println("no piece")
 		where = myArm.State.CartesianInfo
 		where.Z = where.Z - .01
-		if where.Z <= BottomHeight {
+		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
 		}
 		myArm.MoveToPositionC(where)
@@ -112,66 +123,20 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 	where.Z = SafeMoveHeight
 	myArm.MoveToPositionC(where)
 
+	moveOutOfWay(myArm)
 	return nil
 }
 
-func doTraining(myArm *arm.URArm, myGripper *gripper.Gripper) {
-	for x := 'A'; x <= 'H'; x = x + 1 {
-		for y := '1'; y <= '8'; y = y + 1 {
-			spot := string(x) + string(y)
-			fmt.Println(spot)
+func moveOutOfWay(myArm *arm.URArm) error {
+	foo := getCoord("A4")
+	foo.x -= .2
+	foo.y -= .2
 
-			err := moveTo(myArm, spot, 0)
-			if err != nil {
-				panic(err)
-			}
+	where := myArm.State.CartesianInfo
+	where.X = foo.x
+	where.Y = foo.y
 
-			if true {
-				time.Sleep(time.Millisecond * 300) // let camera focus
-				// just take a picture at the top
-				atomic.StoreInt32(&wantPicture, 1)
-				for {
-					time.Sleep(time.Millisecond * 2)
-					if atomic.LoadInt32(&wantPicture) == 0 {
-						break
-					}
-				}
-			} else {
-				// find the pieces
-				for {
-					where := myArm.State.CartesianInfo
-					closed, err := myGripper.Close()
-					if err != nil {
-						panic(err)
-					}
-					if !closed {
-						fmt.Printf("\t got a piece at height %f\n", where.Z)
-						break
-					}
-					_, err = myGripper.Open()
-					if err != nil {
-						panic(err)
-					}
-
-					where.Z = where.Z - .01
-					if where.Z <= BottomHeight {
-						fmt.Printf("\t no piece")
-						break
-					}
-					myArm.MoveToPositionC(where)
-				}
-
-				myGripper.Open()
-
-				err = moveTo(myArm, spot, 0)
-				if err != nil {
-					panic(err)
-				}
-			}
-
-		}
-	}
-
+	return myArm.MoveToPositionC(where)
 }
 
 func initArm(myArm *arm.URArm) error {
@@ -181,9 +146,12 @@ func initArm(myArm *arm.URArm) error {
 	rz := 0.0
 
 	foo := getCoord("D4")
-	myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
+	err := myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	return moveOutOfWay(myArm)
 }
 
 func matToFyne(img gocv.Mat) (*canvas.Image, error) {
@@ -218,28 +186,6 @@ func main() {
 	myGripper, err := gripper.NewGripper(robotIp)
 	if err != nil {
 		panic(err)
-	}
-
-	if false { // test 1
-		for _, s := range []string{"A1", "B1", "G5", "F4"} {
-			c := getCoord(s)
-
-			where := myArm.State.CartesianInfo
-			where.X = c.x
-			where.Y = c.y
-			where.Z = SafeMoveHeight
-
-			fmt.Printf("%s %f %f\n", s, c.x, c.y)
-
-			myArm.MoveToPositionC(where)
-		}
-	}
-	if false { // test 2
-		err = movePiece(myArm, myGripper, "E2", "E4")
-		if err != nil {
-			panic(err)
-		}
-		return
 	}
 
 	//webcam, err := vision.NewWebcamSource(webcamDeviceId)
@@ -277,13 +223,16 @@ func main() {
 		if len(nextChessPos) > 0 {
 			nextChessPos = nextChessPos + string(k.Name)
 			fmt.Printf("nextChessPos [%s]\n", nextChessPos)
-			if len(nextChessPos) == 3 {
+			if string(k.Name) == "X" {
+				nextChessPos = ""
+			} else if nextChessPos[0] == '-' && len(nextChessPos) == 3 {
 				moveTo(myArm, nextChessPos[1:], 0)
 				nextChessPos = ""
-			} else if len(nextChessPos) > 3 {
-				fmt.Printf("broken")
+			} else if nextChessPos[0] == 'M' && len(nextChessPos) == 5 {
+				movePiece(myArm, myGripper, nextChessPos[1:3], nextChessPos[3:])
 				nextChessPos = ""
 			}
+
 			return
 		}
 
@@ -331,6 +280,9 @@ func main() {
 		case "/":
 			nextChessPos = "-"
 			return
+		case "M":
+			nextChessPos = "M"
+			return
 		default:
 			log.Printf("unknown: %s\n", k.Name)
 			changed = false
@@ -359,10 +311,13 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-			warped, _, err := vision.WarpColorAndDepthToChess(img, depth, corners)
+			warped, depth, err := vision.WarpColorAndDepthToChess(img, depth, corners)
+			// TODO: close these
 			if err != nil {
 				panic(err)
 			}
+
+			grossGlobalDepth = depth
 
 			pcs[1], err = matToFyne(warped)
 			if err != nil {
@@ -380,7 +335,22 @@ func main() {
 		}
 	}()
 
-	//go doTraining(myArm, myGripper)
+	go eliotTest(myArm, myGripper)
 
 	w.ShowAndRun()
+}
+
+func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
+	err := moveOutOfWay(myArm)
+	if err != nil {
+		panic(err)
+	}
+
+	time.Sleep(time.Millisecond * 2000)
+
+	err = movePiece(myArm, myGripper, "B1", "C3")
+	if err != nil {
+		panic(err)
+	}
+
 }
