@@ -56,4 +56,6 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Errorf("height for E1 is wrong %f", x)
 	}
 
+	AnnotateBoard(a, b)
+	gocv.IMWrite("out/board1_annotated.png", a)
 }

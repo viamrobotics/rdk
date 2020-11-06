@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"sort"
 
 	"github.com/gonum/stat"
 
@@ -59,6 +60,9 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 	for x := corner.X + 33; x < corner.X+66; x++ {
 		for y := corner.Y + 33; y < corner.Y+66; y++ {
 			d := warpedDepth.GetDoubleAt(y, x)
+			if d == 0 {
+				continue
+			}
 			data = append(data, d)
 		}
 	}
@@ -81,6 +85,20 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 		if x > max {
 			max = x
 		}
+	}
+
+	if false {
+		fmt.Println(square)
+		sort.Float64s(data)
+		for _, d := range data[0:10] {
+			fmt.Printf("\t %f\n", d)
+		}
+		fmt.Println("...")
+		for _, d := range data[len(data)-10:] {
+			fmt.Printf("\t %f\n", d)
+		}
+
+		fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f\n", square, mean, stdDev, min, max)
 	}
 
 	return max - min
