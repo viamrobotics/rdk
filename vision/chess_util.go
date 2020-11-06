@@ -1,7 +1,6 @@
 package vision
 
 import (
-	"fmt"
 	"image"
 	"math"
 
