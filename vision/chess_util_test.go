@@ -47,7 +47,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	gocv.IMWrite("out/board1_warped.png", a)
 
 	x := GetChessPieceHeight("B1", b)
-	if int(x) != 19 {
+	if int(x) != 30 {
 		t.Errorf("height for B1 is wrong %f", x)
 	}
 
