@@ -1,6 +1,6 @@
 package vision
 
-/*
+
 import (
 	"fmt"
 	"io/ioutil"
@@ -10,9 +10,7 @@ import (
 
 	"gocv.io/x/gocv"
 )
-*/
 
-/*
 type FileTestStuff struct {
 	prefix string
 	glob   string
@@ -20,7 +18,7 @@ type FileTestStuff struct {
 	out    string
 }
 
-type P func(gocv.Mat)
+type P func(gocv.Mat, *gocv.Mat)
 
 func NewFileTestStuff(prefix, glob string) FileTestStuff {
 	fts := FileTestStuff{}
@@ -45,12 +43,14 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 	for _, f := range files {
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
-		x(img)
+		out := gocv.NewMat()
+		defer out.Close()
+		x(img, &out)
 
-		out := filepath.Join(fts.out, filepath.Base(f))
-		gocv.IMWrite(out, img)
+		outFile := filepath.Join(fts.out, filepath.Base(f))
+		gocv.IMWrite(outFile, out)
 
-		html = fmt.Sprintf("%s<tr><td><img src='%s' width=300 /></td><td><img src='%s' width=300 /></td></tr>\n", html, f, out)
+		html = fmt.Sprintf("%s<tr><td><img src='%s' width=300 /></td><td><img src='%s' width=300 /></td></tr>\n", html, f, outFile)
 	}
 
 	html = html + "</table></body></html>"
@@ -61,9 +61,10 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 
 }
 
-func TestChess2(t *testing.T) {
+func TestChess1(t *testing.T) {
 
-	fts := NewFileTestStuff("chess/upclose1", "*.jpg")
-	fts.Process("upclose1-all.html", closeupProcess)
+	fts := NewFileTestStuff("chess/boardseliot1", "*.png")
+	os.MkdirAll("out", 0775)
+	fts.Process("out/boardseliot1.html", process)
 }
-*/
+
