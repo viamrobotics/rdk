@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	Blue = color.RGBA{0, 0, 255, 0}
+	Blue  = color.RGBA{0, 0, 255, 0}
+	Green = color.RGBA{0, 255, 0, 0}
 )
 
 func initialize_mask(adaptiveThresh, img gocv.Mat) {
@@ -23,17 +24,16 @@ func process2(img gocv.Mat) {
 	fmt.Printf("num contours: %d\n", len(contours))
 }
 
-func process(img gocv.Mat, out* gocv.Mat) {
+func process(img gocv.Mat, out *gocv.Mat) {
 	temp := gocv.NewMat()
 	defer temp.Close()
-	
+
 	gocv.CvtColor(img, &temp, gocv.ColorBGRToGray)
 	gocv.BilateralFilter(temp, out, 11, 17.0, 17.0)
-	
+
 	edges := gocv.NewMat()
 	defer edges.Close()
 	gocv.Canny(*out, &edges, 30, 200)
-
 
 	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxSimple)
 	fmt.Printf("num cnts: %d\n", len(cnts))
@@ -45,10 +45,10 @@ func process(img gocv.Mat, out* gocv.Mat) {
 			biggestArea = area
 		}
 	}
-	
+
 	for idx, c := range cnts {
 		arcLength := gocv.ArcLength(c, true)
-		curve := gocv.ApproxPolyDP(c, 0.015 * arcLength, true)
+		curve := gocv.ApproxPolyDP(c, 0.015*arcLength, true)
 		area := gocv.ContourArea(c)
 		if area < biggestArea {
 			//continue
@@ -60,6 +60,4 @@ func process(img gocv.Mat, out* gocv.Mat) {
 	//cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:10]
 	//screenCnt = None
 
-
 }
-
