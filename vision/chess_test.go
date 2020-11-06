@@ -61,11 +61,6 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 
 }
 
-func TestChessBoard1(t *testing.T) {
-	fts := NewFileTestStuff("chess/boardseliot1", "*.png")
-	fts.Process("boardseliot1-output.html", hardCodedEliot)
-}
-
 func TestChess2(t *testing.T) {
 
 	fts := NewFileTestStuff("chess/upclose1", "*.jpg")
