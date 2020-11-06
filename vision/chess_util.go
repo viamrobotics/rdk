@@ -3,7 +3,9 @@ package vision
 import (
 	"fmt"
 	"image"
-	"sort"
+	"math"
+
+	"github.com/gonum/stat"
 
 	"gocv.io/x/gocv"
 )
@@ -61,21 +63,25 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 		}
 	}
 
-	sort.Float64s(data)
-
-	for idx, f := range data {
-		fmt.Printf("%d %f\n", idx, f)
-	}
-	fmt.Println("--------")
-
 	// since there is some noise, let's try and remove the outliers
-	// TODO: make this smarter
-	takeOff := len(data) / 10
-	data = data[takeOff:]
-	data = data[0 : len(data)-takeOff]
 
-	min := data[0]
-	max := data[len(data)-1]
+	mean, stdDev := stat.MeanStdDev(data, nil)
+
+	min := 100000.0
+	max := 0.0
+
+	for _, x := range data {
+		diff := math.Abs(mean - x)
+		if diff > stdDev*3 { // this 3 is totally a magic number, is it good?
+			continue
+		}
+		if x < min {
+			min = x
+		}
+		if x > max {
+			max = x
+		}
+	}
 
 	return max - min
 }
