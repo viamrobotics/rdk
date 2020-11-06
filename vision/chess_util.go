@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"fmt"
 	"image"
 	"math"
 
@@ -83,4 +84,53 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 	}
 
 	return max - min
+}
+
+func HasPiece(square string, warpedDepth gocv.Mat) bool {
+	return GetChessPieceHeight(square, warpedDepth) > 10
+}
+
+func GetSquaresWithPieces(warpedDepth gocv.Mat) []string {
+	squares := []string{}
+	for x := 'A'; x <= 'H'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+			if HasPiece(s, warpedDepth) {
+				squares = append(squares, s)
+			}
+		}
+	}
+	return squares
+}
+
+func GetSquaresWithNoPieces(warpedDepth gocv.Mat) []string {
+	squares := []string{}
+	for x := 'A'; x <= 'H'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+			if !HasPiece(s, warpedDepth) {
+				squares = append(squares, s)
+			}
+		}
+	}
+	return squares
+}
+
+func AnnotateBoard(color, depth gocv.Mat) {
+	for x := 'A'; x <= 'H'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+
+			p := getMinChessCorner(s)
+			p.X += 50
+			p.Y += 50
+
+			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green, 2)
+
+			if HasPiece(s, depth) {
+				gocv.Circle(&color, p, 10, Green, 1)
+			}
+
+		}
+	}
 }
