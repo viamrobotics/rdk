@@ -51,7 +51,7 @@ func process(img gocv.Mat, out *gocv.Mat) {
 		curve := gocv.ApproxPolyDP(c, 0.015*arcLength, true)
 		area := gocv.ContourArea(c)
 		if area < biggestArea {
-			//continue
+			continue
 		}
 		fmt.Printf("\t %d\n", len(curve))
 		gocv.DrawContours(out, cnts, idx, Blue, 1)
