@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -26,6 +27,10 @@ func TestHttpSource(t *testing.T) {
 
 	a, b, err := s.NextColorDepthPair()
 	if err != nil {
+		if strings.Index(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") >= 0 {
+			t.Skip()
+			return
+		}
 		t.Fatal(err)
 	}
 	defer a.Close()
