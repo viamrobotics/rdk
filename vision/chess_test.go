@@ -1,6 +1,5 @@
 package vision
 
-
 import (
 	"fmt"
 	"io/ioutil"
@@ -67,4 +66,3 @@ func TestChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	fts.Process("out/boardseliot1.html", process)
 }
-

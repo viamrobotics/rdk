@@ -81,7 +81,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 
 	height := vision.GetChessPieceHeight(from, grossGlobalDepth)
 	where := myArm.State.CartesianInfo
-	where.Z = BoardHeight + (height / 1000)
+	where.Z = BoardHeight + (height / 1000) + .005
 	myArm.MoveToPositionC(where)
 
 	// grab piece
@@ -317,6 +317,9 @@ func main() {
 				panic(err)
 			}
 
+			// add colors
+			vision.AnnotateBoard(warped, depth)
+
 			grossGlobalDepth = depth
 
 			pcs[1], err = matToFyne(warped)
@@ -348,7 +351,29 @@ func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
 
 	time.Sleep(time.Millisecond * 2000)
 
-	err = movePiece(myArm, myGripper, "B1", "C3")
+	fmt.Printf("   pieces: %v\n", vision.GetSquaresWithPieces(grossGlobalDepth))
+	fmt.Printf("no pieces: %v\n", vision.GetSquaresWithNoPieces(grossGlobalDepth))
+
+	if true {
+		return
+	}
+
+	if vision.HasPiece("B1", grossGlobalDepth) {
+		err = movePiece(myArm, myGripper, "B1", "C3")
+	} else {
+		err = movePiece(myArm, myGripper, "C3", "B1")
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	if vision.HasPiece("E1", grossGlobalDepth) {
+		err = movePiece(myArm, myGripper, "E1", "E3")
+	} else {
+		err = movePiece(myArm, myGripper, "E3", "E1")
+	}
+
 	if err != nil {
 		panic(err)
 	}
