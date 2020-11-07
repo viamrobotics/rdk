@@ -12,6 +12,7 @@ import (
 var (
 	Blue  = color.RGBA{0, 0, 255, 0}
 	Green = color.RGBA{0, 255, 0, 0}
+	Red   = color.RGBA{255, 0, 0, 0}
 )
 
 func initialize_mask(adaptiveThresh, img gocv.Mat) {
