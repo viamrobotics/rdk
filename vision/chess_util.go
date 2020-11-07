@@ -11,6 +11,10 @@ import (
 	"gocv.io/x/gocv"
 )
 
+var (
+	DepthCheckSizeRadius = 25
+)
+
 func WarpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
 	dst := []image.Point{
 		image.Pt(0, 800),
@@ -57,8 +61,8 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
-	for x := corner.X + 33; x < corner.X+66; x++ {
-		for y := corner.Y + 33; y < corner.Y+66; y++ {
+	for x := corner.X + 50 - DepthCheckSizeRadius; x < corner.X+50+DepthCheckSizeRadius; x++ {
+		for y := corner.Y + 50 - DepthCheckSizeRadius; y < corner.Y+50+DepthCheckSizeRadius; y++ {
 			d := warpedDepth.GetDoubleAt(y, x)
 			if d == 0 {
 				continue
@@ -71,30 +75,29 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 
 	mean, stdDev := stat.MeanStdDev(data, nil)
 
-	min := 100000.0
-	max := 0.0
+	sort.Float64s(data)
+
+	cleaned := []float64{}
 
 	for _, x := range data {
 		diff := math.Abs(mean - x)
 		if diff > stdDev*3 { // this 3 is totally a magic number, is it good?
 			continue
 		}
-		if x < min {
-			min = x
-		}
-		if x > max {
-			max = x
-		}
+		cleaned = append(cleaned, x)
 	}
+
+	min := stat.Mean(cleaned[0:10], nil)
+	max := stat.Mean(cleaned[len(cleaned)-10:], nil)
 
 	if false {
 		fmt.Println(square)
-		sort.Float64s(data)
-		for _, d := range data[0:10] {
+
+		for _, d := range cleaned[0:10] {
 			fmt.Printf("\t %f\n", d)
 		}
 		fmt.Println("...")
-		for _, d := range data[len(data)-10:] {
+		for _, d := range cleaned[len(data)-10:] {
 			fmt.Printf("\t %f\n", d)
 		}
 
@@ -143,11 +146,21 @@ func AnnotateBoard(color, depth gocv.Mat) {
 			p.X += 50
 			p.Y += 50
 
-			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green, 2)
+			a := image.Point{p.X - DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
+			b := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
+			c := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
+			d := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
+			gocv.Line(&color, a, b, Green, 1)
+			gocv.Line(&color, b, c, Green, 1)
+			gocv.Line(&color, c, d, Green, 1)
+			gocv.Line(&color, a, d, Green, 1)
 
 			if HasPiece(s, depth) {
-				gocv.Circle(&color, p, 10, Green, 1)
+				gocv.Circle(&color, p, 10, Red, 2)
 			}
+
+			p.Y -= 20
+			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green, 2)
 
 		}
 	}
