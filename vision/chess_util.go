@@ -146,21 +146,22 @@ func AnnotateBoard(color, depth gocv.Mat) {
 			p.X += 50
 			p.Y += 50
 
+			// draw the box around the points we are using
 			a := image.Point{p.X - DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			b := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			d := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			gocv.Line(&color, a, b, Green, 1)
-			gocv.Line(&color, b, c, Green, 1)
-			gocv.Line(&color, c, d, Green, 1)
-			gocv.Line(&color, a, d, Green, 1)
+			gocv.Line(&color, a, b, Green.C, 1)
+			gocv.Line(&color, b, c, Green.C, 1)
+			gocv.Line(&color, c, d, Green.C, 1)
+			gocv.Line(&color, a, d, Green.C, 1)
 
 			if HasPiece(s, depth) {
-				gocv.Circle(&color, p, 10, Red, 2)
+				gocv.Circle(&color, p, 10, Red.C, 2)
 			}
 
 			p.Y -= 20
-			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green, 2)
+			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green.C, 2)
 
 		}
 	}
