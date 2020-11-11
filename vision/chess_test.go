@@ -46,12 +46,27 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 
 		out := gocv.NewMat()
 		defer out.Close()
-		x(img, &out)
+		corners, err := x(img, &out)
+		if err != nil {
+			panic(err)
+		}
 
 		outFile := filepath.Join(fts.out, filepath.Base(f))
+		warpedOutFile := filepath.Join(fts.out, "warped-"+filepath.Base(f))
+
 		gocv.IMWrite(outFile, out)
 
-		html = fmt.Sprintf("%s<tr><td><img src='%s' width=300 /></td><td><img src='%s' width=300 /></td></tr>\n", html, f, outFile)
+		if corners != nil {
+			warped, _, err := WarpColorAndDepthToChess(img, gocv.Mat{}, corners)
+			if err != nil {
+				panic(err)
+			}
+
+			gocv.IMWrite(warpedOutFile, warped)
+
+		}
+
+		html = fmt.Sprintf("%s<tr><td><img src='%s' width=300 /></td><td><img src='%s' width=300 /></td><td><img src='%s' width=300 height=225 /></td></tr>\n", html, f, outFile, warpedOutFile)
 	}
 
 	html = html + "</table></body></html>"

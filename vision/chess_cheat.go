@@ -34,7 +34,7 @@ func myPinkDistance(data gocv.Vecb) float64 {
 	return d
 }
 
-func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) {
+func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
 
 	minX := xQ * (out.Cols() / 2)
 	minY := yQ * (out.Rows() / 2)
@@ -64,6 +64,8 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 	myCenter := center(best)
 	gocv.DrawContours(out, cnts, bestIdx, Green.C, 1)
 	gocv.Circle(out, myCenter, 5, Red.C, 2)
+
+	return myCenter
 }
 
 func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
@@ -85,14 +87,6 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 			d := myPinkDistance(data)
 
-			/*
-				start := 500
-				if y == 350 && x > start && x < start + 80 {
-					fmt.Printf("%d %d %v %f\n", x, y, data, d)
-					gocv.Circle(out, p, 1, Red.C, 1)
-				}
-			*/
-
 			if d < 40 {
 				gocv.Circle(out, p, 1, Green.C, 1)
 			} else {
@@ -108,10 +102,10 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxSimple)
 	fmt.Printf("num cnts: %d\n", len(cnts))
 
-	FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
-	FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
-	FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 1)
-	FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 1)
+	a1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
+	a8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
+	h1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 1)
+	h8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 1)
 
-	return nil, nil
+	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
 }

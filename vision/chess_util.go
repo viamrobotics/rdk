@@ -30,7 +30,7 @@ func WarpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (goc
 	gocv.WarpPerspective(color, &warped, m, image.Point{800, 800})
 
 	warpedDepth := gocv.Mat{}
-	if !depth.Empty() {
+	if depth.Ptr() != nil && !depth.Empty() {
 		warpedDepth = gocv.NewMatWithSize(800, 800, depth.Type())
 		gocv.WarpPerspective(depth, &warpedDepth, m, image.Point{800, 800})
 	}
