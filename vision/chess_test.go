@@ -2,6 +2,7 @@ package vision
 
 import (
 	"fmt"
+	"image"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ type FileTestStuff struct {
 	out    string
 }
 
-type P func(gocv.Mat, *gocv.Mat)
+type P func(gocv.Mat, *gocv.Mat) ([]image.Point, error)
 
 func NewFileTestStuff(prefix, glob string) FileTestStuff {
 	fts := FileTestStuff{}
@@ -40,6 +41,7 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 	html := "<html><body><table>"
 
 	for _, f := range files {
+		fmt.Println(f)
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
 		out := gocv.NewMat()
@@ -63,5 +65,11 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 func TestChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	fts := NewFileTestStuff("chess/boardseliot1", "*.png")
-	fts.Process("out/boardseliot1.html", process)
+	fts.Process("out/boardseliot1.html", processFindCornersBad)
+}
+
+func TestChessCheatRed1(t *testing.T) {
+	os.MkdirAll("out", 0775)
+	fts := NewFileTestStuff("chess/boardseliot2", "*.png")
+	fts.Process("out/boardseliot2.html", FindChessCornersPinkCheat)
 }

@@ -2,35 +2,34 @@ package vision
 
 import (
 	"fmt"
-	//"image"
-	"image/color"
-	//"math"
+	"image"
 
 	"gocv.io/x/gocv"
 )
 
-var (
-	Blue  = color.RGBA{0, 0, 255, 0}
-	Green = color.RGBA{0, 255, 0, 0}
-	Red   = color.RGBA{255, 0, 0, 0}
-)
+func center(contour []image.Point) image.Point {
 
-func initialize_mask(adaptiveThresh, img gocv.Mat) {
-	contours := gocv.FindContours(adaptiveThresh, gocv.RetrievalTree, gocv.ChainApproxSimple)
-	fmt.Printf("num contours: %d\n", len(contours))
+	r := gocv.BoundingRect(contour)
+
+	return image.Point{(r.Min.X + r.Max.X) / 2, (r.Min.Y + r.Max.Y) / 2}
+	/*
+		x := 0
+		y := 0
+
+		for _, p := range contour {
+			x += p.X
+			y += p.Y
+		}
+
+		return image.Point{ x / len(contour), y / len(contour) }
+	*/
 }
 
-func process2(img gocv.Mat) {
-	contours := gocv.FindContours(img, gocv.RetrievalList, gocv.ChainApproxSimple)
-	fmt.Printf("num contours: %d\n", len(contours))
-}
-
-func process(img gocv.Mat, out *gocv.Mat) {
-	temp := gocv.NewMat()
-	defer temp.Close()
-
-	gocv.CvtColor(img, &temp, gocv.ColorBGRToGray)
-	gocv.BilateralFilter(temp, out, 11, 17.0, 17.0)
+func processFindCornersBad(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
+	if out == nil {
+		return nil, fmt.Errorf("processFindCornersBad needs an out")
+	}
+	img.CopyTo(out)
 
 	edges := gocv.NewMat()
 	defer edges.Close()
@@ -51,14 +50,22 @@ func process(img gocv.Mat, out *gocv.Mat) {
 		arcLength := gocv.ArcLength(c, true)
 		curve := gocv.ApproxPolyDP(c, 0.015*arcLength, true)
 		area := gocv.ContourArea(c)
-		if area < biggestArea {
+
+		good := (area > 300 && len(curve) == 4) || (area > 1800 && area < 4000)
+		if !good {
 			continue
 		}
-		fmt.Printf("\t %d\n", len(curve))
-		gocv.DrawContours(out, cnts, idx, Blue, 1)
+
+		fmt.Printf("\t len: %d area: %f\n", len(curve), area)
+		gocv.DrawContours(out, cnts, idx, Green.C, 1)
+		gocv.PutText(out, fmt.Sprintf("%d", int(area)), c[0], gocv.FontHersheyPlain, 1.2, Green.C, 2)
+
+		myCenter := center(c)
+		gocv.Circle(out, myCenter, 5, Red.C, 2)
 	}
 
 	//cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:10]
 	//screenCnt = None
 
+	return nil, nil
 }
