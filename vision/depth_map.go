@@ -22,11 +22,51 @@ func (dm *DepthMap) GetDepth(x, y int) int {
 	return dm.data[x][y]
 }
 
+func myMax(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
+	z := dm.data[x][y]
+	if z > 0 {
+		return z
+	}
+
+	total := 0.0
+	num := 0.0
+
+	for offset := 1; offset < 50 && num == 0; offset++ {
+		startX := myMax(0, x-offset)
+		startY := myMax(0, y-offset)
+
+		for a := startX; a < x+offset && a < dm.width; a++ {
+			for b := startY; b < y+offset && b < dm.height; b++ {
+				temp := dm.data[a][b]
+				if temp == 0 {
+					continue
+				}
+				total += float64(temp)
+				num++
+			}
+		}
+	}
+
+	if num == 0 {
+		panic(fmt.Errorf("wtf - entire area is 0 %d %d", x, y))
+	}
+
+	return int(total / num)
+}
+
 func (dm *DepthMap) ToMat() gocv.Mat {
 	m := gocv.NewMatWithSize(dm.height, dm.width, gocv.MatTypeCV64F)
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
-			m.SetDoubleAt(y, x, float64(dm.data[x][y]))
+			z := dm.GetDepthOrEstimate(x, y)
+			m.SetDoubleAt(y, x, float64(z))
 		}
 	}
 	return m
