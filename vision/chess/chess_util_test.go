@@ -1,4 +1,4 @@
-package vision
+package chess
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 func TestGetMinChessCorner(t *testing.T) {
@@ -29,7 +31,7 @@ func TestGetMinChessCorner(t *testing.T) {
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
 	img := gocv.IMRead("data/board1.png", gocv.IMReadUnchanged)
-	dm, err := ParseDepthMap("data/board1.dat.gz")
+	dm, err := vision.ParseDepthMap("data/board1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

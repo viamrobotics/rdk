@@ -1,4 +1,4 @@
-package vision
+package chess
 
 import (
 	"fmt"
@@ -6,28 +6,30 @@ import (
 	"image/color"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 var (
-	myPinks = []Color{
-		Color{color.RGBA{178, 97, 117, 0}, "deepPink", "pink"},
-		Color{color.RGBA{184, 102, 126, 0}, "deepPink", "pink"},
-		Color{color.RGBA{202, 105, 134, 0}, "deepPink", "pink"},
-		Color{color.RGBA{192, 93, 118, 0}, "deepPink", "pink"},
-		Color{color.RGBA{209, 129, 150, 0}, "deepPink", "pink"},
-		Color{color.RGBA{128, 72, 50, 0}, "brownPink", "pink"},
-		Color{color.RGBA{136, 64, 37, 0}, "brownPink", "pink"},
-		Color{color.RGBA{219, 103, 169, 0}, "brownPink", "pink"},
-		Color{color.RGBA{233, 108, 130, 0}, "brownPink", "pink"},
-		Color{color.RGBA{190, 104, 162, 0}, "brownPink", "pink"},
-		Color{color.RGBA{167, 74, 107, 0}, "brownPink", "pink"},
+	myPinks = []vision.Color{
+		vision.Color{color.RGBA{178, 97, 117, 0}, "deepPink", "pink"},
+		vision.Color{color.RGBA{184, 102, 126, 0}, "deepPink", "pink"},
+		vision.Color{color.RGBA{202, 105, 134, 0}, "deepPink", "pink"},
+		vision.Color{color.RGBA{192, 93, 118, 0}, "deepPink", "pink"},
+		vision.Color{color.RGBA{209, 129, 150, 0}, "deepPink", "pink"},
+		vision.Color{color.RGBA{128, 72, 50, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{136, 64, 37, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{219, 103, 169, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{233, 108, 130, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{190, 104, 162, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{167, 74, 107, 0}, "brownPink", "pink"},
 	}
 )
 
 func myPinkDistance(data gocv.Vecb) float64 {
 	d := 10000000000.0
 	for _, c := range myPinks {
-		temp := colorDistance(data, c)
+		temp := vision.ColorDistance(data, c)
 		if temp < d {
 			d = temp
 		}
@@ -66,7 +68,7 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 
 	for i := 0; i < 5; i++ { // move at most 10 for sanity
 		data := out.GetVecbAt(myCenter.Y, myCenter.X)
-		blackDistance := colorDistance(data, Black)
+		blackDistance := vision.ColorDistance(data, vision.Black)
 		if blackDistance > 2 {
 			break
 		}
@@ -74,8 +76,8 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 		myCenter.Y = myCenter.Y + ((yQ * 2) - 1)
 	}
 
-	gocv.DrawContours(out, cnts, bestIdx, Green.C, 1)
-	gocv.Circle(out, myCenter, 5, Red.C, 2)
+	gocv.DrawContours(out, cnts, bestIdx, vision.Green.C, 1)
+	gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
 
 	return myCenter
 }
@@ -100,15 +102,15 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 			d := myPinkDistance(data)
 
 			if d < 40 {
-				gocv.Circle(out, p, 1, Green.C, 1)
+				gocv.Circle(out, p, 1, vision.Green.C, 1)
 			} else {
-				gocv.Circle(out, p, 1, Black.C, 1)
+				gocv.Circle(out, p, 1, vision.Black.C, 1)
 			}
 
 			if false {
 				if y == 40 && x > 130 && x < 160 {
 					fmt.Printf("  --  %d %d %v %f\n", x, y, data, d)
-					gocv.Circle(out, p, 1, Red.C, 1)
+					gocv.Circle(out, p, 1, vision.Red.C, 1)
 				}
 			}
 

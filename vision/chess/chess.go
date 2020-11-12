@@ -1,10 +1,12 @@
-package vision
+package chess
 
 import (
 	"fmt"
 	"image"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 func center(contour []image.Point) image.Point {
@@ -57,11 +59,11 @@ func processFindCornersBad(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
 		}
 
 		fmt.Printf("\t len: %d area: %f\n", len(curve), area)
-		gocv.DrawContours(out, cnts, idx, Green.C, 1)
-		gocv.PutText(out, fmt.Sprintf("%d", int(area)), c[0], gocv.FontHersheyPlain, 1.2, Green.C, 2)
+		gocv.DrawContours(out, cnts, idx, vision.Green.C, 1)
+		gocv.PutText(out, fmt.Sprintf("%d", int(area)), c[0], gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
 
 		myCenter := center(c)
-		gocv.Circle(out, myCenter, 5, Red.C, 2)
+		gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
 	}
 
 	//cnts = sorted(cnts, key = cv2.contourArea, reverse = True)[:10]
