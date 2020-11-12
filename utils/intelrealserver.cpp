@@ -25,7 +25,13 @@ void cameraThread() {
     rs2::pipeline p;
     
     // Configure and start the pipeline
-    p.start();
+    auto profile = p.start();
+    auto sensor = profile.get_device().first<rs2::depth_sensor>();
+
+    // Set the device to High Accuracy preset of the D400 stereoscopic cameras
+    if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
+        sensor.set_option(RS2_OPTION_VISUAL_PRESET, RS2_RS400_VISUAL_PRESET_HIGH_ACCURACY);
+    }
 
     rs2::align align_to_color(RS2_STREAM_COLOR);
     
