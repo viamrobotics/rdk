@@ -1,4 +1,4 @@
-package vision
+package chess
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"github.com/gonum/stat"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 var (
@@ -156,18 +158,18 @@ func AnnotateBoard(color, depth gocv.Mat) {
 			b := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			d := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			gocv.Line(&color, a, b, Green.C, 1)
-			gocv.Line(&color, b, c, Green.C, 1)
-			gocv.Line(&color, c, d, Green.C, 1)
-			gocv.Line(&color, a, d, Green.C, 1)
+			gocv.Line(&color, a, b, vision.Green.C, 1)
+			gocv.Line(&color, b, c, vision.Green.C, 1)
+			gocv.Line(&color, c, d, vision.Green.C, 1)
+			gocv.Line(&color, a, d, vision.Green.C, 1)
 
 			height := GetChessPieceHeight(s, depth)
 			if height > MinPieceDepth {
-				gocv.Circle(&color, p, 10, Red.C, 2)
+				gocv.Circle(&color, p, 10, vision.Red.C, 2)
 			}
 
 			p.Y -= 20
-			gocv.PutText(&color, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, Green.C, 2)
+			gocv.PutText(&color, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
 
 		}
 	}

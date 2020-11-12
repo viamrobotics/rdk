@@ -75,7 +75,7 @@ func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 	return math.Sqrt(diff)
 }
 
-func colorDistance(data gocv.Vecb, clr Color) float64 {
+func ColorDistance(data gocv.Vecb, clr Color) float64 {
 	if len(data) < 3 {
 		panic("not enough colors")
 	}
@@ -91,7 +91,7 @@ func WhatColor(data gocv.Vecb) (string, Color) {
 
 	//fmt.Println("---")
 	for name, clr := range Colors {
-		x := colorDistance(data, clr)
+		x := ColorDistance(data, clr)
 		//fmt.Printf("\t %s %f\n", name, x)
 		if x > distance {
 			continue
