@@ -14,6 +14,7 @@ var (
 		Color{color.RGBA{184, 102, 126, 0}, "deepPink", "pink"},
 		Color{color.RGBA{202, 105, 134, 0}, "deepPink", "pink"},
 		Color{color.RGBA{192, 93, 118, 0}, "deepPink", "pink"},
+		Color{color.RGBA{209, 129, 150, 0}, "deepPink", "pink"},
 		Color{color.RGBA{128, 72, 50, 0}, "brownPink", "pink"},
 		Color{color.RGBA{136, 64, 37, 0}, "brownPink", "pink"},
 		Color{color.RGBA{219, 103, 169, 0}, "brownPink", "pink"},
@@ -42,7 +43,7 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 	maxX := (1 + xQ) * (out.Cols() / 2)
 	maxY := (1 + yQ) * (out.Rows() / 2)
 
-	fmt.Printf("\t %d %d  %d %d %d %d\n", xQ, yQ, minX, minY, maxX, maxY)
+	//fmt.Printf("\t %d %d  %d %d %d %d\n", xQ, yQ, minX, minY, maxX, maxY)
 
 	longest := 0.0
 	best := cnts[0]
@@ -60,19 +61,17 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 		}
 	}
 
-	fmt.Printf("\t\t %d, %d arclength: %f\n", best[0].X, best[0].Y, longest)
+	//fmt.Printf("\t\t %d, %d arclength: %f\n", best[0].X, best[0].Y, longest)
 	myCenter := center(best)
 
-	for i := 0; i < 10; i++ { // move at most 10 for sanity
+	for i := 0; i < 5; i++ { // move at most 10 for sanity
 		data := out.GetVecbAt(myCenter.Y, myCenter.X)
 		blackDistance := colorDistance(data, Black)
-		fmt.Printf("\t blackDistance %f\n", blackDistance)
 		if blackDistance > 2 {
 			break
 		}
 		myCenter.X = myCenter.X + ((xQ * 2) - 1)
 		myCenter.Y = myCenter.Y + ((yQ * 2) - 1)
-		fmt.Printf("\t\t %v\n", myCenter)
 	}
 
 	gocv.DrawContours(out, cnts, bestIdx, Green.C, 1)
@@ -105,6 +104,14 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 			} else {
 				gocv.Circle(out, p, 1, Black.C, 1)
 			}
+
+			if false {
+				if y == 40 && x > 130 && x < 160 {
+					fmt.Printf("  --  %d %d %v %f\n", x, y, data, d)
+					gocv.Circle(out, p, 1, Red.C, 1)
+				}
+			}
+
 		}
 	}
 
@@ -113,7 +120,6 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 	gocv.Canny(*out, &edges, 30, 200)
 
 	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxSimple)
-	fmt.Printf("num cnts: %d\n", len(cnts))
 
 	a1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
 	a8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
