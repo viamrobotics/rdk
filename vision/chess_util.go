@@ -13,6 +13,7 @@ import (
 
 var (
 	DepthCheckSizeRadius = 35
+	MinPieceDepth        = 10.0
 )
 
 func WarpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
@@ -79,15 +80,17 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 	mean, stdDev := stat.MeanStdDev(data, nil)
 
 	sort.Float64s(data)
+	cleaned := data
+	if false {
+		cleaned := []float64{}
 
-	cleaned := []float64{}
-
-	for _, x := range data {
-		diff := math.Abs(mean - x)
-		if diff > stdDev*3 { // this 3 is totally a magic number, is it good?
-			continue
+		for _, x := range data {
+			diff := math.Abs(mean - x)
+			if diff > 5*stdDev { // this 3 is totally a magic number, is it good?
+				continue
+			}
+			cleaned = append(cleaned, x)
 		}
-		cleaned = append(cleaned, x)
 	}
 
 	min := stat.Mean(cleaned[0:10], nil)
@@ -96,22 +99,21 @@ func GetChessPieceHeight(square string, warpedDepth gocv.Mat) float64 {
 	if false {
 		fmt.Println(square)
 
-		for _, d := range cleaned[0:40] {
+		for _, d := range cleaned[0:5] {
 			fmt.Printf("\t %f\n", d)
 		}
 		fmt.Println("...")
-		for _, d := range cleaned[len(cleaned)-10:] {
+		for _, d := range cleaned[len(cleaned)-5:] {
 			fmt.Printf("\t %f\n", d)
 		}
-
-		fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f\n", square, mean, stdDev, min, max)
 	}
+	//fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f\n", square, mean, stdDev, min, max)
 
 	return max - min
 }
 
 func HasPiece(square string, warpedDepth gocv.Mat) bool {
-	return GetChessPieceHeight(square, warpedDepth) > 10
+	return GetChessPieceHeight(square, warpedDepth) > MinPieceDepth
 }
 
 func GetSquaresWithPieces(warpedDepth gocv.Mat) []string {
@@ -159,12 +161,13 @@ func AnnotateBoard(color, depth gocv.Mat) {
 			gocv.Line(&color, c, d, Green.C, 1)
 			gocv.Line(&color, a, d, Green.C, 1)
 
-			if HasPiece(s, depth) {
+			height := GetChessPieceHeight(s, depth)
+			if height > MinPieceDepth {
 				gocv.Circle(&color, p, 10, Red.C, 2)
 			}
 
 			p.Y -= 20
-			gocv.PutText(&color, fmt.Sprintf("%d", int(GetChessPieceHeight(s, depth))), p, gocv.FontHersheyPlain, 1.2, Green.C, 2)
+			gocv.PutText(&color, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, Green.C, 2)
 
 		}
 	}

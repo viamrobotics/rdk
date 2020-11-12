@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -67,4 +68,6 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 
 	AnnotateBoard(a, b)
 	gocv.IMWrite("out/board1_annotated.png", a)
+
+	fmt.Println(corners)
 }
