@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	DepthCheckSizeRadius = 25
+	DepthCheckSizeRadius = 40
 )
 
 func WarpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
@@ -39,13 +39,24 @@ func WarpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (goc
 }
 
 // returns point in a1, a8, h1, h8 order
-func FindChessCorners(img gocv.Mat) ([]image.Point, error) {
-	a1Corner := image.Point{145, 45}
-	a8Corner := image.Point{520, 52}
-	h1Corner := image.Point{125, 440}
-	h8Corner := image.Point{545, 440}
+func FindChessCorners(img gocv.Mat, debugOut *gocv.Mat) ([]image.Point, error) {
+	if false {
+		a1Corner := image.Point{145, 45}
+		a8Corner := image.Point{520, 52}
+		h1Corner := image.Point{125, 440}
+		h8Corner := image.Point{545, 440}
+		return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
+	}
 
-	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
+	mine := debugOut == nil
+	out := gocv.Mat{}
+	if mine {
+		out = gocv.NewMat()
+		defer out.Close()
+		debugOut = &out
+	}
+
+	return FindChessCornersPinkCheat(img, debugOut)
 }
 
 func getMinChessCorner(chess string) image.Point {

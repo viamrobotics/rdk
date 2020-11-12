@@ -33,10 +33,14 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	corners, err := FindChessCorners(img)
+	debugOut := gocv.NewMat()
+	defer debugOut.Close()
+	corners, err := FindChessCorners(img, &debugOut)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	gocv.IMWrite("out/board1_corners.png", debugOut)
 
 	a, b, err := WarpColorAndDepthToChess(img, dm.ToMat(), corners)
 	if err != nil {
