@@ -77,11 +77,13 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 
 }
 
+/*
 func TestChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	fts := NewFileTestStuff("chess/boardseliot1", "*.png")
 	fts.Process("out/boardseliot1.html", processFindCornersBad)
 }
+*/
 
 func TestChessCheatRed1(t *testing.T) {
 	os.MkdirAll("out", 0775)
