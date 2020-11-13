@@ -143,14 +143,32 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 	// walk up into the corner
 	myCenter := center(best)
 
-	for i := 0; i < 5; i++ { // move only a little for sanity
+	for i := 0; i < 50; i++ { // move only a little for sanity
 		data := out.GetVecbAt(myCenter.Y, myCenter.X)
 		blackDistance := vision.ColorDistance(data, vision.Black)
 		if blackDistance > 2 {
 			break
 		}
-		myCenter.X = myCenter.X + ((xQ * 2) - 1)
-		myCenter.Y = myCenter.Y + ((yQ * 2) - 1)
+		xWalk := ((xQ * 2) - 1)
+		yWalk := ((yQ * 2) - 1)
+
+		stop := false
+		for j := 0; j < 100; j++ {
+			temp := myCenter
+			temp.X += j * -1 * xWalk
+			data := out.GetVecbAt(temp.Y, temp.X)
+			blackDistance := vision.ColorDistance(data, vision.Black)
+			if blackDistance > 2 {
+				stop = true
+				break
+			}
+		}
+		if stop {
+			break
+		}
+
+		myCenter.X += xWalk
+		myCenter.Y += yWalk
 	}
 
 	gocv.DrawContours(out, cnts, bestIdx, vision.Blue.C, 1)
