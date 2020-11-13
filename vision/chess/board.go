@@ -113,7 +113,10 @@ func (b *Board) GetSquaresWithNoPieces() []string {
 	return squares
 }
 
-func (b *Board) Annotate() {
+func (b *Board) Annotate() gocv.Mat {
+	out := gocv.NewMat()
+	b.color.CopyTo(&out)
+
 	for x := 'A'; x <= 'H'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
@@ -127,19 +130,21 @@ func (b *Board) Annotate() {
 			c2 := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c3 := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			c4 := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			gocv.Line(&b.color, c1, c2, vision.Green.C, 1)
-			gocv.Line(&b.color, c2, c3, vision.Green.C, 1)
-			gocv.Line(&b.color, c3, c4, vision.Green.C, 1)
-			gocv.Line(&b.color, c1, c4, vision.Green.C, 1)
+			gocv.Line(&out, c1, c2, vision.Green.C, 1)
+			gocv.Line(&out, c2, c3, vision.Green.C, 1)
+			gocv.Line(&out, c3, c4, vision.Green.C, 1)
+			gocv.Line(&out, c1, c4, vision.Green.C, 1)
 
 			height := b.PieceHeight(s)
 			if height > MinPieceDepth {
-				gocv.Circle(&b.color, p, 10, vision.Red.C, 2)
+				gocv.Circle(&out, p, 10, vision.Red.C, 2)
 			}
 
 			p.Y -= 20
-			gocv.PutText(&b.color, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
+			gocv.PutText(&out, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
 
 		}
 	}
+
+	return out
 }
