@@ -57,7 +57,7 @@ func (b *Board) PieceHeight(square string) float64 {
 
 		for _, x := range data {
 			diff := math.Abs(mean - x)
-			if diff > 5*stdDev { // this 3 is totally a magic number, is it good?
+			if diff > 6*stdDev { // this 3 is totally a magic number, is it good?
 				continue
 			}
 			cleaned = append(cleaned, x)
@@ -67,7 +67,7 @@ func (b *Board) PieceHeight(square string) float64 {
 	min := stat.Mean(cleaned[0:10], nil)
 	max := stat.Mean(cleaned[len(cleaned)-10:], nil)
 
-	if false {
+	if square == "E1" {
 		fmt.Println(square)
 
 		for _, d := range cleaned[0:5] {
@@ -77,8 +77,9 @@ func (b *Board) PieceHeight(square string) float64 {
 		for _, d := range cleaned[len(cleaned)-5:] {
 			fmt.Printf("\t %f\n", d)
 		}
+
+		fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f diff: %f\n", square, mean, stdDev, min, max, max-min)
 	}
-	//fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f\n", square, mean, stdDev, min, max)
 
 	return max - min
 }

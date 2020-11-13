@@ -100,12 +100,12 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	theBoard := Board{a, b}
 
 	x := theBoard.PieceHeight("B1")
-	if x < 40 || x > 58 {
+	if x < 45 || x > 58 {
 		t.Errorf("height for B1 is wrong %f", x)
 	}
 
 	x = theBoard.PieceHeight("E1")
-	if x < 70 || x > 100 {
+	if x < 72 || x > 100 {
 		t.Errorf("height for E1 is wrong %f", x)
 	}
 

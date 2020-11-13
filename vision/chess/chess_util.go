@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	DepthCheckSizeRadius = 35
-	MinPieceDepth        = 10.0
+	DepthCheckSizeRadius = 37
+	MinPieceDepth        = 13.0
 )
 
 func warpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
