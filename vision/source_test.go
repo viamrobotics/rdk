@@ -36,12 +36,15 @@ func TestHttpSource(t *testing.T) {
 	defer a.Close()
 	defer b.Close()
 
-	if a.Cols() != 640 {
+	if a.Cols() != 640 && a.Cols() != 1280 {
 		t.Errorf("color columns wrong: %d", a.Cols())
 	}
 
-	if b.Cols() != 640 {
+	if b.Cols() != 640 && b.Cols() != 1280 {
 		t.Errorf("depth columns wrong: %d", b.Cols())
 	}
 
+	if a.Cols() != b.Cols() {
+		t.Errorf("color and depth don't match")
+	}
 }
