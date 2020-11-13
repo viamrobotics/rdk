@@ -57,7 +57,7 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 		gocv.IMWrite(outFile, out)
 
 		if corners != nil {
-			warped, _, err := WarpColorAndDepthToChess(img, gocv.Mat{}, corners)
+			warped, _, err := warpColorAndDepthToChess(img, gocv.Mat{}, corners)
 			if err != nil {
 				panic(err)
 			}
