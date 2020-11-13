@@ -1,7 +1,6 @@
 package chess
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -38,14 +37,14 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 
 	debugOut := gocv.NewMat()
 	defer debugOut.Close()
-	corners, err := FindChessCorners(img, &debugOut)
+	corners, err := findChessCorners(img, &debugOut)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	gocv.IMWrite("out/board1_corners.png", debugOut)
 
-	a, b, err := WarpColorAndDepthToChess(img, dm.ToMat(), corners)
+	a, b, err := warpColorAndDepthToChess(img, dm.ToMat(), corners)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,23 +52,23 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	gocv.IMWrite("out/board1_warped.png", a)
 
-	x := GetChessPieceHeight("B1", b)
+	theBoard := Board{a, b}
+
+	x := theBoard.PieceHeight("B1")
 	if x < 40 || x > 58 {
 		t.Errorf("height for B1 is wrong %f", x)
 	}
 
-	x = GetChessPieceHeight("E1", b)
+	x = theBoard.PieceHeight("E1")
 	if x < 70 || x > 100 {
 		t.Errorf("height for E1 is wrong %f", x)
 	}
 
-	x = GetChessPieceHeight("C1", b)
+	x = theBoard.PieceHeight("C1")
 	if x < 50 || x > 71 {
 		t.Errorf("height for C1 is wrong %f", x)
 	}
 
-	AnnotateBoard(a, b)
-	gocv.IMWrite("out/board1_annotated.png", a)
-
-	fmt.Println(corners)
+	theBoard.Annotate()
+	gocv.IMWrite("out/board1_annotated.png", theBoard.color)
 }
