@@ -81,7 +81,7 @@ func ColorDistance(data gocv.Vecb, clr Color) float64 {
 	}
 	return colorDistanceRaw(
 		float64(clr.C.R), float64(clr.C.G), float64(clr.C.B),
-		float64(data[0]), float64(data[1]), float64(data[2]))
+		float64(data[2]), float64(data[1]), float64(data[0]))
 }
 
 func WhatColor(data gocv.Vecb) (string, Color) {
