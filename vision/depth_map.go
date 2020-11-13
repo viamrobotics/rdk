@@ -38,7 +38,7 @@ func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
 	total := 0.0
 	num := 0.0
 
-	for offset := 1; offset < 50 && num == 0; offset++ {
+	for offset := 1; offset < 100 && num == 0; offset++ {
 		startX := myMax(0, x-offset)
 		startY := myMax(0, y-offset)
 

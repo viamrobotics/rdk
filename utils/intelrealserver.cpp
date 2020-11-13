@@ -24,14 +24,12 @@ void cameraThread() {
     // Create a Pipeline - this serves as a top-level API for streaming and processing frames
     rs2::pipeline p;
     
-    // Configure and start the pipeline
-    auto profile = p.start();
-    auto sensor = profile.get_device().first<rs2::depth_sensor>();
+    rs2::config cfg;
+    cfg.enable_stream(RS2_STREAM_DEPTH);
+    cfg.enable_stream(RS2_STREAM_COLOR);
+    auto profile = p.start(cfg);
 
-    // Set the device to High Accuracy preset of the D400 stereoscopic cameras
-    if (sensor && sensor.is<rs2::depth_stereo_sensor>()) {
-        sensor.set_option(RS2_OPTION_VISUAL_PRESET, RS2_RS400_VISUAL_PRESET_HIGH_ACCURACY);
-    }
+    auto sensor = profile.get_device().first<rs2::depth_sensor>();
 
     rs2::align align_to_color(RS2_STREAM_COLOR);
     
@@ -39,7 +37,6 @@ void cameraThread() {
     
     while (true) {
         std::shared_ptr<CameraOutput> output(new CameraOutput());
-        
         // get next set of frames
         rs2::frameset frames = p.wait_for_frames();
 

@@ -18,6 +18,7 @@ import (
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
 type pos struct {
@@ -34,7 +35,7 @@ var (
 	wantPicture = int32(0)
 )
 
-var grossGlobalDepth gocv.Mat
+var grossBoard *chess.Board
 
 func getCoord(chess string) pos {
 	var x = float64(chess[0] - 'A')
@@ -79,7 +80,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 		return err
 	}
 
-	height := vision.GetChessPieceHeight(from, grossGlobalDepth)
+	height := grossBoard.PieceHeight(from)
 	where := myArm.State.CartesianInfo
 	where.Z = BoardHeight + (height / 1000) + .005
 	myArm.MoveToPositionC(where)
@@ -307,22 +308,16 @@ func main() {
 				panic(err)
 			}
 
-			corners, err := vision.FindChessCorners(img)
-			if err != nil {
-				panic(err)
-			}
-			warped, depth, err := vision.WarpColorAndDepthToChess(img, depth, corners)
-			// TODO: close these
+			theBoard, err := chess.FindAndWarpBoard(img, depth)
 			if err != nil {
 				panic(err)
 			}
 
-			// add colors
-			vision.AnnotateBoard(warped, depth)
+			annotated := theBoard.Annotate()
 
-			grossGlobalDepth = depth
+			grossBoard = theBoard
 
-			pcs[1], err = matToFyne(warped)
+			pcs[1], err = matToFyne(annotated)
 			if err != nil {
 				panic(err)
 			}
@@ -351,14 +346,11 @@ func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
 
 	time.Sleep(time.Millisecond * 2000)
 
-	fmt.Printf("   pieces: %v\n", vision.GetSquaresWithPieces(grossGlobalDepth))
-	fmt.Printf("no pieces: %v\n", vision.GetSquaresWithNoPieces(grossGlobalDepth))
-
 	if true {
 		return
 	}
 
-	if vision.HasPiece("B1", grossGlobalDepth) {
+	if grossBoard.HasPiece("B1") {
 		err = movePiece(myArm, myGripper, "B1", "C3")
 	} else {
 		err = movePiece(myArm, myGripper, "C3", "B1")
@@ -368,7 +360,7 @@ func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
 		panic(err)
 	}
 
-	if vision.HasPiece("E1", grossGlobalDepth) {
+	if grossBoard.HasPiece("E1") {
 		err = movePiece(myArm, myGripper, "E1", "E3")
 	} else {
 		err = movePiece(myArm, myGripper, "E3", "E1")

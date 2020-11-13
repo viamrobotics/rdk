@@ -75,6 +75,12 @@ var (
 		vision.Color{color.RGBA{233, 108, 130, 0}, "brownPink", "pink"},
 		vision.Color{color.RGBA{190, 104, 162, 0}, "brownPink", "pink"},
 		vision.Color{color.RGBA{167, 74, 107, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{191, 81, 95, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{201, 83, 97, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{211, 94, 106, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{167, 68, 90, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{179, 71, 90, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{202, 83, 94, 0}, "brownPink", "pink"},
 	}
 )
 
@@ -116,9 +122,10 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 	}
 
 	//fmt.Printf("\t\t %d, %d arclength: %f\n", best[0].X, best[0].Y, longest)
+	// walk up into the corner
 	myCenter := center(best)
 
-	for i := 0; i < 5; i++ { // move at most 10 for sanity
+	for i := 0; i < 5; i++ { // move only a little for sanity
 		data := out.GetVecbAt(myCenter.Y, myCenter.X)
 		blackDistance := vision.ColorDistance(data, vision.Black)
 		if blackDistance > 2 {
@@ -128,10 +135,31 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 		myCenter.Y = myCenter.Y + ((yQ * 2) - 1)
 	}
 
-	gocv.DrawContours(out, cnts, bestIdx, vision.Green.C, 1)
+	gocv.DrawContours(out, cnts, bestIdx, vision.Blue.C, 1)
 	gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
 
 	return myCenter
+}
+
+func _avgColor(img gocv.Mat, x, y int) gocv.Vecb {
+	b := 0
+	g := 0
+	r := 0
+
+	num := 0
+
+	for X := x - 1; X < x+1; X++ {
+		for Y := y - 1; Y < y+1; Y++ {
+			data := img.GetVecbAt(Y, X)
+			b += int(data[0])
+			g += int(data[1])
+			r += int(data[2])
+			num++
+		}
+	}
+
+	done := gocv.Vecb{uint8(b / num), uint8(g / num), uint8(r / num)}
+	return done
 }
 
 func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
@@ -142,9 +170,10 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 	img.CopyTo(out)
 
-	for x := 0; x <= img.Cols(); x++ {
-		for y := 0; y <= img.Rows(); y++ {
-			data := img.GetVecbAt(y, x)
+	for x := 1; x < img.Cols(); x++ {
+		for y := 1; y < img.Rows(); y++ {
+			//data := img.GetVecbAt(y, x)
+			data := _avgColor(img, x, y)
 			p := image.Point{x, y}
 
 			d := myPinkDistance(data)
