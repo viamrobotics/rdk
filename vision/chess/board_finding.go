@@ -64,27 +64,45 @@ func processFindCornersBad(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
 
 var (
 	myPinks = []vision.Color{
-		vision.Color{color.RGBA{178, 97, 117, 0}, "deepPink", "pink"},
-		vision.Color{color.RGBA{184, 102, 126, 0}, "deepPink", "pink"},
-		vision.Color{color.RGBA{202, 105, 134, 0}, "deepPink", "pink"},
-		vision.Color{color.RGBA{192, 93, 118, 0}, "deepPink", "pink"},
-		vision.Color{color.RGBA{209, 129, 150, 0}, "deepPink", "pink"},
-		vision.Color{color.RGBA{128, 72, 50, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{136, 64, 37, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{219, 103, 169, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{233, 108, 130, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{190, 104, 162, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{167, 74, 107, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{191, 81, 95, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{201, 83, 97, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{211, 94, 106, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{167, 68, 90, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{179, 71, 90, 0}, "brownPink", "pink"},
-		vision.Color{color.RGBA{202, 83, 94, 0}, "brownPink", "pink"},
+		vision.Color{color.RGBA{208, 73, 99, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{223, 79, 101, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{195, 78, 109, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{198, 65, 106, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{192, 57, 83, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{183, 68, 107, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{171, 61, 100, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{156, 65, 102, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{221, 68, 93, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{205, 63, 87, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{220, 108, 119, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{205, 101, 103, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{172, 90, 112, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{164, 48, 81, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{149, 47, 85, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{142, 45, 120, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{139, 37, 75, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{203, 108, 142, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{196, 97, 139, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{173, 96, 140, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{161, 112, 144, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{140, 82, 108, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{126, 71, 107, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{221, 105, 164, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{223, 117, 159, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{232, 127, 154, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{234, 109, 153, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{201, 148, 184, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{237, 158, 174, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{191, 121, 171, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{179, 145, 183, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{180, 128, 179, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{167, 125, 164, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{217, 144, 163, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{181, 124, 133, 0}, "myPink", "pink"},
 	}
 )
 
-func myPinkDistance(data gocv.Vecb) float64 {
+func MyPinkDistance(data gocv.Vecb) float64 {
 	d := 10000000000.0
 	for _, c := range myPinks {
 		temp := vision.ColorDistance(data, c)
@@ -176,7 +194,7 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 			data := _avgColor(img, x, y)
 			p := image.Point{x, y}
 
-			d := myPinkDistance(data)
+			d := MyPinkDistance(data)
 
 			if d < 40 {
 				gocv.Circle(out, p, 1, vision.Green.C, 1)
