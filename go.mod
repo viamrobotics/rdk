@@ -12,6 +12,7 @@ require (
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
 	github.com/stretchr/testify v1.6.1
+	go.mongodb.org/mongo-driver v1.4.3
 	gocv.io/x/gocv v0.24.0
 	golang.org/x/image v0.0.0-20200927104501-e162460cd6b5 // indirect
 	golang.org/x/net v0.0.0-20201002202402-0a1ea396d57c // indirect
