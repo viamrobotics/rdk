@@ -75,12 +75,25 @@ func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 	return math.Sqrt(diff)
 }
 
+func ToColor(data gocv.Vecb) color.RGBA {
+	return color.RGBA{data[2], data[1], data[0], 0}
+}
+
 func ColorDistance(data gocv.Vecb, clr Color) float64 {
 	if len(data) < 3 {
 		panic("not enough colors")
 	}
 	return colorDistanceRaw(
 		float64(clr.C.R), float64(clr.C.G), float64(clr.C.B),
+		float64(data[2]), float64(data[1]), float64(data[0]))
+}
+
+func ColorDistanceRGBA(data gocv.Vecb, clr color.RGBA) float64 {
+	if len(data) < 3 {
+		panic("not enough colors")
+	}
+	return colorDistanceRaw(
+		float64(clr.R), float64(clr.G), float64(clr.B),
 		float64(data[2]), float64(data[1]), float64(data[0]))
 }
 
