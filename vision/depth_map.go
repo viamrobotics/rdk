@@ -38,7 +38,7 @@ func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
 	total := 0.0
 	num := 0.0
 
-	for offset := 1; offset < 100 && num == 0; offset++ {
+	for offset := 1; offset < 1000 && num == 0; offset++ {
 		startX := myMax(0, x-offset)
 		startY := myMax(0, y-offset)
 
@@ -55,7 +55,7 @@ func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
 	}
 
 	if num == 0 {
-		panic(fmt.Errorf("wtf - entire area is 0 %d %d", x, y))
+		return 0
 	}
 
 	return int(total / num)

@@ -82,7 +82,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 
 	height := grossBoard.PieceHeight(from)
 	where := myArm.State.CartesianInfo
-	where.Z = BoardHeight + (height / 1000) + .005
+	where.Z = BoardHeight + (height / 1000) + .001
 	myArm.MoveToPositionC(where)
 
 	// grab piece
@@ -350,21 +350,10 @@ func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
 		return
 	}
 
-	if grossBoard.HasPiece("B1") {
-		err = movePiece(myArm, myGripper, "B1", "C3")
-	} else {
-		err = movePiece(myArm, myGripper, "C3", "B1")
-	}
-
-	if err != nil {
-		panic(err)
-	}
-
-	if grossBoard.HasPiece("E1") {
-		err = movePiece(myArm, myGripper, "E1", "E3")
-	} else {
-		err = movePiece(myArm, myGripper, "E3", "E1")
-	}
+	err = movePiece(myArm, myGripper, "E2", "E4")
+	err = movePiece(myArm, myGripper, "E7", "E5")
+	err = movePiece(myArm, myGripper, "G1", "F3")
+	err = movePiece(myArm, myGripper, "B8", "C6")
 
 	if err != nil {
 		panic(err)
