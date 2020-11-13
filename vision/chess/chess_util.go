@@ -1,6 +1,7 @@
 package chess
 
 import (
+	"fmt"
 	"image"
 
 	"gocv.io/x/gocv"
@@ -48,7 +49,10 @@ func findChessCorners(img gocv.Mat, debugOut *gocv.Mat) ([]image.Point, error) {
 }
 
 func getMinChessCorner(chess string) image.Point {
-	var x = int(chess[0]-'A') * 100
-	var y = 100 * (7 - int(chess[1]-'1'))
-	return image.Point{x, y}
+	var x = int(chess[0] - 'A')
+	var y = (7 - int(chess[1]-'1'))
+	if x < 0 || x > 7 || y < 0 || y > 7 {
+		panic(fmt.Errorf("bad chess position %s %d %d", chess, x, y))
+	}
+	return image.Point{x * 100, y * 100}
 }
