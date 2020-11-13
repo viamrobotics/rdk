@@ -140,15 +140,11 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 		return nil, fmt.Errorf("processFindCornersBad needs an out")
 	}
 
-	temp := gocv.NewMat()
-	defer temp.Close()
-	gocv.CvtColor(img, &temp, gocv.ColorBGRToRGBA)
-
 	img.CopyTo(out)
 
 	for x := 0; x <= img.Cols(); x++ {
 		for y := 0; y <= img.Rows(); y++ {
-			data := temp.GetVecbAt(y, x)
+			data := img.GetVecbAt(y, x)
 			p := image.Point{x, y}
 
 			d := myPinkDistance(data)
