@@ -29,7 +29,21 @@ func myMax(a, b int) int {
 	return b
 }
 
-func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
+func (dm *DepthMap) smooth() {
+	centerX := dm.width / 2
+	centerY := dm.height / 2
+	for radius := 0; radius <= myMax(dm.width, dm.height); radius++ {
+		dm._getDepthOrEstimate(centerX+radius, centerY+radius)
+		dm._getDepthOrEstimate(centerX+radius, centerY-radius)
+		dm._getDepthOrEstimate(centerX-radius, centerY+radius)
+		dm._getDepthOrEstimate(centerX-radius, centerY-radius)
+	}
+}
+
+func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
+	if x < 0 || y < 0 || x >= dm.width || y >= dm.height {
+		return 0
+	}
 	z := dm.data[x][y]
 	if z > 0 {
 		return z
@@ -38,7 +52,8 @@ func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
 	total := 0.0
 	num := 0.0
 
-	for offset := 1; offset < 1000 && num == 0; offset++ {
+	offset := 0
+	for offset = 1; offset < 1000 && num == 0; offset++ {
 		startX := myMax(0, x-offset)
 		startY := myMax(0, y-offset)
 
@@ -58,14 +73,15 @@ func (dm *DepthMap) GetDepthOrEstimate(x, y int) int {
 		return 0
 	}
 
-	return int(total / num)
+	dm.data[x][y] = int(total / num)
+	return dm.data[x][y]
 }
 
 func (dm *DepthMap) ToMat() gocv.Mat {
 	m := gocv.NewMatWithSize(dm.height, dm.width, gocv.MatTypeCV64F)
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
-			z := dm.GetDepthOrEstimate(x, y)
+			z := dm._getDepthOrEstimate(x, y)
 			m.SetDoubleAt(y, x, float64(z))
 		}
 	}
@@ -126,6 +142,8 @@ func ReadDepthMap(f io.Reader) (DepthMap, error) {
 			}
 		}
 	}
+
+	dm.smooth()
 
 	return dm, nil
 }
