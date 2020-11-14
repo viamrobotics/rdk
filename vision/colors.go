@@ -68,9 +68,9 @@ func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 
 	r_line := (r1 + r2) / 2
 
-	diff := (2 + (r_line / 256)) * math.Pow(r2-r1, 2)
-	diff += 4 * math.Pow(g2-g1, 2)
-	diff += (2 + ((255 - r_line) / 256)) * math.Pow(b2-b1, 2)
+	diff := (2 + (r_line / 256)) * (r2 - r1) * (r2 - r1)
+	diff += 4 * (g2 - g1) * (g2 - g1)
+	diff += (2 + ((255 - r_line) / 256)) * (b2 - b1) * (b2 - b1)
 
 	return math.Sqrt(diff)
 }
