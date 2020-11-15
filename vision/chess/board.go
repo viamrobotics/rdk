@@ -18,6 +18,16 @@ type Board struct {
 	depth gocv.Mat
 }
 
+func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
+	img := gocv.IMRead(colorFN, gocv.IMReadUnchanged)
+	dm, err := vision.ParseDepthMap(depthFN)
+	if err != nil {
+		return nil, err
+	}
+
+	return FindAndWarpBoard(img, dm.ToMat())
+}
+
 func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
 	corners, err := findChessCorners(color, nil)
 	if err != nil {
