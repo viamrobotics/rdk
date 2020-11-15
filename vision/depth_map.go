@@ -32,12 +32,10 @@ func myMax(a, b int) int {
 func (dm *DepthMap) smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
-	for radius := 0; radius <= myMax(dm.width, dm.height); radius++ {
-		dm._getDepthOrEstimate(centerX+radius, centerY+radius)
-		dm._getDepthOrEstimate(centerX+radius, centerY-radius)
-		dm._getDepthOrEstimate(centerX-radius, centerY+radius)
-		dm._getDepthOrEstimate(centerX-radius, centerY-radius)
-	}
+	Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
+		dm._getDepthOrEstimate(x, y)
+		return nil
+	})
 }
 
 func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
