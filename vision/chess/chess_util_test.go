@@ -10,20 +10,20 @@ import (
 )
 
 func TestGetMinChessCorner(t *testing.T) {
-	x := getMinChessCorner("A8")
+	x := getMinChessCorner("a8")
 	if x.X != 0 {
-		t.Errorf("x is wrong for A8")
+		t.Errorf("x is wrong for a8")
 	}
 	if x.Y != 0 {
-		t.Errorf("y is wrong for A8")
+		t.Errorf("y is wrong for a8")
 	}
 
-	x = getMinChessCorner("H1")
+	x = getMinChessCorner("h1")
 	if x.X != 700 {
-		t.Errorf("x is wrong for H1")
+		t.Errorf("x is wrong for h1")
 	}
 	if x.Y != 700 {
-		t.Errorf("y is wrong for H1")
+		t.Errorf("y is wrong for h1")
 	}
 
 }
@@ -54,19 +54,19 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 
 	theBoard := Board{a, b}
 
-	x := theBoard.PieceHeight("B1")
+	x := theBoard.PieceHeight("b1")
 	if x < 40 || x > 58 {
-		t.Errorf("height for B1 is wrong %f", x)
+		t.Errorf("height for b1 is wrong %f", x)
 	}
 
-	x = theBoard.PieceHeight("E1")
+	x = theBoard.PieceHeight("e1")
 	if x < 70 || x > 100 {
-		t.Errorf("height for E1 is wrong %f", x)
+		t.Errorf("height for e1 is wrong %f", x)
 	}
 
-	x = theBoard.PieceHeight("C1")
+	x = theBoard.PieceHeight("c1")
 	if x < 50 || x > 71 {
-		t.Errorf("height for C1 is wrong %f", x)
+		t.Errorf("height for c1 is wrong %f", x)
 	}
 
 	annotated := theBoard.Annotate()
@@ -99,19 +99,19 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 
 	theBoard := Board{a, b}
 
-	x := theBoard.PieceHeight("B1")
+	x := theBoard.PieceHeight("b1")
 	if x < 45 || x > 58 {
-		t.Errorf("height for B1 is wrong %f", x)
+		t.Errorf("height for b1 is wrong %f", x)
 	}
 
-	x = theBoard.PieceHeight("E1")
+	x = theBoard.PieceHeight("e1")
 	if x < 72 || x > 100 {
-		t.Errorf("height for E1 is wrong %f", x)
+		t.Errorf("height for e1 is wrong %f", x)
 	}
 
-	x = theBoard.PieceHeight("C1")
+	x = theBoard.PieceHeight("c1")
 	if x < 50 || x > 71 {
-		t.Errorf("height for C1 is wrong %f", x)
+		t.Errorf("height for c1 is wrong %f", x)
 	}
 
 	annotated := theBoard.Annotate()
