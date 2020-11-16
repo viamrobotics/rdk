@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image"
 	"log"
 	"math"
 	"sync/atomic"
@@ -14,6 +15,13 @@ import (
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/widget"
+
+	//"github.com/tonyOreglia/glee/pkg/generate"
+	"github.com/tonyOreglia/glee/pkg/engine"
+	"github.com/tonyOreglia/glee/pkg/moves"
+	"github.com/tonyOreglia/glee/pkg/position"
+
+	"github.com/Ernyoke/Imger/resize"
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
@@ -38,7 +46,7 @@ var (
 var grossBoard *chess.Board
 
 func getCoord(chess string) pos {
-	var x = float64(chess[0] - 'A')
+	var x = float64(chess[0] - 'a')
 	var y = float64(chess[1] - '1')
 
 	if x < 0 || x > 7 || y < 0 || y > 7 {
@@ -140,13 +148,13 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func initArm(myArm *arm.URArm) error {
+func initArm(myArm *arm.URArm, myGripper *gripper.Gripper) error {
 	// temp init, what to do?
 	rx := -math.Pi
 	ry := 0.0
 	rz := 0.0
 
-	foo := getCoord("D4")
+	foo := getCoord("d4")
 	err := myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
 	if err != nil {
 		return err
@@ -161,9 +169,56 @@ func matToFyne(img gocv.Mat) (*canvas.Image, error) {
 		return nil, err
 	}
 
+	i, err = resize.ResizeRGBA(i.(*image.RGBA), .6, .6, resize.InterNearest)
+	if err != nil {
+		return nil, err
+	}
+
 	i2 := canvas.NewImageFromImage(i)
-	i2.SetMinSize(fyne.Size{img.Cols(), img.Rows()})
+	bounds := i.Bounds()
+	i2.SetMinSize(fyne.Size{bounds.Max.X, bounds.Max.Y})
 	return i2, nil
+}
+
+func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
+	//mvs := generate.GenerateMoves(p)
+	perft := 0
+	singlePlyPerft := 0
+	params := engine.SearchParams{
+		Depth:          5,
+		Ply:            5,
+		Pos:            &p,
+		Perft:          &perft,
+		SinglePlyPerft: &singlePlyPerft,
+		EngineMove:     &moves.Move{},
+	}
+	if p.IsWhitesTurn() {
+		engine.AlphaBetaMax(-10000, 10000, 5, params)
+	} else {
+		engine.AlphaBetaMin(-10000, 10000, 5, params)
+	}
+	return p, params.EngineMove
+}
+
+func testChessEngine() {
+	p := position.StartingPosition()
+	p.Print()
+
+	from, _ := moves.ConvertAlgebriacToIndex("e2")
+	to, _ := moves.ConvertAlgebriacToIndex("e4")
+	m := moves.NewMove([]int{from, to})
+	//p.MakeMoveAlgebraic("e2","e4")
+	if !engine.MakeValidMove(*m, &p) {
+		fmt.Println("CHEATER")
+	}
+	p.Print()
+
+	p, m = searchForNextMove(p)
+
+	fmt.Printf("%v\n", m)
+	p.Print()
+
+	panic(1)
 }
 
 func main() {
@@ -179,12 +234,12 @@ func main() {
 		panic(err)
 	}
 
-	err = initArm(myArm)
+	myGripper, err := gripper.NewGripper(robotIp)
 	if err != nil {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper(robotIp)
+	err = initArm(myArm, myGripper)
 	if err != nil {
 		panic(err)
 	}
@@ -215,84 +270,7 @@ func main() {
 		}
 	}()
 
-	nextChessPos := ""
-
-	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
-		c := myArm.State.CartesianInfo
-		pre := c.SimpleString()
-
-		if len(nextChessPos) > 0 {
-			nextChessPos = nextChessPos + string(k.Name)
-			fmt.Printf("nextChessPos [%s]\n", nextChessPos)
-			if string(k.Name) == "X" {
-				nextChessPos = ""
-			} else if nextChessPos[0] == '-' && len(nextChessPos) == 3 {
-				moveTo(myArm, nextChessPos[1:], 0)
-				nextChessPos = ""
-			} else if nextChessPos[0] == 'M' && len(nextChessPos) == 5 {
-				movePiece(myArm, myGripper, nextChessPos[1:3], nextChessPos[3:])
-				nextChessPos = ""
-			}
-
-			return
-		}
-
-		changed := true
-		switch k.Name {
-		case "Up":
-			c.Y += .01
-		case "Down":
-			c.Y -= .01
-		case "Left":
-			c.X -= .01
-		case "Right":
-			c.X += .01
-		case "U":
-			c.Z += .01
-		case "D":
-			c.Z -= .01
-		case ".":
-			myArm.JointMoveDelta(5, .05)
-			changed = false
-		case ",":
-			myArm.JointMoveDelta(5, -.05)
-			changed = false
-		case "P":
-			// take a picture
-			atomic.StoreInt32(&wantPicture, 1)
-			changed = false
-
-		case "O":
-			_, err := myGripper.Open()
-			if err != nil {
-				panic(err)
-			}
-			changed = false
-		case "C":
-			_, err := myGripper.Close()
-			if err != nil {
-				panic(err)
-			}
-			changed = false
-
-		case "Q":
-			w.Close()
-
-		case "/":
-			nextChessPos = "-"
-			return
-		case "M":
-			nextChessPos = "M"
-			return
-		default:
-			log.Printf("unknown: %s\n", k.Name)
-			changed = false
-		}
-		if changed {
-			log.Printf("moving\n-%s\n-%s\n", pre, c.SimpleString())
-			myArm.MoveToPositionC(c)
-		}
-	})
+	boardState := boardStateGuesser{}
 
 	go func() {
 		for {
@@ -313,6 +291,10 @@ func main() {
 				panic(err)
 			}
 
+			if boardState.newData(theBoard) {
+				wantPicture = 1
+			}
+
 			annotated := theBoard.Annotate()
 
 			grossBoard = theBoard
@@ -325,38 +307,23 @@ func main() {
 			w.SetContent(widget.NewHBox(pcs...))
 
 			if atomic.LoadInt32(&wantPicture) != 0 {
-				fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
+				tm := time.Now().Unix()
+
+				fn := fmt.Sprintf("data/board-%d.png", tm)
 				log.Printf("saving image %s\n", fn)
 				gocv.IMWrite(fn, img)
+
+				fn = fmt.Sprintf("data/board-%d.dat", tm)
+				foo := vision.NewDepthMapFromMat(depth)
+				err = foo.WriteToFile(fn)
+				if err != nil {
+					panic(err)
+				}
+
 				atomic.StoreInt32(&wantPicture, 0)
 			}
 		}
 	}()
 
-	go eliotTest(myArm, myGripper)
-
 	w.ShowAndRun()
-}
-
-func eliotTest(myArm *arm.URArm, myGripper *gripper.Gripper) {
-	err := moveOutOfWay(myArm)
-	if err != nil {
-		panic(err)
-	}
-
-	time.Sleep(time.Millisecond * 2000)
-
-	if true {
-		return
-	}
-
-	err = movePiece(myArm, myGripper, "E2", "E4")
-	err = movePiece(myArm, myGripper, "E7", "E5")
-	err = movePiece(myArm, myGripper, "G1", "F3")
-	err = movePiece(myArm, myGripper, "B8", "C6")
-
-	if err != nil {
-		panic(err)
-	}
-
 }
