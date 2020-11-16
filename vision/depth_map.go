@@ -145,3 +145,64 @@ func ReadDepthMap(f io.Reader) (DepthMap, error) {
 
 	return dm, nil
 }
+
+func NewDepthMapFromMat(mat gocv.Mat) DepthMap {
+	dm := DepthMap{}
+
+	dm.width = mat.Cols()
+	dm.height = mat.Rows()
+
+	dm.data = make([][]int, dm.width)
+
+	for x := 0; x < dm.width; x++ {
+		dm.data[x] = make([]int, dm.height)
+		for y := 0; y < dm.height; y++ {
+			dm.data[x][y] = int(mat.GetDoubleAt(y, x))
+		}
+	}
+
+	return dm
+}
+
+func (dm *DepthMap) WriteToFile(fn string) error {
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = dm.WriteTo(f)
+	if err != nil {
+		return err
+	}
+	f.Sync()
+	return nil
+}
+
+func (dm *DepthMap) WriteTo(out io.Writer) error {
+	buf := make([]byte, 8)
+
+	binary.LittleEndian.PutUint64(buf, uint64(dm.width))
+	_, err := out.Write(buf)
+	if err != nil {
+		return err
+	}
+
+	binary.LittleEndian.PutUint64(buf, uint64(dm.height))
+	_, err = out.Write(buf)
+	if err != nil {
+		return err
+	}
+
+	for x := 0; x < dm.width; x++ {
+		for y := 0; y < dm.height; y++ {
+			binary.LittleEndian.PutUint64(buf, uint64(dm.data[x][y]))
+			_, err = out.Write(buf)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
