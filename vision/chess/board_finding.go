@@ -99,6 +99,13 @@ var (
 		vision.Color{color.RGBA{167, 125, 164, 0}, "myPink", "pink"},
 		vision.Color{color.RGBA{217, 144, 163, 0}, "myPink", "pink"},
 		vision.Color{color.RGBA{181, 124, 133, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{177, 75, 134, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{163, 69, 132, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{201, 132, 147, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{163, 69, 132, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{154, 80, 136, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{125, 81, 211, 0}, "myPink", "pink"},
+		vision.Color{color.RGBA{210, 85, 127, 0}, "myPink", "pink"},
 	}
 )
 
@@ -137,6 +144,7 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 			best = c
 			bestIdx = idx
 		}
+
 	}
 
 	//fmt.Printf("\t\t %d, %d arclength: %f\n", best[0].X, best[0].Y, longest)
@@ -206,6 +214,8 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 	img.CopyTo(out)
 
+	redLittleCircles := []image.Point{}
+
 	for x := 1; x < img.Cols(); x++ {
 		for y := 1; y < img.Rows(); y++ {
 			//data := img.GetVecbAt(y, x)
@@ -221,25 +231,31 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 			}
 
 			if false {
-				if y == 40 && x > 130 && x < 160 {
+				if y == 157 && x > 310 && x < 340 {
 					fmt.Printf("  --  %d %d %v %f\n", x, y, data, d)
-					gocv.Circle(out, p, 1, vision.Red.C, 1)
+					redLittleCircles = append(redLittleCircles, p)
 				}
 			}
 
 		}
 	}
 
+	gocv.GaussianBlur(*out, out, image.Point{3, 3}, 30, 50, 4)
+
 	edges := gocv.NewMat()
 	defer edges.Close()
-	gocv.Canny(*out, &edges, 30, 200)
+	gocv.Canny(*out, &edges, 20, 500)
 
-	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxSimple)
+	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxTC89KCOS) //ChainApproxSimple)
 
 	a1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
 	a8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
 	h1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 1)
 	h8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 1)
+
+	for _, p := range redLittleCircles {
+		gocv.Circle(out, p, 1, vision.Red.C, 1)
+	}
 
 	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
 }
