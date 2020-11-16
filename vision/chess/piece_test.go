@@ -26,8 +26,7 @@ func TestPiece1(t *testing.T) {
 	fmt.Println(theBoard.Piece(theClassifier, "E7"))
 }
 
-/*
-func TestPieceWalk(t *testing.T) {
+func _TestPieceWalk(t *testing.T) {
 	theBoard, err := FindAndWarpBoardFromFiles("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
@@ -46,23 +45,23 @@ func TestPieceWalk(t *testing.T) {
 
 	markers := []image.Point{}
 
-	n  := 0
-	err = vision.Walk(middle.X, middle.Y, 1000, func (x, y int) error {
+	n := 0
+	err = vision.Walk(middle.X, middle.Y, 1000, func(x, y int) error {
 		if x < 0 || y < 0 || x >= 800 || y >= 800 {
 			return nil
 		}
-		if x % 3 != 0 || y % 3 != 0 {
+		if x%3 != 0 || y%3 != 0 {
 			return nil
 		}
 		n = n + 1
-		if n % 1000 == 0 {
+		if n%1000 == 0 {
 			fmt.Printf("%d %d\n", n, len(markers))
 		}
 		//data := img.GetVecbAt(y, x)
 		data := _avgColor(img, x, y)
 		t := PieceFromColor(theClassifier, data)
 		if t == "white" {
-			markers = append(markers, image.Point{x,y})
+			markers = append(markers, image.Point{x, y})
 		}
 		return nil
 	})
@@ -74,7 +73,5 @@ func TestPieceWalk(t *testing.T) {
 		gocv.Circle(&img, p, 1, vision.Green.C, 1)
 	}
 
-
 	gocv.IMWrite("foo.png", img)
 }
-*/
