@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gocv.io/x/gocv"
 
 	"github.com/tonyOreglia/glee/pkg/position"
 
@@ -47,9 +50,12 @@ func TestInit(t *testing.T) {
 	}
 
 	p := position.StartingPosition()
-	m := state.GetPrevMove(p)
+	m, err := state.GetPrevMove(p)
 	if m != nil {
 		t.Errorf("why is there a move!!!")
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -61,7 +67,7 @@ func TestOneMove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, fn := range fns {
+	for idx, fn := range fns {
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)
@@ -70,6 +76,10 @@ func TestOneMove(t *testing.T) {
 		}
 
 		state.newData(board)
+
+		temp := board.Annotate()
+		fmt.Println(fn)
+		gocv.IMWrite(fmt.Sprintf("%d.png", idx), temp)
 	}
 
 	val := state.GetBitBoard().Value()
@@ -78,9 +88,12 @@ func TestOneMove(t *testing.T) {
 	}
 
 	p := position.StartingPosition()
-	m := state.GetPrevMove(p)
+	m, err := state.GetPrevMove(p)
 	if m == nil {
 		t.Errorf("why is there not a move!!!")
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 	if m.String() != "e2e4" {
 		t.Errorf("move is wrong: %s", m.String())

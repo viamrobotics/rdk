@@ -271,6 +271,10 @@ func main() {
 	}()
 
 	boardState := boardStateGuesser{}
+	currentPosition := position.StartingPosition()
+
+	numImagesGot := 0
+	initialPositionOk := false
 
 	go func() {
 		for {
@@ -291,8 +295,52 @@ func main() {
 				panic(err)
 			}
 
-			if boardState.newData(theBoard) {
-				wantPicture = 1
+			if theBoard.IsBoardBlocked() {
+				fmt.Println("board blocked")
+				boardState.Clear()
+			} else {
+				numImagesGot++
+				if boardState.newData(theBoard) {
+					wantPicture = 1
+				}
+
+				if boardState.Ready() {
+					if !initialPositionOk {
+						if currentPosition.AllOccupiedSqsBb().Value() != boardState.GetBitBoard().Value() {
+							fmt.Printf("not in initial chess piece setup\n")
+							boardState.GetBitBoard().Print()
+						} else {
+							initialPositionOk = true
+							fmt.Printf("GOT initial chess piece setup\n")
+						}
+					} else {
+						// so we've already made sure we're safe, let's see if a move was made
+						m, err := boardState.GetPrevMove(currentPosition)
+						if err != nil {
+							// trouble reading board, let's reset
+							fmt.Println("got inconsistency reading board, let's try again")
+							boardState.Clear()
+						} else if m != nil {
+							fmt.Printf("we detected a move: %s\n", m)
+
+							if !engine.MakeValidMove(*m, &currentPosition) {
+								panic("invalid move!")
+							}
+
+							currentPosition, m = searchForNextMove(currentPosition)
+							fmt.Printf("computer will make move: %s\n", m)
+							err = movePiece(myArm, myGripper, m.String()[0:2], m.String()[2:])
+							if err != nil {
+								panic(err)
+							}
+							if !engine.MakeValidMove(*m, &currentPosition) {
+								panic("Wtf")
+							}
+							currentPosition.Print()
+							boardState.Clear()
+						}
+					}
+				}
 			}
 
 			annotated := theBoard.Annotate()

@@ -27,12 +27,17 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
 
 	prev := state.boards[len(state.boards)-2].GetSquaresWithPieces()
 	now := state.boards[len(state.boards)-1].GetSquaresWithPieces()
+	fmt.Println(now)
 
 	return len(prev) != len(now)
 }
 
 func (state *boardStateGuesser) Ready() bool {
 	return len(state.boards) >= 6
+}
+
+func (state *boardStateGuesser) Clear() {
+	state.boards = []*chess.Board{}
 }
 
 func (state *boardStateGuesser) GetSquaresWithPieces() map[string]bool {
@@ -45,7 +50,7 @@ func (state *boardStateGuesser) GetSquaresWithPieces() map[string]bool {
 		}
 	}
 
-	threshold := int(float64(len(state.boards)) * .5)
+	threshold := int(float64(len(state.boards)) * .7)
 	squares := map[string]bool{}
 
 	for square, count := range counts {
@@ -72,11 +77,11 @@ func (state *boardStateGuesser) GetBitBoard() *bitboard.Bitboard {
 	return bb
 }
 
-func (state *boardStateGuesser) GetPrevMove(prev *position.Position) *moves.Move {
+func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Move, error) {
 	prevSqs := prev.AllOccupiedSqsBb()
 	nowSqs := state.GetBitBoard()
 	if prevSqs.Value() == nowSqs.Value() {
-		return nil
+		return nil, nil
 	}
 
 	temp := bitboard.NewBitboard(prevSqs.Value() ^ nowSqs.Value())
@@ -85,7 +90,7 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) *moves.Move
 		prevSqs.Print()
 		nowSqs.Print()
 		temp.Print()
-		panic(fmt.Errorf("pop count sad %d", temp.PopulationCount()))
+		return nil, fmt.Errorf("pop count sad %d", temp.PopulationCount())
 	}
 
 	fromBoard := bitboard.NewBitboard(prevSqs.Value() & temp.Value())
@@ -99,5 +104,5 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) *moves.Move
 	to := toBoard.Lsb()
 
 	m := moves.NewMove([]int{from, to})
-	return m
+	return m, nil
 }
