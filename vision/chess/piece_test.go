@@ -21,9 +21,9 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Println(theBoard.Piece(theClassifier, "E1"))
-	fmt.Println(theBoard.Piece(theClassifier, "E3"))
-	fmt.Println(theBoard.Piece(theClassifier, "E7"))
+	fmt.Println(theBoard.Piece(theClassifier, "e1"))
+	fmt.Println(theBoard.Piece(theClassifier, "e3"))
+	fmt.Println(theBoard.Piece(theClassifier, "e7"))
 }
 
 func _TestPieceWalk(t *testing.T) {
@@ -40,7 +40,7 @@ func _TestPieceWalk(t *testing.T) {
 	img := gocv.NewMat()
 	theBoard.color.CopyTo(&img)
 
-	corner := getMinChessCorner("E1")
+	corner := getMinChessCorner("e1")
 	middle := image.Point{corner.X + 50, corner.Y + 50}
 
 	markers := []image.Point{}
