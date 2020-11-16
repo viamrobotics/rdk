@@ -137,7 +137,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 }
 
 func moveOutOfWay(myArm *arm.URArm) error {
-	foo := getCoord("A4")
+	foo := getCoord("a4")
 	foo.x -= .2
 	foo.y -= .2
 

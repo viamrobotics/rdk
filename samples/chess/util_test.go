@@ -10,7 +10,7 @@ import (
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
-func Test1(t *testing.T) {
+func TestInit(t *testing.T) {
 	state := boardStateGuesser{}
 
 	fns, err := filepath.Glob("data/init/board-*.png")
@@ -51,4 +51,39 @@ func Test1(t *testing.T) {
 	if m != nil {
 		t.Errorf("why is there a move!!!")
 	}
+}
+
+func TestOneMove(t *testing.T) {
+	state := boardStateGuesser{}
+
+	fns, err := filepath.Glob("data/e2e4/board-*.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, fn := range fns {
+		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
+
+		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		state.newData(board)
+	}
+
+	val := state.GetBitBoard().Value()
+	if val != 18441959067825012735 {
+		t.Errorf("TestOneMove initial value wrong %d", val)
+	}
+
+	p := position.StartingPosition()
+	m := state.GetPrevMove(p)
+	if m == nil {
+		t.Errorf("why is there not a move!!!")
+	}
+	if m.String() != "e2e4" {
+		t.Errorf("move is wrong: %s", m.String())
+	}
+
 }

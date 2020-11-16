@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/tonyOreglia/glee/pkg/bitboard"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
@@ -77,6 +79,25 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) *moves.Move
 		return nil
 	}
 
-	panic("save me!")
+	temp := bitboard.NewBitboard(prevSqs.Value() ^ nowSqs.Value())
+	temp.Print()
+	if temp.PopulationCount() != 2 {
+		prevSqs.Print()
+		nowSqs.Print()
+		temp.Print()
+		panic(fmt.Errorf("pop count sad %d", temp.PopulationCount()))
+	}
 
+	fromBoard := bitboard.NewBitboard(prevSqs.Value() & temp.Value())
+	toBoard := bitboard.NewBitboard(nowSqs.Value() & temp.Value())
+
+	if fromBoard.PopulationCount() != 1 || toBoard.PopulationCount() != 1 {
+		panic("eliot is dumb")
+	}
+
+	from := fromBoard.Lsb()
+	to := toBoard.Lsb()
+
+	m := moves.NewMove([]int{from, to})
+	return m
 }
