@@ -8,6 +8,8 @@ import (
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/evaluation"
 	"github.com/sjwhitworth/golearn/knn"
+
+	"gocv.io/x/gocv"
 )
 
 func (b *Board) Piece(theClassifier base.Classifier, square string) string {
@@ -16,6 +18,10 @@ func (b *Board) Piece(theClassifier base.Classifier, square string) string {
 	middle := image.Point{corner.X + 50, corner.Y + 50}
 
 	data := _avgColor(b.color, middle.X, middle.Y)
+	return PieceFromColor(theClassifier, data)
+}
+
+func PieceFromColor(theClassifier base.Classifier, data gocv.Vecb) string {
 	csvData := fmt.Sprintf("r,g,b,type\n"+
 		"0,0,0,white\n"+
 		"0,0,0,empty\n"+
