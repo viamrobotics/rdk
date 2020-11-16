@@ -77,7 +77,7 @@ func (b *Board) PieceHeight(square string) float64 {
 	min := stat.Mean(cleaned[0:10], nil)
 	max := stat.Mean(cleaned[len(cleaned)-10:], nil)
 
-	if false && square == "E1" {
+	if false && square == "e1" {
 		fmt.Println(square)
 
 		for _, d := range cleaned[0:5] {
@@ -100,7 +100,7 @@ func (b *Board) HasPiece(square string) bool {
 
 func (b *Board) GetSquaresWithPieces() []string {
 	squares := []string{}
-	for x := 'A'; x <= 'H'; x++ {
+	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 			if b.HasPiece(s) {
@@ -113,7 +113,7 @@ func (b *Board) GetSquaresWithPieces() []string {
 
 func (b *Board) GetSquaresWithNoPieces() []string {
 	squares := []string{}
-	for x := 'A'; x <= 'H'; x++ {
+	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 			if !b.HasPiece(s) {
@@ -128,7 +128,7 @@ func (b *Board) Annotate() gocv.Mat {
 	out := gocv.NewMat()
 	b.color.CopyTo(&out)
 
-	for x := 'A'; x <= 'H'; x++ {
+	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 

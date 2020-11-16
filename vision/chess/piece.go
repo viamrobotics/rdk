@@ -49,7 +49,7 @@ func buildPieceModel(theBoard *Board) (base.Classifier, error) {
 	csvData := "r,g,b,type\n"
 
 	for y := '1'; y <= '8'; y++ {
-		for x := 'A'; x <= 'H'; x++ {
+		for x := 'a'; x <= 'h'; x++ {
 			square := string(x) + string(y)
 			if square == "H7" {
 				continue
