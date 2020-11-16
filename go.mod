@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	fyne.io/fyne v1.3.3
+	github.com/Ernyoke/Imger v0.0.0-20180625211505-6476f04d1954
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200707082815-5321531c36a2 // indirect
 	github.com/gonum/blas v0.0.0-20181208220705-f22b278b28ac // indirect
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
@@ -15,6 +16,7 @@ require (
 	github.com/sjwhitworth/golearn v0.0.0-20200908220655-6fed29ee9c0b
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	github.com/stretchr/testify v1.6.1
+	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	go.mongodb.org/mongo-driver v1.4.3
 	gocv.io/x/gocv v0.24.0
 	golang.org/x/image v0.0.0-20200927104501-e162460cd6b5 // indirect
