@@ -77,7 +77,7 @@ func (b *Board) PieceHeight(square string) float64 {
 	min := stat.Mean(cleaned[0:10], nil)
 	max := stat.Mean(cleaned[len(cleaned)-10:], nil)
 
-	if square == "E1" {
+	if false && square == "E1" {
 		fmt.Println(square)
 
 		for _, d := range cleaned[0:5] {
