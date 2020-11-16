@@ -6,6 +6,9 @@ import (
 	"image"
 	"log"
 	"math"
+	_ "net/http/pprof"
+	"os"
+	"runtime/pprof"
 	"sync/atomic"
 	"time"
 
@@ -222,19 +225,31 @@ func testChessEngine() {
 }
 
 func main() {
-	robotIp := "192.168.2.2"
+	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
+	robotIp := flag.String("robotIP", "192.168.2.2", "ip for ur5")
 
-	webcamDeviceId := 0
+	//webcamDeviceId := 0
+	//flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
 
-	flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
 	flag.Parse()
 
-	myArm, err := arm.URArmConnect(robotIp)
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
+	flag.Parse()
+
+	myArm, err := arm.URArmConnect(*robotIp)
 	if err != nil {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper(robotIp)
+	myGripper, err := gripper.NewGripper(*robotIp)
 	if err != nil {
 		panic(err)
 	}
@@ -275,6 +290,15 @@ func main() {
 
 	numImagesGot := 0
 	initialPositionOk := false
+
+	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
+		switch k.Name {
+		case "Q":
+			w.Close()
+		default:
+			log.Printf("unknown: %s\n", k.Name)
+		}
+	})
 
 	go func() {
 		for {
