@@ -99,6 +99,10 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 
 	theBoard := Board{a, b}
 
+	if theBoard.IsBoardBlocked() {
+		t.Errorf("board2 blocked")
+	}
+
 	x := theBoard.PieceHeight("b1")
 	if x < 45 || x > 58 {
 		t.Errorf("height for b1 is wrong %f", x)
@@ -116,4 +120,19 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 
 	annotated := theBoard.Annotate()
 	gocv.IMWrite("out/board2_annotated.png", annotated)
+}
+
+func TestArmBlock1(t *testing.T) {
+	board, err := FindAndWarpBoardFromFiles("data/armblock1.png", "data/armblock1.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !board.IsBoardBlocked() {
+		t.Errorf("armblock1 not blocked")
+	}
+
+	annotated := board.Annotate()
+	gocv.IMWrite("out/armblock1_annotated.png", annotated)
+
 }
