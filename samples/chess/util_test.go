@@ -21,7 +21,8 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, fn := range fns {
+	for idx, fn := range fns {
+		fmt.Println(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)
@@ -30,6 +31,14 @@ func TestInit(t *testing.T) {
 		}
 
 		state.newData(board)
+		pcs := board.GetSquaresWithPieces()
+		fmt.Printf("\t%s\n", pcs)
+		if len(pcs) != 32 {
+			temp := board.Annotate()
+			tempfn := fmt.Sprintf("out/init-%d.png", idx)
+			gocv.IMWrite(tempfn, temp)
+			fmt.Printf("\t annotated -> %s\n", tempfn)
+		}
 
 		if state.Ready() {
 			squares := state.GetSquaresWithPieces()
@@ -79,7 +88,7 @@ func TestOneMove(t *testing.T) {
 
 		temp := board.Annotate()
 		fmt.Println(fn)
-		gocv.IMWrite(fmt.Sprintf("%d.png", idx), temp)
+		gocv.IMWrite(fmt.Sprintf("out/onemove-%d.png", idx), temp)
 	}
 
 	val := state.GetBitBoard().Value()

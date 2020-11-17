@@ -10,6 +10,10 @@ import (
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
+var (
+	NumBoards = 3
+)
+
 type boardStateGuesser struct {
 	boards []*chess.Board
 }
@@ -21,19 +25,18 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
 		return false
 	}
 
-	if len(state.boards) > 6 {
-		state.boards = state.boards[len(state.boards)-6:]
+	if len(state.boards) > NumBoards {
+		state.boards = state.boards[len(state.boards)-NumBoards:]
 	}
 
 	prev := state.boards[len(state.boards)-2].GetSquaresWithPieces()
 	now := state.boards[len(state.boards)-1].GetSquaresWithPieces()
-	fmt.Println(now)
 
 	return len(prev) != len(now)
 }
 
 func (state *boardStateGuesser) Ready() bool {
-	return len(state.boards) >= 6
+	return len(state.boards) >= NumBoards
 }
 
 func (state *boardStateGuesser) Clear() {

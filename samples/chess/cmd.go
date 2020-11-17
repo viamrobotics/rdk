@@ -385,7 +385,7 @@ func main() {
 				log.Printf("saving image %s\n", fn)
 				gocv.IMWrite(fn, img)
 
-				fn = fmt.Sprintf("data/board-%d.dat", tm)
+				fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
 				foo := vision.NewDepthMapFromMat(depth)
 				err = foo.WriteToFile(fn)
 				if err != nil {
