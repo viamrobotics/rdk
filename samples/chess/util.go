@@ -100,6 +100,8 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Mov
 	toBoard := bitboard.NewBitboard(nowSqs.Value() & temp.Value())
 
 	if fromBoard.PopulationCount() != 1 || toBoard.PopulationCount() != 1 {
+		fromBoard.Print()
+		toBoard.Print()
 		panic("eliot is dumb")
 	}
 
