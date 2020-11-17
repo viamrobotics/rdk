@@ -1,13 +1,12 @@
 package vision
 
 import (
+	"image/color"
 	"testing"
-
-	"gocv.io/x/gocv"
 )
 
 func TestWhatColor1(t *testing.T) {
-	data := gocv.Vecb{20, 20, 200}
+	data := color.RGBA{200, 20, 20, 0}
 	c, _ := WhatColor(data)
 	if c != "red" {
 		t.Errorf("got %s instead of red", c)
