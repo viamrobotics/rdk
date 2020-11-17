@@ -57,7 +57,6 @@ func _TestPieceWalk(t *testing.T) {
 		if n%1000 == 0 {
 			fmt.Printf("%d %d\n", n, len(markers))
 		}
-		//data := img.GetVecbAt(y, x)
 		data := _avgColor(img, x, y)
 		t := PieceFromColor(theClassifier, data)
 		if t == "white" {

@@ -3,13 +3,14 @@ package chess
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"strings"
 
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/evaluation"
 	"github.com/sjwhitworth/golearn/knn"
 
-	"gocv.io/x/gocv"
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 func (b *Board) Piece(theClassifier base.Classifier, square string) string {
@@ -21,12 +22,12 @@ func (b *Board) Piece(theClassifier base.Classifier, square string) string {
 	return PieceFromColor(theClassifier, data)
 }
 
-func PieceFromColor(theClassifier base.Classifier, data gocv.Vecb) string {
+func PieceFromColor(theClassifier base.Classifier, data color.RGBA) string {
 	csvData := fmt.Sprintf("r,g,b,type\n"+
 		"0,0,0,white\n"+
 		"0,0,0,empty\n"+
 		"0,0,0,black\n"+
-		"%d, %d, %d, white\n", data[2], data[1], data[0])
+		"%d, %d, %d, white\n", data.R, data.G, data.B)
 
 	rawData, err := base.ParseCSVToInstancesFromReader(strings.NewReader(csvData), true)
 	if err != nil {
@@ -62,7 +63,7 @@ func buildPieceModel(theBoard *Board) (base.Classifier, error) {
 
 			for x := middle.X - radius; x < middle.X+radius; x++ {
 				for y := middle.Y - radius; y < middle.Y+radius; y++ {
-					data := theBoard.color.GetVecbAt(y, x)
+					data := vision.GetColor(theBoard.color, y, x)
 
 					squareType := "empty"
 					if square[1] == '1' || square[1] == '2' {
@@ -72,7 +73,7 @@ func buildPieceModel(theBoard *Board) (base.Classifier, error) {
 						squareType = "black"
 					}
 
-					csvData += fmt.Sprintf("%d, %d, %d, %s\n", data[2], data[1], data[0], squareType)
+					csvData += fmt.Sprintf("%d, %d, %d, %s\n", data.R, data.G, data.B, squareType)
 				}
 			}
 		}

@@ -21,7 +21,7 @@ import (
 func randomColor(img gocv.Mat) color.RGBA {
 	x := rand.Intn(img.Cols())
 	y := rand.Intn(img.Rows())
-	return vision.ToColor(img.GetVecbAt(y, x))
+	return vision.GetColor(img, y, x)
 
 }
 
@@ -54,11 +54,11 @@ func getUniqueColors(img gocv.Mat) []color.RGBA {
 
 	for x := 0; x < img.Cols(); x++ {
 		for y := 0; y < img.Rows(); y++ {
-			data := img.GetVecbAt(y, x)
+			data := vision.GetColor(img, y, x)
 
 			found := false
 			for _, other := range colors {
-				if vision.ColorDistanceRGBA(data, other) < 25 {
+				if vision.ColorDistance(data, other) < 25 {
 					found = true
 					break
 				}
@@ -68,7 +68,7 @@ func getUniqueColors(img gocv.Mat) []color.RGBA {
 				continue
 			}
 
-			colors = append(colors, vision.ToColor(data))
+			colors = append(colors, data)
 			if len(colors)%1000 == 0 {
 				fmt.Printf("%d\n", len(colors))
 			}
@@ -90,7 +90,7 @@ func main() {
 		good := ""
 		bad := ""
 		for _, c := range uniqueColors {
-			d := chess.MyPinkDistance(gocv.Vecb{c.B, c.G, c.R})
+			d := chess.MyPinkDistance(c)
 			x := fmt.Sprintf("<div style='background-color:rgba(%d, %d, %d, 1)'>vision.Color{color.RGBA{%d, %d, %d, 0}, \"myPink\", \"pink\"},</div>\n", c.R, c.G, c.B, c.R, c.G, c.B)
 			if d < 40 {
 				good += x
