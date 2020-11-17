@@ -37,14 +37,6 @@ func warpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (goc
 
 // returns point in a1, a8, h1, h8 order
 func findChessCorners(img gocv.Mat, debugOut *gocv.Mat) ([]image.Point, error) {
-	mine := debugOut == nil
-	out := gocv.Mat{}
-	if mine {
-		out = gocv.NewMat()
-		defer out.Close()
-		debugOut = &out
-	}
-
 	return FindChessCornersPinkCheat(img, debugOut)
 }
 
