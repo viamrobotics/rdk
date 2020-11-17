@@ -109,62 +109,57 @@ func MyPinkDistance(data color.RGBA) float64 {
 	return d
 }
 
-func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
+func inList(l []image.Point, p image.Point) bool {
+	for _, t := range l {
+		if p.X == t.X && p.Y == t.Y {
+			return true
+		}
+	}
+	return false
+}
+
+func FindChessCornersPinkCheat_inQuadrant(img gocv.Mat, out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
 
 	// walk up into the corner ---------
-	myCenter := center(best, out.Rows()/10)
+	myCenter := center(best, img.Rows()/10)
 
 	xWalk := ((xQ * 2) - 1)
 	yWalk := ((yQ * 2) - 1)
 
-	maxCheckForGreen := out.Rows() / 25
+	maxCheckForGreen := img.Rows() / 25
 
 	if debug {
 		fmt.Printf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
 	}
 
 	for i := 0; i < 50; i++ {
-		data := vision.GetColor(*out, myCenter.Y, myCenter.X)
-		blackDistance := vision.Black.Distance(data)
-		if debug {
-			fmt.Printf("\t %v -> %v\n", myCenter, blackDistance)
-		}
-		if blackDistance > 2 {
+		if inList(best, myCenter) {
 			break
 		}
 
-		if debug {
-			fmt.Println("\t on black")
-		}
 		stop := false
 		for j := 0; j < maxCheckForGreen; j++ {
 			temp := myCenter
 			temp.X += j * -1 * xWalk
-			data := vision.GetColor(*out, temp.Y, temp.X)
-			blackDistance := vision.Black.Distance(data)
-			if blackDistance > 2 {
+			if inList(best, temp) {
 				stop = true
 				break
 			}
 		}
 		if stop {
-			if debug {
-				fmt.Printf("\t stopped\n")
-			}
 			break
 		}
 
 		myCenter.X += xWalk
 		myCenter.Y += yWalk
-		if debug {
-			fmt.Printf("\t walked\n")
-		}
 	}
 
-	gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
+	if out != nil {
+		gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
+	}
 
 	return myCenter
 }
@@ -191,12 +186,9 @@ func _avgColor(img gocv.Mat, x, y int) color.RGBA {
 }
 
 func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
-
-	if out == nil {
-		return nil, fmt.Errorf("processFindCornersBad needs an out")
+	if out != nil {
+		img.CopyTo(out)
 	}
-
-	img.CopyTo(out)
 
 	redLittleCircles := []image.Point{}
 
@@ -214,9 +206,13 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 				Y := int(2 * y / img.Rows())
 				Q := X + (Y * 2)
 				cnts[Q] = append(cnts[Q], p)
-				gocv.Circle(out, p, 1, vision.Green.C, 1)
+				if out != nil {
+					gocv.Circle(out, p, 1, vision.Green.C, 1)
+				}
 			} else {
-				gocv.Circle(out, p, 1, vision.Black.C, 1)
+				if out != nil {
+					gocv.Circle(out, p, 1, vision.Black.C, 1)
+				}
 			}
 
 			if false {
@@ -229,13 +225,15 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 		}
 	}
 
-	a1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
-	a8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
-	h1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 1)
-	h8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 1)
+	a1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 0)
+	a8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 0)
+	h1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 1)
+	h8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 1)
 
-	for _, p := range redLittleCircles {
-		gocv.Circle(out, p, 1, vision.Red.C, 1)
+	if out != nil {
+		for _, p := range redLittleCircles {
+			gocv.Circle(out, p, 1, vision.Red.C, 1)
+		}
 	}
 
 	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
