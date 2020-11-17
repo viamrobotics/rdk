@@ -56,17 +56,17 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 
 	x := theBoard.PieceHeight("b1")
 	if x < 40 || x > 58 {
-		t.Errorf("height for b1 is wrong %f", x)
+		t.Errorf("board1 height for b1 is wrong %f", x)
 	}
 
 	x = theBoard.PieceHeight("e1")
 	if x < 70 || x > 100 {
-		t.Errorf("height for e1 is wrong %f", x)
+		t.Errorf("board1 height for e1 is wrong %f", x)
 	}
 
 	x = theBoard.PieceHeight("c1")
 	if x < 50 || x > 71 {
-		t.Errorf("height for c1 is wrong %f", x)
+		t.Errorf("board1 height for c1 is wrong %f", x)
 	}
 
 	annotated := theBoard.Annotate()
