@@ -171,10 +171,24 @@ func (dm *DepthMap) WriteToFile(fn string) error {
 	}
 	defer f.Close()
 
-	err = dm.WriteTo(f)
+	var gout *gzip.Writer = nil
+	var out io.Writer = f
+
+	if filepath.Ext(fn) == ".gz" {
+		gout = gzip.NewWriter(f)
+		out = gout
+		defer gout.Close()
+	}
+
+	err = dm.WriteTo(out)
 	if err != nil {
 		return err
 	}
+
+	if gout != nil {
+		gout.Flush()
+	}
+
 	f.Sync()
 	return nil
 }
