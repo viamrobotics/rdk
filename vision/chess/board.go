@@ -180,7 +180,7 @@ func (b *Board) IsBoardBlocked() bool {
 
 	mean, stdDev := stat.MeanStdDev(data, nil)
 	sort.Float64s(data)
-	fmt.Printf("IsBoardBlocked mean: %f stdDev: %f [ %f %f ... %f %f ]\n", mean, stdDev, data[0], data[1], data[len(data)-2], data[len(data)-1])
+	//fmt.Printf("IsBoardBlocked mean: %f stdDev: %f [ %f %f ... %f %f ]\n", mean, stdDev, data[0], data[1], data[len(data)-2], data[len(data)-1])
 
 	return data[len(data)-1]-data[0] > 200
 }
