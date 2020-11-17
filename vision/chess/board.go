@@ -165,22 +165,21 @@ func (b *Board) Annotate() gocv.Mat {
 }
 
 func (b *Board) IsBoardBlocked() bool {
-	data := []float64{}
+	numPieces := 0
+	for x := 'a'; x <= 'h'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+			h := b.PieceHeight(s)
 
-	for x := 0; x < b.depth.Cols(); x++ {
-		for y := 0; y < b.depth.Rows(); y++ {
-			d := b.depth.GetDoubleAt(y, x)
-			if d == 0 {
-				continue
+			if h > 200 {
+				return true
 			}
-			data = append(data, d)
 
+			if h > MinPieceDepth {
+				numPieces++
+			}
 		}
 	}
 
-	mean, stdDev := stat.MeanStdDev(data, nil)
-	sort.Float64s(data)
-	//fmt.Printf("IsBoardBlocked mean: %f stdDev: %f [ %f %f ... %f %f ]\n", mean, stdDev, data[0], data[1], data[len(data)-2], data[len(data)-1])
-
-	return data[len(data)-1]-data[0] > 200
+	return numPieces > 32 || numPieces == 0
 }
