@@ -56,6 +56,10 @@ func (b *Board) PieceHeight(square string) float64 {
 		}
 	}
 
+	if len(data) < 30 {
+		return 0
+	}
+
 	// since there is some noise, let's try and remove the outliers
 
 	mean, stdDev := stat.MeanStdDev(data, nil)
