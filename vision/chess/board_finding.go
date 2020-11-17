@@ -7,14 +7,48 @@ import (
 
 	"gocv.io/x/gocv"
 
+	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/vision"
 )
 
-func center(contour []image.Point) image.Point {
+func center(contour []image.Point, maxDiff int) image.Point {
+	x := 0
+	y := 0
 
-	r := gocv.BoundingRect(contour)
+	for _, p := range contour {
+		x += p.X
+		y += p.Y
+	}
 
-	return image.Point{(r.Min.X + r.Max.X) / 2, (r.Min.Y + r.Max.Y) / 2}
+	weightedMiddle := image.Point{x / len(contour), y / len(contour)}
+
+	// TODO: this should be about coniguous, not distance
+
+	box := image.Rectangle{image.Point{1000000, 100000}, image.Point{0, 0}}
+	for _, p := range contour {
+		if rcutil.AbsInt(p.X-weightedMiddle.X) > maxDiff || rcutil.AbsInt(p.Y-weightedMiddle.Y) > maxDiff {
+			continue
+		}
+
+		if p.X < box.Min.X {
+			box.Min.X = p.X
+		}
+		if p.Y < box.Min.Y {
+			box.Min.Y = p.Y
+		}
+
+		if p.X > box.Max.X {
+			box.Max.X = p.X
+		}
+		if p.Y > box.Max.Y {
+			box.Max.Y = p.Y
+		}
+
+	}
+
+	avgMiddle := image.Point{(box.Min.X + box.Max.X) / 2, (box.Min.Y + box.Max.Y) / 2}
+	//fmt.Printf("%v -> %v  box: %v\n", weightedMiddle, avgMiddle, box)
+	return avgMiddle
 }
 
 func processFindCornersBad(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
@@ -52,7 +86,7 @@ func processFindCornersBad(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
 		gocv.DrawContours(out, cnts, idx, vision.Green.C, 1)
 		gocv.PutText(out, fmt.Sprintf("%d", int(area)), c[0], gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
 
-		myCenter := center(c)
+		myCenter := center(c, img.Rows()/10)
 		gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
 	}
 
@@ -121,47 +155,37 @@ func MyPinkDistance(data gocv.Vecb) float64 {
 }
 
 func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
+	debug := false && xQ == 0 && yQ == 1
 
-	minX := xQ * (out.Cols() / 2)
-	minY := yQ * (out.Rows() / 2)
+	best := cnts[xQ+yQ*2]
 
-	maxX := (1 + xQ) * (out.Cols() / 2)
-	maxY := (1 + yQ) * (out.Rows() / 2)
+	// walk up into the corner ---------
+	myCenter := center(best, out.Rows()/10)
 
-	//fmt.Printf("\t %d %d  %d %d %d %d\n", xQ, yQ, minX, minY, maxX, maxY)
+	xWalk := ((xQ * 2) - 1)
+	yWalk := ((yQ * 2) - 1)
 
-	longest := 0.0
-	best := cnts[0]
-	bestIdx := 0
+	maxCheckForGreen := out.Rows() / 25
 
-	for idx, c := range cnts {
-		if c[0].X < minX || c[0].X > maxX || c[0].Y < minY || c[0].Y > maxY {
-			continue
-		}
-		arclength := gocv.ArcLength(c, true)
-		if arclength > longest {
-			longest = arclength
-			best = c
-			bestIdx = idx
-		}
-
+	if debug {
+		fmt.Printf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
 	}
 
-	//fmt.Printf("\t\t %d, %d arclength: %f\n", best[0].X, best[0].Y, longest)
-	// walk up into the corner
-	myCenter := center(best)
-
-	for i := 0; i < 50; i++ { // move only a little for sanity
+	for i := 0; i < 50; i++ {
 		data := out.GetVecbAt(myCenter.Y, myCenter.X)
 		blackDistance := vision.ColorDistance(data, vision.Black)
+		if debug {
+			fmt.Printf("\t %v -> %v\n", myCenter, blackDistance)
+		}
 		if blackDistance > 2 {
 			break
 		}
-		xWalk := ((xQ * 2) - 1)
-		yWalk := ((yQ * 2) - 1)
 
+		if debug {
+			fmt.Println("\t on black")
+		}
 		stop := false
-		for j := 0; j < 100; j++ {
+		for j := 0; j < maxCheckForGreen; j++ {
 			temp := myCenter
 			temp.X += j * -1 * xWalk
 			data := out.GetVecbAt(temp.Y, temp.X)
@@ -172,14 +196,19 @@ func FindChessCornersPinkCheat_inQuadrant(out *gocv.Mat, cnts [][]image.Point, x
 			}
 		}
 		if stop {
+			if debug {
+				fmt.Printf("\t stopped\n")
+			}
 			break
 		}
 
 		myCenter.X += xWalk
 		myCenter.Y += yWalk
+		if debug {
+			fmt.Printf("\t walked\n")
+		}
 	}
 
-	gocv.DrawContours(out, cnts, bestIdx, vision.Blue.C, 1)
 	gocv.Circle(out, myCenter, 5, vision.Red.C, 2)
 
 	return myCenter
@@ -216,6 +245,8 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 	redLittleCircles := []image.Point{}
 
+	cnts := make([][]image.Point, 4)
+
 	for x := 1; x < img.Cols(); x++ {
 		for y := 1; y < img.Rows(); y++ {
 			//data := img.GetVecbAt(y, x)
@@ -225,6 +256,10 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 			d := MyPinkDistance(data)
 
 			if d < 40 {
+				X := int(2 * x / img.Cols())
+				Y := int(2 * y / img.Rows())
+				Q := X + (Y * 2)
+				cnts[Q] = append(cnts[Q], p)
 				gocv.Circle(out, p, 1, vision.Green.C, 1)
 			} else {
 				gocv.Circle(out, p, 1, vision.Black.C, 1)
@@ -239,14 +274,6 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 		}
 	}
-
-	gocv.GaussianBlur(*out, out, image.Point{3, 3}, 30, 50, 4)
-
-	edges := gocv.NewMat()
-	defer edges.Close()
-	gocv.Canny(*out, &edges, 20, 500)
-
-	cnts := gocv.FindContours(edges, gocv.RetrievalTree, gocv.ChainApproxTC89KCOS) //ChainApproxSimple)
 
 	a1Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 0, 0)
 	a8Corner := FindChessCornersPinkCheat_inQuadrant(out, cnts, 1, 0)
