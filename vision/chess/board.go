@@ -103,39 +103,6 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	return max - min
 }
 
-/*
-func (b *Board) HasPiece(square string) bool {
-	height, _ := b.SquareCenterHeight(square)
-	return height > MinPieceDepth
-}
-
-func (b *Board) GetSquaresWithPieces() []string {
-	squares := []string{}
-	for x := 'a'; x <= 'h'; x++ {
-		for y := '1'; y <= '8'; y++ {
-			s := string(x) + string(y)
-			if b.HasPiece(s) {
-				squares = append(squares, s)
-			}
-		}
-	}
-	return squares
-}
-
-func (b *Board) GetSquaresWithNoPieces() []string {
-	squares := []string{}
-	for x := 'a'; x <= 'h'; x++ {
-		for y := '1'; y <= '8'; y++ {
-			s := string(x) + string(y)
-			if !b.HasPiece(s) {
-				squares = append(squares, s)
-			}
-		}
-	}
-	return squares
-}
-*/
-
 func (b *Board) Annotate() gocv.Mat {
 	out := gocv.NewMat()
 	b.color.CopyTo(&out)

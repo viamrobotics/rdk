@@ -82,7 +82,7 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 		if centerHeight < MinPieceDepth {
 			return 0, nil
 		}
-		return -1, fmt.Errorf("got no color but a center height of %f", centerHeight)
+		return -1, fmt.Errorf("got no color but a center height of %f for %s", centerHeight, square)
 	}
 
 	if centerHeight < MinPieceDepth {
@@ -90,4 +90,21 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	}
 
 	return board.SquareCenterHeight(square, 30), nil
+}
+
+func (g *Game) GetSquaresWithPieces(b *Board) ([]string, error) {
+	squares := []string{}
+	for x := 'a'; x <= 'h'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+			h, err := g.GetPieceHeight(b, s)
+			if err != nil {
+				return nil, err
+			}
+			if h > 0 {
+				squares = append(squares, s)
+			}
+		}
+	}
+	return squares, nil
 }
