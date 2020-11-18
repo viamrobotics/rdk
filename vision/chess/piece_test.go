@@ -16,14 +16,48 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	theClassifier, err := buildPieceModel(theBoard)
+	game, err := NewGame(theBoard)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fmt.Println(theBoard.Piece(theClassifier, "e1"))
-	fmt.Println(theBoard.Piece(theClassifier, "e3"))
-	fmt.Println(theBoard.Piece(theClassifier, "e7"))
+	if game.SquareColorStatus(theBoard, "e1") != "white" {
+		t.Errorf("e1 wrong")
+	}
+	if game.SquareColorStatus(theBoard, "e3") != "empty" {
+		t.Errorf("e3 wrong")
+	}
+	if game.SquareColorStatus(theBoard, "e7") != "black" {
+		t.Errorf("e7 wrong")
+	}
+
+	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if game.SquareColorStatus(nextBoard, "e1") != "white" {
+		t.Errorf("e1 wrong")
+	}
+	if game.SquareColorStatus(nextBoard, "e4") != "white" {
+		t.Errorf("e1 wrong")
+	}
+
+	if game.SquareColorStatus(nextBoard, "e2") != "empty" {
+		t.Errorf("e3 wrong")
+	}
+	if game.SquareColorStatus(nextBoard, "e3") != "empty" {
+		t.Errorf("e3 wrong")
+	}
+
+	if game.SquareColorStatus(nextBoard, "e5") != "black" {
+		t.Errorf("e7 wrong")
+	}
+
+	if game.SquareColorStatus(nextBoard, "e7") != "black" {
+		t.Errorf("e7 wrong")
+	}
+
 }
 
 func _TestPieceWalk(t *testing.T) {
@@ -32,7 +66,7 @@ func _TestPieceWalk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	theClassifier, err := buildPieceModel(theBoard)
+	game, err := NewGame(theBoard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +92,7 @@ func _TestPieceWalk(t *testing.T) {
 			fmt.Printf("%d %d\n", n, len(markers))
 		}
 		data := _avgColor(img, x, y)
-		t := PieceFromColor(theClassifier, data)
+		t := pieceFromColor(game.pieceColorClassifier, data)
 		if t == "white" {
 			markers = append(markers, image.Point{x, y})
 		}

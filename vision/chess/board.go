@@ -42,12 +42,17 @@ func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
 	return &Board{a, b}, nil
 }
 
-func (b *Board) PieceHeight(square string) float64 {
+func (b *Board) depthAt(p image.Point) float64 {
+	return b.depth.GetDoubleAt(p.Y, p.X)
+}
+
+// return highest delta, average floor height
+func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
-	for x := corner.X + 50 - DepthCheckSizeRadius; x < corner.X+50+DepthCheckSizeRadius; x++ {
-		for y := corner.Y + 50 - DepthCheckSizeRadius; y < corner.Y+50+DepthCheckSizeRadius; y++ {
+	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
+		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
 			d := b.depth.GetDoubleAt(y, x)
 			if d == 0 {
 				continue
@@ -98,8 +103,10 @@ func (b *Board) PieceHeight(square string) float64 {
 	return max - min
 }
 
+/*
 func (b *Board) HasPiece(square string) bool {
-	return b.PieceHeight(square) > MinPieceDepth
+	height, _ := b.SquareCenterHeight(square)
+	return height > MinPieceDepth
 }
 
 func (b *Board) GetSquaresWithPieces() []string {
@@ -127,6 +134,7 @@ func (b *Board) GetSquaresWithNoPieces() []string {
 	}
 	return squares
 }
+*/
 
 func (b *Board) Annotate() gocv.Mat {
 	out := gocv.NewMat()
@@ -150,7 +158,7 @@ func (b *Board) Annotate() gocv.Mat {
 			gocv.Line(&out, c3, c4, vision.Green.C, 1)
 			gocv.Line(&out, c1, c4, vision.Green.C, 1)
 
-			height := b.PieceHeight(s)
+			height := b.SquareCenterHeight(s, DepthCheckSizeRadius)
 			if height > MinPieceDepth {
 				gocv.Circle(&out, p, 10, vision.Red.C, 2)
 			}
@@ -169,9 +177,10 @@ func (b *Board) IsBoardBlocked() bool {
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
-			h := b.PieceHeight(s)
-
-			if h > 200 {
+			h := b.SquareCenterHeight(s, DepthCheckSizeRadius)
+			//fmt.Printf("%s -> %v\n", s, h)
+			if h > 160 {
+				fmt.Printf("blocked at %s with %v\n", s, h)
 				return true
 			}
 
@@ -181,5 +190,9 @@ func (b *Board) IsBoardBlocked() bool {
 		}
 	}
 
-	return numPieces > 32 || numPieces == 0
+	if numPieces > 32 || numPieces == 0 {
+		fmt.Printf("blocked b/c numPieces: %d\n", numPieces)
+	}
+
+	return false
 }

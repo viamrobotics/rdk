@@ -3,16 +3,28 @@ package chess
 import (
 	"fmt"
 	"image"
+	"math"
 
 	"gocv.io/x/gocv"
 )
 
 var (
-	DepthCheckSizeRadius = 37
-	MinPieceDepth        = 13.0
+	DepthCheckSizeRadius = 20
+	MinPieceDepth        = 10.0
 )
 
+func _distance(a image.Point, b image.Point) int {
+	return int(math.Sqrt(math.Pow(float64(b.X-a.X), 2) + math.Pow(float64(b.Y-a.Y), 2)))
+}
+
 func warpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
+	if false {
+		fmt.Println(_distance(corners[0], corners[1]))
+		fmt.Println(_distance(corners[1], corners[3]))
+		fmt.Println(_distance(corners[3], corners[2]))
+		fmt.Println(_distance(corners[2], corners[0]))
+	}
+
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),
