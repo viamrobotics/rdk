@@ -28,6 +28,20 @@ func TestGetMinChessCorner(t *testing.T) {
 
 }
 
+func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, minHeight, maxHeight float64, extra string) {
+
+	height, err := game.GetPieceHeight(board, square)
+	if err != nil {
+		t.Errorf("%s | error on square: %s: %s", extra, square, err)
+		return
+	}
+
+	if height < minHeight || height > maxHeight {
+		t.Errorf("%s | wrong height for square %s, got: %f, wanted between %f %f", extra, square, height, minHeight, maxHeight)
+	}
+
+}
+
 func TestWarpColorAndDepthToChess1(t *testing.T) {
 	img := gocv.IMRead("data/board1.png", gocv.IMReadUnchanged)
 	dm, err := vision.ParseDepthMap("data/board1.dat.gz")
@@ -52,22 +66,16 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	gocv.IMWrite("out/board1_warped.png", a)
 
-	theBoard := Board{a, b}
+	theBoard := &Board{a, b}
 
-	x := theBoard.PieceHeight("b1")
-	if x < 40 || x > 58 {
-		t.Errorf("board1 height for b1 is wrong %f", x)
+	game, err := NewGame(theBoard)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	x = theBoard.PieceHeight("e1")
-	if x < 70 || x > 100 {
-		t.Errorf("board1 height for e1 is wrong %f", x)
-	}
-
-	x = theBoard.PieceHeight("c1")
-	if x < 50 || x > 71 {
-		t.Errorf("board1 height for c1 is wrong %f", x)
-	}
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board1")  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board1") // king
+	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board1")  // bishop
 
 	annotated := theBoard.Annotate()
 	gocv.IMWrite("out/board1_annotated.png", annotated)
@@ -97,29 +105,34 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	os.MkdirAll("out", 0775)
 	gocv.IMWrite("out/board2_warped.png", a)
 
-	theBoard := Board{a, b}
+	theBoard := &Board{a, b}
 
 	if theBoard.IsBoardBlocked() {
 		t.Errorf("board2 blocked")
 	}
 
-	x := theBoard.PieceHeight("b1")
-	if x < 45 || x > 58 {
-		t.Errorf("height for b1 is wrong %f", x)
+	game, err := NewGame(theBoard)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	x = theBoard.PieceHeight("e1")
-	if x < 72 || x > 100 {
-		t.Errorf("height for e1 is wrong %f", x)
-	}
-
-	x = theBoard.PieceHeight("c1")
-	if x < 50 || x > 71 {
-		t.Errorf("height for c1 is wrong %f", x)
-	}
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board2")  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board2") // king
+	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board2")  // bishop
 
 	annotated := theBoard.Annotate()
 	gocv.IMWrite("out/board2_annotated.png", annotated)
+
+	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gocv.IMWrite("out/board3_annotated.png", nextBoard.Annotate())
+
+	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
+	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
+	_testBoardHeight(t, game, nextBoard, "c1", -1, 1, "board3")   // bishop
 }
 
 func TestArmBlock1(t *testing.T) {

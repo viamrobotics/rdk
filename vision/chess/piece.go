@@ -13,16 +13,7 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 )
 
-func (b *Board) Piece(theClassifier base.Classifier, square string) string {
-
-	corner := getMinChessCorner(square)
-	middle := image.Point{corner.X + 50, corner.Y + 50}
-
-	data := _avgColor(b.color, middle.X, middle.Y)
-	return PieceFromColor(theClassifier, data)
-}
-
-func PieceFromColor(theClassifier base.Classifier, data color.RGBA) string {
+func pieceFromColor(theClassifier base.Classifier, data color.RGBA) string {
 	csvData := fmt.Sprintf("r,g,b,type\n"+
 		"0,0,0,white\n"+
 		"0,0,0,empty\n"+
@@ -46,7 +37,7 @@ func PieceFromColor(theClassifier base.Classifier, data color.RGBA) string {
 	return res.RowString(3)
 }
 
-func buildPieceModel(theBoard *Board) (base.Classifier, error) {
+func buildPieceColorModel(theBoard *Board) (base.Classifier, error) {
 	csvData := "r,g,b,type\n"
 
 	for y := '1'; y <= '8'; y++ {
