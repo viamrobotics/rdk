@@ -20,5 +20,5 @@
 *.DS_Store
 
 vision/chess/out
-./data/
+/data/
 out/
