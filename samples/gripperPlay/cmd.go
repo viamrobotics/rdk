@@ -10,17 +10,12 @@ func main() {
 		panic(err)
 	}
 
-	_, err = g.SetPos("17")
+	err = g.Open()
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = g.Open()
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = g.Close()
+	err = g.Close()
 	if err != nil {
 		panic(err)
 	}

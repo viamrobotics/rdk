@@ -107,7 +107,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 	}
 
 	// open before going down
-	_, err = myGripper.Open()
+	err = myGripper.Open()
 	if err != nil {
 		return err
 	}
@@ -119,16 +119,16 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	// grab piece
 	for {
-		closed, err := myGripper.Close()
+		grabbedSomething, err := myGripper.Grab()
 		if err != nil {
 			return err
 		}
-		if !closed {
+		if grabbedSomething {
 			fmt.Printf("got a piece at height %f\n", where.Z)
 			// got the piece
 			break
 		}
-		_, err = myGripper.Open()
+		err = myGripper.Open()
 		if err != nil {
 			return err
 		}
@@ -178,7 +178,7 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func initArm(myArm *arm.URArm, myGripper *gripper.Gripper) error {
+func initArm(myArm *arm.URArm) error {
 	// temp init, what to do?
 	rx := -math.Pi
 	ry := 0.0
@@ -276,12 +276,12 @@ func main() {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper(*robotIp)
+	err = initArm(myArm)
 	if err != nil {
 		panic(err)
 	}
 
-	err = initArm(myArm, myGripper)
+	myGripper, err := gripper.NewGripper(*robotIp)
 	if err != nil {
 		panic(err)
 	}

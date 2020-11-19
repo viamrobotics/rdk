@@ -95,6 +95,7 @@ func (g *Gripper) read() (string, error) {
 
 // --------------
 
+// return true iff reached desired position
 func (g *Gripper) SetPos(pos string) (bool, error) {
 	err := g.Set("POS", pos)
 	if err != nil {
@@ -128,16 +129,39 @@ func (g *Gripper) SetPos(pos string) (bool, error) {
 
 }
 
-func (g *Gripper) Open() (bool, error) {
-	return g.SetPos(g.openLimit)
+func (g *Gripper) Open() error {
+	_, err := g.SetPos(g.openLimit)
+	return err
 }
 
-func (g *Gripper) Close() (bool, error) {
-	return g.SetPos(g.closeLimit)
+func (g *Gripper) Close() error {
+	_, err := g.SetPos(g.closeLimit)
+	return err
+}
+
+// return true iff grabbed something
+func (g *Gripper) Grab() (bool, error) {
+	res, err := g.SetPos(g.closeLimit)
+	if err != nil {
+		return false, err
+	}
+	if res {
+		// we closed, so didn't grab anything
+		return false, nil
+	}
+
+	// we didn't close, let's see if we actually got something
+	val, err := g.Get("OBJ")
+	fmt.Printf("res: %s val: %s\n", res, val)
+
+	if err != nil {
+		return false, err
+	}
+	return val == "OBJ 2", nil
 }
 
 func (g *Gripper) Calibrate() error {
-	_, err := g.Open()
+	err := g.Open()
 	if err != nil {
 		return err
 	}
@@ -148,7 +172,7 @@ func (g *Gripper) Calibrate() error {
 	}
 	g.openLimit = x[4:]
 
-	_, err = g.Close()
+	err = g.Close()
 	if err != nil {
 		return err
 	}
