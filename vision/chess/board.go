@@ -18,6 +18,10 @@ type Board struct {
 	depth gocv.Mat
 }
 
+func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
+	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz")
+}
+
 func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 	img := gocv.IMRead(colorFN, gocv.IMReadUnchanged)
 	dm, err := vision.ParseDepthMap(depthFN)
