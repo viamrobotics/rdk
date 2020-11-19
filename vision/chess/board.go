@@ -16,6 +16,7 @@ import (
 type Board struct {
 	color gocv.Mat
 	depth gocv.Mat
+	edges gocv.Mat
 }
 
 func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
@@ -43,7 +44,10 @@ func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
 		return nil, err
 	}
 
-	return &Board{a, b}, nil
+	edges := gocv.NewMat()
+	gocv.Canny(a, &edges, 32, 32) // magic number
+
+	return &Board{a, b, edges}, nil
 }
 
 func (b *Board) depthAt(p image.Point) float64 {
@@ -105,6 +109,43 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	}
 
 	return max - min
+}
+
+func (b *Board) SquareCenterEdges(square string) int {
+
+	radius := 25
+
+	num := 0
+
+	corner := getMinChessCorner(square)
+	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
+		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
+			d := b.edges.GetUCharAt(y, x)
+			//fmt.Printf("\t %v\n", d )
+			if d == 255 {
+				num++
+			}
+		}
+	}
+
+	return num
+}
+
+type SquareFunc func(b *Board, square string) error
+
+func (b *Board) forEach(f SquareFunc) error {
+	for x := 'a'; x <= 'h'; x++ {
+		for y := '1'; y <= '8'; y++ {
+			s := string(x) + string(y)
+
+			err := f(b, s)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (b *Board) Annotate() gocv.Mat {
