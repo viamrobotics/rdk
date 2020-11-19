@@ -12,6 +12,10 @@ import (
 )
 
 func center(contour []image.Point, maxDiff int) image.Point {
+	if len(contour) == 0 {
+		return image.Point{0, 0}
+	}
+
 	x := 0
 	y := 0
 
