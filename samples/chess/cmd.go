@@ -72,9 +72,16 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	}
 
 	// move
-	f := getCoord(chess)
-	where.X = f.x
-	where.Y = f.y
+	if chess == "-" {
+		f := getCoord("h8")
+		where.X = f.x + .06
+		where.Y = f.y - (.04 * float64(numPiecesCaptured))
+		numPiecesCaptured = numPiecesCaptured + 1
+	} else {
+		f := getCoord(chess)
+		where.X = f.x
+		where.Y = f.y
+	}
 	return myArm.MoveToPositionC(where)
 }
 
@@ -136,32 +143,16 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	saveZ := where.Z // save the height to bring the piece down to
 
-	if to == "-" {
-		where := myArm.State.CartesianInfo
-		where.Z = SafeMoveHeight + .1
-		err := myArm.MoveToPositionC(where)
-		if err != nil {
-			return err
-		}
+	err = moveTo(myArm, to, .1)
 
-		// move
-		f := getCoord("h8")
-		where.X = f.x + .06
-		where.Y = f.y - (.04 * float64(numPiecesCaptured))
-		numPiecesCaptured = numPiecesCaptured + 1
-		err = myArm.MoveToPositionC(where)
-		if err != nil {
-			return err
-		}
-
-	} else {
-		moveTo(myArm, to, .1)
-
-		// drop piece
-		where = myArm.State.CartesianInfo
-		where.Z = saveZ
-		myArm.MoveToPositionC(where)
+	if err != nil {
+		return err
 	}
+
+	// drop piece
+	where = myArm.State.CartesianInfo
+	where.Z = saveZ
+	myArm.MoveToPositionC(where)
 
 	myGripper.Open()
 
