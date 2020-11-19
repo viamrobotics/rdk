@@ -46,7 +46,10 @@ func TestInit(t *testing.T) {
 		}
 
 		if state.Ready() {
-			squares := state.GetSquaresWithPieces()
+			squares, err := state.GetSquaresWithPieces()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if len(squares) != 32 {
 				t.Errorf("wrong number of squares %d", len(squares))
@@ -98,9 +101,13 @@ func TestOneMove(t *testing.T) {
 		gocv.IMWrite(fmt.Sprintf("out/onemove-%d.png", idx), temp)
 	}
 
-	val := state.GetBitBoard().Value()
-	if val != 18441959067825012735 {
-		t.Errorf("TestOneMove initial value wrong %d", val)
+	bb, err := state.GetBitBoard()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if bb.Value() != 18441959067825012735 {
+		t.Errorf("TestOneMove initial value wrong %d", bb.Value())
 	}
 
 	p := position.StartingPosition()

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	NumBoards = 3
+	NumBoards = 2
 )
 
 type boardStateGuesser struct {
@@ -34,6 +34,10 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
 	}
 
 	if len(state.boards) > NumBoards {
+		toRemove := state.boards[0 : len(state.boards)-NumBoards]
+		for _, b := range toRemove {
+			b.Close()
+		}
 		state.boards = state.boards[len(state.boards)-NumBoards:]
 	}
 
@@ -59,13 +63,17 @@ func (state *boardStateGuesser) Clear() {
 	state.boards = []*chess.Board{}
 }
 
-func (state *boardStateGuesser) GetSquaresWithPieces() map[string]bool {
+func (state *boardStateGuesser) NewestBoard() *chess.Board {
+	return state.boards[len(state.boards)-1]
+}
+
+func (state *boardStateGuesser) GetSquaresWithPieces() (map[string]bool, error) {
 	counts := map[string]int{}
 
 	for _, b := range state.boards {
 		temp, err := state.game.GetSquaresWithPieces(b)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		for _, s := range temp {
 			counts[s] = counts[s] + 1
@@ -81,27 +89,33 @@ func (state *boardStateGuesser) GetSquaresWithPieces() map[string]bool {
 		}
 	}
 
-	return squares
+	return squares, nil
 }
 
-func (state *boardStateGuesser) GetBitBoard() *bitboard.Bitboard {
+func (state *boardStateGuesser) GetBitBoard() (*bitboard.Bitboard, error) {
 	bb := bitboard.NewBitboard(0)
 
-	m := state.GetSquaresWithPieces()
+	m, err := state.GetSquaresWithPieces()
+	if err != nil {
+		return bb, err
+	}
 	for k, _ := range m {
 		idx, err := moves.ConvertAlgebriacToIndex(k)
 		if err != nil {
-			panic(err)
+			return bb, err
 		}
 		bb.SetBit(idx)
 	}
 
-	return bb
+	return bb, nil
 }
 
 func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Move, error) {
 	prevSqs := prev.AllOccupiedSqsBb()
-	nowSqs := state.GetBitBoard()
+	nowSqs, err := state.GetBitBoard()
+	if err != nil {
+		return nil, err
+	}
 	if prevSqs.Value() == nowSqs.Value() {
 		return nil, nil
 	}

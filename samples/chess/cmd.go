@@ -46,9 +46,10 @@ var (
 	wantPicture = int32(0)
 )
 
-var grossBoard *chess.Board
-
 func getCoord(chess string) pos {
+	if chess == "-" {
+		return pos{0, -.4}
+	}
 	var x = float64(chess[0] - 'a')
 	var y = float64(chess[1] - '1')
 
@@ -78,7 +79,21 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
+func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
+
+	if to != "-" {
+		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
+		if err != nil {
+			return err
+		}
+		if toHeight > 0 {
+			fmt.Printf("moving piece from %s to %s but occupied, going to capture\n", from, to)
+			err = movePiece(boardState, myArm, myGripper, to, "-")
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	err := moveTo(myArm, from, 0)
 	if err != nil {
@@ -91,7 +106,7 @@ func movePiece(myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) er
 		return err
 	}
 
-	height := grossBoard.SquareCenterHeight(from, 35) // TODO: change to something more intelligent
+	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO: change to something more intelligent
 	where := myArm.State.CartesianInfo
 	where.Z = BoardHeight + (height / 1000) + .001
 	myArm.MoveToPositionC(where)
@@ -188,8 +203,8 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	perft := 0
 	singlePlyPerft := 0
 	params := engine.SearchParams{
-		Depth:          5,
-		Ply:            5,
+		Depth:          3,
+		Ply:            3,
 		Pos:            &p,
 		Perft:          &perft,
 		SinglePlyPerft: &singlePlyPerft,
@@ -330,9 +345,13 @@ func main() {
 
 				if boardState.Ready() {
 					if !initialPositionOk {
-						if currentPosition.AllOccupiedSqsBb().Value() != boardState.GetBitBoard().Value() {
+						bb, err := boardState.GetBitBoard()
+						if err != nil {
+							fmt.Println("got inconsistency reading board, let's try again")
+							boardState.Clear()
+						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
 							fmt.Printf("not in initial chess piece setup\n")
-							boardState.GetBitBoard().Print()
+							bb.Print()
 						} else {
 							initialPositionOk = true
 							fmt.Printf("GOT initial chess piece setup\n")
@@ -351,9 +370,11 @@ func main() {
 								panic("invalid move!")
 							}
 
+							currentPosition.Print()
+
 							currentPosition, m = searchForNextMove(currentPosition)
 							fmt.Printf("computer will make move: %s\n", m)
-							err = movePiece(myArm, myGripper, m.String()[0:2], m.String()[2:])
+							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
 							if err != nil {
 								panic(err)
 							}
@@ -368,8 +389,6 @@ func main() {
 			}
 
 			annotated := theBoard.Annotate()
-
-			grossBoard = theBoard
 
 			pcs[1], err = matToFyne(annotated)
 			if err != nil {
