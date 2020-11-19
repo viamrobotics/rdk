@@ -15,10 +15,18 @@ var (
 )
 
 type boardStateGuesser struct {
+	game   *chess.Game
 	boards []*chess.Board
 }
 
 func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
+	var err error
+	if state.game == nil {
+		state.game, err = chess.NewGame(newBoard)
+		if err != nil {
+			panic(err)
+		}
+	}
 	state.boards = append(state.boards, newBoard)
 
 	if len(state.boards) == 1 {
@@ -29,8 +37,16 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
 		state.boards = state.boards[len(state.boards)-NumBoards:]
 	}
 
-	prev := state.boards[len(state.boards)-2].GetSquaresWithPieces()
-	now := state.boards[len(state.boards)-1].GetSquaresWithPieces()
+	prev, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-2])
+	if err != nil {
+		fmt.Println(err)
+		return true
+	}
+	now, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-1])
+	if err != nil {
+		fmt.Println(err)
+		return true
+	}
 
 	return len(prev) != len(now)
 }
@@ -47,7 +63,10 @@ func (state *boardStateGuesser) GetSquaresWithPieces() map[string]bool {
 	counts := map[string]int{}
 
 	for _, b := range state.boards {
-		temp := b.GetSquaresWithPieces()
+		temp, err := state.game.GetSquaresWithPieces(b)
+		if err != nil {
+			panic(err)
+		}
 		for _, s := range temp {
 			counts[s] = counts[s] + 1
 		}

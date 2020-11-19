@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -20,6 +21,7 @@ func TestInit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sort.Strings(fns)
 
 	for idx, fn := range fns {
 		fmt.Println(fn)
@@ -31,7 +33,10 @@ func TestInit(t *testing.T) {
 		}
 
 		state.newData(board)
-		pcs := board.GetSquaresWithPieces()
+		pcs, err := state.game.GetSquaresWithPieces(board)
+		if err != nil {
+			t.Fatal(err)
+		}
 		fmt.Printf("\t%s\n", pcs)
 		if len(pcs) != 32 {
 			temp := board.Annotate()
@@ -75,6 +80,7 @@ func TestOneMove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sort.Strings(fns)
 
 	for idx, fn := range fns {
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
