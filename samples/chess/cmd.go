@@ -44,12 +44,11 @@ var (
 	SafeMoveHeight = BoardHeight + .15
 
 	wantPicture = int32(0)
+
+	numPiecesCaptured = 0
 )
 
 func getCoord(chess string) pos {
-	if chess == "-" {
-		return pos{0, -.4}
-	}
 	var x = float64(chess[0] - 'a')
 	var y = float64(chess[1] - '1')
 
@@ -137,20 +136,42 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	saveZ := where.Z // save the height to bring the piece down to
 
-	moveTo(myArm, to, .1)
+	if to == "-" {
+		where := myArm.State.CartesianInfo
+		where.Z = SafeMoveHeight + .1
+		err := myArm.MoveToPositionC(where)
+		if err != nil {
+			return err
+		}
 
-	// drop piece
-	where = myArm.State.CartesianInfo
-	where.Z = saveZ
-	myArm.MoveToPositionC(where)
+		// move
+		f := getCoord("h8")
+		where.X = f.x + .06
+		where.Y = f.y - (.04 * float64(numPiecesCaptured))
+		numPiecesCaptured = numPiecesCaptured + 1
+		err = myArm.MoveToPositionC(where)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		moveTo(myArm, to, .1)
+
+		// drop piece
+		where = myArm.State.CartesianInfo
+		where.Z = saveZ
+		myArm.MoveToPositionC(where)
+	}
 
 	myGripper.Open()
 
-	where = myArm.State.CartesianInfo
-	where.Z = SafeMoveHeight
-	myArm.MoveToPositionC(where)
+	if to != "-" {
+		where = myArm.State.CartesianInfo
+		where.Z = SafeMoveHeight
+		myArm.MoveToPositionC(where)
 
-	moveOutOfWay(myArm)
+		moveOutOfWay(myArm)
+	}
 	return nil
 }
 
@@ -211,9 +232,9 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 		EngineMove:     &moves.Move{},
 	}
 	if p.IsWhitesTurn() {
-		engine.AlphaBetaMax(-10000, 10000, 5, params)
+		engine.AlphaBetaMax(-10000, 10000, params.Ply, params)
 	} else {
-		engine.AlphaBetaMin(-10000, 10000, 5, params)
+		engine.AlphaBetaMin(-10000, 10000, params.Ply, params)
 	}
 	return p, params.EngineMove
 }
@@ -371,6 +392,7 @@ func main() {
 							}
 
 							currentPosition.Print()
+							currentPosition.PrintFen()
 
 							currentPosition, m = searchForNextMove(currentPosition)
 							fmt.Printf("computer will make move: %s\n", m)
