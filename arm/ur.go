@@ -99,7 +99,7 @@ func (arm *URArm) MoveToPositionC(c CartesianInfo) error {
 }
 
 func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
-	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=2, r=0)\r\n", x, y, z, rx, ry, rz)
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
 	//fmt.Println(cmd)
 	_, err := arm.conn.Write([]byte(cmd))
 	if err != nil {
@@ -121,7 +121,7 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 		slept = slept + 10
 
 		if slept > 5000 && !retried {
-			_, err = fmt.Fprintf(arm.conn, "movej(p[%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n", x, y, z, rx, ry, rz)
+			_, err := arm.conn.Write([]byte(cmd))
 			if err != nil {
 				return err
 			}
