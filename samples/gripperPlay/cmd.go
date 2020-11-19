@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	g, err := gripper.NewGripper("192.168.2.155")
+	g, err := gripper.NewGripper("192.168.2.2")
 	if err != nil {
 		panic(err)
 	}

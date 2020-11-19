@@ -21,13 +21,25 @@ func NewGripper(host string) (*Gripper, error) {
 	}
 	g := &Gripper{conn, "0", "255"}
 
-	g.Set("ACT", "1")   // robot activate
-	g.Set("GTO", "1")   // gripper activate
-	g.Set("FOR", "200") // force (0-255)
-	g.Set("SPE", "255") // speed (0-255)
+	init := [][]string{
+		[]string{"ACT", "1"},   // robot activate
+		[]string{"GTO", "1"},   // gripper activate
+		[]string{"FOR", "200"}, // force (0-255)
+		[]string{"SPE", "255"}, // speed (0-255)
+	}
+	for _, i := range init {
+		err = g.Set(i[0], i[1])
+		if err != nil {
+			return nil, err
+		}
 
-	// wait for init
-	time.Sleep(1500 * time.Millisecond) // TODO: how to make better
+		// TODO: the next 5 lines are infuriatng, help!
+		if i[0] == "ACT" {
+			time.Sleep(1500 * time.Millisecond)
+		} else {
+			time.Sleep(300 * time.Millisecond)
+		}
+	}
 
 	err = g.Calibrate() // TODO: should this live elsewhere?
 	if err != nil {
@@ -51,8 +63,15 @@ func (g *Gripper) Send(msg string) (string, error) {
 	return res, err
 }
 
-func (g *Gripper) Set(what string, to string) (string, error) {
-	return g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
+func (g *Gripper) Set(what string, to string) error {
+	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
+	if err != nil {
+		return err
+	}
+	if res != "ack" {
+		return fmt.Errorf("didn't get ack back, got [%s]", res)
+	}
+	return nil
 }
 
 func (g *Gripper) Get(what string) (string, error) {
@@ -77,7 +96,7 @@ func (g *Gripper) read() (string, error) {
 // --------------
 
 func (g *Gripper) SetPos(pos string) (bool, error) {
-	_, err := g.Set("POS", pos)
+	err := g.Set("POS", pos)
 	if err != nil {
 		return false, err
 	}
