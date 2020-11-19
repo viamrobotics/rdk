@@ -83,6 +83,7 @@ func TestOneMove(t *testing.T) {
 	sort.Strings(fns)
 
 	for idx, fn := range fns {
+		fmt.Println(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
 		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)

@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"gocv.io/x/gocv"
-
-	"github.com/echolabsinc/robotcore/vision"
 )
 
 func TestGetMinChessCorner(t *testing.T) {
@@ -43,30 +41,14 @@ func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, min
 }
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
-	img := gocv.IMRead("data/board1.png", gocv.IMReadUnchanged)
-	dm, err := vision.ParseDepthMap("data/board1.dat.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	debugOut := gocv.NewMat()
-	defer debugOut.Close()
-	corners, err := findChessCorners(img, &debugOut)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	gocv.IMWrite("out/board1_corners.png", debugOut)
-
-	a, b, err := warpColorAndDepthToChess(img, dm.ToMat(), corners)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	os.MkdirAll("out", 0775)
-	gocv.IMWrite("out/board1_warped.png", a)
 
-	theBoard := &Board{a, b}
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gocv.IMWrite("out/board1-edges.png", theBoard.edges)
 
 	game, err := NewGame(theBoard)
 	if err != nil {
@@ -82,30 +64,12 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
-	img := gocv.IMRead("data/board2.png", gocv.IMReadUnchanged)
-	dm, err := vision.ParseDepthMap("data/board2.dat.gz")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	debugOut := gocv.NewMat()
-	defer debugOut.Close()
-	corners, err := findChessCorners(img, &debugOut)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	gocv.IMWrite("out/board2_corners.png", debugOut)
-
-	a, b, err := warpColorAndDepthToChess(img, dm.ToMat(), corners)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	os.MkdirAll("out", 0775)
-	gocv.IMWrite("out/board2_warped.png", a)
 
-	theBoard := &Board{a, b}
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board2")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if theBoard.IsBoardBlocked() {
 		t.Errorf("board2 blocked")
@@ -133,6 +97,39 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
 	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
 	_testBoardHeight(t, game, nextBoard, "c1", -1, 1, "board3")   // bishop
+}
+
+func TestWarpColorAndDepthToChess3(t *testing.T) {
+
+	theBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543520")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	game, err := NewGame(theBoard)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board-1605543520")  // knight
+	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
+	_testBoardHeight(t, game, theBoard, "c1", 45, 71, "board-1605543520")  // bishop
+
+	gocv.IMWrite("out/board-1605543520.png", theBoard.Annotate())
+
+	nextBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543783")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_testBoardHeight(t, game, nextBoard, "b1", 40, 58, "board-1605543783")  // knight
+	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board-1605543783") // king
+	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
+	_testBoardHeight(t, game, nextBoard, "c1", 45, 71, "board-1605543783")  // bishop
+
+	gocv.IMWrite("out/board-1605543783.png", nextBoard.Annotate())
+
+	//crapPlayWithKmeans(nextBoard)
 }
 
 func TestArmBlock1(t *testing.T) {
