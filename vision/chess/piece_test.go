@@ -6,6 +6,16 @@ import (
 	"gocv.io/x/gocv"
 )
 
+func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {
+	res, err := game.SquareColorStatus(board, square)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res != correct {
+		t.Errorf("square: %s got: %s, wanted: %s", square, res, correct)
+	}
+}
+
 func TestPiece1(t *testing.T) {
 	theBoard, err := FindAndWarpBoardFromFiles("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
@@ -17,15 +27,9 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if game.SquareColorStatus(theBoard, "e1") != "white" {
-		t.Errorf("e1 wrong")
-	}
-	if game.SquareColorStatus(theBoard, "e3") != "empty" {
-		t.Errorf("e3 wrong")
-	}
-	if game.SquareColorStatus(theBoard, "e7") != "black" {
-		t.Errorf("e7 wrong")
-	}
+	_testPieceStatusHelper(t, game, theBoard, "e1", "white")
+	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
+	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
 
 	gocv.IMWrite("out/board2-edges.png", theBoard.edges)
 
@@ -34,27 +38,14 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if game.SquareColorStatus(nextBoard, "e1") != "white" {
-		t.Errorf("e1 wrong")
-	}
-	if game.SquareColorStatus(nextBoard, "e4") != "white" {
-		t.Errorf("e1 wrong")
-	}
+	_testPieceStatusHelper(t, game, nextBoard, "e1", "white")
+	_testPieceStatusHelper(t, game, nextBoard, "e4", "white")
 
-	if game.SquareColorStatus(nextBoard, "e2") != "empty" {
-		t.Errorf("e3 wrong")
-	}
-	if game.SquareColorStatus(nextBoard, "e3") != "empty" {
-		t.Errorf("e3 wrong")
-	}
+	_testPieceStatusHelper(t, game, nextBoard, "e2", "empty")
+	_testPieceStatusHelper(t, game, nextBoard, "e3", "empty")
 
-	if game.SquareColorStatus(nextBoard, "e5") != "black" {
-		t.Errorf("e7 wrong")
-	}
-
-	if game.SquareColorStatus(nextBoard, "e7") != "black" {
-		t.Errorf("e7 wrong")
-	}
+	_testPieceStatusHelper(t, game, nextBoard, "e5", "black")
+	_testPieceStatusHelper(t, game, nextBoard, "e7", "black")
 
 	gocv.IMWrite("out/board3-edges.png", nextBoard.edges)
 }

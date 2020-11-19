@@ -31,7 +31,10 @@ func NewGame(initialBoard *Board) (*Game, error) {
 		for x := 'a'; x <= 'h'; x++ {
 			square := string(x) + string(y)
 			height := initialBoard.SquareCenterHeight(square, DepthCheckSizeRadius)
-			status := g.SquareColorStatus(initialBoard, square)
+			status, err := g.SquareColorStatus(initialBoard, square)
+			if err != nil {
+				return nil, err
+			}
 			edges := initialBoard.SquareCenterEdges(square)
 
 			//fmt.Printf("%s -> %v %v %v\n", square, height, status, edges)
@@ -92,7 +95,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	return g, nil
 }
 
-func (g *Game) SquareColorStatus(board *Board, square string) string {
+func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	corner := getMinChessCorner(square)
 	middle := image.Point{corner.X + 50, corner.Y + 50}
 	data := _avgColor(board.color, middle.X, middle.Y)
@@ -103,18 +106,21 @@ func (g *Game) SquareColorStatus(board *Board, square string) string {
 
 	if g.edgesThreshold >= 0 {
 		if res == "empty" && edges > g.edgesThreshold {
-			panic(fmt.Errorf("got empty but had %d edges for square: %s", edges, square))
+			return "", fmt.Errorf("got empty but had %d edges for square: %s", edges, square)
 		}
 	}
 
 	//fmt.Printf("%s %v -> %s\n", square, data, res)
 	//fmt.Printf("<div style='background-color:rgba(%d,%d,%d,1)'>%s %v -> %s</div>\n", data.R, data.G, data.B, square, data, res)
 
-	return res
+	return res, nil
 }
 
 func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
-	color := g.SquareColorStatus(board, square)
+	color, err := g.SquareColorStatus(board, square)
+	if err != nil {
+		return -1, err
+	}
 	centerHeight := board.SquareCenterHeight(square, DepthCheckSizeRadius)
 	//fmt.Printf("%s %s %v\n", square, color, centerHeight)
 	if color == "empty" {
