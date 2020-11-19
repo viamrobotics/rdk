@@ -50,6 +50,12 @@ func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
 	return &Board{a, b, edges}, nil
 }
 
+func (b *Board) Close() {
+	b.color.Close()
+	b.depth.Close()
+	b.edges.Close()
+}
+
 func (b *Board) depthAt(p image.Point) float64 {
 	return b.depth.GetDoubleAt(p.Y, p.X)
 }
