@@ -19,18 +19,18 @@ type boardStateGuesser struct {
 	boards []*chess.Board
 }
 
-func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
+func (state *boardStateGuesser) newData(newBoard *chess.Board) (bool, error) {
 	var err error
 	if state.game == nil {
 		state.game, err = chess.NewGame(newBoard)
 		if err != nil {
-			panic(err)
+			return true, err
 		}
 	}
 	state.boards = append(state.boards, newBoard)
 
 	if len(state.boards) == 1 {
-		return false
+		return false, nil
 	}
 
 	if len(state.boards) > NumBoards {
@@ -44,15 +44,15 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) bool {
 	prev, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-2])
 	if err != nil {
 		fmt.Println(err)
-		return true
+		return true, nil
 	}
 	now, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-1])
 	if err != nil {
 		fmt.Println(err)
-		return true
+		return true, nil
 	}
 
-	return len(prev) != len(now)
+	return len(prev) != len(now), nil
 }
 
 func (state *boardStateGuesser) Ready() bool {

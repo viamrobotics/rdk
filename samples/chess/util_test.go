@@ -32,7 +32,11 @@ func TestInit(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		state.newData(board)
+		_, err = state.newData(board)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		pcs, err := state.game.GetSquaresWithPieces(board)
 		if err != nil {
 			t.Fatal(err)
@@ -94,7 +98,10 @@ func TestOneMove(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		state.newData(board)
+		_, err = state.newData(board)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		temp := board.Annotate()
 		fmt.Println(fn)

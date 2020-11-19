@@ -315,7 +315,6 @@ func main() {
 	boardState := boardStateGuesser{}
 	currentPosition := position.StartingPosition()
 
-	numImagesGot := 0
 	initialPositionOk := false
 
 	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
@@ -350,8 +349,12 @@ func main() {
 				fmt.Println("board blocked")
 				boardState.Clear()
 			} else {
-				numImagesGot++
-				if boardState.newData(theBoard) {
+				interessting, err := boardState.newData(theBoard)
+				if err != nil {
+					wantPicture = 1
+					fmt.Println(err)
+					boardState.Clear()
+				} else if interessting {
 					wantPicture = 1
 				}
 
