@@ -35,9 +35,9 @@ func NewGripper(host string) (*Gripper, error) {
 
 		// TODO: the next 5 lines are infuriatng, help!
 		if i[0] == "ACT" {
-			time.Sleep(1500 * time.Millisecond)
+			time.Sleep(1600 * time.Millisecond)
 		} else {
-			time.Sleep(300 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 
