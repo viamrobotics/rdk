@@ -131,7 +131,8 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	}
 
 	if centerHeight < MinPieceDepth {
-		return -1, fmt.Errorf("got a color (%s) but a center height that is too small of %f edges: %d", color, centerHeight, board.SquareCenterEdges(square))
+		return -1, fmt.Errorf("got a color (%s) for square %s but a center height that is too small of %f edges: %d",
+			color, square, centerHeight, board.SquareCenterEdges(square))
 	}
 
 	return board.SquareCenterHeight(square, 30), nil
