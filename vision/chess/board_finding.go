@@ -191,7 +191,18 @@ func _avgColor(img gocv.Mat, x, y int) color.RGBA {
 
 func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
 	if out != nil {
-		img.CopyTo(out)
+		if img.Rows() != out.Rows() || img.Cols() != out.Cols() {
+			return nil, fmt.Errorf("img and out don't match size %d,%d %d,%d", img.Rows(), img.Cols(), out.Rows(), out.Cols())
+		}
+	}
+
+	switch img.Type() {
+	case gocv.MatTypeCV8UC3:
+		//good
+	case gocv.MatTypeCV8UC4:
+		gocv.CvtColor(img, &img, gocv.ColorBGRAToBGR)
+	default:
+		panic(fmt.Errorf("what type is this: %v", img.Type()))
 	}
 
 	redLittleCircles := []image.Point{}
@@ -213,14 +224,10 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 				if out != nil {
 					gocv.Circle(out, p, 1, vision.Green.C, 1)
 				}
-			} else {
-				if out != nil {
-					gocv.Circle(out, p, 1, vision.Black.C, 1)
-				}
 			}
 
 			if false {
-				if y == 157 && x > 310 && x < 340 {
+				if y == 10 && x > 150 && x < 200 {
 					fmt.Printf("  --  %d %d %v %f\n", x, y, data, d)
 					redLittleCircles = append(redLittleCircles, p)
 				}
