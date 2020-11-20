@@ -87,7 +87,7 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 
 func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
 
-	if to != "-" {
+	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
 		if err != nil {
 			return err
@@ -143,8 +143,26 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	saveZ := where.Z // save the height to bring the piece down to
 
-	err = moveTo(myArm, to, .1)
+	if to == "-throw" {
 
+		err = moveOutOfWay(myArm)
+		if err != nil {
+			return err
+		}
+
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			myGripper.Open()
+		}()
+		err = myArm.JointMoveDelta(4, -1)
+		if err != nil {
+			return err
+		}
+
+		return initArm(myArm) // this is to get joint position right
+	}
+
+	err = moveTo(myArm, to, .1)
 	if err != nil {
 		return err
 	}
@@ -174,6 +192,7 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	where := myArm.State.CartesianInfo
 	where.X = foo.x
 	where.Y = foo.y
+	where.Z = SafeMoveHeight
 
 	return myArm.MoveToPositionC(where)
 }
@@ -184,7 +203,7 @@ func initArm(myArm *arm.URArm) error {
 	ry := 0.0
 	rz := 0.0
 
-	foo := getCoord("d4")
+	foo := getCoord("a1")
 	err := myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
 	if err != nil {
 		return err
@@ -316,13 +335,14 @@ func main() {
 	currentPosition := position.StartingPosition()
 
 	initialPositionOk := false
+	lastKeyPress := ""
 
 	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
 		switch k.Name {
 		case "Q":
 			w.Close()
 		default:
-			log.Printf("unknown: %s\n", k.Name)
+			lastKeyPress = string(k.Name)
 		}
 	})
 
@@ -342,65 +362,75 @@ func main() {
 
 			theBoard, err := chess.FindAndWarpBoard(img, depth)
 			if err != nil {
-				panic(err)
+				fmt.Println(err)
+				continue
 			}
 
 			if theBoard.IsBoardBlocked() {
 				fmt.Println("board blocked")
 				boardState.Clear()
-			} else {
-				interessting, err := boardState.newData(theBoard)
-				if err != nil {
-					wantPicture = 1
-					fmt.Println(err)
-					boardState.Clear()
-				} else if interessting {
-					wantPicture = 1
+				continue
+			}
+
+			interessting, err := boardState.newData(theBoard)
+			if err != nil {
+				wantPicture = 1
+				fmt.Println(err)
+				boardState.Clear()
+			} else if interessting {
+				wantPicture = 1
+			}
+
+			if boardState.Ready() {
+				if !initialPositionOk {
+					bb, err := boardState.GetBitBoard()
+					if err != nil {
+						fmt.Println("got inconsistency reading board, let's try again")
+						boardState.Clear()
+					} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
+						fmt.Printf("not in initial chess piece setup\n")
+						bb.Print()
+					} else {
+						initialPositionOk = true
+						fmt.Printf("GOT initial chess piece setup\n")
+					}
+				} else {
+					// so we've already made sure we're safe, let's see if a move was made
+					m, err := boardState.GetPrevMove(currentPosition)
+					if err != nil {
+						// trouble reading board, let's reset
+						fmt.Println("got inconsistency reading board, let's try again")
+						boardState.Clear()
+					} else if m != nil {
+						fmt.Printf("we detected a move: %s\n", m)
+
+						if !engine.MakeValidMove(*m, &currentPosition) {
+							panic("invalid move!")
+						}
+
+						currentPosition.Print()
+						currentPosition.PrintFen()
+
+						currentPosition, m = searchForNextMove(currentPosition)
+						fmt.Printf("computer will make move: %s\n", m)
+						err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
+						if err != nil {
+							panic(err)
+						}
+						if !engine.MakeValidMove(*m, &currentPosition) {
+							panic("wtf - invalid move chosen by computer")
+						}
+						currentPosition.Print()
+						boardState.Clear()
+					}
 				}
 
-				if boardState.Ready() {
-					if !initialPositionOk {
-						bb, err := boardState.GetBitBoard()
-						if err != nil {
-							fmt.Println("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-							fmt.Printf("not in initial chess piece setup\n")
-							bb.Print()
-						} else {
-							initialPositionOk = true
-							fmt.Printf("GOT initial chess piece setup\n")
-						}
-					} else {
-						// so we've already made sure we're safe, let's see if a move was made
-						m, err := boardState.GetPrevMove(currentPosition)
-						if err != nil {
-							// trouble reading board, let's reset
-							fmt.Println("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if m != nil {
-							fmt.Printf("we detected a move: %s\n", m)
-
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("invalid move!")
-							}
-
-							currentPosition.Print()
-							currentPosition.PrintFen()
-
-							currentPosition, m = searchForNextMove(currentPosition)
-							fmt.Printf("computer will make move: %s\n", m)
-							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
-							if err != nil {
-								panic(err)
-							}
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("Wtf")
-							}
-							currentPosition.Print()
-							boardState.Clear()
-						}
+				if lastKeyPress == "T" {
+					err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
+					if err != nil {
+						panic(err)
 					}
+					lastKeyPress = ""
 				}
 			}
 
