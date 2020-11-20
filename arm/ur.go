@@ -58,7 +58,7 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 		return fmt.Errorf("need 6 joints")
 	}
 
-	_, err := fmt.Fprintf(arm.conn, "movej([%f,%f,%f,%f,%f,%f], a=0.1, v=0.1, r=0)\r\n",
+	_, err := fmt.Fprintf(arm.conn, "movej([%f,%f,%f,%f,%f,%f], a=5, v=4, r=0)\r\n",
 		radians[0],
 		radians[1],
 		radians[2],
