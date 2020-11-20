@@ -44,12 +44,14 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 		fmt.Println(f)
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
-		out := gocv.NewMat()
+		out := gocv.NewMatWithSize(img.Rows(), img.Cols(), gocv.MatTypeCV8UC3)
 		defer out.Close()
 		corners, err := x(img, &out)
 		if err != nil {
 			panic(err)
 		}
+
+		fmt.Printf("\t%v %v\n", corners, img.Type())
 
 		outFile := filepath.Join(fts.out, filepath.Base(f))
 		warpedOutFile := filepath.Join(fts.out, "warped-"+filepath.Base(f))
