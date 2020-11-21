@@ -270,6 +270,34 @@ func testChessEngine() {
 	panic(1)
 }
 
+func lookForBoard(myArm *arm.URArm) error {
+
+	for foo := -1.0; foo <= 1.0; foo += 2 {
+		where := myArm.State.CartesianInfo
+		where.X = 0.524658
+		where.Y = 0.094951
+		where.Z = 0.603430
+		where.Rx = -2.600206
+		where.Ry = -0.007839
+		where.Rz = -0.061827
+		err := myArm.MoveToPositionC(where)
+		if err != nil {
+			return err
+		}
+
+		d := .1
+		for i := 0.0; i < 1.6; i = i + d {
+			err = myArm.JointMoveDelta(0, foo*d)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+
+}
+
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 	robotIp := flag.String("robotIP", "192.168.2.2", "ip for ur5")
@@ -293,6 +321,15 @@ func main() {
 	myArm, err := arm.URArmConnect(*robotIp)
 	if err != nil {
 		panic(err)
+	}
+
+	if false {
+		err := lookForBoard(myArm)
+		if err != nil {
+			panic(err)
+		}
+
+		return
 	}
 
 	err = initArm(myArm)
