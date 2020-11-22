@@ -14,7 +14,7 @@ import (
 )
 
 type Board struct {
-	color gocv.Mat
+	color vision.Image // TODO: should we get rid of
 	depth vision.DepthMap
 	edges gocv.Mat
 }
@@ -47,7 +47,12 @@ func FindAndWarpBoard(color gocv.Mat, depth vision.DepthMap) (*Board, error) {
 	edges := gocv.NewMat()
 	gocv.Canny(a, &edges, 32, 32) // magic number
 
-	return &Board{a, b, edges}, nil
+	aa, err := vision.NewImage(a)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Board{aa, b, edges}, nil
 }
 
 func (b *Board) Close() {
@@ -155,7 +160,8 @@ func (b *Board) forEach(f SquareFunc) error {
 
 func (b *Board) Annotate() gocv.Mat {
 	out := gocv.NewMat()
-	b.color.CopyTo(&out)
+	temp := b.color.MatUnsafe()
+	temp.CopyTo(&out)
 
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
