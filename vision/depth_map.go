@@ -90,10 +90,14 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
 
 func (dm *DepthMap) ToMat() gocv.Mat {
 	m := gocv.NewMatWithSize(dm.height, dm.width, gocv.MatTypeCV64F)
+	raw, err := m.DataPtrFloat64()
+	if err != nil {
+		panic(err)
+	}
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
 			z := dm._getDepthOrEstimate(x, y)
-			m.SetDoubleAt(y, x, float64(z))
+			raw[y*dm.width+x] = float64(z)
 		}
 	}
 	return m
