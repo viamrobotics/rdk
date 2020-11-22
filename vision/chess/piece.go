@@ -9,8 +9,6 @@ import (
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/evaluation"
 	"github.com/sjwhitworth/golearn/knn"
-
-	"github.com/echolabsinc/robotcore/vision"
 )
 
 type colorTrainingStore struct {
@@ -75,7 +73,7 @@ func buildPieceColorModel(theBoard *Board) (base.Classifier, error) {
 
 			for x := middle.X - radius; x < middle.X+radius; x++ {
 				for y := middle.Y - radius; y < middle.Y+radius; y++ {
-					data := vision.GetColor(theBoard.color, y, x)
+					data := theBoard.color.ColorRowCol(y, x)
 
 					csvData.add(edges, data, squareType)
 				}

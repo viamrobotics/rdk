@@ -4,8 +4,6 @@ import (
 	//"fmt"
 	"image/color"
 	"math"
-
-	"gocv.io/x/gocv"
 )
 
 type Color struct {
@@ -103,12 +101,4 @@ func WhatColor(data color.RGBA) (string, Color) {
 	}
 
 	return n, c
-}
-
-func GetColor(img gocv.Mat, row, col int) color.RGBA {
-	c := color.RGBA{}
-	c.R = img.GetUCharAt(row, col*3+2)
-	c.G = img.GetUCharAt(row, col*3+1)
-	c.B = img.GetUCharAt(row, col*3+0)
-	return c
 }
