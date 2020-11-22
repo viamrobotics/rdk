@@ -6,6 +6,8 @@ import (
 	"math"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 var (
@@ -17,7 +19,7 @@ func _distance(a image.Point, b image.Point) int {
 	return int(math.Sqrt(math.Pow(float64(b.X-a.X), 2) + math.Pow(float64(b.Y-a.Y), 2)))
 }
 
-func warpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (gocv.Mat, gocv.Mat, error) {
+func warpColorAndDepthToChess(color gocv.Mat, depth vision.DepthMap, corners []image.Point) (gocv.Mat, vision.DepthMap, error) {
 	if false {
 		fmt.Println(_distance(corners[0], corners[1]))
 		fmt.Println(_distance(corners[1], corners[3]))
@@ -38,10 +40,13 @@ func warpColorAndDepthToChess(color, depth gocv.Mat, corners []image.Point) (goc
 	warped := gocv.NewMat()
 	gocv.WarpPerspective(color, &warped, m, image.Point{800, 800})
 
-	warpedDepth := gocv.Mat{}
-	if depth.Ptr() != nil && !depth.Empty() {
-		warpedDepth = gocv.NewMatWithSize(800, 800, depth.Type())
-		gocv.WarpPerspective(depth, &warpedDepth, m, image.Point{800, 800})
+	var warpedDepth vision.DepthMap
+	if depth.Width() > 0 {
+		dm := depth.ToMat()
+		defer dm.Close()
+		dm2 := gocv.NewMatWithSize(800, 800, dm.Type())
+		gocv.WarpPerspective(dm, &dm2, m, image.Point{800, 800})
+		warpedDepth = vision.NewDepthMapFromMat(dm2)
 	}
 
 	return warped, warpedDepth, nil
