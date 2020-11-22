@@ -154,10 +154,19 @@ func NewDepthMapFromMat(mat gocv.Mat) DepthMap {
 
 	dm.data = make([][]int, dm.width)
 
+	raw, err := mat.DataPtrFloat64()
+	if err != nil {
+		panic(err)
+	}
+
+	if len(raw) != dm.width*dm.height {
+		panic("wtf")
+	}
+
 	for x := 0; x < dm.width; x++ {
 		dm.data[x] = make([]int, dm.height)
 		for y := 0; y < dm.height; y++ {
-			dm.data[x][y] = int(mat.GetDoubleAt(y, x))
+			dm.data[x][y] = int(raw[y*dm.width+x])
 		}
 	}
 
