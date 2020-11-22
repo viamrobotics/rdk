@@ -241,7 +241,26 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 	h1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 1)
 	h8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 1)
 
+	if false {
+		// figure out orientation of pictures
+		xd := (h8Corner.X - h1Corner.X) / 8
+		yd := (h8Corner.Y - h1Corner.Y) / 8
+
+		clipMin := image.Point{h1Corner.X + xd*2, h1Corner.Y + yd*2 + xd/20} // the 20 is to move past the black border
+		clipMax := image.Point{h1Corner.X + xd*3, h1Corner.Y + yd*3 + xd/2}
+
+		clipBox := image.Rectangle{clipMin, clipMax}
+		fmt.Println(clipBox)
+		clip := img.Region(clipBox)
+		gocv.IMWrite("/tmp/x.png", clip)
+
+		if out != nil {
+			gocv.Rectangle(out, clipBox, vision.Purple.C, 1)
+		}
+	}
+
 	if out != nil {
+
 		for _, p := range redLittleCircles {
 			gocv.Circle(out, p, 1, vision.Red.C, 1)
 		}
