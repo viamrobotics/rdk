@@ -122,7 +122,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
-func FindChessCornersPinkCheat_inQuadrant(img gocv.Mat, out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
+func FindChessCornersPinkCheat_inQuadrant(img vision.Image, out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
@@ -168,41 +168,16 @@ func FindChessCornersPinkCheat_inQuadrant(img gocv.Mat, out *gocv.Mat, cnts [][]
 	return myCenter
 }
 
-func _avgColor(img gocv.Mat, x, y int) color.RGBA {
-	b := 0
-	g := 0
-	r := 0
-
-	num := 0
-
-	for X := x - 1; X < x+1; X++ {
-		for Y := y - 1; Y < y+1; Y++ {
-			data := vision.GetColor(img, Y, X)
-			b += int(data.B)
-			g += int(data.G)
-			r += int(data.R)
-			num++
-		}
+func FindChessCornersPinkCheat(imgraw gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
+	img, err := vision.NewImage(imgraw)
+	if err != nil {
+		return nil, err
 	}
 
-	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 0}
-	return done
-}
-
-func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
 	if out != nil {
 		if img.Rows() != out.Rows() || img.Cols() != out.Cols() {
 			return nil, fmt.Errorf("img and out don't match size %d,%d %d,%d", img.Rows(), img.Cols(), out.Rows(), out.Cols())
 		}
-	}
-
-	switch img.Type() {
-	case gocv.MatTypeCV8UC3:
-		//good
-	case gocv.MatTypeCV8UC4:
-		gocv.CvtColor(img, &img, gocv.ColorBGRAToBGR)
-	default:
-		panic(fmt.Errorf("what type is this: %v", img.Type()))
 	}
 
 	redLittleCircles := []image.Point{}
@@ -211,8 +186,8 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 
 	for x := 1; x < img.Cols(); x++ {
 		for y := 1; y < img.Rows(); y++ {
-			data := vision.GetColor(img, y, x)
 			p := image.Point{x, y}
+			data := img.Color(p)
 
 			d := MyPinkDistance(data)
 
@@ -241,23 +216,25 @@ func FindChessCornersPinkCheat(img gocv.Mat, out *gocv.Mat) ([]image.Point, erro
 	h1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 1)
 	h8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 1)
 
-	if false {
-		// figure out orientation of pictures
-		xd := (h8Corner.X - h1Corner.X) / 8
-		yd := (h8Corner.Y - h1Corner.Y) / 8
+	/*
+		if false {
+			// figure out orientation of pictures
+			xd := (h8Corner.X - h1Corner.X) / 8
+			yd := (h8Corner.Y - h1Corner.Y) / 8
 
-		clipMin := image.Point{h1Corner.X + xd*2, h1Corner.Y + yd*2 + xd/20} // the 20 is to move past the black border
-		clipMax := image.Point{h1Corner.X + xd*3, h1Corner.Y + yd*3 + xd/2}
+			clipMin := image.Point{h1Corner.X + xd*2, h1Corner.Y + yd*2 + xd/20} // the 20 is to move past the black border
+			clipMax := image.Point{h1Corner.X + xd*3, h1Corner.Y + yd*3 + xd/2}
 
-		clipBox := image.Rectangle{clipMin, clipMax}
-		fmt.Println(clipBox)
-		clip := img.Region(clipBox)
-		gocv.IMWrite("/tmp/x.png", clip)
+			clipBox := image.Rectangle{clipMin, clipMax}
+			fmt.Println(clipBox)
+			clip := img.Region(clipBox)
+			gocv.IMWrite("/tmp/x.png", clip)
 
-		if out != nil {
-			gocv.Rectangle(out, clipBox, vision.Purple.C, 1)
+			if out != nil {
+				gocv.Rectangle(out, clipBox, vision.Purple.C, 1)
+			}
 		}
-	}
+	*/
 
 	if out != nil {
 
