@@ -20,13 +20,6 @@ func _distance(a image.Point, b image.Point) int {
 }
 
 func warpColorAndDepthToChess(color gocv.Mat, depth vision.DepthMap, corners []image.Point) (gocv.Mat, vision.DepthMap, error) {
-	if false {
-		fmt.Println(_distance(corners[0], corners[1]))
-		fmt.Println(_distance(corners[1], corners[3]))
-		fmt.Println(_distance(corners[3], corners[2]))
-		fmt.Println(_distance(corners[2], corners[0]))
-	}
-
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),
