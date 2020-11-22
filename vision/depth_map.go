@@ -4,6 +4,7 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"fmt"
+	"image"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +17,18 @@ type DepthMap struct {
 	height int
 
 	data [][]int
+}
+
+func (dm *DepthMap) Width() int {
+	return dm.width
+}
+
+func (dm *DepthMap) Height() int {
+	return dm.height
+}
+
+func (dm *DepthMap) Get(p image.Point) int {
+	return dm.data[p.X][p.Y]
 }
 
 func (dm *DepthMap) GetDepth(x, y int) int {

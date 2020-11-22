@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"gocv.io/x/gocv"
+
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 type FileTestStuff struct {
@@ -59,7 +61,7 @@ func (fts *FileTestStuff) Process(outputfile string, x P) {
 		gocv.IMWrite(outFile, out)
 
 		if corners != nil {
-			warped, _, err := warpColorAndDepthToChess(img, gocv.Mat{}, corners)
+			warped, _, err := warpColorAndDepthToChess(img, vision.DepthMap{}, corners)
 			if err != nil {
 				panic(err)
 			}

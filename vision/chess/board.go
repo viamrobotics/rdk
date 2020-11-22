@@ -15,7 +15,7 @@ import (
 
 type Board struct {
 	color gocv.Mat
-	depth gocv.Mat
+	depth vision.DepthMap
 	edges gocv.Mat
 }
 
@@ -30,10 +30,10 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 		return nil, err
 	}
 
-	return FindAndWarpBoard(img, dm.ToMat())
+	return FindAndWarpBoard(img, dm)
 }
 
-func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
+func FindAndWarpBoard(color gocv.Mat, depth vision.DepthMap) (*Board, error) {
 	corners, err := findChessCorners(color, nil)
 	if err != nil {
 		return nil, err
@@ -52,12 +52,11 @@ func FindAndWarpBoard(color, depth gocv.Mat) (*Board, error) {
 
 func (b *Board) Close() {
 	b.color.Close()
-	b.depth.Close()
 	b.edges.Close()
 }
 
 func (b *Board) depthAt(p image.Point) float64 {
-	return b.depth.GetDoubleAt(p.Y, p.X)
+	return float64(b.depth.Get(p))
 }
 
 // return highest delta, average floor height
@@ -67,11 +66,11 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	corner := getMinChessCorner(square)
 	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
 		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
-			d := b.depth.GetDoubleAt(y, x)
+			d := b.depth.GetDepth(x, y)
 			if d == 0 {
 				continue
 			}
-			data = append(data, d)
+			data = append(data, float64(d))
 		}
 	}
 
