@@ -27,6 +27,14 @@ func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
+func (dm *DepthMap) Cols() int {
+	return dm.width
+}
+
+func (dm *DepthMap) Rows() int {
+	return dm.height
+}
+
 func (dm *DepthMap) Get(p image.Point) int {
 	return dm.data[p.X][p.Y]
 }
