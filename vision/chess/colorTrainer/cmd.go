@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"image/color"
-	"math/rand"
 	"os"
 	"sort"
 
@@ -17,13 +16,6 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
-
-func randomColor(img gocv.Mat) color.RGBA {
-	x := rand.Intn(img.Cols())
-	y := rand.Intn(img.Rows())
-	return vision.GetColor(img, y, x)
-
-}
 
 type ColorList []color.RGBA
 
@@ -49,12 +41,16 @@ func (cl ColorList) Swap(i, j int) {
 	cl[j] = x
 }
 
-func getUniqueColors(img gocv.Mat) []color.RGBA {
+func getUniqueColors(imgMat gocv.Mat) []color.RGBA {
+	img, err := vision.NewImage(imgMat)
+	if err != nil {
+		panic(err)
+	}
 	colors := ColorList{}
 
 	for x := 0; x < img.Cols(); x++ {
 		for y := 0; y < img.Rows(); y++ {
-			data := vision.GetColor(img, y, x)
+			data := img.ColorRowCol(y, x)
 
 			found := false
 			for _, other := range colors {

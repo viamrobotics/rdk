@@ -12,9 +12,8 @@ func TestWebcamSource(t *testing.T) {
 	}
 	defer s.Close()
 
-	a, b, err := s.NextColorDepthPair()
+	a, _, err := s.NextColorDepthPair()
 	defer a.Close()
-	defer b.Close()
 
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +33,6 @@ func TestHttpSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer a.Close()
-	defer b.Close()
 
 	if a.Cols() != 640 && a.Cols() != 1280 {
 		t.Errorf("color columns wrong: %d", a.Cols())

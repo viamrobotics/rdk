@@ -113,13 +113,13 @@ func main() {
 			changed = false
 
 		case "O":
-			_, err := myGripper.Open()
+			err := myGripper.Open()
 			if err != nil {
 				panic(err)
 			}
 			changed = false
 		case "C":
-			_, err := myGripper.Close()
+			err := myGripper.Close()
 			if err != nil {
 				panic(err)
 			}
