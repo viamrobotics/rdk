@@ -488,8 +488,7 @@ func main() {
 				gocv.IMWrite(fn, img)
 
 				fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
-				foo := vision.NewDepthMapFromMat(depth)
-				err = foo.WriteToFile(fn)
+				err = depth.WriteToFile(fn)
 				if err != nil {
 					panic(err)
 				}
