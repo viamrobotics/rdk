@@ -152,7 +152,6 @@ func (g *Gripper) Grab() (bool, error) {
 
 	// we didn't close, let's see if we actually got something
 	val, err := g.Get("OBJ")
-	fmt.Printf("res: %s val: %s\n", res, val)
 
 	if err != nil {
 		return false, err
