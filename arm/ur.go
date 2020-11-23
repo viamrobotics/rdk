@@ -141,6 +141,13 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 
 }
 
+func (arm *URArm) AddToLog(msg string) error {
+	// TODO: check for " in msg
+	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
+	_, err := arm.conn.Write([]byte(cmd))
+	return err
+}
+
 func reader(conn net.Conn, arm *URArm) {
 	for {
 		buf := make([]byte, 4)
@@ -165,7 +172,8 @@ func reader(conn net.Conn, arm *URArm) {
 			panic(err)
 		}
 
-		if buf[0] == 16 {
+		switch buf[0] {
+		case 16:
 			state, err := readRobotStateMessage(buf[1:])
 			if err != nil {
 				panic(err)
@@ -189,6 +197,35 @@ func reader(conn net.Conn, arm *URArm) {
 					state.CartesianInfo.Ry,
 					state.CartesianInfo.Rz)
 			}
+		case 20:
+			err := readURRobotMessage(buf)
+			if err != nil {
+				panic(err)
+			}
+		case 5: // MODBUS_INFO_MESSAGE
+			data := binary.BigEndian.Uint32(buf[1:])
+			if data != 0 {
+				fmt.Printf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
+			}
+
+		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
+			break
+		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
+			break
+		case 25: // PROGRAM_STATE_MESSAGE
+			if len(buf) != 12 {
+				fmt.Println("got bad PROGRAM_STATE_MESSAGE ??")
+			} else {
+				a := binary.BigEndian.Uint32(buf[1:])
+				b := buf[9]
+				c := buf[10]
+				d := buf[11]
+				if a != 4294967295 || b != 1 || c != 0 || d != 0 {
+					fmt.Printf("got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
+				}
+			}
+		default:
+			fmt.Printf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
 }

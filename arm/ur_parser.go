@@ -188,3 +188,68 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 
 	return state, nil
 }
+
+func readURRobotMessage(buf []byte) error {
+	ts := binary.BigEndian.Uint64(buf[1:])
+	//messageSource := buf[9]
+	robotMessageType := buf[10]
+
+	buf = buf[11:]
+
+	switch robotMessageType {
+	case 0: // text?
+		fmt.Printf("ur log: %s\n", string(buf))
+
+	case 6: // error
+		robotMessageCode := binary.BigEndian.Uint32(buf)
+		robotMessageArgument := binary.BigEndian.Uint32(buf[4:])
+		robotMessageReportLevel := binary.BigEndian.Uint32(buf[8:])
+		robotMessageDataType := binary.BigEndian.Uint32(buf[12:])
+		robotMessageData := binary.BigEndian.Uint32(buf[16:])
+		robotCommTextMessage := string(buf[20:])
+
+		fmt.Printf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
+			robotMessageCode, robotMessageArgument, robotMessageReportLevel, robotMessageDataType, robotMessageData, robotCommTextMessage)
+
+	case 3: // Version
+
+		projectNameSize := buf[0]
+		//projectName := string(buf[12:12+projectNameSize])
+		pos := projectNameSize + 1
+		majorVersion := buf[pos]
+		minorVersion := buf[pos+1]
+		bugFixVersion := binary.BigEndian.Uint32(buf[pos+2:])
+		buildNumber := binary.BigEndian.Uint32(buf[pos+8:])
+
+		fmt.Printf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
+
+	case 12: // i have no idea what this is
+		if len(buf) != 9 {
+			fmt.Printf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
+		} else {
+			a := binary.BigEndian.Uint64(buf)
+			b := buf[8]
+			if a != 0 || b != 1 {
+				fmt.Printf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
+			}
+		}
+
+	case 7: // KeyMessage
+		robotMessageCode := binary.BigEndian.Uint32(buf)
+		robotMessageArgument := binary.BigEndian.Uint32(buf[4:])
+		robotMessageTitleSize := buf[8]
+		robotMessageTitle := string(buf[9 : 9+robotMessageTitleSize])
+		keyTextMessage := string(buf[9+robotMessageTitleSize:])
+
+		if false {
+			// TODO: this is better than sleeping in other code, be smart!!
+			fmt.Printf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
+				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
+		}
+	default:
+		fmt.Printf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
+		return nil
+	}
+
+	return nil
+}
