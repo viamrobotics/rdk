@@ -13,7 +13,7 @@ type MatSource interface {
 
 	// first back is the regular img
 	// second is the depth if it exists
-	NextColorDepthPair() (*gocv.Mat, gocv.Mat, error)
+	NextColorDepthPair() (*gocv.Mat, DepthMap, error)
 
 	Close()
 }
@@ -29,16 +29,16 @@ func (we *WebcamSource) Close() {
 	we.webcam.Close()
 }
 
-func (we *WebcamSource) NextColorDepthPair() (gocv.Mat, gocv.Mat, error) {
+func (we *WebcamSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 	img := gocv.NewMat()
 
 	ok := we.webcam.Read(&img)
 	if !ok {
 		img.Close()
-		return gocv.Mat{}, gocv.Mat{}, fmt.Errorf("cannot read webcam device: %d", we.deviceId)
+		return gocv.Mat{}, DepthMap{}, fmt.Errorf("cannot read webcam device: %d", we.deviceId)
 	}
 
-	return img, gocv.Mat{}, nil
+	return img, DepthMap{}, nil
 }
 
 func NewWebcamSource(deviceId int) (*WebcamSource, error) {
@@ -71,10 +71,10 @@ func _readyBytesFromUrl(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, gocv.Mat, error) {
+func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 
 	img := gocv.Mat{}
-	depth := gocv.Mat{}
+	var depth DepthMap
 
 	colorData, err := _readyBytesFromUrl(hs.ColorURL)
 	if err != nil {
@@ -97,9 +97,7 @@ func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, gocv.Mat, error) {
 		return img, depth, err
 	}
 
-	depth = dm.ToMat()
-
-	return img, dm.ToMat(), nil
+	return img, dm, nil
 }
 
 func (hs *HttpSource) Close() {
