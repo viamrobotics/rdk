@@ -14,11 +14,15 @@ const (
 )
 
 type Component struct {
+	Name string
+
 	Host string
 	Port int
 
 	Type  ComponentType
 	Model string
+
+	Attributes map[string]string
 }
 
 type Config struct {

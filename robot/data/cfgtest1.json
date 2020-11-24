@@ -1,0 +1,10 @@
+{
+    "components" : [
+        { "type" : "camera",
+          "model" : "url",
+          "attributes" : {
+              "color" : "http://www.echolabs.com/static/small.jpg"
+          }
+        }
+    ]
+}

@@ -82,6 +82,12 @@ func newCamera(config Component) (vision.MatSource, error) {
 	switch config.Model {
 	case "eliot":
 		return vision.NewHttpSourceIntelEliot(fmt.Sprintf("%s:%d", config.Host, config.Port)), nil
+	case "url":
+		if len(config.Attributes) == 0 {
+			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
+		}
+		return &vision.HttpSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
