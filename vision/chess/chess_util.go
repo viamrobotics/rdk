@@ -12,7 +12,7 @@ import (
 
 var (
 	DepthCheckSizeRadius = 20
-	MinPieceDepth        = 10.0
+	MinPieceDepth        = 9.9999
 )
 
 func _distance(a image.Point, b image.Point) int {
