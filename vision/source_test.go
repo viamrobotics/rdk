@@ -21,6 +21,15 @@ func TestWebcamSource(t *testing.T) {
 
 }
 
+func TestHttpSourceNoDepth(t *testing.T) {
+	s := HttpSource{ColorURL: "http://www.echolabs.com/static/small.jpg", DepthURL: ""}
+	a, _, err := s.NextColorDepthPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+}
+
 func TestHttpSource(t *testing.T) {
 	s := NewHttpSourceIntelEliot("127.0.0.1:8181")
 

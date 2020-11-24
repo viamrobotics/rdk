@@ -81,23 +81,23 @@ func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 		return img, depth, fmt.Errorf("couldn't ready color url: %s", err)
 	}
 
-	depthData, err := _readyBytesFromUrl(hs.DepthURL)
-	if err != nil {
-		return img, depth, fmt.Errorf("couldn't ready depth url: %s", err)
-	}
+	var depthData []byte
+	if hs.DepthURL != "" {
+		depthData, err = _readyBytesFromUrl(hs.DepthURL)
+		if err != nil {
+			return img, depth, fmt.Errorf("couldn't ready depth url: %s", err)
+		}
 
-	// do this first and make sure ok before creating any mats
-	dm, err := ReadDepthMap(bytes.NewReader(depthData))
-	if err != nil {
-		return img, depth, err
+		// do this first and make sure ok before creating any mats
+		depth, err = ReadDepthMap(bytes.NewReader(depthData))
+		if err != nil {
+			return img, depth, err
+		}
 	}
 
 	img, err = gocv.IMDecode(colorData, gocv.IMReadUnchanged)
-	if err != nil {
-		return img, depth, err
-	}
 
-	return img, dm, nil
+	return img, depth, err
 }
 
 func (hs *HttpSource) Close() {
