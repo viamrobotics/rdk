@@ -1,0 +1,17 @@
+{
+    "components" : [
+        { "type": "arm",
+          "model": "ur",
+          "host" : "192.168.2.2"
+        },
+        { "type": "gripper",
+          "model": "robotiq",
+          "host" : "192.168.2.2"
+        },
+        { "type" : "camera",
+          "model" : "eliot",
+          "host" : "127.0.0.1",
+          "port" : 8181
+        }
+    ]
+}
