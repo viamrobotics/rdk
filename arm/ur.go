@@ -15,6 +15,11 @@ type URArm struct {
 	haveData bool
 }
 
+func (arm *URArm) Close() {
+	// TODO: stop thread
+	// TODO: close socket
+}
+
 func URArmConnect(host string) (*URArm, error) {
 	conn, err := net.Dial("tcp", host+":30001")
 	if err != nil {
