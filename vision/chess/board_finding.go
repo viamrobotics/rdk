@@ -7,6 +7,8 @@ import (
 
 	"gocv.io/x/gocv"
 
+	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/vision"
 )
@@ -55,62 +57,22 @@ func center(contour []image.Point, maxDiff int) image.Point {
 	return avgMiddle
 }
 
-var (
-	myPinks = []vision.Color{
-		vision.Color{color.RGBA{208, 73, 99, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{223, 79, 101, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{195, 78, 109, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{198, 65, 106, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{192, 57, 83, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{183, 68, 107, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{171, 61, 100, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{156, 65, 102, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{221, 68, 93, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{205, 63, 87, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{220, 108, 119, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{205, 101, 103, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{172, 90, 112, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{164, 48, 81, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{149, 47, 85, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{142, 45, 120, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{139, 37, 75, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{203, 108, 142, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{196, 97, 139, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{173, 96, 140, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{161, 112, 144, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{140, 82, 108, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{126, 71, 107, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{221, 105, 164, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{223, 117, 159, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{232, 127, 154, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{234, 109, 153, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{201, 148, 184, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{237, 158, 174, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{191, 121, 171, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{179, 145, 183, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{180, 128, 179, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{167, 125, 164, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{217, 144, 163, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{181, 124, 133, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{177, 75, 134, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{163, 69, 132, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{201, 132, 147, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{163, 69, 132, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{154, 80, 136, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{125, 81, 211, 0}, "myPink", "pink"},
-		vision.Color{color.RGBA{210, 85, 127, 0}, "myPink", "pink"},
+func isPink(data color.RGBA) bool {
+	temp, b := colorful.MakeColor(data)
+	if !b {
+		panic("wtf")
 	}
-)
-
-func MyPinkDistance(data color.RGBA) float64 {
-	d := 10000000000.0
-	for _, c := range myPinks {
-		temp := c.Distance(data)
-		if temp < d {
-			d = temp
-		}
+	h, s, v := temp.Hsv()
+	if h < 286 {
+		return false
 	}
-	return d
+	if s < .2 {
+		return false
+	}
+	if v < 100 {
+		return false
+	}
+	return true
 }
 
 func inList(l []image.Point, p image.Point) bool {
@@ -189,9 +151,7 @@ func FindChessCornersPinkCheat(imgraw gocv.Mat, out *gocv.Mat) ([]image.Point, e
 			p := image.Point{x, y}
 			data := img.Color(p)
 
-			d := MyPinkDistance(data)
-
-			if d < 40 {
+			if isPink(data) {
 				X := int(2 * x / img.Cols())
 				Y := int(2 * y / img.Rows())
 				Q := X + (Y * 2)
@@ -202,8 +162,10 @@ func FindChessCornersPinkCheat(imgraw gocv.Mat, out *gocv.Mat) ([]image.Point, e
 			}
 
 			if false {
-				if y == 10 && x > 150 && x < 200 {
-					fmt.Printf("  --  %d %d %v %f\n", x, y, data, d)
+				if y == 127 && x > 250 && x < 350 {
+					temp, _ := colorful.MakeColor(data)
+					h, s, v := temp.Hsv()
+					fmt.Printf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
 					redLittleCircles = append(redLittleCircles, p)
 				}
 			}

@@ -71,7 +71,7 @@ func (i *Image) ColorRowCol(row, col int) color.RGBA {
 	c.R = i.data[base+2]
 	c.G = i.data[base+1]
 	c.B = i.data[base+0]
-
+	c.A = 1
 	return c
 }
 
@@ -96,7 +96,7 @@ func (i *Image) AverageColorXY(x, y int) color.RGBA {
 		}
 	}
 
-	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 0}
+	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 1}
 	return done
 
 }

@@ -1,7 +1,7 @@
 package vision
 
 import (
-	//"fmt"
+	"fmt"
 	"image/color"
 	"math"
 )
@@ -20,22 +20,26 @@ func (c Color) Distance(other color.RGBA) float64 {
 	return ColorDistance(c.C, other)
 }
 
+func (c Color) String() string {
+	return fmt.Sprintf("rgb %d,%d,%d", c.C.R, c.C.G, c.C.B)
+}
+
 var (
-	Red     = Color{color.RGBA{255, 0, 0, 0}, "red", "red"}
-	DarkRed = Color{color.RGBA{64, 32, 32, 0}, "darkRed", "red"}
+	Red     = Color{color.RGBA{255, 0, 0, 1}, "red", "red"}
+	DarkRed = Color{color.RGBA{64, 32, 32, 1}, "darkRed", "red"}
 
-	Green = Color{color.RGBA{0, 255, 0, 0}, "green", "green"}
+	Green = Color{color.RGBA{0, 255, 0, 1}, "green", "green"}
 
-	Blue     = Color{color.RGBA{0, 0, 255, 0}, "blue", "blue"}
-	DarkBlue = Color{color.RGBA{32, 32, 64, 0}, "darkBlue", "blue"}
+	Blue     = Color{color.RGBA{0, 0, 255, 1}, "blue", "blue"}
+	DarkBlue = Color{color.RGBA{32, 32, 64, 1}, "darkBlue", "blue"}
 
-	White = Color{color.RGBA{255, 255, 255, 0}, "white", "white"}
-	Gray  = Color{color.RGBA{128, 128, 128, 0}, "gray", "gray"}
-	Black = Color{color.RGBA{0, 0, 0, 0}, "black", "black"}
+	White = Color{color.RGBA{255, 255, 255, 1}, "white", "white"}
+	Gray  = Color{color.RGBA{128, 128, 128, 1}, "gray", "gray"}
+	Black = Color{color.RGBA{0, 0, 0, 1}, "black", "black"}
 
-	Yellow = Color{color.RGBA{255, 255, 0, 0}, "yellow", "yellow"}
-	Cyan   = Color{color.RGBA{0, 255, 255, 0}, "cyan", "cyan"}
-	Purple = Color{color.RGBA{255, 0, 255, 0}, "purple", "purple"}
+	Yellow = Color{color.RGBA{255, 255, 0, 1}, "yellow", "yellow"}
+	Cyan   = Color{color.RGBA{0, 255, 255, 1}, "cyan", "cyan"}
+	Purple = Color{color.RGBA{255, 0, 255, 1}, "purple", "purple"}
 
 	Colors = map[string]Color{
 		"red":      Red,

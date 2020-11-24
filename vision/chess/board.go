@@ -202,7 +202,7 @@ func (b *Board) IsBoardBlocked() bool {
 			s := string(x) + string(y)
 			h := b.SquareCenterHeight(s, DepthCheckSizeRadius)
 			//fmt.Printf("%s -> %v\n", s, h)
-			if h > 160 {
+			if h > 150 {
 				fmt.Printf("blocked at %s with %v\n", s, h)
 				return true
 			}
