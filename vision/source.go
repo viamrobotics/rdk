@@ -13,7 +13,7 @@ type MatSource interface {
 
 	// first back is the regular img
 	// second is the depth if it exists
-	NextColorDepthPair() (*gocv.Mat, DepthMap, error)
+	NextColorDepthPair() (gocv.Mat, DepthMap, error)
 
 	Close()
 }

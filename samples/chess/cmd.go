@@ -28,7 +28,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/robot"
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
@@ -300,10 +300,7 @@ func lookForBoard(myArm *arm.URArm) error {
 
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-	robotIp := flag.String("robotIP", "192.168.2.2", "ip for ur5")
-
-	//webcamDeviceId := 0
-	//flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
+	cfgFile := flag.String("config", "robot/data/robot.json", "config file for robot")
 
 	flag.Parse()
 
@@ -316,12 +313,20 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	flag.Parse()
-
-	myArm, err := arm.URArmConnect(*robotIp)
+	cfg, err := robot.ReadConfig(*cfgFile)
 	if err != nil {
 		panic(err)
 	}
+
+	myRobot, err := robot.NewRobot(cfg)
+	if err != nil {
+		panic(err)
+	}
+	defer myRobot.Close()
+
+	myArm := myRobot.Arms[0]
+	myGripper := myRobot.Grippers[0]
+	webcam := myRobot.Cameras[0]
 
 	if false {
 		err := lookForBoard(myArm)
@@ -331,23 +336,6 @@ func main() {
 
 		return
 	}
-
-	err = initArm(myArm)
-	if err != nil {
-		panic(err)
-	}
-
-	myGripper, err := gripper.NewGripper(*robotIp)
-	if err != nil {
-		panic(err)
-	}
-
-	//webcam, err := vision.NewWebcamSource(webcamDeviceId)
-	webcam := vision.NewHttpSourceIntelEliot("127.0.0.1:8181")
-	if err != nil {
-		panic(err)
-	}
-	defer webcam.Close()
 
 	a := app.New()
 	w := a.NewWindow("Hello")
