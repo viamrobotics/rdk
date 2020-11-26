@@ -5,11 +5,11 @@ import (
 	"image"
 	"sort"
 
-	"github.com/sjwhitworth/golearn/base"
+	"github.com/echolabsinc/robotcore/ml"
 )
 
 type Game struct {
-	pieceColorClassifier base.Classifier
+	pieceColorClassifier ml.Classifier
 	edgesThreshold       int
 }
 
