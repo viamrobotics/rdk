@@ -20,15 +20,23 @@ func (s *colorTrainingStore) init() {
 }
 
 func (s *colorTrainingStore) add(edges int, c color.RGBA, what string) {
-	s.data = s.data + fmt.Sprintf("%d, %d, %d, %d, %s\n", edges, c.R, c.G, c.B, what)
+	whatValue := 0
+	switch what {
+	case "white":
+		whatValue = 0
+	case "black":
+		whatValue = 1
+	case "empty":
+		whatValue = 2
+	default:
+		panic(fmt.Errorf("unknown type: %s", what))
+	}
+	s.data = s.data + fmt.Sprintf("%d, %d, %d, %d, %d\n", edges, c.R, c.G, c.B, whatValue)
 }
 
 func pieceFromColor(theClassifier base.Classifier, edges int, data color.RGBA) string {
 	csvData := colorTrainingStore{}
 	csvData.init()
-	csvData.add(0, color.RGBA{0, 0, 0, 0}, "white")
-	csvData.add(0, color.RGBA{0, 0, 0, 0}, "empty")
-	csvData.add(0, color.RGBA{0, 0, 0, 0}, "black")
 	csvData.add(edges, data, "white")
 
 	rawData, err := base.ParseCSVToInstancesFromReader(strings.NewReader(csvData.data), true)
@@ -41,11 +49,31 @@ func pieceFromColor(theClassifier base.Classifier, edges int, data color.RGBA) s
 		panic(err)
 	}
 
-	if len(res.AllAttributes()) != 1 {
+	attrs := res.AllAttributes()
+	if len(attrs) != 1 {
 		panic("this sucks")
 	}
+	spec, err := res.GetAttribute(attrs[0])
+	if err != nil {
+		panic(err)
+	}
 
-	return res.RowString(3)
+	raw := res.Get(spec, 0)
+	if len(raw) != 8 {
+		panic("wtf")
+	}
+
+	whatValue := int(base.UnpackBytesToFloat(raw))
+	switch whatValue {
+	case 0:
+		return "white"
+	case 1:
+		return "black"
+	case 2:
+		return "empty"
+	default:
+		panic(fmt.Errorf("unknown what # %d", whatValue))
+	}
 }
 
 func buildPieceColorModel(theBoard *Board) (base.Classifier, error) {
