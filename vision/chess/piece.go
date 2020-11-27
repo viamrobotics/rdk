@@ -40,7 +40,7 @@ func pieceFromColor(theClassifier ml.Classifier, edges int, data color.RGBA) str
 
 func buildPieceColorModel(theBoard *Board) (ml.Classifier, error) {
 	data := [][]float64{}
-	correct := []float64{}
+	correct := []int{}
 
 	for y := '1'; y <= '8'; y++ {
 		for x := 'a'; x <= 'h'; x++ {
@@ -66,7 +66,7 @@ func buildPieceColorModel(theBoard *Board) (ml.Classifier, error) {
 					clr := theBoard.color.ColorRowCol(y, x)
 
 					data = append(data, makeArray(edges, clr))
-					correct = append(correct, float64(squareType))
+					correct = append(correct, squareType)
 				}
 			}
 		}
