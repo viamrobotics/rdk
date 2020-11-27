@@ -2,9 +2,11 @@ package ml
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/knn"
+	"github.com/sjwhitworth/golearn/neural"
 )
 
 type GoLearnClassifier struct {
@@ -12,8 +14,60 @@ type GoLearnClassifier struct {
 	format        *base.DenseInstances
 }
 
-func (c *GoLearnClassifier) Classify(data []float64) (float64, error) {
-	di := base.NewStructuralCopy(c.format)
+func (c *GoLearnClassifier) Classify(data []float64) (int, error) {
+	di := _glMakeClassifyDataSet(c.format, data)
+
+	res, err := c.theClassifier.Predict(di)
+	if err != nil {
+		return 0, err
+	}
+
+	return _glReturnSingleResult(res), nil
+}
+
+func (c *GoLearnClassifier) Train(data [][]float64, correct []int) error {
+	rawData, err := _glMakeDataSet(data, correct)
+	if err != nil {
+		return err
+	}
+
+	c.format = base.NewStructuralCopy(rawData)
+
+	c.theClassifier = knn.NewKnnClassifier("euclidean", "linear", 2)
+
+	return c.theClassifier.Fit(rawData)
+}
+
+// ---------
+type GoLearnNNClassifier struct {
+	theClassifier *neural.MultiLayerNet
+	format        *base.DenseInstances
+}
+
+func (c *GoLearnNNClassifier) Classify(data []float64) (int, error) {
+	di := _glMakeClassifyDataSet(c.format, data)
+	res := c.theClassifier.Predict(di)
+	return _glReturnSingleResult(res), nil
+}
+
+func (c *GoLearnNNClassifier) Train(data [][]float64, correct []int) error {
+	rawData, err := _glMakeDataSet(data, correct)
+	if err != nil {
+		return err
+	}
+
+	c.format = base.NewStructuralCopy(rawData)
+
+	c.theClassifier = neural.NewMultiLayerNet([]int{10})
+
+	c.theClassifier.Fit(rawData)
+	return nil
+}
+
+// --------
+
+func _glMakeClassifyDataSet(format *base.DenseInstances, data []float64) *base.DenseInstances {
+	di := base.NewStructuralCopy(format)
 	di.Extend(1)
 	attrs := di.AllAttributes()
 	for x, a := range attrs {
@@ -27,12 +81,11 @@ func (c *GoLearnClassifier) Classify(data []float64) (float64, error) {
 		di.Set(spec, 0, base.PackFloatToBytes(data[x]))
 	}
 
-	res, err := c.theClassifier.Predict(di)
-	if err != nil {
-		return 0, err
-	}
+	return di
+}
 
-	attrs = res.AllAttributes()
+func _glReturnSingleResult(res base.FixedDataGrid) int {
+	attrs := res.AllAttributes()
 	if len(attrs) != 1 {
 		panic("this sucks")
 	}
@@ -46,16 +99,16 @@ func (c *GoLearnClassifier) Classify(data []float64) (float64, error) {
 		panic("wtf")
 	}
 
-	return base.UnpackBytesToFloat(raw), nil
+	return int(math.Round(base.UnpackBytesToFloat(raw)))
 }
 
-func (c *GoLearnClassifier) Train(data [][]float64, correct []float64) error {
+func _glMakeDataSet(data [][]float64, correct []int) (base.FixedDataGrid, error) {
 	if len(data) == 0 {
-		return fmt.Errorf("no data")
+		return nil, fmt.Errorf("no data")
 	}
 
 	if len(data) != len(correct) {
-		return fmt.Errorf("data and correct not the same lenghts %d %d", len(data), len(correct))
+		return nil, fmt.Errorf("data and correct not the same lenghts %d %d", len(data), len(correct))
 	}
 
 	rawData := base.NewDenseInstances()
@@ -73,15 +126,8 @@ func (c *GoLearnClassifier) Train(data [][]float64, correct []float64) error {
 		for y, v := range row {
 			rawData.Set(specs[y], x, base.PackFloatToBytes(v))
 		}
-		rawData.Set(specs[len(row)], x, base.PackFloatToBytes(correct[x]))
+		rawData.Set(specs[len(row)], x, base.PackFloatToBytes(float64(correct[x])))
 	}
 
-	c.format = base.NewStructuralCopy(rawData)
-
-	c.theClassifier = knn.NewKnnClassifier("euclidean", "linear", 2)
-
-	c.theClassifier.Fit(rawData)
-
-	return nil
-
+	return rawData, nil
 }
