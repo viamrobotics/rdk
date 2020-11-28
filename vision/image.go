@@ -16,6 +16,10 @@ type Image struct {
 	height int
 }
 
+func NewImageFromFile(fn string) (Image, error) {
+	return NewImage(gocv.IMRead(fn, gocv.IMReadUnchanged))
+}
+
 func NewImage(mat gocv.Mat) (Image, error) {
 
 	switch mat.Type() {
@@ -58,6 +62,10 @@ func (i *Image) Width() int {
 
 func (i *Image) Color(p image.Point) color.RGBA {
 	return i.ColorRowCol(p.Y, p.X)
+}
+
+func (i *Image) ColorXY(x, y int) color.RGBA {
+	return i.ColorRowCol(y, x)
 }
 
 func (i *Image) ColorRowCol(row, col int) color.RGBA {
