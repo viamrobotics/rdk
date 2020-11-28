@@ -16,6 +16,9 @@ type DepthMap struct {
 	width  int
 	height int
 
+	min int
+	max int
+
 	data [][]int
 }
 
@@ -53,8 +56,16 @@ func myMax(a, b int) int {
 func (dm *DepthMap) smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
+	dm.max = 0
+	dm.min = 100000
 	Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
-		dm._getDepthOrEstimate(x, y)
+		temp := dm._getDepthOrEstimate(x, y)
+		if temp > 0 && temp < dm.min {
+			dm.min = temp
+		}
+		if temp > dm.max {
+			dm.max = temp
+		}
 		return nil
 	})
 }
