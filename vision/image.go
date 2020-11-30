@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"gocv.io/x/gocv"
 
@@ -122,4 +123,11 @@ func (i *Image) AverageColorXY(x, y int) color.RGBA {
 
 func (i *Image) MatUnsafe() gocv.Mat {
 	return i.mat
+}
+
+// todo: move this to a better file
+func PointDistance(a, b image.Point) float64 {
+	x := (b.X - a.X) * (b.X - a.X)
+	x += (b.Y - a.Y) * (b.Y - a.Y)
+	return math.Sqrt(float64(x))
 }
