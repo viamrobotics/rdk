@@ -10,6 +10,12 @@ import (
 
 	"gocv.io/x/gocv"
 
+	"fyne.io/fyne"
+	"fyne.io/fyne/app"
+	"fyne.io/fyne/canvas"
+	"fyne.io/fyne/driver/desktop"
+	//"fyne.io/fyne/widget"
+
 	"github.com/echolabsinc/robotcore/vision"
 )
 
@@ -139,6 +145,51 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 	return nil
 }
 
+type myHover struct {
+	fyne.CanvasObject
+	img  vision.Image
+	last image.Point
+}
+
+func (h *myHover) MouseIn(e *desktop.MouseEvent) {
+	fmt.Printf("MouseIn: %v\n", e)
+}
+
+func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
+	p := image.Point{e.Position.X, e.Position.Y}
+	if p.X == h.last.X && p.Y == h.last.Y {
+		return
+	}
+	h.last = p
+	fmt.Printf("MouseEvent: %v %v\n", e.Position, h.img.ColorHCL(p))
+}
+
+func (h *myHover) MouseOut() {
+	fmt.Printf("MouseOut \n")
+}
+
+func view(img vision.Image) error {
+	a := app.New()
+	w := a.NewWindow("Hello")
+
+	mat := img.MatUnsafe()
+	i, err := mat.ToImage()
+	if err != nil {
+		return err
+	}
+
+	i2 := canvas.NewImageFromImage(i)
+	i2.SetMinSize(fyne.Size{img.Width(), img.Height()})
+	w.SetContent(i2)
+
+	w.Canvas().Overlays().Add(&myHover{i2, img, image.Point{}})
+
+	w.ShowAndRun()
+
+	return nil
+
+}
+
 func main() {
 
 	xFlag := flag.Int("x", -1, "")
@@ -166,6 +217,8 @@ func main() {
 		err = shapeWalk(img, *xFlag, *yFlag)
 	case "shapeWalkLine":
 		err = shapeWalkLine(img, *xFlag, *yFlag)
+	case "view":
+		err = view(img)
 	default:
 		panic(fmt.Errorf("unknown program: %s", prog))
 	}
