@@ -38,7 +38,7 @@ func hclHistogram(img vision.Image) {
 	_hclHistogramHelp("l", L)
 }
 
-func shapeWalk(img vision.Image, startX, startY int) error {
+func shapeWalkLine(img vision.Image, startX, startY int) error {
 	m := img.MatUnsafe()
 
 	init := img.ColorHCL(image.Point{startX, startY})
@@ -82,6 +82,63 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 	return nil
 }
 
+func _shapeWalkHelp(img vision.Image, dots map[string]int, clr vision.HCL, start image.Point) {
+	key := fmt.Sprintf("%d-%d", start.X, start.Y)
+	if dots[key] != 0 {
+		return
+	}
+
+	myColor := img.ColorHCL(start)
+	if clr.Distance(myColor) > 3 {
+		dots[key] = -1
+		return
+	}
+	dots[key] = 1
+
+	// TODO: should i change clr to myColor ??
+	clr = myColor
+
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y - 1})
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y + 0})
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y + 1})
+
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y - 1})
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y + 0})
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y + 1})
+
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 0, start.Y + 1})
+	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 0, start.Y + 1})
+}
+
+func shapeWalk(img vision.Image, startX, startY int) error {
+	m := img.MatUnsafe()
+
+	start := image.Point{startX, startY}
+	init := img.ColorHCL(start)
+
+	dots := map[string]int{} // 0 not seen, 1 seen and good, -1 seen and bad
+
+	_shapeWalkHelp(img, dots, init, start)
+
+	for k, v := range dots {
+		if v != 1 {
+			continue
+		}
+
+		var x, y int
+		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
+		if err != nil {
+			return fmt.Errorf("couldn't read key %s %s", k, err)
+		}
+
+		gocv.Circle(&m, image.Point{x, y}, 1, vision.Red.C, 1)
+	}
+
+	gocv.IMWrite("/tmp/x.png", m)
+
+	return nil
+}
+
 func main() {
 
 	xFlag := flag.Int("x", -1, "")
@@ -106,12 +163,15 @@ func main() {
 	case "hclHisto":
 		hclHistogram(img)
 	case "shapeWalk":
-		err := shapeWalk(img, *xFlag, *yFlag)
-		if err != nil {
-			panic(err)
-		}
+		err = shapeWalk(img, *xFlag, *yFlag)
+	case "shapeWalkLine":
+		err = shapeWalkLine(img, *xFlag, *yFlag)
 	default:
 		panic(fmt.Errorf("unknown program: %s", prog))
+	}
+
+	if err != nil {
+		panic(err)
 	}
 
 }
