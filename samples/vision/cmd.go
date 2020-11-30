@@ -19,6 +19,12 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 )
 
+var (
+	xFlag, yFlag *int
+	radius       *float64
+	maxDistance  *float64
+)
+
 func _hclHistogramHelp(name string, data []float64) {
 	sort.Float64s(data)
 	mean, stdDev := stat.MeanStdDev(data, nil)
@@ -26,17 +32,33 @@ func _hclHistogramHelp(name string, data []float64) {
 }
 
 func hclHistogram(img vision.Image) {
+
 	H := []float64{}
 	C := []float64{}
 	L := []float64{}
+
+	center := image.Point{-1, -1}
+	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
+		center = image.Point{*xFlag, *yFlag}
+	}
+
 	for x := 0; x < img.Width(); x = x + 1 {
 		for y := 0; y < img.Height(); y = y + 1 {
 			p := image.Point{x, y}
+			if center.X >= 0 && vision.PointDistance(center, p) > *radius {
+				continue
+			}
 			hcl := img.ColorHCL(p)
 			H = append(H, hcl.H)
 			C = append(C, hcl.C)
 			L = append(L, hcl.L)
 		}
+	}
+
+	if center.X > 0 {
+		m := img.MatUnsafe()
+		gocv.Circle(&m, center, int(*radius), vision.Red.C, 1)
+		gocv.IMWrite(flag.Arg(2), m)
 	}
 
 	_hclHistogramHelp("h", H)
@@ -99,7 +121,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, clr vision.HCL, start
 	}
 
 	myColor := img.ColorHCL(start)
-	if clr.Distance(myColor) > 3 {
+	if clr.Distance(myColor) > *maxDistance {
 		dots[key] = -1
 		return
 	}
@@ -196,8 +218,13 @@ func view(img vision.Image) error {
 
 func main() {
 
-	xFlag := flag.Int("x", -1, "")
-	yFlag := flag.Int("y", -1, "")
+	xFlag = flag.Int("x", -1, "")
+	yFlag = flag.Int("y", -1, "")
+	radius = flag.Float64("radius", -1, "")
+	maxDistance = flag.Float64("maxDistance", 2.74, "")
+
+	blur := flag.Bool("blur", false, "")
+	blurSize := flag.Int("blurSize", 5, "")
 
 	flag.Parse()
 
@@ -211,7 +238,12 @@ func main() {
 
 	img, err := vision.NewImageFromFile(fn)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("error reading image from file (%s) %w", fn, err))
+	}
+
+	if *blur {
+		m := img.MatUnsafe()
+		gocv.Blur(m, &m, image.Point{*blurSize, *blurSize})
 	}
 
 	switch prog {
@@ -228,7 +260,7 @@ func main() {
 	}
 
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("error running command: %w", err))
 	}
 
 }

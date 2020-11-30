@@ -18,7 +18,7 @@ func (hcl HCL) String() string {
 
 func (a HCL) Distance(b HCL) float64 {
 	sum := (a.H - b.H) * (a.H - b.H)
-	sum += (a.C - b.C) * (a.C - b.C)
+	sum += 10 * ((a.C - b.C) * (a.C - b.C))
 	sum += (a.L - b.L) * (a.L - b.L)
 	return math.Sqrt(sum)
 }
