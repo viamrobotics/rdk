@@ -23,11 +23,16 @@ type FileTestStuff struct {
 type P func(gocv.Mat, *gocv.Mat) ([]image.Point, error)
 
 func NewFileTestStuff(prefix, glob string) FileTestStuff {
+	var err error
+
 	fts := FileTestStuff{}
 	fts.prefix = prefix
 	fts.glob = glob
 	fts.root = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", fts.prefix)
-	fts.out = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", fts.prefix, "out")
+	fts.out, err = filepath.Abs("out")
+	if err != nil {
+		panic(err)
+	}
 
 	os.MkdirAll(fts.out, 0775)
 
