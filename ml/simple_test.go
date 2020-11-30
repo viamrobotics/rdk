@@ -49,7 +49,7 @@ func TestGLSimple1(t *testing.T) {
 	c := &GoLearnClassifier{}
 	err := c.Train(data, correct)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	_checkCorrectness(t, "TestGLSimple1", c, data, correct)
@@ -61,7 +61,7 @@ func TestGLSimpleNN1(t *testing.T) {
 	c := &GoLearnNNClassifier{}
 	err := c.Train(data, correct)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	_checkCorrectness(t, "TestGLSimpleNN1 - a", c, data, correct)
