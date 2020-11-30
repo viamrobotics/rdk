@@ -6,6 +6,29 @@ import (
 	"math"
 )
 
+type HCL struct {
+	H float64
+	C float64
+	L float64
+}
+
+func (hcl HCL) String() string {
+	return fmt.Sprintf("hcl: %6.2f %5.2f %5.2f", hcl.H, hcl.C, hcl.L)
+}
+
+func (a HCL) Distance(b HCL) float64 {
+	sum := (a.H - b.H) * (a.H - b.H)
+	sum += (a.C - b.C) * (a.C - b.C)
+	sum += (a.L - b.L) * (a.L - b.L)
+	return math.Sqrt(sum)
+}
+
+func NewHCL(h, c, l float64) HCL {
+	return HCL{h, c, l}
+}
+
+// ---
+
 type Color struct {
 	C        color.RGBA
 	Name     string
