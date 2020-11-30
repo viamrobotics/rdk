@@ -62,13 +62,13 @@ func (i *Image) Width() int {
 	return i.width
 }
 
-func (i *Image) ColorHCL(p image.Point) (float64, float64, float64) {
+func (i *Image) ColorHCL(p image.Point) HCL {
 	temp, b := colorful.MakeColor(i.ColorRowCol(p.Y, p.X))
 	if !b {
 		panic("wtf") // this should never happen
 	}
 
-	return temp.Hcl()
+	return NewHCL(temp.Hcl())
 }
 
 func (i *Image) Color(p image.Point) color.RGBA {
