@@ -26,10 +26,10 @@ func hclHistogram(img vision.Image) {
 	for x := 0; x < img.Width(); x = x + 1 {
 		for y := 0; y < img.Height(); y = y + 1 {
 			p := image.Point{x, y}
-			h, c, l := img.ColorHCL(p)
-			H = append(H, h)
-			C = append(C, c)
-			L = append(L, l)
+			hcl := img.ColorHCL(p)
+			H = append(H, hcl.H)
+			C = append(C, hcl.C)
+			L = append(L, hcl.L)
 		}
 	}
 
@@ -39,17 +39,44 @@ func hclHistogram(img vision.Image) {
 }
 
 func shapeWalk(img vision.Image, startX, startY int) error {
+	m := img.MatUnsafe()
 
-	for i := 0; i < 100; i++ {
+	init := img.ColorHCL(image.Point{startX, startY})
+
+	mod := 0
+	as := []image.Point{}
+	bs := []image.Point{}
+
+	for i := 0; i < 1000; i++ {
 		p := image.Point{i + startX, startY}
-		h, c, l := img.ColorHCL(p)
+		if p.X >= img.Width() {
+			break
+		}
+		hcl := img.ColorHCL(p)
 
-		fmt.Printf("%v %v %v %v\n", img.Color(p), h, c, l)
+		diff := init.Distance(hcl)
+		fmt.Printf("%v %v %v\n", p, hcl, diff)
 
+		if diff > 12 {
+			init = hcl
+			mod = mod + 1
+		}
+
+		if mod%2 == 0 {
+			as = append(as, p)
+		} else {
+			bs = append(bs, p)
+		}
 	}
 
-	m := img.MatUnsafe()
-	gocv.Circle(&m, image.Point{startX, startY}, 1, vision.Red.C, 1)
+	for _, p := range as {
+		gocv.Circle(&m, p, 1, vision.Red.C, 1)
+	}
+
+	for _, p := range bs {
+		gocv.Circle(&m, p, 1, vision.Green.C, 1)
+	}
+
 	gocv.IMWrite("/tmp/x.png", m)
 
 	return nil
