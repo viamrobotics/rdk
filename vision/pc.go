@@ -24,8 +24,7 @@ func _colorToInt(c color.RGBA) int {
 
 func _scale(x, max int) float32 {
 	res := float32(x) / float32(max)
-	res = res - .5
-	return res / 5
+	return res - .5
 }
 func (pc *PointCloud) ToPCD(out io.Writer) error {
 	if pc.Depth.Width() != pc.Color.Width() ||
@@ -46,7 +45,8 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 		"DATA ascii\n",
 		pc.Depth.Width()*pc.Depth.Height(),
 		1, //pc.Depth.Height(),
-		pc.Depth.Width()*pc.Depth.Height())
+		pc.Depth.Width()*pc.Depth.Height(),
+	)
 
 	if err != nil {
 		return err
@@ -58,26 +58,8 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 	for x := 0; x < pc.Depth.Width(); x++ {
 		for y := 0; y < pc.Depth.Height(); y++ {
 			height := pc.Depth.GetDepth(x, y)
-			if height > pc.Depth.max {
-				fmt.Printf("Wtf: %d\n", height)
-			}
-			if height < pc.Depth.min {
-				fmt.Printf("wtf: %d\n", height)
-			}
-
 			diff := float32(height - pc.Depth.min)
-			if diff < 0 {
-				fmt.Printf("wtf: %d %f\n", height, diff)
-			}
-			if diff > scale {
-				fmt.Printf("wtf: %f\n", diff)
-			}
-
 			scaledHeight := diff / scale
-
-			if scaledHeight < 0 || scaledHeight > 1 {
-				fmt.Printf("Wtf: %d -> %f\n", height, scaledHeight)
-			}
 
 			_, err = fmt.Fprintf(out, "%f %f %f %d\n",
 				_scale(x, pc.Depth.Width()),
