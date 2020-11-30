@@ -6,6 +6,8 @@ import (
 	"image/color"
 
 	"gocv.io/x/gocv"
+
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 type Image struct {
@@ -58,6 +60,15 @@ func (i *Image) Height() int {
 
 func (i *Image) Width() int {
 	return i.width
+}
+
+func (i *Image) ColorHCL(p image.Point) (float64, float64, float64) {
+	temp, b := colorful.MakeColor(i.ColorRowCol(p.Y, p.X))
+	if !b {
+		panic("wtf") // this should never happen
+	}
+
+	return temp.Hcl()
 }
 
 func (i *Image) Color(p image.Point) color.RGBA {
