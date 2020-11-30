@@ -89,6 +89,10 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 }
 
 func _shapeWalkHelp(img vision.Image, dots map[string]int, clr vision.HCL, start image.Point) {
+	if start.X < 0 || start.X >= img.Width() || start.Y < 0 || start.Y >= img.Height() {
+		return
+	}
+
 	key := fmt.Sprintf("%d-%d", start.X, start.Y)
 	if dots[key] != 0 {
 		return
