@@ -74,9 +74,9 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 
 	// move
 	if chess == "-" {
-		f := getCoord("h8")
-		where.X = f.x + .06
-		where.Y = f.y - (.04 * float64(numPiecesCaptured))
+		f := getCoord("a8")
+		where.X = f.x + (.06 * float64(numPiecesCaptured))
+		where.Y = f.y + (BoardWidth / 5)
 		numPiecesCaptured = numPiecesCaptured + 1
 	} else {
 		f := getCoord(chess)
