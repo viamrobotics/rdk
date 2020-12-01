@@ -9,53 +9,8 @@ import (
 
 	"github.com/lucasb-eyer/go-colorful"
 
-	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/vision"
 )
-
-func center(contour []image.Point, maxDiff int) image.Point {
-	if len(contour) == 0 {
-		return image.Point{0, 0}
-	}
-
-	x := 0
-	y := 0
-
-	for _, p := range contour {
-		x += p.X
-		y += p.Y
-	}
-
-	weightedMiddle := image.Point{x / len(contour), y / len(contour)}
-
-	// TODO: this should be about coniguous, not distance
-
-	box := image.Rectangle{image.Point{1000000, 100000}, image.Point{0, 0}}
-	for _, p := range contour {
-		if rcutil.AbsInt(p.X-weightedMiddle.X) > maxDiff || rcutil.AbsInt(p.Y-weightedMiddle.Y) > maxDiff {
-			continue
-		}
-
-		if p.X < box.Min.X {
-			box.Min.X = p.X
-		}
-		if p.Y < box.Min.Y {
-			box.Min.Y = p.Y
-		}
-
-		if p.X > box.Max.X {
-			box.Max.X = p.X
-		}
-		if p.Y > box.Max.Y {
-			box.Max.Y = p.Y
-		}
-
-	}
-
-	avgMiddle := image.Point{(box.Min.X + box.Max.X) / 2, (box.Min.Y + box.Max.Y) / 2}
-	//fmt.Printf("%v -> %v  box: %v\n", weightedMiddle, avgMiddle, box)
-	return avgMiddle
-}
 
 func isPink(data color.RGBA) bool {
 	temp, b := colorful.MakeColor(data)
@@ -88,9 +43,11 @@ func FindChessCornersPinkCheat_inQuadrant(img vision.Image, out *gocv.Mat, cnts 
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
-
+	if len(best) == 0 {
+		return image.Point{-1, -1}
+	}
 	// walk up into the corner ---------
-	myCenter := center(best, img.Rows()/10)
+	myCenter := vision.Center(best, img.Rows()/10)
 
 	xWalk := ((xQ * 2) - 1)
 	yWalk := ((yQ * 2) - 1)
@@ -205,5 +162,12 @@ func FindChessCornersPinkCheat(imgraw gocv.Mat, out *gocv.Mat) ([]image.Point, e
 		}
 	}
 
-	return []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}, nil
+	raw := []image.Point{a1Corner, a8Corner, h1Corner, h8Corner}
+	ret := []image.Point{}
+	for _, x := range raw {
+		if x.X >= 0 && x.Y >= 0 {
+			ret = append(ret, x)
+		}
+	}
+	return ret, nil
 }

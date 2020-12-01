@@ -29,6 +29,7 @@ import (
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/robot"
+	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
@@ -38,8 +39,8 @@ type pos struct {
 }
 
 var (
-	A1             = pos{.344, -.195}
-	H8             = pos{A1.x + .381, A1.y + .381}
+	BoardWidth     = .381
+	Center         = pos{-1, -1}
 	BoardHeight    = -.010
 	SafeMoveHeight = BoardHeight + .15
 
@@ -56,10 +57,10 @@ func getCoord(chess string) pos {
 		panic(fmt.Errorf("invalid position: %s", chess))
 	}
 
-	x = A1.x + (x * (H8.x - A1.x) / 7)
-	y = A1.y + (y * (H8.y - A1.y) / 7)
+	x = (3.5 - x) / 7.0
+	y = (3.5 - y) / 7.0
 
-	return pos{x, y}
+	return pos{Center.x - (x * BoardWidth), Center.y - (y * BoardWidth)}
 }
 
 func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
@@ -270,7 +271,103 @@ func testChessEngine() {
 	panic(1)
 }
 
-func lookForBoard(myArm *arm.URArm) error {
+func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
+	imageSize := image.Point{}
+	m, _, err := wristCam.NextColorDepthPair()
+	if err != nil {
+		return nil, imageSize, err
+	}
+	imageSize.X = m.Cols()
+	imageSize.Y = m.Rows()
+	m.Close()
+
+	// wait, cause this camera sucks
+	time.Sleep(500 * time.Millisecond)
+	m, _, err = wristCam.NextColorDepthPair()
+	if err != nil {
+		return nil, imageSize, err
+	}
+	m.Close()
+
+	// wait, cause this camera sucks
+	time.Sleep(500 * time.Millisecond)
+	m, _, err = wristCam.NextColorDepthPair()
+	if err != nil {
+		return nil, imageSize, err
+	}
+	defer m.Close()
+
+	// got picture finally
+
+	out := gocv.NewMatWithSize(m.Rows(), m.Cols(), gocv.MatTypeCV8UC3)
+	defer out.Close()
+
+	corners, err := chess.FindChessCornersPinkCheat(m, &out)
+	if err != nil {
+		return nil, imageSize, err
+	}
+
+	if debugNumber >= 0 {
+		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), m)
+		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
+	}
+
+	fmt.Printf("Corners: %v\n", corners)
+
+	return corners, imageSize, err
+}
+
+func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []image.Point, imageSize image.Point) error {
+	debugNumber := 100
+	var err error
+	for {
+		where := myArm.State.CartesianInfo
+		center := vision.Center(corners, 10000)
+
+		xRatio := float64(center.X) / float64(imageSize.X)
+		yRatio := float64(center.Y) / float64(imageSize.Y)
+
+		xMove := (.5 - xRatio) / 8
+		yMove := (.5 - yRatio) / -8
+
+		fmt.Printf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
+
+		if math.Abs(xMove) < .001 && math.Abs(yMove) < .001 {
+			Center = pos{where.X, where.Y}
+
+			// These are hard coded based on camera orientation
+			Center.x += .026
+			Center.y -= .073
+
+			fmt.Printf("Center: %v\n", Center)
+			fmt.Printf("a1: %v\n", getCoord("a1"))
+			fmt.Printf("h8: %v\n", getCoord("h8"))
+			return nil
+		}
+
+		where.X += xMove
+		where.Y += yMove
+		err = myArm.MoveToPositionC(where)
+		if err != nil {
+			return err
+		}
+
+		corners, _, err = getWristPicCorners(wristCam, debugNumber)
+		debugNumber = debugNumber + 1
+		if err != nil {
+			return err
+		}
+	}
+
+}
+
+func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
+	debugNumber := 0
+
+	wristCam := myRobot.CameraByName("wristCam")
+	if wristCam == nil {
+		return fmt.Errorf("can't find wristCam")
+	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		where := myArm.State.CartesianInfo
@@ -291,6 +388,16 @@ func lookForBoard(myArm *arm.URArm) error {
 			if err != nil {
 				return err
 			}
+
+			corners, imageSize, err := getWristPicCorners(wristCam, debugNumber)
+			debugNumber = debugNumber + 1
+			if err != nil {
+				return err
+			}
+
+			if len(corners) == 4 {
+				return lookForBoardAdjust(myArm, wristCam, corners, imageSize)
+			}
 		}
 	}
 
@@ -300,9 +407,10 @@ func lookForBoard(myArm *arm.URArm) error {
 
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
-	cfgFile := flag.String("config", "robot/data/robot.json", "config file for robot")
 
 	flag.Parse()
+
+	cfgFile := flag.Arg(0)
 
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
@@ -313,7 +421,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := robot.ReadConfig(*cfgFile)
+	cfg, err := robot.ReadConfig(cfgFile)
 	if err != nil {
 		panic(err)
 	}
@@ -326,15 +434,19 @@ func main() {
 
 	myArm := myRobot.Arms[0]
 	myGripper := myRobot.Grippers[0]
-	webcam := myRobot.Cameras[0]
+	webcam := myRobot.CameraByName("cameraOver")
+	if webcam == nil {
+		panic("can't find cameraOver camera")
+	}
 
-	if false {
-		err := lookForBoard(myArm)
-		if err != nil {
-			panic(err)
-		}
+	err = lookForBoard(myArm, myRobot)
+	if err != nil {
+		panic(err)
+	}
 
-		return
+	err = initArm(myArm)
+	if err != nil {
+		panic(err)
 	}
 
 	a := app.New()
