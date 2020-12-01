@@ -221,10 +221,10 @@ func main() {
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
 	radius = flag.Float64("radius", -1, "")
-	maxDistance = flag.Float64("maxDistance", 2.74, "")
+	maxDistance = flag.Float64("maxDistance", 1.93, "")
 
 	blur := flag.Bool("blur", false, "")
-	blurSize := flag.Int("blurSize", 5, "")
+	blurSize := flag.Int("blurSize", 18, "")
 
 	flag.Parse()
 
@@ -243,7 +243,7 @@ func main() {
 
 	if *blur {
 		m := img.MatUnsafe()
-		gocv.Blur(m, &m, image.Point{*blurSize, *blurSize})
+		gocv.GaussianBlur(m, &m, image.Point{*blurSize, *blurSize}, 0, 0, gocv.BorderDefault)
 	}
 
 	switch prog {
