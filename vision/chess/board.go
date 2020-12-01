@@ -39,6 +39,10 @@ func FindAndWarpBoard(color gocv.Mat, depth vision.DepthMap) (*Board, error) {
 		return nil, err
 	}
 
+	if len(corners) != 4 {
+		return nil, fmt.Errorf("couldnt find 4 corners, only got %d", len(corners))
+	}
+
 	a, b, err := warpColorAndDepthToChess(color, depth, corners)
 	if err != nil {
 		return nil, err
