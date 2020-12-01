@@ -18,3 +18,14 @@ func TestAbs1(t *testing.T) {
 	}
 
 }
+
+func TestSquare1(t *testing.T) {
+	if 4.0 != Square(2.0) {
+		t.Errorf("eliot can't do math")
+	}
+
+	if 4 != SquareInt(2) {
+		t.Errorf("eliot can't do math")
+	}
+
+}
