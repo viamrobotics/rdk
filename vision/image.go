@@ -9,6 +9,8 @@ import (
 	"gocv.io/x/gocv"
 
 	"github.com/lucasb-eyer/go-colorful"
+
+	"github.com/echolabsinc/robotcore/rcutil"
 )
 
 type Image struct {
@@ -127,7 +129,7 @@ func (i *Image) MatUnsafe() gocv.Mat {
 
 // todo: move this to a better file
 func PointDistance(a, b image.Point) float64 {
-	x := (b.X - a.X) * (b.X - a.X)
-	x += (b.Y - a.Y) * (b.Y - a.Y)
+	x := rcutil.SquareInt(b.X - a.X)
+	x += rcutil.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
 }
