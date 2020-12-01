@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+
+	"github.com/echolabsinc/robotcore/rcutil"
 )
 
 type HCL struct {
@@ -17,9 +19,9 @@ func (hcl HCL) String() string {
 }
 
 func (a HCL) Distance(b HCL) float64 {
-	sum := (a.H - b.H) * (a.H - b.H)
-	sum += 10 * ((a.C - b.C) * (a.C - b.C))
-	sum += (a.L - b.L) * (a.L - b.L)
+	sum := rcutil.Square(a.H - b.H)
+	sum += 10 * rcutil.Square(a.C-b.C)
+	sum += rcutil.Square(a.L - b.L)
 	return math.Sqrt(sum)
 }
 
@@ -97,9 +99,9 @@ func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 
 	r_line := (r1 + r2) / 2
 
-	diff := (2 + (r_line / 256)) * (r2 - r1) * (r2 - r1)
-	diff += 4 * (g2 - g1) * (g2 - g1)
-	diff += (2 + ((255 - r_line) / 256)) * (b2 - b1) * (b2 - b1)
+	diff := (2 + (r_line / 256)) * rcutil.Square(r2-r1)
+	diff += 4 * rcutil.Square(g2-g1)
+	diff += (2 + ((255 - r_line) / 256)) * rcutil.Square(b2-b1)
 
 	return math.Sqrt(diff)
 }
