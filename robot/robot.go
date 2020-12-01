@@ -12,6 +12,37 @@ type Robot struct {
 	Arms     []*arm.URArm       // TODO: use interface
 	Grippers []*gripper.Gripper // TODO: use interface
 	Cameras  []vision.MatSource
+
+	armComponents     []Component
+	gripperComponents []Component
+	cameraComponents  []Component
+}
+
+func (r *Robot) ArmByName(name string) *arm.URArm {
+	for i, c := range r.armComponents {
+		if c.Name == name {
+			return r.Arms[i]
+		}
+	}
+	return nil
+}
+
+func (r *Robot) GripperByName(name string) *gripper.Gripper {
+	for i, c := range r.gripperComponents {
+		if c.Name == name {
+			return r.Grippers[i]
+		}
+	}
+	return nil
+}
+
+func (r *Robot) CameraByName(name string) vision.MatSource {
+	for i, c := range r.cameraComponents {
+		if c.Name == name {
+			return r.Cameras[i]
+		}
+	}
+	return nil
 }
 
 func (r *Robot) Close() {
@@ -40,18 +71,21 @@ func NewRobot(cfg Config) (*Robot, error) {
 				return nil, err
 			}
 			r.Arms = append(r.Arms, a)
+			r.armComponents = append(r.armComponents, c)
 		case Gripper:
 			g, err := newGripper(c)
 			if err != nil {
 				return nil, err
 			}
 			r.Grippers = append(r.Grippers, g)
+			r.gripperComponents = append(r.gripperComponents, c)
 		case Camera:
 			camera, err := newCamera(c)
 			if err != nil {
 				return nil, err
 			}
 			r.Cameras = append(r.Cameras, camera)
+			r.cameraComponents = append(r.cameraComponents, c)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
 		}
