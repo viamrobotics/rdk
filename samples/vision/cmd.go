@@ -187,7 +187,7 @@ func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
 		return
 	}
 	h.last = p
-	fmt.Printf("MouseEvent: %v %v\n", e.Position, h.img.ColorHCL(p))
+	fmt.Printf("MouseEvent: %v %v rgb: %v\n", e.Position, h.img.ColorHCL(p), h.img.Color(p))
 }
 
 func (h *myHover) MouseOut() {
@@ -221,10 +221,10 @@ func main() {
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
 	radius = flag.Float64("radius", -1, "")
-	maxDistance = flag.Float64("maxDistance", 1.93, "")
+	maxDistance = flag.Float64("maxDistance", 2.665, "")
 
 	blur := flag.Bool("blur", false, "")
-	blurSize := flag.Int("blurSize", 18, "")
+	blurSize := flag.Int("blurSize", 5, "")
 
 	flag.Parse()
 
