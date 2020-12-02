@@ -74,6 +74,10 @@ func (i *Image) ColorHCL(p image.Point) HCL {
 	return NewHCL(temp.Hcl())
 }
 
+func (i *Image) ColorHSV(p image.Point) HSV {
+	return ConvertToHSV(i.ColorRowCol(p.Y, p.X))
+}
+
 func (i *Image) Color(p image.Point) color.RGBA {
 	return i.ColorRowCol(p.Y, p.X)
 }
