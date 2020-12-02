@@ -110,7 +110,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 	return nil
 }
 
-func _shapeWalkHelp(img vision.Image, dots map[string]int, clr vision.HSV, start image.Point) {
+func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.HSV, lastColor vision.HSV, start image.Point) {
 	if start.X < 0 || start.X >= img.Width() || start.Y < 0 || start.Y >= img.Height() {
 		return
 	}
@@ -121,25 +121,28 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, clr vision.HSV, start
 	}
 
 	myColor := img.ColorHSV(start)
-	if clr.Distance(myColor) > *maxDistance {
+
+	originalDistance := originalColor.Distance(myColor)
+	lastDistance := lastColor.Distance(myColor)
+
+	good := originalDistance < *maxDistance || (originalDistance < 1.1 && lastDistance < .1)
+
+	if !good {
 		dots[key] = -1
 		return
 	}
 	dots[key] = 1
 
-	// TODO: should i change clr to myColor ??
-	clr = myColor
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y - 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 0})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 1})
 
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y - 1})
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y + 0})
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 1, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y - 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 0})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 1})
 
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y - 1})
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y + 0})
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X - 1, start.Y + 1})
-
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 0, start.Y + 1})
-	_shapeWalkHelp(img, dots, clr, image.Point{start.X + 0, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1})
 }
 
 func shapeWalk(img vision.Image, startX, startY int) error {
@@ -150,7 +153,7 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 
 	dots := map[string]int{} // 0 not seen, 1 seen and good, -1 seen and bad
 
-	_shapeWalkHelp(img, dots, init, start)
+	_shapeWalkHelp(img, dots, init, init, start)
 
 	for k, v := range dots {
 		if v != 1 {
@@ -221,7 +224,7 @@ func main() {
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
 	radius = flag.Float64("radius", -1, "")
-	maxDistance = flag.Float64("maxDistance", 2.665, "")
+	maxDistance = flag.Float64("maxDistance", 1.0, "")
 
 	blur := flag.Bool("blur", false, "")
 	blurSize := flag.Int("blurSize", 5, "")
