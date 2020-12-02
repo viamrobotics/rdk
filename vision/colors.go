@@ -48,7 +48,7 @@ func (c HSV) Scale() (float64, float64, float64) {
 }
 
 func (a HSV) Distance(b HSV) float64 {
-	debug := true
+	debug := false
 
 	h1, s1, v1 := a.Scale()
 	h2, s2, v2 := b.Scale()
@@ -84,9 +84,11 @@ func (a HSV) Distance(b HSV) float64 {
 	sum += wv * rcutil.Square(v1-v2)
 	//fmt.Printf("\t\t%v\n", sum)
 
-	res := 2 * math.Sqrt(sum)
+	res := math.Sqrt(sum)
 
-	ac := math.Atan2(s2-s1, v2-v1)
+	// we're playing with the angle of the v1,s1 -> v2,s2 vector
+	ac := .5 + _rationOffFrom135(v2-v1, s2-s1)/2
+	res = res * ac
 
 	if debug {
 		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
@@ -96,6 +98,22 @@ func (a HSV) Distance(b HSV) float64 {
 		fmt.Printf("\t ac: %f\n", ac)
 	}
 	return res
+}
+
+func _rationOffFrom135(y, x float64) float64 {
+	a := math.Atan2(y, x)
+	//print("\t%f" % a )
+	if a < 0 {
+		a = a + math.Pi
+	}
+	//print("\t%f" % a )
+	a = a / math.Pi
+	//print("\t%f" % a )
+	a = .75 - a
+	//print("\t%f" % a )
+	a = 2 * math.Abs(a)
+	//print("\t%f" % a )
+	return a
 }
 
 func NewHSV(h, s, v float64) HSV {
