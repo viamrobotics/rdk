@@ -105,7 +105,7 @@ func (hs *HttpSource) Close() {
 
 func NewHttpSourceIntelEliot(root string) *HttpSource {
 	return &HttpSource{
-		fmt.Sprintf("http://%s/pic.png", root),
+		fmt.Sprintf("http://%s/pic.ppm", root),
 		fmt.Sprintf("http://%s/depth.dat", root),
 	}
 }
