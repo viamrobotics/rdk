@@ -3,22 +3,35 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #include <httpserver.hpp>
 
 #include <librealsense2/rs.hpp>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
-
 class CameraOutput {
 public:
-    std::string pngData;
+    int width;
+    int height;
+    std::string ppmdata;
     std::vector<uint64_t> depth;
 };
 
 std::shared_ptr<CameraOutput> CameraOutputInstance;
 long long numRequests = 0; // so we can throttle and not kill cpu
+
+std::string my_write_ppm(const char *pixels, int x, int y, int bytes_per_pixel) {
+    std::stringbuf buffer;
+    std::ostream os (&buffer);
+
+    os << "P6\n" << x << " " << y << "\n255\n";
+    buffer.sputn((const char*)pixels, x * y * bytes_per_pixel);
+
+    return buffer.str();
+}
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 void cameraThread() {
     // Create a Pipeline - this serves as a top-level API for streaming and processing frames
@@ -36,24 +49,31 @@ void cameraThread() {
     long long prevNumRequests = 0; 
     
     while (true) {
+
+        auto start = std::chrono::high_resolution_clock::now();
+
         std::shared_ptr<CameraOutput> output(new CameraOutput());
         // get next set of frames
         rs2::frameset frames = p.wait_for_frames();
 
+
+        
         // make sure depth frame is aligned to color frame
         frames = align_to_color.process(frames);
 
         // do color frame
         auto vf = frames.get_color_frame();
-        int len;
-        auto out = stbi_write_png_to_mem((const unsigned char *)vf.get_data(),
-                                         vf.get_stride_in_bytes(),
-                                         vf.get_width(),
-                                         vf.get_height(),
-                                         vf.get_bytes_per_pixel(),
-                                         &len);
-        output->pngData = std::string((char*)out, len);
-        STBIW_FREE(out);
+
+        assert( vf.get_bytes_per_pixel() == 3);
+        assert( vf.get_stride_in_bytes() == ( vf.get_width() * vf.get_bytes_per_pixel() ) );
+
+        output->width = vf.get_width();
+        output->height = vf.get_height();
+        output->ppmdata = my_write_ppm((const char *)vf.get_data(),
+                                       vf.get_width(),
+                                       vf.get_height(),
+                                       vf.get_bytes_per_pixel());
+        
 
         // create depth map
         auto depth = frames.get_depth_frame();
@@ -69,6 +89,9 @@ void cameraThread() {
         // replace output data with this
         CameraOutputInstance = output;
 
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count() << "ms\n";
+        
         if (numRequests == prevNumRequests) {
             sleep(1);
         } else {
@@ -90,7 +113,24 @@ class picture_resource : public http_resource {
 public:
     const std::shared_ptr<http_response> render(const http_request&) {
         numRequests++;
-        return std::shared_ptr<http_response>(new string_response(CameraOutputInstance->pngData, 200, "image/png"));
+        return std::shared_ptr<http_response>(new string_response(CameraOutputInstance->ppmdata, 200, "image/ppm"));
+    }
+};
+
+class picture_resource_png : public http_resource {
+public:
+    const std::shared_ptr<http_response> render(const http_request&) {
+        std::shared_ptr<CameraOutput> mine(CameraOutputInstance);
+        const char * raw_data = mine->ppmdata.c_str();
+        int len = mine->width * mine->height * 3;
+        raw_data = raw_data + (mine->ppmdata.size() - len);
+
+        int pngLen;
+        auto out = stbi_write_png_to_mem((const unsigned char*)raw_data, mine->width * 3, mine->width, mine->height, 3, &pngLen);
+        std::string s((char*)out, pngLen);
+        STBIW_FREE(out);
+
+        return std::shared_ptr<http_response>(new string_response(s, 200, "image/png"));
     }
 };
 
@@ -114,7 +154,10 @@ int main(int argc, char** argv) {
     ws.register_resource("/", &hwr);
 
     picture_resource pr;
-    ws.register_resource("/pic.png", &pr);
+    ws.register_resource("/pic.ppm", &pr);
+
+    picture_resource_png pr2;
+    ws.register_resource("/pic.png", &pr2);
 
     depth_resource dr;
     ws.register_resource("/depth.dat", &dr);
