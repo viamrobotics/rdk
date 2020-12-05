@@ -71,6 +71,13 @@ func TestHSVColorConversion(t *testing.T) {
 		t.Errorf("red hex wrong %s", Red.Hex())
 	}
 
+	c5, ok := colorful.MakeColor(Red)
+	if !ok {
+		t.Fatal(err)
+	}
+	if c5.Hex() != Red.Hex() {
+		t.Errorf(c5.Hex())
+	}
 }
 
 func TestHSVDistanceSanityCheck(t *testing.T) {
