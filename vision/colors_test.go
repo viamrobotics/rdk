@@ -3,6 +3,8 @@ package vision
 import (
 	"image/color"
 	"testing"
+
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 func TestWhatColor1(t *testing.T) {
@@ -41,6 +43,36 @@ func _checkAllSame(t *testing.T, colors []Color) {
 	}
 }
 
+func TestHSVColorConversion(t *testing.T) {
+	c, err := colorful.Hex("#ff0000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Hex() != "#ff0000" {
+		t.Errorf(c.Hex())
+	}
+	r, g, b := c.RGB255()
+	if r != 255 || g != 0 || b != 0 {
+		t.Errorf("%d %d %d", r, g, b)
+	}
+
+	H, S, V := c.Hsv()
+	c2 := colorful.Hsv(H, S, V)
+	if c.Hex() != c2.Hex() {
+		t.Errorf(c2.Hex())
+	}
+
+	c3 := Red.AsHSV.ToColorful()
+	if c.Hex() != c3.Hex() {
+		t.Errorf("3 %#v %#v %s", c, c3, c3.Hex())
+	}
+
+	if Red.Hex() != "#ff0000" {
+		t.Errorf("red hex wrong %s", Red.Hex())
+	}
+
+}
+
 func TestHSVDistanceSanityCheck(t *testing.T) {
 	d := White.AsHSV.Distance(Gray.AsHSV)
 	if d < 1 {
@@ -51,12 +83,13 @@ func TestHSVDistanceSanityCheck(t *testing.T) {
 	if Red.AsHSV.S != 1.0 {
 		t.Errorf("%v\n", Red)
 	}
-	if Red.AsHSV.V != 255.0 {
+	if Red.AsHSV.V != 1.0 {
 		t.Errorf("%v\n", Red)
 	}
 	if Green.AsHSV.H != 120.0 {
 		t.Errorf("%v\n", Green)
 	}
+
 }
 
 func TestHSVDistanceBlacks1(t *testing.T) {

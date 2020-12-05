@@ -10,29 +10,6 @@ import (
 	"github.com/echolabsinc/robotcore/rcutil"
 )
 
-type HCL struct {
-	H float64
-	C float64
-	L float64
-}
-
-func (hcl HCL) String() string {
-	return fmt.Sprintf("hcl: %6.2f %5.2f %5.2f", hcl.H, hcl.C, hcl.L)
-}
-
-func (a HCL) Distance(b HCL) float64 {
-	sum := rcutil.Square(a.H - b.H)
-	sum += 10 * rcutil.Square(a.C-b.C)
-	sum += rcutil.Square(a.L - b.L)
-	return math.Sqrt(sum)
-}
-
-func NewHCL(h, c, l float64) HCL {
-	return HCL{h, c, l}
-}
-
-// ---
-
 type HSV struct {
 	H float64
 	S float64
@@ -44,7 +21,11 @@ func (c HSV) String() string {
 }
 
 func (c HSV) Scale() (float64, float64, float64) {
-	return c.H / 240, c.S, c.V / 255
+	return c.H / 360, c.S, c.V
+}
+
+func (c HSV) ToColorful() colorful.Color {
+	return colorful.Hsv(c.H, c.S, c.V)
 }
 
 func (a HSV) Distance(b HSV) float64 {
@@ -120,13 +101,16 @@ func NewHSV(h, s, v float64) HSV {
 	return HSV{h, s, v}
 }
 
-func ConvertToHSV(c color.RGBA) HSV {
-	temp, b := colorful.MakeColor(c)
-	if !b {
-		panic("wtf") // this should never happen
+func ConvertToColorful(c color.RGBA) colorful.Color {
+	return colorful.Color{
+		R: float64(c.R) / 255.0,
+		G: float64(c.G) / 255.0,
+		B: float64(c.B) / 255.0,
 	}
+}
 
-	return NewHSV(temp.Hsv())
+func ConvertToHSV(c color.RGBA) HSV {
+	return NewHSV(ConvertToColorful(c).Hsv())
 }
 
 // ---
@@ -134,6 +118,7 @@ func ConvertToHSV(c color.RGBA) HSV {
 type Color struct {
 	C     color.RGBA
 	Name  string
+	CC    colorful.Color
 	AsHSV HSV
 }
 
@@ -145,12 +130,17 @@ func (c Color) Distance(other color.RGBA) float64 {
 	return ColorDistance(c.C, other)
 }
 
+func (c Color) Hex() string {
+	return fmt.Sprintf("#%.2x%.2x%.2x", c.C.R, c.C.G, c.C.B)
+}
+
 func (c Color) String() string {
 	return fmt.Sprintf("Color(rgb %d,%d,%d %s %s)", c.C.R, c.C.G, c.C.B, c.AsHSV.String(), c.Name)
 }
 
 func NewColor(r, g, b uint8, name string) Color {
 	c := Color{C: color.RGBA{r, g, b, 1}, Name: name}
+	c.CC = ConvertToColorful(c.C)
 	c.AsHSV = ConvertToHSV(c.C)
 	return c
 }
