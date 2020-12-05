@@ -17,7 +17,7 @@ type HSV struct {
 }
 
 func (c HSV) String() string {
-	return fmt.Sprintf("hsv: %5.1f,%5.2f,%4.1f", c.H, c.S, c.V)
+	return fmt.Sprintf("hsv: %3d,%4.2f,%4.2f", int(c.H), c.S, c.V)
 }
 
 func (c HSV) Scale() (float64, float64, float64) {
@@ -53,7 +53,7 @@ func (a HSV) Distance(b HSV) float64 {
 		ws = 100
 		wv = 100
 	} else {
-		wh = v1*50 + s1*50
+		wh = 50 + v1*50 + s1*50
 		ws = v1 * 100
 		wv = s1 * 100
 	}
@@ -139,7 +139,7 @@ func (c Color) String() string {
 }
 
 func NewColor(r, g, b uint8, name string) Color {
-	c := Color{C: color.RGBA{r, g, b, 1}, Name: name}
+	c := Color{C: color.RGBA{r, g, b, 255}, Name: name}
 	c.CC = ConvertToColorful(c.C)
 	c.AsHSV = ConvertToHSV(c.C)
 	return c
