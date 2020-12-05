@@ -8,8 +8,6 @@ import (
 
 	"gocv.io/x/gocv"
 
-	"github.com/lucasb-eyer/go-colorful"
-
 	"github.com/echolabsinc/robotcore/rcutil"
 )
 
@@ -63,15 +61,6 @@ func (i *Image) Height() int {
 
 func (i *Image) Width() int {
 	return i.width
-}
-
-func (i *Image) ColorHCL(p image.Point) HCL {
-	temp, b := colorful.MakeColor(i.ColorRowCol(p.Y, p.X))
-	if !b {
-		panic("wtf") // this should never happen
-	}
-
-	return NewHCL(temp.Hcl())
 }
 
 func (i *Image) ColorHSV(p image.Point) HSV {
