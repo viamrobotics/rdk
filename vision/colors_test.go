@@ -115,16 +115,43 @@ func TestHSVDistanceBlacks1(t *testing.T) {
 	_checkAllSame(t, data)
 }
 
-func TestRationOffFrom135(t *testing.T) {
+func TestRatioOffFrom135Finish(t *testing.T) {
+	data := [][]float64{
+		[]float64{.000, 0.50},
+		[]float64{.125, 0.75},
+		[]float64{.250, 1.00},
+		[]float64{.375, 0.75},
+		[]float64{.500, 0.50},
+		[]float64{.625, 0.25},
+		[]float64{.750, 0.00},
+		[]float64{.875, 0.25},
+		[]float64{1.00, 0.50},
+	}
+
+	for _, d := range data {
+		res := _ratioOffFrom135Finish(d[0])
+		if res != d[1] {
+			t.Errorf("_ratioOffFrom135Finish(%f) should be %f got %f", d[0], d[1], res)
+		}
+	}
+
+}
+
+func TestRatioOffFrom135(t *testing.T) {
 	data := [][]float64{
 		[]float64{1.0, 1.0, 1.0}, // a 45 degree angle is "bad" so should be 1
 		[]float64{-1.0, -1.0, 1.0},
 		[]float64{-1.0, 1.0, 0.0},
 		[]float64{1.0, -1.0, 0.0},
+
+		[]float64{0.0, 1.0, 0.5},
+		[]float64{0.0, -1.0, 0.5},
+		[]float64{-1.0, 0.0, 0.5},
+		[]float64{1.0, 0.0, 0.5},
 	}
 
 	for _, x := range data {
-		res := _rationOffFrom135(x[0], x[1])
+		res := _ratioOffFrom135(x[0], x[1])
 		if res != x[2] {
 			t.Errorf("got %v for %v", res, x)
 		}
