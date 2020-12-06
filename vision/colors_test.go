@@ -78,6 +78,15 @@ func TestHSVColorConversion(t *testing.T) {
 	if c5.Hex() != Red.Hex() {
 		t.Errorf(c5.Hex())
 	}
+
+	c6hex := "#123456"
+	c6, err := NewColorFromHex(c6hex, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c6hex != c6.Hex() {
+		t.Errorf("wtf %s %s", c6hex, c6.Hex())
+	}
 }
 
 func TestHSVDistanceSanityCheck(t *testing.T) {
@@ -160,8 +169,8 @@ func TestRatioOffFrom135(t *testing.T) {
 
 func TestHSVDistanceChess1(t *testing.T) {
 
-	x1 := NewColor(158, 141, 112, "squareWhite")
-	x2 := NewColor(176, 154, 101, "pieceWhite")
+	x1 := NewColor(158, 141, 112, "squareWhite-1")
+	x2 := NewColor(176, 154, 101, "pieceWhite-1")
 
 	xd := x1.AsHSV.Distance(x2.AsHSV)
 	if xd < 1 {
@@ -177,6 +186,19 @@ func TestHSVDistanceChess1(t *testing.T) {
 		t.Errorf("too far %v %v %v", w1, w2, wd)
 	}
 
+	x1, err := NewColorFromHex("#8d836a", "squareWhite-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x2, err = NewColorFromHex("#8e7e51", "pieceWhite-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	xd = x1.AsHSV.Distance(x2.AsHSV)
+	if xd < 1 {
+		t.Errorf("too close %v %v %v", x1, x2, xd)
+	}
 }
 
 func TestHSVDistanceChess2(t *testing.T) {
