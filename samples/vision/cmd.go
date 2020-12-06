@@ -23,19 +23,20 @@ var (
 	xFlag, yFlag *int
 	radius       *float64
 	maxDistance  *float64
+	debug        *bool
 )
 
-func _hclHistogramHelp(name string, data []float64) {
+func _hsvHistogramHelp(name string, data []float64) {
 	sort.Float64s(data)
 	mean, stdDev := stat.MeanStdDev(data, nil)
 	fmt.Printf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
 }
 
-func hclHistogram(img vision.Image) {
+func hsvHistogram(img vision.Image) {
 
 	H := []float64{}
-	C := []float64{}
-	L := []float64{}
+	S := []float64{}
+	V := []float64{}
 
 	center := image.Point{-1, -1}
 	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
@@ -48,10 +49,10 @@ func hclHistogram(img vision.Image) {
 			if center.X >= 0 && vision.PointDistance(center, p) > *radius {
 				continue
 			}
-			hcl := img.ColorHCL(p)
-			H = append(H, hcl.H)
-			C = append(C, hcl.C)
-			L = append(L, hcl.L)
+			hsv := img.ColorHSV(p)
+			H = append(H, hsv.H)
+			S = append(S, hsv.S)
+			V = append(V, hsv.V)
 		}
 	}
 
@@ -61,15 +62,15 @@ func hclHistogram(img vision.Image) {
 		gocv.IMWrite(flag.Arg(2), m)
 	}
 
-	_hclHistogramHelp("h", H)
-	_hclHistogramHelp("c", C)
-	_hclHistogramHelp("l", L)
+	_hsvHistogramHelp("h", H)
+	_hsvHistogramHelp("s", S)
+	_hsvHistogramHelp("v", V)
 }
 
 func shapeWalkLine(img vision.Image, startX, startY int) error {
 	m := img.MatUnsafe()
 
-	init := img.ColorHCL(image.Point{startX, startY})
+	init := img.ColorHSV(image.Point{startX, startY})
 
 	mod := 0
 	as := []image.Point{}
@@ -80,13 +81,13 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		if p.X >= img.Width() {
 			break
 		}
-		hcl := img.ColorHCL(p)
+		hsv := img.ColorHSV(p)
 
-		diff := init.Distance(hcl)
-		fmt.Printf("%v %v %v\n", p, hcl, diff)
+		diff := init.Distance(hsv)
+		fmt.Printf("%v %v %v\n", p, hsv, diff)
 
 		if diff > 12 {
-			init = hcl
+			init = hsv
 			mod = mod + 1
 		}
 
@@ -110,9 +111,17 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 	return nil
 }
 
-func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.HSV, lastColor vision.HSV, start image.Point) {
+func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.HSV, lastColor vision.HSV, start image.Point, colorNumber int) {
 	if start.X < 0 || start.X >= img.Width() || start.Y < 0 || start.Y >= img.Height() {
 		return
+	}
+
+	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
+		center := image.Point{*xFlag, *yFlag}
+		if vision.PointDistance(center, start) > *radius {
+			return
+		}
+
 	}
 
 	key := fmt.Sprintf("%d-%d", start.X, start.Y)
@@ -125,38 +134,55 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 	originalDistance := originalColor.Distance(myColor)
 	lastDistance := lastColor.Distance(myColor)
 
-	good := originalDistance < *maxDistance || (originalDistance < 1.1 && lastDistance < .1)
+	good := originalDistance < *maxDistance || (originalDistance < (*maxDistance*1.1) && lastDistance < *maxDistance/1)
 
+	if *debug {
+		fmt.Printf("good: %v originalColor: %v %s point: %v myColor: %v %s originalDistance: %v\n",
+			good, originalColor, originalColor.ToColorful().Hex(), start, myColor, myColor.ToColorful().Hex(), originalDistance)
+	}
 	if !good {
 		dots[key] = -1
 		return
 	}
-	dots[key] = 1
+	dots[key] = colorNumber
 
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y - 1})
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 0})
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y - 1}, colorNumber)
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 0}, colorNumber)
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 1}, colorNumber)
 
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y - 1})
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 0})
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y - 1}, colorNumber)
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 0}, colorNumber)
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 1}, colorNumber)
 
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1})
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1})
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
+	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
+}
+
+func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
+	init := img.ColorHSV(start)
+
+	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
+
+	for k, v := range dots {
+		if v == -1 {
+			dots[k] = 0
+		}
+	}
+
+	return nil
 }
 
 func shapeWalk(img vision.Image, startX, startY int) error {
 	m := img.MatUnsafe()
 
 	start := image.Point{startX, startY}
-	init := img.ColorHSV(start)
 
 	dots := map[string]int{} // 0 not seen, 1 seen and good, -1 seen and bad
 
-	_shapeWalkHelp(img, dots, init, init, start)
+	shapeWalkPiece(img, start, dots, 1)
 
 	for k, v := range dots {
-		if v != 1 {
+		if v < 0 {
 			continue
 		}
 
@@ -167,6 +193,11 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 		}
 
 		gocv.Circle(&m, image.Point{x, y}, 1, vision.Red.C, 1)
+	}
+
+	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
+		center := image.Point{*xFlag, *yFlag}
+		gocv.Circle(&m, center, int(*radius), vision.Green.C, 1)
 	}
 
 	gocv.IMWrite("/tmp/x.png", m)
@@ -190,7 +221,7 @@ func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
 		return
 	}
 	h.last = p
-	fmt.Printf("MouseEvent: %v %v rgb: %v\n", e.Position, h.img.ColorHCL(p), h.img.Color(p))
+	fmt.Printf("MouseEvent: %v %v rgb: %v\n", e.Position, h.img.ColorHSV(p), h.img.Color(p))
 }
 
 func (h *myHover) MouseOut() {
@@ -225,6 +256,7 @@ func main() {
 	yFlag = flag.Int("y", -1, "")
 	radius = flag.Float64("radius", -1, "")
 	maxDistance = flag.Float64("maxDistance", 1.0, "")
+	debug = flag.Bool("debug", false, "")
 
 	blur := flag.Bool("blur", false, "")
 	blurSize := flag.Int("blurSize", 5, "")
@@ -250,8 +282,8 @@ func main() {
 	}
 
 	switch prog {
-	case "hclHisto":
-		hclHistogram(img)
+	case "hsvHisto":
+		hsvHistogram(img)
 	case "shapeWalk":
 		err = shapeWalk(img, *xFlag, *yFlag)
 	case "shapeWalkLine":
