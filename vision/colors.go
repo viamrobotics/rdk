@@ -53,12 +53,19 @@ func (a HSV) Distance(b HSV) float64 {
 		wh /= 1000
 		ws *= 100
 		wv *= 100
+	} else if s1 < .45 || v1 < .45 || s2 < .45 || v2 < .45 {
+		// we're playing with the angle of the v1,s1 -> v2,s2 vector
+		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
+		ac = math.Pow(ac, .3333)
+		wh *= rcutil.Square(1 - ac) // the further from normal the more we care about hue
+		ws *= 4.2 * ac
+		wv *= 1.1 * ac
 	} else {
 		// we're playing with the angle of the v1,s1 -> v2,s2 vector
 		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
 		wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
-		ws *= 2.2 * ac
-		wv *= 2.2 * ac
+		ws *= 3.2 * ac
+		wv *= 1.2 * ac
 	}
 
 	sum := rcutil.Square(wh * (h1 - h2))
