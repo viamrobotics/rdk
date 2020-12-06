@@ -137,8 +137,9 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 	good := originalDistance < *maxDistance || (originalDistance < (*maxDistance*1.1) && lastDistance < *maxDistance/1)
 
 	if *debug {
-		fmt.Printf("good: %v originalColor: %v %s point: %v myColor: %v %s originalDistance: %v\n",
-			good, originalColor, originalColor.ToColorful().Hex(), start, myColor, myColor.ToColorful().Hex(), originalDistance)
+		distanceFromPoint := vision.PointDistance(start, image.Point{*xFlag, *yFlag})
+		fmt.Printf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
+			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance, distanceFromPoint)
 	}
 	if !good {
 		dots[key] = -1
