@@ -2,6 +2,8 @@ package vision
 
 import (
 	"image/color"
+	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/lucasb-eyer/go-colorful"
@@ -209,5 +211,34 @@ func TestHSVDistanceChess2(t *testing.T) {
 		NewColor(19, 17, 9, "pieceBlack"),
 	}
 	_checkAllDifferent(t, data)
+
+}
+
+func TestHSVDistanceChess3(t *testing.T) {
+	pieceColor, err := NewColorFromHex("#8e7e51", "a white piece")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := ioutil.ReadFile("data/hsvdistancechess3.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, squareColor := range strings.Split(string(raw), "\n") {
+		squareColor = strings.TrimSpace(squareColor)
+		if len(squareColor) == 0 {
+			continue
+		}
+		myColor, err := NewColorFromHex(squareColor, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
+
+		if distance < 1 {
+			t.Errorf("%s %f\n", squareColor, distance)
+		}
+	}
 
 }
