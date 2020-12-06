@@ -57,8 +57,8 @@ func (a HSV) Distance(b HSV) float64 {
 		// we're playing with the angle of the v1,s1 -> v2,s2 vector
 		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
 		wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
-		ws *= 2 * ac
-		wv *= 2 * ac
+		ws *= 2.2 * ac
+		wv *= 2.2 * ac
 	}
 
 	sum := rcutil.Square(wh * (h1 - h2))
@@ -145,6 +145,16 @@ func (c Color) Hex() string {
 
 func (c Color) String() string {
 	return fmt.Sprintf("Color(%s %s %s)", c.Hex(), c.AsHSV.String(), c.Name)
+}
+
+func NewColorFromHex(hex, name string) (Color, error) {
+	var r, g, b uint8
+	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
+	if n != 3 || err != nil {
+		return Color{}, fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
+	}
+	return NewColor(r, g, b, name), nil
+
 }
 
 func NewColor(r, g, b uint8, name string) Color {
