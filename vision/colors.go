@@ -38,62 +38,71 @@ func (a HSV) Distance(b HSV) float64 {
 		fmt.Printf("%v -- %1.2f %1.2f %1.2f \n%v -- %1.2f %1.2f %1.2f\n", a, h1, s1, v1, b, h2, s2, v2)
 	}
 
-	wh := 100.0
-	ws := 1.0
-	wv := 1.0
+	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color ing enral
+	ws := 5.0
+	wv := 5.0
 
+	ac := -1.0
 	if v1 < .1 {
 		// we're in the dark range
-		wh = .1
-		ws = 100
-		wv = 100
+		wh /= 1000
+		ws *= 100
+		wv *= 100
 	} else if s1 < .1 {
 		// we're in the light range
-		wh = .1
-		ws = 100
-		wv = 100
+		wh /= 1000
+		ws *= 100
+		wv *= 100
 	} else {
-		wh = 50 + v1*50 + s1*50
-		ws = v1 * 100
-		wv = s1 * 100
+		// we're playing with the angle of the v1,s1 -> v2,s2 vector
+		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
+		wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
+		ws *= 2 * ac
+		wv *= 2 * ac
 	}
 
-	sum := wh * rcutil.Square(h1-h2)
-	//fmt.Printf("\t\t%v\n", sum)
-	sum += ws * rcutil.Square(s1-s2)
-	//fmt.Printf("\t\t%v\n", sum)
-	sum += wv * rcutil.Square(v1-v2)
-	//fmt.Printf("\t\t%v\n", sum)
+	sum := rcutil.Square(wh * (h1 - h2))
+	sum += rcutil.Square(ws * (s1 - s2))
+	sum += rcutil.Square(wv * (v1 - v2))
 
 	res := math.Sqrt(sum)
-
-	// we're playing with the angle of the v1,s1 -> v2,s2 vector
-	ac := .5 + _rationOffFrom135(v2-v1, s2-s1)/2
-	res = res * ac
 
 	if debug {
 		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
+		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
 		fmt.Printf("\t res: %f\n", res)
 		fmt.Printf("\t ac: %f\n", ac)
 	}
 	return res
 }
 
-func _rationOffFrom135(y, x float64) float64 {
+func _ratioOffFrom135(y, x float64) float64 {
 	a := math.Atan2(y, x)
-	//print("\t%f" % a )
 	if a < 0 {
 		a = a + math.Pi
 	}
-	//print("\t%f" % a )
 	a = a / math.Pi
-	//print("\t%f" % a )
-	a = .75 - a
-	//print("\t%f" % a )
-	a = 2 * math.Abs(a)
-	//print("\t%f" % a )
+
+	return _ratioOffFrom135Finish(a)
+}
+
+func _ratioOffFrom135Finish(a float64) float64 {
+	// a is now between 0 and 1
+	// this is how far along the curve of 0 degrees to 180 degrees
+	// things in the 0 -> .5 range are worse than things in the .5 -> 1 range
+
+	// .25 is the worst, aka 1
+	// .75 is the best, aka 0
+
+	if a <= .5 {
+		a = math.Abs(a - .25)
+		return 1 - (2 * a)
+	}
+
+	a = 2 * math.Abs(.75-a)
+
 	return a
 }
 
@@ -135,7 +144,7 @@ func (c Color) Hex() string {
 }
 
 func (c Color) String() string {
-	return fmt.Sprintf("Color(rgb %d,%d,%d %s %s)", c.C.R, c.C.G, c.C.B, c.AsHSV.String(), c.Name)
+	return fmt.Sprintf("Color(%s %s %s)", c.Hex(), c.AsHSV.String(), c.Name)
 }
 
 func NewColor(r, g, b uint8, name string) Color {
