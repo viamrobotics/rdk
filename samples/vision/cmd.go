@@ -26,6 +26,13 @@ var (
 	debug        *bool
 )
 
+func _getOutputfile() string {
+	if flag.NArg() < 3 {
+		panic("need to specify output file")
+	}
+	return flag.Arg(2)
+}
+
 func _hsvHistogramHelp(name string, data []float64) {
 	sort.Float64s(data)
 	mean, stdDev := stat.MeanStdDev(data, nil)
@@ -59,7 +66,7 @@ func hsvHistogram(img vision.Image) {
 	if center.X > 0 {
 		m := img.MatUnsafe()
 		gocv.Circle(&m, center, int(*radius), vision.Red.C, 1)
-		gocv.IMWrite(flag.Arg(2), m)
+		gocv.IMWrite(_getOutputfile(), m)
 	}
 
 	_hsvHistogramHelp("h", H)
@@ -106,7 +113,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		gocv.Circle(&m, p, 1, vision.Green.C, 1)
 	}
 
-	gocv.IMWrite("/tmp/x.png", m)
+	gocv.IMWrite(_getOutputfile(), m)
 
 	return nil
 }
@@ -201,7 +208,7 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 		gocv.Circle(&m, center, int(*radius), vision.Green.C, 1)
 	}
 
-	gocv.IMWrite("/tmp/x.png", m)
+	gocv.IMWrite(_getOutputfile(), m)
 
 	return nil
 }
