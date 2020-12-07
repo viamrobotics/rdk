@@ -44,7 +44,8 @@ void cameraThread() {
 
     auto sensor = profile.get_device().first<rs2::depth_sensor>();
 
-    rs2::align align_to_color(RS2_STREAM_COLOR);
+    rs2::align alignment(RS2_STREAM_COLOR);
+    //rs2::align alignment(RS2_STREAM_DEPTH);
     
     long long prevNumRequests = 0; 
     
@@ -53,13 +54,9 @@ void cameraThread() {
         auto start = std::chrono::high_resolution_clock::now();
 
         std::shared_ptr<CameraOutput> output(new CameraOutput());
-        // get next set of frames
         rs2::frameset frames = p.wait_for_frames();
 
-
-        
-        // make sure depth frame is aligned to color frame
-        frames = align_to_color.process(frames);
+        frames = alignment.process(frames); // this handles the geometry so that the x/y of the depth and color are the same
 
         // do color frame
         auto vf = frames.get_color_frame();
