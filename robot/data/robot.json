@@ -1,20 +1,31 @@
 {
-    "components" : [
-        { "name" : "pieceArm",
-          "type": "arm",
-          "model": "ur",
-          "host" : "192.168.2.2"
-        },
-        { "name" : "pieceGripper",
-          "type": "gripper",
-          "model": "robotiq",
-          "host" : "192.168.2.2"
-        },
-        { "name" : "cameraOver",
-          "type" : "camera",
-          "model" : "eliot",
-          "host" : "127.0.0.1",
-          "port" : 8181
-        }
-    ]
+  "components": [
+    {
+      "host": "10.237.115.238",
+      "model": "ur",
+      "name": "pieceArm",
+      "type": "arm"
+    },
+    {
+      "host": "10.237.115.238",
+      "model": "robotiq",
+      "name": "pieceGripper",
+      "type": "gripper"
+    },
+    {
+      "host": "10.237.115.131",
+      "model": "eliot",
+      "name": "cameraOver",
+      "port": 8181,
+      "type": "camera"
+    },
+    {
+      "attributes": {
+        "color": "http://10.237.115.238:4242/current.jpg"
+      },
+      "model": "url",
+      "name": "wristCam",
+      "type": "camera"
+    }
+  ]
 }

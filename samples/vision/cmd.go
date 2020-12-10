@@ -14,7 +14,8 @@ import (
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/driver/desktop"
-	//"fyne.io/fyne/widget"
+	"fyne.io/fyne/theme"
+	"fyne.io/fyne/widget"
 
 	"github.com/echolabsinc/robotcore/vision"
 )
@@ -215,13 +216,12 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 
 type myHover struct {
 	fyne.CanvasObject
-	img  vision.Image
-	last image.Point
+	img      vision.Image
+	last     image.Point
+	textGrid *widget.TextGrid
 }
 
-func (h *myHover) MouseIn(e *desktop.MouseEvent) {
-	fmt.Printf("MouseIn: %v\n", e)
-}
+func (h *myHover) MouseIn(e *desktop.MouseEvent) {}
 
 func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
 	p := image.Point{e.Position.X, e.Position.Y}
@@ -229,15 +229,18 @@ func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
 		return
 	}
 	h.last = p
-	fmt.Printf("MouseEvent: %v %v rgb: %v\n", e.Position, h.img.ColorHSV(p), h.img.Color(p))
+	color := h.img.Color(p)
+	colorHSV := h.img.ColorHSV(p)
+	h.textGrid.SetText(fmt.Sprintf("(x, y): (%d, %d)\nHSV: (%f, %f, %f)\nRGBA: (%d, %d, %d, %d)\n",
+		e.Position.X, e.Position.Y,
+		colorHSV.H, colorHSV.S, colorHSV.V,
+		color.R, color.G, color.B, color.A))
 }
-
-func (h *myHover) MouseOut() {
-	fmt.Printf("MouseOut \n")
-}
+func (h *myHover) MouseOut() {}
 
 func view(img vision.Image) error {
 	a := app.New()
+	a.Settings().SetTheme(theme.DarkTheme())
 	w := a.NewWindow("Hello")
 
 	mat := img.MatUnsafe()
@@ -250,7 +253,9 @@ func view(img vision.Image) error {
 	i2.SetMinSize(fyne.Size{img.Width(), img.Height()})
 	w.SetContent(i2)
 
-	w.Canvas().Overlays().Add(&myHover{i2, img, image.Point{}})
+	info := widget.NewTextGridFromString("?")
+	w.Canvas().Overlays().Add(info)
+	w.Canvas().Overlays().Add(&myHover{i2, img, image.Point{}, info})
 
 	w.ShowAndRun()
 
