@@ -13,13 +13,13 @@ func TestTraining1(t *testing.T) {
 
 	store, err := NewImageTrainingStore(ctx, "mongodb://127.0.0.1/", "test", "trainingtest")
 	if err != nil {
-		fmt.Printf("cannot run TestTraining1 because no mongo: %s\n", err)
-		t.Error(err)
+		t.Skipf("cannot run TestTraining1 because no mongo: %s\n", err)
 		return
 	}
 	err = store.reset(ctx)
 	if err != nil {
-		t.Fatalf("couldn't reset training collection %s", err)
+		t.Skipf("couldn't reset training collection %s", err)
+		return
 	}
 
 	w1, err := store.StoreImageFromDisk(ctx, "data/white1.png", []string{"white"})
