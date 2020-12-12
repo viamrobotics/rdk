@@ -10,7 +10,7 @@ func TestConfigRobot(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(cfg.Components) != 3 {
+	if len(cfg.Components) != 4 {
 		t.Errorf("bad config read %v", cfg)
 	}
 
