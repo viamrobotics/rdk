@@ -41,7 +41,7 @@ func (a HSV) Distance(b HSV) float64 {
 	ac := -1.0
 	if v1 < .13 || v2 < .13 {
 		// we're in the dark range
-		wh /= 100
+		wh /= 50
 		ws /= 10
 		wv *= 1
 	} else if s1 < .1 || s2 < .1 {
@@ -71,7 +71,7 @@ func (a HSV) Distance(b HSV) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		fmt.Printf("%v -- %1.2f %1.2f %1.2f \n%v -- %1.2f %1.2f %1.2f\n", a, h1, s1, v1, b, h2, s2, v2)
+		fmt.Printf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", a, h1, s1, v1, b, h2, s2, v2)
 		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
