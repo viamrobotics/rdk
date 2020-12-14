@@ -135,6 +135,13 @@ func TestHSVDistanceDarks(t *testing.T) {
 		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
 	}
 
+	mostlyDarkBlue2 := NewColorFromHexOrPanic("#093051", "")
+	blackish := NewColorFromHexOrPanic("#201b0e", "")
+
+	d = mostlyDarkBlue2.AsHSV.Distance(blackish.AsHSV)
+	if d < 1 {
+		t.Errorf("mostlyDarkBlue2 and blackish too close: %f", d)
+	}
 }
 
 func TestRatioOffFrom135Finish(t *testing.T) {
