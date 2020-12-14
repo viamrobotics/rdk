@@ -17,6 +17,7 @@ require (
 	github.com/gonum/matrix v0.0.0-20181209220409-c518dec07be9 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
+	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4 // indirect
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3
