@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -49,8 +50,24 @@ func main() {
 	}
 	defer port.Close()
 
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	port.Write([]byte("w5"))
+	fmt.Printf("ready\n")
+
+	for {
+		buf := make([]byte, 10)
+		n, err := os.Stdin.Read(buf)
+		if err != nil {
+			log.Fatalf("couldn't read from stdin (%d), %v", n, err)
+		}
+
+		if n != 3 {
+			log.Printf("bad input (%s)\n", string(buf))
+		}
+
+		port.Write([]byte{buf[0], buf[1]})
+		time.Sleep(100 * time.Millisecond)
+
+	}
 
 }
