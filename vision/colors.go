@@ -34,21 +34,17 @@ func (a HSV) Distance(b HSV) float64 {
 	h1, s1, v1 := a.Scale()
 	h2, s2, v2 := b.Scale()
 
-	if debug {
-		fmt.Printf("%v -- %1.2f %1.2f %1.2f \n%v -- %1.2f %1.2f %1.2f\n", a, h1, s1, v1, b, h2, s2, v2)
-	}
-
 	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color ing enral
 	ws := 5.0
 	wv := 5.0
 
 	ac := -1.0
-	if v1 < .1 {
+	if v1 < .13 || v2 < .13 {
 		// we're in the dark range
-		wh /= 1000
-		ws *= 100
-		wv *= 100
-	} else if s1 < .1 {
+		wh /= 100
+		ws /= 10
+		wv *= 1
+	} else if s1 < .1 || s2 < .1 {
 		// we're in the light range
 		wh /= 1000
 		ws *= 100
@@ -57,8 +53,8 @@ func (a HSV) Distance(b HSV) float64 {
 		// we're playing with the angle of the v1,s1 -> v2,s2 vector
 		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
 		ac = math.Pow(ac, .3333)
-		wh *= rcutil.Square(1 - ac) // the further from normal the more we care about hue
-		ws *= 4.2 * ac
+		wh *= rcutil.Square(1 - ac)                // the further from normal the more we care about hue
+		ws *= 4.7 * ac * math.Pow(1-(s1+s2)/2, .3) // the higher the saturation, the less saturation differences matter
 		wv *= 1.1 * ac
 	} else {
 		// we're playing with the angle of the v1,s1 -> v2,s2 vector
@@ -75,6 +71,7 @@ func (a HSV) Distance(b HSV) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
+		fmt.Printf("%v -- %1.2f %1.2f %1.2f \n%v -- %1.2f %1.2f %1.2f\n", a, h1, s1, v1, b, h2, s2, v2)
 		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
 		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
@@ -152,6 +149,19 @@ func (c Color) Hex() string {
 
 func (c Color) String() string {
 	return fmt.Sprintf("Color(%s %s %s)", c.Hex(), c.AsHSV.String(), c.Name)
+}
+
+func NewColorFromColorful(c colorful.Color) Color {
+	r, g, b := c.RGB255()
+	return NewColor(r, g, b, "")
+}
+
+func NewColorFromHexOrPanic(hex, name string) Color {
+	c, err := NewColorFromHex(hex, name)
+	if err != nil {
+		panic(err)
+	}
+	return c
 }
 
 func NewColorFromHex(hex, name string) (Color, error) {
