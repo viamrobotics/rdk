@@ -17,6 +17,8 @@ import (
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 
+	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/echolabsinc/robotcore/vision"
 )
 
@@ -168,6 +170,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 }
 
 func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
+	fmt.Println("shapeWalkPiece")
 	init := img.ColorHSV(start)
 
 	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
@@ -207,6 +210,63 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
 		center := image.Point{*xFlag, *yFlag}
 		gocv.Circle(&m, center, int(*radius), vision.Green.C, 1)
+	}
+
+	gocv.IMWrite(_getOutputfile(), m)
+
+	return nil
+}
+
+type MyWalkError struct {
+	pos image.Point
+}
+
+func (e MyWalkError) Error() string {
+	return "MyWalkError"
+}
+
+func shapeWalkEntire(img vision.Image) error {
+	m := img.MatUnsafe()
+
+	palette := colorful.FastWarmPalette(3)
+	dots := map[string]int{}
+
+	for color := 0; color < len(palette); color++ {
+
+		found := vision.Walk(img.Width()/2, img.Height()/2, img.Width(),
+			func(x, y int) error {
+				if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
+					return nil
+				}
+
+				key := fmt.Sprintf("%d-%d", x, y)
+				if dots[key] != 0 {
+					return nil
+				}
+				return MyWalkError{image.Point{x, y}}
+			})
+
+		if found == nil {
+			break
+		}
+
+		start := found.(MyWalkError).pos
+		shapeWalkPiece(img, start, dots, color+1)
+	}
+
+	for k, v := range dots {
+		if v <= 0 {
+			continue
+		}
+
+		var x, y int
+		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
+		if err != nil {
+			return fmt.Errorf("couldn't read key %s %s", k, err)
+		}
+
+		myColor := vision.NewColorFromColorful(palette[v-1]).C
+		gocv.Circle(&m, image.Point{x, y}, 1, myColor, 1)
 	}
 
 	gocv.IMWrite(_getOutputfile(), m)
@@ -263,6 +323,10 @@ func view(img vision.Image) error {
 
 }
 
+func hsvKmeans() {
+
+}
+
 func main() {
 
 	xFlag = flag.Int("x", -1, "")
@@ -299,6 +363,8 @@ func main() {
 		hsvHistogram(img)
 	case "shapeWalk":
 		err = shapeWalk(img, *xFlag, *yFlag)
+	case "shapeWalkEntire":
+		err = shapeWalkEntire(img)
 	case "shapeWalkLine":
 		err = shapeWalkLine(img, *xFlag, *yFlag)
 	case "view":
