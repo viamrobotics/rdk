@@ -126,6 +126,17 @@ func TestHSVDistanceBlacks1(t *testing.T) {
 	_checkAllSame(t, data)
 }
 
+func TestHSVDistanceDarks(t *testing.T) {
+	veryDarkBlue := NewColorFromHexOrPanic("#0a1a1f", "")
+	mostlyDarkBlue := NewColorFromHexOrPanic("#09202d", "")
+
+	d := veryDarkBlue.AsHSV.Distance(mostlyDarkBlue.AsHSV)
+	if d > 1 {
+		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
+	}
+
+}
+
 func TestRatioOffFrom135Finish(t *testing.T) {
 	data := [][]float64{
 		[]float64{.000, 0.50},
@@ -237,6 +248,35 @@ func TestHSVDistanceChess3(t *testing.T) {
 		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
 
 		if distance < 1 {
+			t.Errorf("%s %f\n", squareColor, distance)
+		}
+	}
+
+}
+
+func TestHSVDistanceChess4(t *testing.T) {
+	pieceColor, err := NewColorFromHex("#052e50", "a blue square")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := ioutil.ReadFile("data/hsvdistancechess4.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, squareColor := range strings.Split(string(raw), "\n") {
+		squareColor = strings.TrimSpace(squareColor)
+		if len(squareColor) == 0 {
+			continue
+		}
+		myColor, err := NewColorFromHex(squareColor, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
+
+		if distance > 1 {
 			t.Errorf("%s %f\n", squareColor, distance)
 		}
 	}
