@@ -11,6 +11,21 @@ public:
         _back->begin(115200);
 
         // TODO: is there a way to make sure motor controllers are ready?
+
+        // go into torque mode
+        query("^MMOD 1 5"); 
+        query("^MMOD 2 5");
+
+        // check mode
+        query("~MMOD 1");
+        query("~MMOD 2");
+
+        // set max power
+        query("^ALIM 1 100");
+        query("^ALIM 2 100");
+
+        query("~ALIM 1");
+        query("~ALIM 2");
     }
 
 
@@ -43,9 +58,13 @@ public:
     }
 
     void query(char* q) {
+        Serial.println(q);
         _front->println(q);
         _back->println(q);
-        pipe(q);
+        delay(100);
+        _pipe(_front);
+        _pipe(_back);
+        Serial.println("----");
     }
     
     //private:
@@ -74,7 +93,7 @@ public:
         s->print(" ");
         s->println(value);
 
-        if (true) {
+        if (false) {
             Serial.print("!G ");
             Serial.print(1 + (motor%2));
             Serial.print(" ");
