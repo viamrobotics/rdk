@@ -20,9 +20,11 @@ public:
         query("~MMOD 1");
         query("~MMOD 2");
 
-        // set max power
-        query("^ALIM 1 100");
-        query("^ALIM 2 100");
+        // set max power - motors are rated for .1 amps
+        // 10 is the minimum
+        // so we're just playing in the 0-100 camp below
+        query("^ALIM 1 10");
+        query("^ALIM 2 10");
 
         query("~ALIM 1");
         query("~ALIM 2");
@@ -126,7 +128,7 @@ public:
             return;
         }
 
-        p = 100 * (b - '0');
+        p = 10 * (b - '0');
         _run(c, p );
 
         c = -1;
