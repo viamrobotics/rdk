@@ -228,7 +228,7 @@ func (e MyWalkError) Error() string {
 func shapeWalkEntire(img vision.Image) error {
 	m := img.MatUnsafe()
 
-	palette := colorful.FastWarmPalette(3)
+	palette := colorful.FastWarmPalette(10)
 	dots := map[string]int{}
 
 	for color := 0; color < len(palette); color++ {
