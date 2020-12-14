@@ -142,6 +142,14 @@ func TestHSVDistanceDarks(t *testing.T) {
 	if d < 1 {
 		t.Errorf("mostlyDarkBlue2 and blackish too close: %f", d)
 	}
+	/* TODO
+	veryDarkBlue = NewColorFromHexOrPanic("#11314c", "")
+
+	d = mostlyDarkBlue2.AsHSV.Distance(veryDarkBlue.AsHSV)
+	if d > 1 {
+		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
+	}
+	*/
 }
 
 func TestRatioOffFrom135Finish(t *testing.T) {
@@ -236,6 +244,12 @@ func TestHSVDistanceChess3(t *testing.T) {
 	pieceColor, err := NewColorFromHex("#8e7e51", "a white piece")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	harbinger := NewColorFromHexOrPanic("#a49470", "")
+	distance := pieceColor.AsHSV.Distance(harbinger.AsHSV)
+	if distance < 1 {
+		t.Fatalf("harbinger and other are too close %f\n", distance)
 	}
 
 	raw, err := ioutil.ReadFile("data/hsvdistancechess3.txt")
