@@ -10,12 +10,7 @@ public:
         _front->begin(115200);
         _back->begin(115200);
 
-
-        Serial.println("Giving the Roboteq some time to boot-up.");
-        for (int i=0; i < 10; i++ ){
-            Serial.println(".");
-            delay(250);
-        }
+        // TODO: is there a way to make sure motor controllers are ready?
     }
 
 
@@ -53,7 +48,7 @@ public:
         pipe(q);
     }
     
-private:
+    //private:
 
     void _pipe(HardwareSerial* s) {
         while (s->available()) {
@@ -73,13 +68,13 @@ private:
         //  NOTE: Each command is completed by a carriage
         //        return. CR = dec 12, hex 0x0D
         
-        HardwareSerial* s = motor >= 2 ? _front : _back;
+        HardwareSerial* s = motor < 2 ? _front : _back;
         s->print("!G ");
         s->print(1 + (motor%2));
         s->print(" ");
         s->println(value);
 
-        if (false) {
+        if (true) {
             Serial.print("!G ");
             Serial.print(1 + (motor%2));
             Serial.print(" ");
@@ -94,6 +89,82 @@ private:
 
 Rover* theRover;
 
+class CommandState {
+public:
+    CommandState() {
+        c = -1;
+        p = -1;
+    }
+
+    void gotData(int b) {
+        if ( b < 0 ) {
+            Serial.println("got negative in gotData, bad:(");
+            return;
+        }
+
+        if (c == -1) {
+            c = b;
+            return;
+        }
+
+        p = 100 * (b - '0');
+        _run(c, p );
+
+        c = -1;
+        p = -1;
+    }
+
+    static void _run(int command, int p) {
+        switch (command) {
+        case 'w':
+            theRover->allSameDirection(p);
+            delay(100);
+            break;
+        case 's':
+            theRover->allSameDirection(-p);
+            delay(100);
+            break;
+
+        case 'a':
+            theRover->shift(-p);
+            delay(100);
+            break;
+        case 'd':
+            theRover->shift(p);
+            delay(100);
+            break;
+
+        case ',':
+            theRover->spin(-p);
+            delay(100);
+            break;
+
+        case '.':
+            theRover->spin(p);
+            delay(100);
+            break;
+
+            
+        case '0':
+            theRover->go(0, p);
+            break;
+        case '1':
+            theRover->go(1, p);
+            break;
+        case '2':
+            theRover->go(2, p);
+            break;
+        case '3':
+            theRover->go(3, p);
+            break;
+        }
+    }
+    
+    int c; // command
+    int p; // power
+    
+} theCommandState;
+
 void setup() {
     pinMode(LED_BUILTIN, OUTPUT);
     Serial.begin(9600);  
@@ -106,9 +177,14 @@ void setup() {
 void loop() {
 
     digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-    play();
-    theRover->query("?T");
 
+    //play();
+    //theRover->query("?T");
+
+    while (Serial.available()) {
+        theCommandState.gotData(Serial.read());
+    }        
+    
     digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
     delay(1000);                       // wait for a second
 }
