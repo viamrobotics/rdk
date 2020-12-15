@@ -111,7 +111,8 @@ private:
 
 int numMotors = 4;
 Motor** motors;
-Buffer* buf;
+Buffer* buf1;
+Buffer* buf2;
 
 void setup() {
     Serial.begin(9600);
@@ -125,12 +126,13 @@ void setup() {
     motors[3] = new Motor(23, 22, 7);
     
 
-    buf = new Buffer(&Serial);
+    buf1 = new Buffer(&Serial);
+    buf2 = new Buffer(&Serial1);
 }
 
-void loop() {
-    if (buf->readTillNewLine()) {
-        const char* line = buf->getLineAndReset();
+void process(Buffer* b) {
+    if (b->readTillNewLine()) {
+        const char* line = b->getLineAndReset();
         int motorNumber = line[0] - '0';
         if (motorNumber < 0 || motorNumber >= numMotors) {
             debugSerial->println("motor number invalid");
@@ -140,4 +142,9 @@ void loop() {
         motors[motorNumber]->doCommand(line+1);
 
     }
+}
+
+void loop() {
+    process(buf1);
+    process(buf2);
 }
