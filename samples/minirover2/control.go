@@ -14,6 +14,29 @@ import (
 	"github.com/echolabsinc/robotcore/rcutil"
 )
 
+func findPort() (string, error) {
+	for _, possibleFile := range []string{"/dev/ttyTHS0"} {
+		_, err := os.Stat(possibleFile)
+		if err == nil {
+			return possibleFile, nil
+		}
+	}
+
+	lines, err := rcutil.ExecuteShellCommand("arduino-cli", "board", "list")
+	if err != nil {
+		return "", err
+	}
+
+	for _, l := range lines {
+		if strings.Index(l, "Mega") < 0 {
+			continue
+		}
+		return strings.Split(l, " ")[0], nil
+	}
+
+	return "", fmt.Errorf("couldn't find an arduino")
+}
+
 func getSerialConfig() (serial.OpenOptions, error) {
 
 	options := serial.OpenOptions{
@@ -24,20 +47,14 @@ func getSerialConfig() (serial.OpenOptions, error) {
 		MinimumReadSize: 4,
 	}
 
-	lines, err := rcutil.ExecuteShellCommand("arduino-cli", "board", "list")
+	portName, err := findPort()
 	if err != nil {
 		return options, err
 	}
 
-	for _, l := range lines {
-		if strings.Index(l, "Mega") < 0 {
-			continue
-		}
-		options.PortName = strings.Split(l, " ")[0]
-		return options, nil
-	}
+	options.PortName = portName
 
-	return options, fmt.Errorf("couldn't find an arduino")
+	return options, nil
 }
 
 type Rover struct {
@@ -45,32 +62,31 @@ type Rover struct {
 }
 
 func (r *Rover) Forward(power int) error {
-	s := fmt.Sprintf( "0f%d\r" +
-		"1f%d\r" +
-		"2f%d\r" +
-		"3f%d\r", power, power, power, power);
-	_, err := r.out.Write([]byte(s));
+	s := fmt.Sprintf("0f%d\r"+
+		"1f%d\r"+
+		"2f%d\r"+
+		"3f%d\r", power, power, power, power)
+	_, err := r.out.Write([]byte(s))
 	return err
 }
 
 func (r *Rover) Backward(power int) error {
-	s := fmt.Sprintf( "0b%d\r" +
-		"1b%d\r" +
-		"2b%d\r" +
-		"3b%d\r", power, power, power, power);
-	_, err := r.out.Write([]byte(s));
+	s := fmt.Sprintf("0b%d\r"+
+		"1b%d\r"+
+		"2b%d\r"+
+		"3b%d\r", power, power, power, power)
+	_, err := r.out.Write([]byte(s))
 	return err
 }
 
 func (r *Rover) Stop() error {
-	s := fmt.Sprintf( "0s\r" +
+	s := fmt.Sprintf("0s\r" +
 		"1s\r" +
 		"2s\r" +
 		"3s\r")
-	_, err := r.out.Write([]byte(s));
+	_, err := r.out.Write([]byte(s))
 	return err
 }
-
 
 func main() {
 	options, err := getSerialConfig()
@@ -90,35 +106,35 @@ func main() {
 
 	rover := Rover{port}
 	defer rover.Stop()
-	
+
 	if true {
 		for {
 			err = rover.Forward(45)
 			if err != nil {
 				log.Fatalf("couldn't move rover %v", err)
 			}
-			
+
 			time.Sleep(2000 * time.Millisecond)
-			
+
 			err = rover.Stop()
 			if err != nil {
 				log.Fatalf("couldn't stop rover %v", err)
 			}
-			
+
 			time.Sleep(2000 * time.Millisecond)
 
 			err = rover.Backward(45)
 			if err != nil {
 				log.Fatalf("couldn't move rover %v", err)
 			}
-		
+
 			time.Sleep(2000 * time.Millisecond)
 		}
 		return
 	}
-	
+
 	reader := bufio.NewReader(os.Stdin)
-	
+
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
@@ -126,11 +142,11 @@ func main() {
 		}
 
 		log.Print(line)
-		
+
 		/*
-		port.Write([]byte{buf[0], buf[1]})
-		time.Sleep(100 * time.Millisecond)
-*/
+			port.Write([]byte{buf[0], buf[1]})
+			time.Sleep(100 * time.Millisecond)
+		*/
 	}
 
 }
