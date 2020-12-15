@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -57,6 +57,8 @@ func getSerialConfig() (serial.OpenOptions, error) {
 	return options, nil
 }
 
+// ------
+
 type Rover struct {
 	out io.Writer
 }
@@ -88,6 +90,36 @@ func (r *Rover) Stop() error {
 	return err
 }
 
+func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var err error
+
+	speed := 64
+	if req.FormValue("speed") != "" {
+		// TODO
+	}
+
+	switch req.FormValue("a") {
+	case "f":
+		err = r.Forward(speed)
+	case "b":
+		err = r.Backward(speed)
+	case "s":
+		err = r.Stop()
+	default:
+		io.WriteString(w, "unknown command: "+req.FormValue("a"))
+		return
+	}
+
+	if err != nil {
+		io.WriteString(w, "err: "+err.Error())
+		return
+	}
+
+	io.WriteString(w, "done")
+}
+
+// ------
+
 func main() {
 	options, err := getSerialConfig()
 	if err != nil {
@@ -107,9 +139,10 @@ func main() {
 	rover := Rover{port}
 	defer rover.Stop()
 
-	if true {
+	if false {
+		speed := 50
 		for {
-			err = rover.Forward(45)
+			err = rover.Forward(speed)
 			if err != nil {
 				log.Fatalf("couldn't move rover %v", err)
 			}
@@ -123,7 +156,7 @@ func main() {
 
 			time.Sleep(2000 * time.Millisecond)
 
-			err = rover.Backward(45)
+			err = rover.Backward(speed)
 			if err != nil {
 				log.Fatalf("couldn't move rover %v", err)
 			}
@@ -133,20 +166,11 @@ func main() {
 		return
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatalf("couldn't read from stdin %v", err)
-		}
-
-		log.Print(line)
-
-		/*
-			port.Write([]byte{buf[0], buf[1]})
-			time.Sleep(100 * time.Millisecond)
-		*/
+	if true {
+		mux := http.NewServeMux()
+		mux.Handle("/api/rover", &rover)
+		log.Println("going to listen")
+		log.Fatal(http.ListenAndServe(":8080", mux))
 	}
 
 }
