@@ -1,14 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"image"
 	"sort"
+	"time"
 
-	"github.com/gonum/stat"
-
-	"gocv.io/x/gocv"
+	"github.com/echolabsinc/robotcore/utils/stream"
+	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
@@ -17,9 +18,9 @@ import (
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 
+	"github.com/gonum/stat"
 	"github.com/lucasb-eyer/go-colorful"
-
-	"github.com/echolabsinc/robotcore/vision"
+	"gocv.io/x/gocv"
 )
 
 var (
@@ -274,31 +275,37 @@ func shapeWalkEntire(img vision.Image) error {
 	return nil
 }
 
-type myHover struct {
+type colorHover struct {
 	fyne.CanvasObject
 	img      vision.Image
 	last     image.Point
 	textGrid *widget.TextGrid
 }
 
-func (h *myHover) MouseIn(e *desktop.MouseEvent) {}
+func (ch *colorHover) MouseIn(e *desktop.MouseEvent) {}
 
-func (h *myHover) MouseMoved(e *desktop.MouseEvent) {
+func (ch *colorHover) MouseMoved(e *desktop.MouseEvent) {
 	p := image.Point{e.Position.X, e.Position.Y}
-	if p.X == h.last.X && p.Y == h.last.Y {
+	if p.X == ch.last.X && p.Y == ch.last.Y {
 		return
 	}
-	h.last = p
-	color := h.img.Color(p)
-	colorHSV := h.img.ColorHSV(p)
-	h.textGrid.SetText(fmt.Sprintf("(x, y): (%d, %d)\nHSV: (%f, %f, %f)\nRGBA: (%d, %d, %d, %d)\n",
+	ch.last = p
+	color := ch.img.Color(p)
+	colorHSV := ch.img.ColorHSV(p)
+	ch.textGrid.SetText(fmt.Sprintf("(x, y): (%d, %d)\nHSV: (%f, %f, %f)\nRGBA: (%d, %d, %d, %d)\n",
 		e.Position.X, e.Position.Y,
 		colorHSV.H, colorHSV.S, colorHSV.V,
 		color.R, color.G, color.B, color.A))
 }
-func (h *myHover) MouseOut() {}
+func (ch *colorHover) MouseOut() {}
 
-func view(img vision.Image) error {
+type ViewApp struct {
+	fyne.App
+	colorHoverElem *colorHover
+	mainWindow     fyne.Window
+}
+
+func newViewApp(img vision.Image) (*ViewApp, error) {
 	a := app.New()
 	a.Settings().SetTheme(theme.DarkTheme())
 	w := a.NewWindow("Hello")
@@ -306,7 +313,7 @@ func view(img vision.Image) error {
 	mat := img.MatUnsafe()
 	i, err := mat.ToImage()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	i2 := canvas.NewImageFromImage(i)
@@ -315,12 +322,42 @@ func view(img vision.Image) error {
 
 	info := widget.NewTextGridFromString("?")
 	w.Canvas().Overlays().Add(info)
-	w.Canvas().Overlays().Add(&myHover{i2, img, image.Point{}, info})
+	colorHoverElem := &colorHover{i2, img, image.Point{}, info}
+	w.Canvas().Overlays().Add(colorHoverElem)
 
-	w.ShowAndRun()
+	return &ViewApp{
+		App:            a,
+		colorHoverElem: colorHoverElem,
+		mainWindow:     w,
+	}, nil
+}
 
+func view(img vision.Image) error {
+	remoteView, err := stream.NewRemoteView(stream.DefaultRemoteViewConfig)
+	if err != nil {
+		return err
+	}
+
+	app, err := newViewApp(img)
+	if err != nil {
+		return err
+	}
+	remoteView.SetOnClickHandler(func(x, y int) {
+		app.colorHoverElem.MouseMoved(&desktop.MouseEvent{
+			PointEvent: fyne.PointEvent{
+				Position: fyne.Position{X: int(x) / 2, Y: int(y) / 2}, // TODO(erd): way to do this with no downscale?
+			},
+		})
+	})
+
+	if err := remoteView.Start(context.Background()); err != nil {
+		return err
+	}
+	go stream.StreamWindow(app.mainWindow, remoteView, 250*time.Millisecond)
+	app.mainWindow.ShowAndRun()
+
+	// TODO(erd): some defer to stop everything and clean up
 	return nil
-
 }
 
 func hsvKmeans() {
@@ -362,6 +399,7 @@ func main() {
 	case "hsvHisto":
 		hsvHistogram(img)
 	case "shapeWalk":
+		// TODO(erd): view version
 		err = shapeWalk(img, *xFlag, *yFlag)
 	case "shapeWalkEntire":
 		err = shapeWalkEntire(img)
