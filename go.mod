@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
-	fyne.io/fyne v1.4.1
+	fyne.io/fyne v1.4.3
 	github.com/Ernyoke/Imger v0.0.0-20180625211505-6476f04d1954
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20201108214237-06ea97f0c265 // indirect
@@ -22,6 +22,8 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/pion/webrtc/v3 v3.0.0-beta.16
+	github.com/pions/webrtc v1.2.0 // indirect
 	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/smartystreets/assertions v1.2.0 // indirect
@@ -29,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
+	github.com/xlab/libvpx-go v0.0.0-20201209125813-99dec5789630
 	go.mongodb.org/mongo-driver v1.4.4
 	gocv.io/x/gocv v0.25.0
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
@@ -43,4 +46,7 @@ require (
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	nhooyr.io/websocket v1.8.6 // indirect
 )
+
+replace fyne.io/fyne => github.com/edaniels/fyne v1.4.2-0.20201215180503-6f54ae445771
