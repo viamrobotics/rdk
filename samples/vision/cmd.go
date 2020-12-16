@@ -12,9 +12,9 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
-	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/driver/desktop"
+	"fyne.io/fyne/test"
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 
@@ -306,7 +306,7 @@ type ViewApp struct {
 }
 
 func newViewApp(img vision.Image) (*ViewApp, error) {
-	a := app.New()
+	a := test.NewApp()
 	a.Settings().SetTheme(theme.DarkTheme())
 	w := a.NewWindow("Hello")
 
@@ -355,6 +355,8 @@ func view(img vision.Image) error {
 	}
 	go stream.StreamWindow(app.mainWindow, remoteView, 250*time.Millisecond)
 	app.mainWindow.ShowAndRun()
+
+	select {}
 
 	// TODO(erd): some defer to stop everything and clean up
 	return nil
