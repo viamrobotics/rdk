@@ -5,9 +5,9 @@ var viewHTML = `
 <!DOCTYPE html>
 <html>
 <head>
-	<title></title>
-	<script type="text/javascript">
-		/* eslint-env browser */
+  <title></title>
+  <script type="text/javascript">
+    /* eslint-env browser */
 
 let pc = new RTCPeerConnection({
   iceServers: [
@@ -25,27 +25,28 @@ pc.ontrack = function (event) {
   el.srcObject = event.streams[0]
   el.autoplay = true
   el.controls = false
-	el.onclick = function(event) {
-		// https://stackoverflow.com/a/288731/1497139
-	    bounds=this.getBoundingClientRect();
-	    console.log(bounds);
-	    var left=bounds.left;
-	    var top=bounds.top;
-	    var x = event.pageX - left;
-	    var y = event.pageY - top;
-	    var cw=this.clientWidth
-	    var ch=this.clientHeight
-	    var iw=this.videoWidth
-	    var ih=this.videoHeight
-	    var px=x/cw*iw
-	    var py=y/ch*ih
-	    console.log("click on "+this.tagName+" at pixel ("+px+","+py+") mouse pos ("+x+"," + y+ ") relative to boundingClientRect at ("+left+","+top+") client image size: "+cw+" x "+ch+" natural image size: "+iw+" x "+ih );
-		actualDc.send(px+","+py);
+  el.onclick = function(event) {
+    // https://stackoverflow.com/a/288731/1497139
+      bounds=this.getBoundingClientRect();
+      console.log(bounds);
+      var left=bounds.left;
+      var top=bounds.top;
+      var x = event.pageX - left;
+      var y = event.pageY - top;
+      var cw=this.clientWidth
+      var ch=this.clientHeight
+      var iw=this.videoWidth
+      var ih=this.videoHeight
+      var px=x/cw*iw
+      var py=y/ch*ih
+      console.log("click on "+this.tagName+" at pixel ("+px+","+py+") mouse pos ("+x+"," + y+ ") relative to boundingClientRect at ("+left+","+top+") client image size: "+cw+" x "+ch+" natural image size: "+iw+" x "+ih );
+    actualDc.send(px+","+py);
 }
 
   document.getElementById('remoteVideos').appendChild(el)
 }
 
+var dc = pc.createDataChannel("stuff", {id: 0});
 var actualDc;
 pc.ondatachannel = function(ev) {
   console.log('Data channel is created!');
@@ -54,8 +55,8 @@ pc.ondatachannel = function(ev) {
     console.log('Data channel is open and ready to be used.');
   };
   ev.channel.onmessage = function (event) {
-	  console.log("received: " + event.data);
-	};
+    console.log("received: " + event.data);
+  };
 };
 
 pc.onsignalingstatechange = e => log(pc.signalingState)
@@ -63,7 +64,7 @@ pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
 let sd;
 pc.onicecandidate = event => {
   if (event.candidate === null) {
-    fetch("http://localhost:5555/offer", {
+    fetch("/offer", {
       method: 'POST',
       mode: 'cors',
       body: btoa(JSON.stringify(pc.localDescription))
@@ -93,7 +94,7 @@ window.startSession = () => {
   }
 }
 
-	</script>
+  </script>
 </head>
 <body>
 
