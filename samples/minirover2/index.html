@@ -14,12 +14,30 @@
           case "s":
               roverAction("stop");
               break;
+          case "i":
+              updateImages();
+              break;
           }
+
+      }
+
+      function updateImages() {
+          var host = window.location.host.split(":")[0];
+          var base = "http://" + host + ":8181/pic.png?ts=" + (new Date()).getTime() + "&num=";
+          console.log(base);
+          
+          document.getElementById("i0").src = base + "0";
+          document.getElementById("i1").src = base + "1";
+          
+      }
+
+      function started() {
+          setInterval(updateImages, 1000);
       }
       
     </script>
   </head>
-  <body>
+  <body onLoad="started()">
     <ul>
       {{ range $a := .Actions }}
       <li>
@@ -27,9 +45,12 @@
       </li>
       {{ end }}
 
-      <br>
-      
-      Speed: <input id="speed" name="speed" value="64"/>
     </ul>
+
+    Speed: <input id="speed" name="speed" value="64"/><br>
+
+    <img id="i0" src=""/><br>
+    <img id="i1" src=""/><br>
+    
   </body>
 </html>

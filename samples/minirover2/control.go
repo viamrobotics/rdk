@@ -37,8 +37,8 @@ var (
 		MakeAction("forward", "ffff"),
 		MakeAction("backward", "bbbb"),
 		MakeAction("stop", "ssss"),
-		MakeAction("shift right", "bffb"),
-		MakeAction("shift left", "fbbf"),
+		MakeAction("shift left", "bffb"),
+		MakeAction("shift right", "fbbf"),
 		MakeAction("spin right", "bfbf"),
 		MakeAction("spin left", "fbfb"),
 	}
