@@ -20,6 +20,7 @@ public:
 
 std::vector<std::shared_ptr<CameraOutput>> CameraOutputInstance;
 long long numRequests = 0; // so we can throttle and not kill cpu
+bool ready = 0;
 
 std::string my_write_ppm(const char *pixels, int x, int y, int bytes_per_pixel) {
     std::stringbuf buffer;
@@ -108,6 +109,8 @@ void cameraThread() {
 
         auto finish = std::chrono::high_resolution_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(finish-start).count() << "ms\n";
+
+        ready = 1;
         
         if (numRequests == prevNumRequests) {
             sleep(1);
@@ -137,6 +140,9 @@ public:
 class picture_resource : public http_resource {
 public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        if (!ready) {
+            return std::shared_ptr<http_response>(new string_response("not ready\n"));
+        }
         numRequests++;
         int camNumera = getCameraNumber(r);
         return std::shared_ptr<http_response>(new string_response(CameraOutputInstance[camNumera]->ppmdata, 200, "image/ppm"));
@@ -146,6 +152,9 @@ public:
 class picture_resource_png : public http_resource {
 public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        if (!ready) {
+            return std::shared_ptr<http_response>(new string_response("not ready\n"));
+        }
         numRequests++;
 
         int camNumera = getCameraNumber(r);
@@ -167,6 +176,9 @@ public:
 class depth_resource : public http_resource {
 public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        if (!ready) {
+            return std::shared_ptr<http_response>(new string_response("not ready\n"));
+        }
         int camNumera = getCameraNumber(r);
                 
         numRequests++;
