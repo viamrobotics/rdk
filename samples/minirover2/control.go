@@ -2,17 +2,58 @@ package main
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jacobsa/go-serial/serial"
 
 	"github.com/echolabsinc/robotcore/rcutil"
 )
+
+type Action struct {
+	Name           string
+	m0, m1, m2, m3 string // the directions for each motor
+}
+
+func MakeAction(name string, motorDirections string) Action {
+	return Action{
+		name,
+		string(motorDirections[0]),
+		string(motorDirections[1]),
+		string(motorDirections[2]),
+		string(motorDirections[3]),
+	}
+}
+
+var (
+	Actions = []Action{
+		MakeAction("forward", "ffff"),
+		MakeAction("backward", "bbbb"),
+		MakeAction("stop", "ssss"),
+		MakeAction("shift right", "bffb"),
+		MakeAction("shift left", "fbbf"),
+		MakeAction("spin right", "bfbf"),
+		MakeAction("spin left", "fbfb"),
+	}
+)
+
+func FindAction(name string) *Action {
+	for _, a := range Actions {
+		if a.Name == name {
+			return &a
+		}
+	}
+	return nil
+}
+
+// ------
 
 func findPort() (string, error) {
 	for _, possibleFile := range []string{"/dev/ttyTHS0"} {
@@ -60,25 +101,20 @@ func getSerialConfig() (serial.OpenOptions, error) {
 // ------
 
 type Rover struct {
-	out io.Writer
+	out      io.Writer
+	sendLock sync.Mutex
 }
 
 func (r *Rover) Forward(power int) error {
-	s := fmt.Sprintf("0f%d\r"+
-		"1f%d\r"+
-		"2f%d\r"+
-		"3f%d\r", power, power, power, power)
-	_, err := r.out.Write([]byte(s))
-	return err
+	return r.move(
+		"f", "f", "f", "f",
+		power, power, power, power)
 }
 
 func (r *Rover) Backward(power int) error {
-	s := fmt.Sprintf("0b%d\r"+
-		"1b%d\r"+
-		"2b%d\r"+
-		"3b%d\r", power, power, power, power)
-	_, err := r.out.Write([]byte(s))
-	return err
+	return r.move(
+		"b", "b", "b", "b",
+		power, power, power, power)
 }
 
 func (r *Rover) Stop() error {
@@ -86,7 +122,25 @@ func (r *Rover) Stop() error {
 		"1s\r" +
 		"2s\r" +
 		"3s\r")
-	_, err := r.out.Write([]byte(s))
+	return r.sendCommand(s)
+}
+
+func (r *Rover) Move(a Action, power int) error {
+	return r.move(a.m0, a.m1, a.m2, a.m3, power, power, power, power)
+}
+
+func (r *Rover) move(a1, a2, a3, a4 string, p1, p2, p3, p4 int) error {
+	s := fmt.Sprintf("0%s%d\r"+
+		"1%s%d\r"+
+		"2%s%d\r"+
+		"3%s%d\r", a1, p1, a2, p2, a3, p3, a4, p4)
+	return r.sendCommand(s)
+}
+
+func (r *Rover) sendCommand(cmd string) error {
+	r.sendLock.Lock()
+	defer r.sendLock.Unlock()
+	_, err := r.out.Write([]byte(cmd))
 	return err
 }
 
@@ -95,20 +149,21 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	speed := 64
 	if req.FormValue("speed") != "" {
-		// TODO
+		speed2, err := strconv.ParseInt(req.FormValue("speed"), 10, 64)
+		if err != nil {
+			log.Printf("bad speed [%s] %s", req.FormValue("speed"), err)
+		}
+		speed = int(speed2)
 	}
 
-	switch req.FormValue("a") {
-	case "f":
-		err = r.Forward(speed)
-	case "b":
-		err = r.Backward(speed)
-	case "s":
-		err = r.Stop()
-	default:
-		io.WriteString(w, "unknown command: "+req.FormValue("a"))
+	a := FindAction(req.FormValue("a"))
+	if a == nil {
+		io.WriteString(w, "unknown action: "+req.FormValue("a"))
+		log.Printf("unknown action: %s", req.FormValue("a"))
 		return
 	}
+
+	err = r.Move(*a, speed)
 
 	if err != nil {
 		io.WriteString(w, "err: "+err.Error())
@@ -119,6 +174,42 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // ------
+
+type WebApp struct {
+	template *template.Template
+}
+
+func (app *WebApp) Init() error {
+	t, err := template.ParseFiles("index.html")
+	if err != nil {
+		return err
+	}
+	app.template = t
+	return nil
+}
+
+func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if true {
+		err := app.Init()
+		if err != nil {
+			log.Printf("couldn't reload tempalte: %s", err)
+			return
+		}
+	}
+
+	type Temp struct {
+		Actions []Action
+	}
+
+	temp := Temp{Actions}
+
+	err := app.template.Execute(w, temp)
+	if err != nil {
+		log.Printf("couldn't execute web page: %s", err)
+	}
+}
+
+// ---
 
 func main() {
 	options, err := getSerialConfig()
@@ -136,41 +227,22 @@ func main() {
 
 	fmt.Printf("ready\n")
 
-	rover := Rover{port}
+	rover := Rover{}
+	rover.out = port
 	defer rover.Stop()
 
-	if false {
-		speed := 50
-		for {
-			err = rover.Forward(speed)
-			if err != nil {
-				log.Fatalf("couldn't move rover %v", err)
-			}
-
-			time.Sleep(2000 * time.Millisecond)
-
-			err = rover.Stop()
-			if err != nil {
-				log.Fatalf("couldn't stop rover %v", err)
-			}
-
-			time.Sleep(2000 * time.Millisecond)
-
-			err = rover.Backward(speed)
-			if err != nil {
-				log.Fatalf("couldn't move rover %v", err)
-			}
-
-			time.Sleep(2000 * time.Millisecond)
-		}
-		return
+	app := &WebApp{}
+	err = app.Init()
+	if err != nil {
+		log.Fatalf("couldn't create web app: %s", err)
 	}
 
-	if true {
-		mux := http.NewServeMux()
-		mux.Handle("/api/rover", &rover)
-		log.Println("going to listen")
-		log.Fatal(http.ListenAndServe(":8080", mux))
-	}
+	mux := http.NewServeMux()
+	mux.Handle("/api/rover", &rover)
+
+	mux.Handle("/", app)
+
+	log.Println("going to listen")
+	log.Fatal(http.ListenAndServe(":8080", mux))
 
 }
