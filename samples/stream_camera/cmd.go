@@ -46,7 +46,8 @@ func main() {
 		println(x, y)
 	})
 
-	if err := remoteView.Start(context.Background()); err != nil {
+	server := stream.NewRemoteViewServer(5555, remoteView)
+	if err := server.Run(context.Background()); err != nil {
 		panic(err)
 	}
 

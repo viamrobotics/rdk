@@ -21,23 +21,13 @@
 
       }
 
-      function updateImages() {
-          var host = window.location.host.split(":")[0];
-          var base = "http://" + host + ":8181/pic.jpg?ts=" + (new Date()).getTime() + "&num=";
-          console.log(base);
-          
-          document.getElementById("i0").src = base + "0";
-          document.getElementById("i1").src = base + "1";
-          
-      }
-
-      function started() {
-          setInterval(updateImages, 250);
-      }
+      {{ range $view := .RemoteViews }}
+        {{ jsSafe $view.JavaScript }}
+      {{ end }}
       
     </script>
   </head>
-  <body onLoad="started()">
+  <body>
     <ul>
       {{ range $a := .Actions }}
       <li>
@@ -53,6 +43,11 @@
       <tr>
         <td><img id="i0" src=""/></td>
         <td><img id="i1" src=""/></td>
+        {{ range $view := .RemoteViews }}
+          <td>
+          {{ htmlSafe $view.Body }}
+          </td>
+        {{ end }}
       </tr>
       </table>
     

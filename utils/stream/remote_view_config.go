@@ -10,25 +10,9 @@ var DefaultRemoteViewConfig = RemoteViewConfig{
 			},
 		},
 	},
-	NegotiationConfig: NegotiationConfig{
-		Method: NegotiationMethodPOST,
-		Port:   5555,
-	},
-}
-
-type NegotiationMethod int
-
-const (
-	NegotiationMethodPOST = NegotiationMethod(iota)
-)
-
-type NegotiationConfig struct {
-	Method NegotiationMethod
-	Port   int
 }
 
 type RemoteViewConfig struct {
-	WebRTCConfig      webrtc.Configuration
-	NegotiationConfig NegotiationConfig
-	Debug             bool
+	WebRTCConfig webrtc.Configuration
+	Debug        bool
 }

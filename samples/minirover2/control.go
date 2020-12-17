@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"html/template"
 	"io"
@@ -15,6 +16,8 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 
 	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/echolabsinc/robotcore/utils/stream"
+	"github.com/echolabsinc/robotcore/vision"
 )
 
 type Action struct {
@@ -176,11 +179,19 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // ------
 
 type WebApp struct {
-	template *template.Template
+	template    *template.Template
+	remoteViews []stream.RemoteView
 }
 
 func (app *WebApp) Init() error {
-	t, err := template.ParseFiles("index.html")
+	t, err := template.New("index.html").Funcs(template.FuncMap{
+		"jsSafe": func(js string) template.JS {
+			return template.JS(js)
+		},
+		"htmlSafe": func(html string) template.HTML {
+			return template.HTML(html)
+		},
+	}).ParseFiles("index.html")
 	if err != nil {
 		return err
 	}
@@ -197,11 +208,24 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type Temp struct {
-		Actions []Action
+	type RemoteView struct {
+		JavaScript string
+		Body       string
 	}
 
-	temp := Temp{Actions}
+	type Temp struct {
+		Actions     []Action
+		RemoteViews []RemoteView
+	}
+
+	temp := Temp{Actions: Actions}
+	for i, remoteView := range app.remoteViews {
+		htmlData := remoteView.HTML(i)
+		temp.RemoteViews = append(temp.RemoteViews, RemoteView{
+			htmlData.JavaScript,
+			htmlData.Body,
+		})
+	}
 
 	err := app.template.Execute(w, temp)
 	if err != nil {
@@ -212,6 +236,7 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // ---
 
 func main() {
+	flag.Parse()
 	options, err := getSerialConfig()
 	if err != nil {
 		log.Fatalf("can't get serial config: %v", err)
@@ -225,22 +250,37 @@ func main() {
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	fmt.Printf("ready\n")
+	fmt.Println("ready")
 
 	rover := Rover{}
 	rover.out = port
 	defer rover.Stop()
 
-	app := &WebApp{}
+	cameraSrc := vision.NewHttpSourceIntelEliot(flag.Arg(0))
+	config := stream.DefaultRemoteViewConfig
+	config.Debug = true
+	remoteView, err := stream.NewRemoteView(config)
+	if err != nil {
+		panic(err)
+	}
+
+	views := []stream.RemoteView{remoteView}
+	app := &WebApp{remoteViews: views}
 	err = app.Init()
 	if err != nil {
 		log.Fatalf("couldn't create web app: %s", err)
 	}
 
+	go stream.StreamMatSource(cameraSrc, remoteView, 33*time.Millisecond)
+
 	mux := http.NewServeMux()
 	mux.Handle("/api/rover", &rover)
 
 	mux.Handle("/", app)
+	for i, view := range views {
+		handler := view.Handler(i)
+		mux.Handle("/"+handler.Name, handler.Func)
+	}
 
 	log.Println("going to listen")
 	log.Fatal(http.ListenAndServe(":8080", mux))
