@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/echolabsinc/robotcore/utils/stream"
@@ -13,6 +16,10 @@ import (
 // - auto negotiate
 // - auto open browser :)?
 func main() {
+
+	go func() {
+		log.Println(http.ListenAndServe(":6060", nil))
+	}()
 
 	flag.Parse()
 
@@ -28,7 +35,9 @@ func main() {
 		src = vision.NewHttpSourceIntelEliot(flag.Arg(0))
 	}
 
-	remoteView, err := stream.NewRemoteView(stream.DefaultRemoteViewConfig)
+	config := stream.DefaultRemoteViewConfig
+	config.Debug = true
+	remoteView, err := stream.NewRemoteView(config)
 	if err != nil {
 		panic(err)
 	}
@@ -41,5 +50,5 @@ func main() {
 		panic(err)
 	}
 
-	stream.StreamMatSource(src, remoteView, 5*time.Millisecond)
+	stream.StreamMatSource(src, remoteView, 33*time.Millisecond)
 }
