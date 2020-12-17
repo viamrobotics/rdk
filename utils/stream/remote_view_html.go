@@ -1,14 +1,22 @@
 package stream
 
 var viewHTML = `
-
 <!DOCTYPE html>
 <html>
 <head>
   <title></title>
   <script type="text/javascript">
-    /* eslint-env browser */
+  ` + viewJS + `
+  </script>
+</head>
+<body>
+` + viewBody + `
+</body>
+</html>
+`
 
+// TODO(erd): refactor start session
+var viewJS = `
 let pc = new RTCPeerConnection({
   iceServers: [
     {
@@ -17,7 +25,7 @@ let pc = new RTCPeerConnection({
   ]
 })
 let log = msg => {
-  document.getElementById('div').innerHTML += msg + '<br>'
+  document.getElementById('div_%[1]d').innerHTML += msg + '<br>'
 }
 
 pc.ontrack = function (event) {
@@ -43,7 +51,7 @@ pc.ontrack = function (event) {
     actualDc.send(px+","+py);
 }
 
-  document.getElementById('remoteVideos').appendChild(el)
+  document.getElementById('remoteVideo_%[1]d').appendChild(el)
 }
 
 var dc = pc.createDataChannel("stuff", {id: 0});
@@ -64,7 +72,7 @@ pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
 let sd;
 pc.onicecandidate = event => {
   if (event.candidate === null) {
-    fetch("/offer", {
+    fetch("/offer_%[1]d", {
       method: 'POST',
       mode: 'cors',
       body: btoa(JSON.stringify(pc.localDescription))
@@ -93,19 +101,12 @@ window.startSession = () => {
     alert(e)
   }
 }
+`
 
-  </script>
-</head>
-<body>
-
+var viewBody = `
 Video<br />
-<div id="remoteVideos"></div> <br />
+<div id="remoteVideo_%[1]d"></div> <br />
 
 Logs<br />
-<div id="div"></div>
-
-</body>
-</html>
-
-
+<div id="div_%[1]d"></div>
 `

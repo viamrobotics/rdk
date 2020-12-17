@@ -19,12 +19,18 @@ import (
 )
 
 type RemoteView interface {
-	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	Ready() <-chan struct{}
 	InputFrames() chan<- image.Image // TODO(erd): does duration of frame matter?
 	SetOnClickHandler(func(x, y int))
 	Debug() bool
+	HTML(streamNum int) RemoteViewHTML
+	Handler(streamNum int) RemoteViewHandler
+}
+
+type RemoteViewHTML struct {
+	JavaScript string
+	Body       string
 }
 
 func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
@@ -48,123 +54,14 @@ type basicRemoteView struct {
 	onClickHandler func(x, y int)
 }
 
-func (brv *basicRemoteView) Debug() bool {
-	return brv.config.Debug
+type RemoteViewHandler struct {
+	Name string
+	Func http.HandlerFunc
 }
 
-func (brv *basicRemoteView) Ready() <-chan struct{} {
-	return brv.readyCh
-}
-
-// TODO(erd): implement me
-func (brv *basicRemoteView) Stop(ctx context.Context) error {
-	return nil
-}
-
-func (brv *basicRemoteView) SetOnClickHandler(handler func(x, y int)) {
-	brv.mu.Lock()
-	defer brv.mu.Unlock()
-	brv.onClickHandler = handler
-}
-
-func (brv *basicRemoteView) InputFrames() chan<- image.Image {
-	return brv.inputFrames
-}
-
-func (brv *basicRemoteView) processInputFrames() {
-	firstFrame := true
-	for frame := range brv.inputFrames {
-		if firstFrame {
-			bounds := frame.Bounds()
-			if err := brv.initCodec(bounds.Dx(), bounds.Dy()); err != nil {
-				panic(err) // TODO(erd): log and maybe do not fail
-			}
-			firstFrame = false
-		}
-
-		encodedFrame, err := brv.encoder.Encode(frame)
-		if err != nil {
-			panic(err) // TODO(erd): log and maybe do not fail
-		}
-		if encodedFrame != nil {
-			brv.outputFrames <- encodedFrame
-		}
-	}
-}
-
-// TODO(erd): refactor and move out unncessary (panickable especially) parts
-func (brv *basicRemoteView) processOutputFrames() {
-	// Wait for connection established
-
-	// brv.dataChannel.OnOpen(func() {
-	// 	for {
-	// 		time.Sleep(time.Second)
-	// 		// println("SEND TEXT")
-	// 		if err := brv.dataChannel.SendText("hello"); err != nil {
-	// 			panic(err)
-	// 		}
-	// 		// println("SENT TEXT")
-	// 	}
-	// })
-	// brv.dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-	// 	coords := strings.Split(string(msg.Data), ",")
-	// 	if len(coords) != 2 {
-	// 		panic(len(coords))
-	// 	}
-	// 	x, err := strconv.ParseFloat(coords[0], 32)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	y, err := strconv.ParseFloat(coords[1], 32)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
-	// })
-
-	// Send our video file frame at a time. Pace our sending so we send it at the same speed it should be played back as.
-	// This isn't required since the video is timestamped, but we will such much higher loss if we send all at once.
-	framesSent := 0
-	for outputFrame := range brv.outputFrames {
-		now := time.Now()
-		for _, videoTrack := range brv.getVideoTracks() {
-			if ivfErr := videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
-				panic(ivfErr)
-			}
-		}
-		framesSent++
-		if brv.config.Debug {
-			fmt.Println(framesSent, "write sample took", time.Since(now))
-		}
-	}
-}
-
-func (brv *basicRemoteView) initCodec(width, height int) error {
-	if brv.encoder != nil {
-		return errors.New("already initialized codec")
-	}
-
-	// TODO(erd): Codec configurable
-	var err error
-	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height, brv.config.Debug)
-	return err
-}
-
-func (brv *basicRemoteView) Start(ctx context.Context) error {
-	// TODO(erd): refactor to listener thingy func
-	// Wait for the offer to be submitted
-	httpServer := &http.Server{
-		Addr:           fmt.Sprintf(":%d", brv.config.NegotiationConfig.Port),
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-	mux := http.NewServeMux()
-	httpServer.Handler = mux
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(viewHTML))
-	})
-	mux.HandleFunc("/offer", func(w http.ResponseWriter, r *http.Request) {
+func (brv *basicRemoteView) Handler(streamNum int) RemoteViewHandler {
+	handlerName := fmt.Sprintf("offer_%d", streamNum)
+	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
@@ -284,15 +181,116 @@ func (brv *basicRemoteView) Start(ctx context.Context) error {
 			})
 		}()
 	})
-	// TODO(erd): switch to logger
-	go func() {
-		println("listening...")
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			panic(err)
-		}
-	}()
+	return RemoteViewHandler{handlerName, handlerFunc}
+}
 
+func (brv *basicRemoteView) HTML(streamNum int) RemoteViewHTML {
+	return RemoteViewHTML{
+		JavaScript: fmt.Sprintf(viewJS, streamNum),
+		Body:       fmt.Sprintf(viewBody, streamNum),
+	}
+}
+
+func (brv *basicRemoteView) Debug() bool {
+	return brv.config.Debug
+}
+
+func (brv *basicRemoteView) Ready() <-chan struct{} {
+	return brv.readyCh
+}
+
+// TODO(erd): implement me
+func (brv *basicRemoteView) Stop(ctx context.Context) error {
 	return nil
+}
+
+func (brv *basicRemoteView) SetOnClickHandler(handler func(x, y int)) {
+	brv.mu.Lock()
+	defer brv.mu.Unlock()
+	brv.onClickHandler = handler
+}
+
+func (brv *basicRemoteView) InputFrames() chan<- image.Image {
+	return brv.inputFrames
+}
+
+func (brv *basicRemoteView) processInputFrames() {
+	firstFrame := true
+	for frame := range brv.inputFrames {
+		if firstFrame {
+			bounds := frame.Bounds()
+			if err := brv.initCodec(bounds.Dx(), bounds.Dy()); err != nil {
+				panic(err) // TODO(erd): log and maybe do not fail
+			}
+			firstFrame = false
+		}
+
+		encodedFrame, err := brv.encoder.Encode(frame)
+		if err != nil {
+			panic(err) // TODO(erd): log and maybe do not fail
+		}
+		if encodedFrame != nil {
+			brv.outputFrames <- encodedFrame
+		}
+	}
+}
+
+// TODO(erd): refactor and move out unncessary (panickable especially) parts
+func (brv *basicRemoteView) processOutputFrames() {
+	// Wait for connection established
+
+	// brv.dataChannel.OnOpen(func() {
+	// 	for {
+	// 		time.Sleep(time.Second)
+	// 		// println("SEND TEXT")
+	// 		if err := brv.dataChannel.SendText("hello"); err != nil {
+	// 			panic(err)
+	// 		}
+	// 		// println("SENT TEXT")
+	// 	}
+	// })
+	// brv.dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+	// 	coords := strings.Split(string(msg.Data), ",")
+	// 	if len(coords) != 2 {
+	// 		panic(len(coords))
+	// 	}
+	// 	x, err := strconv.ParseFloat(coords[0], 32)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	y, err := strconv.ParseFloat(coords[1], 32)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
+	// })
+
+	// Send our video file frame at a time. Pace our sending so we send it at the same speed it should be played back as.
+	// This isn't required since the video is timestamped, but we will such much higher loss if we send all at once.
+	framesSent := 0
+	for outputFrame := range brv.outputFrames {
+		now := time.Now()
+		for _, videoTrack := range brv.getVideoTracks() {
+			if ivfErr := videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
+				panic(ivfErr)
+			}
+		}
+		framesSent++
+		if brv.config.Debug {
+			fmt.Println(framesSent, "write sample took", time.Since(now))
+		}
+	}
+}
+
+func (brv *basicRemoteView) initCodec(width, height int) error {
+	if brv.encoder != nil {
+		return errors.New("already initialized codec")
+	}
+
+	// TODO(erd): Codec configurable
+	var err error
+	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height, brv.config.Debug)
+	return err
 }
 
 func (brv *basicRemoteView) addVideoTrack(videoTrack *webrtc.TrackLocalStaticSample) {
