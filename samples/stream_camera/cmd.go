@@ -32,7 +32,7 @@ func main() {
 			panic(err)
 		}
 	} else {
-		src = vision.NewHttpSourceIntelEliot(flag.Arg(0))
+		src = &vision.HttpSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
 	}
 
 	config := stream.DefaultRemoteViewConfig
