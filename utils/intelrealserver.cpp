@@ -173,6 +173,52 @@ public:
     }
 };
 
+
+const int maxJpegSize = 512 * 1024;
+struct jpeg_out {
+    char buf[maxJpegSize];
+    int size;
+    
+};
+
+void my_jpg_write(void* context, void* data, int size) {
+    jpeg_out* out = (jpeg_out*)context;
+    if (size+out->size > maxJpegSize) {
+        std::cerr << "size too big" << std::endl;
+        return;
+    }
+    memcpy(out->buf + out->size, data, size);
+    out->size += size;
+}
+    
+
+class picture_resource_jpg : public http_resource {
+public:
+    const std::shared_ptr<http_response> render(const http_request& r) {
+        if (!ready) {
+            return std::shared_ptr<http_response>(new string_response("not ready\n"));
+        }
+        numRequests++;
+
+        int camNumera = getCameraNumber(r);
+        
+        std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
+        const char * raw_data = mine->ppmdata.c_str();
+        int len = mine->width * mine->height * 3;
+        raw_data = raw_data + (mine->ppmdata.size() - len);
+
+        jpeg_out out;
+        out.size = 0;
+        
+        auto rv = stbi_write_jpg_to_func(my_jpg_write, &out,    
+                                         mine->width, mine->height, 3, raw_data, 20);
+
+        std::string s(out.buf, out.size);
+
+        return std::shared_ptr<http_response>(new string_response(s, 200, "image/jpg"));
+    }
+};
+
 class depth_resource : public http_resource {
 public:
     const std::shared_ptr<http_response> render(const http_request& r) {
@@ -202,6 +248,9 @@ int main(int argc, char** argv) {
 
     picture_resource_png pr2;
     ws.register_resource("/pic.png", &pr2);
+
+    picture_resource_jpg pr3;
+    ws.register_resource("/pic.jpg", &pr3);
 
     depth_resource dr;
     ws.register_resource("/depth.dat", &dr);
