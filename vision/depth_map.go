@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"bufio"
 	"compress/gzip"
 	"encoding/binary"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"gocv.io/x/gocv"
 )
@@ -53,7 +56,7 @@ func myMax(a, b int) int {
 	return b
 }
 
-func (dm *DepthMap) smooth() {
+func (dm *DepthMap) Smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
 	dm.max = 0
@@ -160,9 +163,17 @@ func ReadDepthMap(f io.Reader) (DepthMap, error) {
 		return dm, err
 	}
 
+	if dm.width == 6363110499870197078 {
+		return readDepthMapFormat2(f)
+	}
+
 	dm.height, err = _readNext(f)
 	if err != nil {
 		return dm, err
+	}
+
+	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
+		return dm, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
 	dm.data = make([][]int, dm.width)
@@ -177,7 +188,80 @@ func ReadDepthMap(f io.Reader) (DepthMap, error) {
 		}
 	}
 
-	dm.smooth()
+	return dm, nil
+}
+
+func readDepthMapFormat2(raw io.Reader) (DepthMap, error) {
+	dm := DepthMap{}
+
+	r := bufio.NewReader(raw)
+	// get past garbade
+	_, err := r.ReadString('\n')
+	if err != nil {
+		return dm, err
+	}
+
+	bytesPerPixelString, err := r.ReadString('\n')
+	if err != nil {
+		return dm, err
+	}
+	bytesPerPixelString = strings.TrimSpace(bytesPerPixelString)
+
+	if bytesPerPixelString != "2" {
+		return dm, fmt.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
+	}
+
+	unitsString, err := r.ReadString('\n')
+	if err != nil {
+		return dm, err
+	}
+	unitsString = strings.TrimSpace(unitsString)
+	units, err := strconv.ParseFloat(unitsString, 64)
+	if err != nil {
+		return dm, err
+	}
+	units = units * 1000 // m to mm
+
+	widthString, err := r.ReadString('\n')
+	if err != nil {
+		return dm, err
+	}
+	widthString = strings.TrimSpace(widthString)
+	x, err := strconv.ParseInt(widthString, 10, 64)
+	dm.width = int(x)
+	if err != nil {
+		return dm, err
+	}
+
+	heightString, err := r.ReadString('\n')
+	if err != nil {
+		return dm, err
+	}
+	heightString = strings.TrimSpace(heightString)
+	x, err = strconv.ParseInt(heightString, 10, 64)
+	dm.height = int(x)
+	if err != nil {
+		return dm, err
+	}
+
+	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
+		return dm, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+	}
+
+	temp := make([]byte, 2)
+	dm.data = make([][]int, dm.width)
+	for x := 0; x < dm.width; x++ {
+		dm.data[x] = make([]int, dm.height)
+		for y := 0; y < dm.height; y++ {
+			n, err := r.Read(temp)
+			if n != 2 || err != nil {
+				return dm, fmt.Errorf("didn't read 2 bytes %d %w", n, err)
+			}
+
+			dm.data[x][y] = int(units * float64(binary.LittleEndian.Uint16(temp)))
+
+		}
+	}
 
 	return dm, nil
 }
