@@ -7,6 +7,7 @@ import (
 	"image/draw"
 	"log"
 	"runtime"
+	"time"
 	"unsafe"
 
 	"github.com/xlab/libvpx-go/vpx"
@@ -74,6 +75,7 @@ type VPXEncoder struct {
 	iter             vpx.CodecIter
 	keyFrameInterval int
 	frameCount       int
+	debug            bool
 }
 
 type VCodec string
@@ -83,8 +85,8 @@ const (
 	CodecVP9 VCodec = "V_VP9"
 )
 
-func NewVPXEncoder(codec VCodec, width, height int) (*VPXEncoder, error) {
-	enc := &VPXEncoder{ctx: vpx.NewCodecCtx()}
+func NewVPXEncoder(codec VCodec, width, height int, debug bool) (*VPXEncoder, error) {
+	enc := &VPXEncoder{ctx: vpx.NewCodecCtx(), debug: debug}
 	switch codec {
 	case CodecVP8:
 		enc.iface = vpx.EncoderIfaceVP8()
@@ -105,9 +107,9 @@ func NewVPXEncoder(codec VCodec, width, height int) (*VPXEncoder, error) {
 	cfg.GH = uint32(height)
 	cfg.GTimebase = vpx.Rational{
 		Num: 1,
-		Den: 1000,
+		Den: 33,
 	}
-	cfg.RcTargetBitrate = 20000000
+	cfg.RcTargetBitrate = 200000
 	cfg.GErrorResilient = 1
 	cfg.Free() // free so we get a new one? idk
 
@@ -141,13 +143,13 @@ func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
 		for pkt != nil {
 			pkt.Deref()
 			if pkt.Kind == vpx.CodecCxFramePkt {
-				// now := time.Now()
+				now := time.Now()
 				goBytes := C.get_frame_buffer((*C.vpx_codec_cx_pkt_t)(unsafe.Pointer(pkt.Ref())))
 				bs := C.GoBytes(goBytes.bs, goBytes.size)
-				// fmt.Println("get frame took", time.Since(now))
-				// now = time.Now()
+				if v.debug {
+					fmt.Println("get frame took", time.Since(now))
+				}
 				return bs, nil
-				// fmt.Println("send chan took", time.Since(now))
 			} else {
 				// println("not a frame pkt")
 			}
@@ -172,11 +174,13 @@ func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
 	}
 
 	// println("encoding frame", v.frameCount)
-	// now := time.Now()
-	if err := vpx.Error(vpx.CodecEncode(v.ctx, v.allocImg, vpx.CodecPts(v.frameCount), 1, flags, 0)); err != nil {
+	now := time.Now()
+	if err := vpx.Error(vpx.CodecEncode(v.ctx, v.allocImg, vpx.CodecPts(v.frameCount), 1, flags, 30)); err != nil {
 		return nil, errors.New(vpx.CodecErrorDetail(v.ctx))
 	}
-	// fmt.Println("encode time took", time.Since(now))
+	if v.debug {
+		fmt.Println("encode time took", time.Since(now))
+	}
 	v.frameCount++
 
 	v.iter = nil
