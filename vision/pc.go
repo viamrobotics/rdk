@@ -11,6 +11,39 @@ type PointCloud struct {
 	Color Image
 }
 
+func (pc *PointCloud) Width() int {
+	return pc.Color.Width()
+}
+
+func (pc *PointCloud) Height() int {
+	return pc.Color.Height()
+}
+
+func (pc *PointCloud) Close() {
+	pc.Color.Close()
+}
+
+func NewPointCloud(colorFN, depthFN string) (*PointCloud, error) {
+	img, err := NewImageFromFile(colorFN)
+	if err != nil {
+		img.Close()
+		return nil, err
+	}
+
+	dm, err := ParseDepthMap(depthFN)
+	if err != nil {
+		return nil, err
+	}
+
+	if img.Width() != dm.Width() || img.Height() != dm.Height() {
+		img.Close()
+		return nil, fmt.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
+			img.Width(), img.Height(), dm.Width(), dm.Height())
+	}
+
+	return &PointCloud{dm, img}, nil
+}
+
 func _colorToInt(c color.RGBA) int {
 	x := 0
 
