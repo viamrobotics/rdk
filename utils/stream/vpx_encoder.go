@@ -115,7 +115,7 @@ func NewVPXEncoder(codec VCodec, width, height int) (*VPXEncoder, error) {
 	if runtime.GOOS != "darwin" {
 		abiVersion++
 	}
-	err = vpx.Error(vpx.CodecEncInitVer(enc.ctx, enc.iface, &cfg, 0, vpx.EncoderABIVersion))
+	err = vpx.Error(vpx.CodecEncInitVer(enc.ctx, enc.iface, &cfg, 0, abiVersion))
 	if err != nil {
 		log.Println("[WARN]", err)
 		return enc, nil
