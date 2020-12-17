@@ -10,7 +10,6 @@ import (
 	"image"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,50 +28,20 @@ type RemoteView interface {
 }
 
 func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
-	// Create a new RTCPeerConnection
-	peerConnection, err := webrtc.NewPeerConnection(config.WebRTCConfig)
-	if err != nil {
-		panic(err)
-	}
-
-	//	TODO(erd): MIME type should be configurable
-	videoTrack, err := webrtc.NewTrackLocalStaticSample(
-		webrtc.RTPCodecCapability{MimeType: "video/vp8"},
-		"video",
-		"pion",
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := peerConnection.AddTrack(videoTrack); err != nil {
-		return nil, err
-	}
-
-	dcID := uint16(0)
-	dc, err := peerConnection.CreateDataChannel("stuff", &webrtc.DataChannelInit{ID: &dcID})
-	if err != nil {
-		return nil, err
-	}
-
 	return &basicRemoteView{
-		config:         config,
-		readyCh:        make(chan struct{}),
-		peerConnection: peerConnection,
-		videoTrack:     videoTrack,
-		dataChannel:    dc,
-		inputFrames:    make(chan image.Image),
-		outputFrames:   make(chan []byte),
+		config:       config,
+		readyCh:      make(chan struct{}),
+		inputFrames:  make(chan image.Image),
+		outputFrames: make(chan []byte),
 	}, nil
 }
 
 type basicRemoteView struct {
 	mu             sync.Mutex
 	config         RemoteViewConfig
+	readyOnce      sync.Once
 	readyCh        chan struct{}
-	peerConnection *webrtc.PeerConnection
-	videoTrack     *webrtc.TrackLocalStaticSample
-	dataChannel    *webrtc.DataChannel
+	videoTracks    []*webrtc.TrackLocalStaticSample
 	inputFrames    chan image.Image
 	outputFrames   chan []byte
 	encoder        *VPXEncoder
@@ -127,39 +96,41 @@ func (brv *basicRemoteView) processInputFrames() {
 func (brv *basicRemoteView) processOutputFrames() {
 	// Wait for connection established
 
-	brv.dataChannel.OnOpen(func() {
-		for {
-			time.Sleep(time.Second)
-			// println("SEND TEXT")
-			if err := brv.dataChannel.SendText("hello"); err != nil {
-				panic(err)
-			}
-			// println("SENT TEXT")
-		}
-	})
-	brv.dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-		coords := strings.Split(string(msg.Data), ",")
-		if len(coords) != 2 {
-			panic(len(coords))
-		}
-		x, err := strconv.ParseFloat(coords[0], 32)
-		if err != nil {
-			panic(err)
-		}
-		y, err := strconv.ParseFloat(coords[1], 32)
-		if err != nil {
-			panic(err)
-		}
-		brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
-	})
+	// brv.dataChannel.OnOpen(func() {
+	// 	for {
+	// 		time.Sleep(time.Second)
+	// 		// println("SEND TEXT")
+	// 		if err := brv.dataChannel.SendText("hello"); err != nil {
+	// 			panic(err)
+	// 		}
+	// 		// println("SENT TEXT")
+	// 	}
+	// })
+	// brv.dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+	// 	coords := strings.Split(string(msg.Data), ",")
+	// 	if len(coords) != 2 {
+	// 		panic(len(coords))
+	// 	}
+	// 	x, err := strconv.ParseFloat(coords[0], 32)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	y, err := strconv.ParseFloat(coords[1], 32)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
+	// })
 
 	// Send our video file frame at a time. Pace our sending so we send it at the same speed it should be played back as.
 	// This isn't required since the video is timestamped, but we will such much higher loss if we send all at once.
 	framesSent := 0
 	for outputFrame := range brv.outputFrames {
 		now := time.Now()
-		if ivfErr := brv.videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
-			panic(ivfErr)
+		for _, videoTrack := range brv.getVideoTracks() {
+			if ivfErr := videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
+				panic(ivfErr)
+			}
 		}
 		framesSent++
 		if brv.config.Debug {
@@ -180,17 +151,7 @@ func (brv *basicRemoteView) initCodec(width, height int) error {
 }
 
 func (brv *basicRemoteView) Start(ctx context.Context) error {
-	iceConnectedCtx, iceConnectedCtxCancel := context.WithCancel(ctx)
-
-	// Set the handler for ICE connection state
-	// This will notify you when the peer has connected/disconnected
-	brv.peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
-		if connectionState == webrtc.ICEConnectionStateConnected {
-			iceConnectedCtxCancel()
-		}
-	})
-
+	// TODO(erd): refactor to listener thingy func
 	// Wait for the offer to be submitted
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", brv.config.NegotiationConfig.Port),
@@ -200,7 +161,6 @@ func (brv *basicRemoteView) Start(ctx context.Context) error {
 	}
 	mux := http.NewServeMux()
 	httpServer.Handler = mux
-	offer := webrtc.SessionDescription{}
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(viewHTML))
 	})
@@ -234,17 +194,55 @@ func (brv *basicRemoteView) Start(ctx context.Context) error {
 			}
 		}
 
+		offer := webrtc.SessionDescription{}
 		Decode(in, &offer)
 
+		// Create a new RTCPeerConnection
+		peerConnection, err := webrtc.NewPeerConnection(brv.config.WebRTCConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		iceConnectedCtx, iceConnectedCtxCancel := context.WithCancel(context.TODO())
+
+		// Set the handler for ICE connection state
+		// This will notify you when the peer has connected/disconnected
+		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+			fmt.Printf("Connection State has changed %s \n", connectionState.String())
+			if connectionState == webrtc.ICEConnectionStateConnected {
+				iceConnectedCtxCancel()
+			}
+		})
+
+		//	TODO(erd): MIME type should be configurable
+		videoTrack, err := webrtc.NewTrackLocalStaticSample(
+			webrtc.RTPCodecCapability{MimeType: "video/vp8"},
+			"video",
+			"pion",
+		)
+		if err != nil {
+			panic(err)
+		}
+
+		if _, err := peerConnection.AddTrack(videoTrack); err != nil {
+			panic(err)
+		}
+
+		// dcID := uint16(0)
+		// dc, err := peerConnection.CreateDataChannel("stuff", &webrtc.DataChannelInit{ID: &dcID})
+		// if err != nil {
+		// 	panic(err)
+		// }
+
 		// Set the remote SessionDescription
-		if err := brv.peerConnection.SetRemoteDescription(offer); err != nil {
+		if err := peerConnection.SetRemoteDescription(offer); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
 		// Create answer
-		answer, err := brv.peerConnection.CreateAnswer(nil)
+		answer, err := peerConnection.CreateAnswer(nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
@@ -252,10 +250,10 @@ func (brv *basicRemoteView) Start(ctx context.Context) error {
 		}
 
 		// Create channel that is blocked until ICE Gathering is complete
-		gatherComplete := webrtc.GatheringCompletePromise(brv.peerConnection)
+		gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
 
 		// Sets the LocalDescription, and starts our UDP listeners
-		if err := brv.peerConnection.SetLocalDescription(answer); err != nil {
+		if err := peerConnection.SetLocalDescription(answer); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
@@ -267,22 +265,49 @@ func (brv *basicRemoteView) Start(ctx context.Context) error {
 		<-gatherComplete
 
 		// Output the answer in base64 so we can paste it in browser
-		w.Write([]byte(Encode(*brv.peerConnection.LocalDescription())))
+		w.Write([]byte(Encode(*peerConnection.LocalDescription())))
 
-		go httpServer.Shutdown(context.Background())
+		// go httpServer.Shutdown(context.Background())
+
+		go func() {
+			<-iceConnectedCtx.Done()
+
+			// TODO(erd): handle disconnected
+			brv.addVideoTrack(videoTrack)
+
+			brv.readyOnce.Do(func() {
+				close(brv.readyCh)
+				// Start processing
+				// TODO(erd): both need cancellation
+				go brv.processInputFrames()
+				go brv.processOutputFrames()
+			})
+		}()
 	})
 	// TODO(erd): switch to logger
-	println("waiting for POST")
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		panic(err)
-	}
+	go func() {
+		println("listening...")
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			panic(err)
+		}
+	}()
 
-	<-iceConnectedCtx.Done()
-
-	// Start processing
-	// TODO(erd): both need cancellation
-	go brv.processInputFrames()
-	go brv.processOutputFrames()
-	close(brv.readyCh)
 	return nil
+}
+
+func (brv *basicRemoteView) addVideoTrack(videoTrack *webrtc.TrackLocalStaticSample) {
+	brv.mu.Lock()
+	defer brv.mu.Unlock()
+	brv.videoTracks = append(brv.videoTracks, videoTrack)
+}
+
+func (brv *basicRemoteView) getVideoTracks() []*webrtc.TrackLocalStaticSample {
+	brv.mu.Lock()
+	defer brv.mu.Unlock()
+	// make shallow copy
+	videoTracks := make([]*webrtc.TrackLocalStaticSample, 0, len(brv.videoTracks))
+	for _, videoTrack := range brv.videoTracks {
+		videoTracks = append(videoTracks, videoTrack)
+	}
+	return videoTracks
 }
