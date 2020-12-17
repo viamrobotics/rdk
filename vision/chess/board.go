@@ -29,6 +29,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 	if err != nil {
 		return nil, err
 	}
+	dm.Smooth()
 
 	return FindAndWarpBoard(img, dm)
 }
