@@ -250,9 +250,13 @@ func readDepthMapFormat2(raw io.Reader) (DepthMap, error) {
 
 	temp := make([]byte, 2)
 	dm.data = make([][]int, dm.width)
+
 	for x := 0; x < dm.width; x++ {
 		dm.data[x] = make([]int, dm.height)
-		for y := 0; y < dm.height; y++ {
+	}
+
+	for y := 0; y < dm.height; y++ {
+		for x := 0; x < dm.width; x++ {
 			n, err := r.Read(temp)
 			if n != 2 || err != nil {
 				return dm, fmt.Errorf("didn't read 2 bytes %d %w", n, err)
