@@ -65,11 +65,15 @@ func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal tim
 func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInternal time.Duration) {
 	<-remoteView.Ready()
 	for {
+		now := time.Now()
 		mat, _, err := src.NextColorDepthPair()
 		if err != nil {
 			panic(err) // TODO(err): don't panic... bones, sinking like stones
 		}
-		time.Sleep(captureInternal)
+		if remoteView.Debug() {
+			fmt.Println("NextColorDepthPair took", time.Since(now))
+		}
+		// time.Sleep(captureInternal)
 		img, err := mat.ToImage()
 		if err != nil {
 			panic(err) // TODO(err): don't panic
