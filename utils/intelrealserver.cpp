@@ -148,9 +148,9 @@ class picture_resource : public http_resource {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
-
+        std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         return std::shared_ptr<http_response>(new string_response(
-            CameraOutputInstance[camNumera]->ppmdata, 200, "image/ppm"));
+            mine->ppmdata, 200, "image/ppm"));
     }
 };
 
