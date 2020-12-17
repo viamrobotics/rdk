@@ -25,6 +25,7 @@ type RemoteView interface {
 	Ready() <-chan struct{}
 	InputFrames() chan<- image.Image // TODO(erd): does duration of frame matter?
 	SetOnClickHandler(func(x, y int))
+	Debug() bool
 }
 
 func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
@@ -76,6 +77,10 @@ type basicRemoteView struct {
 	outputFrames   chan []byte
 	encoder        *VPXEncoder
 	onClickHandler func(x, y int)
+}
+
+func (brv *basicRemoteView) Debug() bool {
+	return brv.config.Debug
 }
 
 func (brv *basicRemoteView) Ready() <-chan struct{} {
@@ -152,12 +157,14 @@ func (brv *basicRemoteView) processOutputFrames() {
 	// This isn't required since the video is timestamped, but we will such much higher loss if we send all at once.
 	framesSent := 0
 	for outputFrame := range brv.outputFrames {
-		// now := time.Now()
-		if ivfErr := brv.videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: time.Second}); ivfErr != nil {
+		now := time.Now()
+		if ivfErr := brv.videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
 			panic(ivfErr)
 		}
 		framesSent++
-		// fmt.Println(framesSent, "write sample took", time.Since(now))
+		if brv.config.Debug {
+			fmt.Println(framesSent, "write sample took", time.Since(now))
+		}
 	}
 }
 
@@ -168,7 +175,7 @@ func (brv *basicRemoteView) initCodec(width, height int) error {
 
 	// TODO(erd): Codec configurable
 	var err error
-	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height)
+	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height, brv.config.Debug)
 	return err
 }
 
