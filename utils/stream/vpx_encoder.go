@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/draw"
 	"log"
+	"runtime"
 	"unsafe"
 
 	"github.com/xlab/libvpx-go/vpx"
@@ -110,6 +111,10 @@ func NewVPXEncoder(codec VCodec, width, height int) (*VPXEncoder, error) {
 	cfg.GErrorResilient = 1
 	cfg.Free() // free so we get a new one? idk
 
+	abiVersion := vpx.EncoderABIVersion
+	if runtime.GOOS != "darwin" {
+		abiVersion++
+	}
 	err = vpx.Error(vpx.CodecEncInitVer(enc.ctx, enc.iface, &cfg, 0, vpx.EncoderABIVersion))
 	if err != nil {
 		log.Println("[WARN]", err)
