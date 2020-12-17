@@ -10,14 +10,30 @@
 
 class CameraOutput {
    public:
+    void add_depth(rs2::depth_frame& frame) {
+        std::stringbuf buffer;
+        std::ostream os(&buffer);
+
+        os << "VERSIONX\n";
+        os << frame.get_bytes_per_pixel() << "\n";
+        os << frame.get_units() << "\n";
+        os << frame.get_width() << "\n";
+        os << frame.get_height() << "\n";
+
+        buffer.sputn((const char*)frame.get_data(),
+                     frame.get_width() * frame.get_height() *
+                         frame.get_bytes_per_pixel());
+
+        depth = buffer.str();
+    }
+
     int width;
     int height;
     std::string ppmdata;
-    std::vector<uint64_t> depth;
+    std::string depth;
 };
 
 std::vector<std::shared_ptr<CameraOutput>> CameraOutputInstance;
-long long numRequests = 0;  // so we can throttle and not kill cpu
 bool ready = 0;
 
 std::string my_write_ppm(const char* pixels, int x, int y,
@@ -63,8 +79,6 @@ void cameraThread() {
     rs2::align alignment(RS2_STREAM_COLOR);
     // rs2::align alignment(RS2_STREAM_DEPTH);
 
-    long long prevNumRequests = 0;
-
     while (true) {
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -73,9 +87,9 @@ void cameraThread() {
             std::shared_ptr<CameraOutput> output(new CameraOutput());
             rs2::frameset frames = p.wait_for_frames();
 
-            frames = alignment.process(
-                frames);  // this handles the geometry so that the
-                          // x/y of the depth and color are the same
+            // this handles the geometry so that the
+            // x/y of the depth and color are the same
+            frames = alignment.process(frames);
 
             // do color frame
             auto vf = frames.get_color_frame();
@@ -91,15 +105,9 @@ void cameraThread() {
                              vf.get_height(), vf.get_bytes_per_pixel());
 
             // create depth map
+
             auto depth = frames.get_depth_frame();
-            output->depth.push_back(depth.get_width());
-            output->depth.push_back(depth.get_height());
-            for (auto x = 0; x < depth.get_width(); x++) {
-                for (auto y = 0; y < depth.get_height(); y++) {
-                    uint64_t d = 1000 * depth.get_distance(x, y);
-                    output->depth.push_back(d);
-                }
-            }
+            output->add_depth(depth);
 
             CameraOutputInstance[num++] = output;
         }
@@ -111,12 +119,6 @@ void cameraThread() {
                   << "ms\n";
 
         ready = 1;
-
-        if (numRequests == prevNumRequests) {
-            sleep(1);
-        } else {
-            numRequests = prevNumRequests;
-        }
     }
 }
 
@@ -146,7 +148,6 @@ class picture_resource : public http_resource {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
-        numRequests++;
 
         return std::shared_ptr<http_response>(new string_response(
             CameraOutputInstance[camNumera]->ppmdata, 200, "image/ppm"));
@@ -162,7 +163,6 @@ class picture_resource_png : public http_resource {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
-        numRequests++;
 
         std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         const char* raw_data = mine->ppmdata.c_str();
@@ -205,7 +205,6 @@ class picture_resource_jpg : public http_resource {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
-        numRequests++;
 
         std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         const char* raw_data = mine->ppmdata.c_str();
@@ -234,11 +233,10 @@ class depth_resource : public http_resource {
         }
         int camNumera = getCameraNumber(r);
 
-        numRequests++;
-        std::string s((char*)CameraOutputInstance[camNumera]->depth.data(),
-                      CameraOutputInstance[camNumera]->depth.size() * 8);
+        std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
+
         return std::shared_ptr<http_response>(
-            new string_response(s, 200, "binary"));
+            new string_response(mine->depth, 200, "binary"));
     }
 };
 
