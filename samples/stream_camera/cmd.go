@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"time"
 
 	"github.com/echolabsinc/robotcore/utils/stream"
@@ -12,9 +13,19 @@ import (
 // - auto negotiate
 // - auto open browser :)?
 func main() {
-	src, err := vision.NewWebcamSource(0)
-	if err != nil {
-		panic(err)
+
+	flag.Parse()
+
+	var src vision.MatSource
+	var err error
+
+	if flag.NArg() == 0 {
+		src, err = vision.NewWebcamSource(0)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		src = vision.NewHttpSourceIntelEliot(flag.Arg(0))
 	}
 
 	remoteView, err := stream.NewRemoteView(stream.DefaultRemoteViewConfig)
