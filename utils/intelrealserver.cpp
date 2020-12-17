@@ -60,8 +60,8 @@ void cameraThread() {
         exit(-1);
     }
 
-    // rs2::align alignment(RS2_STREAM_COLOR);
-    rs2::align alignment(RS2_STREAM_DEPTH);
+    rs2::align alignment(RS2_STREAM_COLOR);
+    // rs2::align alignment(RS2_STREAM_DEPTH);
 
     long long prevNumRequests = 0;
 
@@ -141,12 +141,13 @@ class hello_world_resource : public http_resource {
 class picture_resource : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
-        if (!ready) {
+        int camNumera = getCameraNumber(r);
+        if (!ready || camNumera >= CameraOutputInstance.size()) {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
         numRequests++;
-        int camNumera = getCameraNumber(r);
+
         return std::shared_ptr<http_response>(new string_response(
             CameraOutputInstance[camNumera]->ppmdata, 200, "image/ppm"));
     }
@@ -155,13 +156,13 @@ class picture_resource : public http_resource {
 class picture_resource_png : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
-        if (!ready) {
+        int camNumera = getCameraNumber(r);
+
+        if (!ready || camNumera >= CameraOutputInstance.size()) {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
         numRequests++;
-
-        int camNumera = getCameraNumber(r);
 
         std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         const char* raw_data = mine->ppmdata.c_str();
@@ -199,13 +200,12 @@ void my_jpg_write(void* context, void* data, int size) {
 class picture_resource_jpg : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
-        if (!ready) {
+        int camNumera = getCameraNumber(r);
+        if (!ready || camNumera >= CameraOutputInstance.size()) {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
         numRequests++;
-
-        int camNumera = getCameraNumber(r);
 
         std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         const char* raw_data = mine->ppmdata.c_str();
