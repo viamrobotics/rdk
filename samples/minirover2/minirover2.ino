@@ -4,8 +4,7 @@ HardwareSerial* debugSerial;
 
 class Motor {
    public:
-    Motor(int in1, int in2, int pwm)
-        : _in1(in1), _in2(in2), _pwm(pwm) {
+    Motor(int in1, int in2, int pwm) : _in1(in1), _in2(in2), _pwm(pwm) {
         pinMode(_in1, OUTPUT);
         pinMode(_in2, OUTPUT);
         pinMode(_pwm, OUTPUT);
@@ -32,42 +31,39 @@ class Motor {
         int power = 255;
 
         if (buf[1] >= '0' && buf[1] <= '9') {
-            power = atoi(buf+1);
+            power = atoi(buf + 1);
         }
 
         Serial.println(power, DEC);
-        
-        switch (buf[0]) {
-        case 'f':
-            debugSerial->println("forward");
-            forward(power);
-            break;
-        case 'b':
-            debugSerial->println("backward");
-            backward(power);
-            break;
-        case 's':
-            debugSerial->println("stop");
-            stop();
-            break;
-        default:
-            debugSerial->println("unknown command");
-            debugSerial->println(buf[0], DEC);
-        }
 
+        switch (buf[0]) {
+            case 'f':
+                debugSerial->println("forward");
+                forward(power);
+                break;
+            case 'b':
+                debugSerial->println("backward");
+                backward(power);
+                break;
+            case 's':
+                debugSerial->println("stop");
+                stop();
+                break;
+            default:
+                debugSerial->println("unknown command");
+                debugSerial->println(buf[0], DEC);
+        }
     }
 
-private:
+   private:
     int _in1;
     int _in2;
     int _pwm;
-    
 };
 
 class Buffer {
-public:
-    Buffer(HardwareSerial* s)
-        : _port(s) {
+   public:
+    Buffer(HardwareSerial* s) : _port(s) {
         _port->begin(9600);
         _pos = 0;
     }
@@ -80,7 +76,7 @@ public:
                 continue;
             }
 
-            if ( x == '\r') {
+            if (x == '\r') {
                 _buf[_pos] = 0;
                 return true;
             }
@@ -97,14 +93,14 @@ public:
     }
 
     const char* getLineAndReset() {
-        _buf[_pos]= 0;
+        _buf[_pos] = 0;
         _pos = 0;
         return _buf;
     }
-    
-private:
+
+   private:
     HardwareSerial* _port;
-    
+
     char _buf[256];
     int _pos;
 };
@@ -124,7 +120,6 @@ void setup() {
     motors[1] = new Motor(51, 50, 3);
     motors[2] = new Motor(24, 25, 6);
     motors[3] = new Motor(23, 22, 7);
-    
 
     buf1 = new Buffer(&Serial);
     buf2 = new Buffer(&Serial1);
@@ -139,8 +134,7 @@ void process(Buffer* b) {
             debugSerial->println(motorNumber, DEC);
         }
 
-        motors[motorNumber]->doCommand(line+1);
-
+        motors[motorNumber]->doCommand(line + 1);
     }
 }
 
