@@ -28,8 +28,8 @@ func warpColorAndDepthToChess(color vision.Image, depth vision.DepthMap, corners
 	}
 
 	pc := vision.PointCloud{depth, color}
-	pc2, err := pc.Warp(corners, dst, image.Point{800, 800})
-	return pc2.Color, pc2.Depth, err
+	pc2 := pc.Warp(corners, dst, image.Point{800, 800})
+	return pc2.Color, pc2.Depth, nil
 }
 
 // returns point in a1, a8, h1, h8 order

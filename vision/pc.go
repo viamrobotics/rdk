@@ -22,7 +22,7 @@ func (pc *PointCloud) Height() int {
 	return pc.Color.Height()
 }
 
-func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) (PointCloud, error) {
+func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointCloud {
 	m := gocv.GetPerspectiveTransform(src, dst)
 	defer m.Close()
 
@@ -39,7 +39,79 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) (PointCl
 	}
 
 	img, err := NewImage(warped)
-	return PointCloud{warpedDepth, img}, err
+	if err != nil {
+		panic(fmt.Errorf("should be impossible: %w", err))
+	}
+	return PointCloud{warpedDepth, img}
+}
+
+func (pc *PointCloud) CropToDepthData() PointCloud {
+	var minY, minX, maxY, maxX int
+
+	for minY = 0; minY < pc.Height(); minY++ {
+		found := false
+		for x := 0; x < pc.Width(); x++ {
+			if pc.Depth.GetDepth(x, minY) > 0 {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	for maxY = pc.Height() - 1; maxY >= 0; maxY-- {
+		found := false
+		for x := 0; x < pc.Width(); x++ {
+			if pc.Depth.GetDepth(x, maxY) > 0 {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	if maxY <= minY {
+		panic(fmt.Errorf("invalid depth data: %v %v", minY, maxY))
+	}
+
+	for minX = 0; minX < pc.Width(); minX++ {
+		found := false
+		for y := minY; y < maxY; y++ {
+			if pc.Depth.GetDepth(minX, y) > 0 {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	for maxX = pc.Width() - 1; minX >= 0; maxX-- {
+		found := false
+		for y := minY; y < maxY; y++ {
+			if pc.Depth.GetDepth(maxX, y) > 0 {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+
+	height := maxY - minY
+	width := maxX - minX
+
+	return pc.Warp(
+		[]image.Point{image.Point{minX, minY}, image.Point{maxX, minY}, image.Point{maxX, maxY}, image.Point{minX, maxY}},
+		[]image.Point{image.Point{0, 0}, image.Point{width, 0}, image.Point{width, height}, image.Point{0, height}},
+		image.Point{width, height},
+	)
 }
 
 func (pc *PointCloud) Close() {
