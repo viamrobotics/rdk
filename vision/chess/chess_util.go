@@ -19,7 +19,7 @@ func _distance(a image.Point, b image.Point) int {
 	return int(math.Sqrt(math.Pow(float64(b.X-a.X), 2) + math.Pow(float64(b.Y-a.Y), 2)))
 }
 
-func warpColorAndDepthToChess(color gocv.Mat, depth vision.DepthMap, corners []image.Point) (gocv.Mat, vision.DepthMap, error) {
+func warpColorAndDepthToChess(color vision.Image, depth vision.DepthMap, corners []image.Point) (vision.Image, vision.DepthMap, error) {
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),
@@ -27,26 +27,13 @@ func warpColorAndDepthToChess(color gocv.Mat, depth vision.DepthMap, corners []i
 		image.Pt(800, 0),
 	}
 
-	m := gocv.GetPerspectiveTransform(corners, dst)
-	defer m.Close()
-
-	warped := gocv.NewMat()
-	gocv.WarpPerspective(color, &warped, m, image.Point{800, 800})
-
-	var warpedDepth vision.DepthMap
-	if depth.Width() > 0 {
-		dm := depth.ToMat()
-		defer dm.Close()
-		dm2 := gocv.NewMatWithSize(800, 800, dm.Type())
-		gocv.WarpPerspective(dm, &dm2, m, image.Point{800, 800})
-		warpedDepth = vision.NewDepthMapFromMat(dm2)
-	}
-
-	return warped, warpedDepth, nil
+	pc := vision.PointCloud{depth, color}
+	pc2, err := pc.Warp(corners, dst, image.Point{800, 800})
+	return pc2.Color, pc2.Depth, err
 }
 
 // returns point in a1, a8, h1, h8 order
-func findChessCorners(img gocv.Mat, debugOut *gocv.Mat) ([]image.Point, error) {
+func findChessCorners(img vision.Image, debugOut *gocv.Mat) ([]image.Point, error) {
 	return FindChessCornersPinkCheat(img, debugOut)
 }
 
