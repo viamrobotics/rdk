@@ -1,7 +1,6 @@
 package vision
 
 import (
-	"image/color"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -10,7 +9,7 @@ import (
 )
 
 func TestWhatColor1(t *testing.T) {
-	data := color.RGBA{200, 20, 20, 0}
+	data := NewColor(200, 20, 20, "")
 	c := WhatColor(data)
 	if c.Name != "red" {
 		t.Errorf("got %s instead of red", c)
