@@ -42,7 +42,7 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 
 	debug2 := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)
 	defer debug2.Close()
-	roverWalk(&pc, debug2)
+	roverWalk(&pc, &debug2)
 	d.GotDebugImage(debug2, "depth2")
 
 	return nil

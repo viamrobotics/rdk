@@ -56,6 +56,14 @@ func FindAction(name string) *Action {
 	return nil
 }
 
+func MustFindAction(name string) Action {
+	a := FindAction(name)
+	if a == nil {
+		panic(fmt.Errorf("couldn't find action: %s", name))
+	}
+	return *a
+}
+
 // ------
 
 func findPort() (string, error) {
@@ -126,6 +134,15 @@ func (r *Rover) Stop() error {
 		"2s\r" +
 		"3s\r")
 	return r.sendCommand(s)
+}
+
+func (r *Rover) MoveFor(a Action, power int, d time.Duration) error {
+	err := r.move(a.m0, a.m1, a.m2, a.m3, power, power, power, power)
+	if err != nil {
+		return err
+	}
+	time.Sleep(d)
+	return r.Stop()
 }
 
 func (r *Rover) Move(a Action, power int) error {
@@ -235,8 +252,47 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---
 
+func driveMyself(rover *Rover, camera vision.MatSource) {
+	for {
+		mat, dm, err := camera.NextColorDepthPair()
+		if err != nil {
+			log.Printf("error reading camera: %s\n", err)
+			time.Sleep(2000 * time.Millisecond)
+			continue
+		}
+
+		img, err := vision.NewImage(mat)
+		if err != nil {
+			log.Printf("error parsing image: %s", err)
+			continue
+		}
+
+		pc := vision.PointCloud{dm, img}
+		pc = pc.CropToDepthData()
+
+		points := roverWalk(&pc, nil)
+
+		if points < 100 {
+			log.Printf("safe to move forward")
+			rover.MoveFor(MustFindAction("forward"), 35, 1500*time.Millisecond)
+		} else {
+			log.Printf("not safe, let's spin")
+			rover.MoveFor(MustFindAction("spin left"), 60, 600*time.Millisecond)
+		}
+
+	}
+}
+
+// ---
+
 func main() {
 	flag.Parse()
+
+	srcUrl := "127.0.0.1:8181"
+	if flag.NArg() >= 1 {
+		srcUrl = flag.Arg(0)
+	}
+
 	options, err := getSerialConfig()
 	if err != nil {
 		log.Fatalf("can't get serial config: %v", err)
@@ -256,7 +312,9 @@ func main() {
 	rover.out = port
 	defer rover.Stop()
 
-	cameraSrc := vision.NewHttpSourceIntelEliot(flag.Arg(0))
+	realCameraSrc := vision.NewHttpSourceIntelEliot(srcUrl)
+
+	cameraSrc := &vision.HttpSource{realCameraSrc.ColorURL, ""}
 	config := stream.DefaultRemoteViewConfig
 	config.Debug = true
 	remoteView, err := stream.NewRemoteView(config)
@@ -272,6 +330,7 @@ func main() {
 	}
 
 	go stream.StreamMatSource(cameraSrc, remoteView, 33*time.Millisecond)
+	go driveMyself(&rover, realCameraSrc)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/rover", &rover)

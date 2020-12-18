@@ -37,7 +37,7 @@ func roverColorize(pc *vision.PointCloud, debug gocv.Mat) {
 	}
 }
 
-func roverWalk(pc *vision.PointCloud, debug gocv.Mat) int {
+func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 	points := 0
 
@@ -70,10 +70,14 @@ func roverWalk(pc *vision.PointCloud, debug gocv.Mat) int {
 			colorDiff := c.Distance(c2)
 
 			if rcutil.AbsInt(d-d2) > 20 {
-				gocv.Circle(&debug, p, 1, vision.Red.C, 1)
+				if debug != nil {
+					gocv.Circle(debug, p, 1, vision.Red.C, 1)
+				}
 				points++
 			} else if colorDiff > 2 {
-				gocv.Circle(&debug, p, 1, vision.Green.C, 1)
+				if debug != nil {
+					gocv.Circle(debug, p, 1, vision.Green.C, 1)
+				}
 				points++
 			}
 
