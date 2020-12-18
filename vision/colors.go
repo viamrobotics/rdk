@@ -139,8 +139,8 @@ func (c Color) RGBA() (uint32, uint32, uint32, uint32) {
 	return c.C.RGBA()
 }
 
-func (c Color) Distance(other color.RGBA) float64 {
-	return ColorDistance(c.C, other)
+func (c Color) Distance(other Color) float64 {
+	return c.AsHSV.Distance(other.AsHSV)
 }
 
 func (c Color) Hex() string {
@@ -244,7 +244,7 @@ func ColorDistance(a, b color.RGBA) float64 {
 		float64(b.R), float64(b.G), float64(b.B))
 }
 
-func WhatColor(data color.RGBA) Color {
+func WhatColor(data Color) Color {
 	distance := 1000000000.0
 	c := Red
 
