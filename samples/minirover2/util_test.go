@@ -32,7 +32,10 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 		vision.Red.C, 1)
 	//d.GotDebugImage(mat, "box")
 
-	pc = pc.CropToDepthData()
+	pc, err = pc.CropToDepthData()
+	if err != nil {
+		return err
+	}
 	d.GotDebugImage(pc.Color.MatUnsafe(), "cropped")
 
 	debug := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)

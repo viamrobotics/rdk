@@ -268,10 +268,15 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 		}
 
 		pc := vision.PointCloud{dm, img}
-		pc = pc.CropToDepthData()
+		pc, err = pc.CropToDepthData()
+
+		if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
+			log.Printf("error getting deth info: %s, backing up", err)
+			rover.MoveFor(MustFindAction("backward"), 35, 1500*time.Millisecond)
+			continue
+		}
 
 		points := roverWalk(&pc, nil)
-
 		if points < 100 {
 			log.Printf("safe to move forward")
 			rover.MoveFor(MustFindAction("forward"), 35, 1500*time.Millisecond)

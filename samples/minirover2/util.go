@@ -43,7 +43,15 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 	middleX := pc.Width() / 2
 
-	vision.Walk(middleX, pc.Height()-1, pc.Width()/4,
+	if middleX < 10 {
+		panic("wtf")
+	}
+
+	if pc.Height() < 10 {
+		panic("wtf")
+	}
+
+	vision.Walk(middleX, pc.Height()-1, pc.Width()/3,
 		func(x, y int) error {
 			if x < 0 || x >= pc.Width() || y < 0 || y >= pc.Height() {
 				return nil
@@ -58,7 +66,7 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 			}
 
 			if y < pc.Height()-1 {
-				other.Y = y - 1
+				other.Y = y + 1
 			}
 
 			d := pc.Depth.Get(p)
