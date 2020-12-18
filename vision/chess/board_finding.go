@@ -87,12 +87,7 @@ func FindChessCornersPinkCheat_inQuadrant(img vision.Image, out *gocv.Mat, cnts 
 	return myCenter
 }
 
-func FindChessCornersPinkCheat(imgraw gocv.Mat, out *gocv.Mat) ([]image.Point, error) {
-	img, err := vision.NewImage(imgraw)
-	if err != nil {
-		return nil, err
-	}
-
+func FindChessCornersPinkCheat(img vision.Image, out *gocv.Mat) ([]image.Point, error) {
 	if out != nil {
 		if img.Rows() != out.Rows() || img.Cols() != out.Cols() {
 			return nil, fmt.Errorf("img and out don't match size %d,%d %d,%d", img.Rows(), img.Cols(), out.Rows(), out.Cols())
