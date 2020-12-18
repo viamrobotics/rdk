@@ -24,7 +24,11 @@ func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
 }
 
 func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
-	img := gocv.IMRead(colorFN, gocv.IMReadUnchanged)
+	img, err := vision.NewImageFromFile(colorFN)
+	if err != nil {
+		return nil, err
+	}
+
 	dm, err := vision.ParseDepthMap(depthFN)
 	if err != nil {
 		return nil, err
@@ -34,7 +38,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 	return FindAndWarpBoard(img, dm)
 }
 
-func FindAndWarpBoard(color gocv.Mat, depth vision.DepthMap) (*Board, error) {
+func FindAndWarpBoard(color vision.Image, depth vision.DepthMap) (*Board, error) {
 	corners, err := findChessCorners(color, nil)
 	if err != nil {
 		return nil, err
@@ -50,14 +54,9 @@ func FindAndWarpBoard(color gocv.Mat, depth vision.DepthMap) (*Board, error) {
 	}
 
 	edges := gocv.NewMat()
-	gocv.Canny(a, &edges, 32, 32) // magic number
+	gocv.Canny(a.MatUnsafe(), &edges, 32, 32) // magic number
 
-	aa, err := vision.NewImage(a)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Board{aa, b, edges}, nil
+	return &Board{a, b, edges}, nil
 }
 
 func (b *Board) Close() {

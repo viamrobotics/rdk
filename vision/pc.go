@@ -2,8 +2,11 @@ package vision
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"io"
+
+	"gocv.io/x/gocv"
 )
 
 type PointCloud struct {
@@ -17,6 +20,26 @@ func (pc *PointCloud) Width() int {
 
 func (pc *PointCloud) Height() int {
 	return pc.Color.Height()
+}
+
+func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) (PointCloud, error) {
+	m := gocv.GetPerspectiveTransform(src, dst)
+	defer m.Close()
+
+	warped := gocv.NewMat()
+	gocv.WarpPerspective(pc.Color.MatUnsafe(), &warped, m, newSize)
+
+	var warpedDepth DepthMap
+	if pc.Depth.Width() > 0 {
+		dm := pc.Depth.ToMat()
+		defer dm.Close()
+		dm2 := gocv.NewMatWithSize(newSize.X, newSize.Y, dm.Type())
+		gocv.WarpPerspective(dm, &dm2, m, newSize)
+		warpedDepth = NewDepthMapFromMat(dm2)
+	}
+
+	img, err := NewImage(warped)
+	return PointCloud{warpedDepth, img}, err
 }
 
 func (pc *PointCloud) Close() {

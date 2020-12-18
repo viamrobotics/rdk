@@ -1,7 +1,6 @@
 package chess
 
 import (
-	"fmt"
 	"image"
 	"testing"
 
@@ -10,21 +9,23 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 )
 
-type P func(gocv.Mat, *gocv.Mat) ([]image.Point, error)
+type P func(vision.Image, *gocv.Mat) ([]image.Point, error)
 
 type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img gocv.Mat) error {
+func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn string, imgraw gocv.Mat) error {
+	img, err := vision.NewImage(imgraw)
+	if err != nil {
+		return err
+	}
 	out := gocv.NewMatWithSize(img.Rows(), img.Cols(), gocv.MatTypeCV8UC3)
 	defer out.Close()
 	corners, err := dd.p(img, &out)
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("\t%v %v\n", corners, img.Type())
 
 	d.GotDebugImage(out, "corners")
 
@@ -34,7 +35,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			return err
 		}
 
-		d.GotDebugImage(warped, "warped")
+		d.GotDebugImage(warped.MatUnsafe(), "warped")
 
 	}
 
