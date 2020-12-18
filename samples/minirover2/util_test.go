@@ -30,7 +30,7 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 		pc.Width()/2-350, pc.Height()-1,
 		pc.Width()/2+350, pc.Height()-450),
 		vision.Red.C, 1)
-	d.GotDebugImage(mat, "box")
+	//d.GotDebugImage(mat, "box")
 
 	pc = pc.CropToDepthData()
 	d.GotDebugImage(pc.Color.MatUnsafe(), "cropped")
@@ -39,6 +39,11 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 	defer debug.Close()
 	roverColorize(&pc, debug)
 	d.GotDebugImage(debug, "depth1")
+
+	debug2 := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)
+	defer debug2.Close()
+	roverWalk(&pc, debug2)
+	d.GotDebugImage(debug2, "depth2")
 
 	return nil
 }
