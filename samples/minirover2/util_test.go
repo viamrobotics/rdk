@@ -1,7 +1,6 @@
 package main
 
 import (
-	"image"
 	"strings"
 	"testing"
 
@@ -26,22 +25,11 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 
 	pc := vision.PointCloud{dm, img}
 
-	gocv.Rectangle(&mat, image.Rect(
-		pc.Width()/2-350, pc.Height()-1,
-		pc.Width()/2+350, pc.Height()-450),
-		vision.Red.C, 1)
-	//d.GotDebugImage(mat, "box")
-
 	pc, err = pc.CropToDepthData()
 	if err != nil {
 		return err
 	}
 	d.GotDebugImage(pc.Color.MatUnsafe(), "cropped")
-
-	debug := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)
-	defer debug.Close()
-	roverColorize(&pc, debug)
-	d.GotDebugImage(debug, "depth1")
 
 	debug2 := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)
 	defer debug2.Close()

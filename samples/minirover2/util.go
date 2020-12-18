@@ -51,7 +51,9 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 		panic("wtf")
 	}
 
-	vision.Walk(middleX, pc.Height()-1, pc.Width()/3,
+	radius := pc.Width() / 4
+
+	vision.Walk(middleX, pc.Height()-1, radius,
 		func(x, y int) error {
 			if x < 0 || x >= pc.Width() || y < 0 || y >= pc.Height() {
 				return nil
@@ -77,7 +79,7 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 			colorDiff := c.Distance(c2)
 
-			if rcutil.AbsInt(d-d2) > 20 {
+			if rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
 				if debug != nil {
 					gocv.Circle(debug, p, 1, vision.Red.C, 1)
 				}
@@ -91,6 +93,16 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 			return nil
 		})
+
+	if debug != nil {
+		gocv.Rectangle(debug, image.Rect(
+			middleX-radius, pc.Height()-1,
+			middleX+radius, pc.Height()-radius),
+			vision.Red.C, 1)
+
+		gocv.PutText(debug, fmt.Sprintf("%d", points), image.Point{20, 80}, gocv.FontHersheyPlain, 5, vision.Green.C, 2)
+
+	}
 
 	fmt.Printf("\t %d\n", points)
 
