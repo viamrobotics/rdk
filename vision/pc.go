@@ -45,7 +45,7 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointClo
 	return PointCloud{warpedDepth, img}
 }
 
-func (pc *PointCloud) CropToDepthData() PointCloud {
+func (pc *PointCloud) CropToDepthData() (PointCloud, error) {
 	var minY, minX, maxY, maxX int
 
 	for minY = 0; minY < pc.Height(); minY++ {
@@ -75,7 +75,7 @@ func (pc *PointCloud) CropToDepthData() PointCloud {
 	}
 
 	if maxY <= minY {
-		panic(fmt.Errorf("invalid depth data: %v %v", minY, maxY))
+		return PointCloud{}, fmt.Errorf("invalid depth data: %v %v", minY, maxY)
 	}
 
 	for minX = 0; minX < pc.Width(); minX++ {
@@ -111,7 +111,7 @@ func (pc *PointCloud) CropToDepthData() PointCloud {
 		[]image.Point{image.Point{minX, minY}, image.Point{maxX, minY}, image.Point{maxX, maxY}, image.Point{minX, maxY}},
 		[]image.Point{image.Point{0, 0}, image.Point{width, 0}, image.Point{width, height}, image.Point{0, height}},
 		image.Point{width, height},
-	)
+	), nil
 }
 
 func (pc *PointCloud) Close() {
