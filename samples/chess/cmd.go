@@ -302,7 +302,12 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 	out := gocv.NewMatWithSize(m.Rows(), m.Cols(), gocv.MatTypeCV8UC3)
 	defer out.Close()
 
-	corners, err := chess.FindChessCornersPinkCheat(m, &out)
+	img, err := vision.NewImage(m)
+	if err != nil {
+		return nil, imageSize, err
+	}
+
+	corners, err := chess.FindChessCornersPinkCheat(img, &out)
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -497,7 +502,13 @@ func main() {
 				panic(err)
 			}
 
-			theBoard, err := chess.FindAndWarpBoard(img, depth)
+			i2, err := vision.NewImage(img)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			theBoard, err := chess.FindAndWarpBoard(i2, depth)
 			if err != nil {
 				fmt.Println(err)
 				continue
