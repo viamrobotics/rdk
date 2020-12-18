@@ -272,7 +272,7 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 
 		if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
 			log.Printf("error getting deth info: %s, backing up", err)
-			rover.MoveFor(MustFindAction("backward"), 35, 1500*time.Millisecond)
+			rover.MoveFor(MustFindAction("backward"), 60, 1500*time.Millisecond)
 			continue
 		}
 
@@ -321,7 +321,7 @@ func main() {
 
 	cameraSrc := &vision.HttpSource{realCameraSrc.ColorURL, ""}
 	config := stream.DefaultRemoteViewConfig
-	config.Debug = true
+	config.Debug = false
 	remoteView, err := stream.NewRemoteView(config)
 	if err != nil {
 		panic(err)
