@@ -27,6 +27,7 @@ pc.ontrack = function (event) {
   el.srcObject = event.streams[0]
   el.autoplay = true
   el.controls = false
+  el.playsInline = true
   el.onclick = function(event) {
     // https://stackoverflow.com/a/288731/1497139
       bounds=this.getBoundingClientRect();
