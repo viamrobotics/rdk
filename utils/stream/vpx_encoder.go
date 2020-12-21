@@ -142,16 +142,23 @@ func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
 		// println("pkt", pkt)
 		for pkt != nil {
 			pkt.Deref()
-			if pkt.Kind == vpx.CodecCxFramePkt {
-				now := time.Now()
-				goBytes := C.get_frame_buffer((*C.vpx_codec_cx_pkt_t)(unsafe.Pointer(pkt.Ref())))
-				bs := C.GoBytes(goBytes.bs, goBytes.size)
-				if v.debug {
-					fmt.Println("get frame took", time.Since(now))
+			data := func() []byte {
+				defer pkt.Free()
+				if pkt.Kind == vpx.CodecCxFramePkt {
+					now := time.Now()
+					goBytes := C.get_frame_buffer((*C.vpx_codec_cx_pkt_t)(unsafe.Pointer(pkt.Ref())))
+					bs := C.GoBytes(goBytes.bs, goBytes.size)
+					if v.debug {
+						fmt.Println("get frame took", time.Since(now))
+					}
+					return bs
+				} else {
+					// println("not a frame pkt")
 				}
-				return bs, nil
-			} else {
-				// println("not a frame pkt")
+				return nil
+			}()
+			if data != nil {
+				return data, nil
 			}
 			pkt = vpx.CodecGetCxData(v.ctx, &iter)
 		}
