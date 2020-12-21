@@ -31,11 +31,10 @@ func (rvs *remoteViewServer) Run(ctx context.Context) error {
 	}
 	mux := http.NewServeMux()
 	httpServer.Handler = mux
-	streamNum := 0
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf(viewHTML, streamNum)))
+		w.Write([]byte(rvs.remoteView.SinglePageHTML()))
 	})
-	handler := rvs.remoteView.Handler(streamNum)
+	handler := rvs.remoteView.Handler()
 	mux.HandleFunc("/"+handler.Name, handler.Func)
 
 	go func() {
