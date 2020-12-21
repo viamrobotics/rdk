@@ -6,6 +6,7 @@ var DefaultRemoteViewConfig = RemoteViewConfig{
 	StreamNumber: 0,
 	WebRTCConfig: webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{
+			// screen turnserver -vvvv -L 0.0.0.0 -J "mongodb://localhost" -r default -a -X "54.164.16.193/172.31.31.242"
 			{
 				URLs: []string{"stun:stun.erdaniels.com"},
 			},
