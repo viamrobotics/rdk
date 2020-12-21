@@ -236,8 +236,8 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	temp := Temp{Actions: Actions}
-	for i, remoteView := range app.remoteViews {
-		htmlData := remoteView.HTML(i)
+	for _, remoteView := range app.remoteViews {
+		htmlData := remoteView.HTML()
 		temp.RemoteViews = append(temp.RemoteViews, RemoteView{
 			htmlData.JavaScript,
 			htmlData.Body,
@@ -341,8 +341,8 @@ func main() {
 	mux.Handle("/api/rover", &rover)
 
 	mux.Handle("/", app)
-	for i, view := range views {
-		handler := view.Handler(i)
+	for _, view := range views {
+		handler := view.Handler()
 		mux.Handle("/"+handler.Name, handler.Func)
 	}
 
