@@ -4,6 +4,7 @@ package stream
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -192,13 +193,46 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 	return RemoteViewHandler{handlerName, handlerFunc}
 }
 
+func (brv *basicRemoteView) iceServers() string {
+	var strBuf bytes.Buffer
+	strBuf.WriteString("[")
+	for _, server := range brv.config.WebRTCConfig.ICEServers {
+		strBuf.WriteString("{")
+		strBuf.WriteString("urls: ['")
+		for _, u := range server.URLs {
+			strBuf.WriteString(u)
+			strBuf.WriteString("',")
+		}
+		if len(server.URLs) > 0 {
+			strBuf.Truncate(strBuf.Len() - 1)
+		}
+		strBuf.WriteString("]")
+		if server.Username != "" {
+			strBuf.WriteString(",username:'")
+			strBuf.WriteString(server.Username)
+			strBuf.WriteString("'")
+		}
+		if cred, ok := server.Credential.(string); ok {
+			strBuf.WriteString(",credential:'")
+			strBuf.WriteString(cred)
+			strBuf.WriteString("'")
+		}
+		strBuf.WriteString("},")
+	}
+	if len(brv.config.WebRTCConfig.ICEServers) > 0 {
+		strBuf.Truncate(strBuf.Len() - 1)
+	}
+	strBuf.WriteString("]")
+	return strBuf.String()
+}
+
 func (brv *basicRemoteView) SinglePageHTML() string {
-	return fmt.Sprintf(viewHTML, brv.streamNum(), brv.config.WebRTCConfig.ICEServers[0].URLs[0])
+	return fmt.Sprintf(viewHTML, brv.streamNum(), brv.iceServers())
 }
 
 func (brv *basicRemoteView) HTML() RemoteViewHTML {
 	return RemoteViewHTML{
-		JavaScript: fmt.Sprintf(viewJS, brv.streamNum(), brv.config.WebRTCConfig.ICEServers[0].URLs[0]),
+		JavaScript: fmt.Sprintf(viewJS, brv.streamNum(), brv.iceServers()),
 		Body:       fmt.Sprintf(viewBody, brv.streamNum()),
 	}
 }
