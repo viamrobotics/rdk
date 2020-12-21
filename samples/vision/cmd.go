@@ -2,6 +2,7 @@ package main
 
 import (
 	//"context"
+	"context"
 	"flag"
 	"fmt"
 	"image"
@@ -350,11 +351,11 @@ func view(img vision.Image) error {
 		})
 	})
 
-	/*
-		if err := remoteView.Start(context.Background()); err != nil {
-			return err
-		}
-	*/
+	server := stream.NewRemoteViewServer(5555, remoteView)
+	if err := server.Run(context.Background()); err != nil {
+		panic(err)
+	}
+
 	go stream.StreamWindow(app.mainWindow, remoteView, 250*time.Millisecond)
 	app.mainWindow.ShowAndRun()
 

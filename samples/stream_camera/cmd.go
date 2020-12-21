@@ -36,7 +36,7 @@ func main() {
 	}
 
 	config := stream.DefaultRemoteViewConfig
-	config.Debug = true
+	config.Debug = false
 	remoteView, err := stream.NewRemoteView(config)
 	if err != nil {
 		panic(err)

@@ -17,7 +17,8 @@ var viewHTML = `
 
 // TODO(erd): refactor start session
 var viewJS = `
-let pc = new RTCPeerConnection({
+const start = function() {
+  let pc = new RTCPeerConnection({
   iceServers: [
     {
       urls: 'stun:stun.l.google.com:19302'
@@ -101,10 +102,12 @@ window.startSession = () => {
     alert(e)
   }
 }
+}
 `
 
 var viewBody = `
 Video<br />
+<button onclick="start(); this.remove();">Start</button>
 <div id="remoteVideo_%[1]d"></div> <br />
 
 Logs<br />
