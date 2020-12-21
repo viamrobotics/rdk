@@ -19,11 +19,7 @@ var viewHTML = `
 var viewJS = `
 const start = function() {
   let pc = new RTCPeerConnection({
-  iceServers: [
-    {
-      urls: '%[2]s'
-    }
-  ]
+  iceServers: %[2]s
 })
 
 pc.ontrack = function (event) {

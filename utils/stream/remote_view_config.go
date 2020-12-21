@@ -9,6 +9,12 @@ var DefaultRemoteViewConfig = RemoteViewConfig{
 			{
 				URLs: []string{"stun:stun.erdaniels.com"},
 			},
+			{
+				URLs:           []string{"turn:stun.erdaniels.com"},
+				Username:       "username",
+				Credential:     "password",
+				CredentialType: webrtc.ICECredentialTypePassword,
+			},
 		},
 	},
 }
