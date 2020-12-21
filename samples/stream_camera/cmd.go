@@ -12,9 +12,6 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 )
 
-// TODO(erd):
-// - auto negotiate
-// - auto open browser :)?
 func main() {
 
 	go func() {
