@@ -24,8 +24,9 @@ type RemoteView interface {
 	InputFrames() chan<- image.Image // TODO(erd): does duration of frame matter?
 	SetOnClickHandler(func(x, y int))
 	Debug() bool
-	HTML(streamNum int) RemoteViewHTML
-	Handler(streamNum int) RemoteViewHandler
+	HTML() RemoteViewHTML
+	SinglePageHTML() string
+	Handler() RemoteViewHandler
 }
 
 type RemoteViewHTML struct {
@@ -59,8 +60,15 @@ type RemoteViewHandler struct {
 	Func http.HandlerFunc
 }
 
-func (brv *basicRemoteView) Handler(streamNum int) RemoteViewHandler {
-	handlerName := fmt.Sprintf("offer_%d", streamNum)
+func (brv *basicRemoteView) streamNum() int {
+	if brv.config.StreamNumber != 0 {
+		return brv.config.StreamNumber
+	}
+	return 0
+}
+
+func (brv *basicRemoteView) Handler() RemoteViewHandler {
+	handlerName := fmt.Sprintf("offer_%d", brv.streamNum())
 	handlerFunc := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodOptions {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -184,10 +192,14 @@ func (brv *basicRemoteView) Handler(streamNum int) RemoteViewHandler {
 	return RemoteViewHandler{handlerName, handlerFunc}
 }
 
-func (brv *basicRemoteView) HTML(streamNum int) RemoteViewHTML {
+func (brv *basicRemoteView) SinglePageHTML() string {
+	return fmt.Sprintf(viewHTML, brv.streamNum(), brv.config.WebRTCConfig.ICEServers[0].URLs[0])
+}
+
+func (brv *basicRemoteView) HTML() RemoteViewHTML {
 	return RemoteViewHTML{
-		JavaScript: fmt.Sprintf(viewJS, streamNum),
-		Body:       fmt.Sprintf(viewBody, streamNum),
+		JavaScript: fmt.Sprintf(viewJS, brv.streamNum(), brv.config.WebRTCConfig.ICEServers[0].URLs[0]),
+		Body:       fmt.Sprintf(viewBody, brv.streamNum()),
 	}
 }
 

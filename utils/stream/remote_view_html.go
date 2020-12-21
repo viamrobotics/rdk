@@ -21,13 +21,10 @@ const start = function() {
   let pc = new RTCPeerConnection({
   iceServers: [
     {
-      urls: 'stun:stun.l.google.com:19302'
+      urls: '%[2]s'
     }
   ]
 })
-let log = msg => {
-  document.getElementById('div_%[1]d').innerHTML += msg + '<br>'
-}
 
 pc.ontrack = function (event) {
   var el = document.createElement(event.track.kind)
@@ -68,8 +65,8 @@ pc.ondatachannel = function(ev) {
   };
 };
 
-pc.onsignalingstatechange = e => log(pc.signalingState)
-pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+pc.onsignalingstatechange = e => console.log(pc.signalingState)
+pc.oniceconnectionstatechange = e => console.log(pc.iceConnectionState)
 let sd;
 pc.onicecandidate = event => {
   if (event.candidate === null) {
@@ -89,7 +86,7 @@ pc.onicecandidate = event => {
 pc.addTransceiver('video', {'direction': 'sendrecv'})
 pc.addTransceiver('audio', {'direction': 'sendrecv'})
 
-pc.createOffer().then(d => pc.setLocalDescription(d)).catch(log)
+pc.createOffer().then(d => pc.setLocalDescription(d)).catch(console.log)
 
 window.startSession = () => {
   if (sd === '') {
@@ -109,7 +106,4 @@ var viewBody = `
 Video<br />
 <button onclick="start(); this.remove();">Start</button>
 <div id="remoteVideo_%[1]d"></div> <br />
-
-Logs<br />
-<div id="div_%[1]d"></div>
 `
