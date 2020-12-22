@@ -364,11 +364,17 @@ func (brv *basicRemoteView) processInputFrames() {
 		brv.backgroundProcessing.Done()
 	}()
 	firstFrame := true
-	for frame := range brv.inputFrames {
+	for {
 		select {
 		case <-brv.shutdownCtx.Done():
 			return
 		default:
+		}
+		var frame image.Image
+		select {
+		case frame = <-brv.inputFrames:
+		case <-brv.shutdownCtx.Done():
+			return
 		}
 		if firstFrame {
 			bounds := frame.Bounds()
