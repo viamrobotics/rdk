@@ -260,30 +260,32 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}
+		func() {
+			defer mat.Close()
+			img, err := vision.NewImage(mat)
+			if err != nil {
+				log.Printf("error parsing image: %s", err)
+				return
+			}
 
-		img, err := vision.NewImage(mat)
-		if err != nil {
-			log.Printf("error parsing image: %s", err)
-			continue
-		}
+			pc := vision.PointCloud{dm, img}
+			pc, err = pc.CropToDepthData()
 
-		pc := vision.PointCloud{dm, img}
-		pc, err = pc.CropToDepthData()
+			if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
+				log.Printf("error getting deth info: %s, backing up", err)
+				rover.MoveFor(MustFindAction("backward"), 60, 1500*time.Millisecond)
+				return
+			}
 
-		if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
-			log.Printf("error getting deth info: %s, backing up", err)
-			rover.MoveFor(MustFindAction("backward"), 60, 1500*time.Millisecond)
-			continue
-		}
-
-		points := roverWalk(&pc, nil)
-		if points < 100 {
-			log.Printf("safe to move forward")
-			rover.MoveFor(MustFindAction("forward"), 35, 1500*time.Millisecond)
-		} else {
-			log.Printf("not safe, let's spin")
-			rover.MoveFor(MustFindAction("spin left"), 60, 600*time.Millisecond)
-		}
+			points := roverWalk(&pc, nil)
+			if points < 100 {
+				log.Printf("safe to move forward")
+				rover.MoveFor(MustFindAction("forward"), 35, 1500*time.Millisecond)
+			} else {
+				log.Printf("not safe, let's spin")
+				rover.MoveFor(MustFindAction("spin left"), 60, 600*time.Millisecond)
+			}
+		}()
 
 	}
 }

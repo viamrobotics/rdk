@@ -141,25 +141,28 @@ func main() {
 	go func() {
 		for {
 			img, _, err := webcam.NextColorDepthPair()
-			defer img.Close()
-			if err != nil || img.Empty() {
-				log.Printf("error reading device: %s\n", err)
-				continue
-			}
+			func() {
+				defer img.Close()
+				if err != nil || img.Empty() {
+					log.Printf("error reading device: %s\n", err)
+					return
+				}
 
-			pcs[0], err = matToFyne(img)
-			if err != nil {
-				panic(err)
-			}
+				pcs[0], err = matToFyne(img)
+				if err != nil {
+					panic(err)
+				}
 
-			w.SetContent(widget.NewHBox(pcs...))
+				w.SetContent(widget.NewHBox(pcs...))
 
-			if atomic.LoadInt32(&wantPicture) != 0 {
-				fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
-				log.Printf("saving image %s\n", fn)
-				gocv.IMWrite(fn, img)
-				atomic.StoreInt32(&wantPicture, 0)
-			}
+				if atomic.LoadInt32(&wantPicture) != 0 {
+					fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
+					log.Printf("saving image %s\n", fn)
+					gocv.IMWrite(fn, img)
+					atomic.StoreInt32(&wantPicture, 0)
+				}
+			}()
+
 		}
 	}()
 
