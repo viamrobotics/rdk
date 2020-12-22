@@ -112,8 +112,20 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		offer := webrtc.SessionDescription{}
 		Decode(in, &offer)
 
+		m := webrtc.MediaEngine{}
+		if err := m.RegisterDefaultCodecs(); err != nil {
+			panic(err)
+		}
+		options := []func(a *webrtc.API){webrtc.WithMediaEngine(&m)}
+		if brv.config.Debug {
+			options = append(options, webrtc.WithSettingEngine(webrtc.SettingEngine{
+				LoggerFactory: webrtcLoggerFactory{brv.logger},
+			}))
+		}
+		webAPI := webrtc.NewAPI(options...)
+
 		// Create a new RTCPeerConnection
-		peerConnection, err := webrtc.NewPeerConnection(brv.config.WebRTCConfig)
+		peerConnection, err := webAPI.NewPeerConnection(brv.config.WebRTCConfig)
 		if err != nil {
 			panic(err)
 		}
