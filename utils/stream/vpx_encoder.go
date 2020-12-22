@@ -138,7 +138,9 @@ func NewVPXEncoder(codec VCodec, width, height int, debug bool, logger log.Logge
 }
 
 func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
-	var iter vpx.CodecIter // TODO(erd): use the iter in VPXEncoder but right now using it causes "cgo argument has Go pointer to Go pointer"
+	// would want to use the iter in VPXEncoder but right now using it
+	// causes "cgo argument has Go pointer to Go pointer"
+	var iter vpx.CodecIter
 	iterate := func() ([]byte, error) {
 		pkt := vpx.CodecGetCxData(v.ctx, &iter)
 		// println("pkt", pkt)
