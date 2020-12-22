@@ -70,15 +70,18 @@ func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInterna
 		if err != nil {
 			panic(err) // TODO(err): don't panic... bones, sinking like stones
 		}
-		if remoteView.Debug() {
-			fmt.Println("NextColorDepthPair took", time.Since(now))
-		}
-		// time.Sleep(captureInternal)
-		img, err := mat.ToImage()
-		if err != nil {
-			panic(err) // TODO(err): don't panic
-		}
-		remoteView.InputFrames() <- img
+		func() {
+			defer mat.Close()
+			if remoteView.Debug() {
+				fmt.Println("NextColorDepthPair took", time.Since(now))
+			}
+			// time.Sleep(captureInternal)
+			img, err := mat.ToImage()
+			if err != nil {
+				panic(err) // TODO(err): don't panic
+			}
+			remoteView.InputFrames() <- img
+		}()
 	}
 }
 
