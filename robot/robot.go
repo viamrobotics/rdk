@@ -5,6 +5,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 )
 
@@ -62,6 +63,10 @@ func (r *Robot) Close() {
 
 func NewRobot(cfg Config) (*Robot, error) {
 	r := &Robot{}
+	logger := cfg.Logger
+	if logger == nil {
+		logger = log.Global
+	}
 
 	for _, c := range cfg.Components {
 		switch c.Type {
@@ -73,7 +78,7 @@ func NewRobot(cfg Config) (*Robot, error) {
 			r.Arms = append(r.Arms, a)
 			r.armComponents = append(r.armComponents, c)
 		case Gripper:
-			g, err := newGripper(c)
+			g, err := newGripper(c, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -103,10 +108,10 @@ func newArm(config Component) (*arm.URArm, error) {
 	}
 }
 
-func newGripper(config Component) (*gripper.Gripper, error) {
+func newGripper(config Component, logger log.Logger) (*gripper.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
-		return gripper.NewGripper(config.Host)
+		return gripper.NewGripper(config.Host, logger)
 	default:
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
@@ -115,12 +120,12 @@ func newGripper(config Component) (*gripper.Gripper, error) {
 func newCamera(config Component) (vision.MatSource, error) {
 	switch config.Model {
 	case "eliot":
-		return vision.NewHttpSourceIntelEliot(fmt.Sprintf("%s:%d", config.Host, config.Port)), nil
+		return vision.NewHTTPSourceIntelEliot(fmt.Sprintf("%s:%d", config.Host, config.Port)), nil
 	case "url":
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		return &vision.HttpSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+		return &vision.HTTPSource{config.Attributes["color"], config.Attributes["depth"]}, nil
 
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)

@@ -19,16 +19,14 @@ func TestWebcamSource(t *testing.T) {
 	defer s.Close()
 
 	a, _, err := s.NextColorDepthPair()
-	defer a.Close()
-
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	defer a.Close()
 }
 
-func TestHttpSourceNoDepth(t *testing.T) {
-	s := HttpSource{ColorURL: "http://www.echolabs.com/static/small.jpg", DepthURL: ""}
+func TestHTTPSourceNoDepth(t *testing.T) {
+	s := HTTPSource{ColorURL: "http://www.echolabs.com/static/small.jpg", DepthURL: ""}
 	a, _, err := s.NextColorDepthPair()
 	if err != nil {
 		t.Fatal(err)
@@ -36,12 +34,12 @@ func TestHttpSourceNoDepth(t *testing.T) {
 	defer a.Close()
 }
 
-func TestHttpSource(t *testing.T) {
-	s := NewHttpSourceIntelEliot("127.0.0.1:8181")
+func TestHTTPSource(t *testing.T) {
+	s := NewHTTPSourceIntelEliot("127.0.0.1:8181")
 
 	a, b, err := s.NextColorDepthPair()
 	if err != nil {
-		if strings.Index(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") >= 0 {
+		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
 			t.Skip()
 			return
 		}

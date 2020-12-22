@@ -3,6 +3,8 @@ package robot
 import (
 	"encoding/json"
 	"os"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 )
 
 type ComponentType string
@@ -27,6 +29,7 @@ type Component struct {
 
 type Config struct {
 	Components []Component
+	Logger     log.Logger
 }
 
 func ReadConfig(fn string) (Config, error) {

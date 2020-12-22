@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
-	"log"
 	"runtime"
 	"time"
 	"unsafe"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 
 	"github.com/xlab/libvpx-go/vpx"
 )
@@ -76,6 +77,7 @@ type VPXEncoder struct {
 	keyFrameInterval int
 	frameCount       int
 	debug            bool
+	logger           log.Logger
 }
 
 type VCodec string
@@ -85,8 +87,8 @@ const (
 	CodecVP9 VCodec = "V_VP9"
 )
 
-func NewVPXEncoder(codec VCodec, width, height int, debug bool) (*VPXEncoder, error) {
-	enc := &VPXEncoder{ctx: vpx.NewCodecCtx(), debug: debug}
+func NewVPXEncoder(codec VCodec, width, height int, debug bool, logger log.Logger) (*VPXEncoder, error) {
+	enc := &VPXEncoder{ctx: vpx.NewCodecCtx(), debug: debug, logger: logger}
 	switch codec {
 	case CodecVP8:
 		enc.iface = vpx.EncoderIfaceVP8()
@@ -119,7 +121,7 @@ func NewVPXEncoder(codec VCodec, width, height int, debug bool) (*VPXEncoder, er
 	}
 	err = vpx.Error(vpx.CodecEncInitVer(enc.ctx, enc.iface, &cfg, 0, int32(abiVersion)))
 	if err != nil {
-		log.Println("[WARN]", err)
+		logger.Warn(err)
 		return enc, nil
 	}
 
@@ -149,7 +151,7 @@ func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
 					goBytes := C.get_frame_buffer((*C.vpx_codec_cx_pkt_t)(unsafe.Pointer(pkt.Ref())))
 					bs := C.GoBytes(goBytes.bs, goBytes.size)
 					if v.debug {
-						fmt.Println("get frame took", time.Since(now))
+						v.logger.Debugw("got frame", "elapsed", time.Since(now))
 					}
 					return bs
 				} else {
@@ -186,7 +188,7 @@ func (v *VPXEncoder) Encode(img image.Image) ([]byte, error) {
 		return nil, errors.New(vpx.CodecErrorDetail(v.ctx))
 	}
 	if v.debug {
-		fmt.Println("encode time took", time.Since(now))
+		v.logger.Debugw("encoded frame", "elapsed", time.Since(now))
 	}
 	v.frameCount++
 
