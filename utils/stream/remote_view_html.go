@@ -14,7 +14,6 @@ var viewHTML = `
 </html>
 `
 
-// TODO(erd): refactor start session
 var viewJS = `
 const start = function() {
   let peerConnection = new RTCPeerConnection({
@@ -28,12 +27,12 @@ const start = function() {
     let top = bounds.top;
     let x = event.pageX - left;
     let y = event.pageY - top;
-    let cw = el.clientWidth
-    let ch = el.clientHeight
-    let iw = el.videoWidth
-    let ih = el.videoHeight
-    let px = x / cw * iw
-    let py = y / ch * ih
+    let cw = el.clientWidth;
+    let ch = el.clientHeight;
+    let iw = el.videoWidth;
+    let ih = el.videoHeight;
+    let px = Math.min(x / cw * iw, el.videoWidth-1);
+    let py = Math.min(y / ch * ih, el.videoHeight-1);
     return {x: px, y: py};
   }
 
