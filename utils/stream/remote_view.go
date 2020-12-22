@@ -23,7 +23,7 @@ import (
 )
 
 type RemoteView interface {
-	Stop(ctx context.Context) error
+	Stop()
 	Ready() <-chan struct{}
 	InputFrames() chan<- image.Image // TODO(erd): does duration of frame matter?
 	SetOnClickHandler(func(x, y int))
@@ -43,6 +43,7 @@ func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
 	if logger == nil {
 		logger = log.Global
 	}
+	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &basicRemoteView{
 		config:             config,
 		readyCh:            make(chan struct{}),
@@ -50,20 +51,25 @@ func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
 		outputFrames:       make(chan []byte),
 		peerToRemoteClient: map[*webrtc.PeerConnection]remoteClient{},
 		logger:             logger,
+		shutdownCtx:        ctx,
+		shutdownCtxCancel:  cancelFunc,
 	}, nil
 }
 
 type basicRemoteView struct {
-	mu                 sync.Mutex
-	config             RemoteViewConfig
-	readyOnce          sync.Once
-	readyCh            chan struct{}
-	peerToRemoteClient map[*webrtc.PeerConnection]remoteClient
-	inputFrames        chan image.Image
-	outputFrames       chan []byte
-	encoder            *VPXEncoder
-	onClickHandler     func(x, y int)
-	logger             log.Logger
+	mu                   sync.Mutex
+	config               RemoteViewConfig
+	readyOnce            sync.Once
+	readyCh              chan struct{}
+	peerToRemoteClient   map[*webrtc.PeerConnection]remoteClient
+	inputFrames          chan image.Image
+	outputFrames         chan []byte
+	encoder              *VPXEncoder
+	onClickHandler       func(x, y int)
+	shutdownCtx          context.Context
+	shutdownCtxCancel    func()
+	backgroundProcessing sync.WaitGroup
+	logger               log.Logger
 }
 
 type RemoteViewHandler struct {
@@ -230,15 +236,16 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 			return
 		}
 
+		brv.backgroundProcessing.Add(1)
 		go func() {
+			defer brv.backgroundProcessing.Done()
 			<-iceConnectedCtx.Done()
 
 			brv.addRemoteClient(peerConnection, remoteClient{dataChannel, videoTrack})
 
 			brv.readyOnce.Do(func() {
 				close(brv.readyCh)
-				// Start processing
-				// TODO(erd): both need cancellation
+				brv.backgroundProcessing.Add(2)
 				go brv.processInputFrames()
 				go brv.processOutputFrames()
 			})
@@ -336,9 +343,9 @@ func (brv *basicRemoteView) Ready() <-chan struct{} {
 	return brv.readyCh
 }
 
-// TODO(erd): implement me
-func (brv *basicRemoteView) Stop(ctx context.Context) error {
-	return nil
+func (brv *basicRemoteView) Stop() {
+	brv.shutdownCtxCancel()
+	brv.backgroundProcessing.Wait()
 }
 
 func (brv *basicRemoteView) SetOnClickHandler(handler func(x, y int)) {
@@ -352,19 +359,30 @@ func (brv *basicRemoteView) InputFrames() chan<- image.Image {
 }
 
 func (brv *basicRemoteView) processInputFrames() {
+	defer func() {
+		close(brv.outputFrames)
+		brv.backgroundProcessing.Done()
+	}()
 	firstFrame := true
 	for frame := range brv.inputFrames {
+		select {
+		case <-brv.shutdownCtx.Done():
+			return
+		default:
+		}
 		if firstFrame {
 			bounds := frame.Bounds()
 			if err := brv.initCodec(bounds.Dx(), bounds.Dy()); err != nil {
-				panic(err) // TODO(erd): log and maybe do not fail
+				brv.logger.Error(err)
+				return
 			}
 			firstFrame = false
 		}
 
 		encodedFrame, err := brv.encoder.Encode(frame)
 		if err != nil {
-			panic(err) // TODO(erd): log and maybe do not fail
+			brv.logger.Error(err)
+			continue
 		}
 		if encodedFrame != nil {
 			brv.outputFrames <- encodedFrame
@@ -373,8 +391,14 @@ func (brv *basicRemoteView) processInputFrames() {
 }
 
 func (brv *basicRemoteView) processOutputFrames() {
+	defer brv.backgroundProcessing.Done()
 	framesSent := 0
 	for outputFrame := range brv.outputFrames {
+		select {
+		case <-brv.shutdownCtx.Done():
+			return
+		default:
+		}
 		now := time.Now()
 		for _, rc := range brv.getRemoteClients() {
 			if ivfErr := rc.videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {

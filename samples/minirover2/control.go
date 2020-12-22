@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/echolabsinc/robotcore/rcutil"
@@ -336,7 +339,24 @@ func main() {
 		log.Global.Fatalf("couldn't create web app: %s", err)
 	}
 
-	go stream.StreamMatSource(cameraSrc, remoteView, 33*time.Millisecond, log.Global)
+	httpServer := &http.Server{
+		Addr:           ":8080",
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancelFunc()
+		remoteView.Stop()
+		httpServer.Shutdown(context.Background())
+	}()
+
+	go stream.StreamMatSource(cancelCtx, cameraSrc, remoteView, 33*time.Millisecond, log.Global)
 	go driveMyself(&rover, realCameraSrc)
 
 	mux := http.NewServeMux()
@@ -349,6 +369,6 @@ func main() {
 	}
 
 	log.Global.Debug("going to listen")
-	log.Global.Fatal(http.ListenAndServe(":8080", mux))
-
+	httpServer.Handler = mux
+	log.Global.Fatal(httpServer.ListenAndServe())
 }

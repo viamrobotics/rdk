@@ -10,26 +10,34 @@ import (
 )
 
 type RemoteViewServer interface {
-	Run(ctx context.Context) error
+	Run()
+	Stop(ctx context.Context) error
 }
 
 type remoteViewServer struct {
 	port       int
 	remoteView RemoteView
+	httpServer *http.Server
+	running    bool
 	logger     log.Logger
 }
 
 func NewRemoteViewServer(port int, view RemoteView, logger log.Logger) RemoteViewServer {
-	return &remoteViewServer{port, view, logger}
+	return &remoteViewServer{port: port, remoteView: view, logger: logger}
 }
 
-func (rvs *remoteViewServer) Run(ctx context.Context) error {
+func (rvs *remoteViewServer) Run() {
+	if rvs.running {
+		panic("already running")
+	}
+	rvs.running = true
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", rvs.port),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
+	rvs.httpServer = httpServer
 	mux := http.NewServeMux()
 	httpServer.Handler = mux
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +55,9 @@ func (rvs *remoteViewServer) Run(ctx context.Context) error {
 			panic(err)
 		}
 	}()
+}
 
-	return nil
+func (rvs *remoteViewServer) Stop(ctx context.Context) error {
+	rvs.remoteView.Stop()
+	return rvs.httpServer.Shutdown(ctx)
 }

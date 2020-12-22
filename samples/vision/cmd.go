@@ -2,11 +2,15 @@ package main
 
 import (
 	//"context"
+
 	"context"
 	"flag"
 	"fmt"
 	"image"
+	"os"
+	"os/signal"
 	"sort"
+	"syscall"
 	"time"
 
 	"github.com/echolabsinc/robotcore/utils/log"
@@ -348,21 +352,26 @@ func view(img vision.Image) error {
 	remoteView.SetOnClickHandler(func(x, y int) {
 		app.colorHoverElem.MouseMoved(&desktop.MouseEvent{
 			PointEvent: fyne.PointEvent{
-				Position: fyne.Position{X: x, Y: y}, // TODO(erd): way to do this with no downscale?
+				Position: fyne.Position{X: x, Y: y},
 			},
 		})
 	})
 
 	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)
-	if err := server.Run(context.Background()); err != nil {
-		panic(err)
-	}
+	server.Run()
 
-	go stream.StreamWindow(app.mainWindow, remoteView, 250*time.Millisecond)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go stream.StreamWindow(cancelCtx, app.mainWindow, remoteView, 250*time.Millisecond)
 	app.mainWindow.ShowAndRun()
 
-	// TODO(erd): some defer to stop everything and clean up
-	select {}
+	<-c
+	cancelFunc()
+	app.mainWindow.Close()
+	remoteView.Stop()
+	return nil
 }
 
 func main() {
@@ -399,7 +408,7 @@ func main() {
 	case "hsvHisto":
 		hsvHistogram(img)
 	case "shapeWalk":
-		// TODO(erd): view version
+		// TODO(erd): combine onto view
 		err = shapeWalk(img, *xFlag, *yFlag)
 	case "shapeWalkEntire":
 		err = shapeWalkEntire(img)
