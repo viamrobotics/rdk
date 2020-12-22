@@ -25,8 +25,7 @@ func pieceFromColor(theClassifier ml.Classifier, edges int, data color.RGBA) str
 		panic(err)
 	}
 
-	whatValue := int(res)
-	switch whatValue {
+	switch res {
 	case SquareWhite:
 		return "white"
 	case SquareBlack:
@@ -34,7 +33,7 @@ func pieceFromColor(theClassifier ml.Classifier, edges int, data color.RGBA) str
 	case SquareEmpty:
 		return "empty"
 	default:
-		panic(fmt.Errorf("unknown what # %d", whatValue))
+		panic(fmt.Errorf("unknown what # %d", res))
 	}
 }
 
