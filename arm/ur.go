@@ -20,8 +20,8 @@ type URArm struct {
 }
 
 func (arm *URArm) Close() {
-	// TODO: stop thread
-	// TODO: close socket
+	// TODO(erh): stop thread
+	// TODO(erh): close socket
 }
 
 func URArmConnect(host string) (*URArm, error) {
@@ -32,7 +32,7 @@ func URArmConnect(host string) (*URArm, error) {
 
 	arm := &URArm{conn: conn, Debug: false, haveData: false, logger: log.Global}
 
-	go reader(conn, arm) // TODO: how to shutdown
+	go reader(conn, arm) // TODO(erh): how to shutdown
 
 	slept := 0
 	for !arm.haveData {
@@ -91,7 +91,7 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 			return nil
 		}
 
-		time.Sleep(10 * time.Millisecond) // TODO: make responsive on new message
+		time.Sleep(10 * time.Millisecond) // TODO(erh): make responsive on new message
 	}
 
 }
@@ -151,7 +151,7 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 }
 
 func (arm *URArm) AddToLog(msg string) error {
-	// TODO: check for " in msg
+	// TODO(erh): check for " in msg
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)
 	_, err := arm.conn.Write([]byte(cmd))
 	return err
