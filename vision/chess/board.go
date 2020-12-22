@@ -14,7 +14,7 @@ import (
 )
 
 type Board struct {
-	color  vision.Image // TODO: should we get rid of
+	color  vision.Image // TODO(erh): should we get rid of
 	depth  vision.DepthMap
 	edges  gocv.Mat
 	logger log.Logger

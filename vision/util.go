@@ -25,7 +25,7 @@ func Center(contour []image.Point, maxDiff int) image.Point {
 
 	weightedMiddle := image.Point{x / len(contour), y / len(contour)}
 
-	// TODO: this should be about coniguous, not distance
+	// TODO(erh): this should be about coniguous, not distance
 
 	numPoints := 0
 	box := image.Rectangle{image.Point{1000000, 100000}, image.Point{0, 0}}

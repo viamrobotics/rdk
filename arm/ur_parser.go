@@ -254,7 +254,7 @@ func readURRobotMessage(buf []byte) error {
 		keyTextMessage := string(buf[9+robotMessageTitleSize:])
 
 		if false {
-			// TODO: this is better than sleeping in other code, be smart!!
+			// TODO(erh): this is better than sleeping in other code, be smart!!
 			log.Global.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
 				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
 		}

@@ -92,7 +92,7 @@ func StreamMatSource(ctx context.Context, src vision.MatSource, remoteView Remot
 			now := time.Now()
 			mat, _, err := src.NextColorDepthPair()
 			if err != nil {
-				panic(err) // TODO(err): don't panic... bones, sinking like stones
+				panic(err) // TODO(erd): don't panic... bones, sinking like stones
 			}
 			defer mat.Close()
 			if remoteView.Debug() {
@@ -100,7 +100,7 @@ func StreamMatSource(ctx context.Context, src vision.MatSource, remoteView Remot
 			}
 			img, err := mat.ToImage()
 			if err != nil {
-				panic(err) // TODO(err): don't panic
+				panic(err) // TODO(erd): don't panic
 			}
 			return img
 		},
@@ -110,7 +110,7 @@ func StreamMatSource(ctx context.Context, src vision.MatSource, remoteView Remot
 }
 
 // RgbaToYuv convert to yuv from rgba
-// TODO: rewrite code maybe
+// TODO(erd): rewrite code maybe
 func RgbaToYuv(rgba *image.RGBA) []byte {
 	w := rgba.Rect.Max.X
 	h := rgba.Rect.Max.Y

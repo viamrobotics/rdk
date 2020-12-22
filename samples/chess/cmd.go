@@ -109,7 +109,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 		return err
 	}
 
-	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO: change to something more intelligent
+	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
 	where := myArm.State.CartesianInfo
 	where.Z = BoardHeight + (height / 1000) + .001
 	myArm.MoveToPositionC(where)

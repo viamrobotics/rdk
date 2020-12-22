@@ -9,7 +9,7 @@ class Rover {
         _front->begin(115200);
         _back->begin(115200);
 
-        // TODO: is there a way to make sure motor controllers are ready?
+        // TODO(erh): is there a way to make sure motor controllers are ready?
 
         // go into torque mode
         query("^MMOD 1 5");
