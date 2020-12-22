@@ -76,7 +76,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 		return nil, fmt.Errorf("lowestPiece too small %f", lowestPiece)
 	}
 
-	// TODO: should i store this info and use instead of MinPieceDepth
+	// TODO(erh): should i store this info and use instead of MinPieceDepth
 
 	// edges -------------
 	sort.Ints(pieceEdges)

@@ -10,8 +10,8 @@ import (
 )
 
 type Robot struct {
-	Arms     []*arm.URArm       // TODO: use interface
-	Grippers []*gripper.Gripper // TODO: use interface
+	Arms     []*arm.URArm       // TODO(erh): use interface
+	Grippers []*gripper.Gripper // TODO(erh): use interface
 	Cameras  []vision.MatSource
 
 	armComponents     []Component
