@@ -24,8 +24,6 @@ func NewRemoteViewServer(port int, view RemoteView, logger log.Logger) RemoteVie
 }
 
 func (rvs *remoteViewServer) Run(ctx context.Context) error {
-	// TODO(erd): refactor to listener thingy func
-	// Wait for the offer to be submitted
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", rvs.port),
 		ReadTimeout:    10 * time.Second,

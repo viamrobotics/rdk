@@ -311,6 +311,7 @@ func newViewApp(img vision.Image) (*ViewApp, error) {
 	a := test.NewApp()
 	a.Settings().SetTheme(theme.DarkTheme())
 	w := a.NewWindow("Hello")
+	w.SetPadded(false)
 
 	mat := img.MatUnsafe()
 	i, err := mat.ToImage()
@@ -347,7 +348,7 @@ func view(img vision.Image) error {
 	remoteView.SetOnClickHandler(func(x, y int) {
 		app.colorHoverElem.MouseMoved(&desktop.MouseEvent{
 			PointEvent: fyne.PointEvent{
-				Position: fyne.Position{X: x / 2, Y: y / 2}, // TODO(erd): way to do this with no downscale?
+				Position: fyne.Position{X: x, Y: y}, // TODO(erd): way to do this with no downscale?
 			},
 		})
 	})
