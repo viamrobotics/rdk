@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"image"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
+
+	"github.com/kbinani/screenshot"
 )
 
 func main() {
@@ -28,7 +31,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-	} else {
+	} else if flag.Arg(0) != "screen" {
 		src = &vision.HTTPSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
 	}
 
@@ -48,5 +51,17 @@ func main() {
 		panic(err)
 	}
 
-	stream.StreamMatSource(src, remoteView, 33*time.Millisecond, log.Global)
+	if flag.Arg(0) == "screen" {
+		bounds := screenshot.GetDisplayBounds(0)
+		stream.StreamFunc(func() image.Image {
+			img, err := screenshot.CaptureRect(bounds)
+			if err != nil {
+				panic(err)
+			}
+			return img
+		}, remoteView, 33*time.Millisecond)
+	} else {
+		stream.StreamMatSource(src, remoteView, 33*time.Millisecond, log.Global)
+	}
+
 }
