@@ -123,7 +123,12 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		// Set the handler for ICE connection state
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			brv.logger.Debugw("connection state changed", "conn_state", connectionState.String())
+			connInfo := getPeerConnectionStats(peerConnection)
+			brv.logger.Debugw("connection state changed",
+				"conn_id", connInfo.ID,
+				"conn_state", connectionState.String(),
+				"conn_remote_candidates", connInfo.RemoteCandidates,
+			)
 			if connectionState == webrtc.ICEConnectionStateConnected {
 				iceConnectedCtxCancel()
 				return
@@ -212,6 +217,43 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		}()
 	})
 	return RemoteViewHandler{handlerName, handlerFunc}
+}
+
+type peerConnectionStats struct {
+	ID               string
+	RemoteCandidates map[string]string
+}
+
+func getPeerConnectionStats(peerConnection *webrtc.PeerConnection) peerConnectionStats {
+	stats := peerConnection.GetStats()
+	var connID string
+	connInfo := map[string]string{}
+	for _, stat := range stats {
+		if pcStats, ok := stat.(webrtc.PeerConnectionStats); ok {
+			connID = pcStats.ID
+		}
+		candidateStats, ok := stat.(webrtc.ICECandidateStats)
+		if !ok {
+			continue
+		}
+		if candidateStats.Type != webrtc.StatsTypeRemoteCandidate {
+			continue
+		}
+		var candidateType string
+		switch candidateStats.CandidateType {
+		case webrtc.ICECandidateTypeRelay:
+			candidateType = "relay"
+		case webrtc.ICECandidateTypePrflx:
+			candidateType = "peer-reflexive"
+		case webrtc.ICECandidateTypeSrflx:
+			candidateType = "server-reflexive"
+		}
+		if candidateType == "" {
+			continue
+		}
+		connInfo[candidateType] = candidateStats.IP
+	}
+	return peerConnectionStats{connID, connInfo}
 }
 
 func (brv *basicRemoteView) iceServers() string {
