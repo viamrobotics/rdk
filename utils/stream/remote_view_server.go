@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 )
 
 type RemoteViewServer interface {
@@ -14,10 +16,11 @@ type RemoteViewServer interface {
 type remoteViewServer struct {
 	port       int
 	remoteView RemoteView
+	logger     log.Logger
 }
 
-func NewRemoteViewServer(port int, view RemoteView) RemoteViewServer {
-	return &remoteViewServer{port, view}
+func NewRemoteViewServer(port int, view RemoteView, logger log.Logger) RemoteViewServer {
+	return &remoteViewServer{port, view, logger}
 }
 
 func (rvs *remoteViewServer) Run(ctx context.Context) error {
@@ -32,13 +35,16 @@ func (rvs *remoteViewServer) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	httpServer.Handler = mux
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(rvs.remoteView.SinglePageHTML()))
+		if _, err := w.Write([]byte(rvs.remoteView.SinglePageHTML())); err != nil {
+			rvs.logger.Error(err)
+			return
+		}
 	})
 	handler := rvs.remoteView.Handler()
 	mux.HandleFunc("/"+handler.Name, handler.Func)
 
 	go func() {
-		println("listening...")
+		rvs.logger.Infow("listening", "port", rvs.port)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			panic(err)
 		}

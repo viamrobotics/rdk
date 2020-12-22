@@ -61,7 +61,7 @@ func (dm *DepthMap) Smooth() {
 	centerY := dm.height / 2
 	dm.max = 0
 	dm.min = 100000
-	Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
+	if err := Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
 		temp := dm._getDepthOrEstimate(x, y)
 		if temp > 0 && temp < dm.min {
 			dm.min = temp
@@ -70,7 +70,10 @@ func (dm *DepthMap) Smooth() {
 			dm.max = temp
 		}
 		return nil
-	})
+	}); err != nil {
+		// shouldn't happen
+		panic(err)
+	}
 }
 
 func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
@@ -304,7 +307,7 @@ func (dm *DepthMap) WriteToFile(fn string) error {
 	}
 	defer f.Close()
 
-	var gout *gzip.Writer = nil
+	var gout *gzip.Writer
 	var out io.Writer = f
 
 	if filepath.Ext(fn) == ".gz" {
@@ -322,8 +325,7 @@ func (dm *DepthMap) WriteToFile(fn string) error {
 		gout.Flush()
 	}
 
-	f.Sync()
-	return nil
+	return f.Sync()
 }
 
 func (dm *DepthMap) WriteTo(out io.Writer) error {

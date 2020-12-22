@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 )
 
 type Gripper struct {
@@ -12,20 +14,21 @@ type Gripper struct {
 
 	openLimit  string
 	closeLimit string
+	logger     log.Logger
 }
 
-func NewGripper(host string) (*Gripper, error) {
+func NewGripper(host string, logger log.Logger) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
-	g := &Gripper{conn, "0", "255"}
+	g := &Gripper{conn, "0", "255", logger}
 
 	init := [][]string{
-		[]string{"ACT", "1"},   // robot activate
-		[]string{"GTO", "1"},   // gripper activate
-		[]string{"FOR", "200"}, // force (0-255)
-		[]string{"SPE", "255"}, // speed (0-255)
+		{"ACT", "1"},   // robot activate
+		{"GTO", "1"},   // gripper activate
+		{"FOR", "200"}, // force (0-255)
+		{"SPE", "255"}, // speed (0-255)
 	}
 	for _, i := range init {
 		err = g.Set(i[0], i[1])
@@ -85,7 +88,7 @@ func (g *Gripper) read() (string, error) {
 		return "", err
 	}
 	if x > 100 {
-		return "", fmt.Errorf("Gripper::read too much: %d\n", x)
+		return "", fmt.Errorf("read too much: %d", x)
 	}
 	if x == 0 {
 		return "", nil
@@ -182,6 +185,6 @@ func (g *Gripper) Calibrate() error {
 	}
 	g.closeLimit = x[4:]
 
-	fmt.Printf("limits %s %s\n", g.openLimit, g.closeLimit)
+	g.logger.Debugf("limits %s %s\n", g.openLimit, g.closeLimit)
 	return nil
 }

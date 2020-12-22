@@ -1,6 +1,10 @@
 package stream
 
-import "github.com/pion/webrtc/v3"
+import (
+	"github.com/echolabsinc/robotcore/utils/log"
+
+	"github.com/pion/webrtc/v3"
+)
 
 var DefaultRemoteViewConfig = RemoteViewConfig{
 	StreamNumber: 0,
@@ -24,4 +28,5 @@ type RemoteViewConfig struct {
 	StreamNumber int
 	WebRTCConfig webrtc.Configuration
 	Debug        bool
+	Logger       log.Logger
 }

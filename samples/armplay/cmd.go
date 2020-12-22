@@ -3,26 +3,20 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"sync/atomic"
 	"time"
 
-	"gocv.io/x/gocv"
+	"github.com/echolabsinc/robotcore/arm"
+	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/widget"
-
-	"github.com/echolabsinc/robotcore/arm"
-	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/vision"
+	"gocv.io/x/gocv"
 )
-
-type pos struct {
-	x float64
-	y float64
-}
 
 var (
 	wantPicture = int32(0)
@@ -40,28 +34,25 @@ func matToFyne(img gocv.Mat) (*canvas.Image, error) {
 }
 
 func main() {
-	robotIp := "192.168.2.2"
+	robotIP := "192.168.2.2"
 
-	webcamDeviceId := 0
+	webcamDeviceID := 0
 
-	flag.IntVar(&webcamDeviceId, "webcam", 0, "which webcam to use")
+	flag.IntVar(&webcamDeviceID, "webcam", 0, "which webcam to use")
 	flag.Parse()
 
-	myArm, err := arm.URArmConnect(robotIp)
+	myArm, err := arm.URArmConnect(robotIP)
 	if err != nil {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper(robotIp)
+	myGripper, err := gripper.NewGripper(robotIP, log.Global)
 	if err != nil {
 		panic(err)
 	}
 
-	//webcam, err := vision.NewWebcamSource(webcamDeviceId)
-	webcam := vision.NewHttpSourceIntelEliot("127.0.0.1:8181")
-	if err != nil {
-		panic(err)
-	}
+	//webcam, err := vision.NewWebcamSource(webcamDeviceID)
+	webcam := vision.NewHTTPSourceIntelEliot("127.0.0.1:8181")
 	defer webcam.Close()
 
 	a := app.New()
@@ -129,11 +120,11 @@ func main() {
 			w.Close()
 
 		default:
-			log.Printf("unknown: %s\n", k.Name)
+			log.Global.Debugf("unknown: %s\n", k.Name)
 			changed = false
 		}
 		if changed {
-			log.Printf("moving\n-%s\n-%s\n", pre, c.SimpleString())
+			log.Global.Debugf("moving\n-%s\n-%s\n", pre, c.SimpleString())
 			myArm.MoveToPositionC(c)
 		}
 	})
@@ -144,7 +135,7 @@ func main() {
 			func() {
 				defer img.Close()
 				if err != nil || img.Empty() {
-					log.Printf("error reading device: %s\n", err)
+					log.Global.Debugf("error reading device: %s\n", err)
 					return
 				}
 
@@ -157,7 +148,7 @@ func main() {
 
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
-					log.Printf("saving image %s\n", fn)
+					log.Global.Debugf("saving image %s\n", fn)
 					gocv.IMWrite(fn, img)
 					atomic.StoreInt32(&wantPicture, 0)
 				}

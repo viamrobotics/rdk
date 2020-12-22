@@ -3,9 +3,12 @@ package arm
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"time"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 )
 
 type URArm struct {
@@ -13,6 +16,7 @@ type URArm struct {
 	State    RobotState
 	Debug    bool
 	haveData bool
+	logger   log.Logger
 }
 
 func (arm *URArm) Close() {
@@ -26,14 +30,14 @@ func URArmConnect(host string) (*URArm, error) {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, Debug: false, haveData: false}
+	arm := &URArm{conn: conn, Debug: false, haveData: false, logger: log.Global}
 
 	go reader(conn, arm) // TODO: how to shutdown
 
 	slept := 0
 	for !arm.haveData {
 		time.Sleep(100 * time.Millisecond)
-		slept += 1
+		slept++
 
 		if slept > 20 {
 			return nil, fmt.Errorf("arm isn't respond")
@@ -78,7 +82,7 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 		good := true
 		for idx, r := range radians {
 			if math.Round(r*100) != math.Round(arm.State.Joints[idx].Qactual*100) {
-				//fmt.Printf("joint %d want: %f have: %f\n", idx, r, arm.State.Joints[idx].Qactual)
+				//arm.logger.Debugf("joint %d want: %f have: %f\n", idx, r, arm.State.Joints[idx].Qactual)
 				good = false
 			}
 		}
@@ -134,7 +138,7 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 		}
 
 		if slept > 10000 {
-			return fmt.Errorf("can't reach position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f\n",
+			return fmt.Errorf("can't reach position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
 				x, y, z, rx, ry, rz,
 				arm.State.CartesianInfo.X, arm.State.CartesianInfo.Y, arm.State.CartesianInfo.Z,
 				arm.State.CartesianInfo.Rx, arm.State.CartesianInfo.Ry, arm.State.CartesianInfo.Rz)
@@ -153,7 +157,7 @@ func (arm *URArm) AddToLog(msg string) error {
 	return err
 }
 
-func reader(conn net.Conn, arm *URArm) {
+func reader(conn io.Reader, arm *URArm) {
 	for {
 		buf := make([]byte, 4)
 		n, err := conn.Read(buf)
@@ -186,7 +190,7 @@ func reader(conn net.Conn, arm *URArm) {
 			arm.State = state
 			arm.haveData = true
 			if arm.Debug {
-				fmt.Printf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
+				arm.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,
 					state.Joints[0].AngleDegrees(),
@@ -210,7 +214,7 @@ func reader(conn net.Conn, arm *URArm) {
 		case 5: // MODBUS_INFO_MESSAGE
 			data := binary.BigEndian.Uint32(buf[1:])
 			if data != 0 {
-				fmt.Printf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
+				arm.logger.Debugf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
 			}
 
 		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
@@ -219,18 +223,18 @@ func reader(conn net.Conn, arm *URArm) {
 			break
 		case 25: // PROGRAM_STATE_MESSAGE
 			if len(buf) != 12 {
-				fmt.Println("got bad PROGRAM_STATE_MESSAGE ??")
+				arm.logger.Debug("got bad PROGRAM_STATE_MESSAGE ??")
 			} else {
 				a := binary.BigEndian.Uint32(buf[1:])
 				b := buf[9]
 				c := buf[10]
 				d := buf[11]
 				if a != 4294967295 || b != 1 || c != 0 || d != 0 {
-					fmt.Printf("got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
+					arm.logger.Debugf("got unknown PROGRAM_STATE_MESSAGE %v %v %v %v\n", a, b, c, d)
 				}
 			}
 		default:
-			fmt.Printf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
+			arm.logger.Debugf("ur: unknown messageType: %v size: %d %v\n", buf[0], len(buf), buf)
 		}
 	}
 }

@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/jacobsa/go-serial/serial"
-
 	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/echolabsinc/robotcore/utils/log"
+
+	"github.com/jacobsa/go-serial/serial"
 )
 
 func getSerialConfig() (serial.OpenOptions, error) {
@@ -28,7 +28,7 @@ func getSerialConfig() (serial.OpenOptions, error) {
 	}
 
 	for _, l := range lines {
-		if strings.Index(l, "Mega") < 0 {
+		if !strings.Contains(l, "Mega") {
 			continue
 		}
 		options.PortName = strings.Split(l, " ")[0]
@@ -41,28 +41,28 @@ func getSerialConfig() (serial.OpenOptions, error) {
 func main() {
 	options, err := getSerialConfig()
 	if err != nil {
-		log.Fatalf("can't get serial config: %v", err)
+		log.Global.Fatalf("can't get serial config: %v", err)
 	}
 
 	port, err := serial.Open(options)
 	if err != nil {
-		log.Fatalf("can't option serial port %v", err)
+		log.Global.Fatalf("can't option serial port %v", err)
 	}
 	defer port.Close()
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	fmt.Printf("ready\n")
+	log.Global.Debug("ready\n")
 
 	for {
 		buf := make([]byte, 10)
 		n, err := os.Stdin.Read(buf)
 		if err != nil {
-			log.Fatalf("couldn't read from stdin (%d), %v", n, err)
+			log.Global.Fatalf("couldn't read from stdin (%d), %v", n, err)
 		}
 
 		if n != 3 {
-			log.Printf("bad input (%s)\n", string(buf))
+			log.Global.Debugf("bad input (%s)\n", string(buf))
 		}
 
 		port.Write([]byte{buf[0], buf[1]})

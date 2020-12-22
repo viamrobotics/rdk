@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/echolabsinc/robotcore/utils/log"
 )
 
 type RobotModeData struct {
@@ -134,7 +136,9 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 		buffer := bytes.NewBuffer(content)
 
 		if packageType == 0 {
-			binary.Read(buffer, binary.BigEndian, &state.RobotModeData)
+			if err := binary.Read(buffer, binary.BigEndian, &state.RobotModeData); err != nil && err != io.EOF {
+				return state, err
+			}
 		} else if packageType == 1 {
 			for {
 				d := JointData{}
@@ -148,11 +152,17 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 				state.Joints = append(state.Joints, d)
 			}
 		} else if packageType == 2 {
-			binary.Read(buffer, binary.BigEndian, &state.ToolData)
+			if err := binary.Read(buffer, binary.BigEndian, &state.ToolData); err != nil && err != io.EOF {
+				return state, err
+			}
 		} else if packageType == 3 {
-			binary.Read(buffer, binary.BigEndian, &state.MasterboardData)
+			if err := binary.Read(buffer, binary.BigEndian, &state.MasterboardData); err != nil && err != io.EOF {
+				return state, err
+			}
 		} else if packageType == 4 {
-			binary.Read(buffer, binary.BigEndian, &state.CartesianInfo)
+			if err := binary.Read(buffer, binary.BigEndian, &state.CartesianInfo); err != nil && err != io.EOF {
+				return state, err
+			}
 		} else if packageType == 5 {
 
 			for buffer.Len() > 4 {
@@ -170,7 +180,9 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 		} else if packageType == 6 {
 			// Configuration data, skipping, don't think we need
 		} else if packageType == 7 {
-			binary.Read(buffer, binary.BigEndian, &state.ForceModeData)
+			if err := binary.Read(buffer, binary.BigEndian, &state.ForceModeData); err != nil && err != io.EOF {
+				return state, err
+			}
 		} else if packageType == 8 {
 			// Additional Info, skipping, don't think we need
 		} else if packageType == 9 {
@@ -182,7 +194,7 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 		} else if packageType == 12 {
 			// Tool mode info, skipping, don't think we need
 		} else {
-			fmt.Printf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
+			log.Global.Debugf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
 		}
 	}
 
@@ -198,7 +210,7 @@ func readURRobotMessage(buf []byte) error {
 
 	switch robotMessageType {
 	case 0: // text?
-		fmt.Printf("ur log: %s\n", string(buf))
+		log.Global.Debugf("ur log: %s\n", string(buf))
 
 	case 6: // error
 		robotMessageCode := binary.BigEndian.Uint32(buf)
@@ -208,7 +220,7 @@ func readURRobotMessage(buf []byte) error {
 		robotMessageData := binary.BigEndian.Uint32(buf[16:])
 		robotCommTextMessage := string(buf[20:])
 
-		fmt.Printf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
+		log.Global.Debugf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
 			robotMessageCode, robotMessageArgument, robotMessageReportLevel, robotMessageDataType, robotMessageData, robotCommTextMessage)
 
 	case 3: // Version
@@ -221,16 +233,16 @@ func readURRobotMessage(buf []byte) error {
 		bugFixVersion := binary.BigEndian.Uint32(buf[pos+2:])
 		buildNumber := binary.BigEndian.Uint32(buf[pos+8:])
 
-		fmt.Printf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
+		log.Global.Debugf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
 
 	case 12: // i have no idea what this is
 		if len(buf) != 9 {
-			fmt.Printf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
+			log.Global.Debugf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
 		} else {
 			a := binary.BigEndian.Uint64(buf)
 			b := buf[8]
 			if a != 0 || b != 1 {
-				fmt.Printf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
+				log.Global.Debugf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
 			}
 		}
 
@@ -243,11 +255,11 @@ func readURRobotMessage(buf []byte) error {
 
 		if false {
 			// TODO: this is better than sleeping in other code, be smart!!
-			fmt.Printf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
+			log.Global.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
 				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
 		}
 	default:
-		fmt.Printf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
+		log.Global.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
 		return nil
 	}
 

@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 )
@@ -15,7 +15,7 @@ import (
 func main() {
 
 	go func() {
-		log.Println(http.ListenAndServe(":6060", nil))
+		http.ListenAndServe(":6060", nil)
 	}()
 
 	flag.Parse()
@@ -29,7 +29,7 @@ func main() {
 			panic(err)
 		}
 	} else {
-		src = &vision.HttpSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
+		src = &vision.HTTPSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
 	}
 
 	config := stream.DefaultRemoteViewConfig
@@ -40,13 +40,13 @@ func main() {
 	}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
-		println(x, y)
+		log.Global.Debug(x, y)
 	})
 
-	server := stream.NewRemoteViewServer(5555, remoteView)
+	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)
 	if err := server.Run(context.Background()); err != nil {
 		panic(err)
 	}
 
-	stream.StreamMatSource(src, remoteView, 33*time.Millisecond)
+	stream.StreamMatSource(src, remoteView, 33*time.Millisecond, log.Global)
 }

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
@@ -41,7 +42,7 @@ func _getOutputfile() string {
 func _hsvHistogramHelp(name string, data []float64) {
 	sort.Float64s(data)
 	mean, stdDev := stat.MeanStdDev(data, nil)
-	fmt.Printf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
+	log.Global.Debugf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
 }
 
 func hsvHistogram(img vision.Image) {
@@ -96,7 +97,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		hsv := img.ColorHSV(p)
 
 		diff := init.Distance(hsv)
-		fmt.Printf("%v %v %v\n", p, hsv, diff)
+		log.Global.Debugf("%v %v %v\n", p, hsv, diff)
 
 		if diff > 12 {
 			init = hsv
@@ -150,7 +151,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 
 	if *debug {
 		distanceFromPoint := vision.PointDistance(start, image.Point{*xFlag, *yFlag})
-		fmt.Printf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
+		log.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
 			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance, distanceFromPoint)
 	}
 	if !good {
@@ -172,7 +173,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 }
 
 func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
-	fmt.Println("shapeWalkPiece")
+	log.Global.Debug("shapeWalkPiece")
 	init := img.ColorHSV(start)
 
 	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
@@ -346,12 +347,12 @@ func view(img vision.Image) error {
 	remoteView.SetOnClickHandler(func(x, y int) {
 		app.colorHoverElem.MouseMoved(&desktop.MouseEvent{
 			PointEvent: fyne.PointEvent{
-				Position: fyne.Position{X: int(x) / 2, Y: int(y) / 2}, // TODO(erd): way to do this with no downscale?
+				Position: fyne.Position{X: x / 2, Y: y / 2}, // TODO(erd): way to do this with no downscale?
 			},
 		})
 	})
 
-	server := stream.NewRemoteViewServer(5555, remoteView)
+	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)
 	if err := server.Run(context.Background()); err != nil {
 		panic(err)
 	}
@@ -359,14 +360,8 @@ func view(img vision.Image) error {
 	go stream.StreamWindow(app.mainWindow, remoteView, 250*time.Millisecond)
 	app.mainWindow.ShowAndRun()
 
-	select {}
-
 	// TODO(erd): some defer to stop everything and clean up
-	return nil
-}
-
-func hsvKmeans() {
-
+	select {}
 }
 
 func main() {
@@ -384,7 +379,6 @@ func main() {
 
 	if flag.NArg() < 2 {
 		panic(fmt.Errorf("need two args <program> <filename>"))
-		return
 	}
 
 	prog := flag.Arg(0)

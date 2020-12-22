@@ -1,20 +1,16 @@
 package stream
 
 import (
-	"bufio"
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"image"
-	"io"
 	"io/ioutil"
-	"os"
-	"strings"
 	"time"
 	"unsafe"
 
+	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
@@ -62,7 +58,7 @@ func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal tim
 	}
 }
 
-func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInternal time.Duration) {
+func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInternal time.Duration, logger log.Logger) {
 	<-remoteView.Ready()
 	for {
 		now := time.Now()
@@ -73,7 +69,7 @@ func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInterna
 		func() {
 			defer mat.Close()
 			if remoteView.Debug() {
-				fmt.Println("NextColorDepthPair took", time.Since(now))
+				logger.Debugw("NextColorDepthPair", "elapsed", time.Since(now))
 			}
 			// time.Sleep(captureInternal)
 			img, err := mat.ToImage()
@@ -92,7 +88,7 @@ func RgbaToYuv(rgba *image.RGBA) []byte {
 	h := rgba.Rect.Max.Y
 	size := int(float32(w*h) * 1.5)
 	stride := rgba.Stride - w*4
-	yuv := make([]byte, size, size)
+	yuv := make([]byte, size)
 	// now := time.Now()
 	C.rgba2yuv(unsafe.Pointer(&yuv[0]), unsafe.Pointer(&rgba.Pix[0]), C.int(w), C.int(h), C.int(stride))
 	// fmt.Println("conversion took", time.Since(now))
@@ -101,30 +97,6 @@ func RgbaToYuv(rgba *image.RGBA) []byte {
 
 // Allows compressing offer/answer to bypass terminal input limits.
 const compress = false
-
-// MustReadStdin blocks until input is received from stdin
-func MustReadStdin() string {
-	r := bufio.NewReader(os.Stdin)
-
-	var in string
-	for {
-		var err error
-		in, err = r.ReadString('\n')
-		if err != io.EOF {
-			if err != nil {
-				panic(err)
-			}
-		}
-		in = strings.TrimSpace(in)
-		if len(in) > 0 {
-			break
-		}
-	}
-
-	fmt.Println("")
-
-	return in
-}
 
 // Encode encodes the input in base64
 // It can optionally zip the input before encoding

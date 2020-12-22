@@ -5,11 +5,11 @@ import (
 	"image"
 	"image/color"
 
-	"gocv.io/x/gocv"
+	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/lucasb-eyer/go-colorful"
-
-	"github.com/echolabsinc/robotcore/vision"
+	"gocv.io/x/gocv"
 )
 
 func isPink(data color.RGBA) bool {
@@ -39,7 +39,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
-func FindChessCornersPinkCheat_inQuadrant(img vision.Image, out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
+func FindChessCornersPinkCheatInQuadrant(img vision.Image, out *gocv.Mat, cnts [][]image.Point, xQ, yQ int) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
@@ -55,7 +55,7 @@ func FindChessCornersPinkCheat_inQuadrant(img vision.Image, out *gocv.Mat, cnts 
 	maxCheckForGreen := img.Rows() / 25
 
 	if debug {
-		fmt.Printf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
+		log.Global.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
 	}
 
 	for i := 0; i < 50; i++ {
@@ -104,8 +104,8 @@ func FindChessCornersPinkCheat(img vision.Image, out *gocv.Mat) ([]image.Point, 
 			data := img.Color(p)
 
 			if isPink(data) {
-				X := int(2 * x / img.Cols())
-				Y := int(2 * y / img.Rows())
+				X := 2 * x / img.Cols()
+				Y := 2 * y / img.Rows()
 				Q := X + (Y * 2)
 				cnts[Q] = append(cnts[Q], p)
 				if out != nil {
@@ -117,7 +117,7 @@ func FindChessCornersPinkCheat(img vision.Image, out *gocv.Mat) ([]image.Point, 
 				if y == 127 && x > 250 && x < 350 {
 					temp, _ := colorful.MakeColor(data)
 					h, s, v := temp.Hsv()
-					fmt.Printf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
+					log.Global.Debugf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
 					redLittleCircles = append(redLittleCircles, p)
 				}
 			}
@@ -125,10 +125,10 @@ func FindChessCornersPinkCheat(img vision.Image, out *gocv.Mat) ([]image.Point, 
 		}
 	}
 
-	a1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 0)
-	a8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 0)
-	h1Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 0, 1)
-	h8Corner := FindChessCornersPinkCheat_inQuadrant(img, out, cnts, 1, 1)
+	a1Corner := FindChessCornersPinkCheatInQuadrant(img, out, cnts, 0, 0)
+	a8Corner := FindChessCornersPinkCheatInQuadrant(img, out, cnts, 1, 0)
+	h1Corner := FindChessCornersPinkCheatInQuadrant(img, out, cnts, 0, 1)
+	h8Corner := FindChessCornersPinkCheatInQuadrant(img, out, cnts, 1, 1)
 
 	/*
 		if false {

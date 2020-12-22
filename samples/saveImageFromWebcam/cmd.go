@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"github.com/echolabsinc/robotcore/utils/log"
 
 	"gocv.io/x/gocv"
 )
@@ -13,7 +13,7 @@ func main() {
 	// open webcam
 	webcam, err := gocv.OpenVideoCapture(deviceID)
 	if err != nil {
-		fmt.Println(err)
+		log.Global.Error(err)
 		return
 	}
 	defer webcam.Close()
@@ -26,10 +26,10 @@ func main() {
 	img := gocv.NewMat()
 	defer img.Close()
 
-	fmt.Printf("start reading camera device: %v\n", deviceID)
+	log.Global.Debugf("start reading camera device: %v\n", deviceID)
 	for {
 		if ok := webcam.Read(&img); !ok {
-			fmt.Printf("cannot read device %v\n", deviceID)
+			log.Global.Debugf("cannot read device %v\n", deviceID)
 			continue
 		}
 		if img.Empty() {

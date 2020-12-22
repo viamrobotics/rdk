@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils/log"
+
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
 )
@@ -36,24 +38,31 @@ type RemoteViewHTML struct {
 }
 
 func NewRemoteView(config RemoteViewConfig) (RemoteView, error) {
+	logger := config.Logger
+	if logger == nil {
+		logger = log.Global
+	}
 	return &basicRemoteView{
-		config:       config,
-		readyCh:      make(chan struct{}),
-		inputFrames:  make(chan image.Image),
-		outputFrames: make(chan []byte),
+		config:             config,
+		readyCh:            make(chan struct{}),
+		inputFrames:        make(chan image.Image),
+		outputFrames:       make(chan []byte),
+		peerToRemoteClient: map[*webrtc.PeerConnection]remoteClient{},
+		logger:             logger,
 	}, nil
 }
 
 type basicRemoteView struct {
-	mu             sync.Mutex
-	config         RemoteViewConfig
-	readyOnce      sync.Once
-	readyCh        chan struct{}
-	videoTracks    []*webrtc.TrackLocalStaticSample
-	inputFrames    chan image.Image
-	outputFrames   chan []byte
-	encoder        *VPXEncoder
-	onClickHandler func(x, y int)
+	mu                 sync.Mutex
+	config             RemoteViewConfig
+	readyOnce          sync.Once
+	readyCh            chan struct{}
+	peerToRemoteClient map[*webrtc.PeerConnection]remoteClient
+	inputFrames        chan image.Image
+	outputFrames       chan []byte
+	encoder            *VPXEncoder
+	onClickHandler     func(x, y int)
+	logger             log.Logger
 }
 
 type RemoteViewHandler struct {
@@ -114,9 +123,16 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		// Set the handler for ICE connection state
 		// This will notify you when the peer has connected/disconnected
 		peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-			fmt.Printf("Connection State has changed %s \n", connectionState.String())
+			brv.logger.Debugw("connection state changed", "conn_state", connectionState.String())
 			if connectionState == webrtc.ICEConnectionStateConnected {
 				iceConnectedCtxCancel()
+				return
+			}
+			switch connectionState {
+			case webrtc.ICEConnectionStateDisconnected,
+				webrtc.ICEConnectionStateFailed,
+				webrtc.ICEConnectionStateClosed:
+				brv.removeRemoteClient(peerConnection)
 			}
 		})
 
@@ -134,16 +150,17 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 			panic(err)
 		}
 
-		// dcID := uint16(0)
-		// dc, err := peerConnection.CreateDataChannel("stuff", &webrtc.DataChannelInit{ID: &dcID})
-		// if err != nil {
-		// 	panic(err)
-		// }
+		dataChannel, err := peerConnection.CreateDataChannel("stuff", nil)
+		if err != nil {
+			panic(err)
+		}
 
 		// Set the remote SessionDescription
 		if err := peerConnection.SetRemoteDescription(offer); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			if _, err := w.Write([]byte(err.Error())); err != nil {
+				brv.logger.Error(err)
+			}
 			return
 		}
 
@@ -151,7 +168,9 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		answer, err := peerConnection.CreateAnswer(nil)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			if _, err := w.Write([]byte(err.Error())); err != nil {
+				brv.logger.Error(err)
+			}
 			return
 		}
 
@@ -161,7 +180,9 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		// Sets the LocalDescription, and starts our UDP listeners
 		if err := peerConnection.SetLocalDescription(answer); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
+			if _, err := w.Write([]byte(err.Error())); err != nil {
+				brv.logger.Error(err)
+			}
 			return
 		}
 
@@ -171,15 +192,15 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		<-gatherComplete
 
 		// Output the answer in base64 so we can paste it in browser
-		w.Write([]byte(Encode(*peerConnection.LocalDescription())))
-
-		// go httpServer.Shutdown(context.Background())
+		if _, err := w.Write([]byte(Encode(*peerConnection.LocalDescription()))); err != nil {
+			brv.logger.Error(err)
+			return
+		}
 
 		go func() {
 			<-iceConnectedCtx.Done()
 
-			// TODO(erd): handle disconnected
-			brv.addVideoTrack(videoTrack)
+			brv.addRemoteClient(peerConnection, remoteClient{dataChannel, videoTrack})
 
 			brv.readyOnce.Do(func() {
 				close(brv.readyCh)
@@ -316,14 +337,14 @@ func (brv *basicRemoteView) processOutputFrames() {
 	framesSent := 0
 	for outputFrame := range brv.outputFrames {
 		now := time.Now()
-		for _, videoTrack := range brv.getVideoTracks() {
-			if ivfErr := videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
+		for _, rc := range brv.getRemoteClients() {
+			if ivfErr := rc.videoTrack.WriteSample(media.Sample{Data: outputFrame, Duration: 33 * time.Millisecond}); ivfErr != nil {
 				panic(ivfErr)
 			}
 		}
 		framesSent++
 		if brv.config.Debug {
-			fmt.Println(framesSent, "write sample took", time.Since(now))
+			brv.logger.Debugw("wrote sample", "frames_sent", framesSent, "write_time", time.Since(now))
 		}
 	}
 }
@@ -335,23 +356,34 @@ func (brv *basicRemoteView) initCodec(width, height int) error {
 
 	// TODO(erd): Codec configurable
 	var err error
-	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height, brv.config.Debug)
+	brv.encoder, err = NewVPXEncoder(CodecVP8, width, height, brv.config.Debug, brv.logger)
 	return err
 }
 
-func (brv *basicRemoteView) addVideoTrack(videoTrack *webrtc.TrackLocalStaticSample) {
-	brv.mu.Lock()
-	defer brv.mu.Unlock()
-	brv.videoTracks = append(brv.videoTracks, videoTrack)
+type remoteClient struct {
+	dataChannel *webrtc.DataChannel
+	videoTrack  *webrtc.TrackLocalStaticSample
 }
 
-func (brv *basicRemoteView) getVideoTracks() []*webrtc.TrackLocalStaticSample {
+func (brv *basicRemoteView) addRemoteClient(peerConnection *webrtc.PeerConnection, rc remoteClient) {
+	brv.mu.Lock()
+	defer brv.mu.Unlock()
+	brv.peerToRemoteClient[peerConnection] = rc
+}
+
+func (brv *basicRemoteView) removeRemoteClient(peerConnection *webrtc.PeerConnection) {
+	brv.mu.Lock()
+	defer brv.mu.Unlock()
+	delete(brv.peerToRemoteClient, peerConnection)
+}
+
+func (brv *basicRemoteView) getRemoteClients() []remoteClient {
 	brv.mu.Lock()
 	defer brv.mu.Unlock()
 	// make shallow copy
-	videoTracks := make([]*webrtc.TrackLocalStaticSample, 0, len(brv.videoTracks))
-	for _, videoTrack := range brv.videoTracks {
-		videoTracks = append(videoTracks, videoTrack)
+	remoteClients := make([]remoteClient, 0, len(brv.peerToRemoteClient))
+	for _, rc := range brv.peerToRemoteClient {
+		remoteClients = append(remoteClients, rc)
 	}
-	return videoTracks
+	return remoteClients
 }

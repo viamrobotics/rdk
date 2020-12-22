@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/echolabsinc/robotcore/utils/log"
+
 	"gocv.io/x/gocv"
 )
 
@@ -35,19 +37,21 @@ type MultipleImageTestDebuggerProcessor interface {
 }
 
 func NewMultipleImageTestDebugger(prefix, glob string) MultipleImageTestDebugger {
-	var err error
 
 	d := MultipleImageTestDebugger{}
 	d.glob = glob
 	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
-	d.out, err = filepath.Abs("out")
 	d.name = strings.Replace(prefix, "/", "-", 100)
 
+	var err error
+	d.out, err = filepath.Abs("out")
 	if err != nil {
 		panic(err)
 	}
 
-	os.MkdirAll(d.out, 0775)
+	if err := os.MkdirAll(d.out, 0775); err != nil {
+		panic(err)
+	}
 
 	return d
 }
@@ -62,7 +66,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 
 	for _, f := range files {
 		d.currentFile = f
-		fmt.Println(f)
+		log.Global.Debug(f)
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
 		d.html.WriteString("<tr>")
@@ -79,6 +83,6 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	d.html.WriteString("</table></body></html>")
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
-	fmt.Println(htmlOutFile)
+	log.Global.Debug(htmlOutFile)
 	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
 }

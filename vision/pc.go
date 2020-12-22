@@ -6,6 +6,8 @@ import (
 	"image/color"
 	"io"
 
+	"github.com/echolabsinc/robotcore/utils/log"
+
 	"gocv.io/x/gocv"
 )
 
@@ -108,8 +110,8 @@ func (pc *PointCloud) CropToDepthData() (PointCloud, error) {
 	width := maxX - minX
 
 	return pc.Warp(
-		[]image.Point{image.Point{minX, minY}, image.Point{maxX, minY}, image.Point{maxX, maxY}, image.Point{minX, maxY}},
-		[]image.Point{image.Point{0, 0}, image.Point{width, 0}, image.Point{width, height}, image.Point{0, height}},
+		[]image.Point{{minX, minY}, {maxX, minY}, {maxX, maxY}, {minX, maxY}},
+		[]image.Point{{0, 0}, {width, 0}, {width, height}, {0, height}},
 		image.Point{width, height},
 	), nil
 }
@@ -157,7 +159,7 @@ func _scale(x, max int) float32 {
 func (pc *PointCloud) ToPCD(out io.Writer) error {
 	if pc.Depth.Width() != pc.Color.Width() ||
 		pc.Depth.Height() != pc.Color.Height() {
-		return fmt.Errorf("DepthMap and color dimensions don't match %d,%d -> %d,%d",
+		return fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
 			pc.Depth.Width(), pc.Depth.Height(), pc.Color.Width(), pc.Color.Height())
 	}
 
@@ -181,7 +183,7 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 	}
 
 	scale := float32(pc.Depth.max - pc.Depth.min)
-	fmt.Printf("min: %d max: %d scale: %f\n", pc.Depth.min, pc.Depth.max, scale)
+	log.Global.Debugf("min: %d max: %d scale: %f\n", pc.Depth.min, pc.Depth.max, scale)
 
 	for x := 0; x < pc.Depth.Width(); x++ {
 		for y := 0; y < pc.Depth.Height(); y++ {

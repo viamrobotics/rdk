@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"log"
 	"math"
 	_ "net/http/pprof"
 	"os"
@@ -12,25 +11,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"gocv.io/x/gocv"
+	"github.com/echolabsinc/robotcore/arm"
+	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/robot"
+	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/vision/chess"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/widget"
-
-	//"github.com/tonyOreglia/glee/pkg/generate"
+	"github.com/Ernyoke/Imger/resize"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
-
-	"github.com/Ernyoke/Imger/resize"
-
-	"github.com/echolabsinc/robotcore/arm"
-	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/robot"
-	"github.com/echolabsinc/robotcore/vision"
-	"github.com/echolabsinc/robotcore/vision/chess"
+	"gocv.io/x/gocv"
 )
 
 type pos struct {
@@ -94,7 +90,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if toHeight > 0 {
-			fmt.Printf("moving piece from %s to %s but occupied, going to capture\n", from, to)
+			log.Global.Debugf("moving piece from %s to %s but occupied, going to capture\n", from, to)
 			err = movePiece(boardState, myArm, myGripper, to, "-")
 			if err != nil {
 				return err
@@ -125,7 +121,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if grabbedSomething {
-			fmt.Printf("got a piece at height %f\n", where.Z)
+			log.Global.Debugf("got a piece at height %f\n", where.Z)
 			// got the piece
 			break
 		}
@@ -133,7 +129,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 		if err != nil {
 			return err
 		}
-		fmt.Println("no piece")
+		log.Global.Debug("no piece")
 		where = myArm.State.CartesianInfo
 		where.Z = where.Z - .01
 		if where.Z <= BoardHeight {
@@ -250,27 +246,6 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func testChessEngine() {
-	p := position.StartingPosition()
-	p.Print()
-
-	from, _ := moves.ConvertAlgebriacToIndex("e2")
-	to, _ := moves.ConvertAlgebriacToIndex("e4")
-	m := moves.NewMove([]int{from, to})
-	//p.MakeMoveAlgebraic("e2","e4")
-	if !engine.MakeValidMove(*m, &p) {
-		fmt.Println("CHEATER")
-	}
-	p.Print()
-
-	p, m = searchForNextMove(p)
-
-	fmt.Printf("%v\n", m)
-	p.Print()
-
-	panic(1)
-}
-
 func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
 	imageSize := image.Point{}
 	m, _, err := wristCam.NextColorDepthPair()
@@ -317,7 +292,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
 	}
 
-	fmt.Printf("Corners: %v\n", corners)
+	log.Global.Debugf("Corners: %v\n", corners)
 
 	return corners, imageSize, err
 }
@@ -335,7 +310,7 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 		xMove := (.5 - xRatio) / 8
 		yMove := (.5 - yRatio) / -8
 
-		fmt.Printf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
+		log.Global.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
 
 		if math.Abs(xMove) < .001 && math.Abs(yMove) < .001 {
 			Center = pos{where.X, where.Y}
@@ -344,9 +319,9 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 			Center.x += .026
 			Center.y -= .073
 
-			fmt.Printf("Center: %v\n", Center)
-			fmt.Printf("a1: %v\n", getCoord("a1"))
-			fmt.Printf("h8: %v\n", getCoord("h8"))
+			log.Global.Debugf("Center: %v\n", Center)
+			log.Global.Debugf("a1: %v\n", getCoord("a1"))
+			log.Global.Debugf("h8: %v\n", getCoord("h8"))
 			return nil
 		}
 
@@ -420,7 +395,7 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Fatal(err)
+			log.Global.Fatal(err)
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
@@ -491,129 +466,131 @@ func main() {
 	go func() {
 		for {
 			img, depth, err := webcam.NextColorDepthPair()
-			var boardCreated bool
-			defer func() {
-				if !boardCreated {
-					img.Close()
-				}
-			}()
-			if err != nil || img.Empty() {
-				log.Printf("error reading device: %s\n", err)
-				continue
-			}
-
-			pcs[0], err = matToFyne(img)
-			if err != nil {
-				panic(err)
-			}
-
-			i2, err := vision.NewImage(img)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-
-			theBoard, err := chess.FindAndWarpBoard(i2, depth)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			boardCreated = true
-
 			func() {
-				defer theBoard.Close()
-				if theBoard.IsBoardBlocked() {
-					fmt.Println("board blocked")
-					boardState.Clear()
+				var boardCreated bool
+				defer func() {
+					if !boardCreated {
+						img.Close()
+					}
+				}()
+				if err != nil || img.Empty() {
+					log.Global.Debugf("error reading device: %s\n", err)
 					return
 				}
 
-				interessting, err := boardState.newData(theBoard)
-				if err != nil {
-					wantPicture = 1
-					fmt.Println(err)
-					boardState.Clear()
-				} else if interessting {
-					wantPicture = 1
-				}
-
-				if boardState.Ready() {
-					if !initialPositionOk {
-						bb, err := boardState.GetBitBoard()
-						if err != nil {
-							fmt.Println("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-							fmt.Printf("not in initial chess piece setup\n")
-							bb.Print()
-						} else {
-							initialPositionOk = true
-							fmt.Printf("GOT initial chess piece setup\n")
-						}
-					} else {
-						// so we've already made sure we're safe, let's see if a move was made
-						m, err := boardState.GetPrevMove(currentPosition)
-						if err != nil {
-							// trouble reading board, let's reset
-							fmt.Println("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if m != nil {
-							fmt.Printf("we detected a move: %s\n", m)
-
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("invalid move!")
-							}
-
-							currentPosition.Print()
-							currentPosition.PrintFen()
-
-							currentPosition, m = searchForNextMove(currentPosition)
-							fmt.Printf("computer will make move: %s\n", m)
-							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
-							if err != nil {
-								panic(err)
-							}
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("wtf - invalid move chosen by computer")
-							}
-							currentPosition.Print()
-							boardState.Clear()
-						}
-					}
-
-					if lastKeyPress == "T" {
-						err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
-						if err != nil {
-							panic(err)
-						}
-						lastKeyPress = ""
-					}
-				}
-
-				annotated := theBoard.Annotate()
-
-				pcs[1], err = matToFyne(annotated)
+				pcs[0], err = matToFyne(img)
 				if err != nil {
 					panic(err)
 				}
 
-				w.SetContent(widget.NewHBox(pcs...))
+				i2, err := vision.NewImage(img)
+				if err != nil {
+					log.Global.Debug(err)
+					return
+				}
 
-				if atomic.LoadInt32(&wantPicture) != 0 {
-					tm := time.Now().Unix()
+				theBoard, err := chess.FindAndWarpBoard(i2, depth)
+				if err != nil {
+					log.Global.Debug(err)
+					return
+				}
+				boardCreated = true
 
-					fn := fmt.Sprintf("data/board-%d.png", tm)
-					log.Printf("saving image %s\n", fn)
-					gocv.IMWrite(fn, img)
+				func() {
+					defer theBoard.Close()
+					if theBoard.IsBoardBlocked() {
+						log.Global.Debug("board blocked")
+						boardState.Clear()
+						return
+					}
 
-					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
-					err = depth.WriteToFile(fn)
+					interessting, err := boardState.newData(theBoard)
+					if err != nil {
+						wantPicture = 1
+						log.Global.Debug(err)
+						boardState.Clear()
+					} else if interessting {
+						wantPicture = 1
+					}
+
+					if boardState.Ready() {
+						if !initialPositionOk {
+							bb, err := boardState.GetBitBoard()
+							if err != nil {
+								log.Global.Debug("got inconsistency reading board, let's try again")
+								boardState.Clear()
+							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
+								log.Global.Debugf("not in initial chess piece setup\n")
+								bb.Print()
+							} else {
+								initialPositionOk = true
+								log.Global.Debugf("GOT initial chess piece setup\n")
+							}
+						} else {
+							// so we've already made sure we're safe, let's see if a move was made
+							m, err := boardState.GetPrevMove(currentPosition)
+							if err != nil {
+								// trouble reading board, let's reset
+								log.Global.Debug("got inconsistency reading board, let's try again")
+								boardState.Clear()
+							} else if m != nil {
+								log.Global.Debugf("we detected a move: %s\n", m)
+
+								if !engine.MakeValidMove(*m, &currentPosition) {
+									panic("invalid move!")
+								}
+
+								currentPosition.Print()
+								currentPosition.PrintFen()
+
+								currentPosition, m = searchForNextMove(currentPosition)
+								log.Global.Debugf("computer will make move: %s\n", m)
+								err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
+								if err != nil {
+									panic(err)
+								}
+								if !engine.MakeValidMove(*m, &currentPosition) {
+									panic("wtf - invalid move chosen by computer")
+								}
+								currentPosition.Print()
+								boardState.Clear()
+							}
+						}
+
+						if lastKeyPress == "T" {
+							err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
+							if err != nil {
+								panic(err)
+							}
+							lastKeyPress = ""
+						}
+					}
+
+					annotated := theBoard.Annotate()
+
+					pcs[1], err = matToFyne(annotated)
 					if err != nil {
 						panic(err)
 					}
 
-					atomic.StoreInt32(&wantPicture, 0)
-				}
+					w.SetContent(widget.NewHBox(pcs...))
+
+					if atomic.LoadInt32(&wantPicture) != 0 {
+						tm := time.Now().Unix()
+
+						fn := fmt.Sprintf("data/board-%d.png", tm)
+						log.Global.Debugf("saving image %s\n", fn)
+						gocv.IMWrite(fn, img)
+
+						fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
+						err = depth.WriteToFile(fn)
+						if err != nil {
+							panic(err)
+						}
+
+						atomic.StoreInt32(&wantPicture, 0)
+					}
+				}()
 			}()
 		}
 	}()

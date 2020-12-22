@@ -6,17 +6,18 @@ import (
 	"math"
 	"sort"
 
-	"github.com/gonum/stat"
-
-	"gocv.io/x/gocv"
-
+	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
+
+	"github.com/gonum/stat"
+	"gocv.io/x/gocv"
 )
 
 type Board struct {
-	color vision.Image // TODO: should we get rid of
-	depth vision.DepthMap
-	edges gocv.Mat
+	color  vision.Image // TODO: should we get rid of
+	depth  vision.DepthMap
+	edges  gocv.Mat
+	logger log.Logger
 }
 
 func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
@@ -56,16 +57,12 @@ func FindAndWarpBoard(color vision.Image, depth vision.DepthMap) (*Board, error)
 	edges := gocv.NewMat()
 	gocv.Canny(a.MatUnsafe(), &edges, 32, 32) // magic number
 
-	return &Board{a, b, edges}, nil
+	return &Board{a, b, edges, log.Global}, nil
 }
 
 func (b *Board) Close() {
 	b.color.Close()
 	b.edges.Close()
-}
-
-func (b *Board) depthAt(p image.Point) float64 {
-	return float64(b.depth.Get(p))
 }
 
 // return highest delta, average floor height
@@ -94,7 +91,7 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	sort.Float64s(data)
 	cleaned := data
 	if false {
-		cleaned := []float64{}
+		cleaned = []float64{}
 
 		for _, x := range data {
 			diff := math.Abs(mean - x)
@@ -109,17 +106,17 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	max := stat.Mean(cleaned[len(cleaned)-10:], nil)
 
 	if false && square == "e1" {
-		fmt.Println(square)
+		b.logger.Debug(square)
 
 		for _, d := range cleaned[0:5] {
-			fmt.Printf("\t %f\n", d)
+			b.logger.Debugf("\t %f\n", d)
 		}
-		fmt.Println("...")
+		b.logger.Debug("...")
 		for _, d := range cleaned[len(cleaned)-5:] {
-			fmt.Printf("\t %f\n", d)
+			b.logger.Debugf("\t %f\n", d)
 		}
 
-		fmt.Printf("\t %s mean: %f stdDev: %f min: %f max: %f diff: %f\n", square, mean, stdDev, min, max, max-min)
+		b.logger.Debugf("\t %s mean: %f stdDev: %f min: %f max: %f diff: %f\n", square, mean, stdDev, min, max, max-min)
 	}
 
 	return max - min
@@ -135,7 +132,7 @@ func (b *Board) SquareCenterEdges(square string) int {
 	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
 		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
 			d := b.edges.GetUCharAt(y, x)
-			//fmt.Printf("\t %v\n", d )
+			//b.logger.Debugf("\t %v\n", d )
 			if d == 255 {
 				num++
 			}
@@ -146,21 +143,6 @@ func (b *Board) SquareCenterEdges(square string) int {
 }
 
 type SquareFunc func(b *Board, square string) error
-
-func (b *Board) forEach(f SquareFunc) error {
-	for x := 'a'; x <= 'h'; x++ {
-		for y := '1'; y <= '8'; y++ {
-			s := string(x) + string(y)
-
-			err := f(b, s)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
 
 func (b *Board) Annotate() gocv.Mat {
 	out := gocv.NewMat()
@@ -205,9 +187,9 @@ func (b *Board) IsBoardBlocked() bool {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 			h := b.SquareCenterHeight(s, DepthCheckSizeRadius)
-			//fmt.Printf("%s -> %v\n", s, h)
+			//b.logger.Debugf("%s -> %v\n", s, h)
 			if h > 150 {
-				fmt.Printf("blocked at %s with %v\n", s, h)
+				b.logger.Debugf("blocked at %s with %v\n", s, h)
 				return true
 			}
 
@@ -218,7 +200,7 @@ func (b *Board) IsBoardBlocked() bool {
 	}
 
 	if numPieces > 32 || numPieces == 0 {
-		fmt.Printf("blocked b/c numPieces: %d\n", numPieces)
+		b.logger.Debugf("blocked b/c numPieces: %d\n", numPieces)
 	}
 
 	return false

@@ -3,11 +3,12 @@ package main
 import (
 	"fmt"
 
+	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/echolabsinc/robotcore/vision/chess"
+
 	"github.com/tonyOreglia/glee/pkg/bitboard"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
-
-	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
 var (
@@ -43,12 +44,12 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) (bool, error) {
 
 	prev, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-2])
 	if err != nil {
-		fmt.Println(err)
+		log.Global.Error(err)
 		return true, nil
 	}
 	now, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-1])
 	if err != nil {
-		fmt.Println(err)
+		log.Global.Error(err)
 		return true, nil
 	}
 
@@ -99,7 +100,7 @@ func (state *boardStateGuesser) GetBitBoard() (*bitboard.Bitboard, error) {
 	if err != nil {
 		return bb, err
 	}
-	for k, _ := range m {
+	for k := range m {
 		idx, err := moves.ConvertAlgebriacToIndex(k)
 		if err != nil {
 			return bb, err
