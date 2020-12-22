@@ -43,7 +43,7 @@ func main() {
 	}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
-		log.Global.Debug(x, y)
+		log.Global.Debugw("got click", "x", x, "y", y)
 	})
 
 	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)

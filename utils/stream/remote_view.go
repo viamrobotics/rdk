@@ -11,6 +11,7 @@ import (
 	"image"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -171,6 +172,21 @@ func (brv *basicRemoteView) Handler() RemoteViewHandler {
 		if err != nil {
 			panic(err)
 		}
+		dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
+			coords := strings.Split(string(msg.Data), ",")
+			if len(coords) != 2 {
+				panic(len(coords))
+			}
+			x, err := strconv.ParseFloat(coords[0], 32)
+			if err != nil {
+				panic(err)
+			}
+			y, err := strconv.ParseFloat(coords[1], 32)
+			if err != nil {
+				panic(err)
+			}
+			brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
+		})
 
 		// Set the remote SessionDescription
 		if err := peerConnection.SetRemoteDescription(offer); err != nil {
@@ -356,38 +372,7 @@ func (brv *basicRemoteView) processInputFrames() {
 	}
 }
 
-// TODO(erd): refactor and move out unncessary (panickable especially) parts
 func (brv *basicRemoteView) processOutputFrames() {
-	// Wait for connection established
-
-	// brv.dataChannel.OnOpen(func() {
-	// 	for {
-	// 		time.Sleep(time.Second)
-	// 		// println("SEND TEXT")
-	// 		if err := brv.dataChannel.SendText("hello"); err != nil {
-	// 			panic(err)
-	// 		}
-	// 		// println("SENT TEXT")
-	// 	}
-	// })
-	// brv.dataChannel.OnMessage(func(msg webrtc.DataChannelMessage) {
-	// 	coords := strings.Split(string(msg.Data), ",")
-	// 	if len(coords) != 2 {
-	// 		panic(len(coords))
-	// 	}
-	// 	x, err := strconv.ParseFloat(coords[0], 32)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	y, err := strconv.ParseFloat(coords[1], 32)
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	brv.onClickHandler(int(x), int(y)) // handler should return fast otherwise it could block
-	// })
-
-	// Send our video file frame at a time. Pace our sending so we send it at the same speed it should be played back as.
-	// This isn't required since the video is timestamped, but we will such much higher loss if we send all at once.
 	framesSent := 0
 	for outputFrame := range brv.outputFrames {
 		now := time.Now()
