@@ -49,36 +49,52 @@ void rgba2yuv(void *destination, void *source, int width, int height, int stride
 */
 import "C"
 
-func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal time.Duration) {
-	time.Sleep(2 * time.Second)
+func streamFunc(once func(), f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
+	if once != nil {
+		once()
+	}
 	<-remoteView.Ready()
 	for {
 		time.Sleep(captureInternal)
-		remoteView.InputFrames() <- window.Canvas().Capture()
+		remoteView.InputFrames() <- f()
 	}
 }
 
+func StreamFunc(f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
+	streamFunc(nil, f, remoteView, captureInternal)
+}
+
+func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal time.Duration) {
+	streamFunc(
+		func() { time.Sleep(2 * time.Second) },
+		func() image.Image { return window.Canvas().Capture() },
+		remoteView,
+		captureInternal,
+	)
+}
+
 func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInternal time.Duration, logger log.Logger) {
-	<-remoteView.Ready()
-	for {
-		now := time.Now()
-		mat, _, err := src.NextColorDepthPair()
-		if err != nil {
-			panic(err) // TODO(err): don't panic... bones, sinking like stones
-		}
-		func() {
+	streamFunc(
+		nil,
+		func() image.Image {
+			now := time.Now()
+			mat, _, err := src.NextColorDepthPair()
+			if err != nil {
+				panic(err) // TODO(err): don't panic... bones, sinking like stones
+			}
 			defer mat.Close()
 			if remoteView.Debug() {
 				logger.Debugw("NextColorDepthPair", "elapsed", time.Since(now))
 			}
-			// time.Sleep(captureInternal)
 			img, err := mat.ToImage()
 			if err != nil {
 				panic(err) // TODO(err): don't panic
 			}
-			remoteView.InputFrames() <- img
-		}()
-	}
+			return img
+		},
+		remoteView,
+		captureInternal,
+	)
 }
 
 // RgbaToYuv convert to yuv from rgba
