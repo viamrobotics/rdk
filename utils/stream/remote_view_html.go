@@ -24,16 +24,16 @@ const start = function() {
   const calculateClick = (el, event) => {
     // https://stackoverflow.com/a/288731/1497139
     bounds = el.getBoundingClientRect();
-    let left =bounds.left;
-    let top =bounds.top;
+    let left = bounds.left;
+    let top = bounds.top;
     let x = event.pageX - left;
     let y = event.pageY - top;
     let cw = el.clientWidth
     let ch = el.clientHeight
     let iw = el.videoWidth
     let ih = el.videoHeight
-    let px = x/cw*iw
-    let py = y/ch*ih
+    let px = x / cw * iw
+    let py = y / ch * ih
     return {x: px, y: py};
   }
 
@@ -45,7 +45,7 @@ const start = function() {
     videoElement.autoplay = true;
     videoElement.controls = false;
     videoElement.playsInline = true;
-    videoElement.onclick = events => {
+    videoElement.onclick = event => {
       coords = calculateClick(videoElement, event);
       clickChannel.send(coords.x + "," + coords.y);
     }
