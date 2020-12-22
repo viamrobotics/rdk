@@ -3,6 +3,7 @@ package stream
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"image"
@@ -49,23 +50,33 @@ void rgba2yuv(void *destination, void *source, int width, int height, int stride
 */
 import "C"
 
-func streamFunc(once func(), f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
+func streamFunc(ctx context.Context, once func(), f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
 	if once != nil {
 		once()
 	}
-	<-remoteView.Ready()
+	select {
+	case <-ctx.Done():
+		return
+	case <-remoteView.Ready():
+	}
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		time.Sleep(captureInternal)
 		remoteView.InputFrames() <- f()
 	}
 }
 
-func StreamFunc(f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
-	streamFunc(nil, f, remoteView, captureInternal)
+func StreamFunc(ctx context.Context, f func() image.Image, remoteView RemoteView, captureInternal time.Duration) {
+	streamFunc(ctx, nil, f, remoteView, captureInternal)
 }
 
-func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal time.Duration) {
+func StreamWindow(ctx context.Context, window fyne.Window, remoteView RemoteView, captureInternal time.Duration) {
 	streamFunc(
+		ctx,
 		func() { time.Sleep(2 * time.Second) },
 		func() image.Image { return window.Canvas().Capture() },
 		remoteView,
@@ -73,8 +84,9 @@ func StreamWindow(window fyne.Window, remoteView RemoteView, captureInternal tim
 	)
 }
 
-func StreamMatSource(src vision.MatSource, remoteView RemoteView, captureInternal time.Duration, logger log.Logger) {
+func StreamMatSource(ctx context.Context, src vision.MatSource, remoteView RemoteView, captureInternal time.Duration, logger log.Logger) {
 	streamFunc(
+		ctx,
 		nil,
 		func() image.Image {
 			now := time.Now()
