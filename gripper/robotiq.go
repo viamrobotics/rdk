@@ -36,7 +36,7 @@ func NewGripper(host string, logger log.Logger) (*Gripper, error) {
 			return nil, err
 		}
 
-		// TODO: the next 5 lines are infuriatng, help!
+		// TODO(erh): the next 5 lines are infuriatng, help!
 		if i[0] == "ACT" {
 			time.Sleep(1600 * time.Millisecond)
 		} else {
@@ -44,7 +44,7 @@ func NewGripper(host string, logger log.Logger) (*Gripper, error) {
 		}
 	}
 
-	err = g.Calibrate() // TODO: should this live elsewhere?
+	err = g.Calibrate() // TODO(erh): should this live elsewhere?
 	if err != nil {
 		return nil, err
 	}

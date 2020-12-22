@@ -1,6 +1,6 @@
 package stream
 
-// TODO: mem management with Ref, Deref, and cleanup?? REFACTOR AND CLEAN; make webpage auto connect
+// TODO(erd): mem management with Ref, Deref, and cleanup?? REFACTOR AND CLEAN; make webpage auto connect
 
 import (
 	"bufio"
