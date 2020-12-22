@@ -21,7 +21,7 @@ type MatSource interface {
 // ------
 
 type WebcamSource struct {
-	deviceId int
+	deviceID int
 	webcam   *gocv.VideoCapture
 }
 
@@ -35,18 +35,18 @@ func (we *WebcamSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 	ok := we.webcam.Read(&img)
 	if !ok {
 		img.Close()
-		return gocv.Mat{}, DepthMap{}, fmt.Errorf("cannot read webcam device: %d", we.deviceId)
+		return gocv.Mat{}, DepthMap{}, fmt.Errorf("cannot read webcam device: %d", we.deviceID)
 	}
 
 	return img, DepthMap{}, nil
 }
 
-func NewWebcamSource(deviceId int) (*WebcamSource, error) {
+func NewWebcamSource(deviceID int) (*WebcamSource, error) {
 	var err error
 	source := &WebcamSource{}
 
-	source.deviceId = deviceId
-	source.webcam, err = gocv.OpenVideoCapture(deviceId)
+	source.deviceID = deviceID
+	source.webcam, err = gocv.OpenVideoCapture(deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +56,12 @@ func NewWebcamSource(deviceId int) (*WebcamSource, error) {
 
 // -------
 
-type HttpSource struct {
+type HTTPSource struct {
 	ColorURL string // this is for a generic image
 	DepthURL string // this is for my bizarre custom data format for depth data
 }
 
-func _readyBytesFromUrl(url string) ([]byte, error) {
+func readyBytesFromURL(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -71,19 +71,19 @@ func _readyBytesFromUrl(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+func (hs *HTTPSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 
 	img := gocv.Mat{}
 	var depth DepthMap
 
-	colorData, err := _readyBytesFromUrl(hs.ColorURL)
+	colorData, err := readyBytesFromURL(hs.ColorURL)
 	if err != nil {
 		return img, depth, fmt.Errorf("couldn't ready color url: %s", err)
 	}
 
 	var depthData []byte
 	if hs.DepthURL != "" {
-		depthData, err = _readyBytesFromUrl(hs.DepthURL)
+		depthData, err = readyBytesFromURL(hs.DepthURL)
 		if err != nil {
 			return img, depth, fmt.Errorf("couldn't ready depth url: %s", err)
 		}
@@ -100,11 +100,11 @@ func (hs *HttpSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 	return img, depth, err
 }
 
-func (hs *HttpSource) Close() {
+func (hs *HTTPSource) Close() {
 }
 
-func NewHttpSourceIntelEliot(root string) *HttpSource {
-	return &HttpSource{
+func NewHTTPSourceIntelEliot(root string) *HTTPSource {
+	return &HTTPSource{
 		fmt.Sprintf("http://%s/pic.ppm", root),
 		fmt.Sprintf("http://%s/depth.dat", root),
 	}

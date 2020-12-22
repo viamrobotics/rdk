@@ -18,3 +18,11 @@
 * gripperPlay - test out gripper code
 * saveImageFromWebcam - really just to test out webcam capture code
 * vision - utilities for working with images to test out vision library code
+
+## Linting
+
+```
+go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
+go get -u github.com/edaniels/golinters/cmd/combined
+go vet -vettool=$(which combined) ./...
+```

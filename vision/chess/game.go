@@ -13,6 +13,8 @@ type Game struct {
 	edgesThreshold       int
 }
 
+const emptyStatus = "empty"
+
 func NewGame(initialBoard *Board) (*Game, error) {
 	pieceColorClassifier, err := buildPieceColorModel(initialBoard)
 	if err != nil {
@@ -40,13 +42,13 @@ func NewGame(initialBoard *Board) (*Game, error) {
 			//fmt.Printf("%s -> %v %v %v\n", square, height, status, edges)
 
 			if y == '1' || y == '2' || y == '7' || y == '8' {
-				if status == "empty" {
+				if status == emptyStatus {
 					return nil, fmt.Errorf("initial square %s wrong, got: %s", square, status)
 				}
 				pieceHeights = append(pieceHeights, height)
 				pieceEdges = append(pieceEdges, edges)
 			} else {
-				if status != "empty" {
+				if status != emptyStatus {
 					return nil, fmt.Errorf("initial square %s wrong, got: %s", square, status)
 				}
 				emptyHeights = append(emptyHeights, height)
@@ -63,7 +65,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	lowestPiece := pieceHeights[0]
 
 	if biggestEmpty >= lowestPiece {
-		return nil, fmt.Errorf("heighest empty square bigger than lowest piece %f %f", biggestEmpty, lowestPiece)
+		return nil, fmt.Errorf("highest empty square bigger than lowest piece %f %f", biggestEmpty, lowestPiece)
 	}
 
 	if biggestEmpty >= MinPieceDepth {
@@ -105,7 +107,7 @@ func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	res := pieceFromColor(g.pieceColorClassifier, edges, data)
 
 	if g.edgesThreshold >= 0 {
-		if res == "empty" && edges > g.edgesThreshold {
+		if res == emptyStatus && edges > g.edgesThreshold {
 			return "", fmt.Errorf("got empty but had %d edges for square: %s", edges, square)
 		}
 	}
@@ -123,7 +125,7 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	}
 	centerHeight := board.SquareCenterHeight(square, DepthCheckSizeRadius)
 	//fmt.Printf("%s %s %v\n", square, color, centerHeight)
-	if color == "empty" {
+	if color == emptyStatus {
 		if centerHeight < MinPieceDepth {
 			return 0, nil
 		}

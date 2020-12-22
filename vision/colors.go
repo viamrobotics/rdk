@@ -5,9 +5,10 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/lucasb-eyer/go-colorful"
-
 	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/echolabsinc/robotcore/utils/log"
+
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 type HSV struct {
@@ -28,10 +29,10 @@ func (c HSV) ToColorful() colorful.Color {
 	return colorful.Hsv(c.H, c.S, c.V)
 }
 
-func (a HSV) Distance(b HSV) float64 {
+func (c HSV) Distance(b HSV) float64 {
 	debug := false
 
-	h1, s1, v1 := a.Scale()
+	h1, s1, v1 := c.Scale()
 	h2, s2, v2 := b.Scale()
 
 	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color ing enral
@@ -71,13 +72,13 @@ func (a HSV) Distance(b HSV) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		fmt.Printf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", a, h1, s1, v1, b, h2, s2, v2)
-		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
-		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
-		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
-		fmt.Printf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
-		fmt.Printf("\t res: %f\n", res)
-		fmt.Printf("\t ac: %f\n", ac)
+		log.Global.Debugf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", c, h1, s1, v1, b, h2, s2, v2)
+		log.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
+		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
+		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
+		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
+		log.Global.Debugf("\t res: %f\n", res)
+		log.Global.Debugf("\t ac: %f\n", ac)
 	}
 	return res
 }
@@ -213,27 +214,13 @@ var (
 	}
 )
 
-func distance(a, b []int) float64 {
-	if len(a) != len(b) {
-		panic("not the same distance")
-	}
-
-	accum := 0.0
-
-	for idx, x := range a {
-		y := b[idx]
-		accum += math.Pow(float64(y-x), 2)
-	}
-	return math.Sqrt(accum)
-}
-
 func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 
-	r_line := (r1 + r2) / 2
+	rLine := (r1 + r2) / 2
 
-	diff := (2 + (r_line / 256)) * rcutil.Square(r2-r1)
+	diff := (2 + (rLine / 256)) * rcutil.Square(r2-r1)
 	diff += 4 * rcutil.Square(g2-g1)
-	diff += (2 + ((255 - r_line) / 256)) * rcutil.Square(b2-b1)
+	diff += (2 + ((255 - rLine) / 256)) * rcutil.Square(b2-b1)
 
 	return math.Sqrt(diff)
 }
@@ -251,7 +238,7 @@ func WhatColor(data Color) Color {
 	//fmt.Println("---")
 	for _, clr := range Colors {
 		x := clr.Distance(data)
-		//fmt.Printf("\t %s %f\n", name, x)
+		//log.Global.Debugf("\t %s %f\n", name, x)
 		if x > distance {
 			continue
 		}

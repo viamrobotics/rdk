@@ -66,9 +66,11 @@ func (c *GoLearnNNClassifier) Train(data [][]float64, correct []int) error {
 
 // --------
 
-func _glMakeClassifyDataSet(format *base.DenseInstances, data []float64) *base.DenseInstances {
+func _glMakeClassifyDataSet(format base.FixedDataGrid, data []float64) *base.DenseInstances {
 	di := base.NewStructuralCopy(format)
-	di.Extend(1)
+	if err := di.Extend(1); err != nil {
+		panic(err)
+	}
 	attrs := di.AllAttributes()
 	for x, a := range attrs {
 		if x >= len(data) {
@@ -108,20 +110,24 @@ func _glMakeDataSet(data [][]float64, correct []int) (base.FixedDataGrid, error)
 	}
 
 	if len(data) != len(correct) {
-		return nil, fmt.Errorf("data and correct not the same lenghts %d %d", len(data), len(correct))
+		return nil, fmt.Errorf("data and correct not the same lengths %d %d", len(data), len(correct))
 	}
 
 	rawData := base.NewDenseInstances()
 	specs := make([]base.AttributeSpec, len(data[0])+1)
-	for x, _ := range data[0] {
+	for x := range data[0] {
 		a := base.NewFloatAttribute(fmt.Sprintf("v%d", x))
 		specs[x] = rawData.AddAttribute(a)
 	}
 	ca := base.NewFloatAttribute("res")
 	specs[len(data[0])] = rawData.AddAttribute(ca)
-	rawData.AddClassAttribute(ca)
+	if err := rawData.AddClassAttribute(ca); err != nil {
+		return nil, err
+	}
 
-	rawData.Extend(len(data))
+	if err := rawData.Extend(len(data)); err != nil {
+		return nil, err
+	}
 	for x, row := range data {
 		for y, v := range row {
 			rawData.Set(specs[y], x, base.PackFloatToBytes(v))
