@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	gocolor "image/color"
 	"os"
 	"os/signal"
 	"sort"
@@ -15,10 +16,8 @@ import (
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/driver/desktop"
 	"fyne.io/fyne/test"
 	"fyne.io/fyne/theme"
-	"fyne.io/fyne/widget"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -177,7 +176,6 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 }
 
 func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
-	golog.Global.Debug("shapeWalkPiece")
 	init := img.ColorHSV(start)
 
 	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
@@ -191,14 +189,17 @@ func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, co
 	return nil
 }
 
-func shapeWalk(img vision.Image, startX, startY int) error {
+func shapeWalk(img vision.Image, startX, startY int) (*gocv.Mat, error) {
 	m := img.MatUnsafe()
+	m = m.Clone()
 
 	start := image.Point{startX, startY}
 
 	dots := map[string]int{} // 0 not seen, 1 seen and good, -1 seen and bad
 
-	shapeWalkPiece(img, start, dots, 1)
+	if err := shapeWalkPiece(img, start, dots, 1); err != nil {
+		return nil, err
+	}
 
 	for k, v := range dots {
 		if v < 0 {
@@ -208,7 +209,7 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 		var x, y int
 		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
 		if err != nil {
-			return fmt.Errorf("couldn't read key %s %s", k, err)
+			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
 		}
 
 		gocv.Circle(&m, image.Point{x, y}, 1, vision.Red.C, 1)
@@ -219,9 +220,7 @@ func shapeWalk(img vision.Image, startX, startY int) error {
 		gocv.Circle(&m, center, int(*radius), vision.Green.C, 1)
 	}
 
-	gocv.IMWrite(_getOutputfile(), m)
-
-	return nil
+	return &m, nil
 }
 
 type MyWalkError struct {
@@ -258,7 +257,9 @@ func shapeWalkEntire(img vision.Image) error {
 		}
 
 		start := found.(MyWalkError).pos
-		shapeWalkPiece(img, start, dots, color+1)
+		if err := shapeWalkPiece(img, start, dots, color+1); err != nil {
+			return err
+		}
 	}
 
 	for k, v := range dots {
@@ -281,34 +282,9 @@ func shapeWalkEntire(img vision.Image) error {
 	return nil
 }
 
-type colorHover struct {
-	fyne.CanvasObject
-	img      vision.Image
-	last     image.Point
-	textGrid *widget.TextGrid
-}
-
-func (ch *colorHover) MouseIn(e *desktop.MouseEvent) {}
-
-func (ch *colorHover) MouseMoved(e *desktop.MouseEvent) {
-	p := image.Point{e.Position.X, e.Position.Y}
-	if p.X == ch.last.X && p.Y == ch.last.Y {
-		return
-	}
-	ch.last = p
-	color := ch.img.Color(p)
-	colorHSV := ch.img.ColorHSV(p)
-	ch.textGrid.SetText(fmt.Sprintf("(x, y): (%d, %d)\nHSV: (%f, %f, %f)\nRGBA: (%d, %d, %d, %d)\n",
-		e.Position.X, e.Position.Y,
-		colorHSV.H, colorHSV.S, colorHSV.V,
-		color.R, color.G, color.B, color.A))
-}
-func (ch *colorHover) MouseOut() {}
-
 type ViewApp struct {
 	fyne.App
-	colorHoverElem *colorHover
-	mainWindow     fyne.Window
+	mainWindow fyne.Window
 }
 
 func newViewApp(img vision.Image) (*ViewApp, error) {
@@ -327,15 +303,9 @@ func newViewApp(img vision.Image) (*ViewApp, error) {
 	i2.SetMinSize(fyne.Size{img.Width(), img.Height()})
 	w.SetContent(i2)
 
-	info := widget.NewTextGridFromString("?")
-	w.Canvas().Overlays().Add(info)
-	colorHoverElem := &colorHover{i2, img, image.Point{}, info}
-	w.Canvas().Overlays().Add(colorHoverElem)
-
 	return &ViewApp{
-		App:            a,
-		colorHoverElem: colorHoverElem,
-		mainWindow:     w,
+		App:        a,
+		mainWindow: w,
 	}, nil
 }
 
@@ -349,12 +319,37 @@ func view(img vision.Image) error {
 	if err != nil {
 		return err
 	}
+	var last image.Point
 	remoteView.SetOnClickHandler(func(x, y int) {
-		app.colorHoverElem.MouseMoved(&desktop.MouseEvent{
-			PointEvent: fyne.PointEvent{
-				Position: fyne.Position{X: x, Y: y},
-			},
-		})
+		if x < 0 || y < 0 {
+			return
+		}
+		p := image.Point{x, y}
+		if p.X == last.X && p.Y == last.Y {
+			return
+		}
+		last = p
+		color := img.Color(p)
+		colorHSV := img.ColorHSV(p)
+		text := fmt.Sprintf("(x, y): (%d, %d); HSV: (%f, %f, %f); RGBA: (%d, %d, %d, %d)",
+			x, y,
+			colorHSV.H, colorHSV.S, colorHSV.V,
+			color.R, color.G, color.B, color.A)
+
+		walked, err := shapeWalk(img, x, y)
+		if err != nil {
+			panic(err)
+		}
+
+		gocv.PutText(walked, text, image.Pt(10, 20),
+			gocv.FontHersheyPlain, 1, gocolor.RGBA{255, 255, 255, 0}, 1)
+		matImg, err := walked.ToImage()
+		if err != nil {
+			panic(err)
+		}
+		imageCanvas := canvas.NewImageFromImage(matImg)
+		imageCanvas.SetMinSize(fyne.Size{walked.Cols(), walked.Rows()})
+		app.mainWindow.SetContent(imageCanvas)
 	})
 
 	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
@@ -407,9 +402,6 @@ func main() {
 	switch prog {
 	case "hsvHisto":
 		hsvHistogram(img)
-	case "shapeWalk":
-		// TODO(erd): combine onto view
-		err = shapeWalk(img, *xFlag, *yFlag)
 	case "shapeWalkEntire":
 		err = shapeWalkEntire(img)
 	case "shapeWalkLine":
