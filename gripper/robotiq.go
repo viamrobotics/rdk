@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/edaniels/golog"
 )
 
 type Gripper struct {
@@ -14,10 +14,10 @@ type Gripper struct {
 
 	openLimit  string
 	closeLimit string
-	logger     log.Logger
+	logger     golog.Logger
 }
 
-func NewGripper(host string, logger log.Logger) (*Gripper, error) {
+func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/edaniels/golog"
 )
 
 type ComponentType string
@@ -29,7 +29,7 @@ type Component struct {
 
 type Config struct {
 	Components []Component
-	Logger     log.Logger
+	Logger     golog.Logger
 }
 
 func ReadConfig(fn string) (Config, error) {

@@ -7,8 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/echolabsinc/robotcore/utils/log"
-
+	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
 )
 
@@ -66,7 +65,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 
 	for _, f := range files {
 		d.currentFile = f
-		log.Global.Debug(f)
+		golog.Global.Debug(f)
 		img := gocv.IMRead(f, gocv.IMReadUnchanged)
 
 		d.html.WriteString("<tr>")
@@ -83,6 +82,6 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	d.html.WriteString("</table></body></html>")
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
-	log.Global.Debug(htmlOutFile)
+	golog.Global.Debug(htmlOutFile)
 	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
 }
