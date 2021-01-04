@@ -18,7 +18,7 @@ func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.Re
 			now := time.Now()
 			mat, _, err := src.NextColorDepthPair()
 			if err != nil {
-				panic(err) // TODO(erd): don't panic... bones, sinking like stones
+				panic(err)
 			}
 			defer mat.Close()
 			if remoteView.Debug() {
@@ -26,7 +26,7 @@ func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.Re
 			}
 			img, err := mat.ToImage()
 			if err != nil {
-				panic(err) // TODO(erd): don't panic
+				panic(err)
 			}
 			return img
 		},
