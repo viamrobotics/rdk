@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils/log"
+	"github.com/edaniels/golog"
 )
 
 type URArm struct {
@@ -16,7 +16,7 @@ type URArm struct {
 	State    RobotState
 	Debug    bool
 	haveData bool
-	logger   log.Logger
+	logger   golog.Logger
 }
 
 func (arm *URArm) Close() {
@@ -30,7 +30,7 @@ func URArmConnect(host string) (*URArm, error) {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, Debug: false, haveData: false, logger: log.Global}
+	arm := &URArm{conn: conn, Debug: false, haveData: false, logger: golog.Global}
 
 	go reader(conn, arm) // TODO(erh): how to shutdown
 

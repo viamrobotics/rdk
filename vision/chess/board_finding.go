@@ -5,9 +5,9 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 
+	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 	"gocv.io/x/gocv"
 )
@@ -55,7 +55,7 @@ func FindChessCornersPinkCheatInQuadrant(img vision.Image, out *gocv.Mat, cnts [
 	maxCheckForGreen := img.Rows() / 25
 
 	if debug {
-		log.Global.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
+		golog.Global.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
 	}
 
 	for i := 0; i < 50; i++ {
@@ -117,7 +117,7 @@ func FindChessCornersPinkCheat(img vision.Image, out *gocv.Mat) ([]image.Point, 
 				if y == 127 && x > 250 && x < 350 {
 					temp, _ := colorful.MakeColor(data)
 					h, s, v := temp.Hsv()
-					log.Global.Debugf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
+					golog.Global.Debugf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
 					redLittleCircles = append(redLittleCircles, p)
 				}
 			}

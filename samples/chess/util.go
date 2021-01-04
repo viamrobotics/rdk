@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
+	"github.com/edaniels/golog"
 	"github.com/tonyOreglia/glee/pkg/bitboard"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
@@ -44,12 +44,12 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) (bool, error) {
 
 	prev, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-2])
 	if err != nil {
-		log.Global.Error(err)
+		golog.Global.Error(err)
 		return true, nil
 	}
 	now, err := state.game.GetSquaresWithPieces(state.boards[len(state.boards)-1])
 	if err != nil {
-		log.Global.Error(err)
+		golog.Global.Error(err)
 		return true, nil
 	}
 

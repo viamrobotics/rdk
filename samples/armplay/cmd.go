@@ -8,13 +8,13 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/app"
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/widget"
+	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
 )
 
@@ -46,7 +46,7 @@ func main() {
 		panic(err)
 	}
 
-	myGripper, err := gripper.NewGripper(robotIP, log.Global)
+	myGripper, err := gripper.NewGripper(robotIP, golog.Global)
 	if err != nil {
 		panic(err)
 	}
@@ -120,11 +120,11 @@ func main() {
 			w.Close()
 
 		default:
-			log.Global.Debugf("unknown: %s\n", k.Name)
+			golog.Global.Debugf("unknown: %s\n", k.Name)
 			changed = false
 		}
 		if changed {
-			log.Global.Debugf("moving\n-%s\n-%s\n", pre, c.SimpleString())
+			golog.Global.Debugf("moving\n-%s\n-%s\n", pre, c.SimpleString())
 			myArm.MoveToPositionC(c)
 		}
 	})
@@ -135,7 +135,7 @@ func main() {
 			func() {
 				defer img.Close()
 				if err != nil || img.Empty() {
-					log.Global.Debugf("error reading device: %s\n", err)
+					golog.Global.Debugf("error reading device: %s\n", err)
 					return
 				}
 
@@ -148,7 +148,7 @@ func main() {
 
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					fn := fmt.Sprintf("data/img-%d.jpg", time.Now().Unix())
-					log.Global.Debugf("saving image %s\n", fn)
+					golog.Global.Debugf("saving image %s\n", fn)
 					gocv.IMWrite(fn, img)
 					atomic.StoreInt32(&wantPicture, 0)
 				}

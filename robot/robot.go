@@ -5,8 +5,9 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
+
+	"github.com/edaniels/golog"
 )
 
 type Robot struct {
@@ -65,7 +66,7 @@ func NewRobot(cfg Config) (*Robot, error) {
 	r := &Robot{}
 	logger := cfg.Logger
 	if logger == nil {
-		logger = log.Global
+		logger = golog.Global
 	}
 
 	for _, c := range cfg.Components {
@@ -108,7 +109,7 @@ func newArm(config Component) (*arm.URArm, error) {
 	}
 }
 
-func newGripper(config Component, logger log.Logger) (*gripper.Gripper, error) {
+func newGripper(config Component, logger golog.Logger) (*gripper.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
 		return gripper.NewGripper(config.Host, logger)

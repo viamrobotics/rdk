@@ -2,11 +2,12 @@ package main
 
 import (
 	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/utils/log"
+
+	"github.com/edaniels/golog"
 )
 
 func main() {
-	g, err := gripper.NewGripper("192.168.2.2", log.Global)
+	g, err := gripper.NewGripper("192.168.2.2", golog.Global)
 	if err != nil {
 		panic(err)
 	}

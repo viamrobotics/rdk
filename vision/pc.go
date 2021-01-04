@@ -6,8 +6,7 @@ import (
 	"image/color"
 	"io"
 
-	"github.com/echolabsinc/robotcore/utils/log"
-
+	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
 )
 
@@ -183,7 +182,7 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 	}
 
 	scale := float32(pc.Depth.max - pc.Depth.min)
-	log.Global.Debugf("min: %d max: %d scale: %f\n", pc.Depth.min, pc.Depth.max, scale)
+	golog.Global.Debugf("min: %d max: %d scale: %f\n", pc.Depth.min, pc.Depth.max, scale)
 
 	for x := 0; x < pc.Depth.Width(); x++ {
 		for y := 0; y < pc.Depth.Height(); y++ {

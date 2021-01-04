@@ -14,7 +14,6 @@ import (
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/robot"
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
@@ -23,6 +22,7 @@ import (
 	"fyne.io/fyne/canvas"
 	"fyne.io/fyne/widget"
 	"github.com/Ernyoke/Imger/resize"
+	"github.com/edaniels/golog"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
@@ -90,7 +90,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if toHeight > 0 {
-			log.Global.Debugf("moving piece from %s to %s but occupied, going to capture\n", from, to)
+			golog.Global.Debugf("moving piece from %s to %s but occupied, going to capture\n", from, to)
 			err = movePiece(boardState, myArm, myGripper, to, "-")
 			if err != nil {
 				return err
@@ -121,7 +121,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if grabbedSomething {
-			log.Global.Debugf("got a piece at height %f\n", where.Z)
+			golog.Global.Debugf("got a piece at height %f\n", where.Z)
 			// got the piece
 			break
 		}
@@ -129,7 +129,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 		if err != nil {
 			return err
 		}
-		log.Global.Debug("no piece")
+		golog.Global.Debug("no piece")
 		where = myArm.State.CartesianInfo
 		where.Z = where.Z - .01
 		if where.Z <= BoardHeight {
@@ -292,7 +292,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
 	}
 
-	log.Global.Debugf("Corners: %v\n", corners)
+	golog.Global.Debugf("Corners: %v\n", corners)
 
 	return corners, imageSize, err
 }
@@ -310,7 +310,7 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 		xMove := (.5 - xRatio) / 8
 		yMove := (.5 - yRatio) / -8
 
-		log.Global.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
+		golog.Global.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
 
 		if math.Abs(xMove) < .001 && math.Abs(yMove) < .001 {
 			Center = pos{where.X, where.Y}
@@ -319,9 +319,9 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 			Center.x += .026
 			Center.y -= .073
 
-			log.Global.Debugf("Center: %v\n", Center)
-			log.Global.Debugf("a1: %v\n", getCoord("a1"))
-			log.Global.Debugf("h8: %v\n", getCoord("h8"))
+			golog.Global.Debugf("Center: %v\n", Center)
+			golog.Global.Debugf("a1: %v\n", getCoord("a1"))
+			golog.Global.Debugf("h8: %v\n", getCoord("h8"))
 			return nil
 		}
 
@@ -395,7 +395,7 @@ func main() {
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
-			log.Global.Fatal(err)
+			golog.Global.Fatal(err)
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
@@ -474,7 +474,7 @@ func main() {
 					}
 				}()
 				if err != nil || img.Empty() {
-					log.Global.Debugf("error reading device: %s\n", err)
+					golog.Global.Debugf("error reading device: %s\n", err)
 					return
 				}
 
@@ -485,13 +485,13 @@ func main() {
 
 				i2, err := vision.NewImage(img)
 				if err != nil {
-					log.Global.Debug(err)
+					golog.Global.Debug(err)
 					return
 				}
 
 				theBoard, err := chess.FindAndWarpBoard(i2, depth)
 				if err != nil {
-					log.Global.Debug(err)
+					golog.Global.Debug(err)
 					return
 				}
 				boardCreated = true
@@ -499,7 +499,7 @@ func main() {
 				func() {
 					defer theBoard.Close()
 					if theBoard.IsBoardBlocked() {
-						log.Global.Debug("board blocked")
+						golog.Global.Debug("board blocked")
 						boardState.Clear()
 						return
 					}
@@ -507,7 +507,7 @@ func main() {
 					interessting, err := boardState.newData(theBoard)
 					if err != nil {
 						wantPicture = 1
-						log.Global.Debug(err)
+						golog.Global.Debug(err)
 						boardState.Clear()
 					} else if interessting {
 						wantPicture = 1
@@ -517,24 +517,24 @@ func main() {
 						if !initialPositionOk {
 							bb, err := boardState.GetBitBoard()
 							if err != nil {
-								log.Global.Debug("got inconsistency reading board, let's try again")
+								golog.Global.Debug("got inconsistency reading board, let's try again")
 								boardState.Clear()
 							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-								log.Global.Debugf("not in initial chess piece setup\n")
+								golog.Global.Debugf("not in initial chess piece setup\n")
 								bb.Print()
 							} else {
 								initialPositionOk = true
-								log.Global.Debugf("GOT initial chess piece setup\n")
+								golog.Global.Debugf("GOT initial chess piece setup\n")
 							}
 						} else {
 							// so we've already made sure we're safe, let's see if a move was made
 							m, err := boardState.GetPrevMove(currentPosition)
 							if err != nil {
 								// trouble reading board, let's reset
-								log.Global.Debug("got inconsistency reading board, let's try again")
+								golog.Global.Debug("got inconsistency reading board, let's try again")
 								boardState.Clear()
 							} else if m != nil {
-								log.Global.Debugf("we detected a move: %s\n", m)
+								golog.Global.Debugf("we detected a move: %s\n", m)
 
 								if !engine.MakeValidMove(*m, &currentPosition) {
 									panic("invalid move!")
@@ -544,7 +544,7 @@ func main() {
 								currentPosition.PrintFen()
 
 								currentPosition, m = searchForNextMove(currentPosition)
-								log.Global.Debugf("computer will make move: %s\n", m)
+								golog.Global.Debugf("computer will make move: %s\n", m)
 								err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
 								if err != nil {
 									panic(err)
@@ -579,7 +579,7 @@ func main() {
 						tm := time.Now().Unix()
 
 						fn := fmt.Sprintf("data/board-%d.png", tm)
-						log.Global.Debugf("saving image %s\n", fn)
+						golog.Global.Debugf("saving image %s\n", fn)
 						gocv.IMWrite(fn, img)
 
 						fn = fmt.Sprintf("data/board-%d.dat.gz", tm)

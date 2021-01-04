@@ -16,10 +16,12 @@ import (
 	"time"
 
 	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/vpx"
 	"github.com/jacobsa/go-serial/serial"
 )
 
@@ -174,7 +176,7 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.FormValue("speed") != "" {
 		speed2, err := strconv.ParseInt(req.FormValue("speed"), 10, 64)
 		if err != nil {
-			log.Global.Debugf("bad speed [%s] %s", req.FormValue("speed"), err)
+			golog.Global.Debugf("bad speed [%s] %s", req.FormValue("speed"), err)
 		}
 		speed = int(speed2)
 	}
@@ -182,7 +184,7 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	a := FindAction(req.FormValue("a"))
 	if a == nil {
 		io.WriteString(w, "unknown action: "+req.FormValue("a"))
-		log.Global.Debugf("unknown action: %s", req.FormValue("a"))
+		golog.Global.Debugf("unknown action: %s", req.FormValue("a"))
 		return
 	}
 
@@ -200,7 +202,7 @@ func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 type WebApp struct {
 	template    *template.Template
-	remoteViews []stream.RemoteView
+	remoteViews []gostream.RemoteView
 }
 
 func (app *WebApp) Init() error {
@@ -223,7 +225,7 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if true {
 		err := app.Init()
 		if err != nil {
-			log.Global.Debugf("couldn't reload template: %s", err)
+			golog.Global.Debugf("couldn't reload template: %s", err)
 			return
 		}
 	}
@@ -249,7 +251,7 @@ func (app *WebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := app.template.Execute(w, temp)
 	if err != nil {
-		log.Global.Debugf("couldn't execute web page: %s", err)
+		golog.Global.Debugf("couldn't execute web page: %s", err)
 	}
 }
 
@@ -259,7 +261,7 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 	for {
 		mat, dm, err := camera.NextColorDepthPair()
 		if err != nil {
-			log.Global.Debugf("error reading camera: %s\n", err)
+			golog.Global.Debugf("error reading camera: %s\n", err)
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}
@@ -267,7 +269,7 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 			defer mat.Close()
 			img, err := vision.NewImage(mat)
 			if err != nil {
-				log.Global.Debugf("error parsing image: %s", err)
+				golog.Global.Debugf("error parsing image: %s", err)
 				return
 			}
 
@@ -275,17 +277,17 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 			pc, err = pc.CropToDepthData()
 
 			if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
-				log.Global.Debugf("error getting deth info: %s, backing up", err)
+				golog.Global.Debugf("error getting deth info: %s, backing up", err)
 				rover.MoveFor(MustFindAction("backward"), 60, 1500*time.Millisecond)
 				return
 			}
 
 			points := roverWalk(&pc, nil)
 			if points < 100 {
-				log.Global.Debugf("safe to move forward")
+				golog.Global.Debugf("safe to move forward")
 				rover.MoveFor(MustFindAction("forward"), 35, 1500*time.Millisecond)
 			} else {
-				log.Global.Debugf("not safe, let's spin")
+				golog.Global.Debugf("not safe, let's spin")
 				rover.MoveFor(MustFindAction("spin left"), 60, 600*time.Millisecond)
 			}
 		}()
@@ -305,18 +307,18 @@ func main() {
 
 	options, err := getSerialConfig()
 	if err != nil {
-		log.Global.Fatalf("can't get serial config: %v", err)
+		golog.Global.Fatalf("can't get serial config: %v", err)
 	}
 
 	port, err := serial.Open(options)
 	if err != nil {
-		log.Global.Fatalf("can't option serial port %v", err)
+		golog.Global.Fatalf("can't option serial port %v", err)
 	}
 	defer port.Close()
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	log.Global.Debug("ready")
+	golog.Global.Debug("ready")
 
 	rover := Rover{}
 	rover.out = port
@@ -325,18 +327,18 @@ func main() {
 	realCameraSrc := vision.NewHTTPSourceIntelEliot(srcURL)
 
 	cameraSrc := &vision.HTTPSource{realCameraSrc.ColorURL, ""}
-	config := stream.DefaultRemoteViewConfig
+	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
-	remoteView, err := stream.NewRemoteView(config)
+	remoteView, err := gostream.NewRemoteView(config)
 	if err != nil {
 		panic(err)
 	}
 
-	views := []stream.RemoteView{remoteView}
+	views := []gostream.RemoteView{remoteView}
 	app := &WebApp{remoteViews: views}
 	err = app.Init()
 	if err != nil {
-		log.Global.Fatalf("couldn't create web app: %s", err)
+		golog.Global.Fatalf("couldn't create web app: %s", err)
 	}
 
 	httpServer := &http.Server{
@@ -356,7 +358,7 @@ func main() {
 		httpServer.Shutdown(context.Background())
 	}()
 
-	go stream.StreamMatSource(cancelCtx, cameraSrc, remoteView, 33*time.Millisecond, log.Global)
+	go stream.MatSource(cancelCtx, cameraSrc, remoteView, 33*time.Millisecond, golog.Global)
 	go driveMyself(&rover, realCameraSrc)
 
 	mux := http.NewServeMux()
@@ -368,7 +370,7 @@ func main() {
 		mux.Handle("/"+handler.Name, handler.Func)
 	}
 
-	log.Global.Debug("going to listen")
+	golog.Global.Debug("going to listen")
 	httpServer.Handler = mux
-	log.Global.Fatal(httpServer.ListenAndServe())
+	golog.Global.Fatal(httpServer.ListenAndServe())
 }

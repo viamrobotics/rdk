@@ -11,10 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/vpx"
 	"github.com/kbinani/screenshot"
 )
 
@@ -38,18 +40,18 @@ func main() {
 		src = &vision.HTTPSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
 	}
 
-	config := stream.DefaultRemoteViewConfig
+	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
-	remoteView, err := stream.NewRemoteView(config)
+	remoteView, err := gostream.NewRemoteView(config)
 	if err != nil {
 		panic(err)
 	}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
-		log.Global.Debugw("got click", "x", x, "y", y)
+		golog.Global.Debugw("got click", "x", x, "y", y)
 	})
 
-	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)
+	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
 	server.Run()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -62,7 +64,7 @@ func main() {
 
 	if flag.Arg(0) == "screen" {
 		bounds := screenshot.GetDisplayBounds(0)
-		stream.StreamFunc(cancelCtx, func() image.Image {
+		gostream.StreamFunc(cancelCtx, func() image.Image {
 			img, err := screenshot.CaptureRect(bounds)
 			if err != nil {
 				panic(err)
@@ -70,7 +72,7 @@ func main() {
 			return img
 		}, remoteView, 33*time.Millisecond)
 	} else {
-		stream.StreamMatSource(cancelCtx, src, remoteView, 33*time.Millisecond, log.Global)
+		stream.MatSource(cancelCtx, src, remoteView, 33*time.Millisecond, golog.Global)
 	}
 	server.Stop(context.Background())
 }

@@ -5,9 +5,9 @@ import (
 	"image"
 
 	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 
+	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
 )
 
@@ -78,7 +78,7 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 	}
 
-	log.Global.Debugf("\t %d\n", points)
+	golog.Global.Debugf("\t %d\n", points)
 
 	return points
 }

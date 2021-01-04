@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/utils/log"
 
+	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 )
 
@@ -41,28 +41,28 @@ func getSerialConfig() (serial.OpenOptions, error) {
 func main() {
 	options, err := getSerialConfig()
 	if err != nil {
-		log.Global.Fatalf("can't get serial config: %v", err)
+		golog.Global.Fatalf("can't get serial config: %v", err)
 	}
 
 	port, err := serial.Open(options)
 	if err != nil {
-		log.Global.Fatalf("can't option serial port %v", err)
+		golog.Global.Fatalf("can't option serial port %v", err)
 	}
 	defer port.Close()
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	log.Global.Debug("ready\n")
+	golog.Global.Debug("ready\n")
 
 	for {
 		buf := make([]byte, 10)
 		n, err := os.Stdin.Read(buf)
 		if err != nil {
-			log.Global.Fatalf("couldn't read from stdin (%d), %v", n, err)
+			golog.Global.Fatalf("couldn't read from stdin (%d), %v", n, err)
 		}
 
 		if n != 3 {
-			log.Global.Debugf("bad input (%s)\n", string(buf))
+			golog.Global.Debugf("bad input (%s)\n", string(buf))
 		}
 
 		port.Write([]byte{buf[0], buf[1]})

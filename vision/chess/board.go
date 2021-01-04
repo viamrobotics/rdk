@@ -6,9 +6,9 @@ import (
 	"math"
 	"sort"
 
-	"github.com/echolabsinc/robotcore/utils/log"
 	"github.com/echolabsinc/robotcore/vision"
 
+	"github.com/edaniels/golog"
 	"github.com/gonum/stat"
 	"gocv.io/x/gocv"
 )
@@ -17,7 +17,7 @@ type Board struct {
 	color  vision.Image // TODO(erh): should we get rid of
 	depth  vision.DepthMap
 	edges  gocv.Mat
-	logger log.Logger
+	logger golog.Logger
 }
 
 func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
@@ -57,7 +57,7 @@ func FindAndWarpBoard(color vision.Image, depth vision.DepthMap) (*Board, error)
 	edges := gocv.NewMat()
 	gocv.Canny(a.MatUnsafe(), &edges, 32, 32) // magic number
 
-	return &Board{a, b, edges, log.Global}, nil
+	return &Board{a, b, edges, golog.Global}, nil
 }
 
 func (b *Board) Close() {

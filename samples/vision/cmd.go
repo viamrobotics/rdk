@@ -1,8 +1,6 @@
 package main
 
 import (
-	//"context"
-
 	"context"
 	"flag"
 	"fmt"
@@ -13,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils/log"
-	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"fyne.io/fyne"
@@ -24,6 +20,10 @@ import (
 	"fyne.io/fyne/theme"
 	"fyne.io/fyne/widget"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/gostream/codec/vpx"
+	fyneutils "github.com/edaniels/gostream/utils/fyne"
 	"github.com/gonum/stat"
 	"github.com/lucasb-eyer/go-colorful"
 	"gocv.io/x/gocv"
@@ -46,7 +46,7 @@ func _getOutputfile() string {
 func _hsvHistogramHelp(name string, data []float64) {
 	sort.Float64s(data)
 	mean, stdDev := stat.MeanStdDev(data, nil)
-	log.Global.Debugf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
+	golog.Global.Debugf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
 }
 
 func hsvHistogram(img vision.Image) {
@@ -101,7 +101,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		hsv := img.ColorHSV(p)
 
 		diff := init.Distance(hsv)
-		log.Global.Debugf("%v %v %v\n", p, hsv, diff)
+		golog.Global.Debugf("%v %v %v\n", p, hsv, diff)
 
 		if diff > 12 {
 			init = hsv
@@ -155,7 +155,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 
 	if *debug {
 		distanceFromPoint := vision.PointDistance(start, image.Point{*xFlag, *yFlag})
-		log.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
+		golog.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
 			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance, distanceFromPoint)
 	}
 	if !good {
@@ -177,7 +177,7 @@ func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.
 }
 
 func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
-	log.Global.Debug("shapeWalkPiece")
+	golog.Global.Debug("shapeWalkPiece")
 	init := img.ColorHSV(start)
 
 	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
@@ -340,7 +340,7 @@ func newViewApp(img vision.Image) (*ViewApp, error) {
 }
 
 func view(img vision.Image) error {
-	remoteView, err := stream.NewRemoteView(stream.DefaultRemoteViewConfig)
+	remoteView, err := gostream.NewRemoteView(vpx.DefaultRemoteViewConfig)
 	if err != nil {
 		return err
 	}
@@ -357,14 +357,14 @@ func view(img vision.Image) error {
 		})
 	})
 
-	server := stream.NewRemoteViewServer(5555, remoteView, log.Global)
+	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
 	server.Run()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go stream.StreamWindow(cancelCtx, app.mainWindow, remoteView, 250*time.Millisecond)
+	go fyneutils.StreamWindow(cancelCtx, app.mainWindow, remoteView, 250*time.Millisecond)
 	app.mainWindow.ShowAndRun()
 
 	<-c
