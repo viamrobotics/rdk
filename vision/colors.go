@@ -6,8 +6,8 @@ import (
 	"math"
 
 	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/utils/log"
 
+	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -72,13 +72,13 @@ func (c HSV) Distance(b HSV) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		log.Global.Debugf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", c, h1, s1, v1, b, h2, s2, v2)
-		log.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
-		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
-		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
-		log.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
-		log.Global.Debugf("\t res: %f\n", res)
-		log.Global.Debugf("\t ac: %f\n", ac)
+		golog.Global.Debugf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", c, h1, s1, v1, b, h2, s2, v2)
+		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
+		golog.Global.Debugf("\t res: %f\n", res)
+		golog.Global.Debugf("\t ac: %f\n", ac)
 	}
 	return res
 }
@@ -238,7 +238,7 @@ func WhatColor(data Color) Color {
 	//fmt.Println("---")
 	for _, clr := range Colors {
 		x := clr.Distance(data)
-		//log.Global.Debugf("\t %s %f\n", name, x)
+		//golog.Global.Debugf("\t %s %f\n", name, x)
 		if x > distance {
 			continue
 		}
