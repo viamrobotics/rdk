@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"html/template"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -301,4 +302,40 @@ func TestHSVDistanceChess4(t *testing.T) {
 		}
 	}
 
+}
+
+type ColorDiff struct {
+	Left  HSV
+	Right HSV
+	Diff  float64
+}
+
+type ColorDiffs []ColorDiff
+
+func (x *ColorDiffs) output() string {
+	t := "<html><body><table>" +
+		"{{ range .}}" +
+		"<tr>" +
+		"<td style='background-color:{{.Left.ToColorful.Hex}}'>{{ .Left.ToColorful.Hex }}&nbsp;</td>" +
+		"<td style='background-color:{{.Right.ToColorful.Hex}}'>{{ .Right.ToColorful.Hex }}&nbsp;</td>" +
+		"<td>{{ .Diff }}</td>" +
+		"</tr>" +
+		"{{end}}" +
+		"</table></body></html>"
+
+	tt, err := template.New("temp").Parse(t)
+	if err != nil {
+		panic(err)
+	}
+
+	w := strings.Builder{}
+	err = tt.Execute(&w, x)
+	if err != nil {
+		panic(err)
+	}
+	return w.String()
+}
+
+func (x *ColorDiffs) writeTo(fn string) error {
+	return ioutil.WriteFile(fn, []byte(x.output()), 0640)
 }
