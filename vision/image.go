@@ -90,6 +90,21 @@ func (i *Image) ColorRowCol(row, col int) color.RGBA {
 	return c
 }
 
+func (i *Image) SetHSV(p image.Point, c HSV) {
+	i.SetColor(p, c.ToColor())
+}
+
+func (i *Image) SetColor(p image.Point, c Color) {
+	i.SetColorRowCol(p.Y, p.X, c)
+}
+
+func (i *Image) SetColorRowCol(row, col int, c Color) {
+	base := 3 * (row*i.width + col)
+	i.data[base+2] = c.C.R
+	i.data[base+1] = c.C.G
+	i.data[base+0] = c.C.B
+}
+
 func (i *Image) AverageColor(p image.Point) color.RGBA {
 	return i.AverageColorXY(p.X, p.Y)
 }

@@ -25,6 +25,10 @@ func (c HSV) Scale() (float64, float64, float64) {
 	return c.H / 360, c.S, c.V
 }
 
+func (c HSV) ToColor() Color {
+	return NewColorFromColorful(c.ToColorful())
+}
+
 func (c HSV) ToColorful() colorful.Color {
 	return colorful.Hsv(c.H, c.S, c.V)
 }
