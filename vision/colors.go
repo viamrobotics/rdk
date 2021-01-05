@@ -33,6 +33,19 @@ func (c HSV) ToColorful() colorful.Color {
 	return colorful.Hsv(c.H, c.S, c.V)
 }
 
+// a and b are between 0 and 1 but it's circular
+// so .999 and .001 are .002 apart
+func _loopedDiff(a, b float64) float64 {
+	A := math.Max(a, b)
+	B := math.Min(a, b)
+
+	d := A - B
+	if d > .5 {
+		d = 1 - d
+	}
+	return d
+}
+
 func (c HSV) Distance(b HSV) float64 {
 	debug := false
 
@@ -40,49 +53,82 @@ func (c HSV) Distance(b HSV) float64 {
 	h2, s2, v2 := b.Scale()
 
 	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color ing enral
-	ws := 5.0
+	ws := 6.5
 	wv := 5.0
 
 	ac := -1.0
+	dd := 1.0
+
 	if v1 < .13 || v2 < .13 {
 		// we're in the dark range
 		wh /= 50
 		ws /= 10
-		wv *= 1
+		wv *= 1.5
 	} else if s1 < .1 || s2 < .1 {
 		// we're in the light range
-		wh /= 1000
-		ws *= 100
-		wv *= 100
-	} else if s1 < .45 || v1 < .45 || s2 < .45 || v2 < .45 {
-		// we're playing with the angle of the v1,s1 -> v2,s2 vector
-		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-		ac = math.Pow(ac, .3333)
-		wh *= rcutil.Square(1 - ac)                // the further from normal the more we care about hue
-		ws *= 4.7 * ac * math.Pow(1-(s1+s2)/2, .3) // the higher the saturation, the less saturation differences matter
-		wv *= 1.1 * ac
+		wh /= 100
+		ws *= 1.5
+		wv *= 1.5
 	} else {
-		// we're playing with the angle of the v1,s1 -> v2,s2 vector
-		ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-		wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
-		ws *= 3.2 * ac
-		wv *= 1.2 * ac
+		// if dd is 0, hue is less important, if dd is 2, hue is more important
+		dd = rcutil.Square(math.Min(s1, s2)) + rcutil.Square(math.Min(v1, v2)) // 0 -> 2
+
+		DD_SCALE := 5.0
+		dds := dd / DD_SCALE
+		dds += (1 - (1 / DD_SCALE))
+		wh *= dds
+
+		if s1 < .5 || s2 < .5 {
+			wh *= .9
+			ws *= 2.0
+			wv *= 0.6
+		}
+
+		/*
+			// we're playing with the angle of the v1,s1 -> v2,s2 vector
+			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
+			//ac = math.Pow(ac, .3333)
+			AC_SCALE := 2.0
+			acs := ac / AC_SCALE
+			acs += (1-(1/AC_SCALE))
+			wh *= acs
+			ws /= acs
+			wv /= acs
+		*/
 	}
 
-	sum := rcutil.Square(wh * (h1 - h2))
+	/*
+		else if s1 < .45 || v1 < .45 || s2 < .45 || v2 < .45 {
+			// we're playing with the angle of the v1,s1 -> v2,s2 vector
+			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
+			ac = math.Pow(ac, .3333)
+			wh *= rcutil.Square(1 - ac)                // the further from normal the more we care about hue
+			ws *= 4.7 * ac * math.Pow(1-(s1+s2)/2, .3) // the higher the saturation, the less saturation differences matter
+			wv *= 1.1 * ac
+		} else {
+			/*
+			// we're playing with the angle of the v1,s1 -> v2,s2 vector
+			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
+			wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
+			ws *= 3.2 * ac
+			wv *= 1.2 * ac
+		}
+	*/
+
+	hd := _loopedDiff(h1, h2)
+	sum := rcutil.Square(wh * hd)
 	sum += rcutil.Square(ws * (s1 - s2))
 	sum += rcutil.Square(wv * (v1 - v2))
 
 	res := math.Sqrt(sum)
 
 	if debug {
-		golog.Global.Debugf("%v -- %1.3f %1.3f %1.3f \n%v -- %1.3f %1.3f %1.3f\n", c, h1, s1, v1, b, h2, s2, v2)
-		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", math.Abs(h1-h2), math.Abs(s1-s2), math.Abs(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(h1-h2), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f\n", rcutil.Square(wh*(h1-h2)), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
-		golog.Global.Debugf("\t res: %f\n", res)
-		golog.Global.Debugf("\t ac: %f\n", ac)
+		golog.Global.Debugf("%v -- %1.3f %1.3f %1.3f %v -- %1.3f %1.3f %1.3f", c, h1, s1, v1, b, h2, s2, v2)
+		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", rcutil.Square(hd), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", rcutil.Square(wh*hd), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
+		golog.Global.Debugf("\t res: %f ac: %f dd: %f", res, ac, dd)
 	}
 	return res
 }
