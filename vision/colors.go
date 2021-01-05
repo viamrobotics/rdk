@@ -123,7 +123,7 @@ func (c HSV) Distance(b HSV) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		golog.Global.Debugf("%v -- %1.3f %1.3f %1.3f %v -- %1.3f %1.3f %1.3f", c, h1, s1, v1, b, h2, s2, v2)
+		golog.Global.Debugf("%v -- %v", c, b)
 		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", rcutil.Square(hd), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
