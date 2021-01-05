@@ -3,6 +3,7 @@ package vision
 import (
 	"html/template"
 	"io/ioutil"
+	"math"
 	"strings"
 	"testing"
 
@@ -43,6 +44,22 @@ func _checkAllSame(t *testing.T, colors []Color) {
 			}
 		}
 	}
+}
+
+func _assertSame(t *testing.T, a, b HSV) {
+	d := a.Distance(b)
+	if d < 1 {
+		return
+	}
+	t.Errorf("%v and %v should be the same, but difference is %f", a, b, d)
+}
+
+func _assertNotSame(t *testing.T, a, b HSV) {
+	d := a.Distance(b)
+	if d > 1 {
+		return
+	}
+	t.Errorf("%v and %v should be different, but difference is %f", a, b, d)
 }
 
 func TestHSVColorConversion(t *testing.T) {
@@ -91,6 +108,24 @@ func TestHSVColorConversion(t *testing.T) {
 	}
 }
 
+func TestHSVDistanceSanityCheckDiff(t *testing.T) {
+	data := [][]float64{
+		[]float64{0.0, 0.5, 0.5},
+		[]float64{0.2, 0.5, 0.3},
+		[]float64{0.5, 0.2, 0.3},
+		[]float64{0.0, 0.9, 0.1},
+		[]float64{0.9, 0.1, 0.2},
+	}
+
+	for _, x := range data {
+		d := _loopedDiff(x[0], x[1])
+		if math.Abs(d-x[2]) > .0001 {
+			t.Errorf("input: %v output: %f", x, d)
+		}
+	}
+
+}
+
 func TestHSVDistanceSanityCheck(t *testing.T) {
 	d := White.AsHSV.Distance(Gray.AsHSV)
 	if d < 1 {
@@ -107,6 +142,45 @@ func TestHSVDistanceSanityCheck(t *testing.T) {
 	if Green.AsHSV.H != 120.0 {
 		t.Errorf("%v\n", Green)
 	}
+
+}
+
+func TestHSVDistanceSanityCheck2(t *testing.T) {
+	// check rotating aroudn 360
+	_assertSame(t, HSV{190, 1.0, 1.0}, HSV{195, 1.0, 1.0})
+	_assertSame(t, HSV{355, 1.0, 1.0}, HSV{359, 1.0, 1.0})
+	_assertSame(t, HSV{359, 1.0, 1.0}, HSV{1, 1.0, 1.0})
+
+	// in the same hue, check value diff
+	_assertSame(t, HSV{180, .5, 0}, HSV{180, .5, .05})
+	_assertSame(t, HSV{180, .5, 0}, HSV{180, .5, .1})
+	_assertNotSame(t, HSV{180, .5, 0}, HSV{180, .5, .15})
+
+	_assertSame(t, HSV{180, .5, .09}, HSV{180, .5, .05})
+	_assertSame(t, HSV{180, .5, .09}, HSV{180, .5, .10})
+	_assertSame(t, HSV{180, .5, .09}, HSV{180, .5, .15})
+
+	// in a dark value, hue shouldn't matter
+	_assertSame(t, HSV{180, .5, .09}, HSV{0, .5, .09})
+
+	// grays
+	_assertSame(t, HSV{180, 0, .5}, HSV{180, .05, .5})
+	_assertSame(t, HSV{180, 0, .5}, HSV{180, .1, .5})
+	_assertNotSame(t, HSV{180, 0, .5}, HSV{180, .15, .5})
+
+	_assertSame(t, HSV{180, .09, .5}, HSV{180, .05, .5})
+	_assertSame(t, HSV{180, .09, .5}, HSV{180, .1, .5})
+	_assertSame(t, HSV{180, .09, .5}, HSV{180, .15, .5})
+
+	// in the lower left quadrant, how much hue difference is ok
+	_assertSame(t, HSV{180, .4, .4}, HSV{175, .4, .4})
+	_assertSame(t, HSV{180, .4, .4}, HSV{170, .4, .4})
+	_assertNotSame(t, HSV{180, .4, .4}, HSV{150, .4, .4})
+
+	// in the upper right quadrant, how much hue difference is ok
+	_assertSame(t, HSV{180, .8, .8}, HSV{175, .8, .8})
+	_assertSame(t, HSV{180, .8, .8}, HSV{173, .8, .8})
+	_assertNotSame(t, HSV{180, .8, .8}, HSV{165, .8, .8})
 
 }
 
@@ -142,14 +216,14 @@ func TestHSVDistanceDarks(t *testing.T) {
 	if d < 1 {
 		t.Errorf("mostlyDarkBlue2 and blackish too close: %f", d)
 	}
-	/* TODO
+
 	veryDarkBlue = NewColorFromHexOrPanic("#11314c", "")
 
 	d = mostlyDarkBlue2.AsHSV.Distance(veryDarkBlue.AsHSV)
 	if d > 1 {
 		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
 	}
-	*/
+
 }
 
 func TestRatioOffFrom135Finish(t *testing.T) {
@@ -250,6 +324,12 @@ func TestHSVDistanceChess3(t *testing.T) {
 	distance := pieceColor.AsHSV.Distance(harbinger.AsHSV)
 	if distance < 1 {
 		t.Fatalf("harbinger and other are too close %f\n", distance)
+	}
+
+	harbinger = NewColorFromHexOrPanic("#857657", "")
+	distance = pieceColor.AsHSV.Distance(harbinger.AsHSV)
+	if distance < 1 {
+		t.Fatalf("harbinger2 and other are too close %f\n", distance)
 	}
 
 	raw, err := ioutil.ReadFile("data/hsvdistancechess3.txt")
