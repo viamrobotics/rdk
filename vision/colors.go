@@ -73,9 +73,9 @@ func (c HSV) Distance(b HSV) float64 {
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = rcutil.Square(math.Min(s1, s2)) + rcutil.Square(math.Min(v1, v2)) // 0 -> 2
 
-		DD_SCALE := 5.0
-		dds := dd / DD_SCALE
-		dds += (1 - (1 / DD_SCALE))
+		ddScale := 5.0
+		dds := dd / ddScale
+		dds += (1 - (1 / ddScale))
 		wh *= dds
 
 		if s1 < .5 || s2 < .5 {
