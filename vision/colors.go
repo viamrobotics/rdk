@@ -12,9 +12,9 @@ import (
 )
 
 type HSV struct {
-	H float64
-	S float64
-	V float64
+	H float64 // degrees 0-360
+	S float64 // 0-1
+	V float64 // 0-1
 }
 
 func (c HSV) String() string {
