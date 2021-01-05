@@ -110,11 +110,11 @@ func TestHSVColorConversion(t *testing.T) {
 
 func TestHSVDistanceSanityCheckDiff(t *testing.T) {
 	data := [][]float64{
-		[]float64{0.0, 0.5, 0.5},
-		[]float64{0.2, 0.5, 0.3},
-		[]float64{0.5, 0.2, 0.3},
-		[]float64{0.0, 0.9, 0.1},
-		[]float64{0.9, 0.1, 0.2},
+		{0.0, 0.5, 0.5},
+		{0.2, 0.5, 0.3},
+		{0.5, 0.2, 0.3},
+		{0.0, 0.9, 0.1},
+		{0.9, 0.1, 0.2},
 	}
 
 	for _, x := range data {
