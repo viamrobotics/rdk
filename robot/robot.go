@@ -121,7 +121,7 @@ func newGripper(config Component, logger golog.Logger) (*gripper.Gripper, error)
 func newCamera(config Component) (vision.MatSource, error) {
 	switch config.Model {
 	case "eliot":
-		return vision.NewHTTPSourceIntelEliot(fmt.Sprintf("%s:%d", config.Host, config.Port)), nil
+		return vision.NewIntelServerSource(fmt.Sprintf("%s:%d", config.Host, config.Port)), nil
 	case "url":
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
