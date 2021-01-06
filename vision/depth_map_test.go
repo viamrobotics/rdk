@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"bufio"
 	"bytes"
 	"testing"
 )
@@ -48,7 +49,7 @@ func TestDepthMap1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	m, err = ReadDepthMap(&buf)
+	m, err = ReadDepthMap(bufio.NewReader(&buf))
 	if err != nil {
 		t.Fatal(err)
 	}

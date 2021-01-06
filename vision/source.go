@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -89,7 +90,7 @@ func (hs *HTTPSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 		}
 
 		// do this first and make sure ok before creating any mats
-		depth, err = ReadDepthMap(bytes.NewReader(depthData))
+		depth, err = ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 		if err != nil {
 			return img, depth, err
 		}
@@ -103,9 +104,45 @@ func (hs *HTTPSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 func (hs *HTTPSource) Close() {
 }
 
-func NewHTTPSourceIntelEliot(root string) *HTTPSource {
-	return &HTTPSource{
-		fmt.Sprintf("http://%s/pic.ppm", root),
-		fmt.Sprintf("http://%s/depth.dat", root),
+// ------
+
+type IntelServerSource struct {
+	BothURL string
+	host    string
+}
+
+func NewIntelServerSource(host string) *IntelServerSource {
+	return &IntelServerSource{fmt.Sprintf("http://%s/both", host), host}
+}
+
+func (s *IntelServerSource) ColorURL() string {
+	return fmt.Sprintf("http://%s/pic.ppm", s.host)
+}
+
+func (s *IntelServerSource) Close() {
+}
+
+func (s *IntelServerSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+	img := gocv.Mat{}
+	var depth DepthMap
+
+	allData, err := readyBytesFromURL(s.BothURL)
+	if err != nil {
+		return img, depth, fmt.Errorf("couldn't ready url: %s", err)
 	}
+
+	reader := bufio.NewReader(bytes.NewReader(allData))
+	depth, err = ReadDepthMap(reader)
+	if err != nil {
+		return img, depth, err
+	}
+
+	imgData, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return img, depth, err
+	}
+
+	img, err = gocv.IMDecode(imgData, gocv.IMReadUnchanged)
+
+	return img, depth, err
 }
