@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -34,9 +35,7 @@ func TestHTTPSourceNoDepth(t *testing.T) {
 	defer a.Close()
 }
 
-func TestHTTPSource(t *testing.T) {
-	s := NewHTTPSourceIntelEliot("127.0.0.1:8181")
-
+func doHTTPSourceTest(t *testing.T, s MatSource) {
 	a, b, err := s.NextColorDepthPair()
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
@@ -58,4 +57,21 @@ func TestHTTPSource(t *testing.T) {
 	if a.Cols() != b.Cols() {
 		t.Errorf("color and depth don't match")
 	}
+}
+
+func TestHTTPSource(t *testing.T) {
+	root := "127.0.0.1:8181"
+	s := &HTTPSource{
+		fmt.Sprintf("http://%s/pic.ppm", root),
+		fmt.Sprintf("http://%s/depth.dat", root),
+	}
+
+	doHTTPSourceTest(t, s)
+}
+
+func TestHTTPSource2(t *testing.T) {
+	root := "127.0.0.1:8181"
+	s := NewIntelServerSource(root)
+
+	doHTTPSourceTest(t, s)
 }

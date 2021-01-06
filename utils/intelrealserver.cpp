@@ -8,6 +8,9 @@
 #include <thread>
 #include <vector>
 
+//#define DEBUG(x) std::cout << x << std::endl
+#define DEBUG(x)
+
 class CameraOutput {
    public:
     void add_depth(rs2::depth_frame& frame) {
@@ -113,10 +116,10 @@ void cameraThread() {
         }
 
         auto finish = std::chrono::high_resolution_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(
-                         finish - start)
-                         .count()
-                  << "ms\n";
+        DEBUG(std::chrono::duration_cast<std::chrono::milliseconds>(finish -
+                                                                    start)
+                  .count()
+              << "ms");
 
         ready = 1;
     }
@@ -205,7 +208,6 @@ class picture_resource_jpg : public http_resource {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
         }
-
         std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
         const char* raw_data = mine->ppmdata.c_str();
         int len = mine->width * mine->height * 3;
@@ -213,12 +215,9 @@ class picture_resource_jpg : public http_resource {
 
         jpeg_out out;
         out.size = 0;
-
         auto rv = stbi_write_jpg_to_func(my_jpg_write, &out, mine->width,
                                          mine->height, 3, raw_data, 20);
-
         std::string s(out.buf, out.size);
-
         return std::shared_ptr<http_response>(
             new string_response(s, 200, "image/jpg"));
     }
@@ -240,10 +239,30 @@ class depth_resource : public http_resource {
     }
 };
 
+class combined_resource : public http_resource {
+   public:
+    const std::shared_ptr<http_response> render(const http_request& r) {
+        if (!ready) {
+            return std::shared_ptr<http_response>(
+                new string_response("not ready\n"));
+        }
+        int camNumera = getCameraNumber(r);
+
+        std::shared_ptr<CameraOutput> mine(CameraOutputInstance[camNumera]);
+
+        std::string both = mine->depth + mine->ppmdata;
+
+        return std::shared_ptr<http_response>(
+            new string_response(both, 200, "binary"));
+    }
+};
+
 int main(int argc, char** argv) {
+    int port = 8181;
+
     std::thread t(cameraThread);
 
-    webserver ws = create_webserver(8181);
+    webserver ws = create_webserver(port);
 
     hello_world_resource hwr;
     ws.register_resource("/", &hwr);
@@ -260,7 +279,10 @@ int main(int argc, char** argv) {
     depth_resource dr;
     ws.register_resource("/depth.dat", &dr);
 
-    std::cout << "Starting to listen" << std::endl;
+    combined_resource cr;
+    ws.register_resource("/both", &cr);
+
+    std::cout << "Starting to listen on port: " << port << std::endl;
 
     ws.start(true);
 

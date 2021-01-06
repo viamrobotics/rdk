@@ -154,10 +154,10 @@ func ParseDepthMap(fn string) (DepthMap, error) {
 		}
 	}
 
-	return ReadDepthMap(f)
+	return ReadDepthMap(bufio.NewReader(f))
 }
 
-func ReadDepthMap(f io.Reader) (DepthMap, error) {
+func ReadDepthMap(f *bufio.Reader) (DepthMap, error) {
 	var err error
 	dm := DepthMap{}
 
@@ -194,10 +194,9 @@ func ReadDepthMap(f io.Reader) (DepthMap, error) {
 	return dm, nil
 }
 
-func readDepthMapFormat2(raw io.Reader) (DepthMap, error) {
+func readDepthMapFormat2(r *bufio.Reader) (DepthMap, error) {
 	dm := DepthMap{}
 
-	r := bufio.NewReader(raw)
 	// get past garbade
 	_, err := r.ReadString('\n')
 	if err != nil {

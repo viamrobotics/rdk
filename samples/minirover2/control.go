@@ -324,9 +324,9 @@ func main() {
 	rover.out = port
 	defer rover.Stop()
 
-	realCameraSrc := vision.NewHTTPSourceIntelEliot(srcURL)
+	realCameraSrc := vision.NewIntelServerSource(srcURL)
 
-	cameraSrc := &vision.HTTPSource{realCameraSrc.ColorURL, ""}
+	cameraSrc := &vision.HTTPSource{realCameraSrc.ColorURL(), ""}
 	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
 	remoteView, err := gostream.NewRemoteView(config)
