@@ -515,6 +515,7 @@ func main() {
 				} else if interessting {
 					wantPicture = 1
 				}
+				theBoard = nil // indicate theBoard is no longer owned
 
 				if boardState.Ready() {
 					if !initialPositionOk {
