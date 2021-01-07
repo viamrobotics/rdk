@@ -475,7 +475,7 @@ func main() {
 					}
 				}()
 				if err != nil || img.Empty() {
-					golog.Global.Debugf("error reading device: %s\n", err)
+					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
 
@@ -523,11 +523,11 @@ func main() {
 								golog.Global.Debug("got inconsistency reading board, let's try again")
 								boardState.Clear()
 							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-								golog.Global.Debugf("not in initial chess piece setup\n")
+								golog.Global.Debugf("not in initial chess piece setup")
 								bb.Print()
 							} else {
 								initialPositionOk = true
-								golog.Global.Debugf("GOT initial chess piece setup\n")
+								golog.Global.Debugf("GOT initial chess piece setup")
 							}
 						} else {
 							// so we've already made sure we're safe, let's see if a move was made
@@ -537,7 +537,7 @@ func main() {
 								golog.Global.Debug("got inconsistency reading board, let's try again")
 								boardState.Clear()
 							} else if m != nil {
-								golog.Global.Debugf("we detected a move: %s\n", m)
+								golog.Global.Debugf("we detected a move: %s", m)
 
 								if !engine.MakeValidMove(*m, &currentPosition) {
 									panic("invalid move!")
@@ -547,7 +547,7 @@ func main() {
 								currentPosition.PrintFen()
 
 								currentPosition, m = searchForNextMove(currentPosition)
-								golog.Global.Debugf("computer will make move: %s\n", m)
+								golog.Global.Debugf("computer will make move: %s", m)
 								err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
 								if err != nil {
 									panic(err)
@@ -582,7 +582,7 @@ func main() {
 						tm := time.Now().Unix()
 
 						fn := fmt.Sprintf("data/board-%d.png", tm)
-						golog.Global.Debugf("saving image %s\n", fn)
+						golog.Global.Debugf("saving image %s", fn)
 						gocv.IMWrite(fn, img)
 
 						fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
