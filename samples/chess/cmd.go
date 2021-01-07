@@ -496,104 +496,101 @@ func main() {
 					return
 				}
 				boardCreated = true
+				annotated := theBoard.Annotate()
 
-				func() {
-					if theBoard.IsBoardBlocked() {
-						golog.Global.Debug("board blocked")
-						boardState.Clear()
-						theBoard.Close()
-						return
-					}
+				if theBoard.IsBoardBlocked() {
+					golog.Global.Debug("board blocked")
+					boardState.Clear()
+					theBoard.Close()
+					return
+				}
 
-					// boardState now owns theBoard
-					interessting, err := boardState.newData(theBoard)
-					if err != nil {
-						wantPicture = 1
-						golog.Global.Debug(err)
-						boardState.Clear()
-						theBoard.Close()
-					} else if interessting {
-						wantPicture = 1
-					}
+				// boardState now owns theBoard
+				interessting, err := boardState.newData(theBoard)
+				if err != nil {
+					wantPicture = 1
+					golog.Global.Debug(err)
+					boardState.Clear()
+					theBoard.Close()
+				} else if interessting {
+					wantPicture = 1
+				}
 
-					if boardState.Ready() {
-						if !initialPositionOk {
-							bb, err := boardState.GetBitBoard()
-							if err != nil {
-								golog.Global.Debug("got inconsistency reading board, let's try again")
-								boardState.Clear()
-							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-								golog.Global.Debugf("not in initial chess piece setup")
-								bb.Print()
-							} else {
-								initialPositionOk = true
-								golog.Global.Debugf("GOT initial chess piece setup")
-							}
+				if boardState.Ready() {
+					if !initialPositionOk {
+						bb, err := boardState.GetBitBoard()
+						if err != nil {
+							golog.Global.Debug("got inconsistency reading board, let's try again")
+							boardState.Clear()
+						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
+							golog.Global.Debugf("not in initial chess piece setup\n")
+							bb.Print()
 						} else {
-							// so we've already made sure we're safe, let's see if a move was made
-							m, err := boardState.GetPrevMove(currentPosition)
-							if err != nil {
-								// trouble reading board, let's reset
-								golog.Global.Debug("got inconsistency reading board, let's try again")
-								boardState.Clear()
-							} else if m != nil {
-								golog.Global.Debugf("we detected a move: %s", m)
-
-								if !engine.MakeValidMove(*m, &currentPosition) {
-									panic("invalid move!")
-								}
-
-								currentPosition.Print()
-								currentPosition.PrintFen()
-
-								currentPosition, m = searchForNextMove(currentPosition)
-								golog.Global.Debugf("computer will make move: %s", m)
-								err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
-								if err != nil {
-									panic(err)
-								}
-								if !engine.MakeValidMove(*m, &currentPosition) {
-									panic("wtf - invalid move chosen by computer")
-								}
-								currentPosition.Print()
-								boardState.Clear()
-							}
+							initialPositionOk = true
+							golog.Global.Debugf("GOT initial chess piece setup\n")
 						}
+					} else {
+						// so we've already made sure we're safe, let's see if a move was made
+						m, err := boardState.GetPrevMove(currentPosition)
+						if err != nil {
+							// trouble reading board, let's reset
+							golog.Global.Debug("got inconsistency reading board, let's try again")
+							boardState.Clear()
+						} else if m != nil {
+							golog.Global.Debugf("we detected a move: %s\n", m)
 
-						if lastKeyPress == "T" {
-							err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
+							if !engine.MakeValidMove(*m, &currentPosition) {
+								panic("invalid move!")
+							}
+
+							currentPosition.Print()
+							currentPosition.PrintFen()
+
+							currentPosition, m = searchForNextMove(currentPosition)
+							golog.Global.Debugf("computer will make move: %s\n", m)
+							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
 							if err != nil {
 								panic(err)
 							}
-							lastKeyPress = ""
+							if !engine.MakeValidMove(*m, &currentPosition) {
+								panic("wtf - invalid move chosen by computer")
+							}
+							currentPosition.Print()
+							boardState.Clear()
 						}
 					}
 
-					annotated := theBoard.Annotate()
+					if lastKeyPress == "T" {
+						err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
+						if err != nil {
+							panic(err)
+						}
+						lastKeyPress = ""
+					}
+				}
 
-					pcs[1], err = matToFyne(annotated)
+				pcs[1], err = matToFyne(annotated)
+				if err != nil {
+					panic(err)
+				}
+
+				w.SetContent(widget.NewHBox(pcs...))
+
+				if atomic.LoadInt32(&wantPicture) != 0 {
+					tm := time.Now().Unix()
+
+					fn := fmt.Sprintf("data/board-%d.png", tm)
+					golog.Global.Debugf("saving image %s\n", fn)
+					gocv.IMWrite(fn, img)
+
+					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
+					err = depth.WriteToFile(fn)
 					if err != nil {
 						panic(err)
 					}
 
-					w.SetContent(widget.NewHBox(pcs...))
-
-					if atomic.LoadInt32(&wantPicture) != 0 {
-						tm := time.Now().Unix()
-
-						fn := fmt.Sprintf("data/board-%d.png", tm)
-						golog.Global.Debugf("saving image %s", fn)
-						gocv.IMWrite(fn, img)
-
-						fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
-						err = depth.WriteToFile(fn)
-						if err != nil {
-							panic(err)
-						}
-
-						atomic.StoreInt32(&wantPicture, 0)
-					}
-				}()
+					atomic.StoreInt32(&wantPicture, 0)
+				}
 			}()
 		}
 	}()

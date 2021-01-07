@@ -64,7 +64,7 @@ func (state *boardStateGuesser) Clear() {
 	for _, board := range state.boards {
 		board.Close()
 	}
-	state.boards = []*chess.Board{}
+	state.boards = state.boards[:0]
 }
 
 func (state *boardStateGuesser) NewestBoard() *chess.Board {
