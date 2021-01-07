@@ -30,10 +30,24 @@ func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
 		{"FOR", "200"}, // force (0-255)
 		{"SPE", "255"}, // speed (0-255)
 	}
-	for _, i := range init {
-		err = g.Set(i[0], i[1])
+	err = g.MultiSet(init)
+	if err != nil {
+		return nil, err
+	}
+
+	err = g.Calibrate() // TODO(erh): should this live elsewhere?
+	if err != nil {
+		return nil, err
+	}
+
+	return g, nil
+}
+
+func (g *Gripper) MultiSet(cmds [][]string) error {
+	for _, i := range cmds {
+		err := g.Set(i[0], i[1])
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		// TODO(erh): the next 5 lines are infuriatng, help!
@@ -44,12 +58,7 @@ func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
 		}
 	}
 
-	err = g.Calibrate() // TODO(erh): should this live elsewhere?
-	if err != nil {
-		return nil, err
-	}
-
-	return g, nil
+	return nil
 }
 
 func (g *Gripper) Send(msg string) (string, error) {
@@ -185,6 +194,6 @@ func (g *Gripper) Calibrate() error {
 	}
 	g.closeLimit = x[4:]
 
-	g.logger.Debugf("limits %s %s\n", g.openLimit, g.closeLimit)
+	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
 	return nil
 }
