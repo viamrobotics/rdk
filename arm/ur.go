@@ -6,15 +6,17 @@ import (
 	"io"
 	"math"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 )
 
 type URArm struct {
+	mu       sync.Mutex
 	conn     net.Conn
-	State    RobotState
-	Debug    bool
+	state    RobotState
+	debug    bool
 	haveData bool
 	logger   golog.Logger
 }
@@ -30,21 +32,36 @@ func URArmConnect(host string) (*URArm, error) {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, Debug: false, haveData: false, logger: golog.Global}
+	arm := &URArm{conn: conn, debug: false, haveData: false, logger: golog.Global}
 
-	go reader(conn, arm) // TODO(erh): how to shutdown
+	onData := make(chan struct{})
+	var onDataOnce sync.Once
+	go reader(conn, arm, func() {
+		onDataOnce.Do(func() {
+			close(onData)
+		})
+	}) // TODO(erh): how to shutdown
 
-	slept := 0
-	for !arm.haveData {
-		time.Sleep(100 * time.Millisecond)
-		slept++
-
-		if slept > 20 {
-			return nil, fmt.Errorf("arm isn't respond")
-		}
+	respondTimeout := 2 * time.Second
+	timer := time.NewTimer(respondTimeout)
+	select {
+	case <-onData:
+		return arm, nil
+	case <-timer.C:
+		return nil, fmt.Errorf("arm failed to respond in time (%s)", respondTimeout)
 	}
+}
 
-	return arm, nil
+func (arm *URArm) setState(state RobotState) {
+	arm.mu.Lock()
+	arm.state = state
+	arm.mu.Unlock()
+}
+
+func (arm *URArm) State() RobotState {
+	arm.mu.Lock()
+	defer arm.mu.Unlock()
+	return arm.state
 }
 
 func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
@@ -53,7 +70,8 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 	}
 
 	radians := []float64{}
-	for _, j := range arm.State.Joints {
+	state := arm.State()
+	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
 
@@ -80,8 +98,9 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 
 	for {
 		good := true
+		state := arm.State()
 		for idx, r := range radians {
-			if math.Round(r*100) != math.Round(arm.State.Joints[idx].Qactual*100) {
+			if math.Round(r*100) != math.Round(state.Joints[idx].Qactual*100) {
 				//arm.logger.Debugf("joint %d want: %f have: %f\n", idx, r, arm.State.Joints[idx].Qactual)
 				good = false
 			}
@@ -119,12 +138,13 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 
 	slept := 0
 	for {
-		if math.Round(x*100) == math.Round(arm.State.CartesianInfo.X*100) &&
-			math.Round(y*100) == math.Round(arm.State.CartesianInfo.Y*100) &&
-			math.Round(z*100) == math.Round(arm.State.CartesianInfo.Z*100) &&
-			math.Round(rx*20) == math.Round(arm.State.CartesianInfo.Rx*20) &&
-			math.Round(ry*20) == math.Round(arm.State.CartesianInfo.Ry*20) &&
-			math.Round(rz*20) == math.Round(arm.State.CartesianInfo.Rz*20) {
+		state := arm.State()
+		if math.Round(x*100) == math.Round(state.CartesianInfo.X*100) &&
+			math.Round(y*100) == math.Round(state.CartesianInfo.Y*100) &&
+			math.Round(z*100) == math.Round(state.CartesianInfo.Z*100) &&
+			math.Round(rx*20) == math.Round(state.CartesianInfo.Rx*20) &&
+			math.Round(ry*20) == math.Round(state.CartesianInfo.Ry*20) &&
+			math.Round(rz*20) == math.Round(state.CartesianInfo.Rz*20) {
 			return nil
 		}
 		slept = slept + 10
@@ -140,8 +160,8 @@ func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 		if slept > 10000 {
 			return fmt.Errorf("can't reach position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
 				x, y, z, rx, ry, rz,
-				arm.State.CartesianInfo.X, arm.State.CartesianInfo.Y, arm.State.CartesianInfo.Z,
-				arm.State.CartesianInfo.Rx, arm.State.CartesianInfo.Ry, arm.State.CartesianInfo.Rz)
+				state.CartesianInfo.X, state.CartesianInfo.Y, state.CartesianInfo.Z,
+				state.CartesianInfo.Rx, state.CartesianInfo.Ry, state.CartesianInfo.Rz)
 
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -157,7 +177,7 @@ func (arm *URArm) AddToLog(msg string) error {
 	return err
 }
 
-func reader(conn io.Reader, arm *URArm) {
+func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 	for {
 		buf := make([]byte, 4)
 		n, err := conn.Read(buf)
@@ -187,9 +207,9 @@ func reader(conn io.Reader, arm *URArm) {
 			if err != nil {
 				panic(err)
 			}
-			arm.State = state
-			arm.haveData = true
-			if arm.Debug {
+			arm.setState(state)
+			onHaveData()
+			if arm.debug {
 				arm.logger.Debugf("isOn: %v stopped: %v joints: %f %f %f %f %f %f cartesian: %f %f %f %f %f %f\n",
 					state.RobotModeData.IsRobotPowerOn,
 					state.RobotModeData.IsEmergencyStopped || state.RobotModeData.IsProtectiveStopped,

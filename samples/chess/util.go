@@ -61,6 +61,9 @@ func (state *boardStateGuesser) Ready() bool {
 }
 
 func (state *boardStateGuesser) Clear() {
+	for _, board := range state.boards {
+		board.Close()
+	}
 	state.boards = []*chess.Board{}
 }
 

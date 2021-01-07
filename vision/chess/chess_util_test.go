@@ -48,7 +48,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gocv.IMWrite("out/board1-edges.png", theBoard.edges)
+	gocv.IMWrite("out/board1-edges.png", *theBoard.edges)
 
 	game, err := NewGame(theBoard)
 	if err != nil {

@@ -61,7 +61,7 @@ func getCoord(chess string) pos {
 
 func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	// first make sure in safe position
-	where := myArm.State.CartesianInfo
+	where := myArm.State().CartesianInfo
 	where.Z = SafeMoveHeight + heightMod
 	err := myArm.MoveToPositionC(where)
 	if err != nil {
@@ -110,7 +110,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where := myArm.State.CartesianInfo
+	where := myArm.State().CartesianInfo
 	where.Z = BoardHeight + (height / 1000) + .001
 	myArm.MoveToPositionC(where)
 
@@ -130,7 +130,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		golog.Global.Debug("no piece")
-		where = myArm.State.CartesianInfo
+		where = myArm.State().CartesianInfo
 		where.Z = where.Z - .01
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
@@ -165,14 +165,14 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 	}
 
 	// drop piece
-	where = myArm.State.CartesianInfo
+	where = myArm.State().CartesianInfo
 	where.Z = saveZ
 	myArm.MoveToPositionC(where)
 
 	myGripper.Open()
 
 	if to != "-" {
-		where = myArm.State.CartesianInfo
+		where = myArm.State().CartesianInfo
 		where.Z = SafeMoveHeight
 		myArm.MoveToPositionC(where)
 
@@ -186,7 +186,7 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	foo.x -= .2
 	foo.y -= .2
 
-	where := myArm.State.CartesianInfo
+	where := myArm.State().CartesianInfo
 	where.X = foo.x
 	where.Y = foo.y
 	where.Z = SafeMoveHeight
@@ -301,7 +301,7 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 	debugNumber := 100
 	var err error
 	for {
-		where := myArm.State.CartesianInfo
+		where := myArm.State().CartesianInfo
 		center := vision.Center(corners, 10000)
 
 		xRatio := float64(center.X) / float64(imageSize.X)
@@ -350,7 +350,7 @@ func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
 	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
-		where := myArm.State.CartesianInfo
+		where := myArm.State().CartesianInfo
 		where.X = 0.524658
 		where.Y = 0.094951
 		where.Z = 0.603430
@@ -444,11 +444,12 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(10 * time.Millisecond)
-			stateDisplay.Update(myArm.State)
+			stateDisplay.Update(myArm.State())
 		}
 	}()
 
 	boardState := boardStateGuesser{}
+	defer boardState.Clear()
 	currentPosition := position.StartingPosition()
 
 	initialPositionOk := false
@@ -497,18 +498,20 @@ func main() {
 				boardCreated = true
 
 				func() {
-					defer theBoard.Close()
 					if theBoard.IsBoardBlocked() {
 						golog.Global.Debug("board blocked")
 						boardState.Clear()
+						theBoard.Close()
 						return
 					}
 
+					// boardState now owns theBoard
 					interessting, err := boardState.newData(theBoard)
 					if err != nil {
 						wantPicture = 1
 						golog.Global.Debug(err)
 						boardState.Clear()
+						theBoard.Close()
 					} else if interessting {
 						wantPicture = 1
 					}

@@ -31,7 +31,7 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
 	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
 
-	gocv.IMWrite("out/board2-edges.png", theBoard.edges)
+	gocv.IMWrite("out/board2-edges.png", *theBoard.edges)
 
 	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
 	if err != nil {
@@ -47,5 +47,5 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, nextBoard, "e5", "black")
 	_testPieceStatusHelper(t, game, nextBoard, "e7", "black")
 
-	gocv.IMWrite("out/board3-edges.png", nextBoard.edges)
+	gocv.IMWrite("out/board3-edges.png", *nextBoard.edges)
 }

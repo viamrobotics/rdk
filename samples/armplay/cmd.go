@@ -70,12 +70,12 @@ func main() {
 	go func() {
 		for {
 			time.Sleep(10 * time.Millisecond)
-			stateDisplay.Update(myArm.State)
+			stateDisplay.Update(myArm.State())
 		}
 	}()
 
 	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
-		c := myArm.State.CartesianInfo
+		c := myArm.State().CartesianInfo
 		pre := c.SimpleString()
 
 		changed := true
