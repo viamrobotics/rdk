@@ -10,19 +10,17 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/echolabsinc/robotcore/robot"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
-	"github.com/jacobsa/go-serial/serial"
 )
 
 type Action struct {
@@ -67,51 +65,6 @@ func MustFindAction(name string) Action {
 		panic(fmt.Errorf("couldn't find action: %s", name))
 	}
 	return *a
-}
-
-// ------
-
-func findPort() (string, error) {
-	for _, possibleFile := range []string{"/dev/ttyTHS0"} {
-		_, err := os.Stat(possibleFile)
-		if err == nil {
-			return possibleFile, nil
-		}
-	}
-
-	lines, err := rcutil.ExecuteShellCommand("arduino-cli", "board", "list")
-	if err != nil {
-		return "", err
-	}
-
-	for _, l := range lines {
-		if !strings.Contains(l, "Mega") {
-			continue
-		}
-		return strings.Split(l, " ")[0], nil
-	}
-
-	return "", fmt.Errorf("couldn't find an arduino")
-}
-
-func getSerialConfig() (serial.OpenOptions, error) {
-
-	options := serial.OpenOptions{
-		PortName:        "",
-		BaudRate:        9600,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 4,
-	}
-
-	portName, err := findPort()
-	if err != nil {
-		return options, err
-	}
-
-	options.PortName = portName
-
-	return options, nil
 }
 
 // ------
@@ -261,7 +214,7 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 	for {
 		mat, dm, err := camera.NextColorDepthPair()
 		if err != nil {
-			golog.Global.Debugf("error reading camera: %s\n", err)
+			golog.Global.Debugf("error reading camera: %s", err)
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}
@@ -305,14 +258,9 @@ func main() {
 		srcURL = flag.Arg(0)
 	}
 
-	options, err := getSerialConfig()
+	port, err := robot.ConnectArduinoSerial("Mega")
 	if err != nil {
-		golog.Global.Fatalf("can't get serial config: %v", err)
-	}
-
-	port, err := serial.Open(options)
-	if err != nil {
-		golog.Global.Fatalf("can't option serial port %v", err)
+		golog.Global.Fatalf("can't connecto to arduino: %v", err)
 	}
 	defer port.Close()
 

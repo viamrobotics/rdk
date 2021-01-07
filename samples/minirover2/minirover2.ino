@@ -1,4 +1,5 @@
 
+#include <Servo.h>
 
 HardwareSerial* debugSerial;
 
@@ -110,6 +111,9 @@ Motor** motors;
 Buffer* buf1;
 Buffer* buf2;
 
+Servo neck1;
+Servo neck2;
+
 void setup() {
     Serial.begin(9600);
     debugSerial = &Serial;
@@ -121,6 +125,9 @@ void setup() {
     motors[2] = new Motor(24, 25, 6);
     motors[3] = new Motor(23, 22, 7);
 
+    neck1.attach(10);
+    neck2.attach(11);
+
     buf1 = new Buffer(&Serial);
     buf2 = new Buffer(&Serial1);
 }
@@ -128,13 +135,22 @@ void setup() {
 void process(Buffer* b) {
     if (b->readTillNewLine()) {
         const char* line = b->getLineAndReset();
-        int motorNumber = line[0] - '0';
-        if (motorNumber < 0 || motorNumber >= numMotors) {
-            debugSerial->println("motor number invalid");
-            debugSerial->println(motorNumber, DEC);
-        }
 
-        motors[motorNumber]->doCommand(line + 1);
+        if (line[0] == 'n') {
+            int deg = atoi(line + 1);
+            neck1.write(deg);
+        } else if (line[0] == 'm') {
+            int deg = atoi(line + 1);
+            neck2.write(deg);
+        } else {
+            int motorNumber = line[0] - '0';
+            if (motorNumber < 0 || motorNumber >= numMotors) {
+                debugSerial->println("motor number invalid");
+                debugSerial->println(motorNumber, DEC);
+            }
+
+            motors[motorNumber]->doCommand(line + 1);
+        }
     }
 }
 
