@@ -25,6 +25,10 @@ type DepthMap struct {
 	data [][]int
 }
 
+func (dm *DepthMap) HasData() bool {
+	return dm.width > 0 && dm.data != nil
+}
+
 func (dm *DepthMap) Width() int {
 	return dm.width
 }

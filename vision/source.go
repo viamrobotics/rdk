@@ -19,6 +19,18 @@ type MatSource interface {
 	Close()
 }
 
+type StaticSource struct {
+	pc *PointCloud
+}
+
+func (ss *StaticSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+	return ss.pc.Color.mat.Clone(), ss.pc.Depth, nil
+}
+
+func (ss *StaticSource) Close() {
+	ss.pc.Close()
+}
+
 // ------
 
 type WebcamSource struct {
