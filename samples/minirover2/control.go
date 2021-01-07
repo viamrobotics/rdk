@@ -23,6 +23,11 @@ import (
 	"github.com/edaniels/gostream/codec/vpx"
 )
 
+const (
+	PanCenter  = 83
+	TiltCenter = 65
+)
+
 type Action struct {
 	Name           string
 	m0, m1, m2, m3 string // the directions for each motor
@@ -120,6 +125,18 @@ func (r *Rover) sendCommand(cmd string) error {
 	defer r.sendLock.Unlock()
 	_, err := r.out.Write([]byte(cmd))
 	return err
+}
+
+func (r *Rover) neckCenter() error {
+	return r.neckPosition(PanCenter, TiltCenter)
+}
+
+func (r *Rover) neckOffset(left int) error {
+	return r.neckPosition(PanCenter+(left*-30), TiltCenter-20)
+}
+
+func (r *Rover) neckPosition(pan, tilt int) error {
+	return r.sendCommand(fmt.Sprintf("n%d\rm%d\r", pan, tilt))
 }
 
 func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -271,6 +288,17 @@ func main() {
 	rover := Rover{}
 	rover.out = port
 	defer rover.Stop()
+
+	go func() {
+		for {
+			time.Sleep(1500 * time.Millisecond)
+			rover.neckCenter()
+			time.Sleep(1500 * time.Millisecond)
+			rover.neckOffset(-1)
+			time.Sleep(1500 * time.Millisecond)
+			rover.neckOffset(1)
+		}
+	}()
 
 	realCameraNotFlippedSrc := vision.NewIntelServerSource(srcURL)
 	realCameraSrc := &vision.RotateSource{realCameraNotFlippedSrc}
