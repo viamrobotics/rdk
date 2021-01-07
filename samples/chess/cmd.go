@@ -56,7 +56,7 @@ func getCoord(chess string) pos {
 	x = (3.5 - x) / 7.0
 	y = (3.5 - y) / 7.0
 
-	return pos{Center.x - (x * BoardWidth), Center.y - (y * BoardWidth)}
+	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)}
 }
 
 func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
@@ -71,8 +71,8 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	// move
 	if chess == "-" {
 		f := getCoord("a8")
-		where.X = f.x + (.06 * float64(numPiecesCaptured))
-		where.Y = f.y + (BoardWidth / 5)
+		where.X = f.x - (.06 * float64(numPiecesCaptured))
+		where.Y = f.y - (BoardWidth / 5)
 		numPiecesCaptured = numPiecesCaptured + 1
 	} else {
 		f := getCoord(chess)
@@ -90,7 +90,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if toHeight > 0 {
-			golog.Global.Debugf("moving piece from %s to %s but occupied, going to capture\n", from, to)
+			golog.Global.Debugf("moving piece from %s to %s but occupied, going to capture", from, to)
 			err = movePiece(boardState, myArm, myGripper, to, "-")
 			if err != nil {
 				return err
@@ -121,7 +121,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 			return err
 		}
 		if grabbedSomething {
-			golog.Global.Debugf("got a piece at height %f\n", where.Z)
+			golog.Global.Debugf("got a piece at height %f", where.Z)
 			// got the piece
 			break
 		}
@@ -182,14 +182,12 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 }
 
 func moveOutOfWay(myArm *arm.URArm) error {
-	foo := getCoord("a4")
-	foo.x -= .2
-	foo.y -= .2
+	foo := getCoord("a1")
 
 	where := myArm.State().CartesianInfo
 	where.X = foo.x
 	where.Y = foo.y
-	where.Z = SafeMoveHeight
+	where.Z = SafeMoveHeight + .3
 
 	return myArm.MoveToPositionC(where)
 }
@@ -292,7 +290,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
 	}
 
-	golog.Global.Debugf("Corners: %v\n", corners)
+	golog.Global.Debugf("Corners: %v", corners)
 
 	return corners, imageSize, err
 }
@@ -310,7 +308,7 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 		xMove := (.5 - xRatio) / 8
 		yMove := (.5 - yRatio) / -8
 
-		golog.Global.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f\n", center, xRatio, yRatio, xMove, yMove)
+		golog.Global.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f", center, xRatio, yRatio, xMove, yMove)
 
 		if math.Abs(xMove) < .001 && math.Abs(yMove) < .001 {
 			Center = pos{where.X, where.Y}
@@ -319,9 +317,9 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 			Center.x += .026
 			Center.y -= .073
 
-			golog.Global.Debugf("Center: %v\n", Center)
-			golog.Global.Debugf("a1: %v\n", getCoord("a1"))
-			golog.Global.Debugf("h8: %v\n", getCoord("h8"))
+			golog.Global.Debugf("Center: %v", Center)
+			golog.Global.Debugf("a1: %v", getCoord("a1"))
+			golog.Global.Debugf("h8: %v", getCoord("h8"))
 			return nil
 		}
 
@@ -351,7 +349,7 @@ func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		where := myArm.State().CartesianInfo
-		where.X = 0.524658
+		where.X = -0.454658
 		where.Y = 0.094951
 		where.Z = 0.603430
 		where.Rx = -2.600206
@@ -524,11 +522,11 @@ func main() {
 							golog.Global.Debug("got inconsistency reading board, let's try again")
 							boardState.Clear()
 						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-							golog.Global.Debugf("not in initial chess piece setup\n")
+							golog.Global.Debugf("not in initial chess piece setup")
 							bb.Print()
 						} else {
 							initialPositionOk = true
-							golog.Global.Debugf("GOT initial chess piece setup\n")
+							golog.Global.Debugf("GOT initial chess piece setup")
 						}
 					} else {
 						// so we've already made sure we're safe, let's see if a move was made
@@ -538,7 +536,7 @@ func main() {
 							golog.Global.Debug("got inconsistency reading board, let's try again")
 							boardState.Clear()
 						} else if m != nil {
-							golog.Global.Debugf("we detected a move: %s\n", m)
+							golog.Global.Debugf("we detected a move: %s", m)
 
 							if !engine.MakeValidMove(*m, &currentPosition) {
 								panic("invalid move!")
@@ -548,7 +546,7 @@ func main() {
 							currentPosition.PrintFen()
 
 							currentPosition, m = searchForNextMove(currentPosition)
-							golog.Global.Debugf("computer will make move: %s\n", m)
+							golog.Global.Debugf("computer will make move: %s", m)
 							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
 							if err != nil {
 								panic(err)
@@ -581,7 +579,7 @@ func main() {
 					tm := time.Now().Unix()
 
 					fn := fmt.Sprintf("data/board-%d.png", tm)
-					golog.Global.Debugf("saving image %s\n", fn)
+					golog.Global.Debugf("saving image %s", fn)
 					gocv.IMWrite(fn, img)
 
 					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
