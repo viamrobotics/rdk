@@ -71,6 +71,12 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 
 // return highest delta, average floor height
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
+
+	edges := b.SquareCenterEdges(square)
+	if edges > 100 {
+		radius++
+	}
+
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
@@ -165,9 +171,7 @@ func (b *Board) Annotate() gocv.Mat {
 		for y := '1'; y <= '8'; y++ {
 			s := string(x) + string(y)
 
-			p := getMinChessCorner(s)
-			p.X += 50
-			p.Y += 50
+			p := getChessMiddle(s)
 
 			// draw the box around the points we are using
 			c1 := image.Point{p.X - DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
@@ -184,8 +188,10 @@ func (b *Board) Annotate() gocv.Mat {
 				gocv.Circle(&out, p, 10, vision.Red.C, 2)
 			}
 
+			edges := b.SquareCenterEdges(s)
+
 			p.Y -= 20
-			gocv.PutText(&out, fmt.Sprintf("%d", int(height)), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
+			gocv.PutText(&out, fmt.Sprintf("%d,%d", int(height), edges), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
 
 		}
 	}
