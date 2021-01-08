@@ -6,26 +6,7 @@ import (
 	"testing"
 
 	"gocv.io/x/gocv"
-
-	"github.com/muesli/clusters"
-	"github.com/muesli/kmeans"
 )
-
-func hsvfrom(point clusters.Coordinates) HSV {
-	return HSV{point[0], point[1], point[2]}
-}
-
-type HSVObservation struct {
-	hsv HSV
-}
-
-func (o HSVObservation) Coordinates() clusters.Coordinates {
-	return clusters.Coordinates{o.hsv.H, o.hsv.S, o.hsv.V}
-}
-
-func (o HSVObservation) Distance(point clusters.Coordinates) float64 {
-	return o.hsv.Distance(hsvfrom(point))
-}
 
 func TestColorSegment1(t *testing.T) {
 	img, err := NewImageFromFile("data/chess-segment1.png")
@@ -33,31 +14,28 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all := []clusters.Observation{}
+	all := []HSV{}
 
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
 			c := img.ColorHSV(image.Point{x, y})
-			all = append(all, HSVObservation{c})
+			all = append(all, c)
 		}
 	}
 
-	km := kmeans.New()
-
-	clusters, err := km.Partition(all, 4)
+	clusters, err := ClusterHSV(all, 4)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	diffs := ColorDiffs{}
 
-	for x, c := range clusters {
-		a := hsvfrom(c.Center)
+	for x, a := range clusters {
 		for y := x + 1; y < len(clusters); y++ {
 			if x == y {
 				continue
 			}
-			b := hsvfrom(clusters[y].Center)
+			b := clusters[y]
 
 			diff := a.Distance(b)
 			diffs = append(diffs, ColorDiff{a, b, diff})
@@ -66,7 +44,7 @@ func TestColorSegment1(t *testing.T) {
 
 	os.MkdirAll("out", 0775)
 
-	err = diffs.writeTo("out/foo.html")
+	err = diffs.WriteTo("out/foo.html")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,9 +58,8 @@ func TestColorSegment1(t *testing.T) {
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
 			c := img.ColorHSV(image.Point{x, y})
-			cc := clusters.Nearest(HSVObservation{c})
-			ccc := hsvfrom(clusters[cc].Center)
-			out2.SetHSV(image.Point{x, y}, ccc)
+			_, cc, _ := c.Closest(clusters)
+			out2.SetHSV(image.Point{x, y}, cc)
 		}
 	}
 
