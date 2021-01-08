@@ -2,8 +2,11 @@ package vision
 
 import (
 	"fmt"
+	"html/template"
 	"image/color"
+	"io/ioutil"
 	"math"
+	"strings"
 
 	"github.com/echolabsinc/robotcore/rcutil"
 
@@ -31,6 +34,27 @@ func (c HSV) ToColor() Color {
 
 func (c HSV) ToColorful() colorful.Color {
 	return colorful.Hsv(c.H, c.S, c.V)
+}
+
+func (c HSV) Closest(others []HSV) (int, HSV, float64) {
+	if len(others) == 0 {
+		panic("HSV::Closest passed nother")
+	}
+
+	best := others[0]
+	bestDistance := c.Distance(best)
+	bestIndex := 0
+
+	for i, x := range others[1:] {
+		d := c.Distance(x)
+		if d < bestDistance {
+			bestDistance = d
+			best = x
+			bestIndex = i + 1 // +1 is because of the range above
+		}
+	}
+
+	return bestIndex, best, bestDistance
 }
 
 // a and b are between 0 and 1 but it's circular
@@ -297,4 +321,51 @@ func WhatColor(data Color) Color {
 	}
 
 	return c
+}
+
+type ColorDiff struct {
+	Left  HSV
+	Right HSV
+	Diff  float64
+}
+
+type ColorDiffs []ColorDiff
+
+func (x *ColorDiffs) output() string {
+	t := "<html><body><table>" +
+		"{{ range .}}" +
+		"<tr>" +
+		"<td style='background-color:{{.Left.ToColorful.Hex}}'>{{ .Left.ToColorful.Hex }}&nbsp;</td>" +
+		"<td style='background-color:{{.Right.ToColorful.Hex}}'>{{ .Right.ToColorful.Hex }}&nbsp;</td>" +
+		"<td>{{ .Diff }}</td>" +
+		"</tr>" +
+		"{{end}}" +
+		"</table></body></html>"
+
+	tt, err := template.New("temp").Parse(t)
+	if err != nil {
+		panic(err)
+	}
+
+	w := strings.Builder{}
+	err = tt.Execute(&w, x)
+	if err != nil {
+		panic(err)
+	}
+	return w.String()
+}
+
+func (x *ColorDiffs) WriteTo(fn string) error {
+	return ioutil.WriteFile(fn, []byte(x.output()), 0640)
+}
+
+func ComputeColorDiffs(all []HSV) ColorDiffs {
+	diffs := ColorDiffs{}
+	for i, c := range all {
+		for _, c2 := range all[i+1:] {
+			d := c.Distance(c2)
+			diffs = append(diffs, ColorDiff{c, c2, d})
+		}
+	}
+	return diffs
 }
