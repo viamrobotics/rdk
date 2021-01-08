@@ -36,8 +36,8 @@ type pos struct {
 
 var (
 	BoardWidth     = .381
-	Center         = pos{-1, -1}
-	BoardHeight    = -.010
+	Center         = pos{-.42, .02}
+	BoardHeight    = -.23
 	SafeMoveHeight = BoardHeight + .15
 
 	wantPicture = int32(0)
@@ -56,7 +56,7 @@ func getCoord(chess string) pos {
 	x = (3.5 - x) / 7.0
 	y = (3.5 - y) / 7.0
 
-	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)}
+	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)} // HARD CODED
 }
 
 func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
@@ -71,8 +71,8 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	// move
 	if chess == "-" {
 		f := getCoord("a8")
-		where.X = f.x - (.06 * float64(numPiecesCaptured))
-		where.Y = f.y - (BoardWidth / 5)
+		where.X = f.x - (.06 * float64(numPiecesCaptured)) // HARD CODED
+		where.Y = f.y - (BoardWidth / 5)                   // HARD CODED
 		numPiecesCaptured = numPiecesCaptured + 1
 	} else {
 		f := getCoord(chess)
@@ -111,7 +111,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
 	where := myArm.State().CartesianInfo
-	where.Z = BoardHeight + (height / 1000) + .001
+	where.Z = BoardHeight + (height / 1000) + .01
 	myArm.MoveToPositionC(where)
 
 	// grab piece
@@ -187,7 +187,7 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	where := myArm.State().CartesianInfo
 	where.X = foo.x
 	where.Y = foo.y
-	where.Z = SafeMoveHeight + .3
+	where.Z = SafeMoveHeight + .3 // HARD CODED
 
 	return myArm.MoveToPositionC(where)
 }
@@ -348,10 +348,11 @@ func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
 	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
+		// HARD CODED
 		where := myArm.State().CartesianInfo
-		where.X = -0.454658
-		where.Y = 0.094951
-		where.Z = 0.603430
+		where.X = -0.42
+		where.Y = 0.02
+		where.Z = 0.6
 		where.Rx = -2.600206
 		where.Ry = -0.007839
 		where.Rz = -0.061827
@@ -476,12 +477,10 @@ func main() {
 					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
-
 				pcs[0], err = matToFyne(img)
 				if err != nil {
 					panic(err)
 				}
-
 				i2, err := vision.NewImage(img)
 				if err != nil {
 					golog.Global.Debug(err)
@@ -493,6 +492,7 @@ func main() {
 					golog.Global.Debug(err)
 					return
 				}
+
 				boardCreated = true
 				annotated := theBoard.Annotate()
 
