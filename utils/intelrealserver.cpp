@@ -38,6 +38,7 @@ class CameraOutput {
 
 std::vector<std::shared_ptr<CameraOutput>> CameraOutputInstance;
 bool ready = 0;
+volatile time_t lastRequest = 0;
 
 std::string my_write_ppm(const char* pixels, int x, int y,
                          int bytes_per_pixel) {
@@ -122,6 +123,11 @@ void cameraThread() {
               << "ms");
 
         ready = 1;
+
+        if (time(0) - lastRequest > 30) {
+            DEBUG("sleeping");
+            sleep(1);
+        }
     }
 }
 
@@ -138,14 +144,25 @@ int getCameraNumber(const http_request& r) {
 class hello_world_resource : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request&) {
+        std::stringbuf buffer;
+        std::ostream os(&buffer);
+
+        os << "<html>";
+        os << "<meta http-equiv=\"refresh\" content=\"1\" />";
+        os << "<body>";
+        os << "<img src='/pic.png'/>";
+        os << "</body></html>";
+
         return std::shared_ptr<http_response>(
-            new string_response("Hello, World!\n"));
+            new string_response(buffer.str(), 200, "text/html"));
     }
 };
 
 class picture_resource : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        lastRequest = time(0);
+
         int camNumera = getCameraNumber(r);
         if (!ready || camNumera >= CameraOutputInstance.size()) {
             return std::shared_ptr<http_response>(
@@ -160,6 +177,8 @@ class picture_resource : public http_resource {
 class picture_resource_png : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        lastRequest = time(0);
+
         int camNumera = getCameraNumber(r);
 
         if (!ready || camNumera >= CameraOutputInstance.size()) {
@@ -203,6 +222,8 @@ void my_jpg_write(void* context, void* data, int size) {
 class picture_resource_jpg : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        lastRequest = time(0);
+
         int camNumera = getCameraNumber(r);
         if (!ready || camNumera >= CameraOutputInstance.size()) {
             return std::shared_ptr<http_response>(
@@ -226,6 +247,8 @@ class picture_resource_jpg : public http_resource {
 class depth_resource : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        lastRequest = time(0);
+
         if (!ready) {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
@@ -242,6 +265,8 @@ class depth_resource : public http_resource {
 class combined_resource : public http_resource {
    public:
     const std::shared_ptr<http_response> render(const http_request& r) {
+        lastRequest = time(0);
+
         if (!ready) {
             return std::shared_ptr<http_response>(
                 new string_response("not ready\n"));
