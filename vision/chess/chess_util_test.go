@@ -113,7 +113,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 
 	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board-1605543520")  // knight
 	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
-	_testBoardHeight(t, game, theBoard, "c1", 45, 71, "board-1605543520")  // bishop
+	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
 
 	gocv.IMWrite("out/board-1605543520.png", theBoard.Annotate())
 
@@ -125,7 +125,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, nextBoard, "b1", 40, 58, "board-1605543783")  // knight
 	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board-1605543783") // king
 	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
-	_testBoardHeight(t, game, nextBoard, "c1", 45, 71, "board-1605543783")  // bishop
+	_testBoardHeight(t, game, nextBoard, "c1", 45, 74, "board-1605543783")  // bishop
 
 	gocv.IMWrite("out/board-1605543783.png", nextBoard.Annotate())
 
@@ -162,7 +162,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 		t.Errorf("a1 rook is too short: %v", d)
 	}
 
-	d = theBoard.SquareCenterHeight2("d7", DepthCheckSizeRadius+5, true)
+	d = theBoard.SquareCenterHeight("d7", DepthCheckSizeRadius)
 	if d < 10 {
 		t.Errorf("d7 pawn is too short: %v", d)
 	}

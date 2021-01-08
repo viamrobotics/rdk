@@ -43,3 +43,10 @@ func getMinChessCorner(chess string) image.Point {
 	}
 	return image.Point{x * 100, y * 100}
 }
+
+func getChessMiddle(chess string) image.Point {
+	p := getMinChessCorner(chess)
+	p.X += 50
+	p.Y += 50
+	return p
+}

@@ -2,7 +2,6 @@ package chess
 
 import (
 	"fmt"
-	"image"
 	"image/color"
 
 	"github.com/echolabsinc/robotcore/ml"
@@ -45,8 +44,7 @@ func buildPieceColorModel(theBoard *Board) (ml.Classifier, error) {
 		for x := 'a'; x <= 'h'; x++ {
 			square := string(x) + string(y)
 
-			corner := getMinChessCorner(square)
-			middle := image.Point{corner.X + 50, corner.Y + 50}
+			middle := getChessMiddle(square)
 
 			radius := 3
 
