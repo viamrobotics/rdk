@@ -22,6 +22,9 @@ func warpColorAndDepthToChess(color vision.Image, depth vision.DepthMap, corners
 		image.Pt(800, 0),
 	}
 
+	if len(corners) != 4 {
+		return color, depth, fmt.Errorf("need 4 corners, got %d", len(corners))
+	}
 	pc := vision.PointCloud{depth, color}
 	pc2 := pc.Warp(corners, dst, image.Point{800, 800})
 	return pc2.Color, pc2.Depth, nil
