@@ -65,16 +65,28 @@ func (b *Board) Close() {
 	b.edges.Close()
 }
 
-// return highest delta, average floor height
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
+	return b.SquareCenterHeight2(square, radius, false)
+}
+
+// return highest delta, average floor height
+func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
+	centerColor := b.color.ColorHSV(image.Point{corner.X + 50, corner.Y + 50})
+
 	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
 		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
 			d := b.depth.GetDepth(x, y)
 			if d == 0 {
 				continue
+			}
+			if matchColor {
+				c := b.color.ColorHSV(image.Point{x, y})
+				if c.Distance(centerColor) > 1 {
+					continue
+				}
 			}
 			data = append(data, float64(d))
 		}
