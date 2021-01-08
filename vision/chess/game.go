@@ -123,8 +123,9 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	if err != nil {
 		return -1, err
 	}
+
 	centerHeight := board.SquareCenterHeight(square, DepthCheckSizeRadius)
-	//fmt.Printf("%s %s %v\n", square, color, centerHeight)
+
 	if color == emptyStatus {
 		if centerHeight < MinPieceDepth {
 			return 0, nil
@@ -133,8 +134,12 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	}
 
 	if centerHeight < MinPieceDepth {
-		return -1, fmt.Errorf("got a color (%s) for square %s but a center height that is too small of %f edges: %d",
-			color, square, centerHeight, board.SquareCenterEdges(square))
+		// try again with a different idea
+		centerHeight = board.SquareCenterHeight2(square, DepthCheckSizeRadius+5, true)
+		if centerHeight < MinPieceDepth {
+			return -1, fmt.Errorf("got a color (%s) for square %s but a center height that is too small of %f edges: %d",
+				color, square, centerHeight, board.SquareCenterEdges(square))
+		}
 	}
 
 	return board.SquareCenterHeight(square, 30), nil

@@ -13,21 +13,19 @@ import (
 )
 
 func isPink(data color.RGBA) bool {
-	temp, b := colorful.MakeColor(data)
-	if !b {
-		panic("wtf")
-	}
-	h, s, v := temp.Hsv()
-	if h < 286 {
+	temp := vision.ConvertToHSV(data)
+
+	if temp.H < 286 {
 		return false
 	}
-	if s < .2 {
+	if temp.S < .2 {
 		return false
 	}
-	if v < 100 {
+	if temp.V < .5 {
 		return false
 	}
 	return true
+
 }
 
 func inList(l []image.Point, p image.Point) bool {

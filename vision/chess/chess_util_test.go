@@ -146,3 +146,25 @@ func TestArmBlock1(t *testing.T) {
 	gocv.IMWrite("out/armblock1_annotated.png", annotated)
 
 }
+
+func TestWarpColorAndDepthToChess4(t *testing.T) {
+	os.MkdirAll("out", 0775)
+
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board-1610063549")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gocv.IMWrite("out/board-20210107-a.png", theBoard.Annotate())
+
+	d := theBoard.SquareCenterHeight("a1", DepthCheckSizeRadius)
+	if d < 20 {
+		t.Errorf("a1 rook is too short: %v", d)
+	}
+
+	d = theBoard.SquareCenterHeight2("d7", DepthCheckSizeRadius+5, true)
+	if d < 10 {
+		t.Errorf("d7 pawn is too short: %v", d)
+	}
+
+}
