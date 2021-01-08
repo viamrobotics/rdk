@@ -86,7 +86,7 @@ func (i *Image) ColorRowCol(row, col int) color.RGBA {
 	c.R = i.data[base+2]
 	c.G = i.data[base+1]
 	c.B = i.data[base+0]
-	c.A = 1
+	c.A = 255
 	return c
 }
 
