@@ -144,7 +144,7 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 	res := max - min
 
 	if res < MinPieceDepth {
-		return MinPieceDepth
+		return MinPieceDepth + .5
 	}
 
 	return res
