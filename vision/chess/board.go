@@ -73,6 +73,10 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
 
 	edges := b.SquareCenterEdges(square)
+	if edges < 100 {
+		return 0
+	}
+
 	if edges > 100 {
 		radius++
 	}
@@ -137,7 +141,13 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 		b.logger.Debugf("\t %s mean: %f stdDev: %f min: %f max: %f diff: %f\n", square, mean, stdDev, min, max, max-min)
 	}
 
-	return max - min
+	res := max - min
+
+	if res < MinPieceDepth {
+		return MinPieceDepth
+	}
+
+	return res
 }
 
 func (b *Board) SquareCenterEdges(square string) int {
