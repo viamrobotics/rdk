@@ -72,7 +72,10 @@ func _loopedDiff(a, b float64) float64 {
 
 func (c HSV) Distance(b HSV) float64 {
 	debug := false
+	return c.distance_debug(b, debug)
+}
 
+func (c HSV) distance_debug(b HSV, debug bool) float64 {
 	h1, s1, v1 := c.Scale()
 	h2, s2, v2 := b.Scale()
 
@@ -85,8 +88,8 @@ func (c HSV) Distance(b HSV) float64 {
 
 	if v1 < .13 || v2 < .13 {
 		// we're in the dark range
-		wh /= 50
-		ws /= 10
+		wh /= 30
+		ws /= 5
 		wv *= 1.5
 	} else if s1 < .1 || s2 < .1 {
 		// we're in the light range

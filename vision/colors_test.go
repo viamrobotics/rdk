@@ -50,6 +50,7 @@ func _assertSame(t *testing.T, a, b HSV) {
 	if d < 1 {
 		return
 	}
+	a.distance_debug(b, true)
 	t.Errorf("%v and %v should be the same, but difference is %f", a, b, d)
 }
 
@@ -58,6 +59,7 @@ func _assertNotSame(t *testing.T, a, b HSV) {
 	if d > 1 {
 		return
 	}
+	a.distance_debug(b, true)
 	t.Errorf("%v and %v should be different, but difference is %f", a, b, d)
 }
 
@@ -181,6 +183,8 @@ func TestHSVDistanceSanityCheck2(t *testing.T) {
 	_assertSame(t, HSV{180, .8, .8}, HSV{173, .8, .8})
 	_assertNotSame(t, HSV{180, .8, .8}, HSV{165, .8, .8})
 
+	// a black vs dark blue case
+	_assertNotSame(t, HSV{50, .6, .08}, HSV{210, 1.0, .18})
 }
 
 func TestHSVDistanceBlacks1(t *testing.T) {
