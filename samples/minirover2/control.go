@@ -270,7 +270,7 @@ func driveMyself(rover *Rover, camera vision.MatSource) {
 func main() {
 	flag.Parse()
 
-	srcURL := "127.0.0.1:8181"
+	srcURL := "127.0.0.1"
 	if flag.NArg() >= 1 {
 		srcURL = flag.Arg(0)
 	}
@@ -300,7 +300,7 @@ func main() {
 		}
 	}()
 
-	realCameraNotFlippedSrc := vision.NewIntelServerSource(srcURL)
+	realCameraNotFlippedSrc := vision.NewIntelServerSource(srcURL, 8181, nil)
 	realCameraSrc := &vision.RotateSource{realCameraNotFlippedSrc}
 
 	cameraSrc := &vision.RotateSource{&vision.HTTPSource{realCameraNotFlippedSrc.ColorURL(), ""}}

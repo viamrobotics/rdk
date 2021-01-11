@@ -52,7 +52,7 @@ func main() {
 	}
 
 	//webcam, err := vision.NewWebcamSource(webcamDeviceID)
-	webcam := vision.NewIntelServerSource("127.0.0.1:8181")
+	webcam := vision.NewIntelServerSource("127.0.0.1", 8181, nil)
 	defer webcam.Close()
 
 	a := app.New()
