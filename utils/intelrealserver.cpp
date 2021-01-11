@@ -150,7 +150,9 @@ class hello_world_resource : public http_resource {
         os << "<html>";
         os << "<meta http-equiv=\"refresh\" content=\"1\" />";
         os << "<body>";
-        os << "<img src='/pic.png'/>";
+        for ( int i=0; i<CameraOutputInstance.size(); i++) {
+            os << "<img width=600 src='/pic.png?num=" << i << "'/>";
+        }
         os << "</body></html>";
 
         return std::shared_ptr<http_response>(
