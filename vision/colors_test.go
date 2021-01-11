@@ -50,7 +50,7 @@ func _assertSame(t *testing.T, a, b HSV) {
 	if d < 1 {
 		return
 	}
-	a.distance_debug(b, true)
+	a.distanceDebug(b, true)
 	t.Errorf("%v and %v should be the same, but difference is %f", a, b, d)
 }
 
@@ -59,7 +59,7 @@ func _assertNotSame(t *testing.T, a, b HSV) {
 	if d > 1 {
 		return
 	}
-	a.distance_debug(b, true)
+	a.distanceDebug(b, true)
 	t.Errorf("%v and %v should be different, but difference is %f", a, b, d)
 }
 

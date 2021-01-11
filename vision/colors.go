@@ -72,10 +72,10 @@ func _loopedDiff(a, b float64) float64 {
 
 func (c HSV) Distance(b HSV) float64 {
 	debug := false
-	return c.distance_debug(b, debug)
+	return c.distanceDebug(b, debug)
 }
 
-func (c HSV) distance_debug(b HSV, debug bool) float64 {
+func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 	h1, s1, v1 := c.Scale()
 	h2, s2, v2 := b.Scale()
 
