@@ -87,20 +87,25 @@ class Motor {
         pinMode(_in1, OUTPUT);
         pinMode(_in2, OUTPUT);
         pinMode(_pwm, OUTPUT);
+        _moving = false;
     }
 
     void stop() {
+        _moving = false;
+        _encoderTicksStop = 0;
         digitalWrite(_in1, LOW);
         digitalWrite(_in2, LOW);
     }
 
     void forward(int val) {
+        _moving = true;
         analogWrite(_pwm, val);
         digitalWrite(_in1, HIGH);
         digitalWrite(_in2, LOW);
     }
 
     void backward(int val) {
+        _moving = true;
         analogWrite(_pwm, val);
         digitalWrite(_in1, LOW);
         digitalWrite(_in2, HIGH);
@@ -116,15 +121,12 @@ class Motor {
 
         switch (c.direction) {
             case 'f':
-                debugSerial->println("forward");
                 forward(c.speed);
                 break;
             case 'b':
-                debugSerial->println("backward");
                 backward(c.speed);
                 break;
             case 's':
-                debugSerial->println("stop");
                 stop();
                 break;
             default:
@@ -133,15 +135,29 @@ class Motor {
         }
     }
 
-    void checkEncoder() {
-        if (_encoderTicksStop > 0 && _encoderTicks > _encoderTicksStop) {
-            stop();
+    bool checkEncoder() {
+        if (_encoderTicksStop <= 0) {
+            return false;
         }
+
+        if (_encoderTicks > _encoderTicksStop) {
+            stop();
+            return true;
+        }
+
+        if (_encoderTicks + 60 > _encoderTicksStop) {
+            // analogWrite(_pwm, 40); // slow down
+            return false;
+        }
+
+        return false;
     }
 
     uint64_t encoderTick() { return ++_encoderTicks; }
 
     uint64_t encoderTicks() const { return _encoderTicks; }
+
+    bool moving() const { return _moving; }
 
    private:
     int _in1;
@@ -149,6 +165,7 @@ class Motor {
     int _pwm;
     uint64_t _encoderTicks;
     uint64_t _encoderTicksStop;
+    bool _moving;
 };
 
 class Buffer {
@@ -187,6 +204,8 @@ class Buffer {
         _pos = 0;
         return _buf;
     }
+
+    void println(const char* buf) { _port->println(buf); }
 
    private:
     HardwareSerial* _port;
@@ -249,6 +268,16 @@ void processBuffer(Buffer* b) {
         } else if (line[0] == 't') {
             int deg = atoi(line + 1);
             tilt.write(deg);
+        } else if (line[0] == '?') {
+            char buf[numMotors + 2];
+            buf[0] = '#';
+
+            for (int i = 0; i < numMotors; i++) {
+                buf[i + 1] = '0' + motors[i]->moving();
+            }
+            buf[numMotors + 1] = 0;
+            b->println(buf);
+
         } else {
             int motorNumber = line[0] - '0';
             if (motorNumber < 0 || motorNumber >= numMotors) {
@@ -264,8 +293,15 @@ void processBuffer(Buffer* b) {
 int temp = 0;
 
 void loop() {
+    bool stopped = false;
     for (int i = 0; i < numMotors; i++) {
-        motors[i]->checkEncoder();
+        stopped = stopped || motors[i]->checkEncoder();
+    }
+
+    if (stopped) {
+        for (int i = 0; i < numMotors; i++) {
+            motors[i]->stop();
+        }
     }
 
     processBuffer(buf1);
