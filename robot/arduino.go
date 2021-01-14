@@ -41,7 +41,7 @@ func getArduinoSerialConfig(filter string) (serial.OpenOptions, error) {
 		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
-		MinimumReadSize: 4,
+		MinimumReadSize: 1,
 	}
 
 	portName, err := findArduinoPort(filter)
