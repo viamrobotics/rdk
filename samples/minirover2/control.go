@@ -136,7 +136,7 @@ func (r *Rover) neckOffset(left int) error {
 }
 
 func (r *Rover) neckPosition(pan, tilt int) error {
-	return r.sendCommand(fmt.Sprintf("n%d\rm%d\r", pan, tilt))
+	return r.sendCommand(fmt.Sprintf("p%d\rt%d\r", pan, tilt))
 }
 
 func (r *Rover) ServeHTTP(w http.ResponseWriter, req *http.Request) {
