@@ -1,0 +1,50 @@
+<html>
+  <head>
+    <script>
+      function roverAction(action) {
+          var path = "/api/base?" + action + "&speed=" + document.getElementById("speed").value;
+          console.log(path);
+          var xhttp = new XMLHttpRequest();
+          xhttp.open("GET", path, true);
+          xhttp.send();
+      }
+
+      window.onkeypress = function(k) {
+          switch (k.key) {
+          case "s":
+              roverAction("stop=true");
+              break;
+          }
+
+      }
+
+      {{ range $view := .RemoteViews }}
+        {{ jsSafe $view.JavaScript }}
+      {{ end }}
+      
+    </script>
+  </head>
+  <body>
+    <ul>
+      <li><button onclick="roverAction('distanceMM=200')">Forward</button></li>
+      <li><button onclick="roverAction('distanceMM=-200')">Backward</button></li>
+      <li><button onclick="roverAction('angle=15')">Spin Right</button></li>
+      <li><button onclick="roverAction('angle=-15')">Spin Left</button></li>
+    </ul>
+
+    Speed: <input id="speed" name="speed" value="64"/><br>
+
+    <table>
+      <tr>
+        <td><img id="i0" src=""/></td>
+        <td><img id="i1" src=""/></td>
+        {{ range $view := .RemoteViews }}
+          <td>
+          {{ htmlSafe $view.Body }}
+          </td>
+        {{ end }}
+      </tr>
+      </table>
+    
+  </body>
+</html>
