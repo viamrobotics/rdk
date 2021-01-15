@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/echolabsinc/robotcore/arm"
+	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/vision"
 
@@ -14,10 +15,12 @@ type Robot struct {
 	Arms     []*arm.URArm       // TODO(erh): use interface
 	Grippers []*gripper.Gripper // TODO(erh): use interface
 	Cameras  []vision.MatSource
+	Bases    []base.Base
 
 	armComponents     []Component
 	gripperComponents []Component
 	cameraComponents  []Component
+	baseComponents    []Component
 }
 
 func (r *Robot) ArmByName(name string) *arm.URArm {
@@ -47,6 +50,24 @@ func (r *Robot) CameraByName(name string) vision.MatSource {
 	return nil
 }
 
+func (r *Robot) AddArm(a *arm.URArm, c Component) {
+	r.Arms = append(r.Arms, a)
+	r.armComponents = append(r.armComponents, c)
+}
+
+func (r *Robot) AddGripper(g *gripper.Gripper, c Component) {
+	r.Grippers = append(r.Grippers, g)
+	r.gripperComponents = append(r.gripperComponents, c)
+}
+func (r *Robot) AddCamera(camera vision.MatSource, c Component) {
+	r.Cameras = append(r.Cameras, camera)
+	r.cameraComponents = append(r.cameraComponents, c)
+}
+func (r *Robot) AddBase(b base.Base, c Component) {
+	r.Bases = append(r.Bases, b)
+	r.baseComponents = append(r.baseComponents, c)
+}
+
 func (r *Robot) Close() {
 	for _, x := range r.Arms {
 		x.Close()
@@ -60,6 +81,14 @@ func (r *Robot) Close() {
 		x.Close()
 	}
 
+	for _, x := range r.Bases {
+		x.Close()
+	}
+
+}
+
+func NewBlankRobot() *Robot {
+	return &Robot{}
 }
 
 func NewRobot(cfg Config) (*Robot, error) {
@@ -76,22 +105,19 @@ func NewRobot(cfg Config) (*Robot, error) {
 			if err != nil {
 				return nil, err
 			}
-			r.Arms = append(r.Arms, a)
-			r.armComponents = append(r.armComponents, c)
+			r.AddArm(a, c)
 		case Gripper:
 			g, err := newGripper(c, logger)
 			if err != nil {
 				return nil, err
 			}
-			r.Grippers = append(r.Grippers, g)
-			r.gripperComponents = append(r.gripperComponents, c)
+			r.AddGripper(g, c)
 		case Camera:
 			camera, err := newCamera(c)
 			if err != nil {
 				return nil, err
 			}
-			r.Cameras = append(r.Cameras, camera)
-			r.cameraComponents = append(r.cameraComponents, c)
+			r.AddCamera(camera, c)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
 		}
