@@ -8,3 +8,6 @@ docker:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
 	docker push 'echolabs/robotcoretest:latest'
 
+minirover2: 
+	go build -o minirover2 samples/minirover2/control.go samples/minirover2/util.go
+
