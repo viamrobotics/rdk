@@ -21,7 +21,7 @@ jobs:
 
     - name: Build
       run: |
-        apt update && apt install -y sudo swig
+        apt update && apt install -y sudo swig python2.7-dev
         cwd=`pwd`
         cd lrf/rplidar
         make
