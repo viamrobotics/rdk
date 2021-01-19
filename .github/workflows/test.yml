@@ -21,6 +21,7 @@ jobs:
 
     - name: Build
       run: |
+        apt update && apt install sudo
         cwd=`pwd`
         cd lrf/rplidar
         make
