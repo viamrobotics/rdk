@@ -6,6 +6,8 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -23,6 +25,11 @@ type robotWebApp struct {
 }
 
 func (app *robotWebApp) Init() error {
+	_, thisFilePath, _, _ := runtime.Caller(0)
+	thisDirPath, err := filepath.Abs(filepath.Dir(thisFilePath))
+	if err != nil {
+		return err
+	}
 	t, err := template.New("foo").Funcs(template.FuncMap{
 		"jsSafe": func(js string) template.JS {
 			return template.JS(js)
@@ -30,7 +37,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).ParseGlob("robot/*.html")
+	}).ParseGlob(fmt.Sprintf("%s/*.html", thisDirPath))
 	if err != nil {
 		return err
 	}
@@ -145,6 +152,9 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 		if err != nil {
 			return nil, err
 		}
+		remoteView.SetOnClickHandler(func(x, y int) {
+			golog.Global.Debugw("click", "x", x, "y", y)
+		})
 
 		views = append(views, remoteView)
 	}
