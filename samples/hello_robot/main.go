@@ -134,7 +134,6 @@ func (hrb *HelloRobotBase) MoveStraight(distanceMM int, speed int, block bool) e
 }
 
 func (hrb *HelloRobotBase) Spin(degrees int, power int, block bool) error {
-	println("spin by", degrees)
 	if power != 0 {
 		golog.Global.Info("HelloRobotBase.Spin does not support power")
 	}
