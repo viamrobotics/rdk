@@ -21,7 +21,7 @@ jobs:
 
     - name: Build
       run: |
-        apt update && apt install sudo swig
+        apt update && apt install -y sudo swig
         cwd=`pwd`
         cd lrf/rplidar
         make
