@@ -20,7 +20,12 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Build
-      run: go build -v ./...
+      run: |
+        cwd=`pwd`
+        cd lrf/rplidar
+        make
+        cd $cwd
+        go build -v ./...
 
     - name: Lint
       run: |
