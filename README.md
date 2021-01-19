@@ -22,7 +22,7 @@
 ## Linting
 
 ```
-go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
+go list ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 go get -u github.com/edaniels/golinters/cmd/combined
-go vet -vettool=$(which combined) ./...
+go list ./... | grep -v gen | xargs go vet -vettool=$(which combined)
 ```
