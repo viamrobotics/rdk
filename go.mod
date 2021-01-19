@@ -34,7 +34,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/webrtc/v3 v3.0.3
-	github.com/sbinet/go-python v0.1.0 // indirect
+	github.com/sbinet/go-python v0.1.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/smartystreets/assertions v1.2.0 // indirect
 	github.com/stretchr/testify v1.6.1
