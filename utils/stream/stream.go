@@ -15,7 +15,10 @@ func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.Re
 	gostream.StreamFunc(
 		ctx,
 		func() image.Image {
-			now := time.Now()
+			var now time.Time
+			if remoteView.Debug() {
+				now = time.Now()
+			}
 			mat, _, err := src.NextColorDepthPair()
 			if err != nil {
 				panic(err)
