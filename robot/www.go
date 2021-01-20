@@ -16,6 +16,7 @@ import (
 	"github.com/edaniels/gostream/codec/vpx"
 
 	"github.com/echolabsinc/robotcore/base"
+	"github.com/echolabsinc/robotcore/lidar"
 	"github.com/echolabsinc/robotcore/utils/stream"
 )
 
@@ -143,11 +144,18 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 
 	views := []gostream.RemoteView{}
 
-	// set up camera streams
-	for idx := range theRobot.Cameras {
+	// set up camera/lidar streams
+	for i := 0; i < len(theRobot.Cameras)+len(theRobot.LidarDevices); i++ {
 		config := vpx.DefaultRemoteViewConfig
 		config.Debug = false
-		config.StreamNumber = idx
+		config.StreamNumber = i
+		var name string
+		if i < len(theRobot.Cameras) {
+			name = fmt.Sprintf("Camera %d", i+1)
+		} else {
+			name = fmt.Sprintf("LIDAR %d", i-len(theRobot.Cameras)+1)
+		}
+		config.StreamName = name
 		remoteView, err := gostream.NewRemoteView(config)
 		if err != nil {
 			return nil, err
@@ -180,7 +188,12 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	for idx, remoteView := range views {
-		go stream.MatSource(cancelCtx, theRobot.Cameras[idx], remoteView, 33*time.Millisecond, golog.Global)
+		if idx < len(theRobot.Cameras) {
+			go stream.MatSource(cancelCtx, theRobot.Cameras[idx], remoteView, 33*time.Millisecond, golog.Global)
+			continue
+		}
+		lidarIdx := idx - len(theRobot.Cameras)
+		go stream.MatSource(cancelCtx, lidar.MatSource{theRobot.LidarDevices[lidarIdx]}, remoteView, 33*time.Millisecond, golog.Global)
 	}
 
 	return func() {

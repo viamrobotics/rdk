@@ -6,20 +6,23 @@ import (
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/lidar"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )
 
 type Robot struct {
-	Arms     []*arm.URArm       // TODO(erh): use interface
-	Grippers []*gripper.Gripper // TODO(erh): use interface
-	Cameras  []vision.MatSource
-	Bases    []base.Base
+	Arms         []*arm.URArm       // TODO(erh): use interface
+	Grippers     []*gripper.Gripper // TODO(erh): use interface
+	Cameras      []vision.MatSource
+	LidarDevices []lidar.Device
+	Bases        []base.Base
 
 	armComponents     []Component
 	gripperComponents []Component
 	cameraComponents  []Component
+	lidarComponents   []Component
 	baseComponents    []Component
 }
 
@@ -50,6 +53,15 @@ func (r *Robot) CameraByName(name string) vision.MatSource {
 	return nil
 }
 
+func (r *Robot) LidarDeviceByName(name string) lidar.Device {
+	for i, c := range r.lidarComponents {
+		if c.Name == name {
+			return r.LidarDevices[i]
+		}
+	}
+	return nil
+}
+
 func (r *Robot) AddArm(a *arm.URArm, c Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
@@ -62,6 +74,10 @@ func (r *Robot) AddGripper(g *gripper.Gripper, c Component) {
 func (r *Robot) AddCamera(camera vision.MatSource, c Component) {
 	r.Cameras = append(r.Cameras, camera)
 	r.cameraComponents = append(r.cameraComponents, c)
+}
+func (r *Robot) AddLidar(device lidar.Device, c Component) {
+	r.LidarDevices = append(r.LidarDevices, device)
+	r.lidarComponents = append(r.lidarComponents, c)
 }
 func (r *Robot) AddBase(b base.Base, c Component) {
 	r.Bases = append(r.Bases, b)
@@ -78,6 +94,10 @@ func (r *Robot) Close() {
 	}
 
 	for _, x := range r.Cameras {
+		x.Close()
+	}
+
+	for _, x := range r.LidarDevices {
 		x.Close()
 	}
 
@@ -118,6 +138,8 @@ func NewRobot(cfg Config) (*Robot, error) {
 				return nil, err
 			}
 			r.AddCamera(camera, c)
+		case Lidar:
+			return nil, fmt.Errorf("TODO(erd): %v not yet supported via configuration", c.Type)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
 		}
