@@ -1,4 +1,4 @@
-package lrf
+package lidar
 
 import (
 	"math"

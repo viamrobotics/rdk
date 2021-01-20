@@ -3,10 +3,11 @@ package rplidar
 import (
 	"errors"
 	"fmt"
+	"image"
 	"math"
 
-	"github.com/echolabsinc/robotcore/lrf"
-	rplidargen "github.com/echolabsinc/robotcore/lrf/rplidar/gen"
+	"github.com/echolabsinc/robotcore/lidar"
+	rplidargen "github.com/echolabsinc/robotcore/lidar/rplidar/gen"
 )
 
 func isResultOk(result uint) bool {
@@ -14,15 +15,30 @@ func isResultOk(result uint) bool {
 }
 
 func NewRPLidar(devicePath string) (*RPLidar, error) {
-	driver := rplidargen.RPlidarDriverCreateDriver(uint(rplidargen.DRIVER_TYPE_SERIALPORT))
-	if !isResultOk(driver.Connect(devicePath, uint(115200))) {
-		return nil, errors.New("failed to connect")
-	}
+	var driver rplidargen.RPlidarDriver
 
 	devInfo := rplidargen.NewRplidar_response_device_info_t()
 	defer rplidargen.DeleteRplidar_response_device_info_t(devInfo)
-	if !isResultOk(driver.GetDeviceInfo(devInfo, uint(5000))) {
-		return nil, errors.New("failed to get device info")
+
+	var lastErr error
+	baudRates := []uint{256000, 115200}
+	for _, rate := range baudRates {
+		driver = rplidargen.RPlidarDriverCreateDriver(uint(rplidargen.DRIVER_TYPE_SERIALPORT))
+		if !isResultOk(driver.Connect(devicePath, rate)) {
+			lastErr = errors.New("failed to connect")
+			continue
+		}
+
+		if !isResultOk(driver.GetDeviceInfo(devInfo, uint(5000))) {
+			lastErr = errors.New("failed to get device info")
+			continue
+		}
+
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		return nil, lastErr
 	}
 
 	serialNum := devInfo.GetSerialnum()
@@ -62,6 +78,7 @@ type RPLidar struct {
 	nodes    rplidargen.Rplidar_response_measurement_node_hq_t
 	nodeSize int
 	started  bool
+	bounds   *image.Point
 
 	// info
 	model            byte
@@ -82,14 +99,36 @@ func (rpl *RPLidar) HardwareRevision() int {
 	return rpl.hardwareRevision
 }
 
-// TODO(erd): configured based on device
 func (rpl *RPLidar) Range() int {
 	switch rpl.model {
 	case 24: // A1
 		return 12
+	case 49: // A3
+		return 25
 	default:
 		panic(fmt.Errorf("range unknown for model %d", rpl.model))
 	}
+}
+
+func (rpl *RPLidar) Bounds() (image.Point, error) {
+	if rpl.bounds != nil {
+		return *rpl.bounds, nil
+	}
+	devRange := float64(rpl.Range())
+	measurements, err := rpl.Scan()
+	if err != nil {
+		return image.Point{}, err
+	}
+	for _, m := range measurements {
+		if m.Distance() > devRange {
+			devRange = m.Distance()
+		}
+	}
+	width := int(math.Ceil(devRange * 100)) // 1 pixel/cm
+	height := width
+	bounds := image.Point{width, height}
+	rpl.bounds = &bounds
+	return bounds, nil
 }
 
 func (rpl *RPLidar) Start() {
@@ -104,7 +143,11 @@ func (rpl *RPLidar) Stop() {
 	rpl.driver.StopMotor()
 }
 
-func (rpl *RPLidar) Scan() (lrf.Measurements, error) {
+func (rpl *RPLidar) Close() {
+	rpl.Stop()
+}
+
+func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	if !rpl.started {
 		rpl.Start()
 		rpl.started = true
@@ -115,7 +158,7 @@ func (rpl *RPLidar) Scan() (lrf.Measurements, error) {
 	if !isResultOk(result) {
 		return nil, errors.New("bad scan")
 	}
-	measurements := make(lrf.Measurements, 0, nodeCount)
+	measurements := make(lidar.Measurements, 0, nodeCount)
 	rpl.driver.AscendScanData(rpl.nodes, nodeCount)
 
 	for pos := 0; pos < int(nodeCount); pos++ {
@@ -127,7 +170,7 @@ func (rpl *RPLidar) Scan() (lrf.Measurements, error) {
 		nodeAngle := (float64(node.GetAngle_z_q14()) * 90 / (1 << 14))
 		nodeAngle = nodeAngle * math.Pi / 180
 		nodeDistance := float64(node.GetDist_mm_q2()) / 4
-		measurements = append(measurements, lrf.NewMeasurement(nodeAngle, nodeDistance/1000))
+		measurements = append(measurements, lidar.NewMeasurement(nodeAngle, nodeDistance/1000))
 	}
 
 	return measurements, nil

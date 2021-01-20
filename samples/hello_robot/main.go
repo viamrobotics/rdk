@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/robot"
 	"github.com/echolabsinc/robotcore/vision"
 
@@ -32,13 +33,25 @@ func main() {
 		srcURL = flag.Arg(0)
 	}
 
+	lidarDevPath := "/dev/hello-lrf"
+	if flag.NArg() >= 2 {
+		lidarDevPath = flag.Arg(1)
+	}
+
 	helloRobot := NewHelloRobot()
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
+	lidarDev, err := rplidar.NewRPLidar(lidarDevPath)
+	if err != nil {
+		panic(err)
+	}
+	lidarDev.Start()
+
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(helloRobot.Base(), robot.Component{})
 	theRobot.AddCamera(&vision.RotateSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
+	theRobot.AddLidar(lidarDev, robot.Component{})
 
 	defer theRobot.Close()
 

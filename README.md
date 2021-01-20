@@ -19,10 +19,19 @@
 * saveImageFromWebcam - really just to test out webcam capture code
 * vision - utilities for working with images to test out vision library code
 
+## Dependencies
+
+* go1.15.*
+* opencv4
+* libvpx
+* python2.7-dev
+* swig
+
 ## Linting
 
 ```
-go list ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
+go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
+go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
 go get -u github.com/edaniels/golinters/cmd/combined
-go list ./... | grep -v gen | xargs go vet -vettool=$(which combined)
+go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=$(which combined)
 ```

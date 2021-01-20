@@ -13,6 +13,7 @@ const (
 	Arm     = "arm"
 	Gripper = "gripper"
 	Camera  = "camera"
+	Lidar   = "lidar"
 )
 
 type Component struct {
