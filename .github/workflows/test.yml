@@ -23,7 +23,7 @@ jobs:
       run: |
         apt update && apt install -y sudo swig python2.7-dev
         cwd=`pwd`
-        cd lrf/rplidar
+        cd lidar/rplidar
         make
         cd $cwd
         go build -v ./...
