@@ -50,7 +50,7 @@ func main() {
 
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(helloRobot.Base(), robot.Component{})
-	theRobot.AddCamera(&vision.RotateSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
+	theRobot.AddCamera(vision.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
 	theRobot.AddLidar(lidarDev, robot.Component{})
 
 	defer theRobot.Close()
