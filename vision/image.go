@@ -1,10 +1,14 @@
 package vision
 
 import (
+	"compress/gzip"
 	"fmt"
 	"image"
 	"image/color"
+	"io/ioutil"
 	"math"
+	"os"
+	"strings"
 
 	"gocv.io/x/gocv"
 
@@ -20,6 +24,35 @@ type Image struct {
 }
 
 func NewImageFromFile(fn string) (Image, error) {
+	if strings.HasSuffix(fn, ".both.gz") {
+
+		f, err := os.Open(fn)
+		if err != nil {
+			return Image{}, err
+		}
+		defer f.Close()
+
+		in, err := gzip.NewReader(f)
+		if err != nil {
+			return Image{}, err
+		}
+
+		defer in.Close()
+
+		allData, err := ioutil.ReadAll(in)
+
+		if err != nil {
+			return Image{}, err
+		}
+
+		mat, _, err := readNextColorDepthPairFromBoth(allData)
+		if err != nil {
+			return Image{}, err
+		}
+
+		return NewImage(mat)
+	}
+
 	return NewImage(gocv.IMRead(fn, gocv.IMReadUnchanged))
 }
 
