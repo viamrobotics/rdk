@@ -256,6 +256,8 @@ void setup() {
     setupInterrupt(2, interrupt1);
     setupInterrupt(20, interrupt2);
     setupInterrupt(21, interrupt3);
+
+    debugSerial->println("setup done");
 }
 
 void processBuffer(Buffer* b) {
@@ -308,7 +310,10 @@ void loop() {
     processBuffer(buf2);
 }
 
-void interruptCallback(int num) { motors[num]->encoderTick(); }
+void interruptCallback(int num) {
+    // debugSerial->println(num);
+    motors[num]->encoderTick();
+}
 
 void interrupt0() { interruptCallback(0); }
 
