@@ -126,7 +126,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (gocv.Mat, error) {
 		debug: debug,
 	}
 
-	palette := colorful.FastWarmPalette(10)
+	palette := colorful.FastWarmPalette(100)
 
 	for color := 0; color < len(palette); color++ {
 
