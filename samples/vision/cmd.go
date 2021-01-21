@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/vision/segmentation"
 
 	"fyne.io/fyne"
 	"fyne.io/fyne/canvas"
@@ -24,14 +25,12 @@ import (
 	"github.com/edaniels/gostream/codec/vpx"
 	fyneutils "github.com/edaniels/gostream/utils/fyne"
 	"github.com/gonum/stat"
-	"github.com/lucasb-eyer/go-colorful"
 	"gocv.io/x/gocv"
 )
 
 var (
 	xFlag, yFlag *int
 	radius       *float64
-	maxDistance  *float64
 	debug        *bool
 )
 
@@ -127,161 +126,6 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 	return nil
 }
 
-func _shapeWalkHelp(img vision.Image, dots map[string]int, originalColor vision.HSV, lastColor vision.HSV, start image.Point, colorNumber int) {
-	if start.X < 0 || start.X >= img.Width() || start.Y < 0 || start.Y >= img.Height() {
-		return
-	}
-
-	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
-		center := image.Point{*xFlag, *yFlag}
-		if vision.PointDistance(center, start) > *radius {
-			return
-		}
-
-	}
-
-	key := fmt.Sprintf("%d-%d", start.X, start.Y)
-	if dots[key] != 0 {
-		return
-	}
-
-	myColor := img.ColorHSV(start)
-
-	originalDistance := originalColor.Distance(myColor)
-	lastDistance := lastColor.Distance(myColor)
-
-	good := originalDistance < *maxDistance || (originalDistance < (*maxDistance*1.1) && lastDistance < *maxDistance/1)
-
-	if *debug {
-		distanceFromPoint := vision.PointDistance(start, image.Point{*xFlag, *yFlag})
-		golog.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v distanceFromPoint: %f\n",
-			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance, distanceFromPoint)
-	}
-	if !good {
-		dots[key] = -1
-		return
-	}
-	dots[key] = colorNumber
-
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y - 1}, colorNumber)
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 0}, colorNumber)
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 1, start.Y + 1}, colorNumber)
-
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y - 1}, colorNumber)
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 0}, colorNumber)
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X - 1, start.Y + 1}, colorNumber)
-
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
-	_shapeWalkHelp(img, dots, originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
-}
-
-func shapeWalkPiece(img vision.Image, start image.Point, dots map[string]int, colorNumber int) error {
-	init := img.ColorHSV(start)
-
-	_shapeWalkHelp(img, dots, init, init, start, colorNumber)
-
-	for k, v := range dots {
-		if v == -1 {
-			dots[k] = 0
-		}
-	}
-
-	return nil
-}
-
-func shapeWalk(img vision.Image, startX, startY int) (*gocv.Mat, error) {
-	m := img.MatUnsafe()
-	m = m.Clone()
-
-	start := image.Point{startX, startY}
-
-	dots := map[string]int{} // 0 not seen, 1 seen and good, -1 seen and bad
-
-	if err := shapeWalkPiece(img, start, dots, 1); err != nil {
-		return nil, err
-	}
-
-	for k, v := range dots {
-		if v < 0 {
-			continue
-		}
-
-		var x, y int
-		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
-		}
-
-		gocv.Circle(&m, image.Point{x, y}, 1, vision.Red.C, 1)
-	}
-
-	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
-		center := image.Point{*xFlag, *yFlag}
-		gocv.Circle(&m, center, int(*radius), vision.Green.C, 1)
-	}
-
-	return &m, nil
-}
-
-type MyWalkError struct {
-	pos image.Point
-}
-
-func (e MyWalkError) Error() string {
-	return "MyWalkError"
-}
-
-func shapeWalkEntire(img vision.Image) error {
-	m := img.MatUnsafe()
-
-	palette := colorful.FastWarmPalette(10)
-	dots := map[string]int{}
-
-	for color := 0; color < len(palette); color++ {
-
-		found := vision.Walk(img.Width()/2, img.Height()/2, img.Width(),
-			func(x, y int) error {
-				if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
-					return nil
-				}
-
-				key := fmt.Sprintf("%d-%d", x, y)
-				if dots[key] != 0 {
-					return nil
-				}
-				return MyWalkError{image.Point{x, y}}
-			})
-
-		if found == nil {
-			break
-		}
-
-		start := found.(MyWalkError).pos
-		if err := shapeWalkPiece(img, start, dots, color+1); err != nil {
-			return err
-		}
-	}
-
-	for k, v := range dots {
-		if v <= 0 {
-			continue
-		}
-
-		var x, y int
-		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
-		if err != nil {
-			return fmt.Errorf("couldn't read key %s %s", k, err)
-		}
-
-		myColor := vision.NewColorFromColorful(palette[v-1]).C
-		gocv.Circle(&m, image.Point{x, y}, 1, myColor, 1)
-	}
-
-	gocv.IMWrite(_getOutputfile(), m)
-
-	return nil
-}
-
 type ViewApp struct {
 	fyne.App
 	mainWindow fyne.Window
@@ -336,7 +180,7 @@ func view(img vision.Image) error {
 			colorHSV.H, colorHSV.S, colorHSV.V,
 			color.R, color.G, color.B, color.A)
 
-		walked, err := shapeWalk(img, x, y)
+		walked, err := segmentation.ShapeWalk(img, x, y)
 		if err != nil {
 			panic(err)
 		}
@@ -374,7 +218,6 @@ func main() {
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
 	radius = flag.Float64("radius", -1, "")
-	maxDistance = flag.Float64("maxDistance", 1.0, "")
 	debug = flag.Bool("debug", false, "")
 
 	blur := flag.Bool("blur", false, "")
@@ -403,7 +246,11 @@ func main() {
 	case "hsvHisto":
 		hsvHistogram(img)
 	case "shapeWalkEntire":
-		err = shapeWalkEntire(img)
+		var m2 gocv.Mat
+		m2, err = segmentation.ShapeWalkEntireDebug(img, *debug)
+		if err == nil {
+			gocv.IMWrite(_getOutputfile(), m2)
+		}
 	case "shapeWalkLine":
 		err = shapeWalkLine(img, *xFlag, *yFlag)
 	case "view":
