@@ -15,11 +15,7 @@ type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn string, imgraw gocv.Mat) error {
-	img, err := vision.NewImage(imgraw)
-	if err != nil {
-		return err
-	}
+func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
 	out := gocv.NewMatWithSize(img.Rows(), img.Cols(), gocv.MatTypeCV8UC3)
 	defer out.Close()
 	corners, err := dd.p(img, &out)

@@ -23,6 +23,9 @@ type MultipleImageTestDebugger struct {
 
 func (d *MultipleImageTestDebugger) GotDebugImage(mat gocv.Mat, name string) {
 	outFile := filepath.Join(d.out, name+"-"+filepath.Base(d.currentFile))
+	if !strings.HasSuffix(outFile, ".png") {
+		outFile = outFile + ".png"
+	}
 	gocv.IMWrite(outFile, mat)
 	d.addImageCell(outFile)
 }
@@ -32,7 +35,7 @@ func (d *MultipleImageTestDebugger) addImageCell(f string) {
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(d *MultipleImageTestDebugger, fn string, img gocv.Mat) error
+	Process(d *MultipleImageTestDebugger, fn string, img Image) error
 }
 
 func NewMultipleImageTestDebugger(prefix, glob string) MultipleImageTestDebugger {
@@ -66,12 +69,15 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	for _, f := range files {
 		d.currentFile = f
 		golog.Global.Debug(f)
-		img := gocv.IMRead(f, gocv.IMReadUnchanged)
+		img, err := NewImageFromFile(f)
+		if err != nil {
+			return err
+		}
 
 		d.html.WriteString("<tr>")
-		d.addImageCell(f)
+		d.GotDebugImage(img.MatUnsafe(), "raw")
 
-		err := x.Process(d, f, img)
+		err = x.Process(d, f, img)
 		if err != nil {
 			return err
 		}

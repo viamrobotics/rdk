@@ -12,12 +12,7 @@ import (
 type MyDebug struct {
 }
 
-func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat gocv.Mat) error {
-	img, err := vision.NewImage(mat)
-	if err != nil {
-		return err
-	}
-
+func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
 	dm, err := vision.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -40,8 +35,35 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, mat g
 }
 
 func Test1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("minirover2", "*.png")
+	d := vision.NewMultipleImageTestDebugger("minirover2/autodrive", "*.png")
 	err := d.Process(MyDebug{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+// ----
+
+type ChargeDebug struct {
+}
+
+func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
+	m := img.MatUnsafe()
+	gocv.Rotate(m, &m, gocv.Rotate180Clockwise)
+	img, err := vision.NewImage(m)
+	if err != nil {
+		return err
+	}
+
+	d.GotDebugImage(m, "rotated")
+
+	return nil
+}
+
+func TestCharge1(t *testing.T) {
+	d := vision.NewMultipleImageTestDebugger("minirover2/charging1", "*.both.gz")
+	err := d.Process(ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)
 	}
