@@ -1,7 +1,7 @@
 
 format:
 	gofmt -s -w .
-	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find . -iname "*.cpp" -o -iname "*.h" -o -iname "*.ino"`
+	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
 	go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
 
 docker:
