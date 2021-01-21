@@ -148,15 +148,21 @@ func (s *IntelServerSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 		return img, depth, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
 	}
 
+	return readNextColorDepthPairFromBoth(allData)
+}
+
+func readNextColorDepthPairFromBoth(allData []byte) (gocv.Mat, DepthMap, error) {
+	img := gocv.Mat{}
+
 	reader := bufio.NewReader(bytes.NewReader(allData))
-	depth, err = ReadDepthMap(reader)
+	depth, err := ReadDepthMap(reader)
 	if err != nil {
-		return img, depth, fmt.Errorf("couldn't read depth map (both): %s %w", s.BothURL, err)
+		return img, depth, fmt.Errorf("couldn't read depth map (both): %w", err)
 	}
 
 	imgData, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return img, depth, fmt.Errorf("couldn't read image (both): %s %w", s.BothURL, err)
+		return img, depth, fmt.Errorf("couldn't read image (both): %w", err)
 	}
 
 	img, err = gocv.IMDecode(imgData, gocv.IMReadUnchanged)
