@@ -7,6 +7,8 @@ import (
 	"gocv.io/x/gocv"
 
 	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/vision/segmentation"
+	
 )
 
 type MyDebug struct {
@@ -58,11 +60,18 @@ func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, im
 
 	d.GotDebugImage(m, "rotated")
 
+	m2, err := segmentation.ShapeWalkEntireDebug(img, false)
+	if err != nil {
+		return err
+	}
+	d.GotDebugImage(m2, "segments")
+	
+	
 	return nil
 }
 
 func TestCharge1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("minirover2/charging1", "*.both.gz")
+	d := vision.NewMultipleImageTestDebugger("minirover2/charging2", "*.both.gz")
 	err := d.Process(ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)

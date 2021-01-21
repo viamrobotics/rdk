@@ -82,3 +82,5 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 
 	return points
 }
+
+// ------
