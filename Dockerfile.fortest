@@ -28,8 +28,9 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y build-essential cmake \
         libeigen3-dev \
         tesseract-ocr tesseract-ocr-por libtesseract-dev
 
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y sudo swig python2.7-dev
 
-ARG OPENCV_VERSION=4.5.0
+ARG OPENCV_VERSION=4.5.1
 
 WORKDIR /opt/build
 
@@ -85,9 +86,11 @@ RUN set -ex \
         -D INSTALL_C_EXAMPLES=OFF \
         -D INSTALL_TESTS=OFF \
         /opt/opencv-${OPENCV_VERSION} \
-    && make -j$(nproc) \
+    && make -j$(nproc) VERBOSE=1 \
     && make install \
     && rm -rf /opt/build/* \
     && rm -rf /opt/opencv-${OPENCV_VERSION} \
     && rm -rf /opt/opencv_contrib-${OPENCV_VERSION}
+
+
 
