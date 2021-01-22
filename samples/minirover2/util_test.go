@@ -8,7 +8,6 @@ import (
 
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/segmentation"
-	
 )
 
 type MyDebug struct {
@@ -65,8 +64,7 @@ func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, im
 		return err
 	}
 	d.GotDebugImage(m2, "segments")
-	
-	
+
 	return nil
 }
 
