@@ -166,7 +166,6 @@ func main() {
 			worldView.scale = int(newScale)
 			worldRemoteView.SendText(fmt.Sprintf("scale set to %q", newScale))
 		}
-		return
 	})
 
 	server := gostream.NewRemoteViewServer(port, baseView, golog.Global)
