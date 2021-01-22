@@ -148,13 +148,29 @@ func main() {
 
 	config.StreamNumber = 1
 	config.StreamName = "world view"
-	worldView, err := gostream.NewRemoteView(config)
+	worldRemoteView, err := gostream.NewRemoteView(config)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
 
+	worldView := &worldViewer{roomPoints, roomPointsMu, 100}
+	worldRemoteView.SetOnDataHandler(func(data []byte) {
+		golog.Global.Debugw("data", "raw", string(data))
+		if bytes.HasPrefix(data, []byte("set_scale ")) {
+			newScaleStr := string(bytes.TrimPrefix(data, []byte("set_scale ")))
+			newScale, err := strconv.ParseInt(newScaleStr, 10, 32)
+			if err != nil {
+				worldRemoteView.SendText(err.Error())
+				return
+			}
+			worldView.scale = int(newScale)
+			worldRemoteView.SendText(fmt.Sprintf("scale set to %q", newScale))
+		}
+		return
+	})
+
 	server := gostream.NewRemoteViewServer(port, baseView, golog.Global)
-	server.AddView(worldView)
+	server.AddView(worldRemoteView)
 	server.Run()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -166,8 +182,8 @@ func main() {
 	}()
 
 	baseViewMatSource := stream.ResizeMatSource{lar, 800, 600}
-	worldViewMatSource := stream.ResizeMatSource{&worldViewer{roomPoints, roomPointsMu}, 800, 600}
-	go stream.MatSource(cancelCtx, worldViewMatSource, worldView, time.Second, golog.Global)
+	worldViewMatSource := stream.ResizeMatSource{worldView, 800, 600}
+	go stream.MatSource(cancelCtx, worldViewMatSource, worldRemoteView, 33*time.Millisecond, golog.Global)
 	stream.MatSource(cancelCtx, baseViewMatSource, baseView, 33*time.Millisecond, golog.Global)
 
 	if err := server.Stop(context.Background()); err != nil {
@@ -178,19 +194,20 @@ func main() {
 type worldViewer struct {
 	roomPoints   *sparse.DOK
 	roomPointsMu *sync.Mutex
+	scale        int
 }
 
 func (wv *worldViewer) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
 	x, y := wv.roomPoints.Dims()
 	// TODO(erd): any way to make this really fast? Allocate these in advance in
 	// a goroutine? Pool?
-	out := gocv.NewMatWithSize(x, y, gocv.MatTypeCV8UC3)
+	out := gocv.NewMatWithSize(x/wv.scale, y/wv.scale, gocv.MatTypeCV8UC3)
 
 	wv.roomPointsMu.Lock()
 	defer wv.roomPointsMu.Unlock()
 	wv.roomPoints.DoNonZero(func(x, y int, _ float64) {
-		p := image.Point{x, y}
-		gocv.Circle(&out, p, 8, color.RGBA{R: 255}, 1)
+		p := image.Point{x / wv.scale, y / wv.scale}
+		gocv.Circle(&out, p, 1, color.RGBA{R: 255}, 1)
 	})
 
 	return out, vision.DepthMap{}, nil
