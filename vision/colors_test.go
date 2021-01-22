@@ -189,6 +189,8 @@ func TestHSVDistanceSanityCheck2(t *testing.T) {
 
 func TestHSVDistanceBlacks1(t *testing.T) {
 	data := []Color{
+		NewColorFromHexOrPanic("#020300", ""),
+		NewColorFromHexOrPanic("#010101", ""),
 		NewColor(17, 23, 11, ""),
 		NewColor(23, 13, 11, ""),
 		NewColor(11, 23, 21, ""),
@@ -199,6 +201,8 @@ func TestHSVDistanceBlacks1(t *testing.T) {
 		NewColor(23, 11, 16, ""),
 		NewColor(23, 11, 13, ""),
 	}
+
+	_assertSame(t, data[0].AsHSV, data[1].AsHSV)
 
 	_checkAllSame(t, data)
 }

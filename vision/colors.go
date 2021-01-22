@@ -91,6 +91,10 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		wh /= 30
 		ws /= 5
 		wv *= 1.5
+
+		if v1 < .1 && v2 < .1 {
+			ws /= 3
+		}
 	} else if s1 < .1 || s2 < .1 {
 		// we're in the light range
 		wh /= 100
