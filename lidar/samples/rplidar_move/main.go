@@ -164,7 +164,7 @@ func main() {
 				return
 			}
 			worldView.scale = int(newScale)
-			worldRemoteView.SendText(fmt.Sprintf("scale set to %q", newScale))
+			worldRemoteView.SendText(fmt.Sprintf("scale set to %d", newScale))
 		}
 	})
 
