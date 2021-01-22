@@ -50,7 +50,9 @@ func (fl *FakeLidar) Scan() (lidar.Measurements, error) {
 		return nil, nil
 	}
 	h := fnv.New64()
-	h.Write([]byte(fmt.Sprintf("%d,%d", fl.posX, fl.posY)))
+	if _, err := h.Write([]byte(fmt.Sprintf("%d,%d", fl.posX, fl.posY))); err != nil {
+		return nil, err
+	}
 	r := rand.NewSource(int64(h.Sum64()))
 	measurements := make(lidar.Measurements, 0, 360)
 	getFloat64 := func() float64 {
@@ -92,8 +94,7 @@ func main() {
 		port = int(portParsed)
 	}
 
-	var lidarDev lidar.Device
-	lidarDev = &FakeLidar{}
+	lidarDev := &FakeLidar{}
 	// lidarDev, err := rplidar.NewRPLidar(devPath)
 	// if err != nil {
 	// 	golog.Global.Fatal(err)
