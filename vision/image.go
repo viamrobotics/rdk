@@ -67,7 +67,11 @@ func NewImage(mat gocv.Mat) (Image, error) {
 		return Image{}, fmt.Errorf("bad mat type %v", mat.Type())
 	}
 
-	i := Image{mat, mat.DataPtrUint8(), mat.Cols(), mat.Rows()}
+	data, err := mat.DataPtrUint8()
+	if err != nil {
+		return Image{}, err
+	}
+	i := Image{mat, data, mat.Cols(), mat.Rows()}
 
 	if len(i.data) != (3 * i.width * i.height) {
 		return Image{}, fmt.Errorf("bad length/size. len: %d width: %d height: %d", len(i.data), i.width, i.height)
