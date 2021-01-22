@@ -21,7 +21,6 @@ jobs:
 
     - name: Build
       run: |
-        apt update && apt install -y sudo swig python2.7-dev
         cwd=`pwd`
         cd lidar/rplidar
         make
@@ -30,10 +29,7 @@ jobs:
 
     - name: Lint
       run: |
-        go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
-        go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
-        go get -u github.com/edaniels/golinters/cmd/combined
-        go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=$(which combined)
+        make lint
 
     - name: Test
       run: go list -f '{{.Dir}}' ./... | grep -v gen | go test -v ./...
