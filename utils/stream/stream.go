@@ -49,6 +49,7 @@ func (rms ResizeMatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, erro
 	if err != nil {
 		return mat, dm, err
 	}
+	defer mat.Close()
 	out := gocv.NewMatWithSize(rms.X, rms.Y, gocv.MatTypeCV8UC3)
 
 	gocv.Resize(mat, &out, image.Point{rms.X, rms.Y}, 0, 0, gocv.InterpolationCubic)
