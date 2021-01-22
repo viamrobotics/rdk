@@ -76,7 +76,7 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 	return nil
 }
 
-func ShapeWalk(img vision.Image, startX, startY int) (*gocv.Mat, error) {
+func ShapeWalk(img vision.Image, startX, startY int, debug bool) (*gocv.Mat, error) {
 	m := img.MatUnsafe()
 	m = m.Clone()
 
@@ -85,7 +85,7 @@ func ShapeWalk(img vision.Image, startX, startY int) (*gocv.Mat, error) {
 	ws := walkState{
 		img:   img,
 		dots:  map[string]int{},
-		debug: false,
+		debug: debug,
 	}
 
 	if err := ws.piece(start, 1); err != nil {
