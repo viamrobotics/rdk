@@ -31,7 +31,12 @@
 
 ```
 go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
-go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v ./...
 go get -u github.com/edaniels/golinters/cmd/combined
 go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=$(which combined)
 ```
+
+## Testing from Github Actions
+
+1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
+2. Install `act` with `brew install act`
+3. Then just run `act`
