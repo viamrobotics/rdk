@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"hash/fnv"
@@ -32,6 +33,7 @@ import (
 type FakeLidar struct {
 	posX, posY int
 	started    bool
+	seed       int64
 }
 
 func (fl *FakeLidar) Start() {
@@ -54,7 +56,7 @@ func (fl *FakeLidar) Scan() (lidar.Measurements, error) {
 	if _, err := h.Write([]byte(fmt.Sprintf("%d,%d", fl.posX, fl.posY))); err != nil {
 		return nil, err
 	}
-	r := rand.NewSource(int64(h.Sum64()))
+	r := rand.NewSource(int64(h.Sum64()) + fl.seed)
 	measurements := make(lidar.Measurements, 0, 360)
 	getFloat64 := func() float64 {
 	again:
@@ -78,16 +80,34 @@ func (fl *FakeLidar) Bounds() (image.Point, error) {
 	return image.Point{fl.Range(), fl.Range()}, nil
 }
 
+type stringFlags []string
+
+func (sf *stringFlags) Set(value string) error {
+	*sf = append(*sf, value)
+	return nil
+}
+
+func (sf *stringFlags) String() string {
+	return fmt.Sprint([]string(*sf))
+}
+
 func main() {
+	var devicePathFlags stringFlags
+	flag.Var(&devicePathFlags, "device", "lidar device")
 	flag.Parse()
 
-	devPath := "/dev/ttyUSB2"
-	if flag.NArg() >= 1 {
-		devPath = flag.Arg(0)
+	devicePaths := []string{"/dev/ttyUSB2", "/dev/ttyUSB3"}
+	if len(devicePathFlags) != 0 {
+		devicePaths = []string(devicePathFlags)
 	}
-	_ = devPath // TODO(erd): remove
+
+	if len(devicePaths) == 0 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	port := 5555
-	if flag.NArg() >= 2 {
+	if flag.NArg() >= 1 {
 		portParsed, err := strconv.ParseInt(flag.Arg(1), 10, 32)
 		if err != nil {
 			golog.Global.Fatal(err)
@@ -95,21 +115,34 @@ func main() {
 		port = int(portParsed)
 	}
 
-	// lidarDev := &FakeLidar{}
-	lidarDev, err := rplidar.NewRPLidar(devPath)
-	if err != nil {
-		golog.Global.Fatal(err)
+	golog.Global.Debugw("registering devices")
+	var lidarDevices []lidar.Device
+	for _, devPath := range devicePaths {
+		if devPath == "fake" {
+			lidarDevices = append(lidarDevices, &FakeLidar{})
+			continue
+		}
+		lidarDev, err := rplidar.NewRPLidar(devPath)
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		lidarDevices = append(lidarDevices, lidarDev)
 	}
 
-	golog.Global.Infof("RPLIDAR S/N: %s", lidarDev.SerialNumber())
-	golog.Global.Infof("\n"+
-		"Firmware Ver: %s\n"+
-		"Hardware Rev: %d\n",
-		lidarDev.FirmwareVersion(),
-		lidarDev.HardwareRevision())
+	for i, lidarDev := range lidarDevices {
+		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
+			golog.Global.Infow("rplidar",
+				"dev_path", devicePaths[i],
+				"model", rpl.Model(),
+				"serial", rpl.SerialNumber(),
+				"firmware_ver", rpl.FirmwareVersion(),
+				"hardware_rev", rpl.HardwareRevision())
+		}
+		lidarDev.Start()
+		defer lidarDev.Stop()
+	}
 
-	lidarDev.Start()
-	defer lidarDev.Stop()
+	golog.Global.Debugw("setting up room")
 
 	// The room is 600m^2 tracked in centimeters
 	// 0 means no detected obstacle
@@ -123,7 +156,18 @@ func main() {
 
 	base := &fakeBase{centerX, centerY, squareMillis, squareMillis}
 	roomPointsMu := &sync.Mutex{}
-	lar := &LocationAwareLidar{base, lidarDev, roomPoints, roomPointsMu, 100}
+	baseRoomPoints := make([]*sparse.DOK, 0, len(lidarDevices))
+	for range lidarDevices {
+		baseRoomPoints = append(baseRoomPoints, sparse.NewDOK(squareMillis, squareMillis))
+	}
+	lar := &LocationAwareLidar{
+		base:               base,
+		devices:            lidarDevices,
+		roomPointsCombined: roomPoints,
+		roomPoints:         baseRoomPoints,
+		roomPointsMu:       roomPointsMu,
+		scaleDown:          100,
+	}
 
 	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
@@ -286,15 +330,18 @@ func (fb *fakeBase) Close() {
 }
 
 type LocationAwareLidar struct {
-	base         base.Base
-	device       lidar.Device
-	roomPoints   *sparse.DOK
-	roomPointsMu *sync.Mutex
-	scaleDown    int
+	mu                 sync.Mutex
+	base               base.Base
+	devices            []lidar.Device
+	clientDeviceNum    int
+	roomPointsCombined *sparse.DOK
+	roomPoints         []*sparse.DOK
+	roomPointsMu       *sync.Mutex
+	scaleDown          int
 }
 
 func (lar *LocationAwareLidar) cull() {
-	bounds, err := lar.device.Bounds()
+	bounds, err := lar.devices[0].Bounds()
 	if err != nil {
 		panic(err)
 	}
@@ -303,6 +350,7 @@ func (lar *LocationAwareLidar) cull() {
 	bounds.Y *= scaleDown
 
 	// TODO(erd): cancellation
+	// TODO(erd): combined
 	ticker := time.NewTicker(time.Second)
 	go func() {
 		defer ticker.Stop()
@@ -323,11 +371,11 @@ func (lar *LocationAwareLidar) cull() {
 			func() {
 				lar.roomPointsMu.Lock()
 				defer lar.roomPointsMu.Unlock()
-				lar.roomPoints.DoNonZero(func(x, y int, v float64) {
+				lar.roomPointsCombined.DoNonZero(func(x, y int, v float64) {
 					if x < minX || x > maxX || y < minY || y > maxY {
 						return
 					}
-					lar.roomPoints.Set(x, y, v-1)
+					lar.roomPointsCombined.Set(x, y, v-1)
 				})
 			}()
 		}
@@ -337,17 +385,24 @@ func (lar *LocationAwareLidar) cull() {
 func (lar *LocationAwareLidar) update() {
 	basePosX := lar.base.(*fakeBase).posX
 	basePosY := lar.base.(*fakeBase).posY
-	if fake, ok := lar.device.(*FakeLidar); ok {
-		fake.posX = basePosX
-		fake.posY = basePosY
+
+	for _, dev := range lar.devices {
+		if fake, ok := dev.(*FakeLidar); ok {
+			fake.posX = basePosX
+			fake.posY = basePosY
+		}
 	}
-	measurements, err := lar.device.Scan()
+	// var allMeasurements []lidar.Measurements
+	// for _, dev := range lar.devices {
+	measurements, err := lar.devices[0].Scan()
 	if err != nil {
 		golog.Global.Debugw("bad scan", "error", err)
 		return
 	}
+	// }
 
-	dimX, dimY := lar.roomPoints.Dims()
+	// TODO(erd): combined
+	dimX, dimY := lar.roomPointsCombined.Dims()
 	lar.roomPointsMu.Lock()
 	defer lar.roomPointsMu.Unlock()
 	for _, next := range measurements {
@@ -368,16 +423,37 @@ func (lar *LocationAwareLidar) update() {
 		// Realistically once the bounds of a location are determined, most
 		// environments would only have it deform over very long periods of time.
 		// Probably longer than the lifetime of the application itself.
-		lar.roomPoints.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
+		lar.roomPointsCombined.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
 	}
+}
+
+func (lar *LocationAwareLidar) roomToView() (image.Point, *sparse.DOK, error) {
+	devNum := lar.getClientDeviceNum()
+	if devNum == -1 {
+		// TODO(erd): combined
+		bounds, err := lar.devices[0].Bounds()
+		if err != nil {
+			return image.Point{}, nil, err
+		}
+		return bounds, lar.roomPointsCombined, nil
+	}
+	dev := lar.devices[devNum]
+	bounds, err := dev.Bounds()
+	if err != nil {
+		return image.Point{}, nil, err
+	}
+	return bounds, lar.roomPoints[devNum], nil
 }
 
 func (lar *LocationAwareLidar) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
 	lar.update()
-	bounds, err := lar.device.Bounds()
+
+	// select device and sparse
+	bounds, room, err := lar.roomToView()
 	if err != nil {
 		return gocv.Mat{}, vision.DepthMap{}, err
 	}
+
 	scaleDown := lar.scaleDown
 	bounds.X *= scaleDown
 	bounds.Y *= scaleDown
@@ -400,7 +476,7 @@ func (lar *LocationAwareLidar) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 	// if this starts going slower. fast as long as there are not many points
 	lar.roomPointsMu.Lock()
 	defer lar.roomPointsMu.Unlock()
-	lar.roomPoints.DoNonZero(func(x, y int, _ float64) {
+	room.DoNonZero(func(x, y int, _ float64) {
 		if x < minX || x > maxX || y < minY || y > maxY {
 			return
 		}
@@ -420,10 +496,22 @@ func (lar *LocationAwareLidar) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 	return out, vision.DepthMap{}, nil
 }
 
+func (lar *LocationAwareLidar) getClientDeviceNum() int {
+	lar.mu.Lock()
+	defer lar.mu.Unlock()
+	return lar.clientDeviceNum
+}
+
+func (lar *LocationAwareLidar) setClientDeviceNumber(num int) {
+	lar.mu.Lock()
+	defer lar.mu.Unlock()
+	lar.clientDeviceNum = num
+}
+
 func (lar *LocationAwareLidar) handleData(data []byte, respondMsg func(msg string)) error {
 	if bytes.HasPrefix(data, []byte("move: ")) {
 		dir := moveDir(bytes.TrimPrefix(data, []byte("move: ")))
-		if err := lar.base.(*fakeBase).Move(dir, lar.device.Range()*lar.scaleDown); err != nil {
+		if err := lar.base.(*fakeBase).Move(dir, lar.devices[0].Range()*lar.scaleDown); err != nil {
 			return err
 		}
 		respondMsg(fmt.Sprintf("moved %q", dir))
@@ -431,11 +519,53 @@ func (lar *LocationAwareLidar) handleData(data []byte, respondMsg func(msg strin
 	} else if bytes.Equal(data, []byte("pos")) {
 		respondMsg(lar.base.(*fakeBase).String())
 	} else if bytes.Equal(data, []byte("lidar_stop")) {
-		lar.device.Stop()
+		lar.devices[0].Stop()
 		respondMsg("lidar stopped")
 	} else if bytes.Equal(data, []byte("lidar_start")) {
-		lar.device.Start()
+		lar.devices[0].Start()
 		respondMsg("lidar started")
+	} else if bytes.HasPrefix(data, []byte("sv_lidar_seed ")) {
+		seedStr := string(bytes.TrimPrefix(data, []byte("sv_lidar_seed ")))
+		seed, err := strconv.ParseInt(seedStr, 10, 32)
+		if err != nil {
+			return err
+		}
+		if fake, ok := lar.devices[0].(*FakeLidar); ok {
+			fake.seed = seed
+		}
+		respondMsg(seedStr)
+	} else if bytes.HasPrefix(data, []byte("cl_lidar_device")) {
+		lidarDeviceStr := string(bytes.TrimPrefix(data, []byte("cl_lidar_device")))
+		if lidarDeviceStr == "" {
+			var devicesStr string
+			deviceNum := lar.getClientDeviceNum()
+			if deviceNum == -1 {
+				devicesStr = "[combined]"
+			} else {
+				devicesStr = "combined"
+			}
+			for i := range lar.devices {
+				if deviceNum == i {
+					devicesStr += fmt.Sprintf("\n[%d]", i)
+				} else {
+					devicesStr += fmt.Sprintf("\n%d", i)
+				}
+			}
+			respondMsg(devicesStr)
+			return nil
+		}
+		if lidarDeviceStr == "combined" {
+			lar.setClientDeviceNumber(-1)
+			return nil
+		}
+		lidarDeviceNum, err := strconv.ParseInt(lidarDeviceStr, 10, 32)
+		if err != nil {
+			return err
+		}
+		if lidarDeviceNum < 0 || lidarDeviceNum >= int64(len(lar.devices)) {
+			return errors.New("invalid device")
+		}
+		lar.setClientDeviceNumber(int(lidarDeviceNum))
 	}
 	return nil
 }
@@ -457,7 +587,7 @@ func (lar *LocationAwareLidar) handleClick(x, y, sX, sY int, respondMsg func(msg
 			dir = moveDirRight
 		}
 	}
-	if err := lar.base.(*fakeBase).Move(dir, lar.device.Range()*lar.scaleDown); err != nil {
+	if err := lar.base.(*fakeBase).Move(dir, lar.devices[0].Range()*lar.scaleDown); err != nil {
 		return err
 	}
 	respondMsg(fmt.Sprintf("moved %q", dir))
