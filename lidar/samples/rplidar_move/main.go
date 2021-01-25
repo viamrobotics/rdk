@@ -18,6 +18,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
@@ -94,18 +95,18 @@ func main() {
 		port = int(portParsed)
 	}
 
-	lidarDev := &FakeLidar{}
-	// lidarDev, err := rplidar.NewRPLidar(devPath)
-	// if err != nil {
-	// 	golog.Global.Fatal(err)
-	// }
+	// lidarDev := &FakeLidar{}
+	lidarDev, err := rplidar.NewRPLidar(devPath)
+	if err != nil {
+		golog.Global.Fatal(err)
+	}
 
-	// golog.Global.Infof("RPLIDAR S/N: %s", lidarDev.SerialNumber())
-	// golog.Global.Infof("\n"+
-	// 	"Firmware Ver: %s\n"+
-	// 	"Hardware Rev: %d\n",
-	// 	lidarDev.FirmwareVersion(),
-	// 	lidarDev.HardwareRevision())
+	golog.Global.Infof("RPLIDAR S/N: %s", lidarDev.SerialNumber())
+	golog.Global.Infof("\n"+
+		"Firmware Ver: %s\n"+
+		"Hardware Rev: %d\n",
+		lidarDev.FirmwareVersion(),
+		lidarDev.HardwareRevision())
 
 	lidarDev.Start()
 	defer lidarDev.Stop()
@@ -179,6 +180,8 @@ func main() {
 		<-c
 		cancelFunc()
 	}()
+
+	lar.cull()
 
 	baseViewMatSource := stream.ResizeMatSource{lar, 800, 600}
 	worldViewMatSource := stream.ResizeMatSource{worldView, 800, 600}
@@ -290,14 +293,58 @@ type LocationAwareLidar struct {
 	scaleDown    int
 }
 
+func (lar *LocationAwareLidar) cull() {
+	bounds, err := lar.device.Bounds()
+	if err != nil {
+		panic(err)
+	}
+	scaleDown := lar.scaleDown
+	bounds.X *= scaleDown
+	bounds.Y *= scaleDown
+
+	// TODO(erd): cancellation
+	ticker := time.NewTicker(time.Second)
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+			}
+
+			basePosX := lar.base.(*fakeBase).posX
+			basePosY := lar.base.(*fakeBase).posY
+			minX := basePosX - bounds.X/2
+			maxX := basePosX + bounds.X/2
+			minY := basePosY - bounds.Y/2
+			maxY := basePosY + bounds.Y/2
+
+			// decrement observable area which will be refreshed by scans
+			// within the area (assuming the lidar is active)
+			func() {
+				lar.roomPointsMu.Lock()
+				defer lar.roomPointsMu.Unlock()
+				lar.roomPoints.DoNonZero(func(x, y int, v float64) {
+					if x < minX || x > maxX || y < minY || y > maxY {
+						return
+					}
+					lar.roomPoints.Set(x, y, v-1)
+				})
+			}()
+		}
+	}()
+}
+
 func (lar *LocationAwareLidar) update() {
 	basePosX := lar.base.(*fakeBase).posX
 	basePosY := lar.base.(*fakeBase).posY
-	lar.device.(*FakeLidar).posX = basePosX
-	lar.device.(*FakeLidar).posY = basePosY
+	if fake, ok := lar.device.(*FakeLidar); ok {
+		fake.posX = basePosX
+		fake.posY = basePosY
+	}
 	measurements, err := lar.device.Scan()
 	if err != nil {
-		panic(err)
+		golog.Global.Debugw("bad scan", "error", err)
+		return
 	}
 
 	dimX, dimY := lar.roomPoints.Dims()
@@ -313,7 +360,15 @@ func (lar *LocationAwareLidar) update() {
 		if detectedY < 0 || detectedY >= dimY {
 			continue
 		}
-		lar.roomPoints.Set(detectedX, detectedY, 1)
+		// TTL 3 seconds
+		// TODO(erd): should we also add here as a sense of permanency
+		// Want to also combine this with occlusion, right. So if there's
+		// a wall detected, and we're pretty confident it's staying there,
+		// it being occluded should give it a low chance of it being removed.
+		// Realistically once the bounds of a location are determined, most
+		// environments would only have it deform over very long periods of time.
+		// Probably longer than the lifetime of the application itself.
+		lar.roomPoints.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
 	}
 }
 
@@ -343,6 +398,8 @@ func (lar *LocationAwareLidar) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
+	lar.roomPointsMu.Lock()
+	defer lar.roomPointsMu.Unlock()
 	lar.roomPoints.DoNonZero(func(x, y int, _ float64) {
 		if x < minX || x > maxX || y < minY || y > maxY {
 			return
