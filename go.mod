@@ -43,3 +43,5 @@ require (
 )
 
 replace fyne.io/fyne => github.com/edaniels/fyne v1.4.2-0.20201215180503-6f54ae445771
+
+replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64

@@ -124,7 +124,7 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 			devRange = m.Distance()
 		}
 	}
-	width := int(math.Ceil(devRange * 100)) // 1 pixel/cm
+	width := int(math.Ceil(devRange))
 	height := width
 	bounds := image.Point{width, height}
 	rpl.bounds = &bounds
