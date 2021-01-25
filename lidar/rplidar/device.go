@@ -99,6 +99,17 @@ func (rpl *RPLidar) HardwareRevision() int {
 	return rpl.hardwareRevision
 }
 
+func (rpl *RPLidar) Model() string {
+	switch rpl.model {
+	case 24:
+		return "A1"
+	case 49:
+		return "A3"
+	default:
+		return "unknown"
+	}
+}
+
 func (rpl *RPLidar) Range() int {
 	switch rpl.model {
 	case 24: // A1
