@@ -25,6 +25,7 @@ func main() {
 	if flag.NArg() >= 1 {
 		devPath = flag.Arg(0)
 	}
+	_ = devPath // TODO(erd): remove
 	port := 5555
 	if flag.NArg() >= 2 {
 		portParsed, err := strconv.ParseInt(flag.Arg(1), 10, 32)
@@ -33,6 +34,7 @@ func main() {
 		}
 		port = int(portParsed)
 	}
+
 	lidarDev, err := rplidar.NewRPLidar(devPath)
 	if err != nil {
 		golog.Global.Fatal(err)
@@ -70,7 +72,8 @@ func main() {
 		cancelFunc()
 	}()
 
-	stream.MatSource(cancelCtx, lidar.MatSource{lidarDev}, remoteView, 33*time.Millisecond, golog.Global)
+	matSource := stream.ResizeMatSource{lidar.NewMatSource(lidarDev), 800, 600}
+	stream.MatSource(cancelCtx, matSource, remoteView, 33*time.Millisecond, golog.Global)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
