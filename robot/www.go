@@ -193,7 +193,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 			continue
 		}
 		lidarIdx := idx - len(theRobot.Cameras)
-		go stream.MatSource(cancelCtx, lidar.MatSource{theRobot.LidarDevices[lidarIdx]}, remoteView, 33*time.Millisecond, golog.Global)
+		go stream.MatSource(cancelCtx, lidar.NewMatSource(theRobot.LidarDevices[lidarIdx]), remoteView, 33*time.Millisecond, golog.Global)
 	}
 
 	return func() {
