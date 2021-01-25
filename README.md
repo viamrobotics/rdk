@@ -30,9 +30,7 @@
 ## Linting
 
 ```
-go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
-go get -u github.com/edaniels/golinters/cmd/combined
-go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=$(which combined)
+make lint
 ```
 
 ## Testing from Github Actions
@@ -40,3 +38,7 @@ go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=$(which combin
 1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
 2. Install `act` with `brew install act`
 3. Then just run `act`
+
+## Some Rules
+1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real directory.
+2. Always run make format, make lint, and test before pushing.
