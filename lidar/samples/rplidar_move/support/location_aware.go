@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ type LocationAwareRobot struct {
 	clientDeviceNum int
 	room            *SquareRoom
 	distinctRooms   []*SquareRoom
+	orientations    []float64
 }
 
 func NewLocationAwareRobot(
@@ -44,6 +46,7 @@ func NewLocationAwareRobot(
 		room:            room,
 		distinctRooms:   distinctRooms,
 		clientDeviceNum: -1,
+		orientations:    make([]float64, len(devices)),
 	}
 }
 
@@ -56,18 +59,19 @@ func (lar *LocationAwareRobot) Stop() {
 }
 
 func (lar *LocationAwareRobot) startCulling() {
+	// TODO(erd): fix bounds
 	bounds, err := lar.devices[0].Bounds()
 	if err != nil {
 		panic(err)
 	}
+	_, scaleDown := lar.room.Size()
+	bounds.X *= scaleDown
+	bounds.Y *= scaleDown
 
 	cull := func() {
+		// TODO(erd): not thread safe
 		basePosX := lar.base.(*FakeBase).PosX
 		basePosY := lar.base.(*FakeBase).PosY
-
-		_, scaleDown := lar.room.Size()
-		bounds.X *= scaleDown
-		bounds.Y *= scaleDown
 
 		// calculate ideal visibility bounds
 		minX := basePosX - bounds.X/2
@@ -111,39 +115,50 @@ func (lar *LocationAwareRobot) update() {
 			fake.posY = basePosY
 		}
 	}
-	// var allMeasurements []lidar.Measurements
-	// for _, dev := range lar.devices {
-	measurements, err := lar.devices[0].Scan()
-	if err != nil {
-		golog.Global.Debugw("bad scan", "error", err)
-		return
+	allMeasurements := make([]lidar.Measurements, len(lar.devices))
+	for i, dev := range lar.devices {
+		measurements, err := dev.Scan()
+		if err != nil {
+			golog.Global.Debugw("bad scan", "error", err)
+			continue
+		}
+		allMeasurements[i] = measurements
 	}
-	// }
 
-	// TODO(erd): combined
 	roomSize, scaleDown := lar.room.Size()
 	roomSize *= scaleDown
-	for _, next := range measurements {
-		x, y := next.Coords()
-		detectedX := basePosX + int(x*float64(scaleDown))
-		detectedY := basePosY + int(y*float64(scaleDown))
-		if detectedX < 0 || detectedX >= roomSize {
-			continue
+	for i, measurements := range allMeasurements {
+		minAngle := math.Inf(1)
+		for _, next := range measurements {
+			angle := next.Angle()
+			if angle < minAngle {
+				minAngle = angle
+			}
+			x, y := next.Coords()
+			detectedX := basePosX + int(x*float64(scaleDown))
+			detectedY := basePosY + int(y*float64(scaleDown))
+			if detectedX < 0 || detectedX >= roomSize {
+				continue
+			}
+			if detectedY < 0 || detectedY >= roomSize {
+				continue
+			}
+			// TTL 3 seconds
+			// TODO(erd): should we also add here as a sense of permanency
+			// Want to also combine this with occlusion, right. So if there's
+			// a wall detected, and we're pretty confident it's staying there,
+			// it being occluded should give it a low chance of it being removed.
+			// Realistically once the bounds of a location are determined, most
+			// environments would only have it deform over very long periods of time.
+			// Probably longer than the lifetime of the application itself.
+			lar.room.Mutate(func(room MutableRoom) {
+				room.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
+			})
+			lar.distinctRooms[i].Mutate(func(room MutableRoom) {
+				room.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
+			})
 		}
-		if detectedY < 0 || detectedY >= roomSize {
-			continue
-		}
-		// TTL 3 seconds
-		// TODO(erd): should we also add here as a sense of permanency
-		// Want to also combine this with occlusion, right. So if there's
-		// a wall detected, and we're pretty confident it's staying there,
-		// it being occluded should give it a low chance of it being removed.
-		// Realistically once the bounds of a location are determined, most
-		// environments would only have it deform over very long periods of time.
-		// Probably longer than the lifetime of the application itself.
-		lar.room.Mutate(func(room MutableRoom) {
-			room.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
-		})
+		lar.orientations[i] = minAngle
 	}
 }
 
@@ -213,6 +228,20 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 		})
 	})
 
+	for _, orientation := range lar.orientations {
+		if math.IsInf(orientation, 1) {
+			continue
+		}
+		distance := 100.0
+		x := distance * math.Cos(orientation)
+		y := distance * math.Sin(orientation)
+		relX := centerX + int(x)
+		relY := centerY + int(y)
+		p := image.Point{relX, relY}
+
+		gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{G: 255}, 10)
+	}
+
 	return out, vision.DepthMap{}, nil
 }
 
@@ -239,12 +268,28 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 		respondMsg(lar.base.(*FakeBase).String())
 	} else if bytes.Equal(data, []byte("pos")) {
 		respondMsg(lar.base.(*FakeBase).String())
-	} else if bytes.Equal(data, []byte("lidar_stop")) {
-		lar.devices[0].Stop()
-		respondMsg("lidar stopped")
-	} else if bytes.Equal(data, []byte("lidar_start")) {
-		lar.devices[0].Start()
-		respondMsg("lidar started")
+	} else if bytes.HasPrefix(data, []byte("sv_lidar_stop ")) {
+		lidarDeviceStr := string(bytes.TrimPrefix(data, []byte("sv_lidar_stop ")))
+		lidarDeviceNum, err := strconv.ParseInt(lidarDeviceStr, 10, 32)
+		if err != nil {
+			return err
+		}
+		if lidarDeviceNum < 0 || lidarDeviceNum >= int64(len(lar.devices)) {
+			return errors.New("invalid device")
+		}
+		lar.devices[lidarDeviceNum].Stop()
+		respondMsg(fmt.Sprintf("lidar %d stopped", lidarDeviceNum))
+	} else if bytes.HasPrefix(data, []byte("sv_lidar_start ")) {
+		lidarDeviceStr := string(bytes.TrimPrefix(data, []byte("sv_lidar_start ")))
+		lidarDeviceNum, err := strconv.ParseInt(lidarDeviceStr, 10, 32)
+		if err != nil {
+			return err
+		}
+		if lidarDeviceNum < 0 || lidarDeviceNum >= int64(len(lar.devices)) {
+			return errors.New("invalid device")
+		}
+		lar.devices[lidarDeviceNum].Start()
+		respondMsg(fmt.Sprintf("lidar %d started", lidarDeviceNum))
 	} else if bytes.HasPrefix(data, []byte("sv_lidar_seed ")) {
 		seedStr := string(bytes.TrimPrefix(data, []byte("sv_lidar_seed ")))
 		seed, err := strconv.ParseInt(seedStr, 10, 32)
@@ -252,11 +297,11 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 			return err
 		}
 		if fake, ok := lar.devices[0].(*FakeLidar); ok {
-			fake.seed = seed
+			fake.Seed = seed
 		}
 		respondMsg(seedStr)
-	} else if bytes.HasPrefix(data, []byte("cl_lidar_device")) {
-		lidarDeviceStr := string(bytes.TrimPrefix(data, []byte("cl_lidar_device")))
+	} else if bytes.HasPrefix(data, []byte("cl_lidar_view")) {
+		lidarDeviceStr := string(bytes.TrimSpace(bytes.TrimPrefix(data, []byte("cl_lidar_view"))))
 		if lidarDeviceStr == "" {
 			var devicesStr string
 			deviceNum := lar.getClientDeviceNum()

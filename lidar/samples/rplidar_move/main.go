@@ -35,9 +35,9 @@ func (sf *stringFlags) String() string {
 func registerDevices(devicePaths []string) []lidar.Device {
 	golog.Global.Debugw("registering devices")
 	var lidarDevices []lidar.Device
-	for _, devPath := range devicePaths {
+	for i, devPath := range devicePaths {
 		if devPath == "fake" {
-			lidarDevices = append(lidarDevices, &support.FakeLidar{})
+			lidarDevices = append(lidarDevices, &support.FakeLidar{Seed: int64(i)})
 			continue
 		}
 		lidarDev, err := rplidar.NewRPLidar(devPath)
