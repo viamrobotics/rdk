@@ -94,7 +94,7 @@ func main() {
 		deviceOffests = append(deviceOffests, support.DeviceOffset{angle, distX, distY})
 	}
 
-	devicePaths := []string{"/dev/ttyUSB2", "/dev/ttyUSB3"}
+	devicePaths := []string{"/dev/ttyUSB0", "/dev/ttyUSB2"}
 	if len(devicePathFlags) != 0 {
 		devicePaths = []string(devicePathFlags)
 	}
