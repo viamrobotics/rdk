@@ -12,7 +12,7 @@ import (
 type FakeLidar struct {
 	posX, posY int
 	started    bool
-	seed       int64
+	Seed       int64
 }
 
 func (fl *FakeLidar) Start() {
@@ -35,7 +35,7 @@ func (fl *FakeLidar) Scan() (lidar.Measurements, error) {
 	if _, err := h.Write([]byte(fmt.Sprintf("%d,%d", fl.posX, fl.posY))); err != nil {
 		return nil, err
 	}
-	r := rand.NewSource(int64(h.Sum64()) + fl.seed)
+	r := rand.NewSource(int64(h.Sum64()) + fl.Seed)
 	measurements := make(lidar.Measurements, 0, 360)
 	getFloat64 := func() float64 {
 	again:
