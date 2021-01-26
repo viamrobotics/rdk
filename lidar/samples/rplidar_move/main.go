@@ -307,9 +307,7 @@ func (lar *LocationAwareLidar) cull() {
 	go func() {
 		defer ticker.Stop()
 		for {
-			select {
-			case <-ticker.C:
-			}
+			<-ticker.C
 
 			basePosX := lar.base.(*fakeBase).posX
 			basePosY := lar.base.(*fakeBase).posY
