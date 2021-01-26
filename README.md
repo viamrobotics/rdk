@@ -26,6 +26,7 @@
 * libvpx
 * python2.7-dev
 * swig
+* libusb-dev (brew: libusb)
 
 ## Linting
 
