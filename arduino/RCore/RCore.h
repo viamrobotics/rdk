@@ -5,21 +5,37 @@
 
 class Motor {
    public:
-    Motor(int in1, int in2, int pwm);
+    Motor(int in1, int in2, int pwm, bool trackSpeed = false);
 
     void stop();
-    void forward(int val);
-    void backward(int val);
+    void forward(int val, int ticks = 0);
+    void backward(int val, int ticks = 0);
+
+    void setTicksToGo(int ticks);
 
     void doCommand(const char* buf);
 
     bool checkEncoder();
 
-    uint64_t encoderTick() { return ++_encoderTicks; }
+    uint64_t encoderTick() {
+        if (_trackSpeed) {
+            _lastTick = millis();
+        }
+        return ++_encoderTicks;
+    }
 
     uint64_t encoderTicks() const { return _encoderTicks; }
+    uint64_t encoderTicksStop() const { return _encoderTicksStop; }
 
     bool moving() const { return _moving; }
+
+    unsigned long lastTick() const {
+        if (!_trackSpeed) {
+            Serial.println("lastTick called but trackSpeed off");
+            return 0;
+        }
+        return _lastTick;
+    }
 
    private:
     int _in1;
@@ -28,6 +44,8 @@ class Motor {
     uint64_t _encoderTicks;
     uint64_t _encoderTicksStop;
     bool _moving;
+    bool _trackSpeed;
+    unsigned long _lastTick;
 };
 
 struct Command {
