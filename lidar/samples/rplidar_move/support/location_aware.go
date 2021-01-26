@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,10 +20,18 @@ import (
 	"gocv.io/x/gocv"
 )
 
+// relative to first device
+type DeviceOffset struct {
+	Angle                float64
+	DistanceX, DistanceY float64
+}
+
 type LocationAwareRobot struct {
 	mu              sync.Mutex
 	base            base.Base
 	devices         []lidar.Device
+	deviceOffsets   []DeviceOffset
+	maxBounds       image.Point
 	clientDeviceNum int
 	room            *SquareRoom
 	distinctRooms   []*SquareRoom
@@ -32,22 +41,39 @@ type LocationAwareRobot struct {
 func NewLocationAwareRobot(
 	base base.Base,
 	devices []lidar.Device,
+	deviceOffsets []DeviceOffset,
 	room *SquareRoom,
-) *LocationAwareRobot {
+) (*LocationAwareRobot, error) {
 	roomSize, roomSizeScale := room.Size()
 	distinctRooms := make([]*SquareRoom, 0, len(devices))
 	for range devices {
 		distinctRooms = append(distinctRooms, NewSquareRoom(roomSize, roomSizeScale))
 	}
 
+	var maxBoundsX, maxBoundsY int
+	for _, dev := range devices {
+		bounds, err := dev.Bounds()
+		if err != nil {
+			return nil, err
+		}
+		if bounds.X > maxBoundsX {
+			maxBoundsX = bounds.X
+		}
+		if bounds.Y > maxBoundsY {
+			maxBoundsY = bounds.Y
+		}
+	}
+
 	return &LocationAwareRobot{
 		base:            base,
 		devices:         devices,
+		deviceOffsets:   deviceOffsets,
+		maxBounds:       image.Point{maxBoundsX, maxBoundsY},
 		room:            room,
 		distinctRooms:   distinctRooms,
 		clientDeviceNum: -1,
 		orientations:    make([]float64, len(devices)),
-	}
+	}, nil
 }
 
 func (lar *LocationAwareRobot) Start() {
@@ -59,14 +85,9 @@ func (lar *LocationAwareRobot) Stop() {
 }
 
 func (lar *LocationAwareRobot) startCulling() {
-	// TODO(erd): fix bounds
-	bounds, err := lar.devices[0].Bounds()
-	if err != nil {
-		panic(err)
-	}
 	_, scaleDown := lar.room.Size()
-	bounds.X *= scaleDown
-	bounds.Y *= scaleDown
+	maxBoundsX := lar.maxBounds.X * scaleDown
+	maxBoundsY := lar.maxBounds.Y * scaleDown
 
 	cull := func() {
 		// TODO(erd): not thread safe
@@ -74,21 +95,41 @@ func (lar *LocationAwareRobot) startCulling() {
 		basePosY := lar.base.(*FakeBase).PosY
 
 		// calculate ideal visibility bounds
-		minX := basePosX - bounds.X/2
-		maxX := basePosX + bounds.X/2
-		minY := basePosY - bounds.Y/2
-		maxY := basePosY + bounds.Y/2
+		roomMinX := basePosX - maxBoundsX/2
+		roomMaxX := basePosX + maxBoundsX/2
+		roomMinY := basePosY - maxBoundsY/2
+		roomMaxY := basePosY + maxBoundsY/2
 
 		// decrement observable area which will be refreshed by scans
 		// within the area (assuming the lidar is active)
-		lar.room.Mutate(func(room MutableRoom) {
-			room.DoNonZero(func(x, y int, v float64) {
-				if x < minX || x > maxX || y < minY || y > maxY {
-					return
-				}
-				room.Set(x, y, v-1)
+		cullRoom := func(room *SquareRoom, minX, maxX, minY, maxY int) {
+			room.Mutate(func(mutRoom MutableRoom) {
+				mutRoom.DoNonZero(func(x, y int, v float64) {
+					if x < minX || x > maxX || y < minY || y > maxY {
+						return
+					}
+					mutRoom.Set(x, y, v-1)
+				})
 			})
-		})
+		}
+
+		cullRoom(lar.room, roomMinX, roomMaxX, roomMinY, roomMaxY)
+
+		for i, room := range lar.distinctRooms {
+			bounds, err := lar.devices[i].Bounds()
+			if err != nil {
+				panic(err)
+			}
+			bounds.X *= scaleDown
+			bounds.Y *= scaleDown
+
+			roomMinX := basePosX - bounds.X/2
+			roomMaxX := basePosX + bounds.X/2
+			roomMinY := basePosY - bounds.Y/2
+			roomMaxY := basePosY + bounds.Y/2
+
+			cullRoom(room, roomMinX, roomMaxX, roomMinY, roomMaxY)
+		}
 	}
 
 	// TODO(erd): cancellation
@@ -119,7 +160,7 @@ func (lar *LocationAwareRobot) update() {
 	for i, dev := range lar.devices {
 		measurements, err := dev.Scan()
 		if err != nil {
-			golog.Global.Debugw("bad scan", "error", err)
+			golog.Global.Debugw("bad scan", "device", i, "error", err)
 			continue
 		}
 		allMeasurements[i] = measurements
@@ -129,14 +170,25 @@ func (lar *LocationAwareRobot) update() {
 	roomSize *= scaleDown
 	for i, measurements := range allMeasurements {
 		minAngle := math.Inf(1)
+		var adjust bool
+		var offsets DeviceOffset
+		if i != 0 && i-1 < len(lar.deviceOffsets) {
+			offsets = lar.deviceOffsets[i-1]
+			adjust = true
+		}
+		// TODO(erd): better to just adjust in advance?
 		for _, next := range measurements {
+			if adjust {
+				// TODO(erd): need to handle > 360?
+				next = lidar.NewMeasurement(next.Angle()+offsets.Angle, next.Distance())
+			}
 			angle := next.Angle()
 			if angle < minAngle {
 				minAngle = angle
 			}
 			x, y := next.Coords()
-			detectedX := basePosX + int(x*float64(scaleDown))
-			detectedY := basePosY + int(y*float64(scaleDown))
+			detectedX := basePosX + int(x*float64(scaleDown)+offsets.DistanceX)
+			detectedY := basePosY + int(y*float64(scaleDown)+offsets.DistanceY)
 			if detectedX < 0 || detectedX >= roomSize {
 				continue
 			}
@@ -165,12 +217,7 @@ func (lar *LocationAwareRobot) update() {
 func (lar *LocationAwareRobot) roomToView() (image.Point, *SquareRoom, error) {
 	devNum := lar.getClientDeviceNum()
 	if devNum == -1 {
-		// TODO(erd): combined
-		bounds, err := lar.devices[0].Bounds()
-		if err != nil {
-			return image.Point{}, nil, err
-		}
-		return bounds, lar.room, nil
+		return lar.maxBounds, lar.room, nil
 	}
 	dev := lar.devices[devNum]
 	bounds, err := dev.Bounds()
@@ -233,8 +280,8 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 			continue
 		}
 		distance := 100.0
-		x := distance * math.Cos(orientation)
-		y := distance * math.Sin(orientation)
+		x := distance * math.Cos(orientation*math.Pi/180)
+		y := distance * math.Sin(orientation*math.Pi/180)
 		relX := centerX + int(x)
 		relY := centerY + int(y)
 		p := image.Point{relX, relY}
@@ -268,6 +315,37 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 		respondMsg(lar.base.(*FakeBase).String())
 	} else if bytes.Equal(data, []byte("pos")) {
 		respondMsg(lar.base.(*FakeBase).String())
+	} else if bytes.HasPrefix(data, []byte("sv_device_offset ")) {
+		offsetStr := string(bytes.TrimPrefix(data, []byte("sv_device_offset ")))
+		offsetSplit := strings.SplitN(offsetStr, " ", 2)
+		if len(offsetSplit) != 2 {
+			return errors.New("malformed offset")
+		}
+		offsetNum, err := strconv.ParseInt(offsetSplit[0], 10, 64)
+		if err != nil {
+			return err
+		}
+		if offsetNum < 0 || int(offsetNum) > len(lar.deviceOffsets) {
+			return errors.New("bad offset number")
+		}
+		split := strings.Split(offsetSplit[1], ",")
+		if len(split) != 3 {
+			return errors.New("offset format is angle,x,y")
+		}
+		angle, err := strconv.ParseFloat(split[0], 64)
+		if err != nil {
+			return err
+		}
+		distX, err := strconv.ParseFloat(split[1], 64)
+		if err != nil {
+			return err
+		}
+		distY, err := strconv.ParseFloat(split[2], 64)
+		if err != nil {
+			return err
+		}
+		lar.deviceOffsets[offsetNum] = DeviceOffset{angle, distX, distY}
+		return nil
 	} else if bytes.HasPrefix(data, []byte("sv_lidar_stop ")) {
 		lidarDeviceStr := string(bytes.TrimPrefix(data, []byte("sv_lidar_stop ")))
 		lidarDeviceNum, err := strconv.ParseInt(lidarDeviceStr, 10, 32)
