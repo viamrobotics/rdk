@@ -57,5 +57,5 @@ func (fl *FakeLidar) Range() int {
 }
 
 func (fl *FakeLidar) Bounds() (image.Point, error) {
-	return image.Point{fl.Range(), fl.Range()}, nil
+	return image.Point{fl.Range() * 2, fl.Range() * 2}, nil
 }
