@@ -126,10 +126,7 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 		return *rpl.bounds, nil
 	}
 	devRange := float64(rpl.Range())
-	measurements, err := rpl.Scan()
-	if err != nil {
-		return image.Point{}, err
-	}
+	measurements, _ := rpl.Scan()
 	for _, m := range measurements {
 		if m.Distance() > devRange {
 			devRange = m.Distance()
