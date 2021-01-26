@@ -3,8 +3,13 @@
 
 extern HardwareSerial* debugSerial;
 
-Motor::Motor(int in1, int in2, int pwm)
-    : _in1(in1), _in2(in2), _pwm(pwm), _encoderTicks(0), _encoderTicksStop(0) {
+Motor::Motor(int in1, int in2, int pwm, bool trackSpeed)
+    : _in1(in1),
+      _in2(in2),
+      _pwm(pwm),
+      _encoderTicks(0),
+      _encoderTicksStop(0),
+      _trackSpeed(trackSpeed) {
     pinMode(_in1, OUTPUT);
     pinMode(_in2, OUTPUT);
     pinMode(_pwm, OUTPUT);
@@ -18,34 +23,42 @@ void Motor::stop() {
     digitalWrite(_in2, LOW);
 }
 
-void Motor::forward(int val) {
+void Motor::forward(int val, int ticks) {
+    this->setTicksToGo(ticks);
     _moving = true;
     analogWrite(_pwm, val);
     digitalWrite(_in1, HIGH);
     digitalWrite(_in2, LOW);
 }
 
-void Motor::backward(int val) {
+void Motor::backward(int val, int ticks) {
+    this->setTicksToGo(ticks);
     _moving = true;
     analogWrite(_pwm, val);
     digitalWrite(_in1, LOW);
     digitalWrite(_in2, HIGH);
 }
 
-void Motor::doCommand(const char* buf) {
-    Command c = Command::parse(buf);
-    if (c.ticks == 0) {
+void Motor::setTicksToGo(int ticks) {
+    if (ticks <= 0) {
         _encoderTicksStop = 0;
     } else {
-        _encoderTicksStop = c.ticks + _encoderTicks;
+        _encoderTicksStop = ticks + _encoderTicks;
     }
+    if (_trackSpeed) {
+        _lastTick = millis();
+    }
+}
+
+void Motor::doCommand(const char* buf) {
+    Command c = Command::parse(buf);
 
     switch (c.direction) {
         case 'f':
-            forward(c.speed);
+            forward(c.speed, c.ticks);
             break;
         case 'b':
-            backward(c.speed);
+            backward(c.speed, c.ticks);
             break;
         case 's':
             stop();
