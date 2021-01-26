@@ -33,6 +33,7 @@ type LocationAwareRobot struct {
 	deviceOffsets   []DeviceOffset
 	maxBounds       image.Point
 	clientDeviceNum int
+	clientZoom      float64
 	room            *SquareRoom
 	distinctRooms   []*SquareRoom
 	orientations    []float64
@@ -72,6 +73,7 @@ func NewLocationAwareRobot(
 		room:            room,
 		distinctRooms:   distinctRooms,
 		clientDeviceNum: -1,
+		clientZoom:      1,
 		orientations:    make([]float64, len(devices)),
 	}, nil
 }
@@ -178,17 +180,22 @@ func (lar *LocationAwareRobot) update() {
 		}
 		// TODO(erd): better to just adjust in advance?
 		for _, next := range measurements {
-			if adjust {
-				// TODO(erd): need to handle > 360?
-				next = lidar.NewMeasurement(next.Angle()+offsets.Angle, next.Distance())
-			}
 			angle := next.Angle()
+			x, y := next.Coords()
+			if adjust {
+				angle += offsets.Angle
+				angleRad := offsets.Angle * math.Pi / 180
+				// rotate vector around base ccw
+				newX := math.Cos(angleRad)*x - math.Sin(angleRad)*y
+				newY := math.Sin(angleRad)*x + math.Cos(angleRad)*y
+				x = newX
+				y = newY
+			}
 			if angle < minAngle {
 				minAngle = angle
 			}
-			x, y := next.Coords()
-			detectedX := basePosX + int(x*float64(scaleDown)+offsets.DistanceX)
-			detectedY := basePosY + int(y*float64(scaleDown)+offsets.DistanceY)
+			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleDown))
+			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleDown))
 			if detectedX < 0 || detectedX >= roomSize {
 				continue
 			}
@@ -237,8 +244,8 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 	}
 
 	_, scaleDown := room.Size()
-	bounds.X *= scaleDown
-	bounds.Y *= scaleDown
+	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
+	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
 	centerX := bounds.X / 2
 	centerY := bounds.Y / 2
 
@@ -275,18 +282,22 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 		})
 	})
 
-	for _, orientation := range lar.orientations {
+	for i, orientation := range lar.orientations {
 		if math.IsInf(orientation, 1) {
 			continue
 		}
-		distance := 100.0
+		distance := 20.0
 		x := distance * math.Cos(orientation*math.Pi/180)
 		y := distance * math.Sin(orientation*math.Pi/180)
 		relX := centerX + int(x)
 		relY := centerY + int(y)
 		p := image.Point{relX, relY}
 
-		gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{G: 255}, 10)
+		if i == 0 {
+			gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{G: 255}, 5)
+		} else {
+			gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{B: 255}, 5)
+		}
 	}
 
 	return out, vision.DepthMap{}, nil
@@ -378,6 +389,17 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 			fake.Seed = seed
 		}
 		respondMsg(seedStr)
+	} else if bytes.HasPrefix(data, []byte("cl_zoom ")) {
+		zoomStr := string(bytes.TrimPrefix(data, []byte("cl_zoom ")))
+		zoom, err := strconv.ParseFloat(zoomStr, 64)
+		if err != nil {
+			return err
+		}
+		if zoom < 1 {
+			return errors.New("zoom must be >= 1")
+		}
+		lar.clientZoom = zoom
+		respondMsg(zoomStr)
 	} else if bytes.HasPrefix(data, []byte("cl_lidar_view")) {
 		lidarDeviceStr := string(bytes.TrimSpace(bytes.TrimPrefix(data, []byte("cl_lidar_view"))))
 		if lidarDeviceStr == "" {
