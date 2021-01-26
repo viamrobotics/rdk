@@ -99,6 +99,17 @@ func (rpl *RPLidar) HardwareRevision() int {
 	return rpl.hardwareRevision
 }
 
+func (rpl *RPLidar) Model() string {
+	switch rpl.model {
+	case 24:
+		return "A1"
+	case 49:
+		return "A3"
+	default:
+		return "unknown"
+	}
+}
+
 func (rpl *RPLidar) Range() int {
 	switch rpl.model {
 	case 24: // A1
@@ -114,17 +125,7 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 	if rpl.bounds != nil {
 		return *rpl.bounds, nil
 	}
-	devRange := float64(rpl.Range())
-	measurements, err := rpl.Scan()
-	if err != nil {
-		return image.Point{}, err
-	}
-	for _, m := range measurements {
-		if m.Distance() > devRange {
-			devRange = m.Distance()
-		}
-	}
-	width := int(math.Ceil(devRange))
+	width := rpl.Range() * 2
 	height := width
 	bounds := image.Point{width, height}
 	rpl.bounds = &bounds
