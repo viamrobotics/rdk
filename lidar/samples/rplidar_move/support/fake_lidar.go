@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"image"
+	"math"
 	"math/rand"
 
 	"github.com/echolabsinc/robotcore/lidar"
@@ -46,7 +47,7 @@ func (fl *FakeLidar) Scan() (lidar.Measurements, error) {
 		return f
 	}
 	for i := 0; i < cap(measurements); i++ {
-		measurements = append(measurements, lidar.NewMeasurement(getFloat64()*360, getFloat64()*float64(fl.Range())))
+		measurements = append(measurements, lidar.NewMeasurement(getFloat64()*360*math.Pi/180, getFloat64()*float64(fl.Range())))
 	}
 	return measurements, nil
 }

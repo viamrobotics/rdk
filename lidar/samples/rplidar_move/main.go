@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -64,8 +65,34 @@ func registerDevices(devicePaths []string) []lidar.Device {
 
 func main() {
 	var devicePathFlags stringFlags
+	var deviceOffsetFlags stringFlags
 	flag.Var(&devicePathFlags, "device", "lidar device")
+	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
 	flag.Parse()
+
+	var deviceOffests []support.DeviceOffset
+	for _, flags := range deviceOffsetFlags {
+		if flags == "" {
+			panic("offset format is angle,x,y")
+		}
+		split := strings.Split(flags, ",")
+		if len(split) != 3 {
+			panic("offset format is angle,x,y")
+		}
+		angle, err := strconv.ParseFloat(split[0], 64)
+		if err != nil {
+			panic(err)
+		}
+		distX, err := strconv.ParseFloat(split[1], 64)
+		if err != nil {
+			panic(err)
+		}
+		distY, err := strconv.ParseFloat(split[2], 64)
+		if err != nil {
+			panic(err)
+		}
+		deviceOffests = append(deviceOffests, support.DeviceOffset{angle, distX, distY})
+	}
 
 	devicePaths := []string{"/dev/ttyUSB2", "/dev/ttyUSB3"}
 	if len(devicePathFlags) != 0 {
@@ -75,6 +102,10 @@ func main() {
 	if len(devicePaths) == 0 {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if len(deviceOffests) != 0 && len(deviceOffests) >= len(devicePaths) {
+		panic(fmt.Errorf("can only have up to %d device offsets", len(devicePaths)-1))
 	}
 
 	port := 5555
@@ -106,7 +137,10 @@ func main() {
 		roomSize * roomSizeScale, roomSize * roomSizeScale,
 	}
 
-	lar := support.NewLocationAwareRobot(base, lidarDevices, room)
+	lar, err := support.NewLocationAwareRobot(base, lidarDevices, deviceOffests, room)
+	if err != nil {
+		panic(err)
+	}
 	lar.Start()
 	defer lar.Stop()
 
