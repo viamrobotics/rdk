@@ -368,3 +368,64 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 
 	return nil
 }
+
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
+	min := 100000
+	max := 0
+
+	for x := 0; x < dm.Width(); x++ {
+		for y := 0; y < dm.Height(); y++ {
+			z := dm.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			if z < min {
+				min = z
+			}
+			if z > max {
+				max = z
+			}
+		}
+	}
+
+	if min < hardMin {
+		min = hardMin
+	}
+	if max > hardMax {
+		max = hardMax
+	}
+
+	mat := gocv.NewMatWithSize(dm.Height(), dm.Width(), gocv.MatTypeCV8UC3)
+
+	img, err := NewImage(mat)
+	if err != nil {
+		mat.Close()
+		return img, err
+	}
+
+	span := float64(max) - float64(min)
+
+	for x := 0; x < dm.Width(); x++ {
+		for y := 0; y < dm.Height(); y++ {
+			p := image.Point{x, y}
+			z := dm.Get(p)
+			if z == 0 {
+				continue
+			}
+
+			if z < min {
+				z = min
+			}
+			if z > max {
+				z = max
+			}
+
+			ratio := float64(z-min) / span
+
+			hue := 30 + (200.0 * ratio)
+			img.SetHSV(p, HSV{hue, 1.0, 1.0})
+		}
+	}
+
+	return img, nil
+}
