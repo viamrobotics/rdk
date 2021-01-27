@@ -33,17 +33,24 @@ func (sf *stringFlags) String() string {
 	return fmt.Sprint([]string(*sf))
 }
 
-func registerDevices(devicePaths []string) []lidar.Device {
+func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Device {
 	golog.Global.Debugw("registering devices")
 	var lidarDevices []lidar.Device
-	for i, devPath := range devicePaths {
-		if devPath == "fake" {
+	for i, devDesc := range deviceDescs {
+		if devDesc.Path == "fake" {
 			lidarDevices = append(lidarDevices, &support.FakeLidar{Seed: int64(i)})
 			continue
 		}
-		lidarDev, err := rplidar.NewRPLidar(devPath)
-		if err != nil {
-			golog.Global.Fatal(err)
+		var lidarDev lidar.Device
+		switch devDesc.Type {
+		case support.LidarTypeRPLidar:
+			var err error
+			lidarDev, err = rplidar.NewRPLidar(devDesc.Path)
+			if err != nil {
+				golog.Global.Fatal(err)
+			}
+		default:
+			panic(fmt.Errorf("do not know how to make a %s device", devDesc.Type))
 		}
 		lidarDevices = append(lidarDevices, lidarDev)
 	}
@@ -51,12 +58,14 @@ func registerDevices(devicePaths []string) []lidar.Device {
 	for i, lidarDev := range lidarDevices {
 		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
 			golog.Global.Infow("rplidar",
-				"dev_path", devicePaths[i],
+				"dev_path", deviceDescs[i].Path,
 				"model", rpl.Model(),
 				"serial", rpl.SerialNumber(),
 				"firmware_ver", rpl.FirmwareVersion(),
 				"hardware_rev", rpl.HardwareRevision())
 		}
+		// reset
+		lidarDev.Stop()
 		lidarDev.Start()
 	}
 
@@ -94,18 +103,28 @@ func main() {
 		deviceOffests = append(deviceOffests, support.DeviceOffset{angle, distX, distY})
 	}
 
-	devicePaths := []string{"/dev/ttyUSB0", "/dev/ttyUSB2"}
+	deviceDescs := support.DetectLidarDevices()
+	if len(deviceDescs) != 0 {
+		golog.Global.Debugf("detected %d lidar devices", len(deviceDescs))
+		for _, desc := range deviceDescs {
+			golog.Global.Debugf("%s (%s)", desc.Type, desc.Path)
+		}
+	}
 	if len(devicePathFlags) != 0 {
-		devicePaths = []string(devicePathFlags)
+		deviceDescs = nil
+		for _, devicePath := range devicePathFlags {
+			deviceDescs = append(deviceDescs,
+				support.LidarDeviceDescription{support.LidarTypeRPLidar, devicePath})
+		}
 	}
 
-	if len(devicePaths) == 0 {
+	if len(deviceDescs) == 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	if len(deviceOffests) != 0 && len(deviceOffests) >= len(devicePaths) {
-		panic(fmt.Errorf("can only have up to %d device offsets", len(devicePaths)-1))
+	if len(deviceOffests) != 0 && len(deviceOffests) >= len(deviceDescs) {
+		panic(fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1))
 	}
 
 	port := 5555
@@ -117,7 +136,7 @@ func main() {
 		port = int(portParsed)
 	}
 
-	lidarDevices := registerDevices(devicePaths)
+	lidarDevices := registerDevices(deviceDescs)
 	for _, lidarDev := range lidarDevices {
 		defer lidarDev.Stop()
 	}
