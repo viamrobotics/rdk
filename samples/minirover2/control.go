@@ -29,9 +29,10 @@ const (
 // ------
 
 type Rover struct {
-	port       io.ReadWriteCloser
-	sendLock   sync.Mutex
-	lastStatus string
+	port        io.ReadWriteCloser
+	sendLock    sync.Mutex
+	lastStatus  string
+	orientation int
 }
 
 func (r *Rover) Close() {
@@ -121,7 +122,12 @@ func (r *Rover) Spin(degrees int, power int, block bool) error {
 	}
 
 	r.waitForMotorsToStop()
+	r.orientation = (((r.orientation + degrees) % 360) + 360) % 360
 	return nil
+}
+
+func (r *Rover) Orientation() int {
+	return r.orientation
 }
 
 func (r *Rover) Stop() error {

@@ -5,22 +5,28 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"image"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
 	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/lidar/samples/rplidar_move/support"
+	"github.com/echolabsinc/robotcore/robots/hellorobot"
 	"github.com/echolabsinc/robotcore/utils/stream"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
 )
+
+const fakeDev = "fake"
 
 type stringFlags []string
 
@@ -37,7 +43,7 @@ func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Devic
 	golog.Global.Debugw("registering devices")
 	var lidarDevices []lidar.Device
 	for i, devDesc := range deviceDescs {
-		if devDesc.Path == "fake" {
+		if devDesc.Path == fakeDev {
 			lidarDevices = append(lidarDevices, &support.FakeLidar{Seed: int64(i)})
 			continue
 		}
@@ -73,11 +79,38 @@ func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Devic
 }
 
 func main() {
+	var baseType string
 	var devicePathFlags stringFlags
 	var deviceOffsetFlags stringFlags
+	if runtime.GOOS == "linux" {
+		flag.StringVar(&baseType, "base-type", "hello", "type of mobile base")
+	} else {
+		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
+	}
 	flag.Var(&devicePathFlags, "device", "lidar device")
 	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
 	flag.Parse()
+
+	// The room is 600m^2 tracked in centimeters
+	// 0 means no detected obstacle
+	// 1 means a detected obstacle
+	// TODO(erd): where is center? is a hack to just square the whole thing?
+	roomSizeMeters := 600
+	roomScale := 100 // cm
+	room := support.NewSquareRoom(roomSizeMeters, roomScale)
+	roomCenter := room.Center()
+	roomSize, roomSizeScale := room.Size()
+
+	var base base.Base
+	switch baseType {
+	case fakeDev:
+		base = &support.FakeBase{}
+	case "hello":
+		robot := hellorobot.New()
+		base = robot.Base()
+	default:
+		panic(fmt.Errorf("do not know how to make a %q base", baseType))
+	}
 
 	var deviceOffests []support.DeviceOffset
 	for _, flags := range deviceOffsetFlags {
@@ -110,11 +143,21 @@ func main() {
 			golog.Global.Debugf("%s (%s)", desc.Type, desc.Path)
 		}
 	}
+	if len(deviceOffsetFlags) == 0 && len(deviceDescs) == 0 {
+		deviceDescs = append(deviceDescs,
+			support.LidarDeviceDescription{support.LidarTypeFake, fakeDev})
+	}
 	if len(devicePathFlags) != 0 {
 		deviceDescs = nil
 		for _, devicePath := range devicePathFlags {
-			deviceDescs = append(deviceDescs,
-				support.LidarDeviceDescription{support.LidarTypeRPLidar, devicePath})
+			switch devicePath {
+			case fakeDev:
+				deviceDescs = append(deviceDescs,
+					support.LidarDeviceDescription{support.LidarTypeFake, devicePath})
+			default:
+				deviceDescs = append(deviceDescs,
+					support.LidarDeviceDescription{support.LidarTypeRPLidar, devicePath})
+			}
 		}
 	}
 
@@ -141,22 +184,14 @@ func main() {
 		defer lidarDev.Stop()
 	}
 
-	// The room is 600m^2 tracked in centimeters
-	// 0 means no detected obstacle
-	// 1 means a detected obstacle
-	// TODO(erd): where is center? is a hack to just square the whole thing?
-	roomSizeMeters := 600
-	roomScale := 100 // cm
-	room := support.NewSquareRoom(roomSizeMeters, roomScale)
-	roomCenter := room.Center()
-	roomSize, roomSizeScale := room.Size()
-
-	base := &support.FakeBase{
-		roomCenter.X, roomCenter.Y,
-		roomSize * roomSizeScale, roomSize * roomSizeScale,
-	}
-
-	lar, err := support.NewLocationAwareRobot(base, lidarDevices, deviceOffests, room)
+	lar, err := support.NewLocationAwareRobot(
+		base,
+		image.Point{roomCenter.X, roomCenter.Y},
+		lidarDevices,
+		deviceOffests,
+		room,
+		image.Point{roomSize * roomSizeScale, roomSize * roomSizeScale},
+	)
 	if err != nil {
 		panic(err)
 	}

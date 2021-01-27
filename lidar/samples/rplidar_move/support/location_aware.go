@@ -29,21 +29,26 @@ type DeviceOffset struct {
 type LocationAwareRobot struct {
 	mu              sync.Mutex
 	base            base.Base
+	basePosX        int
+	basePosY        int
 	devices         []lidar.Device
 	deviceOffsets   []DeviceOffset
 	maxBounds       image.Point
 	clientDeviceNum int
 	clientZoom      float64
 	room            *SquareRoom
+	roomBounds      image.Point
 	distinctRooms   []*SquareRoom
 	orientations    []float64
 }
 
 func NewLocationAwareRobot(
 	base base.Base,
+	baseStart image.Point, // TODO(erd): should/could base itself be aware of location?
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
 	room *SquareRoom,
+	roomBounds image.Point,
 ) (*LocationAwareRobot, error) {
 	roomSize, roomSizeScale := room.Size()
 	distinctRooms := make([]*SquareRoom, 0, len(devices))
@@ -67,10 +72,13 @@ func NewLocationAwareRobot(
 
 	return &LocationAwareRobot{
 		base:            base,
+		basePosX:        baseStart.X,
+		basePosY:        baseStart.Y,
 		devices:         devices,
 		deviceOffsets:   deviceOffsets,
 		maxBounds:       image.Point{maxBoundsX, maxBoundsY},
 		room:            room,
+		roomBounds:      roomBounds,
 		distinctRooms:   distinctRooms,
 		clientDeviceNum: -1,
 		clientZoom:      1,
@@ -86,6 +94,14 @@ func (lar *LocationAwareRobot) Stop() {
 
 }
 
+func (lar *LocationAwareRobot) basePos() (int, int) {
+	return lar.basePosX, lar.basePosY
+}
+
+func (lar *LocationAwareRobot) basePosString() string {
+	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
+}
+
 func (lar *LocationAwareRobot) startCulling() {
 	_, scaleDown := lar.room.Size()
 	maxBoundsX := lar.maxBounds.X * scaleDown
@@ -93,8 +109,7 @@ func (lar *LocationAwareRobot) startCulling() {
 
 	cull := func() {
 		// TODO(erd): not thread safe
-		basePosX := lar.base.(*FakeBase).PosX
-		basePosY := lar.base.(*FakeBase).PosY
+		basePosX, basePosY := lar.basePos()
 
 		// calculate ideal visibility bounds
 		roomMinX := basePosX - maxBoundsX/2
@@ -147,8 +162,7 @@ func (lar *LocationAwareRobot) startCulling() {
 }
 
 func (lar *LocationAwareRobot) update() {
-	basePosX := lar.base.(*FakeBase).PosX
-	basePosY := lar.base.(*FakeBase).PosY
+	basePosX, basePosY := lar.basePos()
 
 	for _, dev := range lar.devices {
 		if fake, ok := dev.(*FakeLidar); ok {
@@ -252,8 +266,7 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 	var drawLine bool
 	// drawLine = true
 
-	basePosX := lar.base.(*FakeBase).PosX
-	basePosY := lar.base.(*FakeBase).PosY
+	basePosX, basePosY := lar.basePos()
 	minX := basePosX - bounds.X/2
 	maxX := basePosX + bounds.X/2
 	minY := basePosY - bounds.Y/2
@@ -314,16 +327,18 @@ func (lar *LocationAwareRobot) setClientDeviceNumber(num int) {
 }
 
 func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg string)) error {
-	_, scaleDown := lar.room.Size()
 	if bytes.HasPrefix(data, []byte("move: ")) {
-		dir := MoveDir(bytes.TrimPrefix(data, []byte("move: ")))
-		if err := lar.base.(*FakeBase).Move(dir, lar.devices[0].Range()*scaleDown); err != nil {
+		dir := direction(bytes.TrimPrefix(data, []byte("move: ")))
+		if err := lar.rotateTo(dir); err != nil {
+			return err
+		}
+		if err := lar.move(100); err != nil {
 			return err
 		}
 		respondMsg(fmt.Sprintf("moved %q", dir))
-		respondMsg(lar.base.(*FakeBase).String())
+		respondMsg(lar.basePosString())
 	} else if bytes.Equal(data, []byte("pos")) {
-		respondMsg(lar.base.(*FakeBase).String())
+		respondMsg(lar.basePosString())
 	} else if bytes.HasPrefix(data, []byte("sv_device_offset ")) {
 		offsetStr := string(bytes.TrimPrefix(data, []byte("sv_device_offset ")))
 		offsetSplit := strings.SplitN(offsetStr, " ", 2)
@@ -434,29 +449,101 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 	return nil
 }
 
+type direction string
+
+const (
+	directionUp    = "up"
+	directionRight = "right"
+	directionDown  = "down"
+	directionLeft  = "left"
+)
+
+func (lar *LocationAwareRobot) rotateTo(dir direction) error {
+	currOrientation := lar.base.Orientation()
+	var rotateBy int
+	switch dir {
+	case directionUp:
+		rotateBy = currOrientation
+	case directionRight:
+		rotateBy = 90 - currOrientation
+	case directionDown:
+		rotateBy = 180 - currOrientation
+	case directionLeft:
+		rotateBy = 270 - currOrientation
+	default:
+		return fmt.Errorf("do not know how to rotate to absolute %q", dir)
+	}
+	return lar.base.Spin(rotateBy, 0, true)
+}
+
+func (lar *LocationAwareRobot) move(amount int) error {
+	orientation := lar.base.Orientation()
+	errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
+	newX := lar.basePosX
+	newY := lar.basePosY
+	switch orientation {
+	case 0:
+		if lar.basePosY-amount < 0 {
+			return errMsg
+		}
+		golog.Global.Debugw("up", "amount", amount)
+		newY = lar.basePosY - amount
+	case 90:
+		if lar.basePosX+amount >= lar.roomBounds.X {
+			return errMsg
+		}
+		golog.Global.Debugw("right", "amount", amount)
+		newX = lar.basePosX + amount
+	case 180:
+		if lar.basePosY+amount >= lar.roomBounds.Y {
+			return errMsg
+		}
+		golog.Global.Debugw("down", "amount", amount)
+		newY = lar.basePosY + amount
+	case 270:
+		if lar.basePosX-amount < 0 {
+			return errMsg
+		}
+		golog.Global.Debugw("left", "amount", amount)
+		newX = lar.basePosX - amount
+	default:
+		return fmt.Errorf("cannot move at orientation %d", orientation)
+	}
+	if err := lar.base.MoveStraight(amount*10, 0, true); err != nil {
+		return err
+	}
+	lar.basePosX = newX
+	lar.basePosY = newY
+	return nil
+}
+
 func (lar *LocationAwareRobot) HandleClick(x, y, sX, sY int, respondMsg func(msg string)) error {
 	centerX := sX / 2
 	centerY := sX / 2
-	var dir MoveDir
+
+	var rotateTo direction
 	if x < centerX {
 		if y < centerY {
-			dir = MoveDirUp
+			rotateTo = directionUp
 		} else {
-			dir = MoveDirLeft
+			rotateTo = directionLeft
 		}
 	} else {
 		if y < centerY {
-			dir = MoveDirDown
+			rotateTo = directionDown
 		} else {
-			dir = MoveDirRight
+			rotateTo = directionRight
 		}
 	}
-	_, scaleDown := lar.room.Size()
-	if err := lar.base.(*FakeBase).Move(dir, lar.devices[0].Range()*scaleDown); err != nil {
+
+	if err := lar.rotateTo(rotateTo); err != nil {
 		return err
 	}
-	respondMsg(fmt.Sprintf("moved %q", dir))
-	respondMsg(lar.base.(*FakeBase).String())
+	if err := lar.move(100); err != nil {
+		return err
+	}
+	respondMsg(fmt.Sprintf("moved %q", rotateTo))
+	respondMsg(lar.basePosString())
 	return nil
 }
 
