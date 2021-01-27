@@ -9,9 +9,8 @@ import (
 )
 
 type Base struct {
-	robot       *Robot
-	baseObj     *python.PyObject
-	orientation int
+	robot   *Robot
+	baseObj *python.PyObject
 }
 
 func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
@@ -27,12 +26,7 @@ func (b *Base) Spin(degrees int, power int, block bool) error {
 		golog.Global.Info("Base.Spin does not support power")
 	}
 	b.RotateBy(-float64(degrees), block)
-	b.orientation = (((b.orientation + degrees) % 360) + 360) % 360
 	return nil
-}
-
-func (b *Base) Orientation() int {
-	return b.orientation
 }
 
 func (b *Base) Stop() error {
