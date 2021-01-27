@@ -4,6 +4,7 @@ type LidarType int
 
 const (
 	LidarTypeUnknown = LidarType(iota)
+	LidarTypeFake
 	LidarTypeRPLidar
 )
 
@@ -11,6 +12,8 @@ func (lt LidarType) String() string {
 	switch lt {
 	case LidarTypeRPLidar:
 		return "RPLidar"
+	case LidarTypeFake:
+		return "fake"
 	default:
 		return "unknown"
 	}
