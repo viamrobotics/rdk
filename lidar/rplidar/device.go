@@ -139,7 +139,9 @@ func (rpl *RPLidar) Start() {
 }
 
 func (rpl *RPLidar) Stop() {
-	defer rplidargen.Delete_measurementNodeHqArray(rpl.nodes)
+	if rpl.nodes != nil {
+		defer rplidargen.Delete_measurementNodeHqArray(rpl.nodes)
+	}
 	rpl.driver.Stop()
 	rpl.driver.StopMotor()
 }
