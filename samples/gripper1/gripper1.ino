@@ -3,29 +3,42 @@
 
 HardwareSerial* debugSerial;
 
+void debug(const char* name, int x) {
+    char buf[16];
+    sprintf(buf, "%s: %d", name, x);
+    Serial.println(buf);
+}
+
 class Gripper {
    public:
     Gripper(Motor* m)
         : _motor(m),
           _initialized(false),
           _initializeState(0),
-          _fullTicks(1000),
-          _power(255) {}
+          _fullTicks(500),
+          _power(64) {
+        _motor->setSlowDown(true);
+    }
 
     bool initialzeReady() {
         if (_initialized) {
             return true;
         }
 
-        if (_initializeState == 0) {  // haven't started yet
+        if (_initializeState == INIT_STATE_START) {  // haven't started yet
             Serial.println("Gripper::initialzeReady opening 1");
+            _currentSpot = 0;
             open(_fullTicks);
-            _initializeState = 1;
+            _initializeState = INIT_STATE_OPEN1;
             return false;
         }
 
         auto howLong = millis() - _motor->lastTick();
-        if (_motor->moving() && howLong < 300) {
+        int howLongThreshold = 300;
+        if (_currentSpot == 0) {
+            howLongThreshold *= 3;
+        }
+        if (_motor->moving() && howLong < howLongThreshold) {
             return false;
         }
 
@@ -35,40 +48,40 @@ class Gripper {
         auto numTicks =
             _motor->encoderTicks() - (encoderTicksStop - _fullTicks);
 
-        if (_initializeState == 3) {
+        if (_initializeState == INIT_STATE_OPEN2) {
             _currentSpot = 0;
             _initialized = true;
 
             if (encoderTicksStop == 0) {
-                // perfect
-                Serial.println("perfect");
+                debug("perfect", _fullTicks);
                 _initialized = true;
                 return true;
             }
 
-            Serial.println("medium");
-            Serial.println((double)numTicks);
+            debug("medium", numTicks);
             Serial.println(_fullTicks);
 
             return true;
         }
 
-        if (encoderTicksStop == 0) {
+        if (encoderTicksStop == INIT_STATE_START) {
             Serial.println("it stopped on it's own, this is unexpected");
             return false;
         }
 
-        if (_initializeState == 1) {  // we opened, now we close
-            _initializeState = 2;
+        if (_initializeState == INIT_STATE_OPEN1) {  // we opened, now we close
+            _initializeState = INIT_STATE_CLOSE;
             Serial.println("Gripper::initialzeReady closing 1");
+            _currentSpot = 0;
             close(_fullTicks);
             return false;
         }
 
-        if (_initializeState == 2) {  // we closed, how many ticks was there
+        if (_initializeState ==
+            INIT_STATE_CLOSE) {  // we closed, how many ticks was there
             _fullTicks = numTicks;
             open(_fullTicks);
-            _initializeState = 3;
+            _initializeState = INIT_STATE_OPEN2;
             return false;
         }
 
@@ -108,6 +121,29 @@ class Gripper {
     void setPos(double pos) { setRawPos(int(pos * _fullTicks)); }
 
     double getPos() const { return double(_currentSpot) / double(_fullTicks); }
+    int getRawPos() const { return _currentSpot; }
+
+    // g0.3 -- go to position .0
+    // p  - return current position
+    void processCommand(const char* command, Buffer* b) {
+        if (command[0] == 'g') {
+            auto pos = atof(command + 1);
+            Serial.println("got g");
+            Serial.println(pos);
+            setPos(pos);
+        } else if (command[0] == 'p') {
+            auto pos = int(100 * getPos());
+            if (pos >= 100) {
+                b->println("1.0");
+            } else {
+                char buf[16];
+                auto x = sprintf(buf, ".%.2d %d", pos, getRawPos());
+                b->println(buf);
+            }
+        } else {
+            b->println("bad command");
+        }
+    }
 
    private:
     void setRawPos(int pos) {
@@ -145,14 +181,20 @@ class Gripper {
 
     bool _initialized;
     int _initializeState;
+
+    static const int INIT_STATE_START = 0;
+    static const int INIT_STATE_OPEN1 = 1;
+    static const int INIT_STATE_CLOSE = 2;
+    static const int INIT_STATE_OPEN2 = 3;
 };
 
 Gripper* g;
+Buffer* b;
 
 void setup() {
-    Serial.begin(9600);
-
+    b = new Buffer(&Serial);
     debugSerial = &Serial;
+
     g = new Gripper(new Motor(6, 7, 9, true));
 
     pinMode(2, INPUT);
@@ -161,43 +203,17 @@ void setup() {
                     RISING);  // Interrupt initialization
 }
 
-uint64_t prev = 0;
-int moving = 0;
-int dir = 1;
-unsigned long lastTime = 0;
-uint64_t lastCount = 0;
-const int maxDiff = 400;
-
-int state = 0;
 void loop() {
     g->checkEncoder();
 
     if (g->initialzeReady()) {
-        if (!g->moving()) {
-            delay(500);
-
-            Serial.println("state");
-            Serial.println(state);
-            Serial.println(g->getPos());
-
-            if (state == 0) {
-                g->setPos(.5);
-                state = 1;
-            } else if (state == 1) {
-                g->setPos(0);
-                state = 2;
-            } else if (state == 2) {
-                g->setPos(1);
-                state = 3;
-            } else if (state == 3) {
-                g->setPos(.5);
-                state = 4;
-            } else if (state == 4) {
-                g->setPos(1);
-                state = 5;
+        if (b->readTillNewLine()) {
+            auto line = b->getLineAndReset();
+            if (line[0] == 'g') {
+                g->processCommand(line + 1, b);
             } else {
-                g->setPos(0);
-                state = 0;
+                Serial.println("bad command");
+                Serial.println(line);
             }
         }
     }

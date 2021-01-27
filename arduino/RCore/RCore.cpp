@@ -14,6 +14,8 @@ Motor::Motor(int in1, int in2, int pwm, bool trackSpeed)
     pinMode(_in2, OUTPUT);
     pinMode(_pwm, OUTPUT);
     _moving = false;
+    _slowDown = false;
+    _power = 0;
 }
 
 void Motor::stop() {
@@ -24,6 +26,7 @@ void Motor::stop() {
 }
 
 void Motor::forward(int val, int ticks) {
+    _power = val;
     this->setTicksToGo(ticks);
     _moving = true;
     analogWrite(_pwm, val);
@@ -32,6 +35,7 @@ void Motor::forward(int val, int ticks) {
 }
 
 void Motor::backward(int val, int ticks) {
+    _power = val;
     this->setTicksToGo(ticks);
     _moving = true;
     analogWrite(_pwm, val);
@@ -79,9 +83,16 @@ bool Motor::checkEncoder() {
         return true;
     }
 
-    if (_encoderTicks + 60 > _encoderTicksStop) {
-        // analogWrite(_pwm, 40); // slow down
-        return false;
+    if (_slowDown) {
+        if (_encoderTicks + 50 > _encoderTicksStop) {
+            int newVal = int((double)_power * .5);
+            analogWrite(_pwm, newVal);
+            _pwm = newVal;
+        } else if (_encoderTicks + 100 > _encoderTicksStop) {
+            int newVal = int((double)_power * .8);
+            analogWrite(_pwm, newVal);
+            _pwm = newVal;
+        }
     }
 
     return false;
