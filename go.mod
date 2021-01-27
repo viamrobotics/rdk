@@ -8,7 +8,7 @@ require (
 	github.com/Ernyoke/Imger v0.0.0-20180625211505-6476f04d1954
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210122205810-1db523c03c54
+	github.com/edaniels/gostream v0.0.0-20210127162038-7e27999d060f
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20201108214237-06ea97f0c265 // indirect
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
@@ -40,6 +40,7 @@ require (
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	howett.net/plist v0.0.0-20201203080718-1454fab16a06
 )
 
 replace fyne.io/fyne => github.com/edaniels/fyne v1.4.2-0.20201215180503-6f54ae445771
