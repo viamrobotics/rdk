@@ -170,7 +170,7 @@ func ReadDepthMap(f *bufio.Reader) (DepthMap, error) {
 		return dm, err
 	}
 
-	if dm.width == 6363110499870197078 {
+	if dm.width == 6363110499870197078 { // magic number for VERSIONX
 		return readDepthMapFormat2(f)
 	}
 
@@ -264,8 +264,18 @@ func readDepthMapFormat2(r *bufio.Reader) (DepthMap, error) {
 	for y := 0; y < dm.height; y++ {
 		for x := 0; x < dm.width; x++ {
 			n, err := r.Read(temp)
+			if n == 1 {
+				b2, err2 := r.ReadByte()
+				if err2 != nil {
+					err = err2
+				} else {
+					n++
+				}
+				temp[1] = b2
+			}
+
 			if n != 2 || err != nil {
-				return dm, fmt.Errorf("didn't read 2 bytes %d %w", n, err)
+				return dm, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
 			}
 
 			dm.data[x][y] = int(units * float64(binary.LittleEndian.Uint16(temp)))

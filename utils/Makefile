@@ -7,6 +7,10 @@ ifeq ($(UNAME), Linux)
    special = -lpthread
 endif
 
+LIB_FILES = cameraserver.cpp
 
-intelrealserver: intelrealserver.cpp
-	g++ -g -std=c++17 intelrealserver.cpp $(packages) $(special) -o intelrealserver
+intelrealserver: intelrealserver.cpp $(LIB_FILES)
+	g++ -g -std=c++17 intelrealserver.cpp $(LIB_FILES) $(packages) $(special) -o intelrealserver
+
+royaleserver: royaleserver.cpp $(LIB_FILES)
+	g++ -g -std=c++17 royaleserver.cpp $(LIB_FILES) `pkg-config --cflags --libs royale` $(packages) $(special) -o royaleserver
