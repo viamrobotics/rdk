@@ -14,8 +14,14 @@ type Measurement struct {
 }
 
 func NewMeasurement(angle, distance float64) *Measurement {
-	x := distance * math.Cos(angle)
-	y := distance * math.Sin(angle)
+	// Remember, our view is from x,y=0,0 at top left
+	// of a containing matrix
+	// 0°   -  (0,-1) // Up
+	// 90°  -  (1, 0) // Right
+	// 180° -  (0, 1) // Down
+	// 270° -  (-1,0) // Left
+	x := distance * math.Sin(angle)
+	y := distance * -math.Cos(angle)
 	return &Measurement{
 		angle:    angle,
 		distance: distance,

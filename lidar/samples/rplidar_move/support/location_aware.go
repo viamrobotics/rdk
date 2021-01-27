@@ -29,6 +29,7 @@ type DeviceOffset struct {
 type LocationAwareRobot struct {
 	mu              sync.Mutex
 	base            base.Base
+	baseOrientation int // relative to map
 	basePosX        int
 	basePosY        int
 	devices         []lidar.Device
@@ -298,8 +299,13 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 			continue
 		}
 		distance := 20.0
-		x := distance * math.Cos(orientation*math.Pi/180)
-		y := distance * math.Sin(orientation*math.Pi/180)
+		// Remember, our view is from x,y=0,0 at top left of matrix
+		// 0°   -  (0,-1) // Up
+		// 90°  -  (1, 0) // Right
+		// 180° -  (0, 1) // Down
+		// 270° -  (-1,0) // Left
+		x := distance * math.Sin(orientation*math.Pi/180)
+		y := distance * -math.Cos(orientation*math.Pi/180)
 		relX := centerX + int(x)
 		relY := centerY + int(y)
 		p := image.Point{relX, relY}
@@ -459,7 +465,7 @@ const (
 )
 
 func (lar *LocationAwareRobot) rotateTo(dir direction) error {
-	currOrientation := lar.base.Orientation()
+	currOrientation := lar.baseOrientation
 	var rotateBy int
 	switch dir {
 	case directionUp:
@@ -473,11 +479,15 @@ func (lar *LocationAwareRobot) rotateTo(dir direction) error {
 	default:
 		return fmt.Errorf("do not know how to rotate to absolute %q", dir)
 	}
-	return lar.base.Spin(rotateBy, 0, true)
+	if err := lar.base.Spin(rotateBy, 0, true); err != nil {
+		return err // TODO(erd): so... what's our orientation now?
+	}
+	lar.baseOrientation = (((lar.baseOrientation + rotateBy) % 360) + 360) % 360
+	return nil
 }
 
 func (lar *LocationAwareRobot) move(amount int) error {
-	orientation := lar.base.Orientation()
+	orientation := lar.baseOrientation
 	errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
 	newX := lar.basePosX
 	newY := lar.basePosY
