@@ -343,6 +343,12 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 		}
 		respondMsg(fmt.Sprintf("moved %q", dir))
 		respondMsg(lar.basePosString())
+	} else if bytes.HasPrefix(data, []byte("rotate_to ")) {
+		dir := direction(bytes.TrimPrefix(data, []byte("rotate_to ")))
+		if err := lar.rotateTo(dir); err != nil {
+			return err
+		}
+		respondMsg(fmt.Sprintf("rotate to %q", dir))
 	} else if bytes.Equal(data, []byte("pos")) {
 		respondMsg(lar.basePosString())
 	} else if bytes.HasPrefix(data, []byte("sv_device_offset ")) {
@@ -466,23 +472,35 @@ const (
 
 func (lar *LocationAwareRobot) rotateTo(dir direction) error {
 	currOrientation := lar.baseOrientation
-	var rotateBy int
+	// println("current orientation", currOrientation)
+	var rotateTo int
 	switch dir {
 	case directionUp:
-		rotateBy = currOrientation
+		if currOrientation > 180 {
+			rotateTo = 360
+		} else {
+			rotateTo = 0
+		}
 	case directionRight:
-		rotateBy = 90 - currOrientation
+		rotateTo = 90
 	case directionDown:
-		rotateBy = 180 - currOrientation
+		rotateTo = 180
 	case directionLeft:
-		rotateBy = 270 - currOrientation
+		rotateTo = 270
 	default:
 		return fmt.Errorf("do not know how to rotate to absolute %q", dir)
 	}
+
+	rotateBy := rotateTo - currOrientation
+	if int(math.Abs(float64(rotateBy))) > 180 {
+		rotateBy *= -1
+	}
+	// println("spin by", rotateBy)
 	if err := lar.base.Spin(rotateBy, 0, true); err != nil {
 		return err // TODO(erd): so... what's our orientation now?
 	}
 	lar.baseOrientation = (((lar.baseOrientation + rotateBy) % 360) + 360) % 360
+	// println("new orientation", lar.baseOrientation)
 	return nil
 }
 
