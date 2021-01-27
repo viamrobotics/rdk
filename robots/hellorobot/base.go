@@ -25,7 +25,7 @@ func (b *Base) Spin(degrees int, power int, block bool) error {
 	if power != 0 {
 		golog.Global.Info("Base.Spin does not support power")
 	}
-	b.RotateBy(-float64(degrees), block)
+	b.RotateBy(float64(degrees), block)
 	return nil
 }
 
@@ -40,7 +40,7 @@ func (b *Base) Close() {
 	}
 }
 
-const baseTranslateSpeed = 1.0 / 4 // m/sec
+const baseTranslateSpeed = 1.0 / 3 // m/sec
 
 func (b *Base) TranslateBy(meters float64, block bool) {
 	b.baseObj.CallMethod("translate_by", python.PyFloat_FromDouble(meters))
@@ -50,7 +50,7 @@ func (b *Base) TranslateBy(meters float64, block bool) {
 	}
 }
 
-const baseRotateSpeed = 2 * math.Pi / 14 // rad/sec
+const baseRotateSpeed = 2 * math.Pi / 3 // rad/sec
 
 // degrees ccw
 func (b *Base) RotateBy(degrees float64, block bool) {
