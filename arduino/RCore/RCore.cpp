@@ -84,12 +84,15 @@ bool Motor::checkEncoder() {
     }
 
     if (_slowDown) {
+        int newVal = 0;
         if (_encoderTicks + 50 > _encoderTicksStop) {
-            int newVal = int((double)_power * .5);
-            analogWrite(_pwm, newVal);
-            _pwm = newVal;
+            newVal = int((double)_power * .5);
+
         } else if (_encoderTicks + 100 > _encoderTicksStop) {
-            int newVal = int((double)_power * .8);
+            newVal = int((double)_power * .8);
+        }
+
+        if (newVal > 0) {
             analogWrite(_pwm, newVal);
             _pwm = newVal;
         }
