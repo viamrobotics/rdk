@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"image"
 
+	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
@@ -147,4 +149,35 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Mov
 
 	m := moves.NewMove([]int{from, to})
 	return m, nil
+}
+
+func findDepthPeaks(dm vision.DepthMap, center image.Point, radius int) (image.Point, int, image.Point, int) {
+	var lowest, highest image.Point
+	lowestValue := 100000
+	highestValue := 0
+
+	err := vision.Walk(center.X, center.Y, radius,
+		func(x, y int) error {
+			p := image.Point{x, y}
+
+			depth := dm.Get(p)
+			if depth == 0 {
+				return nil
+			}
+
+			if depth < lowestValue {
+				lowest = p
+				lowestValue = depth
+			}
+			if depth > highestValue {
+				highest = p
+				highestValue = depth
+			}
+			return nil
+		})
+	if err != nil {
+		panic(err)
+	}
+
+	return lowest, lowestValue, highest, highestValue
 }

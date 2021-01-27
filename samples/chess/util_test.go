@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/tonyOreglia/glee/pkg/position"
 
+	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 )
 
@@ -127,6 +129,34 @@ func TestOneMove(t *testing.T) {
 	}
 	if m.String() != "e2e4" {
 		t.Errorf("move is wrong: %s", m.String())
+	}
+
+}
+
+func TestWristDepth1(t *testing.T) {
+	dm, err := vision.ParseDepthMap("data/wristdepth1.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pp, err := dm.ToPrettyPicture(0, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	center := image.Point{dm.Width() / 2, dm.Height() / 2}
+	pp.Circle(center, 30, vision.Red)
+
+	lowest, lowestValue, highest, highestValue := findDepthPeaks(dm, center, 30)
+	fmt.Printf("lowest: %v highest: %v\n", lowest, highest)
+	fmt.Printf("lowestValue: %v highestValue: %v\n", lowestValue, highestValue)
+
+	pp.Circle(lowest, 5, vision.Green)
+	pp.Circle(highest, 5, vision.Green)
+
+	err = pp.WriteTo("/tmp/x.png")
+	if err != nil {
+		t.Fatal(err)
 	}
 
 }

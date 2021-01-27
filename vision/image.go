@@ -178,3 +178,15 @@ func PointDistance(a, b image.Point) float64 {
 	x += rcutil.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
 }
+
+func (i *Image) WriteTo(fn string) error {
+	b := gocv.IMWrite(fn, i.mat)
+	if b {
+		return nil
+	}
+	return fmt.Errorf("couldn't write image to %s", fn)
+}
+
+func (i *Image) Circle(center image.Point, radius int, c Color) {
+	gocv.Circle(&i.mat, center, radius, c.C, 1)
+}
