@@ -37,6 +37,8 @@ class Motor {
         return _lastTick;
     }
 
+    void setSlowDown(bool b) { _slowDown = b; }
+
    private:
     int _in1;
     int _in2;
@@ -46,6 +48,8 @@ class Motor {
     bool _moving;
     bool _trackSpeed;
     unsigned long _lastTick;
+    bool _slowDown;
+    int _power;
 };
 
 struct Command {
