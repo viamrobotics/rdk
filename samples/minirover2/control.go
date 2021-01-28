@@ -2,16 +2,11 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/echolabsinc/robotcore/rcutil"
@@ -272,34 +267,9 @@ func main() {
 
 	defer theRobot.Close()
 
-	mux := http.NewServeMux()
-
-	webCloser, err := robot.InstallWeb(mux, theRobot)
-	if err != nil {
-		panic(err)
-	}
-
-	httpServer := &http.Server{
-		Addr:           ":8080",
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-		Handler:        mux,
-	}
-
 	if false {
 		go driveMyself(&rover, theRobot.Cameras[0])
 	}
 
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		rover.Stop()
-		webCloser()
-		httpServer.Shutdown(context.Background())
-	}()
-
-	golog.Global.Debug("going to listen")
-	golog.Global.Fatal(httpServer.ListenAndServe())
+	robot.RunWeb(theRobot)
 }
