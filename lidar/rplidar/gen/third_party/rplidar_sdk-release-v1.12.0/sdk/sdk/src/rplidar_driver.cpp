@@ -154,7 +154,9 @@ u_result RPlidarDriverImplCommon::_waitResponseHeader(rplidar_ans_header_t * hea
         size_t recvSize;
         
         bool ans = _chanDev->waitfordata(remainSize, timeout - waitTime, &recvSize);
-        if(!ans) return RESULT_OPERATION_TIMEOUT;
+        if(!ans) {
+            return RESULT_OPERATION_TIMEOUT;
+        }
         
         if(recvSize > remainSize) recvSize = remainSize;
         

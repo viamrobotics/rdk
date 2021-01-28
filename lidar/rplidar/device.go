@@ -10,35 +10,96 @@ import (
 	rplidargen "github.com/echolabsinc/robotcore/lidar/rplidar/gen"
 )
 
-func isResultOk(result uint) bool {
-	return result&uint(rplidargen.RESULT_FAIL_BIT) == 0
+type Result uint32
+type ResultError struct {
+	Result
 }
 
-func NewRPLidar(devicePath string) (*RPLidar, error) {
-	var driver rplidargen.RPlidarDriver
+var (
+	ResultOk                 = Result(rplidargen.RESULT_OK)
+	ResultAlreadyDone        = Result(rplidargen.RESULT_ALREADY_DONE)
+	ResultInvalidData        = Result(rplidargen.RESULT_INVALID_DATA)
+	ResultOpFail             = Result(rplidargen.RESULT_OPERATION_FAIL)
+	ResultOpTimeout          = Result(rplidargen.RESULT_OPERATION_TIMEOUT)
+	ResultOpStop             = Result(rplidargen.RESULT_OPERATION_STOP)
+	ResultOpNotSupported     = Result(rplidargen.RESULT_OPERATION_NOT_SUPPORT)
+	ResultFormatNotSupported = Result(rplidargen.RESULT_FORMAT_NOT_SUPPORT)
+	ResultInsufficientMemory = Result(rplidargen.RESULT_INSUFFICIENT_MEMORY)
+)
 
+func (r Result) Failed() error {
+	if int(r)&rplidargen.RESULT_FAIL_BIT == 0 {
+		return nil
+	}
+	return ResultError{r}
+}
+
+func (r Result) String() string {
+	switch r {
+	case ResultOk:
+		return "Ok"
+	case ResultAlreadyDone:
+		return "AlreadyDone"
+	case ResultInvalidData:
+		return "InvalidData"
+	case ResultOpFail:
+		return "OpFail"
+	case ResultOpTimeout:
+		return "OpTimeout"
+	case ResultOpStop:
+		return "OpStop"
+	case ResultOpNotSupported:
+		return "OpNotSupported"
+	case ResultFormatNotSupported:
+		return "FormatNotSupported"
+	case ResultInsufficientMemory:
+		return "InsufficientMemory"
+	default:
+		return "Unknown"
+	}
+}
+
+func (r ResultError) Error() string {
+	return r.String()
+}
+
+const defaultTimeout = uint(1000)
+
+func NewRPLidar(devicePath string) (*RPLidar, error) {
+
+	var driver rplidargen.RPlidarDriver
 	devInfo := rplidargen.NewRplidar_response_device_info_t()
 	defer rplidargen.DeleteRplidar_response_device_info_t(devInfo)
 
-	var lastErr error
-	baudRates := []uint{256000, 115200}
-	for _, rate := range baudRates {
-		driver = rplidargen.RPlidarDriverCreateDriver(uint(rplidargen.DRIVER_TYPE_SERIALPORT))
-		if !isResultOk(driver.Connect(devicePath, rate)) {
-			lastErr = errors.New("failed to connect")
+	var connectErr error
+	for _, rate := range []uint{256000, 115200} {
+		possibleDriver := rplidargen.RPlidarDriverCreateDriver(uint(rplidargen.DRIVER_TYPE_SERIALPORT))
+		if result := possibleDriver.Connect(devicePath, rate); Result(result) != ResultOk {
+			r := Result(result)
+			if r == ResultOpTimeout {
+				continue
+			}
+			connectErr = fmt.Errorf("failed to connect: %w", Result(result).Failed())
 			continue
 		}
 
-		if !isResultOk(driver.GetDeviceInfo(devInfo, uint(5000))) {
-			lastErr = errors.New("failed to get device info")
+		if result := possibleDriver.GetDeviceInfo(devInfo, defaultTimeout); Result(result) != ResultOk {
+			r := Result(result)
+			if r == ResultOpTimeout {
+				continue
+			}
+			connectErr = fmt.Errorf("failed to get device info: %w", Result(result).Failed())
 			continue
 		}
 
-		lastErr = nil
+		driver = possibleDriver
 		break
 	}
-	if lastErr != nil {
-		return nil, lastErr
+	if driver == nil {
+		if connectErr == nil {
+			return nil, fmt.Errorf("timed out connecting to %q", devicePath)
+		}
+		return nil, connectErr
 	}
 
 	serialNum := devInfo.GetSerialnum()
@@ -55,8 +116,8 @@ func NewRPLidar(devicePath string) (*RPLidar, error) {
 	healthInfo := rplidargen.NewRplidar_response_device_health_t()
 	defer rplidargen.DeleteRplidar_response_device_health_t(healthInfo)
 
-	if !isResultOk(driver.GetHealth(healthInfo)) {
-		return nil, errors.New("failed to get health")
+	if result := driver.GetHealth(healthInfo, defaultTimeout); Result(result) != ResultOk {
+		return nil, fmt.Errorf("failed to get health: %w", Result(result).Failed())
 	}
 
 	if int(healthInfo.GetStatus()) == rplidargen.RPLIDAR_STATUS_ERROR {
@@ -133,6 +194,7 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 }
 
 func (rpl *RPLidar) Start() {
+	rpl.started = true
 	rpl.driver.StartMotor()
 	rpl.driver.StartScan(false, true)
 	rpl.nodes = rplidargen.New_measurementNodeHqArray(rpl.nodeSize)
@@ -157,9 +219,9 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	}
 
 	nodeCount := int64(rpl.nodeSize)
-	result := rpl.driver.GrabScanDataHq(rpl.nodes, &nodeCount)
-	if !isResultOk(result) {
-		return nil, errors.New("bad scan")
+	result := rpl.driver.GrabScanDataHq(rpl.nodes, &nodeCount, defaultTimeout)
+	if Result(result) != ResultOk {
+		return nil, fmt.Errorf("bad scan: %w", Result(result).Failed())
 	}
 	measurements := make(lidar.Measurements, 0, nodeCount)
 	rpl.driver.AscendScanData(rpl.nodes, nodeCount)
