@@ -13,6 +13,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/gripper"
+	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/robot"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
@@ -36,7 +37,7 @@ type pos struct {
 
 var (
 	BoardWidth     = .381
-	Center         = pos{-.42, .02}
+	Center         = pos{-.435, .0}
 	BoardHeight    = -.23
 	SafeMoveHeight = BoardHeight + .15
 
@@ -82,7 +83,7 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *gripper.Gripper, from, to string) error {
+func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm *arm.URArm, myGripper gripper.Gripper, from, to string) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -91,7 +92,7 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 		}
 		if toHeight > 0 {
 			golog.Global.Debugf("moving piece from %s to %s but occupied, going to capture", from, to)
-			err = movePiece(boardState, myArm, myGripper, to, "-")
+			err = movePiece(boardState, robot, myArm, myGripper, to, "-")
 			if err != nil {
 				return err
 			}
@@ -105,6 +106,11 @@ func movePiece(boardState boardStateGuesser, myArm *arm.URArm, myGripper *grippe
 
 	// open before going down
 	err = myGripper.Open()
+	if err != nil {
+		return err
+	}
+
+	err = adjustArmInsideSquare(robot)
 	if err != nil {
 		return err
 	}
@@ -384,6 +390,61 @@ func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
 
 }
 
+func adjustArmInsideSquare(robot *robot.Robot) error {
+	time.Sleep(500 * time.Millisecond) // wait for camera to focus
+
+	cam := robot.CameraByName("gripperCam")
+	if cam == nil {
+		return fmt.Errorf("can't find gripperCam")
+	}
+
+	arm := robot.Arms[0]
+
+	for {
+		where := arm.State().CartesianInfo
+		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
+
+		img, dm, err := cam.NextColorDepthPair()
+		if err != nil {
+			return err
+		}
+		defer img.Close()
+		fmt.Printf("\t got image\n")
+
+		center := image.Point{dm.Width() / 2, dm.Height() / 2}
+		lowest, lowestValue, _, highestValue := findDepthPeaks(dm, center, 30)
+
+		diff := highestValue - lowestValue
+
+		if diff < 11 {
+			return fmt.Errorf("no chess piece because height is only: %v", diff)
+		}
+
+		offsetX := center.X - lowest.X
+		offsetY := center.Y - lowest.Y
+
+		if rcutil.AbsInt(offsetX) < 3 && rcutil.AbsInt(offsetY) < 3 {
+			fmt.Printf("success!\n")
+			return nil
+		}
+
+		fmt.Printf("\t offsetX: %v offsetY: %v diff: %v\n", offsetX, offsetY, diff)
+
+		where.X += float64(offsetX) / -2000
+		where.Y += float64(offsetY) / 2000
+
+		fmt.Printf("\t moving to %0.3f,%0.3f\n", where.X, where.Y)
+
+		err = arm.MoveToPositionC(where)
+		if err != nil {
+			return err
+		}
+
+		time.Sleep(500 * time.Millisecond) // wait for camera to focus
+	}
+
+}
+
 func main() {
 	cpuprofile := flag.String("cpuprofile", "", "write cpu profile to file")
 
@@ -418,7 +479,8 @@ func main() {
 		panic("can't find cameraOver camera")
 	}
 
-	err = lookForBoard(myArm, myRobot)
+	// TODO(erh): put this back once we have a wrist camera again
+	//err = lookForBoard(myArm, myRobot)
 	if err != nil {
 		panic(err)
 	}
@@ -426,6 +488,22 @@ func main() {
 	err = initArm(myArm)
 	if err != nil {
 		panic(err)
+	}
+
+	if false {
+		fmt.Printf("ELIOT HACK\n")
+
+		err := moveTo(myArm, "c3", 0)
+		if err == nil {
+			time.Sleep(500 * time.Millisecond) // wait for camera to focus
+			err = adjustArmInsideSquare(myRobot)
+		}
+
+		if err != nil {
+			fmt.Printf("err: %s\n", err)
+		}
+		os.Exit(-1)
+		return
 	}
 
 	a := app.New()
@@ -547,7 +625,7 @@ func main() {
 
 							currentPosition, m = searchForNextMove(currentPosition)
 							golog.Global.Debugf("computer will make move: %s", m)
-							err = movePiece(boardState, myArm, myGripper, m.String()[0:2], m.String()[2:])
+							err = movePiece(boardState, myRobot, myArm, myGripper, m.String()[0:2], m.String()[2:])
 							if err != nil {
 								panic(err)
 							}
@@ -560,7 +638,7 @@ func main() {
 					}
 
 					if lastKeyPress == "T" {
-						err := movePiece(boardState, myArm, myGripper, "a1", "-throw")
+						err := movePiece(boardState, myRobot, myArm, myGripper, "a1", "-throw")
 						if err != nil {
 							panic(err)
 						}

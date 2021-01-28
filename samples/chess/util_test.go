@@ -134,7 +134,7 @@ func TestOneMove(t *testing.T) {
 }
 
 func TestWristDepth1(t *testing.T) {
-	dm, err := vision.ParseDepthMap("data/wristdepth1.dat.gz")
+	dm, err := vision.ParseDepthMap("data/wristdepth2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,8 +151,8 @@ func TestWristDepth1(t *testing.T) {
 	fmt.Printf("lowest: %v highest: %v\n", lowest, highest)
 	fmt.Printf("lowestValue: %v highestValue: %v\n", lowestValue, highestValue)
 
-	pp.Circle(lowest, 5, vision.Green)
-	pp.Circle(highest, 5, vision.Green)
+	pp.Circle(lowest, 5, vision.Blue)
+	pp.Circle(highest, 5, vision.Red)
 
 	err = pp.WriteTo("/tmp/x.png")
 	if err != nil {
