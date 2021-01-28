@@ -2,6 +2,7 @@ package robot
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/echolabsinc/robotcore/arm"
 	"github.com/echolabsinc/robotcore/base"
@@ -13,8 +14,8 @@ import (
 )
 
 type Robot struct {
-	Arms         []*arm.URArm       // TODO(erh): use interface
-	Grippers     []*gripper.Gripper // TODO(erh): use interface
+	Arms         []*arm.URArm      // TODO(erh): use interface
+	Grippers     []gripper.Gripper // TODO(erh): use interface
 	Cameras      []vision.MatSource
 	LidarDevices []lidar.Device
 	Bases        []base.Base
@@ -35,7 +36,7 @@ func (r *Robot) ArmByName(name string) *arm.URArm {
 	return nil
 }
 
-func (r *Robot) GripperByName(name string) *gripper.Gripper {
+func (r *Robot) GripperByName(name string) gripper.Gripper {
 	for i, c := range r.gripperComponents {
 		if c.Name == name {
 			return r.Grippers[i]
@@ -67,7 +68,7 @@ func (r *Robot) AddArm(a *arm.URArm, c Component) {
 	r.armComponents = append(r.armComponents, c)
 }
 
-func (r *Robot) AddGripper(g *gripper.Gripper, c Component) {
+func (r *Robot) AddGripper(g gripper.Gripper, c Component) {
 	r.Grippers = append(r.Grippers, g)
 	r.gripperComponents = append(r.gripperComponents, c)
 }
@@ -157,10 +158,20 @@ func newArm(config Component) (*arm.URArm, error) {
 	}
 }
 
-func newGripper(config Component, logger golog.Logger) (*gripper.Gripper, error) {
+func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
-		return gripper.NewGripper(config.Host, logger)
+		return gripper.NewRobotiqGripper(config.Host, logger)
+	case "serial":
+
+		port, err := ConnectArduinoSerial("A")
+		if err != nil {
+			return nil, err
+		}
+
+		time.Sleep(1000 * time.Millisecond) // wait for startup?
+
+		return gripper.NewSerialGripper(port)
 	default:
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
