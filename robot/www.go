@@ -261,12 +261,15 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *Robot) {
 		case "open":
 			err = theRobot.Grippers[gripper].Open()
 		case "grab":
-			_, err = theRobot.Grippers[gripper].Grab()
+			var res bool
+			res, err = theRobot.Grippers[gripper].Grab()
+			w.Header().Add("grabbed", fmt.Sprintf("%v", res))
 		default:
 			err = fmt.Errorf("bad action: (%s)", action)
 		}
 
 		if err != nil {
+			golog.Global.Debugf("gripper error: %s", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
