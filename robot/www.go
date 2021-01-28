@@ -69,6 +69,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		RemoteViews []RemoteView
 		Bases       []string
 		Arms        []string
+		Grippers    []string
 	}
 
 	temp := Temp{}
@@ -79,6 +80,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for idx := range app.theRobot.Arms {
 		temp.Arms = append(temp.Arms, fmt.Sprintf("arm%d", idx))
+	}
+
+	for idx := range app.theRobot.Grippers {
+		temp.Grippers = append(temp.Grippers, fmt.Sprintf("gripper%d", idx))
 	}
 
 	for _, remoteView := range app.remoteViews {
@@ -158,17 +163,17 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 		mode := req.FormValue("mode")
 		arm := 0
 
-		if req.FormValue("arm") != "" {
-			arm2, err := strconv.ParseInt(req.FormValue("arm"), 10, 64)
+		if req.FormValue("num") != "" {
+			arm2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
 			if err != nil {
 				http.Error(w, "bad value for arm", http.StatusBadRequest)
 				return
 			}
-			if arm < 0 || arm >= len(theRobot.Arms) {
-				http.Error(w, "not a valid arm number", http.StatusBadRequest)
-				return
-			}
 			arm = int(arm2)
+		}
+		if arm < 0 || arm >= len(theRobot.Arms) {
+			http.Error(w, "not a valid arm number", http.StatusBadRequest)
+			return
 		}
 
 		where := theRobot.Arms[arm].State().CartesianInfo
@@ -231,6 +236,44 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 	})
 }
 
+func InstallWebGrippers(mux *http.ServeMux, theRobot *Robot) {
+	mux.HandleFunc("/api/gripper", func(w http.ResponseWriter, req *http.Request) {
+		gripper := 0
+
+		if req.FormValue("num") != "" {
+			g2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
+			if err != nil {
+				http.Error(w, "bad value for num", http.StatusBadRequest)
+				return
+			}
+			gripper = int(g2)
+		}
+
+		if gripper < 0 || gripper >= len(theRobot.Grippers) {
+			http.Error(w, "not a valid gripper number", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+
+		action := req.FormValue("action")
+		switch action {
+		case "open":
+			err = theRobot.Grippers[gripper].Open()
+		case "grab":
+			_, err = theRobot.Grippers[gripper].Grab()
+		default:
+			err = fmt.Errorf("bad action: (%s)", action)
+		}
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+	})
+}
+
 // ---------------
 
 func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
@@ -275,6 +318,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 	}
 
 	InstallWebArms(mux, theRobot)
+
+	InstallWebGrippers(mux, theRobot)
 
 	mux.Handle("/", app)
 
