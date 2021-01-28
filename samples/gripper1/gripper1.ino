@@ -3,9 +3,15 @@
 
 HardwareSerial* debugSerial;
 
+void logMsg(const char* msg) {
+    char buf[128];
+    sprintf(buf, "@%s", msg);
+    Serial.println(buf);
+}
+
 void debug(const char* name, int x) {
     char buf[16];
-    sprintf(buf, "%s: %d", name, x);
+    sprintf(buf, "@%s: %d", name, x);
     Serial.println(buf);
 }
 
@@ -16,7 +22,7 @@ class Gripper {
           _initialized(false),
           _initializeState(0),
           _fullTicks(500),
-          _power(64) {
+          _power(128) {
         _motor->setSlowDown(true);
     }
 
@@ -26,7 +32,7 @@ class Gripper {
         }
 
         if (_initializeState == INIT_STATE_START) {  // haven't started yet
-            Serial.println("Gripper::initialzeReady opening 1");
+            logMsg("Gripper::initialzeReady opening 1");
             _currentSpot = 0;
             open(_fullTicks);
             _initializeState = INIT_STATE_OPEN1;
@@ -49,6 +55,12 @@ class Gripper {
             _motor->encoderTicks() - (encoderTicksStop - _fullTicks);
 
         if (_initializeState == INIT_STATE_OPEN2) {
+            if (_fullTicks == 0) {
+                logMsg("_fullTicks is 0, starting over");
+                _initializeState = INIT_STATE_START;
+                _fullTicks = 500;
+                return false;
+            }
             _currentSpot = 0;
             _initialized = true;
 
@@ -58,20 +70,19 @@ class Gripper {
                 return true;
             }
 
-            debug("medium", numTicks);
-            Serial.println(_fullTicks);
+            debug("medium", _fullTicks);
 
             return true;
         }
 
         if (encoderTicksStop == INIT_STATE_START) {
-            Serial.println("it stopped on it's own, this is unexpected");
+            logMsg("it stopped on it's own, this is unexpected");
             return false;
         }
 
         if (_initializeState == INIT_STATE_OPEN1) {  // we opened, now we close
             _initializeState = INIT_STATE_CLOSE;
-            Serial.println("Gripper::initialzeReady closing 1");
+            logMsg("Gripper::initialzeReady closing 1");
             _currentSpot = 0;
             close(_fullTicks);
             return false;
@@ -85,8 +96,7 @@ class Gripper {
             return false;
         }
 
-        Serial.println("unknown _initializeState");
-        Serial.println(_initializeState);
+        debug("unknown _initializeState", _initializeState);
 
         return false;
     }
@@ -98,7 +108,7 @@ class Gripper {
         if (_initialized && moving()) {
             auto howLong = millis() - _motor->lastTick();
             if (howLong > 500) {
-                _motor->stop();
+                //_motor->stop();
             }
         }
     }
@@ -128,16 +138,15 @@ class Gripper {
     void processCommand(const char* command, Buffer* b) {
         if (command[0] == 'g') {
             auto pos = atof(command + 1);
-            Serial.println("got g");
-            Serial.println(pos);
+            debug("got g", pos);
             setPos(pos);
         } else if (command[0] == 'p') {
             auto pos = int(100 * getPos());
             if (pos >= 100) {
-                b->println("1.0");
+                b->println("gp:1.0");
             } else {
                 char buf[16];
-                auto x = sprintf(buf, ".%.2d %d", pos, getRawPos());
+                auto x = sprintf(buf, "gp:.%.2d %d", pos, getRawPos());
                 b->println(buf);
             }
         } else {
@@ -212,8 +221,9 @@ void loop() {
             if (line[0] == 'g') {
                 g->processCommand(line + 1, b);
             } else {
-                Serial.println("bad command");
-                Serial.println(line);
+                char buf[128];
+                sprintf(buf, "bad command: %s", line);
+                Serial.println(buf);
             }
         }
     }
