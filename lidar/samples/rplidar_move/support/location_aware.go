@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/echolabsinc/robotcore/base"
@@ -27,20 +28,23 @@ type DeviceOffset struct {
 }
 
 type LocationAwareRobot struct {
-	mu              sync.Mutex
-	base            base.Base
-	baseOrientation int // relative to map
-	basePosX        int
-	basePosY        int
-	devices         []lidar.Device
-	deviceOffsets   []DeviceOffset
-	maxBounds       image.Point
-	clientDeviceNum int
-	clientZoom      float64
-	room            *SquareRoom
-	roomBounds      image.Point
-	distinctRooms   []*SquareRoom
-	orientations    []float64
+	isMoving         int32
+	moveMu           sync.Mutex
+	scanMu           sync.Mutex
+	clientSettingsMu sync.Mutex
+	base             base.Base
+	baseOrientation  int // relative to map
+	basePosX         int
+	basePosY         int
+	devices          []lidar.Device
+	deviceOffsets    []DeviceOffset
+	maxBounds        image.Point
+	clientDeviceNum  int
+	clientZoom       float64
+	room             *SquareRoom
+	roomBounds       image.Point
+	distinctRooms    []*SquareRoom
+	orientations     []float64
 }
 
 func NewLocationAwareRobot(
@@ -109,6 +113,9 @@ func (lar *LocationAwareRobot) startCulling() {
 	maxBoundsY := lar.maxBounds.Y * scaleDown
 
 	cull := func() {
+		if atomic.LoadInt32(&lar.isMoving) == 1 {
+			return
+		}
 		// TODO(erd): not thread safe
 		basePosX, basePosY := lar.basePos()
 
@@ -163,6 +170,9 @@ func (lar *LocationAwareRobot) startCulling() {
 }
 
 func (lar *LocationAwareRobot) update() {
+	if atomic.LoadInt32(&lar.isMoving) == 1 {
+		return
+	}
 	basePosX, basePosY := lar.basePos()
 
 	for _, dev := range lar.devices {
@@ -321,24 +331,22 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 }
 
 func (lar *LocationAwareRobot) getClientDeviceNum() int {
-	lar.mu.Lock()
-	defer lar.mu.Unlock()
+	lar.clientSettingsMu.Lock()
+	defer lar.clientSettingsMu.Unlock()
 	return lar.clientDeviceNum
 }
 
 func (lar *LocationAwareRobot) setClientDeviceNumber(num int) {
-	lar.mu.Lock()
-	defer lar.mu.Unlock()
+	lar.clientSettingsMu.Lock()
+	defer lar.clientSettingsMu.Unlock()
 	lar.clientDeviceNum = num
 }
 
 func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg string)) error {
 	if bytes.HasPrefix(data, []byte("move: ")) {
 		dir := direction(bytes.TrimPrefix(data, []byte("move: ")))
-		if err := lar.rotateTo(dir); err != nil {
-			return err
-		}
-		if err := lar.move(100); err != nil {
+		amount := 100
+		if err := lar.move(&amount, &dir); err != nil {
 			return err
 		}
 		respondMsg(fmt.Sprintf("moved %q", dir))
@@ -471,75 +479,87 @@ const (
 )
 
 func (lar *LocationAwareRobot) rotateTo(dir direction) error {
-	from := lar.baseOrientation
-	var to int
-	switch dir {
-	case directionUp:
-		to = 0
-	case directionRight:
-		to = 90
-	case directionDown:
-		to = 180
-	case directionLeft:
-		to = 270
-	default:
-		return fmt.Errorf("do not know how to rotate to absolute %q", dir)
-	}
-	rotateBy := from - to
-	if rotateBy != 180 && rotateBy != -180 {
-		rotateBy = (rotateBy + 180) % 180
-		if from > to {
-			rotateBy *= -1
-		}
-	}
-	if rotateBy == 0 {
-		return nil
-	}
-	if err := lar.base.Spin(rotateBy, 0, true); err != nil {
-		return err // TODO(erd): so... what's our orientation now?
-	}
-	lar.baseOrientation = (((lar.baseOrientation + rotateBy) % 360) + 360) % 360
-	return nil
+	return lar.move(nil, &dir)
 }
 
-func (lar *LocationAwareRobot) move(amount int) error {
-	orientation := lar.baseOrientation
-	errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
+func (lar *LocationAwareRobot) move(amount *int, rotateTo *direction) error {
+	lar.scanMu.Lock()
+	atomic.StoreInt32(&lar.isMoving, 1)
+	lar.scanMu.Unlock()
+	defer atomic.StoreInt32(&lar.isMoving, 0)
+	lar.moveMu.Lock()
+	defer lar.moveMu.Unlock()
+
+	move := base.Move{Speed: 0, Block: true}
+
 	newX := lar.basePosX
 	newY := lar.basePosY
-	switch orientation {
-	case 0:
-		if lar.basePosY-amount < 0 {
-			return errMsg
+	if amount != nil {
+		actualAmount := *amount
+		orientation := lar.baseOrientation
+		errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
+		switch orientation {
+		case 0:
+			if lar.basePosY-actualAmount < 0 {
+				return errMsg
+			}
+			golog.Global.Debugw("up", "amount", actualAmount)
+			newY = lar.basePosY - actualAmount
+		case 90:
+			if lar.basePosX+actualAmount >= lar.roomBounds.X {
+				return errMsg
+			}
+			golog.Global.Debugw("right", "amount", actualAmount)
+			newX = lar.basePosX + actualAmount
+		case 180:
+			if lar.basePosY+actualAmount >= lar.roomBounds.Y {
+				return errMsg
+			}
+			golog.Global.Debugw("down", "amount", actualAmount)
+			newY = lar.basePosY + actualAmount
+		case 270:
+			if lar.basePosX-actualAmount < 0 {
+				return errMsg
+			}
+			golog.Global.Debugw("left", "amount", actualAmount)
+			newX = lar.basePosX - actualAmount
+		default:
+			return fmt.Errorf("cannot move at orientation %d", orientation)
 		}
-		golog.Global.Debugw("up", "amount", amount)
-		newY = lar.basePosY - amount
-	case 90:
-		if lar.basePosX+amount >= lar.roomBounds.X {
-			return errMsg
-		}
-		golog.Global.Debugw("right", "amount", amount)
-		newX = lar.basePosX + amount
-	case 180:
-		if lar.basePosY+amount >= lar.roomBounds.Y {
-			return errMsg
-		}
-		golog.Global.Debugw("down", "amount", amount)
-		newY = lar.basePosY + amount
-	case 270:
-		if lar.basePosX-amount < 0 {
-			return errMsg
-		}
-		golog.Global.Debugw("left", "amount", amount)
-		newX = lar.basePosX - amount
-	default:
-		return fmt.Errorf("cannot move at orientation %d", orientation)
+		move.DistanceMM = actualAmount * 10
 	}
-	if err := lar.base.MoveStraight(amount*10, 0, true); err != nil {
+
+	if rotateTo != nil {
+		from := lar.baseOrientation
+		var to int
+		switch *rotateTo {
+		case directionUp:
+			to = 0
+		case directionRight:
+			to = 90
+		case directionDown:
+			to = 180
+		case directionLeft:
+			to = 270
+		default:
+			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
+		}
+		rotateBy := from - to
+		if rotateBy != 180 && rotateBy != -180 {
+			rotateBy = (rotateBy + 180) % 180
+			if from > to {
+				rotateBy *= -1
+			}
+		}
+		move.AngleDeg = rotateBy
+	}
+
+	if _, _, err := base.DoMove(move, lar.base); err != nil {
 		return err
 	}
 	lar.basePosX = newX
 	lar.basePosY = newY
+	lar.baseOrientation = (((lar.baseOrientation + move.AngleDeg) % 360) + 360) % 360
 	return nil
 }
 
@@ -562,10 +582,8 @@ func (lar *LocationAwareRobot) HandleClick(x, y, sX, sY int, respondMsg func(msg
 		}
 	}
 
-	if err := lar.rotateTo(rotateTo); err != nil {
-		return err
-	}
-	if err := lar.move(100); err != nil {
+	amount := 100
+	if err := lar.move(&amount, &rotateTo); err != nil {
 		return err
 	}
 	respondMsg(fmt.Sprintf("moved %q", rotateTo))
