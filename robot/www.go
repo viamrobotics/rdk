@@ -147,10 +147,7 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Base) {
 		if err != nil {
 			http.Error(w, fmt.Sprintf("erorr moving %s", err), http.StatusInternalServerError)
 		} else {
-			_, err = io.WriteString(w, "ok")
-			if err != nil {
-				panic("impossible")
-			}
+			io.WriteString(w, "ok") // nolint
 		}
 
 	})
@@ -232,7 +229,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write(js)
+		w.Write(js) //nolint
 	})
 }
 
@@ -380,7 +377,7 @@ func RunWeb(theRobot *Robot) error {
 		<-c
 		theRobot.Close()
 		webCloser()
-		httpServer.Shutdown(context.Background())
+		httpServer.Shutdown(context.Background()) //nolint
 	}()
 
 	golog.Global.Debug("going to listen")
