@@ -2,13 +2,17 @@ package robot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -23,6 +27,7 @@ import (
 type robotWebApp struct {
 	template    *template.Template
 	remoteViews []gostream.RemoteView
+	theRobot    *Robot
 }
 
 func (app *robotWebApp) Init() error {
@@ -62,9 +67,20 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	type Temp struct {
 		RemoteViews []RemoteView
+		Bases       []string
+		Arms        []string
 	}
 
 	temp := Temp{}
+
+	for idx := range app.theRobot.Bases {
+		temp.Bases = append(temp.Bases, fmt.Sprintf("base%d", idx))
+	}
+
+	for idx := range app.theRobot.Arms {
+		temp.Arms = append(temp.Arms, fmt.Sprintf("arm%d", idx))
+	}
+
 	for _, remoteView := range app.remoteViews {
 		htmlData := remoteView.HTML()
 		temp.RemoteViews = append(temp.RemoteViews, RemoteView{
@@ -135,11 +151,91 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Base) {
 	})
 }
 
+func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
+	mux.HandleFunc("/api/arm", func(w http.ResponseWriter, req *http.Request) {
+		var err error
+
+		mode := req.FormValue("mode")
+		arm := 0
+
+		if req.FormValue("arm") != "" {
+			arm2, err := strconv.ParseInt(req.FormValue("arm"), 10, 64)
+			if err != nil {
+				http.Error(w, "bad value for arm", http.StatusBadRequest)
+				return
+			}
+			if arm < 0 || arm >= len(theRobot.Arms) {
+				http.Error(w, "not a valid arm number", http.StatusBadRequest)
+				return
+			}
+			arm = int(arm2)
+		}
+
+		where := theRobot.Arms[arm].State().CartesianInfo
+
+		if mode == "abs" {
+			vals := []int64{}
+			for _, n := range []string{"x", "y", "z"} {
+				val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
+				if err != nil {
+					http.Error(w, fmt.Sprintf("bad value for:%s [%s]", n, req.FormValue(n)), http.StatusBadRequest)
+					return
+				}
+				vals = append(vals, val)
+			}
+
+			where.X = float64(vals[0]) / 1000
+			where.Y = float64(vals[1]) / 1000
+			where.Z = float64(vals[2]) / 1000
+
+			err = theRobot.Arms[arm].MoveToPositionC(where)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else if mode == "inc" {
+			vals := []int64{0, 0, 0}
+			for idx, n := range []string{"x", "y", "z"} {
+				val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
+				if err == nil {
+					vals[idx] = val
+				}
+			}
+
+			where.X += float64(vals[0]) / 1000
+			where.Y += float64(vals[1]) / 1000
+			where.Z += float64(vals[2]) / 1000
+
+			err = theRobot.Arms[arm].MoveToPositionC(where)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+		}
+
+		clean := map[string]int64{
+			"x": int64(where.X * 1000),
+			"y": int64(where.Y * 1000),
+			"z": int64(where.Z * 1000),
+		}
+
+		js, err := json.Marshal(clean)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(js)
+	})
+}
+
 // ---------------
 
 func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
-	if len(theRobot.Bases) != 1 {
-		return nil, fmt.Errorf("robot.InstallWeb robot needs exactly one base right now")
+	if len(theRobot.Bases) > 1 {
+		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
 
 	views := []gostream.RemoteView{}
@@ -167,15 +263,19 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 		views = append(views, remoteView)
 	}
 
-	app := &robotWebApp{remoteViews: views}
+	app := &robotWebApp{remoteViews: views, theRobot: theRobot}
 	err := app.Init()
 	if err != nil {
 		return nil, err
 	}
 
 	// install routes
+	if len(theRobot.Bases) > 0 {
+		InstallWebBase(mux, theRobot.Bases[0])
+	}
 
-	InstallWebBase(mux, theRobot.Bases[0])
+	InstallWebArms(mux, theRobot)
+
 	mux.Handle("/", app)
 
 	for _, view := range views {
@@ -203,4 +303,40 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 		}
 	}, nil
 
+}
+
+// ---
+
+/*
+helper if you don't need to customize at all
+*/
+func RunWeb(theRobot *Robot) error {
+	mux := http.NewServeMux()
+
+	webCloser, err := InstallWeb(mux, theRobot)
+	if err != nil {
+		return err
+	}
+
+	httpServer := &http.Server{
+		Addr:           ":8080",
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+		Handler:        mux,
+	}
+
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		theRobot.Close()
+		webCloser()
+		httpServer.Shutdown(context.Background())
+	}()
+
+	golog.Global.Debug("going to listen")
+	golog.Global.Fatal(httpServer.ListenAndServe())
+
+	return nil
 }
