@@ -134,7 +134,7 @@ func TestOneMove(t *testing.T) {
 }
 
 func TestWristDepth1(t *testing.T) {
-	dm, err := vision.ParseDepthMap("data/wristdepth2.dat.gz")
+	dm, err := vision.ParseDepthMap("data/wristdepth1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
