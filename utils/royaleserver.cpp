@@ -13,17 +13,6 @@
 using namespace royale;
 using namespace std;
 
-std::string my_write_ppm(const char* pixels, int x, int y,
-                         int bytes_per_pixel) {
-    std::stringbuf buffer;
-    std::ostream os(&buffer);
-
-    os << "P6\n" << x << " " << y << "\n255\n";
-    buffer.sputn((const char*)pixels, x * y * bytes_per_pixel);
-
-    return buffer.str();
-}
-
 class MyListener : public IDepthDataListener {
    public:
     void onNewData(const DepthData* data) {
@@ -46,26 +35,64 @@ class MyListener : public IDepthDataListener {
         output->width = data->width;
         output->height = data->height;
 
-        std::stringbuf buffer;
-        std::ostream os(&buffer);
+        float min = 100000;
+        float max = 0;
 
-        os << "VERSIONX\n";
-        os << "2\n";
-        os << ".001\n";
-        os << output->width << "\n";
-        os << output->height << "\n";
+        {
+            std::stringbuf buffer;
+            std::ostream os(&buffer);
 
-        for (int y = 0; y < output->height; y++) {
-            for (int x = 0; x < output->width; x++) {
-                int k = x + (y * data->width);
-                auto val = data->points.at(k);
+            os << "VERSIONX\n";
+            os << "2\n";
+            os << ".001\n";
+            os << output->width << "\n";
+            os << output->height << "\n";
 
-                short s = short(1000 * val.z);
+            for (int y = 0; y < output->height; y++) {
+                for (int x = 0; x < output->width; x++) {
+                    int k = x + (y * data->width);
+                    auto val = data->points.at(k);
 
-                buffer.sputn((const char*)&s, 2);
+                    if (val.z > 0) {
+                        if (val.z < min) min = val.z;
+                        if (val.z > max) max = val.z;
+                    }
+
+                    short s = short(1000 * val.z);
+
+                    buffer.sputn((const char*)&s, 2);
+                }
             }
+            output->depth = buffer.str();
         }
-        output->depth = buffer.str();
+
+        {
+            std::stringbuf buffer;
+            std::ostream os(&buffer);
+
+            os << "P6\n" << output->width << " " << output->height << "\n255\n";
+
+            float span = max - min;
+
+            for (int y = 0; y < output->height; y++) {
+                for (int x = 0; x < output->width; x++) {
+                    int k = x + (y * data->width);
+                    auto val = data->points.at(k);
+
+                    char clr = 0;
+
+                    if (val.z > 0) {
+                        auto ratio = (val.z - min) / span;
+                        clr = (char)(60 + (int)(ratio * 192));
+                    }
+
+                    os << (char)clr;
+                    os << (char)clr;
+                    os << (char)clr;
+                }
+            }
+            output->ppmdata = buffer.str();
+        }
 
         CameraState::get()->cameras[0] = output;
 
