@@ -471,36 +471,34 @@ const (
 )
 
 func (lar *LocationAwareRobot) rotateTo(dir direction) error {
-	currOrientation := lar.baseOrientation
-	// println("current orientation", currOrientation)
-	var rotateTo int
+	from := lar.baseOrientation
+	var to int
 	switch dir {
 	case directionUp:
-		if currOrientation > 180 {
-			rotateTo = 360
-		} else {
-			rotateTo = 0
-		}
+		to = 0
 	case directionRight:
-		rotateTo = 90
+		to = 90
 	case directionDown:
-		rotateTo = 180
+		to = 180
 	case directionLeft:
-		rotateTo = 270
+		to = 270
 	default:
 		return fmt.Errorf("do not know how to rotate to absolute %q", dir)
 	}
-
-	rotateBy := rotateTo - currOrientation
-	if int(math.Abs(float64(rotateBy))) > 180 {
-		rotateBy *= -1
+	rotateBy := from - to
+	if rotateBy != 180 && rotateBy != -180 {
+		rotateBy = (rotateBy + 180) % 180
+		if from > to {
+			rotateBy *= -1
+		}
 	}
-	// println("spin by", rotateBy)
+	if rotateBy == 0 {
+		return nil
+	}
 	if err := lar.base.Spin(rotateBy, 0, true); err != nil {
 		return err // TODO(erd): so... what's our orientation now?
 	}
 	lar.baseOrientation = (((lar.baseOrientation + rotateBy) % 360) + 360) % 360
-	// println("new orientation", lar.baseOrientation)
 	return nil
 }
 

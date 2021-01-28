@@ -52,9 +52,8 @@ func (b *Base) TranslateBy(meters float64, block bool) {
 
 const baseRotateSpeed = 2 * math.Pi / 3 // rad/sec
 
-// degrees ccw
 func (b *Base) RotateBy(degrees float64, block bool) {
-	rads := degrees * math.Pi / 180
+	rads := -degrees * math.Pi / 180
 	b.baseObj.CallMethod("rotate_by", python.PyFloat_FromDouble(rads))
 	b.robot.pushCommand()
 	if block {
