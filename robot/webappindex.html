@@ -3,6 +3,10 @@
     <script>
       function roverAction(action) {
           var path = "/api/base?" + action + "&speed=" + document.getElementById("speed").value;
+          makeApiCall(path);
+      }
+
+      function makeApiCall(path) {
           console.log(path);
           var xhttp = new XMLHttpRequest();
           xhttp.open("GET", path, true);
@@ -18,6 +22,11 @@
 
       }
 
+      function armInc(arm, action) {
+          var path = "/api/arm?arm=" + arm + "&mode=inc&" + action;
+          makeApiCall(path);
+      }
+      
       {{ range $view := .RemoteViews }}
         {{ jsSafe $view.JavaScript }}
       {{ end }}
@@ -25,15 +34,38 @@
     </script>
   </head>
   <body>
-    <ul>
-      <li><button onclick="roverAction('distanceMM=200')">Forward</button></li>
-      <li><button onclick="roverAction('distanceMM=-200')">Backward</button></li>
-      <li><button onclick="roverAction('angle=15')">Spin Clockwise</button></li>
-      <li><button onclick="roverAction('angle=-15')">Spin Counterclockwise</button></li>
-    </ul>
+    {{ range $b := .Bases }}
+    <div class="base">
+      {{ $b }}
+      <ul>
+        <li><button onclick="roverAction('distanceMM=200')">Forward</button></li>
+        <li><button onclick="roverAction('distanceMM=-200')">Backward</button></li>
+        <li><button onclick="roverAction('angle=15')">Spin Clockwise</button></li>
+        <li><button onclick="roverAction('angle=-15')">Spin Counterclockwise</button></li>
+      </ul>
 
-    Speed: <input id="speed" name="speed" value="64"/><br>
+      Speed: <input id="speed" name="speed" value="64"/><br>
+    </div>
+    {{ end }}
 
+    {{ range $idx, $a := .Arms }}
+    <div class="arm">
+      Arm {{ $a }}
+      <ul>
+        <li><button onclick="armInc({{ $idx }}, 'x=2')">X+</button></li>
+        <li><button onclick="armInc({{ $idx }}, 'x=-2')">X-</button></li>
+
+        <li><button onclick="armInc({{ $idx }}, 'y=2')">Y+</button></li>
+        <li><button onclick="armInc({{ $idx }}, 'y=-2')">Y-</button></li>
+
+
+        <li><button onclick="armInc({{ $idx }}, 'z=2')">Z+</button></li>
+        <li><button onclick="armInc({{ $idx }}, 'z=-2')">Z-</button></li>
+
+      </ul>
+    </div>
+    {{ end }}
+    
     <table>
       <tr>
         <td><img id="i0" src=""/></td>
