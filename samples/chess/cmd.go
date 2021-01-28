@@ -404,11 +404,11 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		where := arm.State().CartesianInfo
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		img, dm, err := cam.NextColorDepthPair()
+		_, dm, err := cam.NextColorDepthPair()
 		if err != nil {
 			return err
 		}
-		defer img.Close()
+		//defer img.Close() // TODO(erh): fix the leak
 		fmt.Printf("\t got image\n")
 
 		center := image.Point{dm.Width() / 2, dm.Height() / 2}
@@ -479,10 +479,11 @@ func main() {
 		panic("can't find cameraOver camera")
 	}
 
-	// TODO(erh): put this back once we have a wrist camera again
-	//err = lookForBoard(myArm, myRobot)
-	if err != nil {
-		panic(err)
+	if false { // TODO(erh): put this back once we have a wrist camera again
+		err = lookForBoard(myArm, myRobot)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	err = initArm(myArm)
