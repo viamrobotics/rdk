@@ -23,7 +23,12 @@
       }
 
       function armInc(arm, action) {
-          var path = "/api/arm?arm=" + arm + "&mode=inc&" + action;
+          var path = "/api/arm?num=" + arm + "&mode=inc&" + action;
+          makeApiCall(path);
+      }
+
+      function gripperAction(num, action) {
+          var path = "/api/gripper?num=" + num + "&" + action;
           makeApiCall(path);
       }
       
@@ -65,6 +70,17 @@
       </ul>
     </div>
     {{ end }}
+
+    {{ range $idx, $g := .Grippers }}
+    <div class="gripper">
+      Gripper {{ $g }}
+      <ul>
+        <li><button onclick="gripperAction({{ $idx }}, 'action=open')">Open</button></li>
+        <li><button onclick="gripperAction({{ $idx }}, 'action=grab')">Close</button></li>
+      </ul>
+    </div>
+    {{ end }}
+
     
     <table>
       <tr>
