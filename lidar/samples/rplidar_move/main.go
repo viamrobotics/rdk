@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,25 +42,33 @@ func (sf *stringFlags) String() string {
 
 func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Device {
 	golog.Global.Debugw("registering devices")
-	var lidarDevices []lidar.Device
+	var wg sync.WaitGroup
+	wg.Add(len(deviceDescs))
+	lidarDevices := make([]lidar.Device, len(deviceDescs))
 	for i, devDesc := range deviceDescs {
-		if devDesc.Path == fakeDev {
-			lidarDevices = append(lidarDevices, &support.FakeLidar{Seed: int64(i)})
-			continue
-		}
-		var lidarDev lidar.Device
-		switch devDesc.Type {
-		case support.LidarTypeRPLidar:
-			var err error
-			lidarDev, err = rplidar.NewRPLidar(devDesc.Path)
-			if err != nil {
-				golog.Global.Fatal(err)
+		savedI, savedDesc := i, devDesc
+		go func() {
+			i, devDesc := savedI, savedDesc
+			defer wg.Done()
+			if devDesc.Path == fakeDev {
+				lidarDevices[i] = &support.FakeLidar{Seed: int64(i)}
+				return
 			}
-		default:
-			panic(fmt.Errorf("do not know how to make a %s device", devDesc.Type))
-		}
-		lidarDevices = append(lidarDevices, lidarDev)
+			var lidarDev lidar.Device
+			switch devDesc.Type {
+			case support.LidarTypeRPLidar:
+				var err error
+				lidarDev, err = rplidar.NewRPLidar(devDesc.Path)
+				if err != nil {
+					golog.Global.Fatal(err)
+				}
+			default:
+				panic(fmt.Errorf("do not know how to make a %s device", devDesc.Type))
+			}
+			lidarDevices[i] = lidarDev
+		}()
 	}
+	wg.Wait()
 
 	for i, lidarDev := range lidarDevices {
 		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
@@ -70,8 +79,6 @@ func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Devic
 				"firmware_ver", rpl.FirmwareVersion(),
 				"hardware_rev", rpl.HardwareRevision())
 		}
-		// reset
-		lidarDev.Stop()
 		lidarDev.Start()
 	}
 
