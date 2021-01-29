@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"image"
 	"io/ioutil"
 	"net/http"
 
@@ -192,4 +193,19 @@ func readNextColorDepthPairFromBoth(allData []byte) (gocv.Mat, DepthMap, error) 
 	img, err = gocv.IMDecode(imgData, gocv.IMReadUnchanged)
 
 	return img, depth, err
+}
+
+// ----
+
+type SettableSource struct {
+	TheImage    image.Image // we use this because it's easier to handle GC
+	TheDepthMap DepthMap
+}
+
+func (ss *SettableSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+	m, err := gocv.ImageToMatRGB(ss.TheImage)
+	return m, ss.TheDepthMap, err
+}
+
+func (ss *SettableSource) Close() {
 }

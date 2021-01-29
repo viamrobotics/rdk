@@ -18,11 +18,6 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
-	"fyne.io/fyne"
-	"fyne.io/fyne/app"
-	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/widget"
-	"github.com/Ernyoke/Imger/resize"
 	"github.com/edaniels/golog"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
@@ -211,23 +206,6 @@ func initArm(myArm arm.Arm) error {
 	}
 
 	return moveOutOfWay(myArm)
-}
-
-func matToFyne(img gocv.Mat) (*canvas.Image, error) {
-	i, err := img.ToImage()
-	if err != nil {
-		return nil, err
-	}
-
-	i, err = resize.ResizeRGBA(i.(*image.RGBA), .6, .6, resize.InterNearest)
-	if err != nil {
-		return nil, err
-	}
-
-	i2 := canvas.NewImageFromImage(i)
-	bounds := i.Bounds()
-	i2.SetMinSize(fyne.Size{bounds.Max.X, bounds.Max.Y})
-	return i2, nil
 }
 
 func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
@@ -515,30 +493,14 @@ func main() {
 		return
 	}
 
-	a := app.New()
-	w := a.NewWindow("Hello")
-
-	pcs := []fyne.CanvasObject{
-		widget.NewLabel("Hello Fyne!"),
-		widget.NewLabel("Hello Fyne!"),
-	}
-	w.SetContent(widget.NewHBox(pcs...))
-
 	boardState := boardStateGuesser{}
 	defer boardState.Clear()
 	currentPosition := position.StartingPosition()
 
 	initialPositionOk := false
-	lastKeyPress := ""
 
-	w.Canvas().SetOnTypedKey(func(k *fyne.KeyEvent) {
-		switch k.Name {
-		case "Q":
-			w.Close()
-		default:
-			lastKeyPress = string(k.Name)
-		}
-	})
+	annotatedImageHolder := &vision.SettableSource{}
+	myRobot.AddCamera(annotatedImageHolder, robot.Component{})
 
 	go func() {
 		for {
@@ -554,10 +516,7 @@ func main() {
 					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
-				pcs[0], err = matToFyne(img)
-				if err != nil {
-					panic(err)
-				}
+
 				i2, err := vision.NewImage(img)
 				if err != nil {
 					golog.Global.Debug(err)
@@ -636,21 +595,12 @@ func main() {
 						}
 					}
 
-					if lastKeyPress == "T" {
-						err := movePiece(boardState, myRobot, myArm, myGripper, "a1", "-throw")
-						if err != nil {
-							panic(err)
-						}
-						lastKeyPress = ""
-					}
 				}
 
-				pcs[1], err = matToFyne(annotated)
+				annotatedImageHolder.TheImage, err = annotated.ToImage()
 				if err != nil {
 					panic(err)
 				}
-
-				w.SetContent(widget.NewHBox(pcs...))
 
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					tm := time.Now().Unix()
@@ -671,5 +621,9 @@ func main() {
 		}
 	}()
 
-	w.ShowAndRun()
+	err = robot.RunWeb(myRobot)
+	if err != nil {
+		panic(err)
+	}
+
 }
