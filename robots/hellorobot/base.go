@@ -4,6 +4,8 @@ import (
 	"math"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils"
+
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 )
@@ -53,7 +55,7 @@ func (b *Base) TranslateBy(meters float64, block bool) {
 const baseRotateSpeed = 2 * math.Pi / 3 // rad/sec
 
 func (b *Base) RotateBy(degrees float64, block bool) {
-	rads := -degrees * math.Pi / 180
+	rads := -utils.DegToRad(degrees)
 	b.baseObj.CallMethod("rotate_by", python.PyFloat_FromDouble(rads))
 	b.robot.pushCommand()
 	if block {

@@ -9,7 +9,7 @@
 * ml - assorted machine learning utility code
 * rcutil - random math functions and likely other small things that don't belong elsewhere
 * utils - non golang software
-  * intelrealserver.cpp - webserver for capturing data from intel real sense cameras, then server via http, both depth and rgb
+  * intel_real_server/intelrealserver.cpp - webserver for capturing data from intel real sense cameras, then server via http, both depth and rgb
 * robot - robot configuration and initalization
 
 ## Programs
@@ -26,7 +26,6 @@
 * libvpx
 * python2.7-dev
 * swig
-* libusb-dev (brew: libusb)
 
 ## Linting
 
