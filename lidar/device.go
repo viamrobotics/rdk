@@ -10,3 +10,15 @@ type Device interface {
 	Range() int
 	Bounds() (image.Point, error)
 }
+
+type DeviceType string
+
+const (
+	DeviceTypeUnknown = "unknown"
+	DeviceTypeFake    = "fake"
+)
+
+type DeviceDescription struct {
+	Type DeviceType
+	Path string
+}

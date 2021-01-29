@@ -11,14 +11,13 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/lidar/samples/rplidar_move/support"
+	"github.com/echolabsinc/robotcore/lidar/usb"
 	"github.com/echolabsinc/robotcore/robots/hellorobot"
 	"github.com/echolabsinc/robotcore/utils/stream"
 
@@ -40,56 +39,15 @@ func (sf *stringFlags) String() string {
 	return fmt.Sprint([]string(*sf))
 }
 
-func registerDevices(deviceDescs []support.LidarDeviceDescription) []lidar.Device {
-	golog.Global.Debugw("registering devices")
-	var wg sync.WaitGroup
-	wg.Add(len(deviceDescs))
-	lidarDevices := make([]lidar.Device, len(deviceDescs))
-	for i, devDesc := range deviceDescs {
-		savedI, savedDesc := i, devDesc
-		go func() {
-			i, devDesc := savedI, savedDesc
-			defer wg.Done()
-			if devDesc.Path == fakeDev {
-				lidarDevices[i] = &support.FakeLidar{Seed: int64(i)}
-				return
-			}
-			var lidarDev lidar.Device
-			switch devDesc.Type {
-			case support.LidarTypeRPLidar:
-				var err error
-				lidarDev, err = rplidar.NewRPLidar(devDesc.Path)
-				if err != nil {
-					golog.Global.Fatal(err)
-				}
-			default:
-				panic(fmt.Errorf("do not know how to make a %s device", devDesc.Type))
-			}
-			lidarDevices[i] = lidarDev
-		}()
-	}
-	wg.Wait()
-
-	for i, lidarDev := range lidarDevices {
-		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
-			golog.Global.Infow("rplidar",
-				"dev_path", deviceDescs[i].Path,
-				"model", rpl.Model(),
-				"serial", rpl.SerialNumber(),
-				"firmware_ver", rpl.FirmwareVersion(),
-				"hardware_rev", rpl.HardwareRevision())
-		}
-		lidarDev.Start()
-	}
-
-	return lidarDevices
-}
-
 func main() {
 	var baseType string
 	var devicePathFlags stringFlags
 	var deviceOffsetFlags stringFlags
-	if runtime.GOOS == "linux" {
+	hostname, err := os.Hostname()
+	if err != nil {
+		golog.Global.Fatal(err)
+	}
+	if runtime.GOOS == "linux" && strings.Contains(hostname, "hello") {
 		flag.StringVar(&baseType, "base-type", "hello", "type of mobile base")
 	} else {
 		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
@@ -143,7 +101,7 @@ func main() {
 		deviceOffests = append(deviceOffests, support.DeviceOffset{angle, distX, distY})
 	}
 
-	deviceDescs := support.DetectLidarDevices()
+	deviceDescs := usb.DetectDevices()
 	if len(deviceDescs) != 0 {
 		golog.Global.Debugf("detected %d lidar devices", len(deviceDescs))
 		for _, desc := range deviceDescs {
@@ -152,18 +110,18 @@ func main() {
 	}
 	if len(deviceOffsetFlags) == 0 && len(deviceDescs) == 0 {
 		deviceDescs = append(deviceDescs,
-			support.LidarDeviceDescription{support.LidarTypeFake, fakeDev})
+			lidar.DeviceDescription{lidar.DeviceTypFake, "0"})
 	}
 	if len(devicePathFlags) != 0 {
 		deviceDescs = nil
-		for _, devicePath := range devicePathFlags {
+		for i, devicePath := range devicePathFlags {
 			switch devicePath {
 			case fakeDev:
 				deviceDescs = append(deviceDescs,
-					support.LidarDeviceDescription{support.LidarTypeFake, devicePath})
+					lidar.DeviceDescription{lidar.DeviceTypFake, fmt.Sprintf("%d", i)})
 			default:
 				deviceDescs = append(deviceDescs,
-					support.LidarDeviceDescription{support.LidarTypeRPLidar, devicePath})
+					lidar.DeviceDescription{lidar.DeviceTypRPLidar, devicePath})
 			}
 		}
 	}
@@ -186,8 +144,16 @@ func main() {
 		port = int(portParsed)
 	}
 
-	lidarDevices := registerDevices(deviceDescs)
-	for _, lidarDev := range lidarDevices {
+	lidarDevices := lidar.CreateDevices(deviceDescs)
+	for i, lidarDev := range lidarDevices {
+		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
+			golog.Global.Infow("rplidar",
+				"dev_path", deviceDescs[i].Path,
+				"model", rpl.Model(),
+				"serial", rpl.SerialNumber(),
+				"firmware_ver", rpl.FirmwareVersion(),
+				"hardware_rev", rpl.HardwareRevision())
+		}
 		defer lidarDev.Stop()
 	}
 
