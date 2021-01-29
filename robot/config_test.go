@@ -38,3 +38,16 @@ func TestConfig1(t *testing.T) {
 	}
 
 }
+
+func TestConfigDummy(t *testing.T) {
+	cfg, err := ReadConfig("data/dummy.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := NewRobot(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+}
