@@ -85,3 +85,5 @@ class Buffer {
 };
 
 void testParseCommand();
+
+void setupInterrupt(int pin, void (*ISR)(), int what);
