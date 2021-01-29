@@ -175,19 +175,18 @@ func main() {
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-
-	robotView.SetOnDataHandler(func(data []byte) {
-		golog.Global.Debugw("data", "raw", string(data))
-		if err := lar.HandleData(data, robotView.SendText); err != nil {
-			robotView.SendText(err.Error())
-		}
-	})
+	lar.RegisterCommands(robotView.CommandRegistry())
 
 	robotView.SetOnClickHandler(func(x, y int) {
 		golog.Global.Debugw("click", "x", x, "y", y)
-		if err := lar.HandleClick(x, y, 800, 600, robotView.SendText); err != nil {
+		dir := slam.DirectionFromXY(x, y)
+		amount := 100
+		if err := lar.Move(&amount, &dir); err != nil {
 			robotView.SendText(err.Error())
+			return
 		}
+		robotView.SendText(fmt.Sprintf("moved %q", dir))
+		robotView.SendText(lar.String())
 	})
 
 	// setup world view
