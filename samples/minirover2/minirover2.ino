@@ -14,15 +14,6 @@ Buffer* buf2;
 Servo pan;
 Servo tilt;
 
-void setupInterrupt(int pin, void (*ISR)()) {
-    pinMode(pin, INPUT);
-
-    // enable internal pullup resistor
-    digitalWrite(pin, HIGH);
-
-    // Interrupt initialization
-    attachInterrupt(digitalPinToInterrupt(pin), ISR, RISING);
-}
 void setup() {
     Serial.begin(9600);
     debugSerial = &Serial;
@@ -42,10 +33,10 @@ void setup() {
     buf1 = new Buffer(&Serial);
     buf2 = new Buffer(&Serial1);
 
-    setupInterrupt(3, interrupt0);
-    setupInterrupt(2, interrupt1);
-    setupInterrupt(20, interrupt2);
-    setupInterrupt(21, interrupt3);
+    setupInterrupt(3, interrupt0, RISING);
+    setupInterrupt(2, interrupt1, RISING);
+    setupInterrupt(20, interrupt2, RISING);
+    setupInterrupt(21, interrupt3, RISING);
 
     debugSerial->println("setup done");
 }

@@ -330,28 +330,26 @@ import "unsafe"
 import _ "runtime/cgo"
 import "sync"
 
-
 type _ unsafe.Pointer
-
-
 
 var Swig_escape_always_false bool
 var Swig_escape_val interface{}
 
-
 type _swig_fnptr *byte
 type _swig_memberptr *byte
 
-
 type _ sync.Mutex
 
+type swig_gostring struct {
+	p uintptr
+	n int
+}
 
-type swig_gostring struct { p uintptr; n int }
 func swigCopyString(s string) string {
-  p := *(*swig_gostring)(unsafe.Pointer(&s))
-  r := string((*[0x7fffffff]byte)(unsafe.Pointer(p.p))[:p.n])
-  Swig_free(p.p)
-  return r
+	p := *(*swig_gostring)(unsafe.Pointer(&s))
+	r := string((*[0x7fffffff]byte)(unsafe.Pointer(p.p))[:p.n])
+	Swig_free(p.p)
+	return r
 }
 
 func Swig_free(arg1 uintptr) {
@@ -398,6 +396,7 @@ const RESULT_OK int = 0
 const RESULT_FAIL_BIT int = 0x80000000
 const RESULT_ALREADY_DONE int = 0x20
 const RESULT_REMAINING_DATA int = 0x21
+
 func _swig_getRESULT_INVALID_DATA() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_INVALID_DATA_rplidargen_5b9c62d0930caee0())
@@ -405,6 +404,7 @@ func _swig_getRESULT_INVALID_DATA() (_swig_ret int) {
 }
 
 var RESULT_INVALID_DATA int = _swig_getRESULT_INVALID_DATA()
+
 func _swig_getRESULT_OPERATION_FAIL() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_OPERATION_FAIL_rplidargen_5b9c62d0930caee0())
@@ -412,6 +412,7 @@ func _swig_getRESULT_OPERATION_FAIL() (_swig_ret int) {
 }
 
 var RESULT_OPERATION_FAIL int = _swig_getRESULT_OPERATION_FAIL()
+
 func _swig_getRESULT_OPERATION_TIMEOUT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_OPERATION_TIMEOUT_rplidargen_5b9c62d0930caee0())
@@ -419,6 +420,7 @@ func _swig_getRESULT_OPERATION_TIMEOUT() (_swig_ret int) {
 }
 
 var RESULT_OPERATION_TIMEOUT int = _swig_getRESULT_OPERATION_TIMEOUT()
+
 func _swig_getRESULT_OPERATION_STOP() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_OPERATION_STOP_rplidargen_5b9c62d0930caee0())
@@ -426,6 +428,7 @@ func _swig_getRESULT_OPERATION_STOP() (_swig_ret int) {
 }
 
 var RESULT_OPERATION_STOP int = _swig_getRESULT_OPERATION_STOP()
+
 func _swig_getRESULT_OPERATION_NOT_SUPPORT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_OPERATION_NOT_SUPPORT_rplidargen_5b9c62d0930caee0())
@@ -433,6 +436,7 @@ func _swig_getRESULT_OPERATION_NOT_SUPPORT() (_swig_ret int) {
 }
 
 var RESULT_OPERATION_NOT_SUPPORT int = _swig_getRESULT_OPERATION_NOT_SUPPORT()
+
 func _swig_getRESULT_FORMAT_NOT_SUPPORT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_FORMAT_NOT_SUPPORT_rplidargen_5b9c62d0930caee0())
@@ -440,6 +444,7 @@ func _swig_getRESULT_FORMAT_NOT_SUPPORT() (_swig_ret int) {
 }
 
 var RESULT_FORMAT_NOT_SUPPORT int = _swig_getRESULT_FORMAT_NOT_SUPPORT()
+
 func _swig_getRESULT_INSUFFICIENT_MEMORY() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_INSUFFICIENT_MEMORY_rplidargen_5b9c62d0930caee0())
@@ -447,6 +452,7 @@ func _swig_getRESULT_INSUFFICIENT_MEMORY() (_swig_ret int) {
 }
 
 var RESULT_INSUFFICIENT_MEMORY int = _swig_getRESULT_INSUFFICIENT_MEMORY()
+
 func _swig_getRESULT_OPERATION_ABORTED() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_OPERATION_ABORTED_rplidargen_5b9c62d0930caee0())
@@ -454,6 +460,7 @@ func _swig_getRESULT_OPERATION_ABORTED() (_swig_ret int) {
 }
 
 var RESULT_OPERATION_ABORTED int = _swig_getRESULT_OPERATION_ABORTED()
+
 func _swig_getRESULT_NOT_FOUND() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_NOT_FOUND_rplidargen_5b9c62d0930caee0())
@@ -461,6 +468,7 @@ func _swig_getRESULT_NOT_FOUND() (_swig_ret int) {
 }
 
 var RESULT_NOT_FOUND int = _swig_getRESULT_NOT_FOUND()
+
 func _swig_getRESULT_RECONNECTING() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RESULT_RECONNECTING_rplidargen_5b9c62d0930caee0())
@@ -468,12 +476,14 @@ func _swig_getRESULT_RECONNECTING() (_swig_ret int) {
 }
 
 var RESULT_RECONNECTING int = _swig_getRESULT_RECONNECTING()
+
 const RPLIDAR_CMD_SYNC_BYTE int = 0xA5
 const RPLIDAR_CMDFLAG_HAS_PAYLOAD int = 0x80
 const RPLIDAR_ANS_SYNC_BYTE1 int = 0xA5
 const RPLIDAR_ANS_SYNC_BYTE2 int = 0x5A
 const RPLIDAR_ANS_PKTFLAG_LOOP int = 0x1
 const RPLIDAR_ANS_HEADER_SIZE_MASK int = 0x3FFFFFFF
+
 func _swig_getRPLIDAR_ANS_HEADER_SUBTYPE_SHIFT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT_rplidargen_5b9c62d0930caee0())
@@ -481,6 +491,7 @@ func _swig_getRPLIDAR_ANS_HEADER_SUBTYPE_SHIFT() (_swig_ret int) {
 }
 
 var RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT int = _swig_getRPLIDAR_ANS_HEADER_SUBTYPE_SHIFT()
+
 type SwigcptrRplidar_cmd_packet_t uintptr
 
 func (p SwigcptrRplidar_cmd_packet_t) Swigcptr() uintptr {
@@ -671,6 +682,7 @@ const RPLIDAR_EXPRESS_SCAN_FLAG_BOOST int = 0x0001
 const RPLIDAR_EXPRESS_SCAN_FLAG_SUNLIGHT_REJECTION int = 0x0002
 const RPLIDAR_ULTRAEXPRESS_SCAN_FLAG_STD int = 0x0001
 const RPLIDAR_ULTRAEXPRESS_SCAN_FLAG_HIGH_SENSITIVITY int = 0x0002
+
 func _swig_getRPLIDAR_HQ_SCAN_FLAG_CCW() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_HQ_SCAN_FLAG_CCW_rplidargen_5b9c62d0930caee0())
@@ -678,6 +690,7 @@ func _swig_getRPLIDAR_HQ_SCAN_FLAG_CCW() (_swig_ret int) {
 }
 
 var RPLIDAR_HQ_SCAN_FLAG_CCW int = _swig_getRPLIDAR_HQ_SCAN_FLAG_CCW()
+
 func _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER_rplidargen_5b9c62d0930caee0())
@@ -685,6 +698,7 @@ func _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER() (_swig_ret int) {
 }
 
 var RPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER int = _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER()
+
 func _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE_rplidargen_5b9c62d0930caee0())
@@ -692,6 +706,7 @@ func _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE() (_swig_ret int) {
 }
 
 var RPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE int = _swig_getRPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE()
+
 type SwigcptrRplidar_payload_express_scan_t uintptr
 
 func (p SwigcptrRplidar_payload_express_scan_t) Swigcptr() uintptr {
@@ -874,6 +889,7 @@ type Rplidar_payload_get_scan_conf_t interface {
 
 const MAX_MOTOR_PWM int = 1023
 const DEFAULT_MOTOR_PWM int = 660
+
 type SwigcptrRplidar_payload_motor_pwm_t uintptr
 
 func (p SwigcptrRplidar_payload_motor_pwm_t) Swigcptr() uintptr {
@@ -1005,6 +1021,7 @@ const RPLIDAR_ANS_TYPE_GET_LIDAR_CONF int = 0x20
 const RPLIDAR_ANS_TYPE_SET_LIDAR_CONF int = 0x21
 const RPLIDAR_ANS_TYPE_MEASUREMENT_DENSE_CAPSULED int = 0x85
 const RPLIDAR_ANS_TYPE_ACC_BOARD_FLAG int = 0xFF
+
 func _swig_getRPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK_rplidargen_5b9c62d0930caee0())
@@ -1012,6 +1029,7 @@ func _swig_getRPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK() (_swig_ret i
 }
 
 var RPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK int = _swig_getRPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK()
+
 type SwigcptrRplidar_response_acc_board_flag_t uintptr
 
 func (p SwigcptrRplidar_response_acc_board_flag_t) Swigcptr() uintptr {
@@ -1055,6 +1073,7 @@ type Rplidar_response_acc_board_flag_t interface {
 const RPLIDAR_STATUS_OK int = 0x0
 const RPLIDAR_STATUS_WARNING int = 0x1
 const RPLIDAR_STATUS_ERROR int = 0x2
+
 func _swig_getRPLIDAR_RESP_MEASUREMENT_SYNCBIT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_MEASUREMENT_SYNCBIT_rplidargen_5b9c62d0930caee0())
@@ -1062,7 +1081,9 @@ func _swig_getRPLIDAR_RESP_MEASUREMENT_SYNCBIT() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_MEASUREMENT_SYNCBIT int = _swig_getRPLIDAR_RESP_MEASUREMENT_SYNCBIT()
+
 const RPLIDAR_RESP_MEASUREMENT_QUALITY_SHIFT int = 2
+
 func _swig_getRPLIDAR_RESP_HQ_FLAG_SYNCBIT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_HQ_FLAG_SYNCBIT_rplidargen_5b9c62d0930caee0())
@@ -1070,6 +1091,7 @@ func _swig_getRPLIDAR_RESP_HQ_FLAG_SYNCBIT() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_HQ_FLAG_SYNCBIT int = _swig_getRPLIDAR_RESP_HQ_FLAG_SYNCBIT()
+
 func _swig_getRPLIDAR_RESP_MEASUREMENT_CHECKBIT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_MEASUREMENT_CHECKBIT_rplidargen_5b9c62d0930caee0())
@@ -1077,7 +1099,9 @@ func _swig_getRPLIDAR_RESP_MEASUREMENT_CHECKBIT() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_MEASUREMENT_CHECKBIT int = _swig_getRPLIDAR_RESP_MEASUREMENT_CHECKBIT()
+
 const RPLIDAR_RESP_MEASUREMENT_ANGLE_SHIFT int = 1
+
 type SwigcptrRplidar_response_sample_rate_t uintptr
 
 func (p SwigcptrRplidar_response_sample_rate_t) Swigcptr() uintptr {
@@ -1210,6 +1234,7 @@ func _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK int = _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK()
+
 func _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK_rplidargen_5b9c62d0930caee0())
@@ -1217,6 +1242,7 @@ func _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK int = _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK()
+
 type SwigcptrRplidar_response_cabin_nodes_t uintptr
 
 func (p SwigcptrRplidar_response_cabin_nodes_t) Swigcptr() uintptr {
@@ -1290,6 +1316,7 @@ type Rplidar_response_cabin_nodes_t interface {
 const RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_1 int = 0xA
 const RPLIDAR_RESP_MEASUREMENT_EXP_SYNC_2 int = 0x5
 const RPLIDAR_RESP_MEASUREMENT_HQ_SYNC int = 0xA5
+
 func _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT_rplidargen_5b9c62d0930caee0())
@@ -1297,6 +1324,7 @@ func _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT() (_swig_ret int) {
 }
 
 var RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT int = _swig_getRPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT()
+
 type SwigcptrRplidar_response_capsule_measurement_nodes_t uintptr
 
 func (p SwigcptrRplidar_response_capsule_measurement_nodes_t) Swigcptr() uintptr {
@@ -1509,6 +1537,7 @@ type Rplidar_response_dense_capsule_measurement_nodes_t interface {
 
 const RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_MAJOR_BITS int = 12
 const RPLIDAR_RESP_MEASUREMENT_EXP_ULTRA_PREDICT_BITS int = 10
+
 type SwigcptrRplidar_response_ultra_cabin_nodes_t uintptr
 
 func (p SwigcptrRplidar_response_ultra_cabin_nodes_t) Swigcptr() uintptr {
@@ -1824,6 +1853,7 @@ const RPLIDAR_CONF_SCAN_MODE_TYPICAL int = 0x0000007C
 const RPLIDAR_CONF_SCAN_MODE_NAME int = 0x0000007F
 const RPLIDAR_EXPRESS_SCAN_STABILITY_BITMAP int = 4
 const RPLIDAR_EXPRESS_SCAN_SENSITIVITY_BITMAP int = 5
+
 type SwigcptrRplidar_response_get_lidar_conf_t uintptr
 
 func (p SwigcptrRplidar_response_get_lidar_conf_t) Swigcptr() uintptr {
@@ -2067,6 +2097,7 @@ const RPLIDAR_VARBITSCALE_X2_DEST_VAL int = 512
 const RPLIDAR_VARBITSCALE_X4_DEST_VAL int = 1280
 const RPLIDAR_VARBITSCALE_X8_DEST_VAL int = 1792
 const RPLIDAR_VARBITSCALE_X16_DEST_VAL int = 3328
+
 type SwigcptrRplidarScanMode uintptr
 
 func (p SwigcptrRplidarScanMode) Swigcptr() uintptr {
@@ -2143,7 +2174,7 @@ func (arg1 SwigcptrRplidarScanMode) GetScan_mode() (_swig_ret string) {
 	swig_r_p := C._wrap_RplidarScanMode_scan_mode_get_rplidargen_5b9c62d0930caee0(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -2180,6 +2211,7 @@ func _swig_getDRIVER_TYPE_SERIALPORT() (_swig_ret int) {
 }
 
 var DRIVER_TYPE_SERIALPORT int = _swig_getDRIVER_TYPE_SERIALPORT()
+
 func _swig_getDRIVER_TYPE_TCP() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_DRIVER_TYPE_TCP_rplidargen_5b9c62d0930caee0())
@@ -2187,6 +2219,7 @@ func _swig_getDRIVER_TYPE_TCP() (_swig_ret int) {
 }
 
 var DRIVER_TYPE_TCP int = _swig_getDRIVER_TYPE_TCP()
+
 type SwigcptrChannelDevice uintptr
 
 func (p SwigcptrChannelDevice) Swigcptr() uintptr {
@@ -2335,6 +2368,7 @@ func _swig_getRPlidarDriver_DEFAULT_TIMEOUT_RPlidarDriver() (_swig_ret int) {
 }
 
 var RPlidarDriverDEFAULT_TIMEOUT int = _swig_getRPlidarDriver_DEFAULT_TIMEOUT_RPlidarDriver()
+
 func _swig_getRPlidarDriver_MAX_SCAN_NODES_RPlidarDriver() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_MAX_SCAN_NODES_RPlidarDriver_rplidargen_5b9c62d0930caee0())
@@ -2342,6 +2376,7 @@ func _swig_getRPlidarDriver_MAX_SCAN_NODES_RPlidarDriver() (_swig_ret int) {
 }
 
 var RPlidarDriverMAX_SCAN_NODES int = _swig_getRPlidarDriver_MAX_SCAN_NODES_RPlidarDriver()
+
 func _swig_getRPlidarDriver_LEGACY_SAMPLE_DURATION_RPlidarDriver() (_swig_ret int) {
 	var swig_r int
 	swig_r = (int)(C._wrap_LEGACY_SAMPLE_DURATION_RPlidarDriver_rplidargen_5b9c62d0930caee0())
@@ -2349,6 +2384,7 @@ func _swig_getRPlidarDriver_LEGACY_SAMPLE_DURATION_RPlidarDriver() (_swig_ret in
 }
 
 var RPlidarDriverLEGACY_SAMPLE_DURATION int = _swig_getRPlidarDriver_LEGACY_SAMPLE_DURATION_RPlidarDriver()
+
 func RPlidarDriverCreateDriver__SWIG_0(arg1 uint) (_swig_ret RPlidarDriver) {
 	var swig_r RPlidarDriver
 	_swig_i_0 := arg1
@@ -3112,12 +3148,11 @@ func MeasurementNodeHqArray_setitem(arg1 Rplidar_response_measurement_node_hq_t,
 	C._wrap_measurementNodeHqArray_setitem_rplidargen_5b9c62d0930caee0(C.uintptr_t(_swig_i_0), C.swig_intgo(_swig_i_1), C.uintptr_t(_swig_i_2))
 }
 
-
 type SwigcptrStd_vector_Sl_rp_standalone_rplidar_RplidarScanMode_Sg_ uintptr
 type Std_vector_Sl_rp_standalone_rplidar_RplidarScanMode_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_vector_Sl_rp_standalone_rplidar_RplidarScanMode_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
-

@@ -1,5 +1,5 @@
-PORT = `arduino-cli board list  | grep avr | grep -o "/dev/cu.[a-z0-9]*"`
-ARCH = `arduino-cli board list  | grep avr | grep -o "arduino:avr:[a-z]*"`
+PORT = `arduino-cli board list  | grep "arduino:" | grep -o "/dev/cu.[a-z0-9]*"`
+ARCH = `arduino-cli board list  | grep "arduino:" | grep -o "arduino:[a-z]*:[a-z_]*"`
 
 COMPILE_FLAGS = compile --libraries ../arduino/ --fqbn ${ARCH}
 
@@ -23,6 +23,13 @@ gripper1-compile: gripper1/gripper1.ino ../arduino/RCore/*.cpp ../arduino/RCore/
 
 gripper1: gripper1-compile
 	arduino-cli upload --port ${PORT} --fqbn ${ARCH} gripper1
+
+boat1-compile: boat1/boat1.ino ../arduino/RCore/*.cpp ../arduino/RCore/*.h
+	arduino-cli ${COMPILE_FLAGS} boat1
+
+boat1: boat1-compile
+	arduino-cli upload --port ${PORT} --fqbn ${ARCH} boat1
+
 
 serial:
 	minicom -b 9600 -D ${PORT}

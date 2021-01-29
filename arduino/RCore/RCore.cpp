@@ -198,3 +198,13 @@ const char* Buffer::getLineAndReset() {
     _pos = 0;
     return _buf;
 }
+
+void setupInterrupt(int pin, void (*ISR)(), int what) {
+    pinMode(pin, INPUT);
+
+    // enable internal pullup resistor
+    digitalWrite(pin, HIGH);
+
+    // Interrupt initialization
+    attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
+}
