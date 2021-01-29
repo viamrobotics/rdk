@@ -91,6 +91,7 @@ type CartesianInfo struct {
 	TCPOffsetRx float64
 	TCPOffsetRy float64
 	TCPOffsetRz float64
+	W           float64
 }
 
 func (c CartesianInfo) SimpleString() string {

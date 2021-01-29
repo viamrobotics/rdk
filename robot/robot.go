@@ -153,6 +153,8 @@ func newArm(config Component) (arm.Arm, error) {
 	switch config.Model {
 	case "ur":
 		return arm.URArmConnect(config.Host)
+	case "eva":
+		return arm.NewEva(config.Host, config.Attributes)
 	case "dummy":
 		return &dummyArm{}, nil
 	default:
