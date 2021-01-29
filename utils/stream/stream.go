@@ -5,14 +5,14 @@ import (
 	"image"
 	"time"
 
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/echolabsinc/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"gocv.io/x/gocv"
 )
 
-func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.RemoteView, captureInternal time.Duration, logger golog.Logger) {
+func MatSource(ctx context.Context, src utils.MatSource, remoteView gostream.RemoteView, captureInternal time.Duration, logger golog.Logger) {
 	gostream.StreamFunc(
 		ctx,
 		func() image.Image {
@@ -20,13 +20,13 @@ func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.Re
 			if remoteView.Debug() {
 				now = time.Now()
 			}
-			mat, _, err := src.NextColorDepthPair()
+			mat, err := src.NextMat()
 			if err != nil {
 				panic(err)
 			}
 			defer mat.Close()
 			if remoteView.Debug() {
-				logger.Debugw("NextColorDepthPair", "elapsed", time.Since(now))
+				logger.Debugw("NextMat", "elapsed", time.Since(now))
 			}
 			img, err := mat.ToImage()
 			if err != nil {
@@ -40,21 +40,21 @@ func MatSource(ctx context.Context, src vision.MatSource, remoteView gostream.Re
 }
 
 type ResizeMatSource struct {
-	vision.MatSource
+	utils.MatSource
 	X, Y int
 }
 
-func (rms ResizeMatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
-	mat, dm, err := rms.MatSource.NextColorDepthPair()
+func (rms ResizeMatSource) NextMat() (gocv.Mat, error) {
+	mat, err := rms.MatSource.NextMat()
 	if err != nil {
-		return mat, dm, err
+		return mat, err
 	}
 	defer mat.Close()
 	out := gocv.NewMatWithSize(rms.X, rms.Y, gocv.MatTypeCV8UC3)
 
 	gocv.Resize(mat, &out, image.Point{rms.X, rms.Y}, 0, 0, gocv.InterpolationCubic)
 
-	return out, dm, err
+	return out, err
 }
 
 func (rms ResizeMatSource) Close() {

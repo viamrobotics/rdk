@@ -8,16 +8,14 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/echolabsinc/robotcore/utils"
+
 	"gocv.io/x/gocv"
 )
 
-type MatSource interface {
-
-	// first back is the regular img
-	// second is the depth if it exists
-	NextColorDepthPair() (gocv.Mat, DepthMap, error)
-
-	Close()
+type MatDepthSource interface {
+	utils.MatSource
+	NextMatDepthPair() (gocv.Mat, *DepthMap, error)
 }
 
 // -----
@@ -25,8 +23,16 @@ type StaticSource struct {
 	pc *PointCloud
 }
 
-func (ss *StaticSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
-	return ss.pc.Color.mat.Clone(), ss.pc.Depth, nil
+func (ss *StaticSource) NextMat() (gocv.Mat, error) {
+	return ss.pc.Color.mat.Clone(), nil
+}
+
+func (ss *StaticSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+	mat, err := ss.NextMat()
+	if err != nil {
+		return mat, nil, err
+	}
+	return mat, ss.pc.Depth, nil
 }
 
 func (ss *StaticSource) Close() {
@@ -40,56 +46,24 @@ type FileSource struct {
 	DepthFN string
 }
 
-func (fs *FileSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+func (fs *FileSource) NextMat() (gocv.Mat, error) {
 	var mat gocv.Mat
-	var dm DepthMap
-	var err error
-
-	if fs.ColorFN != "" {
-		mat = gocv.IMRead(fs.ColorFN, gocv.IMReadUnchanged)
+	if fs.ColorFN == "" {
+		return mat, nil
 	}
+	return gocv.IMRead(fs.ColorFN, gocv.IMReadUnchanged), nil
+}
 
-	dm, err = ParseDepthMap(fs.DepthFN)
+func (fs *FileSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+	mat, err := fs.NextMat()
+	if err != nil {
+		return mat, nil, err
+	}
+	dm, err := ParseDepthMap(fs.DepthFN)
 	return mat, dm, err
 }
 
 func (fs *FileSource) Close() {
-}
-
-// ------
-
-type WebcamSource struct {
-	deviceID int
-	webcam   *gocv.VideoCapture
-}
-
-func (we *WebcamSource) Close() {
-	we.webcam.Close()
-}
-
-func (we *WebcamSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
-	img := gocv.NewMat()
-
-	ok := we.webcam.Read(&img)
-	if !ok {
-		img.Close()
-		return gocv.Mat{}, DepthMap{}, fmt.Errorf("cannot read webcam device: %d", we.deviceID)
-	}
-
-	return img, DepthMap{}, nil
-}
-
-func NewWebcamSource(deviceID int) (*WebcamSource, error) {
-	var err error
-	source := &WebcamSource{}
-
-	source.deviceID = deviceID
-	source.webcam, err = gocv.OpenVideoCapture(deviceID)
-	if err != nil {
-		return nil, err
-	}
-
-	return source, nil
 }
 
 // -------
@@ -109,31 +83,40 @@ func readyBytesFromURL(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (hs *HTTPSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+func (hs *HTTPSource) NextMat() (gocv.Mat, error) {
 
 	img := gocv.Mat{}
-	var depth DepthMap
 
 	colorData, err := readyBytesFromURL(hs.ColorURL)
 	if err != nil {
-		return img, depth, fmt.Errorf("couldn't ready color url: %s", err)
+		return img, fmt.Errorf("couldn't ready color url: %s", err)
 	}
 
+	img, err = gocv.IMDecode(colorData, gocv.IMReadUnchanged)
+	return img, err
+}
+
+func (hs *HTTPSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+
+	img, err := hs.NextMat()
+	if err != nil {
+		return img, nil, err
+	}
+
+	var depth *DepthMap
 	var depthData []byte
 	if hs.DepthURL != "" {
 		depthData, err = readyBytesFromURL(hs.DepthURL)
 		if err != nil {
-			return img, depth, fmt.Errorf("couldn't ready depth url: %s", err)
+			return img, nil, fmt.Errorf("couldn't ready depth url: %s", err)
 		}
 
 		// do this first and make sure ok before creating any mats
 		depth, err = ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 		if err != nil {
-			return img, depth, err
+			return img, nil, err
 		}
 	}
-
-	img, err = gocv.IMDecode(colorData, gocv.IMReadUnchanged)
 
 	return img, depth, err
 }
@@ -164,30 +147,32 @@ func (s *IntelServerSource) ColorURL() string {
 func (s *IntelServerSource) Close() {
 }
 
-func (s *IntelServerSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
-	img := gocv.Mat{}
-	var depth DepthMap
-
-	allData, err := readyBytesFromURL(s.BothURL)
-	if err != nil {
-		return img, depth, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
-	}
-
-	return readNextColorDepthPairFromBoth(allData)
+func (s *IntelServerSource) NextMat() (gocv.Mat, error) {
+	m, _, err := s.NextMatDepthPair()
+	return m, err
 }
 
-func readNextColorDepthPairFromBoth(allData []byte) (gocv.Mat, DepthMap, error) {
+func (s *IntelServerSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+	allData, err := readyBytesFromURL(s.BothURL)
+	if err != nil {
+		return gocv.Mat{}, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
+	}
+
+	return readNextMatDepthPairFromBoth(allData)
+}
+
+func readNextMatDepthPairFromBoth(allData []byte) (gocv.Mat, *DepthMap, error) {
 	img := gocv.Mat{}
 
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
-		return img, depth, fmt.Errorf("couldn't read depth map (both): %w", err)
+		return img, nil, fmt.Errorf("couldn't read depth map (both): %w", err)
 	}
 
 	imgData, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return img, depth, fmt.Errorf("couldn't read image (both): %w", err)
+		return img, nil, fmt.Errorf("couldn't read image (both): %w", err)
 	}
 
 	img, err = gocv.IMDecode(imgData, gocv.IMReadUnchanged)
@@ -202,9 +187,14 @@ type SettableSource struct {
 	TheDepthMap DepthMap
 }
 
-func (ss *SettableSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+func (ss *SettableSource) NextMat() (gocv.Mat, error) {
 	m, err := gocv.ImageToMatRGB(ss.TheImage)
-	return m, ss.TheDepthMap, err
+	return m, err
+}
+
+func (ss *SettableSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+	m, err := ss.NextMat()
+	return m, &ss.TheDepthMap, err
 }
 
 func (ss *SettableSource) Close() {
