@@ -1,6 +1,6 @@
 // +build linux
 
-package support
+package usb
 
 import (
 	"bufio"
@@ -9,10 +9,13 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/echolabsinc/robotcore/lidar"
 )
 
-func DetectLidarDevices() []LidarDeviceDescription {
-	sysPath := "/sys/bus/usb-serial/devices"
+const sysPath = "/sys/bus/usb-serial/devices"
+
+func DetectDevices() []lidar.DeviceDescription {
 	devicesDir, err := os.Open(sysPath)
 	if err != nil {
 		return nil
@@ -22,7 +25,7 @@ func DetectLidarDevices() []LidarDeviceDescription {
 	if err != nil {
 		return nil
 	}
-	var results []LidarDeviceDescription
+	var results []DeviceDescription
 	for _, device := range devices {
 		linkedFile, err := os.Readlink(path.Join(sysPath, device.Name()))
 		if err != nil {
@@ -57,11 +60,11 @@ func DetectLidarDevices() []LidarDeviceDescription {
 			if err != nil {
 				continue
 			}
-			lidarType := checkProductLidarDevice(int(vendorID), int(productID))
-			if lidarType == LidarTypeUnknown {
+			lidarType := checkUSBProductDevice(int(vendorID), int(productID))
+			if lidarType == TypeUnknown {
 				continue
 			}
-			results = append(results, LidarDeviceDescription{
+			results = append(results, DeviceDescription{
 				lidarType, filepath.Join("/dev", device.Name())})
 		}
 	}

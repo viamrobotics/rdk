@@ -1,14 +1,16 @@
 // +build darwin
 
-package support
+package usb
 
 import (
 	"os/exec"
 
+	"github.com/echolabsinc/robotcore/lidar"
+
 	"howett.net/plist"
 )
 
-func DetectLidarDevices() []LidarDeviceDescription {
+func DetectDevices() []lidar.DeviceDescription {
 	cmd := exec.Command("ioreg", "-r", "-c", "IOUserSerial", "-a", "-l")
 	out, err := cmd.Output()
 	if err != nil {
@@ -18,7 +20,7 @@ func DetectLidarDevices() []LidarDeviceDescription {
 	if _, err := plist.Unmarshal(out, &data); err != nil {
 		return nil
 	}
-	var results []LidarDeviceDescription
+	var results []DeviceDescription
 	for _, device := range data {
 		if device["IOTTYBaseName"] != "usbserial-" {
 			continue
@@ -31,8 +33,8 @@ func DetectLidarDevices() []LidarDeviceDescription {
 		if !ok {
 			continue
 		}
-		lidarType := checkProductLidarDevice(int(idVendor), int(idProduct))
-		if lidarType == LidarTypeUnknown {
+		lidarType := checkUSBProductDevice(int(idVendor), int(idProduct))
+		if lidarType == DeviceTypeUnknown {
 			continue
 		}
 
@@ -55,7 +57,7 @@ func DetectLidarDevices() []LidarDeviceDescription {
 			}
 		}
 		if dialinDevice != "" {
-			results = append(results, LidarDeviceDescription{lidarType, dialinDevice})
+			results = append(results, DeviceDescription{lidarType, dialinDevice})
 		}
 	}
 	return results
