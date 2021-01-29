@@ -45,7 +45,7 @@ func NewImageFromFile(fn string) (Image, error) {
 			return Image{}, err
 		}
 
-		mat, _, err := readNextColorDepthPairFromBoth(allData)
+		mat, _, err := readNextMatDepthPairFromBoth(allData)
 		if err != nil {
 			return Image{}, err
 		}

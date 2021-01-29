@@ -16,7 +16,7 @@ import (
 type Robot struct {
 	Arms         []arm.Arm         // TODO(erh): use interface
 	Grippers     []gripper.Gripper // TODO(erh): use interface
-	Cameras      []vision.MatSource
+	Cameras      []vision.MatDepthSource
 	LidarDevices []lidar.Device
 	Bases        []base.Base
 
@@ -45,7 +45,7 @@ func (r *Robot) GripperByName(name string) gripper.Gripper {
 	return nil
 }
 
-func (r *Robot) CameraByName(name string) vision.MatSource {
+func (r *Robot) CameraByName(name string) vision.MatDepthSource {
 	for i, c := range r.cameraComponents {
 		if c.Name == name {
 			return r.Cameras[i]
@@ -72,7 +72,7 @@ func (r *Robot) AddGripper(g gripper.Gripper, c Component) {
 	r.Grippers = append(r.Grippers, g)
 	r.gripperComponents = append(r.gripperComponents, c)
 }
-func (r *Robot) AddCamera(camera vision.MatSource, c Component) {
+func (r *Robot) AddCamera(camera vision.MatDepthSource, c Component) {
 	r.Cameras = append(r.Cameras, camera)
 	r.cameraComponents = append(r.cameraComponents, c)
 }
@@ -181,7 +181,7 @@ func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) 
 	}
 }
 
-func newCamera(config Component) (vision.MatSource, error) {
+func newCamera(config Component) (vision.MatDepthSource, error) {
 	switch config.Model {
 	case "eliot":
 		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
