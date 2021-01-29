@@ -41,7 +41,7 @@ func (ws *walkState) help(originalColor vision.HSV, lastColor vision.HSV, start 
 	good := originalDistance < ColorThreshold || (originalDistance < (ColorThreshold*1.1) && lastDistance < ColorThreshold/1)
 
 	if ws.debug {
-		golog.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v\n",
+		golog.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v",
 			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance)
 	}
 	if !good {
