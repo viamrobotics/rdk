@@ -510,21 +510,11 @@ func main() {
 	a := app.New()
 	w := a.NewWindow("Hello")
 
-	stateDisplay := arm.NewStateDisplay()
-
 	pcs := []fyne.CanvasObject{
 		widget.NewLabel("Hello Fyne!"),
 		widget.NewLabel("Hello Fyne!"),
-		stateDisplay.TheContainer,
 	}
 	w.SetContent(widget.NewHBox(pcs...))
-
-	go func() {
-		for {
-			time.Sleep(10 * time.Millisecond)
-			stateDisplay.Update(myArm.State())
-		}
-	}()
 
 	boardState := boardStateGuesser{}
 	defer boardState.Clear()
