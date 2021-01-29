@@ -15,6 +15,7 @@ import (
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/robot"
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
@@ -228,9 +229,9 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
+func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
 	imageSize := image.Point{}
-	m, _, err := wristCam.NextColorDepthPair()
+	m, err := wristCam.NextMat()
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -240,7 +241,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 
 	// wait, cause this camera sucks
 	time.Sleep(500 * time.Millisecond)
-	m, _, err = wristCam.NextColorDepthPair()
+	m, err = wristCam.NextMat()
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -248,7 +249,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 
 	// wait, cause this camera sucks
 	time.Sleep(500 * time.Millisecond)
-	m, _, err = wristCam.NextColorDepthPair()
+	m, err = wristCam.NextMat()
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -279,7 +280,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(myArm arm.Arm, wristCam vision.MatSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(myArm arm.Arm, wristCam utils.MatSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	var err error
 	for {
@@ -382,7 +383,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		where := arm.State().CartesianInfo
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		_, dm, err := cam.NextColorDepthPair()
+		_, dm, err := cam.NextMatDepthPair()
 		if err != nil {
 			return err
 		}
@@ -504,7 +505,7 @@ func main() {
 
 	go func() {
 		for {
-			img, depth, err := webcam.NextColorDepthPair()
+			img, depth, err := webcam.NextMatDepthPair()
 			func() {
 				var boardCreated bool
 				defer func() {

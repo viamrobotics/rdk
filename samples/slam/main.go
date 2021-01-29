@@ -16,9 +16,12 @@ import (
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/lidar/samples/rplidar_move/support"
+	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/lidar/usb"
+	"github.com/echolabsinc/robotcore/robots/fake"
 	"github.com/echolabsinc/robotcore/robots/hellorobot"
+	"github.com/echolabsinc/robotcore/slam"
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/utils/stream"
 
 	"github.com/edaniels/golog"
@@ -28,21 +31,10 @@ import (
 
 const fakeDev = "fake"
 
-type stringFlags []string
-
-func (sf *stringFlags) Set(value string) error {
-	*sf = append(*sf, value)
-	return nil
-}
-
-func (sf *stringFlags) String() string {
-	return fmt.Sprint([]string(*sf))
-}
-
 func main() {
 	var baseType string
-	var devicePathFlags stringFlags
-	var deviceOffsetFlags stringFlags
+	var devicePathFlags utils.StringFlags
+	var deviceOffsetFlags utils.StringFlags
 	hostname, err := os.Hostname()
 	if err != nil {
 		golog.Global.Fatal(err)
@@ -52,24 +44,24 @@ func main() {
 	} else {
 		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
 	}
-	flag.Var(&devicePathFlags, "device", "lidar device")
+	flag.Var(&devicePathFlags, "device", "lidar devices")
 	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
 	flag.Parse()
 
-	// The room is 600m^2 tracked in centimeters
+	// The area is 600m^2 tracked in centimeters
 	// 0 means no detected obstacle
 	// 1 means a detected obstacle
 	// TODO(erd): where is center? is a hack to just square the whole thing?
-	roomSizeMeters := 600
-	roomScale := 100 // cm
-	room := support.NewSquareRoom(roomSizeMeters, roomScale)
-	roomCenter := room.Center()
-	roomSize, roomSizeScale := room.Size()
+	areaSizeMeters := 600
+	areaScale := 100 // cm
+	area := slam.NewSquareArea(areaSizeMeters, areaScale)
+	areaCenter := area.Center()
+	areaSize, areaSizeScale := area.Size()
 
 	var base base.Base
 	switch baseType {
 	case fakeDev:
-		base = &support.FakeBase{}
+		base = &fake.Base{}
 	case "hello":
 		robot := hellorobot.New()
 		base = robot.Base()
@@ -77,7 +69,7 @@ func main() {
 		panic(fmt.Errorf("do not know how to make a %q base", baseType))
 	}
 
-	var deviceOffests []support.DeviceOffset
+	var deviceOffests []slam.DeviceOffset
 	for _, flags := range deviceOffsetFlags {
 		if flags == "" {
 			panic("offset format is angle,x,y")
@@ -98,7 +90,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		deviceOffests = append(deviceOffests, support.DeviceOffset{angle, distX, distY})
+		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
 	}
 
 	deviceDescs := usb.DetectDevices()
@@ -110,7 +102,7 @@ func main() {
 	}
 	if len(deviceOffsetFlags) == 0 && len(deviceDescs) == 0 {
 		deviceDescs = append(deviceDescs,
-			lidar.DeviceDescription{lidar.DeviceTypFake, "0"})
+			lidar.DeviceDescription{lidar.DeviceTypeFake, "0"})
 	}
 	if len(devicePathFlags) != 0 {
 		deviceDescs = nil
@@ -118,10 +110,10 @@ func main() {
 			switch devicePath {
 			case fakeDev:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{lidar.DeviceTypFake, fmt.Sprintf("%d", i)})
+					lidar.DeviceDescription{lidar.DeviceTypeFake, fmt.Sprintf("%d", i)})
 			default:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{lidar.DeviceTypRPLidar, devicePath})
+					lidar.DeviceDescription{rplidar.DeviceType, devicePath})
 			}
 		}
 	}
@@ -144,7 +136,10 @@ func main() {
 		port = int(portParsed)
 	}
 
-	lidarDevices := lidar.CreateDevices(deviceDescs)
+	lidarDevices, err := lidar.CreateDevices(deviceDescs)
+	if err != nil {
+		golog.Global.Fatal(err)
+	}
 	for i, lidarDev := range lidarDevices {
 		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
 			golog.Global.Infow("rplidar",
@@ -157,13 +152,13 @@ func main() {
 		defer lidarDev.Stop()
 	}
 
-	lar, err := support.NewLocationAwareRobot(
+	lar, err := slam.NewLocationAwareRobot(
 		base,
-		image.Point{roomCenter.X, roomCenter.Y},
+		image.Point{areaCenter.X, areaCenter.Y},
 		lidarDevices,
 		deviceOffests,
-		room,
-		image.Point{roomSize * roomSizeScale, roomSize * roomSizeScale},
+		area,
+		image.Point{areaSize * areaSizeScale, areaSize * areaSizeScale},
 	)
 	if err != nil {
 		panic(err)
@@ -197,28 +192,28 @@ func main() {
 
 	// setup world view
 	config.StreamNumber = 1
-	config.StreamName = "world view"
-	worldViewerRemoteView, err := gostream.NewRemoteView(config)
+	config.StreamName = "area view"
+	areaViewerRemoteView, err := gostream.NewRemoteView(config)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	worldViewer := &support.WorldViewer{room, 100}
-	worldViewerRemoteView.SetOnDataHandler(func(data []byte) {
+	areaViewer := &slam.AreaViewer{area, 100}
+	areaViewerRemoteView.SetOnDataHandler(func(data []byte) {
 		golog.Global.Debugw("data", "raw", string(data))
 		if bytes.HasPrefix(data, []byte("set_scale ")) {
 			newScaleStr := string(bytes.TrimPrefix(data, []byte("set_scale ")))
 			newScale, err := strconv.ParseInt(newScaleStr, 10, 32)
 			if err != nil {
-				worldViewerRemoteView.SendText(err.Error())
+				areaViewerRemoteView.SendText(err.Error())
 				return
 			}
-			worldViewer.ViewScale = int(newScale)
-			worldViewerRemoteView.SendText(fmt.Sprintf("scale set to %d", newScale))
+			areaViewer.ViewScale = int(newScale)
+			areaViewerRemoteView.SendText(fmt.Sprintf("scale set to %d", newScale))
 		}
 	})
 
 	server := gostream.NewRemoteViewServer(port, robotView, golog.Global)
-	server.AddView(worldViewerRemoteView)
+	server.AddView(areaViewerRemoteView)
 	server.Run()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -234,8 +229,8 @@ func main() {
 	frameSpeed := 33 * time.Millisecond
 
 	robotViewMatSource := stream.ResizeMatSource{lar, clientWidth, clientHeight}
-	worldViewMatSource := stream.ResizeMatSource{worldViewer, clientWidth, clientHeight}
-	go stream.MatSource(cancelCtx, worldViewMatSource, worldViewerRemoteView, frameSpeed, golog.Global)
+	worldViewMatSource := stream.ResizeMatSource{areaViewer, clientWidth, clientHeight}
+	go stream.MatSource(cancelCtx, worldViewMatSource, areaViewerRemoteView, frameSpeed, golog.Global)
 	stream.MatSource(cancelCtx, robotViewMatSource, robotView, frameSpeed, golog.Global)
 
 	if err := server.Stop(context.Background()); err != nil {

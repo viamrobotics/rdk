@@ -1,4 +1,4 @@
-package support
+package slam
 
 import (
 	"bytes"
@@ -15,8 +15,8 @@ import (
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/echolabsinc/robotcore/robots/fake"
 	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
@@ -42,9 +42,9 @@ type LocationAwareRobot struct {
 	maxBounds        image.Point
 	clientDeviceNum  int
 	clientZoom       float64
-	room             *SquareRoom
-	roomBounds       image.Point
-	distinctRooms    []*SquareRoom
+	area             *SquareArea
+	areaBounds       image.Point
+	distinctAreas    []*SquareArea
 	orientations     []float64
 }
 
@@ -53,13 +53,13 @@ func NewLocationAwareRobot(
 	baseStart image.Point, // TODO(erd): should/could base itself be aware of location?
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
-	room *SquareRoom,
-	roomBounds image.Point,
+	area *SquareArea,
+	areaBounds image.Point,
 ) (*LocationAwareRobot, error) {
-	roomSize, roomSizeScale := room.Size()
-	distinctRooms := make([]*SquareRoom, 0, len(devices))
+	areaSize, areaSizeScale := area.Size()
+	distinctAreas := make([]*SquareArea, 0, len(devices))
 	for range devices {
-		distinctRooms = append(distinctRooms, NewSquareRoom(roomSize, roomSizeScale))
+		distinctAreas = append(distinctAreas, NewSquareArea(areaSize, areaSizeScale))
 	}
 
 	var maxBoundsX, maxBoundsY int
@@ -83,9 +83,9 @@ func NewLocationAwareRobot(
 		devices:         devices,
 		deviceOffsets:   deviceOffsets,
 		maxBounds:       image.Point{maxBoundsX, maxBoundsY},
-		room:            room,
-		roomBounds:      roomBounds,
-		distinctRooms:   distinctRooms,
+		area:            area,
+		areaBounds:      areaBounds,
+		distinctAreas:   distinctAreas,
 		clientDeviceNum: -1,
 		clientZoom:      1,
 		orientations:    make([]float64, len(devices)),
@@ -109,7 +109,7 @@ func (lar *LocationAwareRobot) basePosString() string {
 }
 
 func (lar *LocationAwareRobot) startCulling() {
-	_, scaleDown := lar.room.Size()
+	_, scaleDown := lar.area.Size()
 	maxBoundsX := lar.maxBounds.X * scaleDown
 	maxBoundsY := lar.maxBounds.Y * scaleDown
 
@@ -121,27 +121,27 @@ func (lar *LocationAwareRobot) startCulling() {
 		basePosX, basePosY := lar.basePos()
 
 		// calculate ideal visibility bounds
-		roomMinX := basePosX - maxBoundsX/2
-		roomMaxX := basePosX + maxBoundsX/2
-		roomMinY := basePosY - maxBoundsY/2
-		roomMaxY := basePosY + maxBoundsY/2
+		areaMinX := basePosX - maxBoundsX/2
+		areaMaxX := basePosX + maxBoundsX/2
+		areaMinY := basePosY - maxBoundsY/2
+		areaMaxY := basePosY + maxBoundsY/2
 
 		// decrement observable area which will be refreshed by scans
 		// within the area (assuming the lidar is active)
-		cullRoom := func(room *SquareRoom, minX, maxX, minY, maxY int) {
-			room.Mutate(func(mutRoom MutableRoom) {
-				mutRoom.DoNonZero(func(x, y int, v float64) {
+		cullArea := func(area *SquareArea, minX, maxX, minY, maxY int) {
+			area.Mutate(func(mutArea MutableArea) {
+				mutArea.DoNonZero(func(x, y int, v float64) {
 					if x < minX || x > maxX || y < minY || y > maxY {
 						return
 					}
-					mutRoom.Set(x, y, v-1)
+					mutArea.Set(x, y, v-1)
 				})
 			})
 		}
 
-		cullRoom(lar.room, roomMinX, roomMaxX, roomMinY, roomMaxY)
+		cullArea(lar.area, areaMinX, areaMaxX, areaMinY, areaMaxY)
 
-		for i, room := range lar.distinctRooms {
+		for i, area := range lar.distinctAreas {
 			bounds, err := lar.devices[i].Bounds()
 			if err != nil {
 				panic(err)
@@ -149,12 +149,12 @@ func (lar *LocationAwareRobot) startCulling() {
 			bounds.X *= scaleDown
 			bounds.Y *= scaleDown
 
-			roomMinX := basePosX - bounds.X/2
-			roomMaxX := basePosX + bounds.X/2
-			roomMinY := basePosY - bounds.Y/2
-			roomMaxY := basePosY + bounds.Y/2
+			areaMinX := basePosX - bounds.X/2
+			areaMaxX := basePosX + bounds.X/2
+			areaMinY := basePosY - bounds.Y/2
+			areaMaxY := basePosY + bounds.Y/2
 
-			cullRoom(room, roomMinX, roomMaxX, roomMinY, roomMaxY)
+			cullArea(area, areaMinX, areaMaxX, areaMinY, areaMaxY)
 		}
 	}
 
@@ -177,7 +177,7 @@ func (lar *LocationAwareRobot) update() {
 	basePosX, basePosY := lar.basePos()
 
 	for _, dev := range lar.devices {
-		if fake, ok := dev.(*lidar.FakedNoiseDevice); ok {
+		if fake, ok := dev.(*fake.Lidar); ok {
 			fake.SetPosition(image.Point{basePosX, basePosY})
 		}
 	}
@@ -191,8 +191,8 @@ func (lar *LocationAwareRobot) update() {
 		allMeasurements[i] = measurements
 	}
 
-	roomSize, scaleDown := lar.room.Size()
-	roomSize *= scaleDown
+	areaSize, scaleDown := lar.area.Size()
+	areaSize *= scaleDown
 	for i, measurements := range allMeasurements {
 		minAngle := math.Inf(1)
 		var adjust bool
@@ -219,10 +219,10 @@ func (lar *LocationAwareRobot) update() {
 			}
 			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleDown))
 			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleDown))
-			if detectedX < 0 || detectedX >= roomSize {
+			if detectedX < 0 || detectedX >= areaSize {
 				continue
 			}
-			if detectedY < 0 || detectedY >= roomSize {
+			if detectedY < 0 || detectedY >= areaSize {
 				continue
 			}
 			// TTL 3 seconds
@@ -233,40 +233,40 @@ func (lar *LocationAwareRobot) update() {
 			// Realistically once the bounds of a location are determined, most
 			// environments would only have it deform over very long periods of time.
 			// Probably longer than the lifetime of the application itself.
-			lar.room.Mutate(func(room MutableRoom) {
-				room.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
+			lar.area.Mutate(func(area MutableArea) {
+				area.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
 			})
-			lar.distinctRooms[i].Mutate(func(room MutableRoom) {
-				room.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
+			lar.distinctAreas[i].Mutate(func(area MutableArea) {
+				area.Set(detectedX, detectedY, 3) // TODO(erd): move to configurable
 			})
 		}
 		lar.orientations[i] = minAngle
 	}
 }
 
-func (lar *LocationAwareRobot) roomToView() (image.Point, *SquareRoom, error) {
+func (lar *LocationAwareRobot) areaToView() (image.Point, *SquareArea, error) {
 	devNum := lar.getClientDeviceNum()
 	if devNum == -1 {
-		return lar.maxBounds, lar.room, nil
+		return lar.maxBounds, lar.area, nil
 	}
 	dev := lar.devices[devNum]
 	bounds, err := dev.Bounds()
 	if err != nil {
 		return image.Point{}, nil, err
 	}
-	return bounds, lar.distinctRooms[devNum], nil
+	return bounds, lar.distinctAreas[devNum], nil
 }
 
-func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
+func (lar *LocationAwareRobot) NextMat() (gocv.Mat, error) {
 	lar.update()
 
 	// select device and sparse
-	bounds, room, err := lar.roomToView()
+	bounds, area, err := lar.areaToView()
 	if err != nil {
-		return gocv.Mat{}, vision.DepthMap{}, err
+		return gocv.Mat{}, err
 	}
 
-	_, scaleDown := room.Size()
+	_, scaleDown := area.Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
 	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
 	centerX := bounds.X / 2
@@ -285,8 +285,8 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
-	room.Mutate(func(room MutableRoom) {
-		room.DoNonZero(func(x, y int, _ float64) {
+	area.Mutate(func(area MutableArea) {
+		area.DoNonZero(func(x, y int, _ float64) {
 			if x < minX || x > maxX || y < minY || y > maxY {
 				return
 			}
@@ -328,7 +328,7 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 		}
 	}
 
-	return out, vision.DepthMap{}, nil
+	return out, nil
 }
 
 func (lar *LocationAwareRobot) getClientDeviceNum() int {
@@ -419,7 +419,7 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 		if err != nil {
 			return err
 		}
-		if fake, ok := lar.devices[0].(*lidar.FakedNoiseDevice); ok {
+		if fake, ok := lar.devices[0].(*fake.Lidar); ok {
 			fake.SetSeed(seed)
 		}
 		respondMsg(seedStr)
@@ -507,13 +507,13 @@ func (lar *LocationAwareRobot) move(amount *int, rotateTo *direction) error {
 			golog.Global.Debugw("up", "amount", actualAmount)
 			newY = lar.basePosY - actualAmount
 		case 90:
-			if lar.basePosX+actualAmount >= lar.roomBounds.X {
+			if lar.basePosX+actualAmount >= lar.areaBounds.X {
 				return errMsg
 			}
 			golog.Global.Debugw("right", "amount", actualAmount)
 			newX = lar.basePosX + actualAmount
 		case 180:
-			if lar.basePosY+actualAmount >= lar.roomBounds.Y {
+			if lar.basePosY+actualAmount >= lar.areaBounds.Y {
 				return errMsg
 			}
 			golog.Global.Debugw("down", "amount", actualAmount)

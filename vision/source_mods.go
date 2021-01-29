@@ -1,21 +1,28 @@
 package vision
 
 import (
+	"github.com/echolabsinc/robotcore/utils"
+
 	"gocv.io/x/gocv"
 )
 
-type RotateSource struct {
-	Original MatSource
+type RotateMatDepthSource struct {
+	Original MatDepthSource
 }
 
-func (rs *RotateSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
-	m, d, err := rs.Original.NextColorDepthPair()
+func (rmds *RotateMatDepthSource) NextMat() (gocv.Mat, error) {
+	rotateSrc := utils.RotateMatSource{rmds.Original}
+	return rotateSrc.NextMat()
+}
+
+func (rmds *RotateMatDepthSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+	m, d, err := rmds.Original.NextMatDepthPair()
 	if err != nil {
 		return m, d, err
 	}
 	gocv.Rotate(m, &m, gocv.Rotate180Clockwise)
 
-	if d.HasData() {
+	if d != nil && d.HasData() {
 		// TODO(erh): make this faster
 		dm := d.ToMat()
 		defer dm.Close()
@@ -26,6 +33,6 @@ func (rs *RotateSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 	return m, d, nil
 }
 
-func (rs *RotateSource) Close() {
-	rs.Original.Close()
+func (rmds *RotateMatDepthSource) Close() {
+	rmds.Original.Close()
 }

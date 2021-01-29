@@ -34,7 +34,7 @@ func main() {
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
-	lidarDev, err := rplidar.NewRPLidar(lidarDevPath)
+	lidarDev, err := rplidar.NewDevice(lidarDevPath)
 	if err != nil {
 		panic(err)
 	}

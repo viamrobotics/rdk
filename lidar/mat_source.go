@@ -4,12 +4,10 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/echolabsinc/robotcore/vision"
-
 	"gocv.io/x/gocv"
 )
 
-// MatSource generates images from the curent scan of a lidar device
+// MatSource generates images from the current scan of a lidar device
 type MatSource struct {
 	device    Device
 	scaleDown int // scale down amount
@@ -21,10 +19,10 @@ func NewMatSource(device Device) *MatSource {
 	return &MatSource{device: device, scaleDown: scaleDown}
 }
 
-func (ms *MatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
+func (ms *MatSource) NextMat() (gocv.Mat, error) {
 	bounds, err := ms.device.Bounds()
 	if err != nil {
-		return gocv.Mat{}, vision.DepthMap{}, err
+		return gocv.Mat{}, err
 	}
 	scaleDown := ms.scaleDown
 	bounds.X *= scaleDown
@@ -36,7 +34,7 @@ func (ms *MatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
 
 	measurements, err := ms.device.Scan()
 	if err != nil {
-		return gocv.Mat{}, vision.DepthMap{}, err
+		return gocv.Mat{}, err
 	}
 
 	for _, next := range measurements {
@@ -45,7 +43,7 @@ func (ms *MatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
 		gocv.Circle(&out, p, 4, color.RGBA{R: 255}, 1)
 	}
 
-	return out, vision.DepthMap{}, nil
+	return out, nil
 }
 
 func (ms *MatSource) Close() {}

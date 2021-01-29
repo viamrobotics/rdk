@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
@@ -28,11 +29,11 @@ func main() {
 
 	flag.Parse()
 
-	var src vision.MatSource
+	var src utils.MatSource
 	var err error
 
 	if flag.NArg() == 0 {
-		src, err = vision.NewWebcamSource(0)
+		src, err = utils.NewWebcamSource(0)
 		if err != nil {
 			panic(err)
 		}

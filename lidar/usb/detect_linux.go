@@ -25,7 +25,7 @@ func DetectDevices() []lidar.DeviceDescription {
 	if err != nil {
 		return nil
 	}
-	var results []DeviceDescription
+	var results []lidar.DeviceDescription
 	for _, device := range devices {
 		linkedFile, err := os.Readlink(path.Join(sysPath, device.Name()))
 		if err != nil {
@@ -60,11 +60,11 @@ func DetectDevices() []lidar.DeviceDescription {
 			if err != nil {
 				continue
 			}
-			lidarType := checkUSBProductDevice(int(vendorID), int(productID))
-			if lidarType == TypeUnknown {
+			lidarType := checkProductDeviceIDs(int(vendorID), int(productID))
+			if lidarType == lidar.DeviceTypeUnknown {
 				continue
 			}
-			results = append(results, DeviceDescription{
+			results = append(results, lidar.DeviceDescription{
 				lidarType, filepath.Join("/dev", device.Name())})
 		}
 	}

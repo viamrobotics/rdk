@@ -142,32 +142,31 @@ func _readNext(r io.Reader) (int, error) {
 	return 0, fmt.Errorf("got %d bytes, and %s", x, err)
 }
 
-func ParseDepthMap(fn string) (DepthMap, error) {
-	dm := DepthMap{}
+func ParseDepthMap(fn string) (*DepthMap, error) {
 	var f io.Reader
 
 	f, err := os.Open(fn)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	if filepath.Ext(fn) == ".gz" {
 		f, err = gzip.NewReader(f)
 		if err != nil {
-			return dm, err
+			return nil, err
 		}
 	}
 
 	return ReadDepthMap(bufio.NewReader(f))
 }
 
-func ReadDepthMap(f *bufio.Reader) (DepthMap, error) {
+func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	var err error
 	dm := DepthMap{}
 
 	dm.width, err = _readNext(f)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	if dm.width == 6363110499870197078 { // magic number for VERSIONX
@@ -176,11 +175,11 @@ func ReadDepthMap(f *bufio.Reader) (DepthMap, error) {
 
 	dm.height, err = _readNext(f)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return dm, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
 	dm.data = make([][]int, dm.width)
@@ -190,68 +189,68 @@ func ReadDepthMap(f *bufio.Reader) (DepthMap, error) {
 		for y := 0; y < dm.height; y++ {
 			dm.data[x][y], err = _readNext(f)
 			if err != nil {
-				return dm, err
+				return nil, err
 			}
 		}
 	}
 
-	return dm, nil
+	return &dm, nil
 }
 
-func readDepthMapFormat2(r *bufio.Reader) (DepthMap, error) {
+func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	dm := DepthMap{}
 
 	// get past garbade
 	_, err := r.ReadString('\n')
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	bytesPerPixelString, err := r.ReadString('\n')
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 	bytesPerPixelString = strings.TrimSpace(bytesPerPixelString)
 
 	if bytesPerPixelString != "2" {
-		return dm, fmt.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
+		return nil, fmt.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
 	}
 
 	unitsString, err := r.ReadString('\n')
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 	unitsString = strings.TrimSpace(unitsString)
 	units, err := strconv.ParseFloat(unitsString, 64)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 	units = units * 1000 // m to mm
 
 	widthString, err := r.ReadString('\n')
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 	widthString = strings.TrimSpace(widthString)
 	x, err := strconv.ParseInt(widthString, 10, 64)
 	dm.width = int(x)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	heightString, err := r.ReadString('\n')
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 	heightString = strings.TrimSpace(heightString)
 	x, err = strconv.ParseInt(heightString, 10, 64)
 	dm.height = int(x)
 	if err != nil {
-		return dm, err
+		return nil, err
 	}
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return dm, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
 	temp := make([]byte, 2)
@@ -275,7 +274,7 @@ func readDepthMapFormat2(r *bufio.Reader) (DepthMap, error) {
 			}
 
 			if n != 2 || err != nil {
-				return dm, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
+				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
 			}
 
 			dm.data[x][y] = int(units * float64(binary.LittleEndian.Uint16(temp)))
@@ -283,10 +282,10 @@ func readDepthMapFormat2(r *bufio.Reader) (DepthMap, error) {
 		}
 	}
 
-	return dm, nil
+	return &dm, nil
 }
 
-func NewDepthMapFromMat(mat gocv.Mat) DepthMap {
+func NewDepthMapFromMat(mat gocv.Mat) *DepthMap {
 	dm := DepthMap{}
 
 	dm.width = mat.Cols()
@@ -310,7 +309,7 @@ func NewDepthMapFromMat(mat gocv.Mat) DepthMap {
 		}
 	}
 
-	return dm
+	return &dm
 }
 
 func (dm *DepthMap) WriteToFile(fn string) error {

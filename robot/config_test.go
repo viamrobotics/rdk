@@ -27,7 +27,7 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pic, _, err := r.Cameras[0].NextColorDepthPair()
+	pic, _, err := r.Cameras[0].NextMatDepthPair()
 	if err != nil {
 		t.Fatal(err)
 	}

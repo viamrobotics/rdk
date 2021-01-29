@@ -174,9 +174,9 @@ func (r *Rover) processLine(line string) {
 
 // ---
 
-func driveMyself(rover *Rover, camera vision.MatSource) {
+func driveMyself(rover *Rover, camera vision.MatDepthSource) {
 	for {
-		mat, dm, err := camera.NextColorDepthPair()
+		mat, dm, err := camera.NextMatDepthPair()
 		if err != nil {
 			golog.Global.Debugf("error reading camera: %s", err)
 			time.Sleep(2000 * time.Millisecond)
@@ -263,7 +263,7 @@ func main() {
 
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(&rover, robot.Component{})
-	theRobot.AddCamera(&vision.RotateSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
+	theRobot.AddCamera(&vision.RotateMatDepthSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
 
 	defer theRobot.Close()
 

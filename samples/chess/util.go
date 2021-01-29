@@ -151,7 +151,7 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Mov
 	return m, nil
 }
 
-func findDepthPeaks(dm vision.DepthMap, center image.Point, radius int) (image.Point, int, image.Point, int) {
+func findDepthPeaks(dm *vision.DepthMap, center image.Point, radius int) (image.Point, int, image.Point, int) {
 	var lowest, highest image.Point
 	lowestValue := 100000
 	highestValue := 0

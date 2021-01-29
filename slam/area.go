@@ -1,4 +1,4 @@
-package support
+package slam
 
 import (
 	"image"
@@ -7,13 +7,13 @@ import (
 	"github.com/james-bowman/sparse"
 )
 
-func NewSquareRoom(meters int, scaleTo int) *SquareRoom {
+func NewSquareArea(meters int, scaleTo int) *SquareArea {
 	measurementScaled := meters * scaleTo
 	points := sparse.NewDOK(measurementScaled, measurementScaled)
 	centerX := measurementScaled / 2
 	centerY := centerX
 
-	return &SquareRoom{
+	return &SquareArea{
 		sizeMeters: meters,
 		scale:      scaleTo,
 		points:     points,
@@ -22,7 +22,7 @@ func NewSquareRoom(meters int, scaleTo int) *SquareRoom {
 	}
 }
 
-type SquareRoom struct {
+type SquareArea struct {
 	mu         sync.Mutex
 	sizeMeters int
 	scale      int
@@ -31,21 +31,21 @@ type SquareRoom struct {
 	centerY    int
 }
 
-func (sr *SquareRoom) Size() (int, int) {
-	return sr.sizeMeters, sr.scale
+func (sa *SquareArea) Size() (int, int) {
+	return sa.sizeMeters, sa.scale
 }
 
-func (sr *SquareRoom) Center() image.Point {
-	return image.Point{sr.centerX, sr.centerY}
+func (sa *SquareArea) Center() image.Point {
+	return image.Point{sa.centerX, sa.centerY}
 }
 
-type MutableRoom interface {
+type MutableArea interface {
 	DoNonZero(visit func(x, y int, v float64))
 	Set(x, y int, v float64)
 }
 
-func (sr *SquareRoom) Mutate(mutator func(room MutableRoom)) {
-	sr.mu.Lock()
-	defer sr.mu.Unlock()
-	mutator(sr.points)
+func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
+	sa.mu.Lock()
+	defer sa.mu.Unlock()
+	mutator(sa.points)
 }

@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 )
 
-var registrations map[DeviceType]DeviceTypeRegistration
+var registrations = map[DeviceType]DeviceTypeRegistration{}
 var registrationsMu sync.Mutex
 
 type DeviceTypeRegistration struct {
