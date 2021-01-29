@@ -47,6 +47,10 @@ func (l *Lidar) SetPosition(pos image.Point) {
 	l.posY = pos.Y
 }
 
+func (l *Lidar) Seed() int64 {
+	return l.seed
+}
+
 func (l *Lidar) SetSeed(seed int64) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
