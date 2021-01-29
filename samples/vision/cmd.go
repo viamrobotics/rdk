@@ -15,15 +15,9 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/segmentation"
 
-	"fyne.io/fyne"
-	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/test"
-	"fyne.io/fyne/theme"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
-	fyneutils "github.com/edaniels/gostream/utils/fyne"
 	"github.com/gonum/stat"
 	"gocv.io/x/gocv"
 )
@@ -126,44 +120,21 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 	return nil
 }
 
-type ViewApp struct {
-	fyne.App
-	mainWindow fyne.Window
-}
-
-func newViewApp(img vision.Image) (*ViewApp, error) {
-	a := test.NewApp()
-	a.Settings().SetTheme(theme.DarkTheme())
-	w := a.NewWindow("Hello")
-	w.SetPadded(false)
-
-	mat := img.MatUnsafe()
-	i, err := mat.ToImage()
-	if err != nil {
-		return nil, err
-	}
-
-	i2 := canvas.NewImageFromImage(i)
-	i2.SetMinSize(fyne.Size{img.Width(), img.Height()})
-	w.SetContent(i2)
-
-	return &ViewApp{
-		App:        a,
-		mainWindow: w,
-	}, nil
-}
-
 func view(img vision.Image) error {
 	remoteView, err := gostream.NewRemoteView(vpx.DefaultRemoteViewConfig)
 	if err != nil {
 		return err
 	}
 
-	app, err := newViewApp(img)
+	var last image.Point
+	temp := img.MatUnsafe()
+	temp2, err := temp.ToImage()
 	if err != nil {
 		return err
 	}
-	var last image.Point
+
+	matImg := []image.Image{temp2}
+
 	remoteView.SetOnClickHandler(func(x, y int) {
 		if x < 0 || y < 0 {
 			return
@@ -187,13 +158,11 @@ func view(img vision.Image) error {
 
 		gocv.PutText(walked, text, image.Pt(10, 20),
 			gocv.FontHersheyPlain, 1, gocolor.RGBA{255, 255, 255, 0}, 1)
-		matImg, err := walked.ToImage()
+		temp, err := walked.ToImage()
 		if err != nil {
 			panic(err)
 		}
-		imageCanvas := canvas.NewImageFromImage(matImg)
-		imageCanvas.SetMinSize(fyne.Size{walked.Cols(), walked.Rows()})
-		app.mainWindow.SetContent(imageCanvas)
+		matImg[0] = temp
 	})
 
 	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
@@ -203,12 +172,15 @@ func view(img vision.Image) error {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go fyneutils.StreamWindow(cancelCtx, app.mainWindow, remoteView, 250*time.Millisecond)
-	app.mainWindow.ShowAndRun()
+	go gostream.StreamFuncOnce(
+		cancelCtx,
+		func() { time.Sleep(2 * time.Second) },
+		func() image.Image { return matImg[0] },
+		remoteView,
+		250*time.Millisecond)
 
 	<-c
 	cancelFunc()
-	app.mainWindow.Close()
 	remoteView.Stop()
 	return nil
 }
