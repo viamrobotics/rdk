@@ -24,28 +24,28 @@ func (dg *dummyGripper) Grab() (bool, error) {
 // ----------
 
 type dummyArm struct {
-	state arm.RobotState
+	position arm.CartesianInfo
 }
 
 func (da *dummyArm) Close() {
 }
 
-func (da *dummyArm) State() arm.RobotState {
-	return da.state
+func (da *dummyArm) CurrentPosition() (arm.CartesianInfo, error) {
+	return da.position, nil
 }
 
 func (da *dummyArm) MoveToPositionC(c arm.CartesianInfo) error {
-	da.state.CartesianInfo = c
+	da.position = c
 	return nil
 }
 
 func (da *dummyArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
-	da.state.CartesianInfo.X = x
-	da.state.CartesianInfo.Y = z
-	da.state.CartesianInfo.Z = z
-	da.state.CartesianInfo.Rx = rx
-	da.state.CartesianInfo.Ry = rx
-	da.state.CartesianInfo.Rz = rz
+	da.position.X = x
+	da.position.Y = z
+	da.position.Z = z
+	da.position.Rx = rx
+	da.position.Ry = rx
+	da.position.Rz = rz
 	return nil
 }
 

@@ -58,9 +58,12 @@ func getCoord(chess string) pos {
 
 func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 	// first make sure in safe position
-	where := myArm.State().CartesianInfo
+	where, err := myArm.CurrentPosition()
+	if err != nil {
+		return err
+	}
 	where.Z = SafeMoveHeight + heightMod
-	err := myArm.MoveToPositionC(where)
+	err = myArm.MoveToPositionC(where)
 	if err != nil {
 		return err
 	}
@@ -112,7 +115,10 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where := myArm.State().CartesianInfo
+	where, err := myArm.CurrentPosition()
+	if err != nil {
+		return err
+	}
 	where.Z = BoardHeight + (height / 1000) + .01
 	myArm.MoveToPositionC(where)
 
@@ -132,7 +138,10 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 			return err
 		}
 		golog.Global.Debug("no piece")
-		where = myArm.State().CartesianInfo
+		where, err = myArm.CurrentPosition()
+		if err != nil {
+			return err
+		}
 		where.Z = where.Z - .01
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
@@ -167,14 +176,21 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 	}
 
 	// drop piece
-	where = myArm.State().CartesianInfo
+	where, err = myArm.CurrentPosition()
+	if err != nil {
+		return err
+	}
+
 	where.Z = saveZ
 	myArm.MoveToPositionC(where)
 
 	myGripper.Open()
 
 	if to != "-" {
-		where = myArm.State().CartesianInfo
+		where, err = myArm.CurrentPosition()
+		if err != nil {
+			return err
+		}
 		where.Z = SafeMoveHeight
 		myArm.MoveToPositionC(where)
 
@@ -186,7 +202,10 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 func moveOutOfWay(myArm arm.Arm) error {
 	foo := getCoord("a1")
 
-	where := myArm.State().CartesianInfo
+	where, err := myArm.CurrentPosition()
+	if err != nil {
+		return err
+	}
 	where.X = foo.x
 	where.Y = foo.y
 	where.Z = SafeMoveHeight + .3 // HARD CODED
@@ -282,9 +301,11 @@ func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Poin
 
 func lookForBoardAdjust(myArm arm.Arm, wristCam utils.MatSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
-	var err error
 	for {
-		where := myArm.State().CartesianInfo
+		where, err := myArm.CurrentPosition()
+		if err != nil {
+			return err
+		}
 		center := vision.Center(corners, 10000)
 
 		xRatio := float64(center.X) / float64(imageSize.X)
@@ -334,14 +355,17 @@ func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where := myArm.State().CartesianInfo
+		where, err := myArm.CurrentPosition()
+		if err != nil {
+			return err
+		}
 		where.X = -0.42
 		where.Y = 0.02
 		where.Z = 0.6
 		where.Rx = -2.600206
 		where.Ry = -0.007839
 		where.Rz = -0.061827
-		err := myArm.MoveToPositionC(where)
+		err = myArm.MoveToPositionC(where)
 		if err != nil {
 			return err
 		}
@@ -380,7 +404,10 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 	arm := robot.Arms[0]
 
 	for {
-		where := arm.State().CartesianInfo
+		where, err := arm.CurrentPosition()
+		if err != nil {
+			return err
+		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
 		_, dm, err := cam.NextMatDepthPair()

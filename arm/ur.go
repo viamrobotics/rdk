@@ -64,6 +64,10 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
+func (arm *URArm) CurrentPosition() (CartesianInfo, error) {
+	return arm.State().CartesianInfo, nil
+}
+
 func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 	if joint < 0 || joint > 5 {
 		return fmt.Errorf("invalid joint")

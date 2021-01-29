@@ -173,7 +173,12 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 			return
 		}
 
-		where := theRobot.Arms[arm].State().CartesianInfo
+		where, err := theRobot.Arms[arm].CurrentPosition()
+		if err != nil {
+			golog.Global.Debugf("arm CurrentPosition failed: %s", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		if mode == "abs" {
 			vals := []int64{}
