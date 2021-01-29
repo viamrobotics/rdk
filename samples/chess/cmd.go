@@ -60,7 +60,7 @@ func getCoord(chess string) pos {
 	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)} // HARD CODED
 }
 
-func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
+func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 	// first make sure in safe position
 	where := myArm.State().CartesianInfo
 	where.Z = SafeMoveHeight + heightMod
@@ -83,7 +83,7 @@ func moveTo(myArm *arm.URArm, chess string, heightMod float64) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm *arm.URArm, myGripper gripper.Gripper, from, to string) error {
+func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -187,7 +187,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm *arm.URAr
 	return nil
 }
 
-func moveOutOfWay(myArm *arm.URArm) error {
+func moveOutOfWay(myArm arm.Arm) error {
 	foo := getCoord("a1")
 
 	where := myArm.State().CartesianInfo
@@ -198,7 +198,7 @@ func moveOutOfWay(myArm *arm.URArm) error {
 	return myArm.MoveToPositionC(where)
 }
 
-func initArm(myArm *arm.URArm) error {
+func initArm(myArm arm.Arm) error {
 	// temp init, what to do?
 	rx := -math.Pi
 	ry := 0.0
@@ -301,7 +301,7 @@ func getWristPicCorners(wristCam vision.MatSource, debugNumber int) ([]image.Poi
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(myArm arm.Arm, wristCam vision.MatSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	var err error
 	for {
@@ -345,7 +345,7 @@ func lookForBoardAdjust(myArm *arm.URArm, wristCam vision.MatSource, corners []i
 
 }
 
-func lookForBoard(myArm *arm.URArm, myRobot *robot.Robot) error {
+func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 	debugNumber := 0
 
 	wristCam := myRobot.CameraByName("wristCam")
