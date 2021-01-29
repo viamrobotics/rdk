@@ -472,8 +472,16 @@ func main() {
 	}
 	defer myRobot.Close()
 
+	if len(myRobot.Arms) == 0 {
+		panic("need an arm")
+	}
 	myArm := myRobot.Arms[0]
+
+	if len(myRobot.Grippers) == 0 {
+		panic("need a gripper")
+	}
 	myGripper := myRobot.Grippers[0]
+
 	webcam := myRobot.CameraByName("cameraOver")
 	if webcam == nil {
 		panic("can't find cameraOver camera")

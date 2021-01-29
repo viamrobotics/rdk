@@ -1,0 +1,23 @@
+{
+    "components": [
+        {
+            "model": "dummy",
+            "name": "pieceGripper",
+            "type": "gripper"
+        },
+        {
+            "model": "file",
+            "name": "cameraOver",
+            "type": "camera",
+            "attributes": {
+                "color": "vision/chess/data/board3.png",
+                "depth": "vision/chess/data/board3.dat.gz"
+            }
+        },
+        {
+            "model": "dummy",
+            "name": "pieceArm",
+            "type": "arm"
+        }
+    ]
+}

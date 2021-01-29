@@ -153,6 +153,8 @@ func newArm(config Component) (*arm.URArm, error) {
 	switch config.Model {
 	case "ur":
 		return arm.URArmConnect(config.Host)
+	case "dummy":
+		return nil, nil
 	default:
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
@@ -172,6 +174,9 @@ func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) 
 		time.Sleep(1000 * time.Millisecond) // wait for startup?
 
 		return gripper.NewSerialGripper(port)
+	case "dummy":
+		// TODO(erh): finish me
+		return &dummyGripper{}, nil
 	default:
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
@@ -190,6 +195,9 @@ func newCamera(config Component) (vision.MatSource, error) {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
 		return &vision.HTTPSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+
+	case "file":
+		return &vision.FileSource{config.Attributes["color"], config.Attributes["depth"]}, nil
 
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
