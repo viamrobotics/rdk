@@ -86,7 +86,7 @@ func (e *eva) CurrentPosition() (CartesianInfo, error) {
 	ci.Rx = fk.Orientation.X
 	ci.Ry = fk.Orientation.Y
 	ci.Rz = fk.Orientation.Z
-	ci.W = fk.Orientation.W
+	//ci.W = fk.Orientation.W
 
 	return ci, nil
 }
@@ -103,7 +103,7 @@ func (e *eva) MoveToPositionC(c CartesianInfo) error {
 	}
 
 	// TODO(erh): what??
-	k.Orientation.W = data.W
+	//k.Orientation.W = data.W
 	k.Orientation.X = data.Rx
 	k.Orientation.Y = data.Ry
 	k.Orientation.Z = data.Rz
@@ -242,7 +242,7 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	}
 
 	if block {
-		golog.Global.Debugf("eva unlock failed: %s", err)
+		golog.Global.Debugf("i don't know how to block: %s", err)
 		time.Sleep(1000 * time.Millisecond)
 	}
 	return nil
