@@ -19,6 +19,7 @@ type MatSource interface {
 	Close()
 }
 
+// -----
 type StaticSource struct {
 	pc *PointCloud
 }
@@ -29,6 +30,29 @@ func (ss *StaticSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
 
 func (ss *StaticSource) Close() {
 	ss.pc.Close()
+}
+
+// -----
+
+type FileSource struct {
+	ColorFN string
+	DepthFN string
+}
+
+func (fs *FileSource) NextColorDepthPair() (gocv.Mat, DepthMap, error) {
+	var mat gocv.Mat
+	var dm DepthMap
+	var err error
+
+	if fs.ColorFN != "" {
+		mat = gocv.IMRead(fs.ColorFN, gocv.IMReadUnchanged)
+	}
+
+	dm, err = ParseDepthMap(fs.DepthFN)
+	return mat, dm, err
+}
+
+func (fs *FileSource) Close() {
 }
 
 // ------
