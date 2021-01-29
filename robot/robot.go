@@ -14,7 +14,7 @@ import (
 )
 
 type Robot struct {
-	Arms         []*arm.URArm      // TODO(erh): use interface
+	Arms         []arm.Arm         // TODO(erh): use interface
 	Grippers     []gripper.Gripper // TODO(erh): use interface
 	Cameras      []vision.MatSource
 	LidarDevices []lidar.Device
@@ -27,7 +27,7 @@ type Robot struct {
 	baseComponents    []Component
 }
 
-func (r *Robot) ArmByName(name string) *arm.URArm {
+func (r *Robot) ArmByName(name string) arm.Arm {
 	for i, c := range r.armComponents {
 		if c.Name == name {
 			return r.Arms[i]
@@ -63,7 +63,7 @@ func (r *Robot) LidarDeviceByName(name string) lidar.Device {
 	return nil
 }
 
-func (r *Robot) AddArm(a *arm.URArm, c Component) {
+func (r *Robot) AddArm(a arm.Arm, c Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
 }
@@ -149,12 +149,12 @@ func NewRobot(cfg Config) (*Robot, error) {
 	return r, nil
 }
 
-func newArm(config Component) (*arm.URArm, error) {
+func newArm(config Component) (arm.Arm, error) {
 	switch config.Model {
 	case "ur":
 		return arm.URArmConnect(config.Host)
 	case "dummy":
-		return nil, nil
+		return &dummyArm{}, nil
 	default:
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
@@ -175,7 +175,6 @@ func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) 
 
 		return gripper.NewSerialGripper(port)
 	case "dummy":
-		// TODO(erh): finish me
 		return &dummyGripper{}, nil
 	default:
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
