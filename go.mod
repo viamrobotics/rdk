@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.73.0 // indirect
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210127162038-7e27999d060f
+	github.com/edaniels/gostream v0.0.0-20210129220540-ae73274fbb3f
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
