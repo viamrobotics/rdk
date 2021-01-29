@@ -15,7 +15,7 @@ import (
 
 type Board struct {
 	color  vision.Image // TODO(erh): should we get rid of
-	depth  vision.DepthMap
+	depth  *vision.DepthMap
 	edges  *gocv.Mat
 	logger golog.Logger
 }
@@ -39,7 +39,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 	return FindAndWarpBoard(img, dm)
 }
 
-func FindAndWarpBoard(color vision.Image, depth vision.DepthMap) (*Board, error) {
+func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error) {
 	corners, err := findChessCorners(color, nil)
 	if err != nil {
 		return nil, err

@@ -11,7 +11,7 @@ import (
 )
 
 type PointCloud struct {
-	Depth DepthMap
+	Depth *DepthMap
 	Color Image
 }
 
@@ -30,7 +30,7 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointClo
 	warped := gocv.NewMat()
 	gocv.WarpPerspective(pc.Color.MatUnsafe(), &warped, m, newSize)
 
-	var warpedDepth DepthMap
+	var warpedDepth *DepthMap
 	if pc.Depth.Width() > 0 {
 		dm := pc.Depth.ToMat()
 		defer dm.Close()

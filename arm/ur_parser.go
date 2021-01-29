@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/echolabsinc/robotcore/utils"
+
 	"github.com/edaniels/golog"
 )
 
@@ -37,7 +39,7 @@ type JointData struct {
 }
 
 func (j JointData) AngleDegrees() float64 {
-	return convertRtoD(j.Qactual)
+	return utils.RadToDeg(j.Qactual)
 }
 
 type ToolData struct {

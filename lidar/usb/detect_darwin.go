@@ -20,7 +20,7 @@ func DetectDevices() []lidar.DeviceDescription {
 	if _, err := plist.Unmarshal(out, &data); err != nil {
 		return nil
 	}
-	var results []DeviceDescription
+	var results []lidar.DeviceDescription
 	for _, device := range data {
 		if device["IOTTYBaseName"] != "usbserial-" {
 			continue
@@ -33,8 +33,8 @@ func DetectDevices() []lidar.DeviceDescription {
 		if !ok {
 			continue
 		}
-		lidarType := checkUSBProductDevice(int(idVendor), int(idProduct))
-		if lidarType == DeviceTypeUnknown {
+		lidarType := checkProductDeviceIDs(int(idVendor), int(idProduct))
+		if lidarType == lidar.DeviceTypeUnknown {
 			continue
 		}
 
@@ -57,7 +57,7 @@ func DetectDevices() []lidar.DeviceDescription {
 			}
 		}
 		if dialinDevice != "" {
-			results = append(results, DeviceDescription{lidarType, dialinDevice})
+			results = append(results, lidar.DeviceDescription{lidarType, dialinDevice})
 		}
 	}
 	return results

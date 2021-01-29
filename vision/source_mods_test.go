@@ -14,9 +14,9 @@ func TestRotateSource(t *testing.T) {
 
 	source := &StaticSource{pc}
 
-	rs := &RotateSource{source}
+	rs := &RotateMatDepthSource{source}
 
-	m, _, err := rs.NextColorDepthPair()
+	m, _, err := rs.NextMatDepthPair()
 	if err != nil {
 		t.Fatal(err)
 	}

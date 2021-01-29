@@ -14,7 +14,7 @@ var (
 	MinPieceDepth        = 9.9999
 )
 
-func warpColorAndDepthToChess(color vision.Image, depth vision.DepthMap, corners []image.Point) (vision.Image, vision.DepthMap, error) {
+func warpColorAndDepthToChess(color vision.Image, depth *vision.DepthMap, corners []image.Point) (vision.Image, *vision.DepthMap, error) {
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),

@@ -26,7 +26,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 	d.GotDebugImage(out, "corners")
 
 	if corners != nil {
-		warped, _, err := warpColorAndDepthToChess(img, vision.DepthMap{}, corners)
+		warped, _, err := warpColorAndDepthToChess(img, &vision.DepthMap{}, corners)
 		if err != nil {
 			return err
 		}
