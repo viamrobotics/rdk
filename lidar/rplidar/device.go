@@ -4,11 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"math"
 
 	"github.com/echolabsinc/robotcore/lidar"
 	rplidargen "github.com/echolabsinc/robotcore/lidar/rplidar/gen"
+	"github.com/echolabsinc/robotcore/utils"
 )
+
+const DeviceType = lidar.DeviceType("RPLidar")
+
+func init() {
+	lidar.RegisterDeviceType(DeviceType, lidar.DeviceTypeRegistration{
+		New: func(desc lidar.DeviceDescription) (lidar.Device, error) {
+			return NewDevice(desc.Path)
+		},
+	})
+}
 
 type Result uint32
 type ResultError struct {
@@ -65,8 +75,7 @@ func (r ResultError) Error() string {
 
 const defaultTimeout = uint(1000)
 
-func NewRPLidar(devicePath string) (*RPLidar, error) {
-
+func NewDevice(devicePath string) (*RPLidar, error) {
 	var driver rplidargen.RPlidarDriver
 	devInfo := rplidargen.NewRplidar_response_device_info_t()
 	defer rplidargen.DeleteRplidar_response_device_info_t(devInfo)
@@ -233,7 +242,7 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 		}
 
 		nodeAngle := (float64(node.GetAngle_z_q14()) * 90 / (1 << 14))
-		nodeAngle = nodeAngle * math.Pi / 180
+		nodeAngle = utils.DegToRad(nodeAngle)
 		nodeDistance := float64(node.GetDist_mm_q2()) / 4
 		measurements = append(measurements, lidar.NewMeasurement(nodeAngle, nodeDistance/1000))
 	}

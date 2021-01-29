@@ -15,6 +15,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -176,9 +177,8 @@ func (lar *LocationAwareRobot) update() {
 	basePosX, basePosY := lar.basePos()
 
 	for _, dev := range lar.devices {
-		if fake, ok := dev.(*FakeLidar); ok {
-			fake.posX = basePosX
-			fake.posY = basePosY
+		if fake, ok := dev.(*lidar.FakedNoiseDevice); ok {
+			fake.SetPosition(image.Point{basePosX, basePosY})
 		}
 	}
 	allMeasurements := make([]lidar.Measurements, len(lar.devices))
@@ -207,7 +207,7 @@ func (lar *LocationAwareRobot) update() {
 			x, y := next.Coords()
 			if adjust {
 				angle += offsets.Angle
-				angleRad := offsets.Angle * math.Pi / 180
+				angleRad := utils.DegToRad(offsets.Angle)
 				// rotate vector around base ccw
 				newX := math.Cos(angleRad)*x - math.Sin(angleRad)*y
 				newY := math.Sin(angleRad)*x + math.Cos(angleRad)*y
@@ -314,8 +314,9 @@ func (lar *LocationAwareRobot) NextColorDepthPair() (gocv.Mat, vision.DepthMap, 
 		// 90°  -  (1, 0) // Right
 		// 180° -  (0, 1) // Down
 		// 270° -  (-1,0) // Left
-		x := distance * math.Sin(orientation*math.Pi/180)
-		y := distance * -math.Cos(orientation*math.Pi/180)
+		orientationRads := utils.DegToRad(orientation)
+		x := distance * math.Sin(orientationRads)
+		y := distance * -math.Cos(orientationRads)
 		relX := centerX + int(x)
 		relY := centerY + int(y)
 		p := image.Point{relX, relY}
@@ -418,8 +419,8 @@ func (lar *LocationAwareRobot) HandleData(data []byte, respondMsg func(msg strin
 		if err != nil {
 			return err
 		}
-		if fake, ok := lar.devices[0].(*FakeLidar); ok {
-			fake.Seed = seed
+		if fake, ok := lar.devices[0].(*lidar.FakedNoiseDevice); ok {
+			fake.SetSeed(seed)
 		}
 		respondMsg(seedStr)
 	} else if bytes.HasPrefix(data, []byte("cl_zoom ")) {

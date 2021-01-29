@@ -9,6 +9,7 @@ import (
 	"gocv.io/x/gocv"
 )
 
+// MatSource generates images from the curent scan of a lidar device
 type MatSource struct {
 	device    Device
 	scaleDown int // scale down amount
@@ -38,17 +39,10 @@ func (ms *MatSource) NextColorDepthPair() (gocv.Mat, vision.DepthMap, error) {
 		return gocv.Mat{}, vision.DepthMap{}, err
 	}
 
-	var drawLine bool
-	// drawLine = true
-
 	for _, next := range measurements {
 		x, y := next.Coords()
 		p := image.Point{centerX + int(x*float64(scaleDown)), centerY + int(y*float64(scaleDown))}
-		if drawLine {
-			gocv.Line(&out, image.Point{centerX, centerY}, p, color.RGBA{R: 255}, 1)
-		} else {
-			gocv.Circle(&out, p, 4, color.RGBA{R: 255}, 1)
-		}
+		gocv.Circle(&out, p, 4, color.RGBA{R: 255}, 1)
 	}
 
 	return out, vision.DepthMap{}, nil
