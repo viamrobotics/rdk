@@ -14,8 +14,8 @@ import (
 )
 
 type Robot struct {
-	Arms         []arm.Arm         // TODO(erh): use interface
-	Grippers     []gripper.Gripper // TODO(erh): use interface
+	Arms         []arm.Arm
+	Grippers     []gripper.Gripper
 	Cameras      []vision.MatDepthSource
 	LidarDevices []lidar.Device
 	Bases        []base.Base
