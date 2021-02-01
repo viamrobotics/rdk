@@ -1,6 +1,7 @@
 package arm
 
 import (
+	"fmt"
 	"github.com/echolabsinc/robotcore/utils"
 )
 
@@ -8,6 +9,11 @@ type Position struct {
 	X, Y, Z float64 // meters of the end effector from the base
 
 	Rx, Ry, Rz float64 // rotations around each axis, in degrees
+}
+
+func (p Position) NondelimitedString() string {
+	return fmt.Sprintf("%f %f %f %f %f %f",
+		p.X, p.Y, p.Z, p.Rx, p.Ry, p.Rz)
 }
 
 func (p Position) RxRadians() float64 {
