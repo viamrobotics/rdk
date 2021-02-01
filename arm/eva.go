@@ -83,8 +83,6 @@ func (e *eva) CurrentPosition() (CartesianInfo, error) {
 		return CartesianInfo{}, err
 	}
 
-	golog.Global.Debugf("eva CurrentPosition %v", fk)
-
 	ci := CartesianInfo{}
 	ci.X = fk.Position.X
 	ci.Y = fk.Position.Y
