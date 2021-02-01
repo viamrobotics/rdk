@@ -8,9 +8,12 @@
 
       function makeApiCall(path) {
           console.log(path);
-          var xhttp = new XMLHttpRequest();
-          xhttp.open("GET", path, true);
-          xhttp.send();
+          fetch( path, { method: "POST"})
+              .then(function(response) {
+                  return response.json();})
+              .then( function(response) {
+                  document.getElementById("res").innerHTML = JSON.stringify(response);
+              });
       }
 
       window.onkeypress = function(k) {
@@ -22,8 +25,11 @@
 
       }
 
-      function armInc(arm, action) {
-          var path = "/api/arm?num=" + arm + "&mode=inc&" + action;
+      function armInc(arm, action, mode) {
+          if (!mode) {
+              mode = "grid"
+          }
+          var path = "/api/arm?num=" + arm + "&mode=" + mode + "&action=inc&" + action;
           makeApiCall(path);
       }
 
@@ -39,6 +45,9 @@
     </script>
   </head>
   <body>
+
+    <div id="res"></div>
+    
     {{ range $b := .Bases }}
     <div class="base">
       {{ $b }}
@@ -55,19 +64,39 @@
 
     {{ range $idx, $a := .Arms }}
     <div class="arm">
-      Arm {{ $a }}
-      <ul>
-        <li><button onclick="armInc({{ $idx }}, 'x=2')">X+</button></li>
-        <li><button onclick="armInc({{ $idx }}, 'x=-2')">X-</button></li>
-
-        <li><button onclick="armInc({{ $idx }}, 'y=2')">Y+</button></li>
-        <li><button onclick="armInc({{ $idx }}, 'y=-2')">Y-</button></li>
-
-
-        <li><button onclick="armInc({{ $idx }}, 'z=2')">Z+</button></li>
-        <li><button onclick="armInc({{ $idx }}, 'z=-2')">Z-</button></li>
-
-      </ul>
+      <h3>Arm {{ $a }}</h3>
+      <table>
+        <tr>
+          <th><h5>GRID</h5></th>
+          <th><h5>JOINTS</h5></th>
+        </tr>
+        <tr>
+          <td>
+            <ul>
+              <li><button onclick="armInc({{ $idx }}, 'x=2')">X+</button></li>
+              <li><button onclick="armInc({{ $idx }}, 'x=-2')">X-</button></li>
+              
+              <li><button onclick="armInc({{ $idx }}, 'y=2')">Y+</button></li>
+              <li><button onclick="armInc({{ $idx }}, 'y=-2')">Y-</button></li>
+              
+              
+              <li><button onclick="armInc({{ $idx }}, 'z=2')">Z+</button></li>
+              <li><button onclick="armInc({{ $idx }}, 'z=-2')">Z-</button></li>
+              
+            </ul>
+          </td>
+          <td>
+            <ul>
+              {{template "J" list $idx 0}}
+              {{template "J" list $idx 1}}
+              {{template "J" list $idx 2}}
+              {{template "J" list $idx 3}}
+              {{template "J" list $idx 4}}
+              {{template "J" list $idx 5}}
+            </ul>
+          </td>
+        </tr>
+      </table>
     </div>
     {{ end }}
 
@@ -96,3 +125,10 @@
     
   </body>
 </html>
+{{define "J"}}
+<li>
+  Joint {{index . 1}}
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">-</button>
+</li>
+{{end}}
