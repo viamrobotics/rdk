@@ -2,67 +2,67 @@ package arm
 
 import (
 	"fmt"
-	"time"
-	"math"
-	"strings"
-	"strconv"
 	"github.com/echolabsinc/dynamixel/servo"
 	"github.com/reiver/go-telnet"
+	"math"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // Note: kinConn is NOT FOR COMMUNICATING WITH THE ROBOT
 // That is done directly via serial joint/servo control
 // kinConn is only for communicating with the forward/inverse kinematics provider
-type Wx250s struct{
+type Wx250s struct {
 	kinConn *telnet.Conn
-	Joints map[string][]*servo.Servo
+	Joints  map[string][]*servo.Servo
 }
 
 // servoPosToRadians takes a 360 degree 0-4096 servo position, centered at 2048,
 // and converts it to radians, centered at 0
-func servoPosToRadians(pos float64) float64{
-	return (pos - 2048) * (math.Pi/2048)
+func servoPosToRadians(pos float64) float64 {
+	return (pos - 2048) * (math.Pi / 2048)
 }
 
 // servoPosToRadians takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048
-func radiansToServoPos(pos float64) int{
-	return int(2048 + (pos/math.Pi) * 2048)
+func radiansToServoPos(pos float64) int {
+	return int(2048 + (pos/math.Pi)*2048)
 }
 
 // servoPosToRadians takes a 360 degree 0-4096 servo position, centered at 2048,
 // and converts it to radians, centered at 0
-func servoPosToDegree(pos float64) float64{
-	return (pos - 2048) * (180/2048)
+func servoPosToDegree(pos float64) float64 {
+	return (pos - 2048) * (180 / 2048)
 }
 
 // servoPosToRadians takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048
-func degreeToServoPos(pos float64) int{
-	return int(2048 + (pos/180) * 2048)
+func degreeToServoPos(pos float64) int {
+	return int(2048 + (pos/180)*2048)
 }
 
 // TODO: Probably want to add/replace things with maybe Joint objects
 // TODO: Find a better way of representing things like sleep angles, home angles, etc
 // Currently this is hacked together to make a proof of concept for fk/ik
-func NewWx250s(servos []*servo.Servo) *Wx250s{
+func NewWx250s(servos []*servo.Servo) *Wx250s {
 	conn, _ := telnet.DialTo("localhost:11235")
 	return &Wx250s{
-		kinConn : conn,
+		kinConn: conn,
 		Joints: map[string][]*servo.Servo{
-			"Waist":       []*servo.Servo{servos[0]},
-			"Shoulder":    []*servo.Servo{servos[1],servos[2]},
-			"Elbow":       []*servo.Servo{servos[3],servos[4]},
-			"Forearm_rot": []*servo.Servo{servos[5]},
-			"Wrist":       []*servo.Servo{servos[6]},
-			"Wrist_rot":   []*servo.Servo{servos[7]},
-			"Gripper":     []*servo.Servo{servos[8]},
+			"Waist":       {servos[0]},
+			"Shoulder":    {servos[1], servos[2]},
+			"Elbow":       {servos[3], servos[4]},
+			"Forearm_rot": {servos[5]},
+			"Wrist":       {servos[6]},
+			"Wrist_rot":   {servos[7]},
+			"Gripper":     {servos[8]},
 		},
 	}
 }
 
 //
-func (a *Wx250s) CurrentPosition() (CartesianInfo, error){
+func (a *Wx250s) CurrentPosition() (Position, error) {
 
-	ci := CartesianInfo{}
+	ci := Position{}
 	setJointTelNums := []float64{}
 	var cartPos string
 
@@ -71,7 +71,7 @@ func (a *Wx250s) CurrentPosition() (CartesianInfo, error){
 	if err != nil {
 		return ci, err
 	}
-	for _, j := range(curPos[0:6]){
+	for _, j := range curPos[0:6] {
 		setJointTelNums = append(setJointTelNums, j)
 	}
 
@@ -98,18 +98,18 @@ func (a *Wx250s) CurrentPosition() (CartesianInfo, error){
 
 	cartPosList := strings.Fields(cartPos)
 	var cartFloatList []float64
-	for _, floatStr := range(cartPosList){
+	for _, floatStr := range cartPosList {
 		floatVal, err := strconv.ParseFloat(floatStr, 64)
 		if err == nil {
 			cartFloatList = append(cartFloatList, floatVal)
-		}else{
+		} else {
 			return ci, err
 		}
 	}
 
-	ci.X  = cartFloatList[0]
-	ci.Y  = cartFloatList[1]
-	ci.Z  = cartFloatList[2]
+	ci.X = cartFloatList[0]
+	ci.Y = cartFloatList[1]
+	ci.Z = cartFloatList[2]
 	ci.Rx = cartFloatList[3]
 	ci.Ry = cartFloatList[4]
 	ci.Rz = cartFloatList[5]
@@ -117,7 +117,7 @@ func (a *Wx250s) CurrentPosition() (CartesianInfo, error){
 }
 
 //TODO: Motion planning rather than just setting the position
-func (a *Wx250s) MoveToPositionC(c CartesianInfo) error{
+func (a *Wx250s) MoveToPosition(c Position) error {
 	var jointPos string
 	// "3 0" is magic telnet speak for "here are my goal cartesian parameters"
 	err := a.telnetSend("3 0 " + c.NondelimitedString())
@@ -137,11 +137,11 @@ func (a *Wx250s) MoveToPositionC(c CartesianInfo) error{
 	}
 	jointPosList := strings.Fields(jointPos)
 	var servoPosList []float64
-	for _, floatStr := range(jointPosList){
+	for _, floatStr := range jointPosList {
 		floatVal, err := strconv.ParseFloat(floatStr, 64)
 		if err == nil {
 			servoPosList = append(servoPosList, floatVal)
-		}else{
+		} else {
 			return err
 		}
 	}
@@ -151,21 +151,15 @@ func (a *Wx250s) MoveToPositionC(c CartesianInfo) error{
 	return a.MoveToJointPositions(servoPosList)
 }
 
-func (a *Wx250s) MoveToPosition(x, y, z, rx, ry, rz float64) error{
-	// Use cartesian input because it gives me nice easy string formatting
-	return a.MoveToPositionC(CartesianInfo{X:x, Y:y, Z:z, Rx:rx, Ry:ry, Rz:rz})
-}
-
-
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that positon
-func (a *Wx250s) MoveToJointPositions(positions []float64) error{
-	if(len(positions) > len(a.JointOrder())){
+func (a *Wx250s) MoveToJointPositions(positions []float64) error {
+	if len(positions) > len(a.JointOrder()) {
 		return fmt.Errorf("Passed in too many positions")
 	}
 
 	// TODO: make configurable
 	block := false
-	for i, pos := range(positions){
+	for i, pos := range positions {
 		err := a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 		if err != nil {
 			return err
@@ -175,14 +169,14 @@ func (a *Wx250s) MoveToJointPositions(positions []float64) error{
 }
 
 // CurrentJointPositions returns a sorted (base outwards) slice of joint angles in radians
-func (a *Wx250s) CurrentJointPositions() ([]float64, error){
+func (a *Wx250s) CurrentJointPositions() ([]float64, error) {
 	var positions []float64
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return positions, err
 	}
 
-	for _, jointName := range(a.JointOrder()){
+	for _, jointName := range a.JointOrder() {
 		//2048 is the halfway position for Dynamixel servos
 		// TODO: Function for servo pos/degree/radian conversion
 		positions = append(positions, servoPosToRadians(angleMap[jointName]))
@@ -195,7 +189,7 @@ func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {
 }
 
 // Close will get the arm ready to be turned off
-func (a *Wx250s) Close(){
+func (a *Wx250s) Close() {
 	err := a.SleepPosition()
 	if err == nil {
 		a.TorqueOff()
@@ -203,25 +197,25 @@ func (a *Wx250s) Close(){
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position
-func (a *Wx250s) GetAllAngles() (map[string]float64, error){
+func (a *Wx250s) GetAllAngles() (map[string]float64, error) {
 	angles := make(map[string]float64)
-	for jointName, servos := range(a.Joints){
+	for jointName, servos := range a.Joints {
 		angleSum := 0
-		for _, s := range(servos){
+		for _, s := range servos {
 			pos, err := s.PresentPosition()
 			if err != nil {
 				return angles, err
 			}
 			angleSum += pos
 		}
-		angleMean := float64(angleSum/len(servos))
+		angleMean := float64(angleSum / len(servos))
 		angles[jointName] = angleMean
 	}
 	return angles, nil
 }
 
-func (a *Wx250s) JointOrder() []string{
-	return []string{"Waist","Shoulder","Elbow","Forearm_rot","Wrist","Wrist_rot","Gripper"}
+func (a *Wx250s) JointOrder() []string {
+	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot", "Gripper"}
 }
 
 // Note: there are a million and a half different ways to move servos
@@ -231,20 +225,19 @@ func (a *Wx250s) JointOrder() []string{
 // TODO: Configurable waiting for movement to complete or not
 // TODO: write more TODOS for nice-to-have features
 
-
 // Grippers are special because they use PWM by default rather than position control
 // Note that goal PWM values not in [-350:350] may cause the servo to overload, necessitating an arm reboot
 // TODO: Track position or something rather than just have a timer
-func (a *Wx250s) CloseGripper(block bool) error{
+func (a *Wx250s) CloseGripper(block bool) error {
 	err := a.Joints["Gripper"][0].SetGoalPWM(-350)
-	if block{
+	if block {
 		servo.WaitForMovementVar(a.Joints["Gripper"][0])
 	}
 	return err
 }
 
 // See CloseGripper()
-func (a *Wx250s) OpenGripper() error{
+func (a *Wx250s) OpenGripper() error {
 	err := a.Joints["Gripper"][0].SetGoalPWM(250)
 	if err != nil {
 		return err
@@ -252,16 +245,16 @@ func (a *Wx250s) OpenGripper() error{
 
 	// We don't want to over-open
 	atPos := false
-	for !atPos{
+	for !atPos {
 		var pos int
 		pos, err = a.Joints["Gripper"][0].PresentPosition()
 		if err != nil {
 			return err
 		}
 		// TODO: Don't harcode
-		if pos < 3000{
+		if pos < 3000 {
 			time.Sleep(50 * time.Millisecond)
-		}else{
+		} else {
 			atPos = true
 		}
 	}
@@ -270,9 +263,9 @@ func (a *Wx250s) OpenGripper() error{
 
 // Print positions of all servos
 // TODO: Print joint names, not just servo numbers
-func (a *Wx250s) PrintPositions() error{
+func (a *Wx250s) PrintPositions() error {
 	posString := ""
-	for i, s := range(a.GetAllServos()){
+	for i, s := range a.GetAllServos() {
 		pos, err := s.PresentPosition()
 		if err != nil {
 			return err
@@ -284,10 +277,10 @@ func (a *Wx250s) PrintPositions() error{
 }
 
 // Return a slice containing all servos in the arm
-func (a *Wx250s) GetAllServos() []*servo.Servo{
+func (a *Wx250s) GetAllServos() []*servo.Servo {
 	var servos []*servo.Servo
-	for _, v := range(a.Joints){
-		for _, s := range v{
+	for _, v := range a.Joints {
+		for _, s := range v {
 			servos = append(servos, s)
 		}
 	}
@@ -295,17 +288,17 @@ func (a *Wx250s) GetAllServos() []*servo.Servo{
 }
 
 // Return a slice containing all servos in the named joint
-func (a *Wx250s) GetServos(jointName string) []*servo.Servo{
+func (a *Wx250s) GetServos(jointName string) []*servo.Servo {
 	var servos []*servo.Servo
-	for _, s := range(a.Joints[jointName]){
+	for _, s := range a.Joints[jointName] {
 		servos = append(servos, s)
 	}
 	return servos
 }
 
 // Set Acceleration for servos
-func (a *Wx250s) SetAcceleration(accel int) error{
-	for _, s := range(a.GetAllServos()){
+func (a *Wx250s) SetAcceleration(accel int) error {
+	for _, s := range a.GetAllServos() {
 		err := s.SetProfileAcceleration(accel)
 		if err != nil {
 			return err
@@ -316,8 +309,8 @@ func (a *Wx250s) SetAcceleration(accel int) error{
 
 // Set Velocity for servos in travel time
 // Recommended value 1000
-func (a *Wx250s) SetVelocity(veloc int) error{
-	for _, s := range(a.GetAllServos()){
+func (a *Wx250s) SetVelocity(veloc int) error {
+	for _, s := range a.GetAllServos() {
 		err := s.SetProfileVelocity(veloc)
 		if err != nil {
 			return err
@@ -327,8 +320,8 @@ func (a *Wx250s) SetVelocity(veloc int) error{
 }
 
 //Turn on torque for all servos
-func (a *Wx250s) TorqueOn() error{
-	for _, s := range(a.GetAllServos()){
+func (a *Wx250s) TorqueOn() error {
+	for _, s := range a.GetAllServos() {
 		err := s.SetTorqueEnable(true)
 		if err != nil {
 			return err
@@ -338,8 +331,8 @@ func (a *Wx250s) TorqueOn() error{
 }
 
 //Turn off torque for all servos
-func (a *Wx250s) TorqueOff() error{
-	for _, s := range(a.GetAllServos()){
+func (a *Wx250s) TorqueOff() error {
+	for _, s := range a.GetAllServos() {
 		err := s.SetTorqueEnable(false)
 		if err != nil {
 			return err
@@ -349,13 +342,13 @@ func (a *Wx250s) TorqueOff() error{
 }
 
 // Set a joint to a position
-func (a *Wx250s) JointTo(jointName string, pos int, block bool) error{
+func (a *Wx250s) JointTo(jointName string, pos int, block bool) error {
 	fmt.Println("setting ", jointName, " to ", pos)
 	return servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 }
 
 //Go back to the sleep position, ready to turn off torque
-func (a *Wx250s) SleepPosition() error{
+func (a *Wx250s) SleepPosition() error {
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
 	a.JointTo("Shoulder", 840, sleepWait)
@@ -367,9 +360,9 @@ func (a *Wx250s) SleepPosition() error{
 }
 
 //Go to the home position
-func (a *Wx250s) HomePosition() error{
+func (a *Wx250s) HomePosition() error {
 	wait := false
-	for jointName, _ := range(a.Joints){
+	for jointName := range a.Joints {
 		a.JointTo(jointName, 2048, wait)
 	}
 	a.WaitForMovement()
@@ -377,19 +370,19 @@ func (a *Wx250s) HomePosition() error{
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving
-func (a *Wx250s) WaitForMovement() error{
+func (a *Wx250s) WaitForMovement() error {
 	allAtPos := false
 
-	for !allAtPos{
+	for !allAtPos {
 		time.Sleep(200 * time.Millisecond)
 		allAtPos = true
-		for _, s := range(a.GetAllServos()){
+		for _, s := range a.GetAllServos() {
 			isMoving, err := s.Moving()
 			if err != nil {
 				return err
 			}
 			// TODO: Make this configurable
-			if isMoving != 0{
+			if isMoving != 0 {
 				allAtPos = false
 			}
 		}
@@ -397,18 +390,17 @@ func (a *Wx250s) WaitForMovement() error{
 	return nil
 }
 
-
 // Everything below this point is hacky telnet communications with RL
 // It uses telnet because that's what the RL example code uses and there are only so many hours in a day
 // TODO: Write our own code against Robotics Library that does not use telnet, then never use telnet again
 // TODO: Make the above-mentioned code less prone to segfaults than what RL provides
 
-func (a *Wx250s) telnetSend(telString string) error{
+func (a *Wx250s) telnetSend(telString string) error {
 	_, err := a.kinConn.Write([]byte(telString + "\n"))
 	return err
 }
 
-func (a *Wx250s) telnetRead()(string, error){
+func (a *Wx250s) telnetRead() (string, error) {
 	out := ""
 	var buffer [1]byte
 	recvData := buffer[:]
