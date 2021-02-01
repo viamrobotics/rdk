@@ -58,6 +58,7 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 	return its.StoreImage(ctx, img, md, labels)
 }
 
+// TODO(erh): don't use gocv.Mat here
 func (its *ImageTrainingStore) StoreImage(ctx context.Context, img gocv.Mat, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
 
 	ti := TrainingImage{}

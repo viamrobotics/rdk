@@ -370,7 +370,11 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 	views := []gostream.RemoteView{}
 
 	// set up camera/lidar streams
-	for i := 0; i < len(theRobot.Cameras)+len(theRobot.LidarDevices); i++ {
+	var numCameraStreams int
+	if len(theRobot.Cameras) > 0 {
+		numCameraStreams = 1
+	}
+	for i := 0; i < numCameraStreams+len(theRobot.LidarDevices); i++ {
 		config := vpx.DefaultRemoteViewConfig
 		config.Debug = false
 		config.StreamNumber = i
@@ -418,11 +422,15 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	for idx, remoteView := range views {
-		if idx < len(theRobot.Cameras) {
-			go gostream.StreamSource(cancelCtx, theRobot.Cameras[idx], remoteView, 33*time.Millisecond)
-			continue
+	autoCameraTiler := gostream.NewAutoTiler(1280, 720)
+	if len(theRobot.Cameras) > 0 {
+		for _, cam := range theRobot.Cameras {
+			autoCameraTiler.AddSource(cam)
 		}
+		go gostream.StreamSource(cancelCtx, autoCameraTiler, views[0], 33*time.Millisecond)
+	}
+
+	for idx, remoteView := range views[numCameraStreams:] {
 		lidarIdx := idx - len(theRobot.Cameras)
 		go gostream.StreamSource(cancelCtx, lidar.NewImageSource(theRobot.LidarDevices[lidarIdx]), remoteView, 33*time.Millisecond)
 	}
