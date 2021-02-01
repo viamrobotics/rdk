@@ -10,8 +10,9 @@
           if (!cb) {
               document.getElementById("err").innerHTML = "";
               document.getElementById("res").innerHTML = "";
+              console.log(path);
           }
-          console.log(path);
+
           fetch( path, { method: "POST"})
               .then(function(response) {
                   return response.json();})
@@ -72,7 +73,7 @@
                       e.innerHTML = Number(response[i]).toFixed(2);
                   }
               }
-              setTimeout(updateJointView, 500, arm);
+              setTimeout(updateGridView, 500, arm);
           });
       }
 
