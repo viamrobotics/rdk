@@ -245,9 +245,12 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 			}
 
 			return map[string]interface{}{
-				"x": int64(where.X * 1000),
-				"y": int64(where.Y * 1000),
-				"z": int64(where.Z * 1000),
+				"x":  int64(where.X * 1000),
+				"y":  int64(where.Y * 1000),
+				"z":  int64(where.Z * 1000),
+				"rx": where.Rx,
+				"ry": where.Ry,
+				"rz": where.Rz,
 			}, nil
 		} else if mode == "joint" {
 			current, err := arm.CurrentJointPositions()

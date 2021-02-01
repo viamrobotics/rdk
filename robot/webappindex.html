@@ -60,8 +60,8 @@
                   var id = "arm_j_" + arm + "_" + i;
                   document.getElementById(id).innerHTML = Number(j[i]).toFixed(2);
               }
-              setTimeout(updateJointView, 500, arm);
           });
+          setTimeout(updateJointView, 500, arm);
       }
 
       function updateGridView(arm) {
@@ -73,8 +73,8 @@
                       e.innerHTML = Number(response[i]).toFixed(2);
                   }
               }
-              setTimeout(updateGridView, 500, arm);
           });
+          setTimeout(updateGridView, 500, arm);
       }
 
     </script>
@@ -113,6 +113,9 @@
               {{ template "C" list $idx "x"}}
               {{ template "C" list $idx "y"}}
               {{ template "C" list $idx "z"}}
+              {{ template "C" list $idx "rx"}}
+              {{ template "C" list $idx "ry"}}
+              {{ template "C" list $idx "rz"}}
             </ul>
           </td>
           <td>
@@ -172,7 +175,7 @@
 <li>
   Joint {{index . 1}}
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">-</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.01', 'joint' )">-</button>
   <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
