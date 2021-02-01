@@ -79,11 +79,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		}
 
 		d.html.WriteString("<tr>")
-		goImg, err := img.ToImage()
-		if err != nil {
-			return err
-		}
-		d.GotDebugImage(goImg, "raw")
+		d.GotDebugImage(img.Image(), "raw")
 
 		err = x.Process(d, f, img)
 		if err != nil {

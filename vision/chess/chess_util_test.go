@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/echolabsinc/robotcore/utils"
+
 	"gocv.io/x/gocv"
 )
 
@@ -60,7 +62,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board1")  // bishop
 
 	annotated := theBoard.Annotate()
-	gocv.IMWrite("out/board1_annotated.png", annotated)
+	utils.WriteImageToFile("out/board1_annotated.png", annotated)
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
@@ -85,14 +87,14 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board2")  // bishop
 
 	annotated := theBoard.Annotate()
-	gocv.IMWrite("out/board2_annotated.png", annotated)
+	utils.WriteImageToFile("out/board2_annotated.png", annotated)
 
 	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gocv.IMWrite("out/board3_annotated.png", nextBoard.Annotate())
+	utils.WriteImageToFile("out/board3_annotated.png", nextBoard.Annotate())
 
 	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
 	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
@@ -115,7 +117,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
 	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
 
-	gocv.IMWrite("out/board-1605543520.png", theBoard.Annotate())
+	utils.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
 
 	nextBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543783")
 	if err != nil {
@@ -127,7 +129,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
 	_testBoardHeight(t, game, nextBoard, "c1", 45, 74, "board-1605543783")  // bishop
 
-	gocv.IMWrite("out/board-1605543783.png", nextBoard.Annotate())
+	utils.WriteImageToFile("out/board-1605543783.png", nextBoard.Annotate())
 
 	//crapPlayWithKmeans(nextBoard)
 }
@@ -143,7 +145,7 @@ func TestArmBlock1(t *testing.T) {
 	}
 
 	annotated := board.Annotate()
-	gocv.IMWrite("out/armblock1_annotated.png", annotated)
+	utils.WriteImageToFile("out/armblock1_annotated.png", annotated)
 
 }
 
@@ -155,7 +157,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gocv.IMWrite("out/board-20210107-a.png", theBoard.Annotate())
+	utils.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
 
 	d := theBoard.SquareCenterHeight("a1", DepthCheckSizeRadius)
 	if d < 20 {
