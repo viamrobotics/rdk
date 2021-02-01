@@ -1,13 +1,14 @@
 package main
 
 import (
+	"image/color"
 	"strings"
 	"testing"
 
-	"gocv.io/x/gocv"
-
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/segmentation"
+
+	"github.com/disintegration/imaging"
 )
 
 type MyDebug struct {
@@ -25,12 +26,14 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img v
 	if err != nil {
 		return err
 	}
-	d.GotDebugImage(pc.Color.MatUnsafe(), "cropped")
+	colorImg, err := pc.Color.ToImage()
+	if err != nil {
+		return err
+	}
+	d.GotDebugImage(colorImg, "cropped")
 
-	debug2 := gocv.NewMatWithSize(pc.Color.Rows(), pc.Color.Cols(), gocv.MatTypeCV8UC3)
-	defer debug2.Close()
-	roverWalk(&pc, &debug2)
-	d.GotDebugImage(debug2, "depth2")
+	walked, _ := roverWalk(&pc, true)
+	d.GotDebugImage(walked, "depth2")
 
 	return nil
 }
@@ -50,14 +53,19 @@ type ChargeDebug struct {
 }
 
 func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
-	m := img.MatUnsafe()
-	gocv.Rotate(m, &m, gocv.Rotate180Clockwise)
-	img, err := vision.NewImageFromMat(m)
+	goImg, err := img.ToImage()
 	if err != nil {
 		return err
 	}
 
-	d.GotDebugImage(m, "rotated")
+	goImg = imaging.Rotate(goImg, 180, color.Black)
+
+	img, err = vision.NewImage(goImg)
+	if err != nil {
+		return err
+	}
+
+	d.GotDebugImage(goImg, "rotated")
 
 	m2, err := segmentation.ShapeWalkEntireDebug(img, false)
 	if err != nil {

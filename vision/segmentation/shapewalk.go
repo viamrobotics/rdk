@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"image"
 
-	"gocv.io/x/gocv"
-
-	"github.com/lucasb-eyer/go-colorful"
+	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
-
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/fogleman/gg"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 const (
@@ -76,9 +74,12 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 	return nil
 }
 
-func ShapeWalk(img vision.Image, startX, startY int, debug bool) (*gocv.Mat, error) {
-	m := img.MatUnsafe()
-	m = m.Clone()
+func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, error) {
+	goImg, err := img.ToImage()
+	if err != nil {
+		return nil, err
+	}
+	dc := gg.NewContextForImage(goImg)
 
 	start := image.Point{startX, startY}
 
@@ -103,10 +104,12 @@ func ShapeWalk(img vision.Image, startX, startY int, debug bool) (*gocv.Mat, err
 			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
 		}
 
-		gocv.Circle(&m, image.Point{x, y}, 1, vision.Red.C, 1)
+		dc.DrawCircle(float64(x), float64(y), 1)
+		dc.SetColor(vision.Red.C)
+		dc.Fill()
 	}
 
-	return &m, nil
+	return dc.Image(), nil
 }
 
 type MyWalkError struct {
@@ -117,9 +120,7 @@ func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
-func ShapeWalkEntireDebug(img vision.Image, debug bool) (gocv.Mat, error) {
-	var m2 gocv.Mat
-
+func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 	ws := walkState{
 		img:   img,
 		dots:  map[string]int{},
@@ -149,11 +150,15 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (gocv.Mat, error) {
 
 		start := found.(MyWalkError).pos
 		if err := ws.piece(start, color+1); err != nil {
-			return m2, err
+			return nil, err
 		}
 	}
 
-	m := img.MatUnsafe()
+	goImg, err := img.ToImage()
+	if err != nil {
+		return nil, err
+	}
+	dc := gg.NewContextForImage(goImg)
 
 	for k, v := range ws.dots {
 		if v <= 0 {
@@ -163,13 +168,15 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (gocv.Mat, error) {
 		var x, y int
 		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
 		if err != nil {
-			return m2, fmt.Errorf("couldn't read key %s %s", k, err)
+			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
 		}
 
 		myColor := vision.NewColorFromColorful(palette[v-1]).C
-		gocv.Circle(&m, image.Point{x, y}, 1, myColor, 1)
+		dc.DrawCircle(float64(x), float64(y), 1)
+		dc.SetColor(myColor)
+		dc.Fill()
 	}
 
-	return m, nil // TODO: this should be m2, et
+	return dc.Image(), nil
 
 }

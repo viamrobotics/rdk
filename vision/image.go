@@ -181,6 +181,10 @@ func (i *Image) MatUnsafe() gocv.Mat {
 	return i.mat
 }
 
+func (i *Image) ToImage() (image.Image, error) {
+	return i.mat.ToImage()
+}
+
 // TODO(erh): move this to a better file
 func PointDistance(a, b image.Point) float64 {
 	x := rcutil.SquareInt(b.X - a.X)

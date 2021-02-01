@@ -11,6 +11,7 @@ require (
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
@@ -24,6 +25,7 @@ require (
 	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/klauspost/compress v1.11.3 // indirect
+	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
@@ -39,6 +41,7 @@ require (
 	gocv.io/x/gocv v0.26.0
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
+	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb // indirect
 	gonum.org/v1/gonum v0.8.2 // indirect
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect

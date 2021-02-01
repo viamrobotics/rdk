@@ -16,6 +16,7 @@ import (
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/robot"
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
-	"gocv.io/x/gocv"
 )
 
 type pos struct {
@@ -268,24 +268,23 @@ func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image
 	}
 
 	// got picture finally
-
-	imgBounds = img.Bounds()
-	out := gocv.NewMatWithSize(imgBounds.Max.Y, imgBounds.Max.X, gocv.MatTypeCV8UC3)
-	defer out.Close()
-
 	vImg, err := vision.NewImage(img)
 	if err != nil {
 		return nil, imageSize, err
 	}
 
-	corners, err := chess.FindChessCornersPinkCheat(vImg, &out)
+	out, corners, err := chess.FindChessCornersPinkCheat(vImg)
 	if err != nil {
 		return nil, imageSize, err
 	}
 
 	if debugNumber >= 0 {
-		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), vImg.MatUnsafe())
-		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
+		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), img); err != nil {
+			panic(err)
+		}
+		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out); err != nil {
+			panic(err)
+		}
 	}
 
 	golog.Global.Debugf("Corners: %v", corners)
@@ -622,12 +621,9 @@ func main() {
 
 					fn := fmt.Sprintf("data/board-%d.png", tm)
 					golog.Global.Debugf("saving image %s", fn)
-					vImg, err := vision.NewImage(img)
-					if err != nil {
+					if err := utils.WriteImageToFile(fn, img); err != nil {
 						panic(err)
 					}
-					defer vImg.Close()
-					gocv.IMWrite(fn, vImg.MatUnsafe())
 
 					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
 					err = depth.WriteToFile(fn)

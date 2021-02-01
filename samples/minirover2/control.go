@@ -199,7 +199,7 @@ func driveMyself(rover *Rover, camera vision.ImageDepthSource) {
 				return
 			}
 
-			points := roverWalk(&pc, nil)
+			_, points := roverWalk(&pc, false)
 			if points < 100 {
 				golog.Global.Debugf("safe to move forward")
 				err = rover.MoveStraight(200, 50, true)

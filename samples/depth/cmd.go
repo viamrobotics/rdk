@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 
-	"gocv.io/x/gocv"
-
 	"github.com/echolabsinc/robotcore/vision"
 )
 
@@ -30,6 +28,7 @@ func main() {
 	}
 	defer img.Close()
 
-	gocv.IMWrite(flag.Arg(1), img.MatUnsafe())
-
+	if err := vision.WriteImageToFile(flag.Arg(1), img); err != nil {
+		panic(err)
+	}
 }

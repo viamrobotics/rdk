@@ -5,21 +5,24 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	gocolor "image/color"
 	"os"
 	"os/signal"
 	"sort"
 	"syscall"
 	"time"
 
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/segmentation"
 
+	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
 	"github.com/gonum/stat"
-	"gocv.io/x/gocv"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 var (
@@ -66,9 +69,15 @@ func hsvHistogram(img vision.Image) {
 	}
 
 	if center.X > 0 {
-		m := img.MatUnsafe()
-		gocv.Circle(&m, center, int(*radius), vision.Red.C, 1)
-		gocv.IMWrite(_getOutputfile(), m)
+		goImg, err := img.ToImage()
+		if err != nil {
+			panic(err)
+		}
+		dc := gg.NewContextForImage(goImg)
+		dc.DrawCircle(float64(center.X), float64(center.Y), *radius)
+		dc.SetColor(vision.Red.C)
+		dc.Fill()
+		utils.WriteImageToFile(_getOutputfile(), dc.Image())
 	}
 
 	_hsvHistogramHelp("h", H)
@@ -77,7 +86,10 @@ func hsvHistogram(img vision.Image) {
 }
 
 func shapeWalkLine(img vision.Image, startX, startY int) error {
-	m := img.MatUnsafe()
+	goImg, err := img.ToImage()
+	if err != nil {
+		return err
+	}
 
 	init := img.ColorHSV(image.Point{startX, startY})
 
@@ -107,15 +119,20 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		}
 	}
 
+	dc := gg.NewContextForImage(goImg)
 	for _, p := range as {
-		gocv.Circle(&m, p, 1, vision.Red.C, 1)
+		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
+		dc.SetColor(vision.Red.C)
+		dc.Fill()
 	}
 
 	for _, p := range bs {
-		gocv.Circle(&m, p, 1, vision.Green.C, 1)
+		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
+		dc.SetColor(vision.Green.C)
+		dc.Fill()
 	}
 
-	gocv.IMWrite(_getOutputfile(), m)
+	utils.WriteImageToFile(_getOutputfile(), dc.Image())
 
 	return nil
 }
@@ -134,6 +151,13 @@ func view(img vision.Image) error {
 	}
 
 	imgs := []image.Image{temp2}
+
+	font, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		return err
+	}
+
+	face := truetype.NewFace(font, &truetype.Options{Size: 16})
 
 	remoteView.SetOnClickHandler(func(x, y int) {
 		if x < 0 || y < 0 {
@@ -156,13 +180,11 @@ func view(img vision.Image) error {
 			panic(err)
 		}
 
-		gocv.PutText(walked, text, image.Pt(10, 20),
-			gocv.FontHersheyPlain, 1, gocolor.RGBA{255, 255, 255, 0}, 1)
-		temp, err := walked.ToImage()
-		if err != nil {
-			panic(err)
-		}
-		imgs[0] = temp
+		dc := gg.NewContextForImage(walked)
+		dc.SetFontFace(face)
+		dc.SetColor(vision.White.C)
+		dc.DrawStringAnchored(text, 0, 20, 0, 0)
+		imgs[0] = dc.Image()
 	})
 
 	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
@@ -210,18 +232,24 @@ func main() {
 	}
 
 	if *blur {
-		m := img.MatUnsafe()
-		gocv.GaussianBlur(m, &m, image.Point{*blurSize, *blurSize}, 0, 0, gocv.BorderDefault)
+		goImg, err := img.ToImage()
+		if err != nil {
+			panic(err)
+		}
+		newImg := imaging.Blur(goImg, float64(*blurSize))
+		img, err = vision.NewImage(newImg)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	switch prog {
 	case "hsvHisto":
 		hsvHistogram(img)
 	case "shapeWalkEntire":
-		var m2 gocv.Mat
-		m2, err = segmentation.ShapeWalkEntireDebug(img, *debug)
+		out, err := segmentation.ShapeWalkEntireDebug(img, *debug)
 		if err == nil {
-			gocv.IMWrite(_getOutputfile(), m2)
+			utils.WriteImageToFile(_getOutputfile(), out)
 		}
 	case "shapeWalkLine":
 		err = shapeWalkLine(img, *xFlag, *yFlag)
