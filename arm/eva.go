@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"github.com/echolabsinc/robotcore/utils"
 )
 
 type evaData struct {
@@ -75,48 +77,42 @@ func (e *eva) CurrentJointPositions() ([]float64, error) {
 	return data.ServosPosition, nil
 }
 
-func (e *eva) CurrentPosition() (CartesianInfo, error) {
+func (e *eva) CurrentPosition() (Position, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return CartesianInfo{}, err
+		return Position{}, err
 	}
 
 	fk, err := e.apiCalcForwardKinematics(data.ServosPosition)
 	if err != nil {
-		return CartesianInfo{}, err
+		return Position{}, err
 	}
 
-	ci := CartesianInfo{}
-	ci.X = fk.Position.X
-	ci.Y = fk.Position.Y
-	ci.Z = fk.Position.Z
+	pos := Position{}
+	pos.X = fk.Position.X
+	pos.Y = fk.Position.Y
+	pos.Z = fk.Position.Z
 
 	// TODO(erh): finish orientation stuff
-	ci.Rx = fk.Orientation.X
-	ci.Ry = fk.Orientation.Y
-	ci.Rz = fk.Orientation.Z
+	pos.Rx = utils.RadToDeg(fk.Orientation.X)
+	pos.Ry = utils.RadToDeg(fk.Orientation.Y)
+	pos.Rz = utils.RadToDeg(fk.Orientation.Z)
 
 	golog.Global.Debugf("W: %v", fk.Orientation.W)
 
-	return ci, nil
+	return pos, nil
 }
 
-func (e *eva) MoveToPositionC(c CartesianInfo) error {
+func (e *eva) MoveToPosition(pos Position) error {
 	k := evaKinematics{}
-	k.Position.X = c.X
-	k.Position.Y = c.Y
-	k.Position.Z = c.Z
+	k.Position.X = pos.X
+	k.Position.Y = pos.Y
+	k.Position.Z = pos.Z
 
-	data, err := e.CurrentPosition()
-	if err != nil {
-		return err
-	}
-
-	// TODO(erh): what??
-	//k.Orientation.W = data.W
-	k.Orientation.X = data.Rx
-	k.Orientation.Y = data.Ry
-	k.Orientation.Z = data.Rz
+	k.Orientation.W = 1
+	k.Orientation.X = utils.DegToRad(pos.Rx)
+	k.Orientation.Y = utils.DegToRad(pos.Ry)
+	k.Orientation.Z = utils.DegToRad(pos.Rz)
 
 	joints, err := e.apiCalcInverseKinematics(k)
 	if err != nil {
@@ -155,10 +151,6 @@ func (e *eva) doMoveJoints(joints []float64) error {
 	defer e.apiUnlock()
 
 	return e.apiControlGoTo(joints, true)
-}
-
-func (e *eva) MoveToPosition(x, y, z, rx, ry, rz float64) error {
-	return fmt.Errorf("not done yet")
 }
 
 func (e *eva) JointMoveDelta(joint int, amount float64) error {

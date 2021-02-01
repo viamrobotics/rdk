@@ -73,8 +73,9 @@ func (arm *URArm) CurrentJointPositions() ([]float64, error) {
 	return radians, nil
 }
 
-func (arm *URArm) CurrentPosition() (CartesianInfo, error) {
-	return arm.State().CartesianInfo, nil
+func (arm *URArm) CurrentPosition() (Position, error) {
+	s := arm.State().CartesianInfo
+	return NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
 func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
@@ -102,17 +103,20 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 		return fmt.Errorf("need 6 joints")
 	}
 
-	_, err := fmt.Fprintf(arm.conn, "movej([%f,%f,%f,%f,%f,%f], a=5, v=4, r=0)\r\n",
+	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=5, v=4, r=0)\r\n",
 		radians[0],
 		radians[1],
 		radians[2],
 		radians[3],
 		radians[4],
 		radians[5])
+	_, err := arm.conn.Write([]byte(cmd))
 	if err != nil {
 		return err
 	}
 
+	retried := false
+	slept := 0
 	for {
 		good := true
 		state := arm.State()
@@ -127,25 +131,42 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 			return nil
 		}
 
+		if slept > 5000 && !retried {
+			_, err := arm.conn.Write([]byte(cmd))
+			if err != nil {
+				return err
+			}
+			retried = true
+		}
+
+		if slept > 10000 {
+			return fmt.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
+				radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
+				state.Joints[0].Qactual,
+				state.Joints[1].Qactual,
+				state.Joints[2].Qactual,
+				state.Joints[3].Qactual,
+				state.Joints[4].Qactual,
+				state.Joints[5].Qactual,
+			)
+		}
+
 		time.Sleep(10 * time.Millisecond) // TODO(erh): make responsive on new message
+		slept += 10
 	}
 
 }
 
-func (arm *URArm) MoveToPositionC(c CartesianInfo) error {
-	return arm.MoveToPosition(
-		c.X,
-		c.Y,
-		c.Z,
-		c.Rx,
-		c.Ry,
-		c.Rz,
-	)
-}
+func (arm *URArm) MoveToPosition(pos Position) error {
+	x := pos.X
+	y := pos.Y
+	z := pos.Z
+	rx := pos.RxRadians()
+	ry := pos.RyRadians()
+	rz := pos.RzRadians()
 
-func (arm *URArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
-	//fmt.Println(cmd)
+
 	_, err := arm.conn.Write([]byte(cmd))
 	if err != nil {
 		return err

@@ -64,7 +64,7 @@ func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 		return err
 	}
 	where.Z = SafeMoveHeight + heightMod
-	err = myArm.MoveToPositionC(where)
+	err = myArm.MoveToPosition(where)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 		where.X = f.x
 		where.Y = f.y
 	}
-	return myArm.MoveToPositionC(where)
+	return myArm.MoveToPosition(where)
 }
 
 func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
@@ -121,7 +121,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 		return err
 	}
 	where.Z = BoardHeight + (height / 1000) + .01
-	myArm.MoveToPositionC(where)
+	myArm.MoveToPosition(where)
 
 	// grab piece
 	for {
@@ -147,7 +147,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
 		}
-		myArm.MoveToPositionC(where)
+		myArm.MoveToPosition(where)
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -183,7 +183,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPositionC(where)
+	myArm.MoveToPosition(where)
 
 	myGripper.Open()
 
@@ -193,7 +193,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPositionC(where)
+		myArm.MoveToPosition(where)
 
 		moveOutOfWay(myArm)
 	}
@@ -211,17 +211,20 @@ func moveOutOfWay(myArm arm.Arm) error {
 	where.Y = foo.y
 	where.Z = SafeMoveHeight + .3 // HARD CODED
 
-	return myArm.MoveToPositionC(where)
+	return myArm.MoveToPosition(where)
 }
 
 func initArm(myArm arm.Arm) error {
-	// temp init, what to do?
-	rx := -math.Pi
-	ry := 0.0
-	rz := 0.0
-
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
+	err := myArm.MoveToPosition(arm.Position{
+		X:  foo.x,
+		Y:  foo.y,
+		Z:  SafeMoveHeight,
+		Rx: -180,
+		Ry: 0,
+		Rz: 0,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -319,7 +322,7 @@ func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []
 
 		where.X += xMove
 		where.Y += yMove
-		err = myArm.MoveToPositionC(where)
+		err = myArm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}
@@ -353,7 +356,7 @@ func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 		where.Rx = -2.600206
 		where.Ry = -0.007839
 		where.Rz = -0.061827
-		err = myArm.MoveToPositionC(where)
+		err = myArm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}
@@ -429,7 +432,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 
 		fmt.Printf("\t moving to %0.3f,%0.3f\n", where.X, where.Y)
 
-		err = arm.MoveToPositionC(where)
+		err = arm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}

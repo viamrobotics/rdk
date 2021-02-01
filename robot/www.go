@@ -207,38 +207,54 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 				return nil, err
 			}
 
-			if action == "abs" {
-				vals := []int64{}
-				for _, n := range []string{"x", "y", "z"} {
-					val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
-					if err != nil {
-						return nil, fmt.Errorf("bad value for:%s [%s]", n, req.FormValue(n))
-					}
-					vals = append(vals, val)
+			changed := false
+			for _, n := range []string{"x", "y", "z", "rx", "ry", "rz"} {
+				if req.FormValue(n) == "" {
+					continue
 				}
 
-				where.X = float64(vals[0]) / 1000
-				where.Y = float64(vals[1]) / 1000
-				where.Z = float64(vals[2]) / 1000
-
-				err = arm.MoveToPositionC(where)
+				val, err := strconv.ParseFloat(req.FormValue(n), 64)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("bad value for:%s [%s]", n, req.FormValue(n))
 				}
-			} else if action == "inc" {
-				vals := []int64{0, 0, 0}
-				for idx, n := range []string{"x", "y", "z"} {
-					val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
-					if err == nil {
-						vals[idx] = val
+
+				if action == "abs" {
+					switch n {
+					case "x":
+						where.X = val / 1000
+					case "y":
+						where.Y = val / 1000
+					case "z":
+						where.Z = val / 1000
+					case "rx":
+						where.Rx = val
+					case "ry":
+						where.Ry = val
+					case "rz":
+						where.Rz = val
+					}
+				} else if action == "inc" {
+					switch n {
+					case "x":
+						where.X += val / 1000
+					case "y":
+						where.Y += val / 1000
+					case "z":
+						where.Z += val / 1000
+					case "rx":
+						where.Rx += val
+					case "ry":
+						where.Ry += val
+					case "rz":
+						where.Rz += val
 					}
 				}
 
-				where.X += float64(vals[0]) / 1000
-				where.Y += float64(vals[1]) / 1000
-				where.Z += float64(vals[2]) / 1000
+				changed = true
+			}
 
-				err = arm.MoveToPositionC(where)
+			if changed {
+				err = arm.MoveToPosition(where)
 				if err != nil {
 					return nil, err
 				}

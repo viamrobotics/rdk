@@ -70,7 +70,13 @@
                   var id = "arm_c_" + arm + "_" + i;
                   var e = document.getElementById(id);
                   if (e) {
-                      e.innerHTML = Number(response[i]).toFixed(2);
+                      e.innerHTML = Number(response[i]).toFixed(1);
+                      if (i.length == 1) {
+                          e.innerHTML += " mm";
+                      }
+                      if (i.length == 2) {
+                          e.innerHTML += " deg";
+                      }
                   }
               }
           });
@@ -110,12 +116,12 @@
         <tr>
           <td>
             <ul>
-              {{ template "C" list $idx "x"}}
-              {{ template "C" list $idx "y"}}
-              {{ template "C" list $idx "z"}}
-              {{ template "C" list $idx "rx"}}
-              {{ template "C" list $idx "ry"}}
-              {{ template "C" list $idx "rz"}}
+              {{ template "C" list $idx "x" 2}}
+              {{ template "C" list $idx "y" 2}}
+              {{ template "C" list $idx "z" 2}}
+              {{ template "C" list $idx "rx" 1}}
+              {{ template "C" list $idx "ry" 1}}
+              {{ template "C" list $idx "rz" 1}}
             </ul>
           </td>
           <td>
@@ -170,8 +176,8 @@
 {{define "C"}}
 <li>
   {{ index . 1 }}
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=2')">+</button>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-2')">-</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{index . 2}}')">+</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
   <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
