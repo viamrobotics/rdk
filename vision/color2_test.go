@@ -50,7 +50,7 @@ func TestColorSegment1(t *testing.T) {
 	}
 
 	out := gocv.NewMatWithSize(img.Rows(), img.Cols(), gocv.MatTypeCV8UC3)
-	out2, err := NewImage(out)
+	out2, err := NewImageFromMat(out)
 	if err != nil {
 		t.Fatal(err)
 	}

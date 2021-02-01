@@ -1,26 +1,30 @@
 package vision
 
 import (
-	"github.com/echolabsinc/robotcore/utils"
+	"context"
+	"image"
+	"image/color"
 
+	"github.com/disintegration/imaging"
+	"github.com/edaniels/gostream"
 	"gocv.io/x/gocv"
 )
 
-type RotateMatDepthSource struct {
-	Original MatDepthSource
+type RotateImageDepthSource struct {
+	Original ImageDepthSource
 }
 
-func (rmds *RotateMatDepthSource) NextMat() (gocv.Mat, error) {
-	rotateSrc := utils.RotateMatSource{rmds.Original}
-	return rotateSrc.NextMat()
+func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, error) {
+	rotateSrc := gostream.RotateImageSource{rids.Original}
+	return rotateSrc.Next(ctx)
 }
 
-func (rmds *RotateMatDepthSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
-	m, d, err := rmds.Original.NextMatDepthPair()
+func (rids *RotateImageDepthSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
+	img, d, err := rids.Original.NextImageDepthPair(ctx)
 	if err != nil {
-		return m, d, err
+		return nil, d, err
 	}
-	gocv.Rotate(m, &m, gocv.Rotate180Clockwise)
+	rotated := imaging.Rotate(img, 180, color.Black)
 
 	if d != nil && d.HasData() {
 		// TODO(erh): make this faster
@@ -30,9 +34,9 @@ func (rmds *RotateMatDepthSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error
 		d = NewDepthMapFromMat(dm)
 	}
 
-	return m, d, nil
+	return rotated, d, nil
 }
 
-func (rmds *RotateMatDepthSource) Close() {
-	rmds.Original.Close()
+func (rids *RotateImageDepthSource) Close() error {
+	return rids.Original.Close()
 }

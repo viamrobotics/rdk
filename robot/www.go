@@ -23,7 +23,6 @@ import (
 
 	"github.com/echolabsinc/robotcore/base"
 	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/utils/stream"
 )
 
 type robotWebApp struct {
@@ -389,11 +388,11 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 
 	for idx, remoteView := range views {
 		if idx < len(theRobot.Cameras) {
-			go stream.MatSource(cancelCtx, theRobot.Cameras[idx], remoteView, 33*time.Millisecond, golog.Global)
+			go gostream.StreamSource(cancelCtx, theRobot.Cameras[idx], remoteView, 33*time.Millisecond)
 			continue
 		}
 		lidarIdx := idx - len(theRobot.Cameras)
-		go stream.MatSource(cancelCtx, lidar.NewMatSource(theRobot.LidarDevices[lidarIdx]), remoteView, 33*time.Millisecond, golog.Global)
+		go gostream.StreamSource(cancelCtx, lidar.NewImageSource(theRobot.LidarDevices[lidarIdx]), remoteView, 33*time.Millisecond)
 	}
 
 	return func() {
