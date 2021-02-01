@@ -27,7 +27,7 @@ type StaticSource struct {
 }
 
 func (ss *StaticSource) Next(ctx context.Context) (image.Image, error) {
-	return ss.pc.Color.mat.ToImage()
+	return ss.pc.Color.Image(), nil
 }
 
 func (ss *StaticSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {

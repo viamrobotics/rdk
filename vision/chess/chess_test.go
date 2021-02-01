@@ -27,11 +27,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			return err
 		}
 
-		warpedImg, err := warped.ToImage()
-		if err != nil {
-			return err
-		}
-		d.GotDebugImage(warpedImg, "warped")
+		d.GotDebugImage(warped.Image(), "warped")
 
 	}
 

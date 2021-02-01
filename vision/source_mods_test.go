@@ -3,8 +3,6 @@ package vision
 import (
 	"context"
 	"testing"
-
-	"gocv.io/x/gocv"
 )
 
 func TestRotateSource(t *testing.T) {
@@ -22,11 +20,8 @@ func TestRotateSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	vImg, err := NewImage(img)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gocv.IMWrite("out/test_rotate_source.png", vImg.MatUnsafe())
+	vImg := NewImage(img)
+	vImg.WriteTo("out/test_rotate_source.png")
 
 	// TODO(erh): actually validate image
 }
