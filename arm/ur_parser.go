@@ -98,6 +98,11 @@ func (c CartesianInfo) SimpleString() string {
 		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
 }
 
+func (c CartesianInfo) NondelimitedString() string {
+	return fmt.Sprintf("%f %f %f %f %f %f",
+		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
+}
+
 type KinematicInfo struct {
 	Cheksum int32
 	DHtheta float64
