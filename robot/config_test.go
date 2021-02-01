@@ -1,6 +1,7 @@
 package robot
 
 import (
+	"context"
 	"testing"
 )
 
@@ -27,14 +28,15 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pic, _, err := r.Cameras[0].NextMatDepthPair()
+	pic, _, err := r.Cameras[0].NextImageDepthPair(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pic.Close()
 
-	if pic.Cols() < 100 {
-		t.Errorf("pictures seems wrong %d %d", pic.Cols(), pic.Rows())
+	bounds := pic.Bounds()
+
+	if bounds.Max.X < 100 {
+		t.Errorf("pictures seems wrong %d %d", bounds.Max.X, bounds.Max.Y)
 	}
 
 }

@@ -9,9 +9,24 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
+	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
 	"github.com/gonum/stat"
 	"gocv.io/x/gocv"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
 )
+
+var face font.Face
+
+func init() {
+	font, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		panic(err)
+	}
+
+	face = truetype.NewFace(font, &truetype.Options{Size: 12})
+}
 
 type Board struct {
 	color  vision.Image // TODO(erh): should we get rid of
@@ -40,7 +55,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 }
 
 func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error) {
-	corners, err := findChessCorners(color, nil)
+	_, corners, err := findChessCorners(color)
 	if err != nil {
 		return nil, err
 	}
@@ -54,14 +69,18 @@ func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error
 		return nil, err
 	}
 
+	colorMat, err := gocv.ImageToMatRGBA(a.Image())
+	if err != nil {
+		return nil, err
+	}
+	defer colorMat.Close()
 	edges := gocv.NewMat()
-	gocv.Canny(a.MatUnsafe(), &edges, 32, 32) // magic number
+	gocv.Canny(colorMat, &edges, 32, 32) // magic number
 
 	return &Board{a, b, &edges, golog.Global}, nil
 }
 
 func (b *Board) Close() {
-	b.color.Close()
 	b.edges.Close()
 }
 
@@ -172,10 +191,8 @@ func (b *Board) SquareCenterEdges(square string) int {
 
 type SquareFunc func(b *Board, square string) error
 
-func (b *Board) Annotate() gocv.Mat {
-	out := gocv.NewMat()
-	temp := b.color.MatUnsafe()
-	temp.CopyTo(&out)
+func (b *Board) Annotate() image.Image {
+	dc := gg.NewContextForImage(b.color.Image())
 
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
@@ -188,25 +205,38 @@ func (b *Board) Annotate() gocv.Mat {
 			c2 := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c3 := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			c4 := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			gocv.Line(&out, c1, c2, vision.Green.C, 1)
-			gocv.Line(&out, c2, c3, vision.Green.C, 1)
-			gocv.Line(&out, c3, c4, vision.Green.C, 1)
-			gocv.Line(&out, c1, c4, vision.Green.C, 1)
+			dc.SetColor(vision.Green.C)
+			dc.DrawLine(float64(c1.X), float64(c1.Y), float64(c2.X), float64(c2.Y))
+			dc.SetLineWidth(1)
+			dc.Stroke()
+			dc.DrawLine(float64(c2.X), float64(c2.Y), float64(c3.X), float64(c3.Y))
+			dc.SetLineWidth(1)
+			dc.Stroke()
+			dc.DrawLine(float64(c3.X), float64(c3.Y), float64(c4.X), float64(c4.Y))
+			dc.SetLineWidth(1)
+			dc.Stroke()
+			dc.DrawLine(float64(c1.X), float64(c1.Y), float64(c4.X), float64(c4.Y))
+			dc.SetLineWidth(1)
+			dc.Stroke()
 
 			height := b.SquareCenterHeight(s, DepthCheckSizeRadius)
 			if height > MinPieceDepth {
-				gocv.Circle(&out, p, 10, vision.Red.C, 2)
+				dc.DrawCircle(float64(p.X), float64(p.Y), 10)
+				dc.SetColor(vision.Red.C)
+				dc.Fill()
 			}
 
 			edges := b.SquareCenterEdges(s)
 
 			p.Y -= 20
-			gocv.PutText(&out, fmt.Sprintf("%d,%d", int(height), edges), p, gocv.FontHersheyPlain, 1.2, vision.Green.C, 2)
+			dc.SetFontFace(face)
+			dc.SetColor(vision.Green.C)
+			dc.DrawStringAnchored(fmt.Sprintf("%d,%d", int(height), edges), float64(p.X), float64(p.Y), 0, 0)
 
 		}
 	}
 
-	return out
+	return dc.Image()
 }
 
 func (b *Board) IsBoardBlocked() bool {

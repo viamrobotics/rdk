@@ -2,13 +2,15 @@ package vision
 
 import (
 	"fmt"
+	"image"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/echolabsinc/robotcore/utils"
+
 	"github.com/edaniels/golog"
-	"gocv.io/x/gocv"
 )
 
 type MultipleImageTestDebugger struct {
@@ -21,12 +23,14 @@ type MultipleImageTestDebugger struct {
 	currentFile string
 }
 
-func (d *MultipleImageTestDebugger) GotDebugImage(mat gocv.Mat, name string) {
+func (d *MultipleImageTestDebugger) GotDebugImage(img image.Image, name string) {
 	outFile := filepath.Join(d.out, name+"-"+filepath.Base(d.currentFile))
 	if !strings.HasSuffix(outFile, ".png") {
 		outFile = outFile + ".png"
 	}
-	gocv.IMWrite(outFile, mat)
+	if err := utils.WriteImageToFile(outFile, img); err != nil {
+		panic(err)
+	}
 	d.addImageCell(outFile)
 }
 
@@ -75,7 +79,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		}
 
 		d.html.WriteString("<tr>")
-		d.GotDebugImage(img.MatUnsafe(), "raw")
+		d.GotDebugImage(img.Image(), "raw")
 
 		err = x.Process(d, f, img)
 		if err != nil {
