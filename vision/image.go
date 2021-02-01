@@ -45,18 +45,27 @@ func NewImageFromFile(fn string) (Image, error) {
 			return Image{}, err
 		}
 
-		mat, _, err := readNextMatDepthPairFromBoth(allData)
+		img, _, err := readNextImageDepthPairFromBoth(allData)
 		if err != nil {
 			return Image{}, err
 		}
 
-		return NewImage(mat)
+		return NewImage(img)
 	}
 
-	return NewImage(gocv.IMRead(fn, gocv.IMReadUnchanged))
+	return NewImageFromMat(gocv.IMRead(fn, gocv.IMReadUnchanged))
 }
 
-func NewImage(mat gocv.Mat) (Image, error) {
+func NewImage(img image.Image) (Image, error) {
+	mat, err := gocv.ImageToMatRGBA(img)
+	if err != nil {
+		return Image{}, err
+	}
+	return NewImageFromMat(mat)
+}
+
+// TODO(erd): remove in favor of NewImage
+func NewImageFromMat(mat gocv.Mat) (Image, error) {
 
 	switch mat.Type() {
 	case gocv.MatTypeCV8UC3:

@@ -1,30 +1,31 @@
 package lidar
 
 import (
+	"context"
 	"image"
 	"image/color"
 
 	"gocv.io/x/gocv"
 )
 
-// MatSource generates images from the current scan of a lidar device
-type MatSource struct {
+// ImageSource generates images from the current scan of a lidar device
+type ImageSource struct {
 	device    Device
 	scaleDown int // scale down amount
 }
 
 const scaleDown = 100 // centimeters
 
-func NewMatSource(device Device) *MatSource {
-	return &MatSource{device: device, scaleDown: scaleDown}
+func NewImageSource(device Device) *ImageSource {
+	return &ImageSource{device: device, scaleDown: scaleDown}
 }
 
-func (ms *MatSource) NextMat() (gocv.Mat, error) {
-	bounds, err := ms.device.Bounds()
+func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
+	bounds, err := is.device.Bounds()
 	if err != nil {
-		return gocv.Mat{}, err
+		return nil, err
 	}
-	scaleDown := ms.scaleDown
+	scaleDown := is.scaleDown
 	bounds.X *= scaleDown
 	bounds.Y *= scaleDown
 	centerX := bounds.X / 2
@@ -32,9 +33,9 @@ func (ms *MatSource) NextMat() (gocv.Mat, error) {
 
 	out := gocv.NewMatWithSize(bounds.X, bounds.Y, gocv.MatTypeCV8UC3)
 
-	measurements, err := ms.device.Scan()
+	measurements, err := is.device.Scan()
 	if err != nil {
-		return gocv.Mat{}, err
+		return nil, err
 	}
 
 	for _, next := range measurements {
@@ -43,7 +44,9 @@ func (ms *MatSource) NextMat() (gocv.Mat, error) {
 		gocv.Circle(&out, p, 4, color.RGBA{R: 255}, 1)
 	}
 
-	return out, nil
+	return out.ToImage()
 }
 
-func (ms *MatSource) Close() {}
+func (is *ImageSource) Close() error {
+	return nil
+}

@@ -7,8 +7,9 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
+	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210129220540-ae73274fbb3f
+	github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect

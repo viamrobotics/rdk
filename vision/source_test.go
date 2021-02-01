@@ -1,22 +1,22 @@
 package vision
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 )
 
 func TestHTTPSourceNoDepth(t *testing.T) {
-	s := HTTPSource{ColorURL: "http://www.echolabs.com/static/small.jpg", DepthURL: ""}
-	a, _, err := s.NextMatDepthPair()
+	s := HTTPSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
+	_, _, err := s.NextImageDepthPair(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Close()
 }
 
-func doHTTPSourceTest(t *testing.T, s MatDepthSource) {
-	a, b, err := s.NextMatDepthPair()
+func doHTTPSourceTest(t *testing.T, s ImageDepthSource) {
+	a, b, err := s.NextImageDepthPair(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
 			t.Skip()
@@ -24,17 +24,17 @@ func doHTTPSourceTest(t *testing.T, s MatDepthSource) {
 		}
 		t.Fatal(err)
 	}
-	defer a.Close()
 
-	if a.Cols() != 640 && a.Cols() != 1280 {
-		t.Errorf("color columns wrong: %d", a.Cols())
+	bounds := a.Bounds()
+	if bounds.Max.X != 640 && bounds.Max.X != 1280 {
+		t.Errorf("color columns wrong: %d", bounds.Max.X)
 	}
 
 	if b.Cols() != 640 && b.Cols() != 1280 {
 		t.Errorf("depth columns wrong: %d", b.Cols())
 	}
 
-	if a.Cols() != b.Cols() {
+	if bounds.Max.X != b.Cols() {
 		t.Errorf("color and depth don't match")
 	}
 }

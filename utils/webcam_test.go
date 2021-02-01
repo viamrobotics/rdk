@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"runtime"
 	"testing"
 )
@@ -17,9 +18,8 @@ func TestWebcamSource(t *testing.T) {
 	}
 	defer s.Close()
 
-	a, err := s.NextMat()
+	_, err = s.Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer a.Close()
 }
