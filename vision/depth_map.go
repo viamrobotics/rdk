@@ -396,7 +396,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 
 	mat := gocv.NewMatWithSize(dm.Height(), dm.Width(), gocv.MatTypeCV8UC3)
 
-	img, err := NewImage(mat)
+	img, err := NewImageFromMat(mat)
 	if err != nil {
 		mat.Close()
 		return img, err

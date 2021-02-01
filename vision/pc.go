@@ -39,7 +39,7 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointClo
 		warpedDepth = NewDepthMapFromMat(dm2)
 	}
 
-	img, err := NewImage(warped)
+	img, err := NewImageFromMat(warped)
 	if err != nil {
 		panic(fmt.Errorf("should be impossible: %w", err))
 	}

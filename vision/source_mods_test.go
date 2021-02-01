@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"context"
 	"testing"
 
 	"gocv.io/x/gocv"
@@ -14,15 +15,18 @@ func TestRotateSource(t *testing.T) {
 
 	source := &StaticSource{pc}
 
-	rs := &RotateMatDepthSource{source}
+	rs := &RotateImageDepthSource{source}
 
-	m, _, err := rs.NextMatDepthPair()
+	img, _, err := rs.NextImageDepthPair(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Close()
 
-	gocv.IMWrite("out/test_rotate_source.png", m)
+	vImg, err := NewImage(img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gocv.IMWrite("out/test_rotate_source.png", vImg.MatUnsafe())
 
 	// TODO(erh): actually validate image
 }

@@ -1,6 +1,7 @@
 package slam
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"math"
@@ -10,13 +11,13 @@ import (
 	"gocv.io/x/gocv"
 )
 
-func (lar *LocationAwareRobot) NextMat() (gocv.Mat, error) {
+func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	lar.update()
 
 	// select device and sparse
 	bounds, area, err := lar.areaToView()
 	if err != nil {
-		return gocv.Mat{}, err
+		return nil, err
 	}
 
 	_, scaleDown := area.Size()
@@ -81,5 +82,6 @@ func (lar *LocationAwareRobot) NextMat() (gocv.Mat, error) {
 		}
 	}
 
-	return out, nil
+	defer out.Close()
+	return out.ToImage()
 }
