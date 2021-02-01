@@ -104,9 +104,12 @@ func main() {
 		cancelFunc()
 	}()
 
-	// TODO(erd): tile all devices
-	imgSource := gostream.ResizeImageSource{lidar.NewImageSource(lidarDevices[0]), 800, 600}
-	gostream.StreamSource(cancelCtx, imgSource, remoteView, 33*time.Millisecond)
+	autoTiler := gostream.NewAutoTiler(800, 600)
+	for _, dev := range lidarDevices {
+		autoTiler.AddSource(lidar.NewImageSource(dev))
+		break
+	}
+	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 33*time.Millisecond)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

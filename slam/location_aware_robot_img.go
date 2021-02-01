@@ -8,7 +8,7 @@ import (
 
 	"github.com/echolabsinc/robotcore/utils"
 
-	"gocv.io/x/gocv"
+	"github.com/fogleman/gg"
 )
 
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
@@ -26,10 +26,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	centerX := bounds.X / 2
 	centerY := bounds.Y / 2
 
-	out := gocv.NewMatWithSize(bounds.X, bounds.Y, gocv.MatTypeCV8UC3)
-
-	var drawLine bool
-	// drawLine = true
+	dc := gg.NewContext(bounds.X, bounds.Y)
 
 	basePosX, basePosY := lar.basePos()
 	minX := basePosX - bounds.X/2
@@ -49,12 +46,9 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 			relX := centerX - distX
 			relY := centerY - distY
 
-			p := image.Point{relX, relY}
-			if drawLine {
-				gocv.Line(&out, image.Point{centerX, centerY}, p, color.RGBA{R: 255}, 1)
-			} else {
-				gocv.Circle(&out, p, 4, color.RGBA{R: 255}, 1)
-			}
+			dc.DrawPoint(float64(relX), float64(relY), 4)
+			dc.SetColor(color.RGBA{255, 0, 0, 255})
+			dc.Fill()
 		})
 	})
 
@@ -71,17 +65,18 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 		orientationRads := utils.DegToRad(orientation)
 		x := distance * math.Sin(orientationRads)
 		y := distance * -math.Cos(orientationRads)
-		relX := centerX + int(x)
-		relY := centerY + int(y)
-		p := image.Point{relX, relY}
+		relX := float64(centerX) + x
+		relY := float64(centerY) + y
 
+		dc.DrawLine(float64(centerX), float64(centerY), relX, relY)
 		if i == 0 {
-			gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{G: 255}, 5)
+			dc.SetColor(color.RGBA{0, 255, 0, 255})
 		} else {
-			gocv.ArrowedLine(&out, image.Point{centerX, centerY}, p, color.RGBA{B: 255}, 5)
+			dc.SetColor(color.RGBA{0, 0, 255, 255})
 		}
+		dc.SetLineWidth(5)
+		dc.Stroke()
 	}
 
-	defer out.Close()
-	return out.ToImage()
+	return dc.Image(), nil
 }
