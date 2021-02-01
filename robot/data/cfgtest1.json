@@ -3,7 +3,7 @@
         { "type" : "camera",
           "model" : "url",
           "attributes" : {
-              "color" : "http://www.echolabs.com/static/small.jpg"
+              "color" : "http://placehold.it/120x120&text=image1"
           }
         }
     ]
