@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Masterminds/sprig"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
@@ -43,7 +45,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).ParseGlob(fmt.Sprintf("%s/*.html", thisDirPath))
+	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", thisDirPath))
 	if err != nil {
 		return err
 	}
@@ -153,89 +155,137 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Base) {
 	})
 }
 
-func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
-	mux.HandleFunc("/api/arm", func(w http.ResponseWriter, req *http.Request) {
-		var err error
+type apiMethod func(req *http.Request) (map[string]interface{}, error)
 
+type apiCall struct {
+	theMethod apiMethod
+}
+
+func (ac *apiCall) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	res, err := ac.theMethod(req)
+	if err != nil {
+		golog.Global.Debugf("error in api call: %s", err)
+		res = map[string]interface{}{"err": err.Error()}
+	}
+
+	js, err := json.Marshal(res)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js) //nolint
+}
+
+func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
+	mux.Handle("/api/arm", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
 		mode := req.FormValue("mode")
-		arm := 0
+		if mode == "" {
+			mode = "grid"
+		}
+		action := req.FormValue("action")
+		armNumber := 0
 
 		if req.FormValue("num") != "" {
-			arm2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
-			if err != nil {
-				http.Error(w, "bad value for arm", http.StatusBadRequest)
-				return
+			arm2, err2 := strconv.ParseInt(req.FormValue("num"), 10, 64)
+			if err2 != nil {
+				return nil, fmt.Errorf("bad value for arm")
 			}
-			arm = int(arm2)
-		}
-		if arm < 0 || arm >= len(theRobot.Arms) {
-			http.Error(w, "not a valid arm number", http.StatusBadRequest)
-			return
+			armNumber = int(arm2)
 		}
 
-		where, err := theRobot.Arms[arm].CurrentPosition()
-		if err != nil {
-			golog.Global.Debugf("arm CurrentPosition failed: %s", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+		if armNumber < 0 || armNumber >= len(theRobot.Arms) {
+			return nil, fmt.Errorf("not a valid arm number")
 		}
 
-		if mode == "abs" {
-			vals := []int64{}
-			for _, n := range []string{"x", "y", "z"} {
-				val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
+		arm := theRobot.Arms[armNumber]
+
+		if mode == "grid" {
+
+			where, err := arm.CurrentPosition()
+			if err != nil {
+				return nil, err
+			}
+
+			if action == "abs" {
+				vals := []int64{}
+				for _, n := range []string{"x", "y", "z"} {
+					val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
+					if err != nil {
+						return nil, fmt.Errorf("bad value for:%s [%s]", n, req.FormValue(n))
+					}
+					vals = append(vals, val)
+				}
+
+				where.X = float64(vals[0]) / 1000
+				where.Y = float64(vals[1]) / 1000
+				where.Z = float64(vals[2]) / 1000
+
+				err = arm.MoveToPositionC(where)
 				if err != nil {
-					http.Error(w, fmt.Sprintf("bad value for:%s [%s]", n, req.FormValue(n)), http.StatusBadRequest)
-					return
+					return nil, err
 				}
-				vals = append(vals, val)
-			}
+			} else if action == "inc" {
+				vals := []int64{0, 0, 0}
+				for idx, n := range []string{"x", "y", "z"} {
+					val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
+					if err == nil {
+						vals[idx] = val
+					}
+				}
 
-			where.X = float64(vals[0]) / 1000
-			where.Y = float64(vals[1]) / 1000
-			where.Z = float64(vals[2]) / 1000
+				where.X += float64(vals[0]) / 1000
+				where.Y += float64(vals[1]) / 1000
+				where.Z += float64(vals[2]) / 1000
 
-			err = theRobot.Arms[arm].MoveToPositionC(where)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else if mode == "inc" {
-			vals := []int64{0, 0, 0}
-			for idx, n := range []string{"x", "y", "z"} {
-				val, err := strconv.ParseInt(req.FormValue(n), 10, 64)
-				if err == nil {
-					vals[idx] = val
+				err = arm.MoveToPositionC(where)
+				if err != nil {
+					return nil, err
 				}
 			}
 
-			where.X += float64(vals[0]) / 1000
-			where.Y += float64(vals[1]) / 1000
-			where.Z += float64(vals[2]) / 1000
-
-			err = theRobot.Arms[arm].MoveToPositionC(where)
+			return map[string]interface{}{
+				"x": int64(where.X * 1000),
+				"y": int64(where.Y * 1000),
+				"z": int64(where.Z * 1000),
+			}, nil
+		} else if mode == "joint" {
+			current, err := arm.CurrentJointPositions()
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return nil, err
 			}
 
+			changes := false
+			if action == "inc" {
+				for i := 0; i < len(current); i++ {
+					temp := req.FormValue(fmt.Sprintf("j%d", i))
+					if temp == "" {
+						continue
+					}
+					val, err := strconv.ParseFloat(temp, 64)
+					if err != nil {
+						return nil, err
+					}
+					current[i] += val
+					changes = true
+				}
+			}
+
+			if changes {
+				err = arm.MoveToJointPositions(current)
+				if err != nil {
+					return nil, err
+				}
+			}
+
+			return map[string]interface{}{"joints": current}, nil
+
 		}
 
-		clean := map[string]int64{
-			"x": int64(where.X * 1000),
-			"y": int64(where.Y * 1000),
-			"z": int64(where.Z * 1000),
-		}
+		return nil, fmt.Errorf("invalid mode [%s]", mode)
 
-		js, err := json.Marshal(clean)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(js) //nolint
-	})
+	}})
 }
 
 func InstallWebGrippers(mux *http.ServeMux, theRobot *Robot) {
