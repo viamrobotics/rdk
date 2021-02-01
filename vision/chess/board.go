@@ -40,7 +40,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 }
 
 func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error) {
-	corners, err := findChessCorners(color, nil)
+	_, corners, err := findChessCorners(color)
 	if err != nil {
 		return nil, err
 	}

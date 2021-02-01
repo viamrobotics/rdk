@@ -11,6 +11,9 @@ import (
 	"os"
 
 	"github.com/edaniels/gostream"
+
+	// register ppm
+	_ "github.com/lmittmann/ppm"
 )
 
 type ImageDepthSource interface {
@@ -173,12 +176,7 @@ func readNextImageDepthPairFromBoth(allData []byte) (image.Image, *DepthMap, err
 		return nil, nil, fmt.Errorf("couldn't read depth map (both): %w", err)
 	}
 
-	imgData, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't read image (both): %w", err)
-	}
-
-	img, _, err := image.Decode(bytes.NewBuffer(imgData))
+	img, _, err := image.Decode(reader)
 	return img, depth, err
 }
 
