@@ -10,6 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d
+	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
