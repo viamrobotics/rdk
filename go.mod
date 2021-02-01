@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
+	github.com/echolabsinc/dynamixel v0.0.0-20210129164229-7fe144ee7683
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
@@ -31,6 +32,8 @@ require (
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
+	github.com/reiver/go-oi v1.0.0 // indirect
+	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/sbinet/go-python v0.1.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/smartystreets/assertions v1.2.0 // indirect
