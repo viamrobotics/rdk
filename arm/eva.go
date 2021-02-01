@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -44,6 +45,8 @@ type eva struct {
 	version      string
 	token        string
 	sessionToken string
+
+	moveLock sync.Mutex
 }
 
 type evaPosition struct {
@@ -92,7 +95,8 @@ func (e *eva) CurrentPosition() (CartesianInfo, error) {
 	ci.Rx = fk.Orientation.X
 	ci.Ry = fk.Orientation.Y
 	ci.Rz = fk.Orientation.Z
-	//ci.W = fk.Orientation.W
+
+	golog.Global.Debugf("W: %v\n", fk.Orientation.W)
 
 	return ci, nil
 }
@@ -123,6 +127,27 @@ func (e *eva) MoveToPositionC(c CartesianInfo) error {
 }
 
 func (e *eva) MoveToJointPositions(joints []float64) error {
+	err := e.doMoveJoints(joints)
+	if err == nil {
+		return nil
+	}
+
+	if !strings.Contains(err.Error(), "Reset hard errors first") {
+		return err
+	}
+
+	err2 := e.resetErrors()
+	if err2 != nil {
+		return fmt.Errorf("move failure, and couldn't reset errors %s %s", err, err2)
+	}
+
+	return e.doMoveJoints(joints)
+}
+
+func (e *eva) doMoveJoints(joints []float64) error {
+	e.moveLock.Lock()
+	defer e.moveLock.Unlock()
+
 	err := e.apiLock()
 	if err != nil {
 		return err
@@ -143,7 +168,6 @@ func (e *eva) JointMoveDelta(joint int, amount float64) error {
 func (e *eva) Close() {
 
 }
-
 func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {
 	return e.apiRequestLower(method, path, payload, auth, out, true)
 }
@@ -173,6 +197,7 @@ func (e *eva) apiRequestLower(method string, path string, payload interface{}, a
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == 401 {
 		// need to login
@@ -234,6 +259,21 @@ func (e *eva) apiName() (string, error) {
 	return t.Name, nil
 }
 
+func (e *eva) resetErrors() error {
+	e.moveLock.Lock()
+	defer e.moveLock.Unlock()
+
+	err := e.apiLock()
+	if err != nil {
+		return err
+	}
+	defer e.apiUnlock()
+
+	err = e.apiRequest("POST", "controls/reset_errors", nil, true, nil)
+	time.Sleep(100 * time.Millisecond)
+	return err
+}
+
 func (e *eva) DataSnapshot() (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
@@ -252,7 +292,7 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	}
 
 	if block {
-		golog.Global.Debugf("i don't know how to block: %s", err)
+		golog.Global.Debugf("i don't know how to block")
 		time.Sleep(1000 * time.Millisecond)
 	}
 	return nil
