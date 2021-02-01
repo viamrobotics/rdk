@@ -137,8 +137,6 @@ github.com/edaniels/golinters v0.0.4 h1:bOhAr1acA66+bRjAB9XVfA55VtME1MOqFnfpIjWw
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwaiZECzZla8apET/s97xhquWyluOA=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
-github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d h1:zbnm6dZ+l5v5QQBa4aBZYnlVgNmgmk1bz0sqzNiaNXA=
-github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
 github.com/edaniels/gostream v0.0.0-20210201225911-10918e931ea8 h1:cT7E6wM/We8j4DHT3RkHhNO+BItpkm4NMCkL+pw0+cM=
 github.com/edaniels/gostream v0.0.0-20210201225911-10918e931ea8/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64 h1:OBY3x4TCn+QiKJqExDPP84KLiz7f4zyWdWuY8flAsh0=
