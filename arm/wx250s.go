@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/echolabsinc/dynamixel/servo"
+	"github.com/edaniels/golog"
 	"github.com/reiver/go-telnet"
 
 	//~ "math"
@@ -48,7 +49,7 @@ func degreeToServoPos(pos float64) int {
 func NewWx250s(servos []*servo.Servo) *Wx250s {
 	conn, err := telnet.DialTo("localhost:11235")
 	if err != nil {
-		fmt.Println(err)
+		golog.Global.Errorf("%s", err)
 	}
 	return &Wx250s{
 		kinConn: conn,
@@ -195,7 +196,7 @@ func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {
 func (a *Wx250s) Close() {
 	err := a.SleepPosition()
 	if err == nil {
-		fmt.Println(a.TorqueOff())
+		golog.Global.Errorf("%s", a.TorqueOff())
 	}
 }
 
@@ -275,7 +276,6 @@ func (a *Wx250s) PrintPositions() error {
 		}
 		posString = fmt.Sprintf("%s || %d : %d", posString, i, pos)
 	}
-	fmt.Println(posString)
 	return nil
 }
 
@@ -342,19 +342,18 @@ func (a *Wx250s) TorqueOff() error {
 
 // Set a joint to a position
 func (a *Wx250s) JointTo(jointName string, pos int, block bool) error {
-	fmt.Println("setting ", jointName, " to ", pos)
 	return servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 }
 
 //Go back to the sleep position, ready to turn off torque
 func (a *Wx250s) SleepPosition() error {
 	sleepWait := false
-	fmt.Println(a.JointTo("Waist", 2048, sleepWait))
-	fmt.Println(a.JointTo("Shoulder", 840, sleepWait))
-	fmt.Println(a.JointTo("Wrist_rot", 2048, sleepWait))
-	fmt.Println(a.JointTo("Wrist", 2509, sleepWait))
-	fmt.Println(a.JointTo("Forearm_rot", 2048, sleepWait))
-	fmt.Println(a.JointTo("Elbow", 3090, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Waist", 2048, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Shoulder", 840, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Wrist_rot", 2048, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Wrist", 2509, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Forearm_rot", 2048, sleepWait))
+	golog.Global.Errorf("%s", a.JointTo("Elbow", 3090, sleepWait))
 	return a.WaitForMovement()
 }
 
