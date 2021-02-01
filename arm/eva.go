@@ -8,9 +8,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"github.com/echolabsinc/robotcore/utils"
 )
 
 type evaData struct {
@@ -44,6 +47,8 @@ type eva struct {
 	version      string
 	token        string
 	sessionToken string
+
+	moveLock sync.Mutex
 }
 
 type evaPosition struct {
@@ -72,49 +77,42 @@ func (e *eva) CurrentJointPositions() ([]float64, error) {
 	return data.ServosPosition, nil
 }
 
-func (e *eva) CurrentPosition() (CartesianInfo, error) {
+func (e *eva) CurrentPosition() (Position, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return CartesianInfo{}, err
+		return Position{}, err
 	}
 
 	fk, err := e.apiCalcForwardKinematics(data.ServosPosition)
 	if err != nil {
-		return CartesianInfo{}, err
+		return Position{}, err
 	}
 
-	golog.Global.Debugf("eva CurrentPosition %v", fk)
-
-	ci := CartesianInfo{}
-	ci.X = fk.Position.X
-	ci.Y = fk.Position.Y
-	ci.Z = fk.Position.Z
+	pos := Position{}
+	pos.X = fk.Position.X
+	pos.Y = fk.Position.Y
+	pos.Z = fk.Position.Z
 
 	// TODO(erh): finish orientation stuff
-	ci.Rx = fk.Orientation.X
-	ci.Ry = fk.Orientation.Y
-	ci.Rz = fk.Orientation.Z
-	//ci.W = fk.Orientation.W
+	pos.Rx = utils.RadToDeg(fk.Orientation.X)
+	pos.Ry = utils.RadToDeg(fk.Orientation.Y)
+	pos.Rz = utils.RadToDeg(fk.Orientation.Z)
 
-	return ci, nil
+	golog.Global.Debugf("W: %v", fk.Orientation.W)
+
+	return pos, nil
 }
 
-func (e *eva) MoveToPositionC(c CartesianInfo) error {
+func (e *eva) MoveToPosition(pos Position) error {
 	k := evaKinematics{}
-	k.Position.X = c.X
-	k.Position.Y = c.Y
-	k.Position.Z = c.Z
+	k.Position.X = pos.X
+	k.Position.Y = pos.Y
+	k.Position.Z = pos.Z
 
-	data, err := e.CurrentPosition()
-	if err != nil {
-		return err
-	}
-
-	// TODO(erh): what??
-	//k.Orientation.W = data.W
-	k.Orientation.X = data.Rx
-	k.Orientation.Y = data.Ry
-	k.Orientation.Z = data.Rz
+	k.Orientation.W = 1
+	k.Orientation.X = utils.DegToRad(pos.Rx)
+	k.Orientation.Y = utils.DegToRad(pos.Ry)
+	k.Orientation.Z = utils.DegToRad(pos.Rz)
 
 	joints, err := e.apiCalcInverseKinematics(k)
 	if err != nil {
@@ -125,6 +123,27 @@ func (e *eva) MoveToPositionC(c CartesianInfo) error {
 }
 
 func (e *eva) MoveToJointPositions(joints []float64) error {
+	err := e.doMoveJoints(joints)
+	if err == nil {
+		return nil
+	}
+
+	if !strings.Contains(err.Error(), "Reset hard errors first") {
+		return err
+	}
+
+	err2 := e.resetErrors()
+	if err2 != nil {
+		return fmt.Errorf("move failure, and couldn't reset errors %s %s", err, err2)
+	}
+
+	return e.doMoveJoints(joints)
+}
+
+func (e *eva) doMoveJoints(joints []float64) error {
+	e.moveLock.Lock()
+	defer e.moveLock.Unlock()
+
 	err := e.apiLock()
 	if err != nil {
 		return err
@@ -134,10 +153,6 @@ func (e *eva) MoveToJointPositions(joints []float64) error {
 	return e.apiControlGoTo(joints, true)
 }
 
-func (e *eva) MoveToPosition(x, y, z, rx, ry, rz float64) error {
-	return fmt.Errorf("not done yet")
-}
-
 func (e *eva) JointMoveDelta(joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
@@ -145,7 +160,6 @@ func (e *eva) JointMoveDelta(joint int, amount float64) error {
 func (e *eva) Close() {
 
 }
-
 func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {
 	return e.apiRequestLower(method, path, payload, auth, out, true)
 }
@@ -175,6 +189,7 @@ func (e *eva) apiRequestLower(method string, path string, payload interface{}, a
 	if err != nil {
 		return err
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode == 401 {
 		// need to login
@@ -236,6 +251,21 @@ func (e *eva) apiName() (string, error) {
 	return t.Name, nil
 }
 
+func (e *eva) resetErrors() error {
+	e.moveLock.Lock()
+	defer e.moveLock.Unlock()
+
+	err := e.apiLock()
+	if err != nil {
+		return err
+	}
+	defer e.apiUnlock()
+
+	err = e.apiRequest("POST", "controls/reset_errors", nil, true, nil)
+	time.Sleep(100 * time.Millisecond)
+	return err
+}
+
 func (e *eva) DataSnapshot() (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
@@ -254,7 +284,7 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	}
 
 	if block {
-		golog.Global.Debugf("i don't know how to block: %s", err)
+		golog.Global.Debugf("i don't know how to block")
 		time.Sleep(1000 * time.Millisecond)
 	}
 	return nil

@@ -10,8 +10,9 @@
           if (!cb) {
               document.getElementById("err").innerHTML = "";
               document.getElementById("res").innerHTML = "";
+              console.log(path);
           }
-          console.log(path);
+
           fetch( path, { method: "POST"})
               .then(function(response) {
                   return response.json();})
@@ -59,8 +60,8 @@
                   var id = "arm_j_" + arm + "_" + i;
                   document.getElementById(id).innerHTML = Number(j[i]).toFixed(2);
               }
-              setTimeout(updateJointView, 500, arm);
           });
+          setTimeout(updateJointView, 500, arm);
       }
 
       function updateGridView(arm) {
@@ -69,11 +70,17 @@
                   var id = "arm_c_" + arm + "_" + i;
                   var e = document.getElementById(id);
                   if (e) {
-                      e.innerHTML = Number(response[i]).toFixed(2);
+                      e.innerHTML = Number(response[i]).toFixed(1);
+                      if (i.length == 1) {
+                          e.innerHTML += " mm";
+                      }
+                      if (i.length == 2) {
+                          e.innerHTML += " deg";
+                      }
                   }
               }
-              setTimeout(updateJointView, 500, arm);
           });
+          setTimeout(updateGridView, 500, arm);
       }
 
     </script>
@@ -109,9 +116,12 @@
         <tr>
           <td>
             <ul>
-              {{ template "C" list $idx "x"}}
-              {{ template "C" list $idx "y"}}
-              {{ template "C" list $idx "z"}}
+              {{ template "C" list $idx "x" 2}}
+              {{ template "C" list $idx "y" 2}}
+              {{ template "C" list $idx "z" 2}}
+              {{ template "C" list $idx "rx" 1}}
+              {{ template "C" list $idx "ry" 1}}
+              {{ template "C" list $idx "rz" 1}}
             </ul>
           </td>
           <td>
@@ -122,6 +132,11 @@
               {{template "J" list $idx 3}}
               {{template "J" list $idx 4}}
               {{template "J" list $idx 5}}
+            </ul>
+          </td>
+          <td>
+            <ul>
+              <li><button onclick="makeApiCall('/api/arm?num={{$idx}}&mode=joint&action=abs&j0=0&j1=0&j2=0&j3=0&j4=0&j5=0')">Home</a></li>
             </ul>
           </td>
         </tr>
@@ -161,8 +176,8 @@
 {{define "C"}}
 <li>
   {{ index . 1 }}
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=2')">+</button>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-2')">-</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{index . 2}}')">+</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
   <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
@@ -171,7 +186,7 @@
 <li>
   Joint {{index . 1}}
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">-</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.01', 'joint' )">-</button>
   <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
