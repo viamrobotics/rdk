@@ -14,7 +14,9 @@ import (
 	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/lidar/usb"
 	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/utils/stream"
+
+	// register fake
+	_ "github.com/echolabsinc/robotcore/robots/fake"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -105,9 +107,12 @@ func main() {
 		cancelFunc()
 	}()
 
-	// TODO(erd): tile all devices
-	matSource := stream.ResizeMatSource{lidar.NewMatSource(lidarDevices[0]), 800, 600}
-	stream.MatSource(cancelCtx, matSource, remoteView, 33*time.Millisecond, golog.Global)
+	autoTiler := gostream.NewAutoTiler(800, 600)
+	for _, dev := range lidarDevices {
+		autoTiler.AddSource(lidar.NewImageSource(dev))
+		break
+	}
+	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 33*time.Millisecond)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

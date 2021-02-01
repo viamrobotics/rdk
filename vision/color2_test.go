@@ -4,8 +4,6 @@ import (
 	"image"
 	"os"
 	"testing"
-
-	"gocv.io/x/gocv"
 )
 
 func TestColorSegment1(t *testing.T) {
@@ -49,20 +47,14 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := gocv.NewMatWithSize(img.Rows(), img.Cols(), gocv.MatTypeCV8UC3)
-	out2, err := NewImage(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	out := NewImage(img.Image())
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
 			c := img.ColorHSV(image.Point{x, y})
 			_, cc, _ := c.Closest(clusters)
-			out2.SetHSV(image.Point{x, y}, cc)
+			out.SetHSV(image.Point{x, y}, cc)
 		}
 	}
 
-	gocv.IMWrite("out/foo.png", out)
-
+	out.WriteTo("out/foo.png")
 }

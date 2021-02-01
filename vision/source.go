@@ -3,19 +3,22 @@ package vision
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"io/ioutil"
 	"net/http"
+	"os"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/edaniels/gostream"
 
-	"gocv.io/x/gocv"
+	// register ppm
+	_ "github.com/lmittmann/ppm"
 )
 
-type MatDepthSource interface {
-	utils.MatSource
-	NextMatDepthPair() (gocv.Mat, *DepthMap, error)
+type ImageDepthSource interface {
+	gostream.ImageSource
+	NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error)
 }
 
 // -----
@@ -23,20 +26,21 @@ type StaticSource struct {
 	pc *PointCloud
 }
 
-func (ss *StaticSource) NextMat() (gocv.Mat, error) {
-	return ss.pc.Color.mat.Clone(), nil
+func (ss *StaticSource) Next(ctx context.Context) (image.Image, error) {
+	return ss.pc.Color.Image(), nil
 }
 
-func (ss *StaticSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
-	mat, err := ss.NextMat()
+func (ss *StaticSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
+	mat, err := ss.Next(ctx)
 	if err != nil {
 		return mat, nil, err
 	}
 	return mat, ss.pc.Depth, nil
 }
 
-func (ss *StaticSource) Close() {
+func (ss *StaticSource) Close() error {
 	ss.pc.Close()
+	return nil
 }
 
 // -----
@@ -46,16 +50,20 @@ type FileSource struct {
 	DepthFN string
 }
 
-func (fs *FileSource) NextMat() (gocv.Mat, error) {
-	var mat gocv.Mat
+func (fs *FileSource) Next(ctx context.Context) (image.Image, error) {
 	if fs.ColorFN == "" {
-		return mat, nil
+		return nil, nil
 	}
-	return gocv.IMRead(fs.ColorFN, gocv.IMReadUnchanged), nil
+	f, err := os.Open(fs.ColorFN)
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(f)
+	return img, err
 }
 
-func (fs *FileSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
-	mat, err := fs.NextMat()
+func (fs *FileSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
+	mat, err := fs.Next(ctx)
 	if err != nil {
 		return mat, nil, err
 	}
@@ -63,7 +71,8 @@ func (fs *FileSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
 	return mat, dm, err
 }
 
-func (fs *FileSource) Close() {
+func (fs *FileSource) Close() error {
+	return nil
 }
 
 // -------
@@ -83,22 +92,19 @@ func readyBytesFromURL(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (hs *HTTPSource) NextMat() (gocv.Mat, error) {
-
-	img := gocv.Mat{}
-
+func (hs *HTTPSource) Next(ctx context.Context) (image.Image, error) {
 	colorData, err := readyBytesFromURL(hs.ColorURL)
 	if err != nil {
-		return img, fmt.Errorf("couldn't ready color url: %s", err)
+		return nil, fmt.Errorf("couldn't ready color url: %s", err)
 	}
 
-	img, err = gocv.IMDecode(colorData, gocv.IMReadUnchanged)
+	img, _, err := image.Decode(bytes.NewBuffer(colorData))
 	return img, err
 }
 
-func (hs *HTTPSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+func (hs *HTTPSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
 
-	img, err := hs.NextMat()
+	img, err := hs.Next(ctx)
 	if err != nil {
 		return img, nil, err
 	}
@@ -121,7 +127,8 @@ func (hs *HTTPSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
 	return img, depth, err
 }
 
-func (hs *HTTPSource) Close() {
+func (hs *HTTPSource) Close() error {
+	return nil
 }
 
 // ------
@@ -144,39 +151,32 @@ func (s *IntelServerSource) ColorURL() string {
 	return fmt.Sprintf("http://%s/pic.ppm", s.host)
 }
 
-func (s *IntelServerSource) Close() {
+func (s *IntelServerSource) Close() error {
+	return nil
 }
 
-func (s *IntelServerSource) NextMat() (gocv.Mat, error) {
-	m, _, err := s.NextMatDepthPair()
+func (s *IntelServerSource) Next(ctx context.Context) (image.Image, error) {
+	m, _, err := s.NextImageDepthPair(ctx)
 	return m, err
 }
 
-func (s *IntelServerSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
+func (s *IntelServerSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
 	allData, err := readyBytesFromURL(s.BothURL)
 	if err != nil {
-		return gocv.Mat{}, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
+		return nil, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
 	}
 
-	return readNextMatDepthPairFromBoth(allData)
+	return readNextImageDepthPairFromBoth(allData)
 }
 
-func readNextMatDepthPairFromBoth(allData []byte) (gocv.Mat, *DepthMap, error) {
-	img := gocv.Mat{}
-
+func readNextImageDepthPairFromBoth(allData []byte) (image.Image, *DepthMap, error) {
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
-		return img, nil, fmt.Errorf("couldn't read depth map (both): %w", err)
+		return nil, nil, fmt.Errorf("couldn't read depth map (both): %w", err)
 	}
 
-	imgData, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return img, nil, fmt.Errorf("couldn't read image (both): %w", err)
-	}
-
-	img, err = gocv.IMDecode(imgData, gocv.IMReadUnchanged)
-
+	img, _, err := image.Decode(reader)
 	return img, depth, err
 }
 
@@ -187,15 +187,15 @@ type SettableSource struct {
 	TheDepthMap DepthMap
 }
 
-func (ss *SettableSource) NextMat() (gocv.Mat, error) {
-	m, err := gocv.ImageToMatRGB(ss.TheImage)
-	return m, err
+func (ss *SettableSource) Next(ctx context.Context) (image.Image, error) {
+	return ss.TheImage, nil
 }
 
-func (ss *SettableSource) NextMatDepthPair() (gocv.Mat, *DepthMap, error) {
-	m, err := ss.NextMat()
+func (ss *SettableSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
+	m, err := ss.Next(ctx)
 	return m, &ss.TheDepthMap, err
 }
 
-func (ss *SettableSource) Close() {
+func (ss *SettableSource) Close() error {
+	return nil
 }

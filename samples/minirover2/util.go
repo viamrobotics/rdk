@@ -8,10 +8,29 @@ import (
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
-	"gocv.io/x/gocv"
+	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
-func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
+var face font.Face
+
+func init() {
+	font, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		panic(err)
+	}
+
+	face = truetype.NewFace(font, &truetype.Options{Size: 16})
+}
+
+func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
+
+	var dc *gg.Context
+	if debug {
+		dc = gg.NewContextForImage(pc.Color.Image())
+	}
 
 	points := 0
 
@@ -54,13 +73,17 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 			colorDiff := c.Distance(c2)
 
 			if rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
-				if debug != nil {
-					gocv.Circle(debug, p, 1, vision.Red.C, 1)
+				if dc != nil {
+					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
+					dc.SetColor(vision.Red.C)
+					dc.Fill()
 				}
 				points++
 			} else if colorDiff > 2 {
-				if debug != nil {
-					gocv.Circle(debug, p, 1, vision.Green.C, 1)
+				if dc != nil {
+					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
+					dc.SetColor(vision.Green.C)
+					dc.Fill()
 				}
 				points++
 			}
@@ -68,19 +91,23 @@ func roverWalk(pc *vision.PointCloud, debug *gocv.Mat) int {
 			return nil
 		})
 
-	if debug != nil {
-		gocv.Rectangle(debug, image.Rect(
-			middleX-radius, pc.Height()-1,
-			middleX+radius, pc.Height()-radius),
-			vision.Red.C, 1)
+	if dc != nil {
+		dc.DrawRectangle(
+			float64(middleX-radius),
+			float64(pc.Height()-1),
+			float64(radius*2),
+			float64(-1+radius))
+		dc.SetColor(vision.Red.C)
+		dc.Fill()
 
-		gocv.PutText(debug, fmt.Sprintf("%d", points), image.Point{20, 80}, gocv.FontHersheyPlain, 5, vision.Green.C, 2)
-
+		dc.SetFontFace(face)
+		dc.SetColor(vision.Green.C)
+		dc.DrawStringAnchored(fmt.Sprintf("%d", points), 20, 80, 0, 0)
 	}
 
 	golog.Global.Debugf("\t %d\n", points)
 
-	return points
+	return dc.Image(), points
 }
 
 // ------

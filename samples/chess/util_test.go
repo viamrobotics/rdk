@@ -8,12 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"gocv.io/x/gocv"
-
-	"github.com/tonyOreglia/glee/pkg/position"
-
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
+
+	"github.com/tonyOreglia/glee/pkg/position"
 )
 
 func TestInit(t *testing.T) {
@@ -47,7 +46,8 @@ func TestInit(t *testing.T) {
 		if len(pcs) != 32 {
 			temp := board.Annotate()
 			tempfn := fmt.Sprintf("out/init-%d.png", idx)
-			gocv.IMWrite(tempfn, temp)
+
+			utils.WriteImageToFile(tempfn, temp)
 			fmt.Printf("\t annotated -> %s\n", tempfn)
 		}
 
@@ -107,7 +107,7 @@ func TestOneMove(t *testing.T) {
 
 		temp := board.Annotate()
 		fmt.Println(fn)
-		gocv.IMWrite(fmt.Sprintf("out/onemove-%d.png", idx), temp)
+		utils.WriteImageToFile(fmt.Sprintf("out/onemove-%d.png", idx), temp)
 	}
 
 	bb, err := state.GetBitBoard()

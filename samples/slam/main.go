@@ -22,7 +22,6 @@ import (
 	"github.com/echolabsinc/robotcore/robots/hellorobot"
 	"github.com/echolabsinc/robotcore/slam"
 	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/utils/stream"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -227,10 +226,10 @@ func main() {
 	clientHeight := 600
 	frameSpeed := 33 * time.Millisecond
 
-	robotViewMatSource := stream.ResizeMatSource{lar, clientWidth, clientHeight}
-	worldViewMatSource := stream.ResizeMatSource{areaViewer, clientWidth, clientHeight}
-	go stream.MatSource(cancelCtx, worldViewMatSource, areaViewerRemoteView, frameSpeed, golog.Global)
-	stream.MatSource(cancelCtx, robotViewMatSource, robotView, frameSpeed, golog.Global)
+	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
+	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}
+	go gostream.StreamSource(cancelCtx, worldViewMatSource, areaViewerRemoteView, frameSpeed)
+	gostream.StreamSource(cancelCtx, robotViewMatSource, robotView, frameSpeed)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"image"
@@ -20,10 +21,10 @@ import (
 	"github.com/echolabsinc/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
-	"gocv.io/x/gocv"
 )
 
 type pos struct {
@@ -63,7 +64,7 @@ func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 		return err
 	}
 	where.Z = SafeMoveHeight + heightMod
-	err = myArm.MoveToPositionC(where)
+	err = myArm.MoveToPosition(where)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 		where.X = f.x
 		where.Y = f.y
 	}
-	return myArm.MoveToPositionC(where)
+	return myArm.MoveToPosition(where)
 }
 
 func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
@@ -120,7 +121,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 		return err
 	}
 	where.Z = BoardHeight + (height / 1000) + .01
-	myArm.MoveToPositionC(where)
+	myArm.MoveToPosition(where)
 
 	// grab piece
 	for {
@@ -146,7 +147,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
 		}
-		myArm.MoveToPositionC(where)
+		myArm.MoveToPosition(where)
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -182,7 +183,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPositionC(where)
+	myArm.MoveToPosition(where)
 
 	myGripper.Open()
 
@@ -192,7 +193,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPositionC(where)
+		myArm.MoveToPosition(where)
 
 		moveOutOfWay(myArm)
 	}
@@ -210,17 +211,20 @@ func moveOutOfWay(myArm arm.Arm) error {
 	where.Y = foo.y
 	where.Z = SafeMoveHeight + .3 // HARD CODED
 
-	return myArm.MoveToPositionC(where)
+	return myArm.MoveToPosition(where)
 }
 
 func initArm(myArm arm.Arm) error {
-	// temp init, what to do?
-	rx := -math.Pi
-	ry := 0.0
-	rz := 0.0
-
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(foo.x, foo.y, SafeMoveHeight, rx, ry, rz)
+	err := myArm.MoveToPosition(arm.Position{
+		X:  foo.x,
+		Y:  foo.y,
+		Z:  SafeMoveHeight,
+		Rx: -180,
+		Ry: 0,
+		Rz: 0,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -248,50 +252,37 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
+func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
+	ctx := context.TODO()
 	imageSize := image.Point{}
-	m, err := wristCam.NextMat()
+	img, err := wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
-	imageSize.X = m.Cols()
-	imageSize.Y = m.Rows()
-	m.Close()
+	imgBounds := img.Bounds()
+	imageSize.X = imgBounds.Max.X
+	imageSize.Y = imgBounds.Max.Y
 
 	// wait, cause this camera sucks
 	time.Sleep(500 * time.Millisecond)
-	m, err = wristCam.NextMat()
+	img, err = wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
-	m.Close()
-
-	// wait, cause this camera sucks
-	time.Sleep(500 * time.Millisecond)
-	m, err = wristCam.NextMat()
-	if err != nil {
-		return nil, imageSize, err
-	}
-	defer m.Close()
 
 	// got picture finally
-
-	out := gocv.NewMatWithSize(m.Rows(), m.Cols(), gocv.MatTypeCV8UC3)
-	defer out.Close()
-
-	img, err := vision.NewImage(m)
-	if err != nil {
-		return nil, imageSize, err
-	}
-
-	corners, err := chess.FindChessCornersPinkCheat(img, &out)
+	out, corners, err := chess.FindChessCornersPinkCheat(vision.NewImage(img))
 	if err != nil {
 		return nil, imageSize, err
 	}
 
 	if debugNumber >= 0 {
-		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), m)
-		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
+		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), img); err != nil {
+			panic(err)
+		}
+		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out); err != nil {
+			panic(err)
+		}
 	}
 
 	golog.Global.Debugf("Corners: %v", corners)
@@ -299,7 +290,7 @@ func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Poin
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(myArm arm.Arm, wristCam utils.MatSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition()
@@ -331,7 +322,7 @@ func lookForBoardAdjust(myArm arm.Arm, wristCam utils.MatSource, corners []image
 
 		where.X += xMove
 		where.Y += yMove
-		err = myArm.MoveToPositionC(where)
+		err = myArm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}
@@ -365,7 +356,7 @@ func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 		where.Rx = -2.600206
 		where.Ry = -0.007839
 		where.Rz = -0.061827
-		err = myArm.MoveToPositionC(where)
+		err = myArm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}
@@ -410,7 +401,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		_, dm, err := cam.NextMatDepthPair()
+		_, dm, err := cam.NextImageDepthPair(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -441,7 +432,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 
 		fmt.Printf("\t moving to %0.3f,%0.3f\n", where.X, where.Y)
 
-		err = arm.MoveToPositionC(where)
+		err = arm.MoveToPosition(where)
 		if err != nil {
 			return err
 		}
@@ -532,32 +523,20 @@ func main() {
 
 	go func() {
 		for {
-			img, depth, err := webcam.NextMatDepthPair()
+			img, depth, err := webcam.NextImageDepthPair(context.TODO())
 			func() {
-				var boardCreated bool
-				defer func() {
-					if !boardCreated {
-						img.Close()
-					}
-				}()
-				if err != nil || img.Empty() {
+				if err != nil {
 					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
 
-				i2, err := vision.NewImage(img)
-				if err != nil {
-					golog.Global.Debug(err)
-					return
-				}
-
+				i2 := vision.NewImage(img)
 				theBoard, err := chess.FindAndWarpBoard(i2, depth)
 				if err != nil {
 					golog.Global.Debug(err)
 					return
 				}
 
-				boardCreated = true
 				annotated := theBoard.Annotate()
 
 				if theBoard.IsBoardBlocked() {
@@ -625,17 +604,15 @@ func main() {
 
 				}
 
-				annotatedImageHolder.TheImage, err = annotated.ToImage()
-				if err != nil {
-					panic(err)
-				}
-
+				annotatedImageHolder.TheImage = annotated
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					tm := time.Now().Unix()
 
 					fn := fmt.Sprintf("data/board-%d.png", tm)
 					golog.Global.Debugf("saving image %s", fn)
-					gocv.IMWrite(fn, img)
+					if err := utils.WriteImageToFile(fn, img); err != nil {
+						panic(err)
+					}
 
 					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
 					err = depth.WriteToFile(fn)

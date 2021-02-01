@@ -23,12 +23,18 @@ func (pc *PointCloud) Height() int {
 	return pc.Color.Height()
 }
 
+// TODO(erh): don't rely on gocv for warp
 func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointCloud {
 	m := gocv.GetPerspectiveTransform(src, dst)
 	defer m.Close()
 
 	warped := gocv.NewMat()
-	gocv.WarpPerspective(pc.Color.MatUnsafe(), &warped, m, newSize)
+	colorMat, err := gocv.ImageToMatRGBA(pc.Color.Image())
+	if err != nil {
+		panic(err)
+	}
+	defer colorMat.Close()
+	gocv.WarpPerspective(colorMat, &warped, m, newSize)
 
 	var warpedDepth *DepthMap
 	if pc.Depth.Width() > 0 {
@@ -39,11 +45,11 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointClo
 		warpedDepth = NewDepthMapFromMat(dm2)
 	}
 
-	img, err := NewImage(warped)
+	img, err := warped.ToImage()
 	if err != nil {
-		panic(fmt.Errorf("should be impossible: %w", err))
+		panic(err)
 	}
-	return PointCloud{warpedDepth, img}
+	return PointCloud{warpedDepth, NewImage(img)}
 }
 
 func (pc *PointCloud) CropToDepthData() (PointCloud, error) {
@@ -116,13 +122,12 @@ func (pc *PointCloud) CropToDepthData() (PointCloud, error) {
 }
 
 func (pc *PointCloud) Close() {
-	pc.Color.Close()
+
 }
 
 func NewPointCloud(colorFN, depthFN string) (*PointCloud, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		img.Close()
 		return nil, err
 	}
 
@@ -132,7 +137,6 @@ func NewPointCloud(colorFN, depthFN string) (*PointCloud, error) {
 	}
 
 	if img.Width() != dm.Width() || img.Height() != dm.Height() {
-		img.Close()
 		return nil, fmt.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
 			img.Width(), img.Height(), dm.Width(), dm.Height())
 	}
