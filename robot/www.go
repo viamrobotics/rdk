@@ -272,6 +272,19 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 					current[i] += val
 					changes = true
 				}
+			} else if action == "abs" {
+				for i := 0; i < len(current); i++ {
+					temp := req.FormValue(fmt.Sprintf("j%d", i))
+					if temp == "" {
+						continue
+					}
+					val, err := strconv.ParseFloat(temp, 64)
+					if err != nil {
+						return nil, err
+					}
+					current[i] = val
+					changes = true
+				}
 			}
 
 			if changes {

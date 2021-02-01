@@ -96,7 +96,7 @@ func (e *eva) CurrentPosition() (CartesianInfo, error) {
 	ci.Ry = fk.Orientation.Y
 	ci.Rz = fk.Orientation.Z
 
-	golog.Global.Debugf("W: %v\n", fk.Orientation.W)
+	golog.Global.Debugf("W: %v", fk.Orientation.W)
 
 	return ci, nil
 }
