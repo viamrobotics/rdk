@@ -4,6 +4,8 @@ go 1.14
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
+	github.com/Masterminds/goutils v1.1.0 // indirect
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210129220540-ae73274fbb3f
@@ -14,12 +16,15 @@ require (
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
+	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.0.3
 	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/sbinet/go-python v0.1.0

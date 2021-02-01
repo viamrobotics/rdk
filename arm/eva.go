@@ -64,6 +64,14 @@ type evaKinematics struct {
 	Orientation evaOrientation
 }
 
+func (e *eva) CurrentJointPositions() ([]float64, error) {
+	data, err := e.DataSnapshot()
+	if err != nil {
+		return nil, err
+	}
+	return data.ServosPosition, nil
+}
+
 func (e *eva) CurrentPosition() (CartesianInfo, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
@@ -113,7 +121,11 @@ func (e *eva) MoveToPositionC(c CartesianInfo) error {
 		return err
 	}
 
-	err = e.apiLock()
+	return e.MoveToJointPositions(joints)
+}
+
+func (e *eva) MoveToJointPositions(joints []float64) error {
+	err := e.apiLock()
 	if err != nil {
 		return err
 	}

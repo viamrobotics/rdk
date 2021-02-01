@@ -49,6 +49,14 @@ func (da *dummyArm) MoveToPosition(x, y, z, rx, ry, rz float64) error {
 	return nil
 }
 
+func (da *dummyArm) MoveToJointPositions(joints []float64) error {
+	return fmt.Errorf("dummyArm::MoveToJointPositions doesn't work")
+}
+
+func (da *dummyArm) CurrentJointPositions() ([]float64, error) {
+	return nil, fmt.Errorf("dummyArm::CurrentJointPositions doesn't work")
+}
+
 func (da *dummyArm) JointMoveDelta(joint int, amount float64) error {
 	return fmt.Errorf("dummy JointMoveDelta does nothing")
 }
