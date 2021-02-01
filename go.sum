@@ -135,12 +135,6 @@ github.com/edaniels/golinters v0.0.4 h1:bOhAr1acA66+bRjAB9XVfA55VtME1MOqFnfpIjWw
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwaiZECzZla8apET/s97xhquWyluOA=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
-github.com/edaniels/gostream v0.0.0-20210129220540-ae73274fbb3f h1:bbe1ErZiVR6hEQ0UJ0u3XDeTJIus8bb4NmtpSCDcgNE=
-github.com/edaniels/gostream v0.0.0-20210129220540-ae73274fbb3f/go.mod h1:gu9A7w0TDMqV9VR2F2XCimQBRdew6VnRZX7oo6nteDw=
-github.com/edaniels/gostream v0.0.0-20210201171820-2d3c2934fe2b h1:dyW1PTbitPyV56XyCCkWZeqHs25Nn7xxjY8T6wc3KsQ=
-github.com/edaniels/gostream v0.0.0-20210201171820-2d3c2934fe2b/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
-github.com/edaniels/gostream v0.0.0-20210201183331-b288946f6458 h1:mO8Lv4Vky9Qyg15t9fATtSmrvY4AJHawZzEuGpeCNjM=
-github.com/edaniels/gostream v0.0.0-20210201183331-b288946f6458/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
 github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d h1:zbnm6dZ+l5v5QQBa4aBZYnlVgNmgmk1bz0sqzNiaNXA=
 github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64 h1:OBY3x4TCn+QiKJqExDPP84KLiz7f4zyWdWuY8flAsh0=
@@ -157,6 +151,7 @@ github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL
 github.com/fatih/color v1.10.0 h1:s36xzo75JdqLaaWoiEHk767eHiwo0598uUxyfiPkDsg=
 github.com/fatih/color v1.10.0/go.mod h1:ELkj/draVOlAH/xkhN6mQ50Qd0MPOk5AAr3maGEBuJM=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
+github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90 h1:WXb3TSNmHp2vHoCroCIB1foO/yQ36swABL8aOVeDpgg=
 github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/frankban/quicktest v1.5.0/go.mod h1:jaStnuzAqU1AJdCO0l53JDCJrVDKcS03DbaAcR7Ks/o=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
