@@ -6,13 +6,23 @@
           makeApiCall(path);
       }
 
-      function makeApiCall(path) {
+      function makeApiCall(path, cb) {
+          if (!cb) {
+              document.getElementById("err").innerHTML = "";
+              document.getElementById("res").innerHTML = "";
+          }
           console.log(path);
           fetch( path, { method: "POST"})
               .then(function(response) {
                   return response.json();})
-              .then( function(response) {
-                  document.getElementById("res").innerHTML = JSON.stringify(response);
+              .then(function(response) {
+                  if ("err" in response ){
+                      document.getElementById("err").innerHTML = JSON.stringify(response);
+                  } else if (cb) {
+                      cb(response);
+                  } else {
+                      document.getElementById("res").innerHTML = JSON.stringify(response);
+                  }
               });
       }
 
@@ -41,13 +51,35 @@
       {{ range $view := .RemoteViews }}
         {{ jsSafe $view.JavaScript }}
       {{ end }}
-      
+
+      function updateJointView(arm) {
+          makeApiCall("/api/arm?mode=joint&arm=" + arm, function(response) {
+              var j = response["joints"];
+              for ( var i=0; i<j.length; i++) {
+                  var id = "arm_j_" + arm + "_" + i;
+                  document.getElementById(id).innerHTML = Number(j[i]).toFixed(2);
+              }
+              setTimeout(updateJointView, 500, arm);
+          });
+      }
+
+      function updateGridView(arm) {
+          makeApiCall("/api/arm?mode=grid&arm=" + arm, function(response) {
+              for ( var i in response) {
+                  var id = "arm_c_" + arm + "_" + i;
+                  var e = document.getElementById(id);
+                  if (e) {
+                      e.innerHTML = Number(response[i]).toFixed(2);
+                  }
+              }
+              setTimeout(updateJointView, 500, arm);
+          });
+      }
+
     </script>
   </head>
   <body>
-
-    <div id="res"></div>
-    
+    <div id="err" style="font-color: red"></div>
     {{ range $b := .Bases }}
     <div class="base">
       {{ $b }}
@@ -65,6 +97,10 @@
     {{ range $idx, $a := .Arms }}
     <div class="arm">
       <h3>Arm {{ $a }}</h3>
+      <script>
+        updateJointView({{$idx}})
+        updateGridView({{$idx}})
+      </script>
       <table>
         <tr>
           <th><h5>GRID</h5></th>
@@ -73,16 +109,9 @@
         <tr>
           <td>
             <ul>
-              <li><button onclick="armInc({{ $idx }}, 'x=2')">X+</button></li>
-              <li><button onclick="armInc({{ $idx }}, 'x=-2')">X-</button></li>
-              
-              <li><button onclick="armInc({{ $idx }}, 'y=2')">Y+</button></li>
-              <li><button onclick="armInc({{ $idx }}, 'y=-2')">Y-</button></li>
-              
-              
-              <li><button onclick="armInc({{ $idx }}, 'z=2')">Z+</button></li>
-              <li><button onclick="armInc({{ $idx }}, 'z=-2')">Z-</button></li>
-              
+              {{ template "C" list $idx "x"}}
+              {{ template "C" list $idx "y"}}
+              {{ template "C" list $idx "z"}}
             </ul>
           </td>
           <td>
@@ -122,13 +151,27 @@
         {{ end }}
       </tr>
       </table>
+
+    
+    <div id="res"></div>
     
   </body>
 </html>
+
+{{define "C"}}
+<li>
+  {{ index . 1 }}
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=2')">+</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-2')">-</button>
+  <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
+</li>
+{{end}}
+
 {{define "J"}}
 <li>
   Joint {{index . 1}}
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">-</button>
+  <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
