@@ -285,6 +285,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
+// TODO(erh): don't rely on gocv
 func NewDepthMapFromMat(mat gocv.Mat) *DepthMap {
 	dm := DepthMap{}
 
