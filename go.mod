@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/echolabsinc/dynamixel v0.0.0-20210129164229-7fe144ee7683
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210201183542-9e5e37f9ec9d
+	github.com/edaniels/gostream v0.0.0-20210201225911-10918e931ea8
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
