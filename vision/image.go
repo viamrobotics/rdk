@@ -5,19 +5,20 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
+	"image/png"
 	"io/ioutil"
 	"math"
 	"os"
 	"strings"
 
-	"gocv.io/x/gocv"
-
 	"github.com/echolabsinc/robotcore/rcutil"
+
+	"github.com/fogleman/gg"
 )
 
 type Image struct {
-	mat  gocv.Mat
-	data []uint8
+	img *image.RGBA
 
 	width  int
 	height int
@@ -50,47 +51,25 @@ func NewImageFromFile(fn string) (Image, error) {
 			return Image{}, err
 		}
 
-		return NewImage(img)
+		return NewImage(img), nil
 	}
 
-	return NewImageFromMat(gocv.IMRead(fn, gocv.IMReadUnchanged))
-}
-
-func NewImage(img image.Image) (Image, error) {
-	mat, err := gocv.ImageToMatRGBA(img)
+	f, err := os.Open(fn)
 	if err != nil {
 		return Image{}, err
 	}
-	return NewImageFromMat(mat)
-}
-
-// TODO(erd): remove in favor of NewImage
-func NewImageFromMat(mat gocv.Mat) (Image, error) {
-
-	switch mat.Type() {
-	case gocv.MatTypeCV8UC3:
-		//good
-	case gocv.MatTypeCV8UC4:
-		gocv.CvtColor(mat, &mat, gocv.ColorBGRAToBGR)
-	default:
-		return Image{}, fmt.Errorf("bad mat type %v", mat.Type())
-	}
-
-	data, err := mat.DataPtrUint8()
+	img, _, err := image.Decode(f)
 	if err != nil {
 		return Image{}, err
 	}
-	i := Image{mat, data, mat.Cols(), mat.Rows()}
-
-	if len(i.data) != (3 * i.width * i.height) {
-		return Image{}, fmt.Errorf("bad length/size. len: %d width: %d height: %d", len(i.data), i.width, i.height)
-	}
-
-	return i, nil
+	return NewImage(img), nil
 }
 
-func (i *Image) Close() {
-	i.mat.Close()
+func NewImage(img image.Image) Image {
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
+	return Image{img: rgba, height: bounds.Max.Y, width: bounds.Max.X}
 }
 
 func (i *Image) Rows() int {
@@ -127,13 +106,8 @@ func (i *Image) ColorRowCol(row, col int) color.RGBA {
 		panic(fmt.Errorf("bad row or col want: %d %d width: %d height: %d", row, col, i.width, i.height))
 	}
 
-	base := 3 * (row*i.width + col)
-	c := color.RGBA{}
-	c.R = i.data[base+2]
-	c.G = i.data[base+1]
-	c.B = i.data[base+0]
-	c.A = 255
-	return c
+	r, g, b, a := i.img.At(col, row).RGBA()
+	return color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}
 }
 
 func (i *Image) SetHSV(p image.Point, c HSV) {
@@ -145,10 +119,7 @@ func (i *Image) SetColor(p image.Point, c Color) {
 }
 
 func (i *Image) SetColorRowCol(row, col int, c Color) {
-	base := 3 * (row*i.width + col)
-	i.data[base+2] = c.C.R
-	i.data[base+1] = c.C.G
-	i.data[base+0] = c.C.B
+	i.img.Set(col, row, c)
 }
 
 func (i *Image) AverageColor(p image.Point) color.RGBA {
@@ -177,12 +148,9 @@ func (i *Image) AverageColorXY(x, y int) color.RGBA {
 
 }
 
-func (i *Image) MatUnsafe() gocv.Mat {
-	return i.mat
-}
-
-func (i *Image) ToImage() (image.Image, error) {
-	return i.mat.ToImage()
+// does not return a copy
+func (i *Image) Image() image.Image {
+	return i.img
 }
 
 // TODO(erh): move this to a better file
@@ -193,13 +161,17 @@ func PointDistance(a, b image.Point) float64 {
 }
 
 func (i *Image) WriteTo(fn string) error {
-	b := gocv.IMWrite(fn, i.mat)
-	if b {
-		return nil
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("couldn't write image to %s", fn)
+	defer f.Close()
+	return png.Encode(f, i.img)
 }
 
 func (i *Image) Circle(center image.Point, radius int, c Color) {
-	gocv.Circle(&i.mat, center, radius, c.C, 1)
+	dc := gg.NewContextForRGBA(i.img) // no copy
+	dc.DrawCircle(float64(center.X), float64(center.Y), 1)
+	dc.SetColor(c.C)
+	dc.Fill()
 }

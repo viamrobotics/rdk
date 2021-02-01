@@ -75,11 +75,7 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 }
 
 func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, error) {
-	goImg, err := img.ToImage()
-	if err != nil {
-		return nil, err
-	}
-	dc := gg.NewContextForImage(goImg)
+	dc := gg.NewContextForImage(img.Image())
 
 	start := image.Point{startX, startY}
 
@@ -154,11 +150,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 		}
 	}
 
-	goImg, err := img.ToImage()
-	if err != nil {
-		return nil, err
-	}
-	dc := gg.NewContextForImage(goImg)
+	dc := gg.NewContextForImage(img.Image())
 
 	for k, v := range ws.dots {
 		if v <= 0 {

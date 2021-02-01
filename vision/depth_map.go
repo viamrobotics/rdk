@@ -394,13 +394,8 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 		max = hardMax
 	}
 
-	mat := gocv.NewMatWithSize(dm.Height(), dm.Width(), gocv.MatTypeCV8UC3)
-
-	img, err := NewImageFromMat(mat)
-	if err != nil {
-		mat.Close()
-		return img, err
-	}
+	img := image.NewRGBA(image.Rect(0, 0, dm.Width(), dm.Height()))
+	vImg := NewImage(img)
 
 	span := float64(max) - float64(min)
 
@@ -422,9 +417,9 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			img.SetHSV(p, HSV{hue, 1.0, 1.0})
+			vImg.SetHSV(p, HSV{hue, 1.0, 1.0})
 		}
 	}
 
-	return img, nil
+	return vImg, nil
 }

@@ -268,12 +268,7 @@ func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image
 	}
 
 	// got picture finally
-	vImg, err := vision.NewImage(img)
-	if err != nil {
-		return nil, imageSize, err
-	}
-
-	out, corners, err := chess.FindChessCornersPinkCheat(vImg)
+	out, corners, err := chess.FindChessCornersPinkCheat(vision.NewImage(img))
 	if err != nil {
 		return nil, imageSize, err
 	}
@@ -532,12 +527,7 @@ func main() {
 					return
 				}
 
-				i2, err := vision.NewImage(img)
-				if err != nil {
-					golog.Global.Debug(err)
-					return
-				}
-
+				i2 := vision.NewImage(img)
 				theBoard, err := chess.FindAndWarpBoard(i2, depth)
 				if err != nil {
 					golog.Global.Debug(err)
@@ -611,11 +601,7 @@ func main() {
 
 				}
 
-				annotatedImageHolder.TheImage, err = annotated.ToImage()
-				if err != nil {
-					panic(err)
-				}
-
+				annotatedImageHolder.TheImage = annotated
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					tm := time.Now().Unix()
 

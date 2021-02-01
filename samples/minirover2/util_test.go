@@ -26,11 +26,7 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img v
 	if err != nil {
 		return err
 	}
-	colorImg, err := pc.Color.ToImage()
-	if err != nil {
-		return err
-	}
-	d.GotDebugImage(colorImg, "cropped")
+	d.GotDebugImage(pc.Color.Image(), "cropped")
 
 	walked, _ := roverWalk(&pc, true)
 	d.GotDebugImage(walked, "depth2")
@@ -53,17 +49,8 @@ type ChargeDebug struct {
 }
 
 func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
-	goImg, err := img.ToImage()
-	if err != nil {
-		return err
-	}
-
-	goImg = imaging.Rotate(goImg, 180, color.Black)
-
-	img, err = vision.NewImage(goImg)
-	if err != nil {
-		return err
-	}
+	goImg := imaging.Rotate(img.Image(), 180, color.Black)
+	img = vision.NewImage(img.Image())
 
 	d.GotDebugImage(goImg, "rotated")
 

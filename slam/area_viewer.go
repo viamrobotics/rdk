@@ -5,7 +5,7 @@ import (
 	"image"
 	"image/color"
 
-	"gocv.io/x/gocv"
+	"github.com/fogleman/gg"
 )
 
 type AreaViewer struct {
@@ -19,17 +19,18 @@ func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
 
 	// TODO(erd): any way to make this really fast? Allocate these in advance in
 	// a goroutine? Pool?
-	out := gocv.NewMatWithSize(areaSize/av.ViewScale, areaSize/av.ViewScale, gocv.MatTypeCV8UC3)
+
+	dc := gg.NewContext(areaSize/av.ViewScale, areaSize/av.ViewScale)
 
 	av.Area.Mutate(func(area MutableArea) {
 		area.DoNonZero(func(x, y int, _ float64) {
-			p := image.Point{x / av.ViewScale, y / av.ViewScale}
-			gocv.Circle(&out, p, 1, color.RGBA{R: 255}, 1)
+			dc.DrawPoint(float64(x/av.ViewScale), float64(y/av.ViewScale), 4)
+			dc.SetColor(color.RGBA{255, 0, 0, 255})
+			dc.Fill()
 		})
 	})
 
-	defer out.Close()
-	return out.ToImage()
+	return dc.Image(), nil
 }
 
 func (av *AreaViewer) Close() error {

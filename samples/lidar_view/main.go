@@ -15,6 +15,9 @@ import (
 	"github.com/echolabsinc/robotcore/lidar/usb"
 	"github.com/echolabsinc/robotcore/utils"
 
+	// register fake
+	_ "github.com/echolabsinc/robotcore/robots/fake"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"

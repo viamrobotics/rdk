@@ -184,13 +184,7 @@ func driveMyself(rover *Rover, camera vision.ImageDepthSource) {
 			continue
 		}
 		func() {
-			vImg, err := vision.NewImage(img)
-			if err != nil {
-				golog.Global.Debugf("error parsing image: %s", err)
-				return
-			}
-
-			pc := vision.PointCloud{dm, vImg}
+			pc := vision.PointCloud{dm, vision.NewImage(img)}
 			pc, err = pc.CropToDepthData()
 
 			if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {

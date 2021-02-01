@@ -29,11 +29,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 	var dc *gg.Context
 	if debug {
-		goImg, err := pc.Color.ToImage()
-		if err != nil {
-			panic(err)
-		}
-		dc = gg.NewContextForImage(goImg)
+		dc = gg.NewContextForImage(pc.Color.Image())
 	}
 
 	points := 0

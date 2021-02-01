@@ -26,9 +26,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer img.Close()
 
-	if err := vision.WriteImageToFile(flag.Arg(1), img); err != nil {
+	if err := img.WriteTo(flag.Arg(1)); err != nil {
 		panic(err)
 	}
 }

@@ -69,11 +69,7 @@ func hsvHistogram(img vision.Image) {
 	}
 
 	if center.X > 0 {
-		goImg, err := img.ToImage()
-		if err != nil {
-			panic(err)
-		}
-		dc := gg.NewContextForImage(goImg)
+		dc := gg.NewContextForImage(img.Image())
 		dc.DrawCircle(float64(center.X), float64(center.Y), *radius)
 		dc.SetColor(vision.Red.C)
 		dc.Fill()
@@ -86,11 +82,6 @@ func hsvHistogram(img vision.Image) {
 }
 
 func shapeWalkLine(img vision.Image, startX, startY int) error {
-	goImg, err := img.ToImage()
-	if err != nil {
-		return err
-	}
-
 	init := img.ColorHSV(image.Point{startX, startY})
 
 	mod := 0
@@ -119,7 +110,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		}
 	}
 
-	dc := gg.NewContextForImage(goImg)
+	dc := gg.NewContextForImage(img.Image())
 	for _, p := range as {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
 		dc.SetColor(vision.Red.C)
@@ -144,13 +135,8 @@ func view(img vision.Image) error {
 	}
 
 	var last image.Point
-	temp := img.MatUnsafe()
-	temp2, err := temp.ToImage()
-	if err != nil {
-		return err
-	}
 
-	imgs := []image.Image{temp2}
+	imgs := []image.Image{img.Image()}
 
 	font, err := truetype.Parse(goregular.TTF)
 	if err != nil {
@@ -232,15 +218,8 @@ func main() {
 	}
 
 	if *blur {
-		goImg, err := img.ToImage()
-		if err != nil {
-			panic(err)
-		}
-		newImg := imaging.Blur(goImg, float64(*blurSize))
-		img, err = vision.NewImage(newImg)
-		if err != nil {
-			panic(err)
-		}
+		newImg := imaging.Blur(img.Image(), float64(*blurSize))
+		img = vision.NewImage(newImg)
 	}
 
 	switch prog {
