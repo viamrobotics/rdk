@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"image"
 
-	"gocv.io/x/gocv"
-
 	"github.com/echolabsinc/robotcore/vision"
 )
 
@@ -31,8 +29,8 @@ func warpColorAndDepthToChess(color vision.Image, depth *vision.DepthMap, corner
 }
 
 // returns point in a1, a8, h1, h8 order
-func findChessCorners(img vision.Image, debugOut *gocv.Mat) ([]image.Point, error) {
-	return FindChessCornersPinkCheat(img, debugOut)
+func findChessCorners(img vision.Image) (image.Image, []image.Point, error) {
+	return FindChessCornersPinkCheat(img)
 }
 
 func getMinChessCorner(chess string) image.Point {
