@@ -111,8 +111,9 @@ func (lar *LocationAwareRobot) Stop() {
 	})
 }
 
-func (lar *LocationAwareRobot) Close() {
+func (lar *LocationAwareRobot) Close() error {
 	lar.Stop()
+	return nil
 }
 
 func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {

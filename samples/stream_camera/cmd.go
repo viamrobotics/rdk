@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/utils/stream"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -27,18 +26,19 @@ func main() {
 		http.ListenAndServe(":6060", nil)
 	}()
 
+	dupe := flag.Int("dupe", 0, "number of times to duplicate image")
 	flag.Parse()
 
-	var src utils.MatSource
+	var imgSrc gostream.ImageSource
 	var err error
 
-	if flag.NArg() == 0 {
-		src, err = utils.NewWebcamSource(0)
+	if flag.NArg() == 0 || flag.Arg(0) == "webcam" {
+		imgSrc, err = utils.NewWebcamSource(0)
 		if err != nil {
 			panic(err)
 		}
 	} else if flag.Arg(0) != "screen" {
-		src = &vision.HTTPSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
+		imgSrc = &vision.HTTPSource{"http://" + flag.Arg(0) + "/pic.ppm", ""}
 	}
 
 	config := vpx.DefaultRemoteViewConfig
@@ -63,17 +63,21 @@ func main() {
 		cancelFunc()
 	}()
 
+	captureRate := 33 * time.Millisecond
 	if flag.Arg(0) == "screen" {
 		bounds := screenshot.GetDisplayBounds(0)
-		gostream.StreamFunc(cancelCtx, func() image.Image {
-			img, err := screenshot.CaptureRect(bounds)
-			if err != nil {
-				panic(err)
-			}
-			return img
-		}, remoteView, 33*time.Millisecond)
+		imgSrc = gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, error) {
+			return screenshot.CaptureRect(bounds)
+		})
+	}
+	if *dupe != 0 {
+		autoTiler := gostream.NewAutoTiler(800, 600, imgSrc)
+		for i := 0; i < *dupe; i++ {
+			autoTiler.AddSource(imgSrc)
+		}
+		gostream.StreamSource(cancelCtx, autoTiler, remoteView, captureRate)
 	} else {
-		stream.MatSource(cancelCtx, src, remoteView, 33*time.Millisecond, golog.Global)
+		gostream.StreamSource(cancelCtx, imgSrc, remoteView, captureRate)
 	}
 	server.Stop(context.Background())
 }

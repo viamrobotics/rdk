@@ -52,7 +52,7 @@ type ChargeDebug struct {
 func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
 	m := img.MatUnsafe()
 	gocv.Rotate(m, &m, gocv.Rotate180Clockwise)
-	img, err := vision.NewImage(m)
+	img, err := vision.NewImageFromMat(m)
 	if err != nil {
 		return err
 	}

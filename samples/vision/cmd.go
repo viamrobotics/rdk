@@ -133,7 +133,7 @@ func view(img vision.Image) error {
 		return err
 	}
 
-	matImg := []image.Image{temp2}
+	imgs := []image.Image{temp2}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
 		if x < 0 || y < 0 {
@@ -162,7 +162,7 @@ func view(img vision.Image) error {
 		if err != nil {
 			panic(err)
 		}
-		matImg[0] = temp
+		imgs[0] = temp
 	})
 
 	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
@@ -175,7 +175,7 @@ func view(img vision.Image) error {
 	go gostream.StreamFuncOnce(
 		cancelCtx,
 		func() { time.Sleep(2 * time.Second) },
-		func() image.Image { return matImg[0] },
+		func(ctx context.Context) (image.Image, error) { return imgs[0], nil },
 		remoteView,
 		250*time.Millisecond)
 

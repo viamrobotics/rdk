@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"image"
@@ -15,11 +16,11 @@ import (
 	"github.com/echolabsinc/robotcore/gripper"
 	"github.com/echolabsinc/robotcore/rcutil"
 	"github.com/echolabsinc/robotcore/robot"
-	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 	"github.com/echolabsinc/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
 	"github.com/tonyOreglia/glee/pkg/position"
@@ -248,49 +249,42 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Point, image.Point, error) {
+func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
+	ctx := context.TODO()
 	imageSize := image.Point{}
-	m, err := wristCam.NextMat()
+	img, err := wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
-	imageSize.X = m.Cols()
-	imageSize.Y = m.Rows()
-	m.Close()
+	imgBounds := img.Bounds()
+	imageSize.X = imgBounds.Max.X
+	imageSize.Y = imgBounds.Max.Y
 
 	// wait, cause this camera sucks
 	time.Sleep(500 * time.Millisecond)
-	m, err = wristCam.NextMat()
+	img, err = wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
-	m.Close()
-
-	// wait, cause this camera sucks
-	time.Sleep(500 * time.Millisecond)
-	m, err = wristCam.NextMat()
-	if err != nil {
-		return nil, imageSize, err
-	}
-	defer m.Close()
 
 	// got picture finally
 
-	out := gocv.NewMatWithSize(m.Rows(), m.Cols(), gocv.MatTypeCV8UC3)
+	imgBounds = img.Bounds()
+	out := gocv.NewMatWithSize(imgBounds.Max.Y, imgBounds.Max.X, gocv.MatTypeCV8UC3)
 	defer out.Close()
 
-	img, err := vision.NewImage(m)
+	vImg, err := vision.NewImage(img)
 	if err != nil {
 		return nil, imageSize, err
 	}
 
-	corners, err := chess.FindChessCornersPinkCheat(img, &out)
+	corners, err := chess.FindChessCornersPinkCheat(vImg, &out)
 	if err != nil {
 		return nil, imageSize, err
 	}
 
 	if debugNumber >= 0 {
-		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), m)
+		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), vImg.MatUnsafe())
 		gocv.IMWrite(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out)
 	}
 
@@ -299,7 +293,7 @@ func getWristPicCorners(wristCam utils.MatSource, debugNumber int) ([]image.Poin
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(myArm arm.Arm, wristCam utils.MatSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition()
@@ -410,7 +404,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		_, dm, err := cam.NextMatDepthPair()
+		_, dm, err := cam.NextImageDepthPair(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -532,15 +526,9 @@ func main() {
 
 	go func() {
 		for {
-			img, depth, err := webcam.NextMatDepthPair()
+			img, depth, err := webcam.NextImageDepthPair(context.TODO())
 			func() {
-				var boardCreated bool
-				defer func() {
-					if !boardCreated {
-						img.Close()
-					}
-				}()
-				if err != nil || img.Empty() {
+				if err != nil {
 					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
@@ -557,7 +545,6 @@ func main() {
 					return
 				}
 
-				boardCreated = true
 				annotated := theBoard.Annotate()
 
 				if theBoard.IsBoardBlocked() {
@@ -635,7 +622,12 @@ func main() {
 
 					fn := fmt.Sprintf("data/board-%d.png", tm)
 					golog.Global.Debugf("saving image %s", fn)
-					gocv.IMWrite(fn, img)
+					vImg, err := vision.NewImage(img)
+					if err != nil {
+						panic(err)
+					}
+					defer vImg.Close()
+					gocv.IMWrite(fn, vImg.MatUnsafe())
 
 					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
 					err = depth.WriteToFile(fn)

@@ -1,6 +1,7 @@
 package slam
 
 import (
+	"context"
 	"image"
 	"image/color"
 
@@ -12,7 +13,7 @@ type AreaViewer struct {
 	ViewScale int
 }
 
-func (av *AreaViewer) NextMat() (gocv.Mat, error) {
+func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
 	areaSize, areaSizeScale := av.Area.Size()
 	areaSize *= areaSizeScale
 
@@ -27,8 +28,10 @@ func (av *AreaViewer) NextMat() (gocv.Mat, error) {
 		})
 	})
 
-	return out, nil
+	defer out.Close()
+	return out.ToImage()
 }
 
-func (av *AreaViewer) Close() {
+func (av *AreaViewer) Close() error {
+	return nil
 }

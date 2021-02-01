@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -174,23 +175,22 @@ func (r *Rover) processLine(line string) {
 
 // ---
 
-func driveMyself(rover *Rover, camera vision.MatDepthSource) {
+func driveMyself(rover *Rover, camera vision.ImageDepthSource) {
 	for {
-		mat, dm, err := camera.NextMatDepthPair()
+		img, dm, err := camera.NextImageDepthPair(context.TODO())
 		if err != nil {
 			golog.Global.Debugf("error reading camera: %s", err)
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}
 		func() {
-			defer mat.Close()
-			img, err := vision.NewImage(mat)
+			vImg, err := vision.NewImage(img)
 			if err != nil {
 				golog.Global.Debugf("error parsing image: %s", err)
 				return
 			}
 
-			pc := vision.PointCloud{dm, img}
+			pc := vision.PointCloud{dm, vImg}
 			pc, err = pc.CropToDepthData()
 
 			if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
@@ -263,7 +263,7 @@ func main() {
 
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(&rover, robot.Component{})
-	theRobot.AddCamera(&vision.RotateMatDepthSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
+	theRobot.AddCamera(&vision.RotateImageDepthSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
 
 	defer theRobot.Close()
 

@@ -14,7 +14,6 @@ import (
 	"github.com/echolabsinc/robotcore/lidar/rplidar"
 	"github.com/echolabsinc/robotcore/lidar/usb"
 	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/utils/stream"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -106,8 +105,8 @@ func main() {
 	}()
 
 	// TODO(erd): tile all devices
-	matSource := stream.ResizeMatSource{lidar.NewMatSource(lidarDevices[0]), 800, 600}
-	stream.MatSource(cancelCtx, matSource, remoteView, 33*time.Millisecond, golog.Global)
+	imgSource := gostream.ResizeImageSource{lidar.NewImageSource(lidarDevices[0]), 800, 600}
+	gostream.StreamSource(cancelCtx, imgSource, remoteView, 33*time.Millisecond)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
