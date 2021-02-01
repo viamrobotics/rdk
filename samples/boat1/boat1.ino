@@ -48,6 +48,9 @@ class ServoInput {
 
 ServoInput inputs[6];
 
+Motor* port;
+Motor* starboard;
+
 void setup() {
     Serial.begin(9600);
     debugSerial = &Serial;
@@ -61,11 +64,13 @@ void setup() {
     setupInterrupt(30, i5, CHANGE);
     setupInterrupt(32, i6, CHANGE);
 
+    port = new Motor(42, 44, 7);
+    starboard = new Motor(50, 52, 6);
+
     Serial.println("setup done");
 }
 
 void loop() {
-    delay(1000);
     char buf[128];
     /*
     sprintf(buf, "l - %d %d %d %d %d %d",
@@ -81,6 +86,31 @@ void loop() {
             inputs[1].val(), inputs[2].val(), inputs[3].val(), inputs[4].val(),
             inputs[5].val());
     Serial.println(buf);
+
+    if (inputs[0].val() <= .02) {
+        port->stop();
+        starboard->stop();
+    } else {
+        auto speed = inputs[0].val() * 255;
+
+        auto ps = speed;
+        auto ss = speed;
+        if (inputs[3].val() > .5) {
+            auto temp = 1 - ((inputs[3].val() - .5) * 2);
+            ps *= temp;
+        } else if (inputs[3].val() < .5) {
+            auto temp = 1 - (2 * (.5 - inputs[3].val()));
+            ss *= temp;
+        }
+
+        if (inputs[4].val() > .5) {
+            port->forward(int(ps));
+            starboard->forward(int(ss));
+        } else {
+            port->backward(int(ps));
+            starboard->backward(int(ss));
+        }
+    }
 }
 
 void gotInterrupt(int n) { inputs[n - 1].changed(); }
