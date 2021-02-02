@@ -35,8 +35,6 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	relBaseRect := lar.baseRect().Add(viewTranslateP)
 
 	utils.DrawRectangleEmpty(dc, relBaseRect, color.RGBA{0, 0, 255, 255}, 1)
-	dc.DrawRectangle(float64(relBaseRect.Min.X), float64(relBaseRect.Min.Y), float64(relBaseRect.Dx()), float64(relBaseRect.Dy()))
-	dc.Fill()
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
