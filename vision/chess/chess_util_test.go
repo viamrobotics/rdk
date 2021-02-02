@@ -161,7 +161,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 	utils.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
 
 	e := theBoard.SquareCenterEdges("a1")
-	if e < 100 {
+	if e < EdgeThreshold {
 		t.Errorf("not enough edges for a1: %v", e)
 	}
 
