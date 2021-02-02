@@ -449,7 +449,7 @@ func (a *Wx250s) telnetRead() (string, error) {
 		if n <= 0 || err != nil || recvData[0] == 10 {
 			break
 		} else {
-			if recvData[0] != 0{
+			if recvData[0] != 0 {
 				out += string(recvData)
 			}
 		}
