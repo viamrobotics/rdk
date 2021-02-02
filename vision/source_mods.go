@@ -7,7 +7,6 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/gostream"
-	"gocv.io/x/gocv"
 )
 
 type RotateImageDepthSource struct {
@@ -27,11 +26,7 @@ func (rids *RotateImageDepthSource) NextImageDepthPair(ctx context.Context) (ima
 	rotated := imaging.Rotate(img, 180, color.Black)
 
 	if d != nil && d.HasData() {
-		// TODO(erh): make this faster; replace with imaging once gocv.Mat not used
-		dm := d.ToMat()
-		defer dm.Close()
-		gocv.Rotate(dm, &dm, gocv.Rotate180Clockwise)
-		d = NewDepthMapFromMat(dm)
+		d = d.Rotate(180)
 	}
 
 	return rotated, d, nil
