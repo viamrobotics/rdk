@@ -32,4 +32,9 @@ jobs:
         make lint
 
     - name: Test
-      run: go list -f '{{.Dir}}' ./... | grep -v gen | go test -v ./...
+      run: |
+       make test
+
+    - name: Upload coverage to Codecov
+      run: |
+        bash <(curl -s https://codecov.io/bash)
