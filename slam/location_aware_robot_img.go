@@ -11,6 +11,23 @@ import (
 	"github.com/fogleman/gg"
 )
 
+// TODO(erd): config param
+const baseWidthMeters = 0.60
+
+// base is assumed to be center of view
+func (lar *LocationAwareRobot) baseRect() image.Rectangle {
+	_, scaleDown := lar.area.Size()
+	basePosX, basePosY := lar.basePos()
+
+	baseWidthScaled := int(math.Ceil(baseWidthMeters * float64(scaleDown)))
+	return image.Rect(
+		basePosX-baseWidthScaled/2,
+		basePosY-baseWidthScaled/2,
+		basePosX+baseWidthScaled/2,
+		basePosY+baseWidthScaled/2,
+	)
+}
+
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	// select device and sparse
 	bounds, area, err := lar.areaToView()
@@ -31,6 +48,9 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	maxX := basePosX + bounds.X/2
 	minY := basePosY - bounds.Y/2
 	maxY := basePosY + bounds.Y/2
+
+	relBaseRect := lar.baseRect().Add(image.Point{-basePosX + centerX, -basePosY + centerY})
+	utils.DrawRectangleEmpty(dc, relBaseRect, color.RGBA{0, 0, 255, 255}, 1)
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
