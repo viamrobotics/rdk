@@ -42,7 +42,7 @@ func (b *Base) Close() {
 	}
 }
 
-const baseTranslateSpeed = 1.0 / 3 // m/sec
+const baseTranslateSpeed = 1.0 / 5 // m/sec
 
 func (b *Base) TranslateBy(meters float64, block bool) {
 	b.baseObj.CallMethod("translate_by", python.PyFloat_FromDouble(meters))
@@ -52,7 +52,7 @@ func (b *Base) TranslateBy(meters float64, block bool) {
 	}
 }
 
-const baseRotateSpeed = 2 * math.Pi / 3 // rad/sec
+const baseRotateSpeed = 2 * math.Pi / 5 // rad/sec
 
 func (b *Base) RotateBy(degrees float64, block bool) {
 	rads := -utils.DegToRad(degrees)

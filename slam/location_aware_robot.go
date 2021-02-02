@@ -242,7 +242,11 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		// we must make sure to not approach an area like this so as
 		// to avoid the collision disappearing.
 
-		moveRect := lar.moveRect(newX, newY, newOrientation)
+		moveOrientation := newOrientation
+		if amount != nil && *amount < 0 {
+			moveOrientation = (newOrientation + 180) % 360
+		}
+		moveRect := lar.moveRect(newX, newY, moveOrientation)
 
 		var collides bool
 		lar.area.Mutate(func(mutArea MutableArea) {
@@ -253,7 +257,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 			})
 		})
 		if collides {
-			return fmt.Errorf("cannot move to (%d,%d) via %d; would collide", newX, newY, newOrientation)
+			return fmt.Errorf("cannot move to (%d,%d) via %d; would collide", newX, newY, moveOrientation)
 		}
 
 		// detect obstacle END
@@ -384,9 +388,10 @@ func (lar *LocationAwareRobot) updateLoop() {
 			for _, next := range measurements {
 				angle := next.Angle()
 				x, y := next.Coords()
-				if adjust {
-					angle += offsets.Angle
-					angleRad := utils.DegToRad(offsets.Angle)
+				if adjust || lar.baseOrientation != 0 {
+					offset := (float64(lar.baseOrientation) + offsets.Angle)
+					angle += math.Mod(offset, 360)
+					angleRad := utils.DegToRad(angle)
 					// rotate vector around base ccw
 					newX := math.Cos(angleRad)*x - math.Sin(angleRad)*y
 					newY := math.Sin(angleRad)*x + math.Cos(angleRad)*y
