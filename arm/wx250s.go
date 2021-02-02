@@ -3,12 +3,12 @@ package arm
 import (
 	"fmt"
 
-	"github.com/dynamixel/dynamixel/network"
-	"github.com/dynamixel/dynamixel/servo"
-	"github.com/dynamixel/dynamixel/servo/s_model"
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/reiver/go-telnet"
+	"github.com/viamrobotics/dynamixel/network"
+	"github.com/viamrobotics/dynamixel/servo"
+	"github.com/viamrobotics/dynamixel/servo/s_model"
 
 	"strconv"
 	"strings"
@@ -20,8 +20,8 @@ import (
 // That is done directly via serial joint/servo control
 // kinConn is only for communicating with the forward/inverse kinematics provider
 type Wx250s struct {
-	kinConn *telnet.Conn
-	Joints  map[string][]*servo.Servo
+	kinConn  *telnet.Conn
+	Joints   map[string][]*servo.Servo
 	moveLock sync.Mutex
 }
 
@@ -176,7 +176,6 @@ func (a *Wx250s) MoveToJointPositions(positions []float64) error {
 	if len(positions) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
-
 
 	// TODO: make configurable
 	block := false
