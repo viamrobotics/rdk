@@ -168,16 +168,18 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	servoPosList[1] *= -1
 	servoPosList[2] *= -1
 	return a.MoveToJointPositions(servoPosList)
-	//~ return nil
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
 func (a *Wx250s) MoveToJointPositions(positions []float64) error {
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
+
 	if len(positions) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
 
-	// TODO: make configurable
+	// TODO: make block configurable
 	block := false
 	for i, pos := range positions {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
@@ -220,6 +222,8 @@ func (a *Wx250s) Close() {
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position
 func (a *Wx250s) GetAllAngles() (map[string]float64, error) {
+	a.moveLock.Lock()
+	defer a.moveLock.Unlock()
 	angles := make(map[string]float64)
 	for jointName, servos := range a.Joints {
 		angleSum := 0
@@ -368,8 +372,6 @@ func (a *Wx250s) TorqueOff() error {
 
 // Set a joint to a position
 func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
-	a.moveLock.Lock()
-	defer a.moveLock.Unlock()
 	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
 		golog.Global.Errorf("jointTo error: %s", err)
@@ -378,6 +380,7 @@ func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
 
 //Go back to the sleep position, ready to turn off torque
 func (a *Wx250s) SleepPosition() error {
+	a.moveLock.Lock()
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
 	a.JointTo("Shoulder", 840, sleepWait)
@@ -385,15 +388,19 @@ func (a *Wx250s) SleepPosition() error {
 	a.JointTo("Wrist", 2509, sleepWait)
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
+	a.moveLock.Unlock()
 	return a.WaitForMovement()
 }
 
 //Go to the home position
 func (a *Wx250s) HomePosition() error {
+	a.moveLock.Lock()
+
 	wait := false
 	for jointName := range a.Joints {
 		a.JointTo(jointName, 2048, wait)
 	}
+	a.moveLock.Unlock()
 	return a.WaitForMovement()
 }
 
@@ -442,7 +449,9 @@ func (a *Wx250s) telnetRead() (string, error) {
 		if n <= 0 || err != nil || recvData[0] == 10 {
 			break
 		} else {
-			out += string(recvData)
+			if recvData[0] != 0{
+				out += string(recvData)
+			}
 		}
 	}
 	return out, err
@@ -468,8 +477,8 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 		BaudRate:              uint(baudRate),
 		DataBits:              8,
 		StopBits:              1,
-		MinimumReadSize:       1,
-		InterCharacterTimeout: 1,
+		MinimumReadSize:       0,
+		InterCharacterTimeout: 100,
 	}
 
 	serial, err := serial.Open(options)
