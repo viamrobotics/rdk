@@ -32,6 +32,8 @@ const (
 	clientClickModeInfo = "info"
 )
 
+const defaultClientMoveAmount = 20
+
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
 	registry.Add(commandClientClickMode, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
@@ -51,21 +53,21 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
 		}
 		dir := Direction(cmd.Args[0])
-		amount := 20
+		amount := defaultClientMoveAmount
 		if err := lar.Move(&amount, &dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved %q\n%s", dir, lar)), nil
 	})
 	registry.Add(commandRobotMoveForward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		amount := 20
+		amount := defaultClientMoveAmount
 		if err := lar.Move(&amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved forwards\n%s", lar)), nil
 	})
 	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		amount := -20
+		amount := -defaultClientMoveAmount
 		if err := lar.Move(&amount, nil); err != nil {
 			return nil, err
 		}
@@ -256,14 +258,17 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		areaX := minX + int(float64(bounds.X)*(float64(x)/float64(viewWidth)))
 		areaY := minY + int(float64(bounds.Y)*(float64(y)/float64(viewHeight)))
 
-		distance := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY)))))
+		distanceCenter := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY)))))
+		baseWidthScaled := baseWidthMeters * float64(scaleDown)
+		frontY := basePosY - int(baseWidthScaled/2)
+		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
 
 		var present bool
 		area.Mutate(func(area MutableArea) {
 			present = area.At(areaX, areaY) != 0
 		})
 
-		return fmt.Sprintf("(%d,%d): object=%t, distance=%dcm", areaX, areaY, present, distance), nil
+		return fmt.Sprintf("(%d,%d): object=%t, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, distanceCenter, distanceFront), nil
 	default:
 		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
 	}
