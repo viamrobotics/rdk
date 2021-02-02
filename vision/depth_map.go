@@ -424,3 +424,28 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 
 	return vImg, nil
 }
+
+func (dm *DepthMap) Rotate(amount int) *DepthMap {
+	if amount != 180 {
+		// made this a panic
+		panic(fmt.Errorf("vision.DepthMap can only rotate 180 degrees right now"))
+	}
+
+	dm2 := &DepthMap{
+		width:  dm.width,
+		height: dm.height,
+		min:    dm.min,
+		max:    dm.max,
+		data:   make([][]int, dm.width),
+	}
+
+	// these are new coordinates
+	for x := 0; x < dm.width; x++ {
+		dm2.data[x] = make([]int, dm.height)
+		for y := 0; y < dm.height; y++ {
+			val := dm.data[dm.width-1-x][dm.height-1-y]
+			dm2.data[x][y] = val
+		}
+	}
+	return dm2
+}
