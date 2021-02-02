@@ -176,8 +176,10 @@
 {{define "C"}}
 <li>
   {{ index . 1 }}
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{mul 10 (index . 2)}}')">++</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{index . 2}}')">+</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
+  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{mul 10 (index . 2)}}')">--</button>
   <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
@@ -185,8 +187,10 @@
 {{define "J"}}
 <li>
   Joint {{index . 1}}
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.1', 'joint' )">++</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.01', 'joint' )">-</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.1', 'joint' )">--</button>
   <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
