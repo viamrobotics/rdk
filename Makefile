@@ -8,6 +8,9 @@ lint:
 	go get -u github.com/edaniels/golinters/cmd/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined
 
+test:
+	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+
 docker:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
 	docker push 'echolabs/robotcoretest:latest'
