@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/fogleman/gg"
 )
@@ -55,11 +56,7 @@ func NewImageFromFile(fn string) (Image, error) {
 		return NewImage(img), nil
 	}
 
-	f, err := os.Open(fn)
-	if err != nil {
-		return Image{}, err
-	}
-	img, _, err := image.Decode(f)
+	img, err := utils.ReadImageFromFile(fn)
 	if err != nil {
 		return Image{}, err
 	}
