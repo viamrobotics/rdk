@@ -1,0 +1,30 @@
+{
+  "components": [
+    {
+      "model": "hellorobot",
+      "name": "base",
+      "type": "base"
+    },
+    {
+      "model": "hellorobot",
+      "name": "vertArm",
+      "type": "arm"
+    },
+    {
+      "attributes": {
+        "file_path": "/dev/hello-lrf"
+      },
+      "model": "rplidar",
+      "name": "lidarBase",
+      "type": "lidar"
+    },
+    {
+      "attributes": {
+        "file_path": "/dev/hello-lrf-top"
+      },
+      "model": "rplidar",
+      "name": "lidarTop",
+      "type": "lidar"
+    }
+  ]
+}
