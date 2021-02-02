@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/rcutil"
 	"github.com/viamrobotics/robotcore/robot"
 	"github.com/viamrobotics/robotcore/vision"
@@ -19,7 +21,7 @@ import (
 
 const (
 	PanCenter  = 83
-	TiltCenter = 65
+	TiltCenter = 130
 )
 
 // ------
@@ -232,17 +234,19 @@ func main() {
 
 	golog.Global.Debug("rover ready")
 
-	go func() {
-		for {
-			time.Sleep(1500 * time.Millisecond)
-			rover.neckCenter()
-			time.Sleep(1500 * time.Millisecond)
-			rover.neckOffset(-1)
-			time.Sleep(1500 * time.Millisecond)
-			rover.neckOffset(1)
-		}
-	}()
-
+	rover.neckCenter()
+	/*
+		go func() {
+			for {
+				time.Sleep(1500 * time.Millisecond)
+				rover.neckCenter()
+				time.Sleep(1500 * time.Millisecond)
+				rover.neckOffset(-1)
+				time.Sleep(1500 * time.Millisecond)
+				rover.neckOffset(1)
+			}
+		}()
+	*/
 	go func() {
 		in := bufio.NewReader(port)
 		for {
@@ -258,6 +262,14 @@ func main() {
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(&rover, robot.Component{})
 	theRobot.AddCamera(&vision.RotateImageDepthSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
+	l, err := lidar.CreateDevice(lidar.DeviceDescription{
+		Type: rplidar.DeviceType,
+		Path: "/dev/ttyUSB0",
+	})
+	if err != nil {
+		panic(err)
+	}
+	theRobot.AddLidar(l, robot.Component{})
 
 	defer theRobot.Close()
 
