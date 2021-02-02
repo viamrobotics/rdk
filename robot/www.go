@@ -431,7 +431,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 	}
 
 	for idx, remoteView := range views[numCameraStreams:] {
-		lidarIdx := idx - len(theRobot.Cameras)
+		lidarIdx := idx
 		go gostream.StreamSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[lidarIdx]), 800, 600}, remoteView, 33*time.Millisecond)
 	}
 
