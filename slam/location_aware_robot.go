@@ -119,6 +119,71 @@ func (lar *LocationAwareRobot) Close() error {
 	return nil
 }
 
+const detectionBuffer = 15
+
+// the move rect will always be ahead of the base itself even though the
+// toX, toY are within the base rect since we move relative to the center.
+func (lar *LocationAwareRobot) moveRect(toX, toY, orientation int) image.Rectangle {
+	baseRect := lar.baseRect()
+	distX, distY := int(math.Abs(float64(lar.basePosX-toX))), int(math.Abs(float64(lar.basePosY-toY)))
+	var pathX0, pathY0, pathX1, pathY1 int
+	switch orientation {
+	case 0:
+		// top-left
+		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
+		pathX1 = pathX0 + baseRect.Dx()
+		pathY1 = int(math.Max(0, float64(pathY0-distY-detectionBuffer)))
+	case 90:
+		// top-right
+		pathX0, pathY0 = lar.basePosX+baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
+		pathX1 = int(math.Min(math.MaxFloat64, float64(pathX0+distX+detectionBuffer)))
+		pathY1 = pathY0 + baseRect.Dy()
+	case 180:
+		// bottom-left
+		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY+baseRect.Dy()/2
+		pathX1 = pathX0 + baseRect.Dx()
+		pathY1 = int(math.Min(math.MaxFloat64, float64(pathY0+distY+detectionBuffer)))
+	case 270:
+		// top-left
+		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
+		pathX1 = int(math.Max(0, float64(pathX0-distX-detectionBuffer)))
+		pathY1 = pathY0 + baseRect.Dy()
+	}
+	return image.Rect(pathX0, pathY0, pathX1, pathY1)
+}
+
+func (lar *LocationAwareRobot) calculateMove(orientation int, amount int) (image.Point, int, error) {
+	newX := lar.basePosX
+	newY := lar.basePosY
+
+	errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
+	switch orientation {
+	case 0:
+		if lar.basePosY-amount < 0 {
+			return image.Point{}, 0, errMsg
+		}
+		newY = lar.basePosY - amount
+	case 90:
+		if lar.basePosX+amount >= lar.areaBounds.X {
+			return image.Point{}, 0, errMsg
+		}
+		newX = lar.basePosX + amount
+	case 180:
+		if lar.basePosY+amount >= lar.areaBounds.Y {
+			return image.Point{}, 0, errMsg
+		}
+		newY = lar.basePosY + amount
+	case 270:
+		if lar.basePosX-amount < 0 {
+			return image.Point{}, 0, errMsg
+		}
+		newX = lar.basePosX - amount
+	default:
+		return image.Point{}, 0, fmt.Errorf("cannot move at orientation %d", orientation)
+	}
+	return image.Point{newX, newY}, amount, nil
+}
+
 func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 	lar.scanMu.Lock()
 	atomic.StoreInt32(&lar.isMoving, 1)
@@ -158,38 +223,14 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 
 	newX := lar.basePosX
 	newY := lar.basePosY
+
 	if amount != nil {
-		actualAmount := *amount
-		errMsg := fmt.Errorf("cannot move at orientation %d; stuck", newOrientation)
-		switch newOrientation {
-		case 0:
-			if lar.basePosY-actualAmount < 0 {
-				return errMsg
-			}
-			golog.Global.Debugw("up", "amount", actualAmount)
-			newY = lar.basePosY - actualAmount
-		case 90:
-			if lar.basePosX+actualAmount >= lar.areaBounds.X {
-				return errMsg
-			}
-			golog.Global.Debugw("right", "amount", actualAmount)
-			newX = lar.basePosX + actualAmount
-		case 180:
-			if lar.basePosY+actualAmount >= lar.areaBounds.Y {
-				return errMsg
-			}
-			golog.Global.Debugw("down", "amount", actualAmount)
-			newY = lar.basePosY + actualAmount
-		case 270:
-			if lar.basePosX-actualAmount < 0 {
-				return errMsg
-			}
-			golog.Global.Debugw("left", "amount", actualAmount)
-			newX = lar.basePosX - actualAmount
-		default:
-			return fmt.Errorf("cannot move at orientation %d", newOrientation)
+		calcP, dist, err := lar.calculateMove(newOrientation, *amount)
+		if err != nil {
+			return err
 		}
-		move.DistanceMM = actualAmount * 10
+		newX, newY = calcP.X, calcP.Y
+		move.DistanceMM = dist * 10 // TODO(erd): remove 10 in favor of scale
 	}
 
 	if newX != lar.basePosX || newY != lar.basePosY {
@@ -200,30 +241,14 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		// the lidar will give out around this distance so
 		// we must make sure to not approach an area like this so as
 		// to avoid the collision disappearing.
-		const detectionBuffer = 15
 
-		// Version 1: detect if single point passes through any straight line
-		// Note: straight only works because we use 90 deg rotations
+		moveRect := lar.moveRect(newX, newY, newOrientation)
+
 		var collides bool
 		lar.area.Mutate(func(mutArea MutableArea) {
 			mutArea.DoNonZero(func(x, y int, v float64) {
-				switch newOrientation {
-				case 0:
-					if newX == x && y < lar.basePosY && y > int(math.Max(0, float64(newY-detectionBuffer))) {
-						collides = true
-					}
-				case 90:
-					if newY == y && x > lar.basePosX && x < int(math.Min(math.MaxFloat64, float64(newX+detectionBuffer))) {
-						collides = true
-					}
-				case 180:
-					if newX == x && y > lar.basePosY && y < int(math.Min(0, float64(newY+detectionBuffer))) {
-						collides = true
-					}
-				case 270:
-					if newY == y && x < lar.basePosX && x > int(math.Max(math.MaxFloat64, float64(newX+detectionBuffer))) {
-						collides = true
-					}
+				if (image.Point{x, y}.In(moveRect)) {
+					collides = true
 				}
 			})
 		})
@@ -328,6 +353,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 			return
 		}
 		basePosX, basePosY := lar.basePos()
+		baseRect := lar.baseRect()
 
 		for _, dev := range lar.devices {
 			if fake, ok := dev.(*fake.Lidar); ok {
@@ -378,6 +404,9 @@ func (lar *LocationAwareRobot) updateLoop() {
 				if detectedY < 0 || detectedY >= areaSize {
 					continue
 				}
+				if (image.Point{detectedX, detectedY}).In(baseRect) {
+					continue
+				}
 				// TODO(erd): should we also add here as a sense of permanency
 				// Want to also combine this with occlusion, right. So if there's
 				// a wall detected, and we're pretty confident it's staying there,
@@ -412,6 +441,23 @@ func (lar *LocationAwareRobot) updateLoop() {
 			update()
 		}
 	}()
+}
+
+// TODO(erd): config param
+const baseWidthMeters = 0.60
+
+// the rectangle is centered at the position of the base
+func (lar *LocationAwareRobot) baseRect() image.Rectangle {
+	_, scaleDown := lar.area.Size()
+	basePosX, basePosY := lar.basePos()
+
+	baseWidthScaled := int(math.Ceil(baseWidthMeters * float64(scaleDown)))
+	return image.Rect(
+		basePosX-baseWidthScaled/2,
+		basePosY-baseWidthScaled/2,
+		basePosX+baseWidthScaled/2,
+		basePosY+baseWidthScaled/2,
+	)
 }
 
 func (lar *LocationAwareRobot) areaToView() (image.Point, *SquareArea, error) {
