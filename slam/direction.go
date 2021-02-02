@@ -9,9 +9,9 @@ const (
 	DirectionLeft  = "left"
 )
 
-func DirectionFromXY(x, y int) Direction {
-	centerX := x / 2
-	centerY := y / 2
+func DirectionFromXY(x, y, viewWidth, viewHeight int) Direction {
+	centerX := viewWidth / 2
+	centerY := viewHeight / 2
 
 	var rotateTo Direction
 	if x < centerX {
