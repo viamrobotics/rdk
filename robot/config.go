@@ -10,10 +10,11 @@ import (
 type ComponentType string
 
 const (
-	Arm     = "arm"
-	Gripper = "gripper"
-	Camera  = "camera"
-	Lidar   = "lidar"
+	ComponentTypeBase    = ComponentType("base")
+	ComponentTypeArm     = ComponentType("arm")
+	ComponentTypeGripper = ComponentType("gripper")
+	ComponentTypeCamera  = ComponentType("camera")
+	ComponentTypeLidar   = ComponentType("lidar")
 )
 
 type Component struct {
