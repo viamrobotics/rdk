@@ -8,6 +8,8 @@ import (
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/gripper"
 	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -20,6 +22,7 @@ type Robot struct {
 	LidarDevices []lidar.Device
 	Bases        []base.Base
 
+	robotSingletons   map[string]interface{}
 	armComponents     []Component
 	gripperComponents []Component
 	cameraComponents  []Component
@@ -113,7 +116,7 @@ func NewBlankRobot() *Robot {
 }
 
 func NewRobot(cfg Config) (*Robot, error) {
-	r := &Robot{}
+	r := &Robot{robotSingletons: map[string]interface{}{}}
 	logger := cfg.Logger
 	if logger == nil {
 		logger = golog.Global
@@ -121,25 +124,31 @@ func NewRobot(cfg Config) (*Robot, error) {
 
 	for _, c := range cfg.Components {
 		switch c.Type {
-		case Arm:
-			a, err := newArm(c)
+		case ComponentTypeBase:
+			b, err := r.newBase(c)
+			if err != nil {
+				return nil, err
+			}
+			r.AddBase(b, c)
+		case ComponentTypeArm:
+			a, err := r.newArm(c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddArm(a, c)
-		case Gripper:
-			g, err := newGripper(c, logger)
+		case ComponentTypeGripper:
+			g, err := r.newGripper(c, logger)
 			if err != nil {
 				return nil, err
 			}
 			r.AddGripper(g, c)
-		case Camera:
-			camera, err := newCamera(c)
+		case ComponentTypeCamera:
+			camera, err := r.newCamera(c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddCamera(camera, c)
-		case Lidar:
+		case ComponentTypeLidar:
 			return nil, fmt.Errorf("TODO(erd): %v not yet supported via configuration", c.Type)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
@@ -149,20 +158,50 @@ func NewRobot(cfg Config) (*Robot, error) {
 	return r, nil
 }
 
-func newArm(config Component) (arm.Arm, error) {
+// TODO(erd): prefer registration pattern
+func (r *Robot) getRobotSingleton(name string) interface{} {
+	if root, ok := r.robotSingletons[name]; ok {
+		return root
+	}
+	switch name {
+	case hellorobot.ModelName:
+		r.robotSingletons[name] = hellorobot.New()
+	default:
+		panic(fmt.Errorf("do not know how to get root for %q", name))
+	}
+	return r.robotSingletons[name]
+}
+
+// TODO(erd): prefer registration pattern
+func (r *Robot) newBase(config Component) (base.Base, error) {
 	switch config.Model {
-	case "ur":
-		return arm.URArmConnect(config.Host)
-	case "eva":
-		return arm.NewEva(config.Host, config.Attributes)
-	case "dummy":
-		return &dummyArm{}, nil
+	case fake.ModelName:
+		return &fake.Base{}, nil
+	case hellorobot.ModelName:
+		return r.getRobotSingleton(config.Model).(*hellorobot.Robot).Base(), nil
 	default:
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
 }
 
-func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) {
+// TODO(erd): prefer registration pattern
+func (r *Robot) newArm(config Component) (arm.Arm, error) {
+	switch config.Model {
+	case "ur":
+		return arm.URArmConnect(config.Host)
+	case "eva":
+		return arm.NewEva(config.Host, config.Attributes)
+	case fake.ModelName:
+		return &fake.Arm{}, nil
+	case hellorobot.ModelName:
+		return r.getRobotSingleton(config.Model).(*hellorobot.Robot).Arm(), nil
+	default:
+		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
+	}
+}
+
+// TODO(erd): prefer registration pattern
+func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
 		return gripper.NewRobotiqGripper(config.Host, logger)
@@ -176,14 +215,15 @@ func newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) 
 		time.Sleep(1000 * time.Millisecond) // wait for startup?
 
 		return gripper.NewSerialGripper(port)
-	case "dummy":
-		return &dummyGripper{}, nil
+	case fake.ModelName:
+		return &fake.Gripper{}, nil
 	default:
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
 }
 
-func newCamera(config Component) (vision.ImageDepthSource, error) {
+// TODO(erd): prefer registration pattern
+func (r *Robot) newCamera(config Component) (vision.ImageDepthSource, error) {
 	switch config.Model {
 	case "eliot":
 		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
