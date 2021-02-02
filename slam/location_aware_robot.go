@@ -8,10 +8,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/echolabsinc/robotcore/base"
-	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/robots/fake"
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )

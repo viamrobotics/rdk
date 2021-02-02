@@ -3,7 +3,7 @@ package robot
 import (
 	"fmt"
 
-	"github.com/echolabsinc/robotcore/arm"
+	"github.com/viamrobotics/robotcore/arm"
 )
 
 type dummyGripper struct {

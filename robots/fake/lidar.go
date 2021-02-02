@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 const LidarDeviceType = "fake"
