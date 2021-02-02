@@ -3,7 +3,7 @@ package vision
 import (
 	"image"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/rcutil"
 )
 
 var (

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar"
 )
 
 const sysPath = "/sys/bus/usb-serial/devices"

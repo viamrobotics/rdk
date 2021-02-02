@@ -3,9 +3,9 @@ package arm
 import (
 	"fmt"
 
-	"github.com/echolabsinc/dynamixel/servo"
 	"github.com/edaniels/golog"
 	"github.com/reiver/go-telnet"
+	"github.com/viamrobotics/dynamixel/servo"
 
 	//~ "math"
 	"strconv"

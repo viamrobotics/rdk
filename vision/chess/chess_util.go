@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision"
 )
 
 var (
