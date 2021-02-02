@@ -8,6 +8,7 @@ import (
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/gripper"
 	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/vision"
@@ -149,7 +150,11 @@ func NewRobot(cfg Config) (*Robot, error) {
 			}
 			r.AddCamera(camera, c)
 		case ComponentTypeLidar:
-			return nil, fmt.Errorf("TODO(erd): %v not yet supported via configuration", c.Type)
+			lidarDevice, err := r.newLidar(c)
+			if err != nil {
+				return nil, err
+			}
+			r.AddLidar(lidarDevice, c)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
 		}
@@ -242,5 +247,20 @@ func (r *Robot) newCamera(config Component) (vision.ImageDepthSource, error) {
 
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
+	}
+}
+
+// TODO(erd): prefer registration pattern
+func (r *Robot) newLidar(config Component) (lidar.Device, error) {
+	switch config.Model {
+	case rplidar.ModelName:
+		return lidar.CreateDevice(lidar.DeviceDescription{
+			Type: rplidar.DeviceType,
+			Path: config.Attributes["file_path"],
+		})
+	case fake.ModelName:
+		return fake.NewLidar(), nil
+	default:
+		return nil, fmt.Errorf("unknown lidar model: %s", config.Model)
 	}
 }
