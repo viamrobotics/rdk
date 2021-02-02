@@ -3,6 +3,7 @@ package slam
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -13,28 +14,62 @@ import (
 
 const (
 	commandRobotMove         = "robot_move"
+	commandRobotMoveForward  = "robot_move_forward"
+	commandRobotMoveBackward = "robot_move_backward"
 	commandRobotRotateTo     = "robot_rotate_to"
 	commandRobotStats        = "robot_stats"
 	commandRobotDeviceOffset = "robot_device_offset"
 	commandRobotLidarStart   = "robot_lidar_start"
 	commandRobotLidarStop    = "robot_lidar_stop"
 	commandRobotLidarSeed    = "robot_lidar_seed"
+	commandClientClickMode   = "cl_click_mode"
 	commandClientZoom        = "cl_zoom"
 	commandLidarView         = "cl_lidar_view"
 )
 
+const (
+	clientClickModeMove = "move"
+	clientClickModeInfo = "info"
+)
+
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
+	registry.Add(commandClientClickMode, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		if len(cmd.Args) == 0 {
+			return nil, fmt.Errorf("mode required: [%s, %s]", clientClickModeMove, clientClickModeInfo)
+		}
+		switch cmd.Args[0] {
+		case clientClickModeMove, clientClickModeInfo:
+			lar.clientClickMode = cmd.Args[0]
+		default:
+			return nil, fmt.Errorf("unknown mode %q", cmd.Args[0])
+		}
+		return nil, nil
+	})
 	registry.Add(commandRobotMove, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
 			return nil, fmt.Errorf("move direction required: [%s, %s, %s, %s]",
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
 		}
 		dir := Direction(cmd.Args[0])
-		amount := 100
+		amount := 20
 		if err := lar.Move(&amount, &dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved %q\n%s", dir, lar)), nil
+	})
+	registry.Add(commandRobotMoveForward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		amount := 20
+		if err := lar.Move(&amount, nil); err != nil {
+			return nil, err
+		}
+		return gostream.NewCommandResponseText(fmt.Sprintf("moved forwards\n%s", lar)), nil
+	})
+	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		amount := -20
+		if err := lar.Move(&amount, nil); err != nil {
+			return nil, err
+		}
+		return gostream.NewCommandResponseText(fmt.Sprintf("moved backwards\n%s", lar)), nil
 	})
 	registry.Add(commandRobotRotateTo, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
@@ -192,4 +227,44 @@ func (lar *LocationAwareRobot) parseDeviceNumber(text string) (int64, error) {
 		return 0, errors.New("invalid device number")
 	}
 	return lidarDeviceNum, nil
+}
+
+func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (string, error) {
+	switch lar.clientClickMode {
+	case clientClickModeMove:
+		dir := DirectionFromXY(x, y, viewWidth, viewHeight)
+		amount := 20
+		if err := lar.Move(&amount, &dir); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
+	case clientClickModeInfo:
+		// TODO(erd): refactor to viewCoordToReal
+		bounds, area, err := lar.areaToView()
+		if err != nil {
+			return "", err
+		}
+
+		_, scaleDown := area.Size()
+		bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
+		bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
+
+		basePosX, basePosY := lar.basePos()
+		minX := basePosX - bounds.X/2
+		minY := basePosY - bounds.Y/2
+
+		areaX := minX + int(float64(bounds.X)*(float64(x)/float64(viewWidth)))
+		areaY := minY + int(float64(bounds.Y)*(float64(y)/float64(viewHeight)))
+
+		distance := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY)))))
+
+		var present bool
+		area.Mutate(func(area MutableArea) {
+			present = area.At(areaX, areaY) != 0
+		})
+
+		return fmt.Sprintf("(%d,%d): object=%t, distance=%dcm", areaX, areaY, present, distance), nil
+	default:
+		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
+	}
 }
