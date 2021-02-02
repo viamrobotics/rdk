@@ -13,11 +13,10 @@
 * robot - robot configuration and initalization
 
 ## Programs
-* armplay - ui for moving an arm around manually, taking pictures of a camera
 * chess - play chess!
-* gripperPlay - test out gripper code
 * saveImageFromWebcam - really just to test out webcam capture code
 * vision - utilities for working with images to test out vision library code
+* robotwww - runs the web console for any robot with a config file
 
 ## Dependencies
 
@@ -41,4 +40,6 @@ make lint
 
 ## Some Rules
 1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real directory.
-2. Always run make format, make lint, and test before pushing.
+2. Always run `make format`, `make lint`, and test before pushing.
+3. Try to avoid large merges unless you're really doing a big merge. Try to rebase.
+4. Write tests!
