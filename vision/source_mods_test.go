@@ -2,7 +2,10 @@ package vision
 
 import (
 	"context"
+	"image"
 	"testing"
+
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 func TestRotateSource(t *testing.T) {
@@ -15,13 +18,36 @@ func TestRotateSource(t *testing.T) {
 
 	rs := &RotateImageDepthSource{source}
 
-	img, _, err := rs.NextImageDepthPair(context.Background())
+	rawImage, dm, err := rs.NextImageDepthPair(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	vImg := NewImage(img)
-	vImg.WriteTo("out/test_rotate_source.png")
+	err = utils.WriteImageToFile("out/test_rotate_source.png", rawImage)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// TODO(erh): actually validate image
+	img := NewImage(rawImage)
+
+	for x := 0; x < pc.Color.Width(); x++ {
+		p1 := image.Point{x, 0}
+		p2 := image.Point{pc.Color.Width() - x - 1, pc.Color.Height() - 1}
+
+		a := pc.Color.Color(p1)
+		b := img.Color(p2)
+
+		d := ColorDistance(a, b)
+		if d != 0 {
+			t.Errorf("colors don't match %v %v", a, b)
+		}
+
+		d1 := pc.Depth.Get(p1)
+		d2 := dm.Get(p2)
+
+		if d1 != d2 {
+			t.Errorf("depth doesn't match %v %v", d1, d2)
+		}
+	}
+
 }
