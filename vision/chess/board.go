@@ -6,13 +6,13 @@ import (
 	"math"
 	"sort"
 
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
 	"github.com/gonum/stat"
-	"gocv.io/x/gocv"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 )
@@ -31,7 +31,7 @@ func init() {
 type Board struct {
 	color  vision.Image // TODO(erh): should we get rid of
 	depth  *vision.DepthMap
-	edges  *gocv.Mat
+	edges  *image.Gray
 	logger golog.Logger
 }
 
@@ -69,19 +69,14 @@ func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error
 		return nil, err
 	}
 
-	colorMat, err := gocv.ImageToMatRGBA(a.Image())
+	edges, err := utils.Canny(a.Image(), 8, 8, 1)
 	if err != nil {
 		return nil, err
 	}
-	defer colorMat.Close()
-	edges := gocv.NewMat()
-	gocv.Canny(colorMat, &edges, 32, 32) // magic number
-
-	return &Board{a, b, &edges, golog.Global}, nil
+	return &Board{a, b, edges, golog.Global}, nil
 }
 
 func (b *Board) Close() {
-	b.edges.Close()
 }
 
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
@@ -92,7 +87,7 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
 
 	edges := b.SquareCenterEdges(square)
-	if edges < 100 {
+	if edges < 80 {
 		return 0
 	}
 
@@ -170,23 +165,10 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 }
 
 func (b *Board) SquareCenterEdges(square string) int {
-
-	radius := 25
-
-	num := 0
-
 	corner := getMinChessCorner(square)
-	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
-		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
-			d := b.edges.GetUCharAt(y, x)
-			//b.logger.Debugf("\t %v\n", d )
-			if d == 255 {
-				num++
-			}
-		}
-	}
+	center := image.Point{corner.X + 50, corner.Y + 50}
 
-	return num
+	return utils.CountBrightSpots(b.edges, center, 25, 255)
 }
 
 type SquareFunc func(b *Board, square string) error

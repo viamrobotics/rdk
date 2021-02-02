@@ -3,7 +3,7 @@ package chess
 import (
 	"testing"
 
-	"gocv.io/x/gocv"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {
@@ -31,7 +31,10 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
 	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
 
-	gocv.IMWrite("out/board2-edges.png", *theBoard.edges)
+	err = utils.WriteImageToFile("out/board2-edges.png", theBoard.edges)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
 	if err != nil {
@@ -47,5 +50,9 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, nextBoard, "e5", "black")
 	_testPieceStatusHelper(t, game, nextBoard, "e7", "black")
 
-	gocv.IMWrite("out/board3-edges.png", *nextBoard.edges)
+	err = utils.WriteImageToFile("out/board3-edges.png", nextBoard.edges)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }

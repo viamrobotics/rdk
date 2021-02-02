@@ -134,10 +134,10 @@ func FindChessCornersPinkCheat(img vision.Image) (image.Image, []image.Point, er
 			clipBox := image.Rectangle{clipMin, clipMax}
 			fmt.Println(clipBox)
 			clip := img.Region(clipBox)
-			gocv.IMWrite("/tmp/x.png", clip)
+			utils.WriteImageToFile("/tmp/x.png", clip)
 
 			if out != nil {
-				gocv.Rectangle(out, clipBox, vision.Purple.C, 1)
+				DrawRectangle(out, clipBox, vision.Purple.C, 1)
 			}
 		}
 	*/
