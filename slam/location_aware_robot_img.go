@@ -12,8 +12,6 @@ import (
 )
 
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
-	lar.update()
-
 	// select device and sparse
 	bounds, area, err := lar.areaToView()
 	if err != nil {
@@ -46,17 +44,35 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 			relX := centerX - distX
 			relY := centerY - distY
 
-			dc.DrawPoint(float64(relX), float64(relY), 4)
+			dc.DrawPoint(float64(relX), float64(relY), 1)
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
 			dc.Fill()
 		})
 	})
 
+	for _, orientation := range []int{0, 90, 180, 270} {
+		distance := 20.0
+		// Remember, our view is from x,y=0,0 at top left of matrix
+		// 0°   -  (0,-1) // Up
+		// 90°  -  (1, 0) // Right
+		// 180° -  (0, 1) // Down
+		// 270° -  (-1,0) // Left
+		orientationRads := utils.DegToRad(float64(orientation))
+		x := distance * math.Sin(orientationRads)
+		y := distance * -math.Cos(orientationRads)
+		relX := float64(centerX) + x
+		relY := float64(centerY) + y
+
+		dc.DrawPoint(relX, relY, 1)
+		dc.SetColor(color.RGBA{0, 255, 0, 255})
+		dc.Fill()
+	}
+
 	for i, orientation := range lar.orientations {
 		if math.IsInf(orientation, 1) {
 			continue
 		}
-		distance := 20.0
+		distance := 15.0
 		// Remember, our view is from x,y=0,0 at top left of matrix
 		// 0°   -  (0,-1) // Up
 		// 90°  -  (1, 0) // Right
@@ -74,7 +90,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 		} else {
 			dc.SetColor(color.RGBA{0, 0, 255, 255})
 		}
-		dc.SetLineWidth(5)
+		dc.SetLineWidth(3)
 		dc.Stroke()
 	}
 

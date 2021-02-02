@@ -41,6 +41,7 @@ func (sa *SquareArea) Center() image.Point {
 
 type MutableArea interface {
 	DoNonZero(visit func(x, y int, v float64))
+	At(x, y int) float64
 	Set(x, y int, v float64)
 }
 
