@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )

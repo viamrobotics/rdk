@@ -6,7 +6,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/fogleman/gg"
 )

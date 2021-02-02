@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

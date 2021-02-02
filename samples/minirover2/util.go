@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

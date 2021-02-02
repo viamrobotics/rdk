@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/echolabsinc/robotcore/arm"
-	"github.com/echolabsinc/robotcore/base"
-	"github.com/echolabsinc/robotcore/gripper"
-	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/arm"
+	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/gripper"
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )

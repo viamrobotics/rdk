@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/rcutil"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"

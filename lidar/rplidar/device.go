@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/echolabsinc/robotcore/lidar"
-	rplidargen "github.com/echolabsinc/robotcore/lidar/rplidar/gen"
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/lidar"
+	rplidargen "github.com/viamrobotics/robotcore/lidar/rplidar/gen"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 const DeviceType = lidar.DeviceType("RPLidar")

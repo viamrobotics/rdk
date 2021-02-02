@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/echolabsinc/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robot"
 )
 
 func main() {

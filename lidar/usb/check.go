@@ -1,8 +1,8 @@
 package usb
 
 import (
-	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/lidar/rplidar"
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar/rplidar"
 )
 
 func checkProductDeviceIDs(vendorID, productID int) lidar.DeviceType {

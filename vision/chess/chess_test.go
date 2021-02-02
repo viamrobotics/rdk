@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision"
 )
 
 type P func(vision.Image) (image.Image, []image.Point, error)

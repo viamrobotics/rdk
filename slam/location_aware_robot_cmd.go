@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/echolabsinc/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/robots/fake"
 
 	"github.com/edaniels/gostream"
 )

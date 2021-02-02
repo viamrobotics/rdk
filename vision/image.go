@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/rcutil"
 
 	"github.com/fogleman/gg"
 )

@@ -8,7 +8,7 @@ import (
 
 	"github.com/jacobsa/go-serial/serial"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/rcutil"
 )
 
 func findArduinoPort(filter string) (string, error) {

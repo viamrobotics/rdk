@@ -3,7 +3,7 @@ package segmentation
 import (
 	"image"
 
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"

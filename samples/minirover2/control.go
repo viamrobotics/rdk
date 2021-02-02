@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/echolabsinc/robotcore/rcutil"
-	"github.com/echolabsinc/robotcore/robot"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )

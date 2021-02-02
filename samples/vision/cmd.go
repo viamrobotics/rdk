@@ -11,9 +11,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/vision"
-	"github.com/echolabsinc/robotcore/vision/segmentation"
+	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision/segmentation"
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"

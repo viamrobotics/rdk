@@ -1,4 +1,4 @@
-module github.com/echolabsinc/robotcore
+module github.com/viamrobotics/robotcore
 
 go 1.14
 
@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
-	github.com/echolabsinc/dynamixel v0.0.0-20210129164229-7fe144ee7683
+	github.com/echolabsinc/dynamixel v0.0.0-20210129164229-7fe144ee7683 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210201225911-10918e931ea8
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
@@ -40,6 +40,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
+	github.com/viamrobotics/dynamixel v0.0.0-20210129164229-7fe144ee7683
 	go.mongodb.org/mongo-driver v1.4.4
 	gocv.io/x/gocv v0.26.0
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect

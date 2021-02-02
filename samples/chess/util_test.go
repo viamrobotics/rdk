@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/vision"
-	"github.com/echolabsinc/robotcore/vision/chess"
+	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/robotcore/vision"
+	"github.com/viamrobotics/robotcore/vision/chess"
 
 	"github.com/tonyOreglia/glee/pkg/position"
 )

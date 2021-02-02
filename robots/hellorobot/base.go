@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"

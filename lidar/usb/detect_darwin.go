@@ -5,7 +5,7 @@ package usb
 import (
 	"os/exec"
 
-	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar"
 
 	"howett.net/plist"
 )

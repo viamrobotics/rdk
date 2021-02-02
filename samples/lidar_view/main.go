@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/lidar"
-	"github.com/echolabsinc/robotcore/lidar/rplidar"
-	"github.com/echolabsinc/robotcore/lidar/usb"
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar/rplidar"
+	"github.com/viamrobotics/robotcore/lidar/usb"
+	"github.com/viamrobotics/robotcore/utils"
 
 	// register fake
-	_ "github.com/echolabsinc/robotcore/robots/fake"
+	_ "github.com/viamrobotics/robotcore/robots/fake"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

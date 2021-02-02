@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/utils"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

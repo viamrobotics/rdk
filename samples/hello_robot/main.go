@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/echolabsinc/robotcore/lidar/rplidar"
-	"github.com/echolabsinc/robotcore/robot"
-	"github.com/echolabsinc/robotcore/robots/hellorobot"
-	"github.com/echolabsinc/robotcore/vision"
+	"github.com/viamrobotics/robotcore/lidar/rplidar"
+	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robots/hellorobot"
+	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )

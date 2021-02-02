@@ -8,7 +8,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/rcutil"
 
 	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"

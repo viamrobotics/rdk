@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/echolabsinc/robotcore/ml"
+	"github.com/viamrobotics/robotcore/ml"
 )
 
 const (
