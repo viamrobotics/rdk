@@ -38,7 +38,7 @@ func main() {
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	if runtime.GOOS == "linux" && strings.Contains(hostname, "hello") {
+	if runtime.GOOS == "linux" && strings.Contains(hostname, "stretch") {
 		flag.StringVar(&baseType, "base-type", "hello", "type of mobile base")
 	} else {
 		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
@@ -176,16 +176,19 @@ func main() {
 	}
 	lar.RegisterCommands(robotView.CommandRegistry())
 
+	clientWidth := 800
+	clientHeight := 600
+
 	robotView.SetOnClickHandler(func(x, y int) {
 		golog.Global.Debugw("click", "x", x, "y", y)
-		dir := slam.DirectionFromXY(x, y)
-		amount := 100
-		if err := lar.Move(&amount, &dir); err != nil {
+		resp, err := lar.HandleClick(x, y, clientWidth, clientHeight)
+		if err != nil {
 			robotView.SendText(err.Error())
 			return
 		}
-		robotView.SendText(fmt.Sprintf("moved %q", dir))
-		robotView.SendText(lar.String())
+		if resp != "" {
+			robotView.SendText(resp)
+		}
 	})
 
 	// setup world view
@@ -222,8 +225,6 @@ func main() {
 		cancelFunc()
 	}()
 
-	clientWidth := 800
-	clientHeight := 600
 	frameSpeed := 33 * time.Millisecond
 
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
