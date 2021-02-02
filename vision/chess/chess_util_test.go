@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"github.com/viamrobotics/robotcore/utils"
-
-	"gocv.io/x/gocv"
 )
 
 func TestGetMinChessCorner(t *testing.T) {
@@ -50,7 +48,10 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gocv.IMWrite("out/board1-edges.png", *theBoard.edges)
+	err = utils.WriteImageToFile("out/board1-edges.png", theBoard.edges)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	game, err := NewGame(theBoard)
 	if err != nil {
@@ -108,6 +109,8 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	utils.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
+
 	game, err := NewGame(theBoard)
 	if err != nil {
 		t.Fatal(err)
@@ -116,8 +119,6 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "b1", 40, 58, "board-1605543520")  // knight
 	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
 	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
-
-	utils.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
 
 	nextBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543783")
 	if err != nil {
@@ -158,6 +159,11 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 	}
 
 	utils.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
+
+	e := theBoard.SquareCenterEdges("a1")
+	if e < 100 {
+		t.Errorf("not enough edges for a1: %v", e)
+	}
 
 	d := theBoard.SquareCenterHeight("a1", DepthCheckSizeRadius)
 	if d < 20 {
