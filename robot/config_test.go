@@ -41,8 +41,8 @@ func TestConfig1(t *testing.T) {
 
 }
 
-func TestConfigDummy(t *testing.T) {
-	cfg, err := ReadConfig("data/dummy.json")
+func TestConfigFake(t *testing.T) {
+	cfg, err := ReadConfig("data/fake.json")
 	if err != nil {
 		t.Fatal(err)
 	}
