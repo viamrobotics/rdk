@@ -1,0 +1,21 @@
+{
+    "components": [
+        {
+            "model": "dummy",
+            "name": "pieceGripper",
+            "type": "gripper"
+        },
+        {
+            "model": "wx250s",
+            "name": "pieceArm",
+            "type": "arm",
+            "attributes" : {
+              "usbPort"       : "/dev/ttyUSB0",
+              "baudRate"      : "1000000",
+              "kinHost"       : "localhost",
+              "kinPort"       : "11235",
+              "armServoCount" : "8"
+           }
+        }
+    ]
+}

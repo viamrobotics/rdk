@@ -196,6 +196,8 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 		return arm.URArmConnect(config.Host)
 	case "eva":
 		return arm.NewEva(config.Host, config.Attributes)
+	case "wx250s":
+		return arm.NewWx250s(config.Attributes)
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
