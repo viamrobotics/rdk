@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"image"
@@ -167,6 +168,15 @@ func (i *Image) WriteTo(fn string) error {
 	}
 	defer f.Close()
 	return png.Encode(f, i.img)
+}
+
+func (i *Image) ToBytes() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	err := png.Encode(buf, i.img)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (i *Image) Circle(center image.Point, radius int, c Color) {
