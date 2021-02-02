@@ -10,7 +10,9 @@ import (
 
 	"github.com/fogleman/gg"
 
-	"github.com/Ernyoke/Imger/edgedetection"
+	"github.com/lucasb-eyer/go-colorful"
+
+	"github.com/disintegration/imaging"
 )
 
 func WriteImageToFile(path string, img image.Image) error {
@@ -57,15 +59,51 @@ func DrawRectangleEmpty(dc *gg.Context, r image.Rectangle, c color.Color, width 
 	dc.Stroke()
 }
 
-func Canny(img image.Image, t1, t2 float64, blurSize uint) (*image.Gray, error) {
-	switch i := img.(type) {
-	case *image.RGBA:
-		return edgedetection.CannyRGBA(i, t1, t2, blurSize)
-	case *image.Gray:
-		return edgedetection.CannyGray(i, t1, t2, blurSize)
-	default:
-		return nil, fmt.Errorf("utils.Canny can't handle image type: %t", img)
+func SimpleEdgeDetection(img image.Image, t1 float64, blur float64) (*image.Gray, error) {
+	img = imaging.Blur(img, blur)
+
+	out := image.NewGray(img.Bounds())
+
+	for y := 0; y < img.Bounds().Max.Y; y++ {
+		for x := 0; x < img.Bounds().Max.X-1; x++ {
+			c0, b := colorful.MakeColor(img.At(x, y))
+			if !b {
+				continue
+			}
+			c1, b := colorful.MakeColor(img.At(x+1, y))
+			if !b {
+				continue
+			}
+
+			//fmt.Printf("%d %d %v\n", x, y, c0.DistanceLab(c1))
+			if c0.DistanceLab(c1) >= t1 {
+				out.SetGray(x, y, color.Gray{255})
+			} else {
+				out.SetGray(x, y, color.Gray{0})
+
+			}
+		}
 	}
+
+	for x := 0; x < img.Bounds().Max.X; x++ {
+		for y := 0; y < img.Bounds().Max.Y-1; y++ {
+			c0, b := colorful.MakeColor(img.At(x, y))
+			if !b {
+				continue
+			}
+			c1, b := colorful.MakeColor(img.At(x, y+1))
+			if !b {
+				continue
+			}
+
+			//fmt.Printf("%d %d %v\n", x, y, c0.DistanceLab(c1))
+			if c0.DistanceLab(c1) >= t1 {
+				out.SetGray(x, y, color.Gray{255})
+			}
+		}
+	}
+
+	return out, nil
 }
 
 func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold uint8) int {

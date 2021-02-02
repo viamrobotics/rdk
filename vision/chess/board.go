@@ -17,6 +17,10 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
+const (
+	EdgeThreshold = 100
+)
+
 var face font.Face
 
 func init() {
@@ -69,7 +73,7 @@ func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error
 		return nil, err
 	}
 
-	edges, err := utils.Canny(a.Image(), 8, 8, 1)
+	edges, err := utils.SimpleEdgeDetection(a.Image(), .01, 3.0)
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +91,12 @@ func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
 
 	edges := b.SquareCenterEdges(square)
-	if edges < 80 {
+	//fmt.Printf("%s edges: %v\n", square, edges)
+	if edges < EdgeThreshold {
 		return 0
 	}
 
-	if edges > 100 {
+	if edges > EdgeThreshold {
 		radius++
 	}
 

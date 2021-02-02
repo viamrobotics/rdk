@@ -88,11 +88,15 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	//fmt.Printf("lowestPieceEdges: %d\n", lowestPieceEdges)
 	//fmt.Printf("biggestEmptyEdges: %d\n", biggestEmptyEdges)
 
-	if lowestPieceEdges-biggestEmptyEdges < 20 {
+	if lowestPieceEdges-biggestEmptyEdges < 15 {
 		return nil, fmt.Errorf("not enough gap in edges %d %d", biggestEmptyEdges, lowestPieceEdges)
 	}
 
-	g.edgesThreshold = (lowestPieceEdges + biggestEmptyEdges) / 2
+	g.edgesThreshold = 5 + ((lowestPieceEdges + biggestEmptyEdges) / 2)
+	if g.edgesThreshold > EdgeThreshold {
+		g.edgesThreshold = EdgeThreshold
+	}
+	//fmt.Printf("g.edgesThreshold: %v lowestPieceEdges: %v biggestEmptyEdges: %v\n", g.edgesThreshold, lowestPieceEdges, biggestEmptyEdges)
 
 	return g, nil
 }
@@ -108,7 +112,7 @@ func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 
 	if g.edgesThreshold >= 0 {
 		if res == emptyStatus && edges > g.edgesThreshold {
-			return "", fmt.Errorf("got empty but had %d edges for square: %s", edges, square)
+			return "", fmt.Errorf("got empty but had %d edges for square: %s threshold: %v", edges, square, g.edgesThreshold)
 		}
 	}
 

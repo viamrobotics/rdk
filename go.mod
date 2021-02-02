@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
-	github.com/Ernyoke/Imger v0.0.0-20180625211505-6476f04d1954
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
