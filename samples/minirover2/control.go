@@ -234,8 +234,7 @@ func main() {
 
 	golog.Global.Debug("rover ready")
 
-	rover.neckCenter()
-	/*
+	if false {
 		go func() {
 			for {
 				time.Sleep(1500 * time.Millisecond)
@@ -246,7 +245,9 @@ func main() {
 				rover.neckOffset(1)
 			}
 		}()
-	*/
+	} else {
+		rover.neckCenter()
+	}
 	go func() {
 		in := bufio.NewReader(port)
 		for {

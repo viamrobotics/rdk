@@ -1,6 +1,7 @@
 // intelrealserver.cpp
 
 #include <assert.h>
+
 #include <chrono>
 #include <iostream>
 #include <librealsense2/rs.hpp>
