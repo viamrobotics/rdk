@@ -36,6 +36,8 @@ jobs:
        make test
 
     - name: Upload coverage to Codecov
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
         curl -s https://codecov.io/bash > codecov.sh
         bash codecov.sh -t $CODECOV_TOKEN
