@@ -3,7 +3,7 @@
 package usb
 
 import (
-	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/lidar"
 )
 
 func DetectDevices() []lidar.DeviceDescription {

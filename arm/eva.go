@@ -13,7 +13,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 type evaData struct {

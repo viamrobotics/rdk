@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"gocv.io/x/gocv"
 )

@@ -3,7 +3,7 @@ package arm
 import (
 	"fmt"
 
-	"github.com/echolabsinc/robotcore/utils"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 type Position struct {

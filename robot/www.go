@@ -21,8 +21,8 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
 
-	"github.com/echolabsinc/robotcore/base"
-	"github.com/echolabsinc/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/lidar"
 )
 
 type robotWebApp struct {
