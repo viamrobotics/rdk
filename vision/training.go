@@ -7,8 +7,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"gocv.io/x/gocv"
 )
 
 type TrainingImage struct {
@@ -53,21 +51,27 @@ func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
 }
 
 func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string, labels []string) (primitive.ObjectID, error) {
-	img := gocv.IMRead(fn, gocv.IMReadUnchanged)
+	img, err := NewImageFromFile(fn)
+	if err != nil {
+		return primitive.ObjectID{}, err
+	}
 	md := map[string]interface{}{"filename": fn}
 	return its.StoreImage(ctx, img, md, labels)
 }
 
-// TODO(erh): don't use gocv.Mat here
-func (its *ImageTrainingStore) StoreImage(ctx context.Context, img gocv.Mat, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
+func (its *ImageTrainingStore) StoreImage(ctx context.Context, img Image, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
+	var err error
 
 	ti := TrainingImage{}
 	ti.ID = primitive.NewObjectID()
-	ti.Data = img.ToBytes()
+	ti.Data, err = img.ToBytes()
+	if err != nil {
+		return ti.ID, err
+	}
 	ti.Labels = labels
 	ti.MetaData = metaData
 
-	_, err := its.theCollection.InsertOne(ctx, ti)
+	_, err = its.theCollection.InsertOne(ctx, ti)
 	return ti.ID, err
 }
 
