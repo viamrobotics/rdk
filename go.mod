@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210201225911-10918e931ea8
+	github.com/edaniels/gostream v0.0.0-20210202220640-916885629f2c
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
@@ -23,7 +23,6 @@ require (
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
-	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.0.3
