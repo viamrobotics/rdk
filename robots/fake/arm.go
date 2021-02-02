@@ -1,34 +1,25 @@
-package hellorobot
+package fake
 
 import (
 	"fmt"
-	"math"
-	"time"
 
 	"github.com/viamrobotics/robotcore/arm"
-
-	"github.com/sbinet/go-python"
 )
 
 type Arm struct {
-	robot  *Robot
-	armObj *python.PyObject
+	position arm.Position
 }
 
-const armMoveSpeed = 1.0 / 4 // m/sec
-
-func (a *Arm) MoveBy(meters float64) {
-	a.armObj.CallMethod("move_by", python.PyFloat_FromDouble(meters))
-	a.robot.pushCommand()
-	time.Sleep(time.Duration(math.Ceil(math.Abs(meters)/armMoveSpeed)) * time.Second)
+func (a *Arm) Close() {
 }
 
 func (a *Arm) CurrentPosition() (arm.Position, error) {
-	return arm.Position{}, fmt.Errorf("arm CurrentPosition doesn't work")
+	return a.position, nil
 }
 
 func (a *Arm) MoveToPosition(c arm.Position) error {
-	return fmt.Errorf("arm MoveToPosition doesn't work")
+	a.position = c
+	return nil
 }
 
 func (a *Arm) MoveToJointPositions(joints []float64) error {
@@ -41,7 +32,4 @@ func (a *Arm) CurrentJointPositions() ([]float64, error) {
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {
 	return fmt.Errorf("arm JointMoveDelta does nothing")
-}
-
-func (a *Arm) Close() {
 }

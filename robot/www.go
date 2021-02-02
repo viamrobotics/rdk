@@ -457,8 +457,9 @@ func RunWeb(theRobot *Robot) error {
 		return err
 	}
 
+	const port = 8080
 	httpServer := &http.Server{
-		Addr:           ":8080",
+		Addr:           fmt.Sprintf(":%d", port),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -474,7 +475,7 @@ func RunWeb(theRobot *Robot) error {
 		httpServer.Shutdown(context.Background()) //nolint
 	}()
 
-	golog.Global.Debug("going to listen")
+	golog.Global.Debugw("going to listen", "addr", fmt.Sprintf("http://localhost:%d", port), "port", port)
 	golog.Global.Fatal(httpServer.ListenAndServe())
 
 	return nil

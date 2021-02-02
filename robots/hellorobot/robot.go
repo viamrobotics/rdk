@@ -4,6 +4,8 @@ import (
 	"github.com/sbinet/go-python"
 )
 
+const ModelName = "hellorobot"
+
 func init() {
 	err := python.Initialize()
 	if err != nil {
