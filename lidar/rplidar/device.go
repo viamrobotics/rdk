@@ -10,6 +10,7 @@ import (
 	"github.com/viamrobotics/robotcore/utils"
 )
 
+const ModelName = "rplidar"
 const DeviceType = lidar.DeviceType("RPLidar")
 
 func init() {

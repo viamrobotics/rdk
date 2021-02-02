@@ -1,7 +1,7 @@
 {
     "components": [
         {
-            "model": "dummy",
+            "model": "fake",
             "name": "pieceGripper",
             "type": "gripper"
         },
@@ -15,7 +15,7 @@
             }
         },
         {
-            "model": "dummy",
+            "model": "fake",
             "name": "pieceArm",
             "type": "arm"
         }
