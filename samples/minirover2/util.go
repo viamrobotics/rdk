@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/echolabsinc/robotcore/rcutil"
+	"github.com/echolabsinc/robotcore/utils"
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -92,11 +93,12 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 		})
 
 	if dc != nil {
-		dc.DrawRectangle(
-			float64(middleX-radius),
-			float64(pc.Height()-1),
-			float64(radius*2),
-			float64(-1+radius))
+		utils.DrawRectangleEmpty(dc,
+			image.Rect(
+				middleX-radius, pc.Height()-radius,
+				middleX+radius, pc.Height()-1),
+			vision.Red.C, 2)
+
 		dc.SetColor(vision.Red.C)
 		dc.Fill()
 
@@ -105,7 +107,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 		dc.DrawStringAnchored(fmt.Sprintf("%d", points), 20, 80, 0, 0)
 	}
 
-	golog.Global.Debugf("\t %d\n", points)
+	golog.Global.Debugf("\t %d", points)
 
 	return dc.Image(), points
 }

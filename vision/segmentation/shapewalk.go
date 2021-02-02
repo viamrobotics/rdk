@@ -1,13 +1,11 @@
 package segmentation
 
 import (
-	"fmt"
 	"image"
 
 	"github.com/echolabsinc/robotcore/vision"
 
 	"github.com/edaniels/golog"
-	"github.com/fogleman/gg"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -17,8 +15,28 @@ const (
 
 type walkState struct {
 	img   vision.Image
-	dots  map[string]int
+	dots  []int
 	debug bool
+}
+
+func (ws *walkState) toK(p image.Point) int {
+	return (p.Y * ws.img.Width()) + p.X
+}
+
+func (ws *walkState) fromK(k int) (int, int) {
+	y := k / ws.img.Width()
+	x := k - (y * ws.img.Width())
+	return x, y
+}
+
+func (ws *walkState) dotValue(p image.Point) int {
+	k := ws.toK(p)
+	return ws.dots[k]
+}
+
+func (ws *walkState) setDotValue(p image.Point, val int) {
+	k := ws.toK(p)
+	ws.dots[k] = val
 }
 
 func (ws *walkState) help(originalColor vision.HSV, lastColor vision.HSV, start image.Point, colorNumber int) {
@@ -26,8 +44,7 @@ func (ws *walkState) help(originalColor vision.HSV, lastColor vision.HSV, start 
 		return
 	}
 
-	key := fmt.Sprintf("%d-%d", start.X, start.Y)
-	if ws.dots[key] != 0 {
+	if ws.dotValue(start) != 0 {
 		return
 	}
 
@@ -43,10 +60,10 @@ func (ws *walkState) help(originalColor vision.HSV, lastColor vision.HSV, start 
 			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance)
 	}
 	if !good {
-		ws.dots[key] = -1
+		ws.setDotValue(start, -1)
 		return
 	}
-	ws.dots[key] = colorNumber
+	ws.setDotValue(start, colorNumber)
 
 	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y - 1}, colorNumber)
 	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y + 0}, colorNumber)
@@ -75,13 +92,12 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 }
 
 func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, error) {
-	dc := gg.NewContextForImage(img.Image())
 
 	start := image.Point{startX, startY}
 
 	ws := walkState{
 		img:   img,
-		dots:  map[string]int{},
+		dots:  make([]int, img.Width()*img.Height()),
 		debug: debug,
 	}
 
@@ -89,23 +105,18 @@ func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, e
 		return nil, err
 	}
 
+	dc := img.ImageCopy()
+
 	for k, v := range ws.dots {
-		if v < 0 {
+		if v != 1 {
 			continue
 		}
 
-		var x, y int
-		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
-		}
-
-		dc.DrawCircle(float64(x), float64(y), 1)
-		dc.SetColor(vision.Red.C)
-		dc.Fill()
+		x, y := ws.fromK(k)
+		dc.Set(x, y, vision.Red.C)
 	}
 
-	return dc.Image(), nil
+	return dc, nil
 }
 
 type MyWalkError struct {
@@ -119,7 +130,7 @@ func (e MyWalkError) Error() string {
 func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 	ws := walkState{
 		img:   img,
-		dots:  map[string]int{},
+		dots:  make([]int, img.Width()*img.Height()),
 		debug: debug,
 	}
 
@@ -133,8 +144,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 					return nil
 				}
 
-				key := fmt.Sprintf("%d-%d", x, y)
-				if ws.dots[key] != 0 {
+				if ws.dotValue(image.Point{x, y}) != 0 {
 					return nil
 				}
 				return MyWalkError{image.Point{x, y}}
@@ -150,25 +160,18 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 		}
 	}
 
-	dc := gg.NewContextForImage(img.Image())
+	dc := img.ImageCopy()
 
 	for k, v := range ws.dots {
 		if v <= 0 {
 			continue
 		}
 
-		var x, y int
-		_, err := fmt.Sscanf(k, "%d-%d", &x, &y)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't read key %s %s", k, err)
-		}
-
+		x, y := ws.fromK(k)
 		myColor := vision.NewColorFromColorful(palette[v-1]).C
-		dc.DrawCircle(float64(x), float64(y), 1)
-		dc.SetColor(myColor)
-		dc.Fill()
+		dc.Set(x, y, myColor)
 	}
 
-	return dc.Image(), nil
+	return dc, nil
 
 }

@@ -50,7 +50,7 @@ type ChargeDebug struct {
 
 func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
 	goImg := imaging.Rotate(img.Image(), 180, color.Black)
-	img = vision.NewImage(img.Image())
+	img = vision.NewImage(goImg)
 
 	d.GotDebugImage(goImg, "rotated")
 

@@ -154,6 +154,13 @@ func (i *Image) Image() image.Image {
 	return i.img
 }
 
+func (i *Image) ImageCopy() *image.RGBA {
+	bounds := i.img.Bounds()
+	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, i.img, bounds.Min, draw.Src)
+	return rgba
+}
+
 // TODO(erh): move this to a better file
 func PointDistance(a, b image.Point) float64 {
 	x := rcutil.SquareInt(b.X - a.X)
