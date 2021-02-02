@@ -11,25 +11,7 @@ import (
 	"github.com/fogleman/gg"
 )
 
-// TODO(erd): config param
-const baseWidthMeters = 0.60
-
-// base is assumed to be center of view
-func (lar *LocationAwareRobot) baseRect() image.Rectangle {
-	_, scaleDown := lar.area.Size()
-	basePosX, basePosY := lar.basePos()
-
-	baseWidthScaled := int(math.Ceil(baseWidthMeters * float64(scaleDown)))
-	return image.Rect(
-		basePosX-baseWidthScaled/2,
-		basePosY-baseWidthScaled/2,
-		basePosX+baseWidthScaled/2,
-		basePosY+baseWidthScaled/2,
-	)
-}
-
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
-	// select device and sparse
 	bounds, area, err := lar.areaToView()
 	if err != nil {
 		return nil, err
@@ -49,8 +31,12 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	minY := basePosY - bounds.Y/2
 	maxY := basePosY + bounds.Y/2
 
-	relBaseRect := lar.baseRect().Add(image.Point{-basePosX + centerX, -basePosY + centerY})
+	viewTranslateP := image.Point{-basePosX + centerX, -basePosY + centerY}
+	relBaseRect := lar.baseRect().Add(viewTranslateP)
+
 	utils.DrawRectangleEmpty(dc, relBaseRect, color.RGBA{0, 0, 255, 255}, 1)
+	dc.DrawRectangle(float64(relBaseRect.Min.X), float64(relBaseRect.Min.Y), float64(relBaseRect.Dx()), float64(relBaseRect.Dy()))
+	dc.Fill()
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
@@ -71,6 +57,24 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	})
 
 	for _, orientation := range []int{0, 90, 180, 270} {
+		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
+		if err == nil {
+			moveRect := lar.moveRect(calcP.X, calcP.Y, orientation)
+			moveRect = moveRect.Add(viewTranslateP)
+			var c color.Color
+			switch orientation {
+			case 0:
+				c = color.RGBA{29, 131, 72, 255}
+			case 90:
+				c = color.RGBA{23, 165, 137, 255}
+			case 180:
+				c = color.RGBA{218, 247, 166, 255}
+			case 270:
+				c = color.RGBA{255, 195, 0, 255}
+			}
+			utils.DrawRectangleEmpty(dc, moveRect, c, 1)
+		}
+
 		distance := 20.0
 		// Remember, our view is from x,y=0,0 at top left of matrix
 		// 0°   -  (0,-1) // Up
