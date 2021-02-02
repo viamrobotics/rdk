@@ -18,7 +18,7 @@ func WriteImageToFile(path string, img image.Image) error {
 	return png.Encode(f, img)
 }
 
-func DrawRectangleEmpty(dc *gg.Context, r image.Rectangle, c color.RGBA, width float64) {
+func DrawRectangleEmpty(dc *gg.Context, r image.Rectangle, c color.Color, width float64) {
 	dc.SetColor(c)
 
 	dc.DrawLine(float64(r.Min.X), float64(r.Min.Y), float64(r.Max.X), float64(r.Min.Y))
