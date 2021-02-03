@@ -40,6 +40,10 @@ func TestInit(t *testing.T) {
 
 		pcs, err := state.game.GetSquaresWithPieces(board)
 		if err != nil {
+			err2 := board.WriteDebugImages("out/foo")
+			if err2 != nil {
+				panic(err2)
+			}
 			t.Fatal(err)
 		}
 		fmt.Printf("\t%s\n", pcs)
@@ -105,9 +109,7 @@ func TestOneMove(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		temp := board.Annotate()
-		fmt.Println(fn)
-		utils.WriteImageToFile(fmt.Sprintf("out/onemove-%d.png", idx), temp)
+		board.WriteDebugImages(fmt.Sprintf("out/onemove-%d", idx))
 	}
 
 	bb, err := state.GetBitBoard()

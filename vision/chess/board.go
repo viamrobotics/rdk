@@ -178,6 +178,26 @@ func (b *Board) SquareCenterEdges(square string) int {
 
 type SquareFunc func(b *Board, square string) error
 
+func (b *Board) WriteDebugImages(prefix string) error {
+	err := utils.WriteImageToFile(prefix+"-color.png", b.color.Image())
+	if err != nil {
+		return err
+	}
+
+	err = utils.WriteImageToFile(prefix+"-edges.png", b.edges)
+	if err != nil {
+		return err
+	}
+
+	i := b.Annotate()
+	err = utils.WriteImageToFile(prefix+"-annotations.png", i)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (b *Board) Annotate() image.Image {
 	dc := gg.NewContextForImage(b.color.Image())
 
