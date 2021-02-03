@@ -438,6 +438,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 helper if you don't need to customize at all
 */
 func RunWeb(theRobot *Robot) error {
+	defer theRobot.Close()
 	mux := http.NewServeMux()
 
 	webCloser, err := InstallWeb(mux, theRobot)
@@ -458,7 +459,6 @@ func RunWeb(theRobot *Robot) error {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		theRobot.Close()
 		webCloser()
 		httpServer.Shutdown(context.Background()) //nolint
 	}()

@@ -24,7 +24,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer myRobot.Close()
 
 	err = robot.RunWeb(myRobot)
 	if err != nil {

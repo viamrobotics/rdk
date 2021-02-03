@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"sync"
 
 	"github.com/viamrobotics/robotcore/lidar"
 	rplidargen "github.com/viamrobotics/robotcore/lidar/rplidar/gen"
@@ -145,6 +146,7 @@ func NewDevice(devicePath string) (*RPLidar, error) {
 }
 
 type RPLidar struct {
+	mu       sync.Mutex
 	driver   rplidargen.RPlidarDriver
 	nodes    rplidargen.Rplidar_response_measurement_node_hq_t
 	nodeSize int
@@ -204,6 +206,8 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 }
 
 func (rpl *RPLidar) Start() {
+	rpl.mu.Lock()
+	defer rpl.mu.Unlock()
 	rpl.started = true
 	rpl.driver.StartMotor()
 	rpl.driver.StartScan(false, true)
@@ -211,8 +215,13 @@ func (rpl *RPLidar) Start() {
 }
 
 func (rpl *RPLidar) Stop() {
+	rpl.mu.Lock()
+	defer rpl.mu.Unlock()
 	if rpl.nodes != nil {
-		defer rplidargen.Delete_measurementNodeHqArray(rpl.nodes)
+		defer func() {
+			rplidargen.Delete_measurementNodeHqArray(rpl.nodes)
+			rpl.nodes = nil
+		}()
 	}
 	rpl.driver.Stop()
 	rpl.driver.StopMotor()
