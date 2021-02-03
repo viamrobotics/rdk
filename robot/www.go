@@ -464,7 +464,9 @@ func RunWeb(theRobot *Robot) error {
 	}()
 
 	golog.Global.Debugw("going to listen", "addr", fmt.Sprintf("http://localhost:%d", port), "port", port)
-	golog.Global.Fatal(httpServer.ListenAndServe())
+	if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		golog.Global.Fatal(err)
+	}
 
 	return nil
 }
