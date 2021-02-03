@@ -1,4 +1,4 @@
-package robot
+package web
 
 import (
 	"context"
@@ -23,12 +23,14 @@ import (
 
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robot/actions"
 )
 
 type robotWebApp struct {
 	template    *template.Template
 	remoteViews []gostream.RemoteView
-	theRobot    *Robot
+	theRobot    *robot.Robot
 }
 
 func (app *robotWebApp) Init() error {
@@ -177,7 +179,20 @@ func (ac *apiCall) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Write(js) //nolint
 }
 
-func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
+func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
+	mux.Handle("/api/action", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+		name := req.FormValue("name")
+		switch name {
+		case "RandomWalk":
+			go actions.RandomWalk(theRobot, 60)
+			return map[string]interface{}{"started": true}, nil
+		default:
+			return nil, fmt.Errorf("unknown action name [%s]", name)
+		}
+	}})
+}
+
+func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 	mux.Handle("/api/arm", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
 		mode := req.FormValue("mode")
 		if mode == "" {
@@ -319,7 +334,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 	}})
 }
 
-func InstallWebGrippers(mux *http.ServeMux, theRobot *Robot) {
+func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
 	mux.HandleFunc("/api/gripper", func(w http.ResponseWriter, req *http.Request) {
 		gripper := 0
 
@@ -362,7 +377,7 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *Robot) {
 
 // ---------------
 
-func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
+func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	if len(theRobot.Bases) > 1 {
 		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
@@ -398,6 +413,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 	InstallWebArms(mux, theRobot)
 
 	InstallWebGrippers(mux, theRobot)
+
+	InstallActions(mux, theRobot)
 
 	mux.Handle("/", app)
 
@@ -437,7 +454,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 /*
 helper if you don't need to customize at all
 */
-func RunWeb(theRobot *Robot) error {
+func RunWeb(theRobot *robot.Robot) error {
 	defer theRobot.Close()
 	mux := http.NewServeMux()
 
