@@ -22,12 +22,12 @@ func (a *Arm) MoveToPosition(c arm.Position) error {
 	return nil
 }
 
-func (a *Arm) MoveToJointPositions(joints []float64) error {
+func (a *Arm) MoveToJointPositions(joints arm.JointPositions) error {
 	return fmt.Errorf("arm MoveToJointPositions doesn't work")
 }
 
-func (a *Arm) CurrentJointPositions() ([]float64, error) {
-	return nil, fmt.Errorf("arm CurrentJointPositions doesn't work")
+func (a *Arm) CurrentJointPositions() (arm.JointPositions, error) {
+	return arm.JointPositions{}, fmt.Errorf("arm CurrentJointPositions doesn't work")
 }
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {

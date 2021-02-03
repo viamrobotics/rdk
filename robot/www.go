@@ -276,7 +276,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 
 			changes := false
 			if action == "inc" {
-				for i := 0; i < len(current); i++ {
+				for i := 0; i < len(current.Degrees); i++ {
 					temp := req.FormValue(fmt.Sprintf("j%d", i))
 					if temp == "" {
 						continue
@@ -285,11 +285,11 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 					if err != nil {
 						return nil, err
 					}
-					current[i] += val
+					current.Degrees[i] += val
 					changes = true
 				}
 			} else if action == "abs" {
-				for i := 0; i < len(current); i++ {
+				for i := 0; i < len(current.Degrees); i++ {
 					temp := req.FormValue(fmt.Sprintf("j%d", i))
 					if temp == "" {
 						continue
@@ -298,7 +298,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 					if err != nil {
 						return nil, err
 					}
-					current[i] = val
+					current.Degrees[i] = val
 					changes = true
 				}
 			}
@@ -310,7 +310,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *Robot) {
 				}
 			}
 
-			return map[string]interface{}{"joints": current}, nil
+			return map[string]interface{}{"joints": current.Degrees}, nil
 
 		}
 
