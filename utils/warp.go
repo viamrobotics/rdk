@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"fmt"
 	"image"
 	"math"
 
@@ -19,7 +18,10 @@ func GetPerspectiveTransform(src, dst []image.Point) mat.Matrix {
 func invert(m mat.Matrix) *mat.Dense {
 	rows, cols := m.Dims()
 	d := mat.NewDense(rows, cols, nil)
-	d.Inverse(m)
+	err := d.Inverse(m)
+	if err != nil {
+		panic(err)
+	}
 	return d
 }
 
@@ -66,7 +68,7 @@ func Warp(input, m mat.Matrix) *mat.Dense {
 			C := (m.At(1, 0)*float64(r) + m.At(1, 1)*float64(c) + m.At(1, 2)) /
 				(m.At(2, 0)*float64(r) + m.At(2, 1)*float64(c) + m.At(2, 2))
 
-			fmt.Printf("%d %d -> %v %v\n", r, c, R, C)
+			//fmt.Printf("%d %d -> %v %v\n", r, c, R, C)
 			out.Set(r, c, getRoundedValue(input, R, C))
 		}
 	}
