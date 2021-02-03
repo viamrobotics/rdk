@@ -212,7 +212,7 @@ func (b *Board) Annotate() image.Image {
 			c2 := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c3 := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			c4 := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			dc.SetColor(vision.Green.C)
+			dc.SetColor(utils.Green.C)
 			dc.DrawLine(float64(c1.X), float64(c1.Y), float64(c2.X), float64(c2.Y))
 			dc.SetLineWidth(1)
 			dc.Stroke()
@@ -229,7 +229,7 @@ func (b *Board) Annotate() image.Image {
 			height := b.SquareCenterHeight(s, DepthCheckSizeRadius)
 			if height > MinPieceDepth {
 				dc.DrawCircle(float64(p.X), float64(p.Y), 10)
-				dc.SetColor(vision.Red.C)
+				dc.SetColor(utils.Red.C)
 				dc.Fill()
 			}
 
@@ -237,7 +237,7 @@ func (b *Board) Annotate() image.Image {
 
 			p.Y -= 20
 			dc.SetFontFace(face)
-			dc.SetColor(vision.Green.C)
+			dc.SetColor(utils.Green.C)
 			dc.DrawStringAnchored(fmt.Sprintf("%d,%d", int(height), edges), float64(p.X), float64(p.Y), 0, 0)
 
 		}

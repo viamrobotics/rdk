@@ -2,7 +2,9 @@ package segmentation
 
 import (
 	"image"
+	"image/color"
 
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -39,7 +41,7 @@ func (ws *walkState) setDotValue(p image.Point, val int) {
 	ws.dots[k] = val
 }
 
-func (ws *walkState) help(originalColor vision.HSV, lastColor vision.HSV, start image.Point, colorNumber int) {
+func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start image.Point, colorNumber int) {
 	if start.X < 0 || start.X >= ws.img.Width() || start.Y < 0 || start.Y >= ws.img.Height() {
 		return
 	}
@@ -94,6 +96,10 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, error) {
 
 	start := image.Point{startX, startY}
+	return ShapeWalkMultiple(img, []image.Point{start}, debug)
+}
+
+func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (image.Image, error) {
 
 	ws := walkState{
 		img:   img,
@@ -101,19 +107,28 @@ func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, e
 		debug: debug,
 	}
 
-	if err := ws.piece(start, 1); err != nil {
-		return nil, err
+	palette := colorful.FastWarmPalette(len(starts))
+	p2 := []color.RGBA{}
+	for _, p := range palette {
+		p2 = append(p2, utils.NewColorFromColorful(p).C)
+	}
+
+	for idx, start := range starts {
+		err := ws.piece(start, idx+1)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	dc := img.ImageCopy()
 
 	for k, v := range ws.dots {
-		if v != 1 {
+		if v < 1 {
 			continue
 		}
 
 		x, y := ws.fromK(k)
-		dc.Set(x, y, vision.Red.C)
+		dc.Set(x, y, p2[v-1])
 	}
 
 	return dc, nil
@@ -168,7 +183,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 		}
 
 		x, y := ws.fromK(k)
-		myColor := vision.NewColorFromColorful(palette[v-1]).C
+		myColor := utils.NewColorFromColorful(palette[v-1]).C
 		dc.Set(x, y, myColor)
 	}
 

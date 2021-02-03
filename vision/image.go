@@ -86,8 +86,20 @@ func (i *Image) Width() int {
 	return i.width
 }
 
-func (i *Image) ColorHSV(p image.Point) HSV {
-	return ConvertToHSV(i.ColorRowCol(p.Y, p.X))
+func (i *Image) ColorHSV(p image.Point) utils.HSV {
+	return utils.ConvertToHSV(i.ColorRowCol(p.Y, p.X))
+}
+
+func (i *Image) At(x, y int) color.Color {
+	return i.img.At(x, y)
+}
+
+func (i *Image) Bounds() image.Rectangle {
+	return i.img.Bounds()
+}
+
+func (i *Image) ColorModel() color.Model {
+	return i.img.ColorModel()
 }
 
 func (i *Image) Color(p image.Point) color.RGBA {
@@ -108,42 +120,16 @@ func (i *Image) ColorRowCol(row, col int) color.RGBA {
 	return color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}
 }
 
-func (i *Image) SetHSV(p image.Point, c HSV) {
+func (i *Image) SetHSV(p image.Point, c utils.HSV) {
 	i.SetColor(p, c.ToColor())
 }
 
-func (i *Image) SetColor(p image.Point, c Color) {
+func (i *Image) SetColor(p image.Point, c utils.Color) {
 	i.SetColorRowCol(p.Y, p.X, c)
 }
 
-func (i *Image) SetColorRowCol(row, col int, c Color) {
+func (i *Image) SetColorRowCol(row, col int, c utils.Color) {
 	i.img.Set(col, row, c)
-}
-
-func (i *Image) AverageColor(p image.Point) color.RGBA {
-	return i.AverageColorXY(p.X, p.Y)
-}
-
-func (i *Image) AverageColorXY(x, y int) color.RGBA {
-	b := 0
-	g := 0
-	r := 0
-
-	num := 0
-
-	for X := x - 1; X < x+1; X++ {
-		for Y := y - 1; Y < y+1; Y++ {
-			data := i.ColorRowCol(Y, X)
-			b += int(data.B)
-			g += int(data.G)
-			r += int(data.R)
-			num++
-		}
-	}
-
-	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 255}
-	return done
-
 }
 
 // does not return a copy
@@ -183,9 +169,34 @@ func (i *Image) ToBytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (i *Image) Circle(center image.Point, radius int, c Color) {
+func (i *Image) Circle(center image.Point, radius int, c utils.Color) {
 	dc := gg.NewContextForRGBA(i.img) // no copy
 	dc.DrawCircle(float64(center.X), float64(center.Y), 1)
 	dc.SetColor(c.C)
 	dc.Fill()
+}
+
+func (i *Image) AverageColor(p image.Point, radius int) utils.HSV {
+	return i.AverageColorXY(p.X, p.Y, radius)
+}
+
+func (i *Image) AverageColorXY(x, y int, radius int) utils.HSV {
+	h := 0.0
+	s := 0.0
+	v := 0.0
+
+	num := 0.0
+
+	for X := x - radius; X < x+radius; X++ {
+		for Y := y - radius; Y < y+radius; Y++ {
+			data := i.ColorHSV(image.Point{X, Y})
+			h += data.H
+			s += data.S
+			v += data.V
+
+			num++
+		}
+	}
+
+	return utils.HSV{h / num, s / num, v / num}
 }
