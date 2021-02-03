@@ -73,7 +73,7 @@ func TestWarp2(t *testing.T) {
 			{size, size},
 		})
 
-	out := WarpImage(img, m)
+	out := WarpImage(img, m, image.Point{size, size})
 
 	os.MkdirAll("out", 0775)
 	err = WriteImageToFile("out/canny1-warped.png", out)

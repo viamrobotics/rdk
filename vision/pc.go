@@ -7,8 +7,8 @@ import (
 	"io"
 
 	"github.com/edaniels/golog"
-	"gocv.io/x/gocv"
-	//"github.com/viamrobotics/robotcore/utils"
+
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 type PointCloud struct {
@@ -24,33 +24,15 @@ func (pc *PointCloud) Height() int {
 	return pc.Color.Height()
 }
 
-// TODO(erh): don't rely on gocv for warp
 func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointCloud {
-	//m2 := utils.GetPerspectiveTransform(src, dst)
-	m := gocv.GetPerspectiveTransform(src, dst)
-	defer m.Close()
+	m2 := utils.GetPerspectiveTransform(src, dst)
 
-	//img := utils.WarpImage(pc.Color.Image(), m2)
-	warped := gocv.NewMat()
-	colorMat, err := gocv.ImageToMatRGBA(pc.Color.Image())
-	if err != nil {
-		panic(err)
-	}
-	defer colorMat.Close()
-	gocv.WarpPerspective(colorMat, &warped, m, newSize)
+	img := utils.WarpImage(pc.Color.Image(), m2, newSize)
 
 	var warpedDepth *DepthMap
 	if pc.Depth.Width() > 0 {
-		dm := pc.Depth.ToMat()
-		defer dm.Close()
-		dm2 := gocv.NewMatWithSize(newSize.X, newSize.Y, dm.Type())
-		gocv.WarpPerspective(dm, &dm2, m, newSize)
-		warpedDepth = NewDepthMapFromMat(dm2)
-	}
-
-	img, err := warped.ToImage()
-	if err != nil {
-		panic(err)
+		dm2 := pc.Depth.Warp(m2, newSize)
+		warpedDepth = &dm2
 	}
 
 	return PointCloud{warpedDepth, NewImage(img)}

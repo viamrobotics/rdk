@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gocv.io/x/gocv"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 type DepthMap struct {
@@ -51,6 +51,16 @@ func (dm *DepthMap) Get(p image.Point) int {
 
 func (dm *DepthMap) GetDepth(x, y int) int {
 	return dm.data[x][y]
+}
+
+func (dm *DepthMap) Set(x, y, val int) {
+	if val > dm.max {
+		dm.max = val
+	}
+	if val < dm.min {
+		dm.min = val
+	}
+	dm.data[x][y] = val
 }
 
 func myMax(a, b int) int {
@@ -115,21 +125,6 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
 
 	dm.data[x][y] = int(total / num)
 	return dm.data[x][y]
-}
-
-func (dm *DepthMap) ToMat() gocv.Mat {
-	m := gocv.NewMatWithSize(dm.height, dm.width, gocv.MatTypeCV64F)
-	raw, err := m.DataPtrFloat64()
-	if err != nil {
-		panic(err)
-	}
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
-			z := dm._getDepthOrEstimate(x, y)
-			raw[y*dm.width+x] = float64(z)
-		}
-	}
-	return m
 }
 
 func _readNext(r io.Reader) (int, error) {
@@ -285,34 +280,6 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
-// TODO(erh): don't rely on gocv
-func NewDepthMapFromMat(mat gocv.Mat) *DepthMap {
-	dm := DepthMap{}
-
-	dm.width = mat.Cols()
-	dm.height = mat.Rows()
-
-	dm.data = make([][]int, dm.width)
-
-	raw, err := mat.DataPtrFloat64()
-	if err != nil {
-		panic(err)
-	}
-
-	if len(raw) != dm.width*dm.height {
-		panic("wtf")
-	}
-
-	for x := 0; x < dm.width; x++ {
-		dm.data[x] = make([]int, dm.height)
-		for y := 0; y < dm.height; y++ {
-			dm.data[x][y] = int(raw[y*dm.width+x])
-		}
-	}
-
-	return &dm
-}
-
 func (dm *DepthMap) WriteToFile(fn string) error {
 	f, err := os.Create(fn)
 	if err != nil {
@@ -448,4 +415,43 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 		}
 	}
 	return dm2
+}
+
+func NewEmptyDepthMap(width, height int) DepthMap {
+	dm := DepthMap{
+		width:  width,
+		height: height,
+		min:    10000000,
+		max:    0,
+		data:   make([][]int, width),
+	}
+
+	for x := 0; x < dm.width; x++ {
+		dm.data[x] = make([]int, dm.height)
+	}
+
+	return dm
+}
+
+type dmWarpConnector struct {
+	In  *DepthMap
+	Out DepthMap
+}
+
+func (w *dmWarpConnector) Get(x, y int) []float64 {
+	return []float64{float64(w.In.GetDepth(x, y))}
+}
+
+func (w *dmWarpConnector) Set(x, y int, data []float64) {
+	w.Out.Set(x, y, int(data[0]))
+}
+
+func (w *dmWarpConnector) OutputDims() (int, int) {
+	return w.Out.width, w.Out.height
+}
+
+func (dm *DepthMap) Warp(m utils.TransformationMatrix, newSize image.Point) DepthMap {
+	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
+	utils.Warp(conn, m)
+	return conn.Out
 }
