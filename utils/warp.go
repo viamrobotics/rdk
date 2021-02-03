@@ -12,10 +12,12 @@ import (
 	"gocv.io/x/gocv"
 )
 
+type TransformationMatrix mat.Matrix
+
 type WarpConnector interface {
 	Get(x, y int) []float64
 	Set(x, y int, data []float64)
-	Dims() (int, int)
+	OutputDims() (int, int)
 }
 
 // -----
@@ -33,8 +35,8 @@ func (c *WarpMatrixConnector) Set(x, y int, data []float64) {
 	c.Output.Set(x, y, data[0])
 }
 
-func (c *WarpMatrixConnector) Dims() (int, int) {
-	return c.Input.Dims()
+func (c *WarpMatrixConnector) OutputDims() (int, int) {
+	return c.Output.Dims()
 }
 
 // -----
@@ -60,14 +62,14 @@ func (c *WarpImageConnector) Set(x, y int, data []float64) {
 	c.Output.Set(x, y, clr)
 }
 
-func (c *WarpImageConnector) Dims() (int, int) {
-	b := c.Input.Bounds()
+func (c *WarpImageConnector) OutputDims() (int, int) {
+	b := c.Output.Bounds()
 	return b.Max.X, b.Max.Y
 }
 
 // -----
 
-func GetPerspectiveTransform(src, dst []image.Point) mat.Matrix {
+func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 	m := gocv.GetPerspectiveTransform(src, dst)
 	defer m.Close()
 	return togonum(&m)
@@ -101,20 +103,6 @@ func getRoundedValue(input WarpConnector, rows, cols int, r, c float64) []float6
 	c0 := int(c)
 	c1 := c0 + 1
 
-	if r0 >= rows {
-		r0 = rows - 1
-	}
-	if r1 >= rows {
-		r1 = rows - 1
-	}
-
-	if c0 >= cols {
-		c0 = cols - 1
-	}
-	if c1 >= cols {
-		c1 = cols - 1
-	}
-
 	total := make([]float64, len(input.Get(0, 0)))
 
 	getRoundedValueHelp(input, r, c, r0, c0, total)
@@ -125,9 +113,9 @@ func getRoundedValue(input WarpConnector, rows, cols int, r, c float64) []float6
 	return total
 }
 
-func Warp(input WarpConnector, m mat.Matrix) {
+func Warp(input WarpConnector, m TransformationMatrix) {
 	m = invert(m)
-	rows, cols := input.Dims()
+	rows, cols := input.OutputDims()
 
 	//out := mat.NewDense(rows, cols, nil)
 
@@ -147,8 +135,8 @@ func Warp(input WarpConnector, m mat.Matrix) {
 	//return out
 }
 
-func WarpImage(img image.Image, m mat.Matrix) *image.RGBA {
-	out := image.NewRGBA(img.Bounds())
+func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *image.RGBA {
+	out := image.NewRGBA(image.Rectangle{image.Point{0, 0}, newSize})
 	conn := &WarpImageConnector{img, out}
 	Warp(conn, m)
 	return conn.Output
