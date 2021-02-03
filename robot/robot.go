@@ -11,6 +11,8 @@ import (
 	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
+	"github.com/viamrobotics/robotcore/robots/minirover2"
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -164,17 +166,24 @@ func NewRobot(cfg Config) (*Robot, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) getRobotSingleton(name string) interface{} {
+func (r *Robot) getRobotSingleton(name string) (interface{}, error) {
 	if root, ok := r.robotSingletons[name]; ok {
-		return root
+		return root, nil
 	}
 	switch name {
 	case hellorobot.ModelName:
 		r.robotSingletons[name] = hellorobot.New()
+	case "minirover2":
+		temp, err := minirover2.NewRover()
+		if err != nil {
+			return nil, err
+		}
+		r.robotSingletons[name] = temp
+
 	default:
-		panic(fmt.Errorf("do not know how to get root for %q", name))
+		return nil, fmt.Errorf("do not know how to get root for %q", name)
 	}
-	return r.robotSingletons[name]
+	return r.robotSingletons[name], nil
 }
 
 // TODO(erd): prefer registration pattern
@@ -183,9 +192,19 @@ func (r *Robot) newBase(config Component) (base.Base, error) {
 	case fake.ModelName:
 		return &fake.Base{}, nil
 	case hellorobot.ModelName:
-		return r.getRobotSingleton(config.Model).(*hellorobot.Robot).Base(), nil
+		t, err := r.getRobotSingleton(config.Model)
+		if err != nil {
+			return nil, err
+		}
+		return t.(*hellorobot.Robot).Base(), nil
+	case "minirover2":
+		t, err := r.getRobotSingleton(config.Model)
+		if err != nil {
+			return nil, err
+		}
+		return t.(base.Base), nil
 	default:
-		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
+		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}
 }
 
@@ -201,7 +220,11 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
-		return r.getRobotSingleton(config.Model).(*hellorobot.Robot).Arm(), nil
+		t, err := r.getRobotSingleton(config.Model)
+		if err != nil {
+			return nil, err
+		}
+		return t.(*hellorobot.Robot).Arm(), nil
 	default:
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
@@ -214,7 +237,7 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 		return gripper.NewRobotiqGripper(config.Host, logger)
 	case "serial":
 
-		port, err := ConnectArduinoSerial("A")
+		port, err := utils.ConnectArduinoSerial("A")
 		if err != nil {
 			return nil, err
 		}
@@ -231,6 +254,19 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 
 // TODO(erd): prefer registration pattern
 func (r *Robot) newCamera(config Component) (vision.ImageDepthSource, error) {
+	src, err := r.newCameraLL(config)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.Attributes["rotate"] == "true" {
+		src = &vision.RotateImageDepthSource{src}
+	}
+
+	return src, nil
+}
+
+func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
 	switch config.Model {
 	case "eliot":
 		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
