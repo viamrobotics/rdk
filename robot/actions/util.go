@@ -1,4 +1,4 @@
-package main
+package actions
 
 import (
 	"fmt"
@@ -47,7 +47,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 	radius := pc.Width() / 4
 
-	vision.Walk(middleX, pc.Height()-1, radius,
+	err := vision.Walk(middleX, pc.Height()-1, radius,
 		func(x, y int) error {
 			if x < 0 || x >= pc.Width() || y < 0 || y >= pc.Height() {
 				return nil
@@ -92,6 +92,10 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 			return nil
 		})
 
+	if err != nil {
+		panic(err)
+	}
+
 	if dc != nil {
 		utils.DrawRectangleEmpty(dc,
 			image.Rect(
@@ -109,7 +113,11 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 	golog.Global.Debugf("\t %d", points)
 
-	return dc.Image(), points
+	if dc != nil {
+		return dc.Image(), points
+	}
+
+	return nil, points
 }
 
 // ------

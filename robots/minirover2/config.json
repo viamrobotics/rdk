@@ -1,0 +1,25 @@
+{
+    "components" : [
+        { "name" : "cam1",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "127.0.0.1",
+          "port" : 8181,
+          "attributes" : {
+              "rotate" : "true"
+          }
+        },
+        { "name" : "rover",
+          "type" : "base",
+          "model" : "minirover2"
+        },
+        {
+            "attributes": {
+                "file_path": "/dev/ttyUSB0"
+            },
+            "model": "rplidar",
+            "name": "lidarBase",
+            "type": "lidar"
+        }
+    ]
+}

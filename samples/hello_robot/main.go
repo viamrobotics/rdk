@@ -11,6 +11,7 @@ import (
 
 	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robot/web"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/vision"
 
@@ -49,7 +50,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	webCloser, err := robot.InstallWeb(mux, theRobot)
+	webCloser, err := web.InstallWeb(mux, theRobot)
 	if err != nil {
 		panic(err)
 	}

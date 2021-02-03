@@ -1,27 +1,23 @@
-package main
+package minirover2
 
 import (
 	"bufio"
-	"context"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/rplidar"
-	"github.com/viamrobotics/robotcore/rcutil"
-	"github.com/viamrobotics/robotcore/robot"
-	"github.com/viamrobotics/robotcore/vision"
-
 	"github.com/edaniels/golog"
+
+	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 const (
 	PanCenter  = 83
-	TiltCenter = 130
+	TiltCenter = 100
 )
 
 // ------
@@ -33,7 +29,7 @@ type Rover struct {
 }
 
 func (r *Rover) Close() {
-	r.Stop()
+	r.Stop() // nolint
 	r.port.Close()
 }
 
@@ -67,18 +63,20 @@ func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
 		return nil
 	}
 
-	r.waitForMotorsToStop()
-	return nil
+	return r.waitForMotorsToStop()
 }
 
-func (r *Rover) waitForMotorsToStop() {
+func (r *Rover) waitForMotorsToStop() error {
 	time.Sleep(10 * time.Millisecond)
 	r.lastStatus = ""
 	time.Sleep(10 * time.Millisecond)
 
 	for {
 		time.Sleep(10 * time.Millisecond)
-		r.sendCommand("?\r")
+		err := r.sendCommand("?\r")
+		if err != nil {
+			return err
+		}
 		time.Sleep(10 * time.Millisecond)
 
 		if len(r.lastStatus) == 0 {
@@ -90,6 +88,7 @@ func (r *Rover) waitForMotorsToStop() {
 		}
 	}
 
+	return nil
 }
 
 func (r *Rover) Spin(degrees int, power int, block bool) error {
@@ -118,8 +117,7 @@ func (r *Rover) Spin(degrees int, power int, block bool) error {
 		return nil
 	}
 
-	r.waitForMotorsToStop()
-	return nil
+	return r.waitForMotorsToStop()
 }
 
 func (r *Rover) Stop() error {
@@ -140,7 +138,7 @@ func (r *Rover) moveTicks(a1, a2, a3, a4 string, p1, p2, p3, p4 int, t1, t2, t3,
 
 func (r *Rover) sendCommand(cmd string) error {
 	if len(cmd) > 2 {
-		fmt.Println(strings.ReplaceAll(cmd, "\r", "\n"))
+		golog.Global.Debug("rover cmd[%s]", strings.ReplaceAll(cmd, "\r", ""))
 	}
 
 	r.sendLock.Lock()
@@ -168,86 +166,24 @@ func (r *Rover) processLine(line string) {
 	}
 
 	if line[0] != '#' {
-		fmt.Printf("debug line from rover: %s\n", line)
+		golog.Global.Debug("debug line from rover: %s", line)
 		return
 	}
 
 	r.lastStatus = line
 }
 
-// ---
-
-func driveMyself(rover *Rover, camera vision.ImageDepthSource) {
-	for {
-		img, dm, err := camera.NextImageDepthPair(context.TODO())
-		if err != nil {
-			golog.Global.Debugf("error reading camera: %s", err)
-			time.Sleep(2000 * time.Millisecond)
-			continue
-		}
-		func() {
-			pc := vision.PointCloud{dm, vision.NewImage(img)}
-			pc, err = pc.CropToDepthData()
-
-			if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
-				golog.Global.Debugf("error getting deth info: %s, backing up", err)
-				rover.MoveStraight(-200, 60, true)
-				return
-			}
-
-			_, points := roverWalk(&pc, false)
-			if points < 100 {
-				golog.Global.Debugf("safe to move forward")
-				err = rover.MoveStraight(200, 50, true)
-			} else {
-				golog.Global.Debugf("not safe, let's spin")
-				err = rover.Spin(-15, 60, true)
-			}
-
-			if err != nil {
-				fmt.Println(err)
-			}
-		}()
-
-	}
-}
-
-// ---
-
-func main() {
-	flag.Parse()
-
-	srcURL := "127.0.0.1"
-	if flag.NArg() >= 1 {
-		srcURL = flag.Arg(0)
-	}
-
-	port, err := robot.ConnectArduinoSerial("Mega")
+func NewRover() (base.Base, error) {
+	port, err := utils.ConnectArduinoSerial("Mega")
 	if err != nil {
-		golog.Global.Fatalf("can't connecto to arduino: %v", err)
+		return nil, fmt.Errorf("can't connecto to arduino for rover: %v", err)
 	}
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-	rover := Rover{}
+	rover := &Rover{}
 	rover.port = port
 
-	golog.Global.Debug("rover ready")
-
-	if false {
-		go func() {
-			for {
-				time.Sleep(1500 * time.Millisecond)
-				rover.neckCenter()
-				time.Sleep(1500 * time.Millisecond)
-				rover.neckOffset(-1)
-				time.Sleep(1500 * time.Millisecond)
-				rover.neckOffset(1)
-			}
-		}()
-	} else {
-		rover.neckCenter()
-	}
 	go func() {
 		in := bufio.NewReader(port)
 		for {
@@ -260,23 +196,39 @@ func main() {
 		}
 	}()
 
-	theRobot := robot.NewBlankRobot()
-	theRobot.AddBase(&rover, robot.Component{})
-	theRobot.AddCamera(&vision.RotateImageDepthSource{vision.NewIntelServerSource(srcURL, 8181, nil)}, robot.Component{})
-	l, err := lidar.CreateDevice(lidar.DeviceDescription{
-		Type: rplidar.DeviceType,
-		Path: "/dev/ttyUSB0",
-	})
-	if err != nil {
-		panic(err)
-	}
-	theRobot.AddLidar(l, robot.Component{})
-
-	defer theRobot.Close()
-
 	if false {
-		go driveMyself(&rover, theRobot.Cameras[0])
+		go func() {
+			for {
+				time.Sleep(1500 * time.Millisecond)
+				err := rover.neckCenter()
+				if err != nil {
+					panic(err)
+				}
+
+				time.Sleep(1500 * time.Millisecond)
+
+				err = rover.neckOffset(-1)
+				if err != nil {
+					panic(err)
+				}
+
+				time.Sleep(1500 * time.Millisecond)
+
+				err = rover.neckOffset(1)
+				if err != nil {
+					panic(err)
+				}
+
+			}
+		}()
+	} else {
+		err = rover.neckCenter()
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	robot.RunWeb(theRobot)
+	golog.Global.Debug("rover ready")
+
+	return rover, nil
 }

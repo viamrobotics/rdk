@@ -6,6 +6,11 @@
           makeApiCall(path);
       }
 
+      function doAction(name) {
+          var path = "/api/action?name=" + name;
+          makeApiCall(path);
+      }
+      
       function makeApiCall(path, cb) {
           if (!cb) {
               document.getElementById("err").innerHTML = "";
@@ -86,6 +91,9 @@
     </script>
   </head>
   <body>
+    <div id="actions">
+      <button onclick="doAction('RandomWalk')">Random Walk</button>
+    </div>
     <div id="err" style="font-color: red"></div>
     {{ range $b := .Bases }}
     <div class="base">
@@ -167,7 +175,6 @@
       </tr>
       </table>
 
-    
     <div id="res"></div>
     
   </body>

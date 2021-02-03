@@ -1,9 +1,11 @@
 
-format:
+goformat:
 	gofmt -s -w .
+
+format: goformat
 	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils arduino -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
 
-lint:
+lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 	go get -u github.com/edaniels/golinters/cmd/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined

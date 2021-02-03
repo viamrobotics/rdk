@@ -16,6 +16,7 @@ import (
 	"github.com/viamrobotics/robotcore/gripper"
 	"github.com/viamrobotics/robotcore/rcutil"
 	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robot/web"
 	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 	"github.com/viamrobotics/robotcore/vision/chess"
@@ -626,7 +627,7 @@ func main() {
 		}
 	}()
 
-	err = robot.RunWeb(myRobot)
+	err = web.RunWeb(myRobot)
 	if err != nil {
 		panic(err)
 	}

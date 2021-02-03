@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/viamrobotics/robotcore/robot"
+	"github.com/viamrobotics/robotcore/robot/web"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 		panic(err)
 	}
 
-	err = robot.RunWeb(myRobot)
+	err = web.RunWeb(myRobot)
 	if err != nil {
 		panic(err)
 	}
