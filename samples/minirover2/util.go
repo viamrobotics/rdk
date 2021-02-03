@@ -76,14 +76,14 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 			if rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-					dc.SetColor(vision.Red.C)
+					dc.SetColor(utils.Red.C)
 					dc.Fill()
 				}
 				points++
 			} else if colorDiff > 2 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-					dc.SetColor(vision.Green.C)
+					dc.SetColor(utils.Green.C)
 					dc.Fill()
 				}
 				points++
@@ -97,13 +97,13 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 			image.Rect(
 				middleX-radius, pc.Height()-radius,
 				middleX+radius, pc.Height()-1),
-			vision.Red.C, 2)
+			utils.Red.C, 2)
 
-		dc.SetColor(vision.Red.C)
+		dc.SetColor(utils.Red.C)
 		dc.Fill()
 
 		dc.SetFontFace(face)
-		dc.SetColor(vision.Green.C)
+		dc.SetColor(utils.Green.C)
 		dc.DrawStringAnchored(fmt.Sprintf("%d", points), 20, 80, 0, 0)
 	}
 

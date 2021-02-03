@@ -1,4 +1,4 @@
-package vision
+package utils
 
 import (
 	"io/ioutil"

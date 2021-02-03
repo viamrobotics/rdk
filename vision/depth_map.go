@@ -385,7 +385,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			vImg.SetHSV(p, HSV{hue, 1.0, 1.0})
+			vImg.SetHSV(p, utils.HSV{hue, 1.0, 1.0})
 		}
 	}
 

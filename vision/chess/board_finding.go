@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -12,7 +13,7 @@ import (
 )
 
 func isPink(data color.RGBA) bool {
-	temp := vision.ConvertToHSV(data)
+	temp := utils.ConvertToHSV(data)
 
 	if temp.H < 286 {
 		return false
@@ -78,7 +79,7 @@ func FindChessCornersPinkCheatInQuadrant(img vision.Image, dc *gg.Context, cnts 
 	}
 
 	dc.DrawCircle(float64(myCenter.X), float64(myCenter.Y), 5)
-	dc.SetColor(vision.Red.C)
+	dc.SetColor(utils.Red.C)
 	dc.Fill()
 
 	return myCenter
@@ -101,7 +102,7 @@ func FindChessCornersPinkCheat(img vision.Image) (image.Image, []image.Point, er
 				Q := X + (Y * 2)
 				cnts[Q] = append(cnts[Q], p)
 				dc.DrawCircle(float64(x), float64(y), 1)
-				dc.SetColor(vision.Green.C)
+				dc.SetColor(utils.Green.C)
 				dc.Fill()
 			}
 
@@ -144,7 +145,7 @@ func FindChessCornersPinkCheat(img vision.Image) (image.Image, []image.Point, er
 
 	for _, p := range redLittleCircles {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(vision.Red.C)
+		dc.SetColor(utils.Red.C)
 		dc.Fill()
 	}
 

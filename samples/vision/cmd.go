@@ -71,7 +71,7 @@ func hsvHistogram(img vision.Image) {
 	if center.X > 0 {
 		dc := gg.NewContextForImage(img.Image())
 		dc.DrawCircle(float64(center.X), float64(center.Y), *radius)
-		dc.SetColor(vision.Red.C)
+		dc.SetColor(utils.Red.C)
 		dc.Fill()
 		utils.WriteImageToFile(_getOutputfile(), dc.Image())
 	}
@@ -113,13 +113,13 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 	dc := gg.NewContextForImage(img.Image())
 	for _, p := range as {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(vision.Red.C)
+		dc.SetColor(utils.Red.C)
 		dc.Fill()
 	}
 
 	for _, p := range bs {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(vision.Green.C)
+		dc.SetColor(utils.Green.C)
 		dc.Fill()
 	}
 
@@ -168,7 +168,7 @@ func view(img vision.Image) error {
 
 		dc := gg.NewContextForImage(walked)
 		dc.SetFontFace(face)
-		dc.SetColor(vision.White.C)
+		dc.SetColor(utils.White.C)
 		dc.DrawStringAnchored(text, 0, 20, 0, 0)
 		imgs[0] = dc.Image()
 	})

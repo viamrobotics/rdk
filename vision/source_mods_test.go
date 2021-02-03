@@ -37,7 +37,7 @@ func TestRotateSource(t *testing.T) {
 		a := pc.Color.Color(p1)
 		b := img.Color(p2)
 
-		d := ColorDistance(a, b)
+		d := utils.ColorDistance(a, b)
 		if d != 0 {
 			t.Errorf("colors don't match %v %v", a, b)
 		}

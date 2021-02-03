@@ -4,6 +4,8 @@ import (
 	"image"
 	"os"
 	"testing"
+
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 func TestColorSegment1(t *testing.T) {
@@ -12,7 +14,7 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all := []HSV{}
+	all := []utils.HSV{}
 
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
@@ -26,7 +28,7 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffs := ColorDiffs{}
+	diffs := utils.ColorDiffs{}
 
 	for x, a := range clusters {
 		for y := x + 1; y < len(clusters); y++ {
@@ -36,7 +38,7 @@ func TestColorSegment1(t *testing.T) {
 			b := clusters[y]
 
 			diff := a.Distance(b)
-			diffs = append(diffs, ColorDiff{a, b, diff})
+			diffs = append(diffs, utils.ColorDiff{a, b, diff})
 		}
 	}
 

@@ -104,7 +104,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	corner := getMinChessCorner(square)
 	middle := image.Point{corner.X + 50, corner.Y + 50}
-	data := board.color.AverageColor(middle)
+	data := board.color.AverageColor(middle, 1).ToColor().C
 
 	edges := board.SquareCenterEdges(square)
 

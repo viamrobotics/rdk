@@ -48,7 +48,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = utils.WriteImageToFile("out/board1-edges.png", theBoard.edges)
+	err = theBoard.WriteDebugImages("out/board1")
 	if err != nil {
 		t.Fatal(err)
 	}
