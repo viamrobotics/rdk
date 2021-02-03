@@ -23,14 +23,14 @@ func init() {
 		panic(err)
 	}
 
-	face = truetype.NewFace(font, &truetype.Options{Size: 16})
+	face = truetype.NewFace(font, &truetype.Options{Size: 64})
 }
 
 func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 	var dc *gg.Context
 	if debug {
-		dc = gg.NewContextForImage(pc.Color.ImageCopy())
+		dc = gg.NewContextForImage(image.NewRGBA{pc.Color.Bounds()})
 	}
 
 	points := 0
@@ -73,7 +73,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 			colorDiff := c.Distance(c2)
 
-			if rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
+			if d > 0 && d2 > 0 && rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
 					dc.SetColor(utils.Red.C)
