@@ -25,6 +25,13 @@
       "model": "rplidar",
       "name": "lidarTop",
       "type": "lidar"
+    },
+    {
+      "host": "127.0.0.1",
+      "model": "intel",
+      "name": "cameraTop",
+      "port": 8181,
+      "type": "camera"
     }
   ]
 }
