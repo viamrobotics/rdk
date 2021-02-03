@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"gocv.io/x/gocv"
+	//"github.com/viamrobotics/robotcore/utils"
 )
 
 type PointCloud struct {
@@ -25,9 +26,11 @@ func (pc *PointCloud) Height() int {
 
 // TODO(erh): don't rely on gocv for warp
 func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointCloud {
+	//m2 := utils.GetPerspectiveTransform(src, dst)
 	m := gocv.GetPerspectiveTransform(src, dst)
 	defer m.Close()
 
+	//img := utils.WarpImage(pc.Color.Image(), m2)
 	warped := gocv.NewMat()
 	colorMat, err := gocv.ImageToMatRGBA(pc.Color.Image())
 	if err != nil {
@@ -49,6 +52,7 @@ func (pc *PointCloud) Warp(src, dst []image.Point, newSize image.Point) PointClo
 	if err != nil {
 		panic(err)
 	}
+
 	return PointCloud{warpedDepth, NewImage(img)}
 }
 

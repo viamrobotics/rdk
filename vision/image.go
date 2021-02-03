@@ -141,7 +141,7 @@ func (i *Image) AverageColorXY(x, y int) color.RGBA {
 		}
 	}
 
-	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 1}
+	done := color.RGBA{uint8(r / num), uint8(g / num), uint8(b / num), 255}
 	return done
 
 }

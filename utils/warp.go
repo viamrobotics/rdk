@@ -1,13 +1,71 @@
 package utils
 
 import (
+	"fmt"
 	"image"
 	"math"
 
 	"gonum.org/v1/gonum/mat"
 
+	"github.com/lucasb-eyer/go-colorful"
+
 	"gocv.io/x/gocv"
 )
+
+type WarpConnector interface {
+	Get(x, y int) []float64
+	Set(x, y int, data []float64)
+	Dims() (int, int)
+}
+
+// -----
+
+type WarpMatrixConnector struct {
+	Input  mat.Matrix
+	Output *mat.Dense
+}
+
+func (c *WarpMatrixConnector) Get(x, y int) []float64 {
+	return []float64{c.Input.At(x, y)}
+}
+
+func (c *WarpMatrixConnector) Set(x, y int, data []float64) {
+	c.Output.Set(x, y, data[0])
+}
+
+func (c *WarpMatrixConnector) Dims() (int, int) {
+	return c.Input.Dims()
+}
+
+// -----
+
+type WarpImageConnector struct {
+	Input  image.Image
+	Output *image.RGBA
+}
+
+func (c *WarpImageConnector) Get(x, y int) []float64 {
+	temp, b := colorful.MakeColor(c.Input.At(x, y))
+	if !b {
+		panic(fmt.Errorf("colorful.MakeColor failed! why: %v,%v %v %v", x, y, c.Input.Bounds().Max, c.Input.At(x, y)))
+	}
+
+	h, s, v := temp.Hsv()
+
+	return []float64{h, s, v}
+}
+
+func (c *WarpImageConnector) Set(x, y int, data []float64) {
+	clr := colorful.Hsv(data[0], data[1], data[2])
+	c.Output.Set(x, y, clr)
+}
+
+func (c *WarpImageConnector) Dims() (int, int) {
+	b := c.Input.Bounds()
+	return b.Max.X, b.Max.Y
+}
+
+// -----
 
 func GetPerspectiveTransform(src, dst []image.Point) mat.Matrix {
 	m := gocv.GetPerspectiveTransform(src, dst)
@@ -25,40 +83,53 @@ func invert(m mat.Matrix) *mat.Dense {
 	return d
 }
 
-func getRoundedValueHelp(input mat.Matrix, r, c float64, rp, cp int) float64 {
-	v := input.At(rp, cp)
-
+func getRoundedValueHelp(input WarpConnector, r, c float64, rp, cp int, out []float64) {
 	dx := 1 - math.Abs(float64(rp)-r)
 	dy := 1 - math.Abs(float64(cp)-c)
 
 	area := dx * dy
+	v := input.Get(rp, cp)
 
-	//fmt.Printf("%v %v %v %v | %v\n", r, c, rp, cp, area)
-
-	return v * area
-
+	for idx, vv := range v {
+		out[idx] += vv * area
+	}
 }
 
-func getRoundedValue(input mat.Matrix, r, c float64) float64 {
+func getRoundedValue(input WarpConnector, rows, cols int, r, c float64) []float64 {
 	r0 := int(r)
 	r1 := r0 + 1
 	c0 := int(c)
 	c1 := c0 + 1
 
-	total := 0.0
-	total += getRoundedValueHelp(input, r, c, r0, c0)
-	total += getRoundedValueHelp(input, r, c, r1, c0)
-	total += getRoundedValueHelp(input, r, c, r1, c1)
-	total += getRoundedValueHelp(input, r, c, r0, c1)
+	if r0 >= rows {
+		r0 = rows - 1
+	}
+	if r1 >= rows {
+		r1 = rows - 1
+	}
+
+	if c0 >= cols {
+		c0 = cols - 1
+	}
+	if c1 >= cols {
+		c1 = cols - 1
+	}
+
+	total := make([]float64, len(input.Get(0, 0)))
+
+	getRoundedValueHelp(input, r, c, r0, c0, total)
+	getRoundedValueHelp(input, r, c, r1, c0, total)
+	getRoundedValueHelp(input, r, c, r1, c1, total)
+	getRoundedValueHelp(input, r, c, r0, c1, total)
 
 	return total
 }
 
-func Warp(input, m mat.Matrix) *mat.Dense {
+func Warp(input WarpConnector, m mat.Matrix) {
 	m = invert(m)
 	rows, cols := input.Dims()
 
-	out := mat.NewDense(rows, cols, nil)
+	//out := mat.NewDense(rows, cols, nil)
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -69,37 +140,18 @@ func Warp(input, m mat.Matrix) *mat.Dense {
 				(m.At(2, 0)*float64(r) + m.At(2, 1)*float64(c) + m.At(2, 2))
 
 			//fmt.Printf("%d %d -> %v %v\n", r, c, R, C)
-			out.Set(r, c, getRoundedValue(input, R, C))
+			input.Set(r, c, getRoundedValue(input, rows, cols, R, C))
 		}
 	}
 
-	return out
+	//return out
 }
 
-func Warpgocv(input, m mat.Matrix) *mat.Dense {
-
-	inputGocv := togocv(input)
-	defer inputGocv.Close()
-	mGocv := togocv(m)
-	defer mGocv.Close()
-
-	warped := gocv.NewMatWithSize(inputGocv.Rows(), inputGocv.Cols(), inputGocv.Type())
-	defer warped.Close()
-
-	gocv.WarpPerspective(inputGocv, &warped, mGocv, image.Point{inputGocv.Cols(), inputGocv.Rows()})
-
-	return togonum(&warped)
-}
-
-func togocv(input mat.Matrix) gocv.Mat {
-	rows, cols := input.Dims()
-	m := gocv.NewMatWithSize(rows, cols, gocv.MatTypeCV64F)
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			m.SetDoubleAt(r, c, input.At(r, c))
-		}
-	}
-	return m
+func WarpImage(img image.Image, m mat.Matrix) *image.RGBA {
+	out := image.NewRGBA(img.Bounds())
+	conn := &WarpImageConnector{img, out}
+	Warp(conn, m)
+	return conn.Output
 }
 
 func togonum(m *gocv.Mat) *mat.Dense {
