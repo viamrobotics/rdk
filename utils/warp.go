@@ -15,9 +15,10 @@ import (
 type TransformationMatrix mat.Matrix
 
 type WarpConnector interface {
-	Get(x, y int) []float64
+	Get(x, y int, buf []float64)
 	Set(x, y int, data []float64)
 	OutputDims() (int, int)
+	NumFields() int // how many float64 are in the buffers above
 }
 
 // -----
@@ -27,8 +28,8 @@ type WarpMatrixConnector struct {
 	Output *mat.Dense
 }
 
-func (c *WarpMatrixConnector) Get(x, y int) []float64 {
-	return []float64{c.Input.At(x, y)}
+func (c *WarpMatrixConnector) Get(x, y int, buf []float64) {
+	buf[0] = c.Input.At(x, y)
 }
 
 func (c *WarpMatrixConnector) Set(x, y int, data []float64) {
@@ -39,6 +40,10 @@ func (c *WarpMatrixConnector) OutputDims() (int, int) {
 	return c.Output.Dims()
 }
 
+func (c *WarpMatrixConnector) NumFields() int {
+	return 1
+}
+
 // -----
 
 type WarpImageConnector struct {
@@ -46,15 +51,16 @@ type WarpImageConnector struct {
 	Output *image.RGBA
 }
 
-func (c *WarpImageConnector) Get(x, y int) []float64 {
+func (c *WarpImageConnector) Get(x, y int, buf []float64) {
 	temp, b := colorful.MakeColor(c.Input.At(x, y))
 	if !b {
 		panic(fmt.Errorf("colorful.MakeColor failed! why: %v,%v %v %v", x, y, c.Input.Bounds().Max, c.Input.At(x, y)))
 	}
 
-	h, s, v := temp.Hsv()
+	buf[0], buf[1], buf[2] = temp.Hsv()
+	//h, s, v :=
 
-	return []float64{h, s, v}
+	//return []float64{h, s, v}
 }
 
 func (c *WarpImageConnector) Set(x, y int, data []float64) {
@@ -65,6 +71,10 @@ func (c *WarpImageConnector) Set(x, y int, data []float64) {
 func (c *WarpImageConnector) OutputDims() (int, int) {
 	b := c.Output.Bounds()
 	return b.Max.X, b.Max.Y
+}
+
+func (c *WarpImageConnector) NumFields() int {
+	return 3
 }
 
 // -----
@@ -85,30 +95,32 @@ func invert(m mat.Matrix) *mat.Dense {
 	return d
 }
 
-func getRoundedValueHelp(input WarpConnector, r, c float64, rp, cp int, out []float64) {
+func getRoundedValueHelp(input WarpConnector, r, c float64, rp, cp int, out, buf []float64) {
 	dx := 1 - math.Abs(float64(rp)-r)
 	dy := 1 - math.Abs(float64(cp)-c)
 
 	area := dx * dy
-	v := input.Get(rp, cp)
+	input.Get(rp, cp, buf)
 
-	for idx, vv := range v {
+	for idx, vv := range buf {
 		out[idx] += vv * area
 	}
 }
 
-func getRoundedValue(input WarpConnector, rows, cols int, r, c float64) []float64 {
+func getRoundedValue(input WarpConnector, rows, cols int, r, c float64, total, buf []float64) []float64 {
 	r0 := int(r)
 	r1 := r0 + 1
 	c0 := int(c)
 	c1 := c0 + 1
 
-	total := make([]float64, len(input.Get(0, 0)))
+	for idx := 0; idx < input.NumFields(); idx++ {
+		total[idx] = 0
+	}
 
-	getRoundedValueHelp(input, r, c, r0, c0, total)
-	getRoundedValueHelp(input, r, c, r1, c0, total)
-	getRoundedValueHelp(input, r, c, r1, c1, total)
-	getRoundedValueHelp(input, r, c, r0, c1, total)
+	getRoundedValueHelp(input, r, c, r0, c0, total, buf)
+	getRoundedValueHelp(input, r, c, r1, c0, total, buf)
+	getRoundedValueHelp(input, r, c, r1, c1, total, buf)
+	getRoundedValueHelp(input, r, c, r0, c1, total, buf)
 
 	return total
 }
@@ -117,7 +129,8 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 	m = invert(m)
 	rows, cols := input.OutputDims()
 
-	//out := mat.NewDense(rows, cols, nil)
+	total := make([]float64, input.NumFields())
+	buf := make([]float64, input.NumFields())
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -128,11 +141,10 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 				(m.At(2, 0)*float64(r) + m.At(2, 1)*float64(c) + m.At(2, 2))
 
 			//fmt.Printf("%d %d -> %v %v\n", r, c, R, C)
-			input.Set(r, c, getRoundedValue(input, rows, cols, R, C))
+			input.Set(r, c, getRoundedValue(input, rows, cols, R, C, total, buf))
 		}
 	}
 
-	//return out
 }
 
 func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *image.RGBA {
