@@ -132,8 +132,8 @@ github.com/edaniels/golinters v0.0.4 h1:bOhAr1acA66+bRjAB9XVfA55VtME1MOqFnfpIjWw
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwaiZECzZla8apET/s97xhquWyluOA=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
-github.com/edaniels/gostream v0.0.0-20210202221144-dab224fb5081 h1:EAxSieOFF+Wv0bBCoGrSe62Ap3WiKfeiq5TPrxGqDiE=
-github.com/edaniels/gostream v0.0.0-20210202221144-dab224fb5081/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
+github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9 h1:lHvlX9Wl5OT3oqCxx8SHyPMYC4Z3j72YQMpxZpvkjR0=
+github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64 h1:OBY3x4TCn+QiKJqExDPP84KLiz7f4zyWdWuY8flAsh0=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64/go.mod h1:HOZWnzAhhj+VzcFydwLl7WzAwZS1RZ9DcrNcWagnb8g=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=

@@ -367,36 +367,24 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
 
-	views := []gostream.RemoteView{}
-
-	// set up camera/lidar streams
-	var numCameraStreams int
-	if len(theRobot.Cameras) > 0 {
-		numCameraStreams = 1
-	}
-	for i := 0; i < numCameraStreams+len(theRobot.LidarDevices); i++ {
+	var remoteView gostream.RemoteView
+	if len(theRobot.Cameras) != 0 || len(theRobot.LidarDevices) != 0 {
 		config := vpx.DefaultRemoteViewConfig
-		config.Debug = false
-		config.StreamNumber = i
-		var name string
-		if i < len(theRobot.Cameras) {
-			name = fmt.Sprintf("Camera %d", i+1)
-		} else {
-			name = fmt.Sprintf("LIDAR %d", i-len(theRobot.Cameras)+1)
-		}
-		config.StreamName = name
-		remoteView, err := gostream.NewRemoteView(config)
+		var err error
+		remoteView, err = gostream.NewRemoteView(config)
 		if err != nil {
 			return nil, err
 		}
 		remoteView.SetOnClickHandler(func(x, y int) {
 			golog.Global.Debugw("click", "x", x, "y", y)
 		})
-
-		views = append(views, remoteView)
 	}
 
-	app := &robotWebApp{remoteViews: views, theRobot: theRobot}
+	var remoteViews []gostream.RemoteView
+	if remoteView != nil {
+		remoteViews = append(remoteViews, remoteView)
+	}
+	app := &robotWebApp{remoteViews: remoteViews, theRobot: theRobot}
 	err := app.Init()
 	if err != nil {
 		return nil, err
@@ -413,8 +401,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 
 	mux.Handle("/", app)
 
-	for _, view := range views {
-		handler := view.Handler()
+	if remoteView != nil {
+		handler := remoteView.Handler()
 		mux.Handle("/"+handler.Name, handler.Func)
 	}
 
@@ -427,18 +415,18 @@ func InstallWeb(mux *http.ServeMux, theRobot *Robot) (func(), error) {
 		for _, cam := range theRobot.Cameras {
 			autoCameraTiler.AddSource(cam)
 		}
-		go gostream.StreamSource(cancelCtx, autoCameraTiler, views[0], 33*time.Millisecond)
+		go gostream.StreamNamedSource(cancelCtx, autoCameraTiler, "Cameras", remoteView, 33*time.Millisecond)
 	}
 
-	for idx, remoteView := range views[numCameraStreams:] {
-		lidarIdx := idx
-		go gostream.StreamSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[lidarIdx]), 800, 600}, remoteView, 33*time.Millisecond)
+	for idx := range theRobot.LidarDevices {
+		name := fmt.Sprintf("LIDAR %d", idx+1)
+		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, remoteView, 33*time.Millisecond)
 	}
 
 	return func() {
 		cancelFunc()
-		for _, v := range views {
-			v.Stop()
+		if remoteView != nil {
+			remoteView.Stop()
 		}
 	}, nil
 
