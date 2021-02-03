@@ -438,8 +438,8 @@ type dmWarpConnector struct {
 	Out DepthMap
 }
 
-func (w *dmWarpConnector) Get(x, y int) []float64 {
-	return []float64{float64(w.In.GetDepth(x, y))}
+func (w *dmWarpConnector) Get(x, y int, buf []float64) {
+	buf[0] = float64(w.In.GetDepth(x, y))
 }
 
 func (w *dmWarpConnector) Set(x, y int, data []float64) {
@@ -448,6 +448,10 @@ func (w *dmWarpConnector) Set(x, y int, data []float64) {
 
 func (w *dmWarpConnector) OutputDims() (int, int) {
 	return w.Out.width, w.Out.height
+}
+
+func (w *dmWarpConnector) NumFields() int {
+	return 1
 }
 
 func (dm *DepthMap) Warp(m utils.TransformationMatrix, newSize image.Point) DepthMap {

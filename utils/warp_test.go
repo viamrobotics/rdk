@@ -18,13 +18,6 @@ func increasingArray(start, inc float64, total int) []float64 {
 	return data
 }
 
-func TestWarpGetRoundedValue(t *testing.T) {
-	m := &WarpMatrixConnector{mat.NewDense(2, 2, []float64{0, 1, 10, 20}), nil}
-
-	assert.Equal(t, 0.0, getRoundedValue(m, 2, 2, 0, 0)[0])
-	assert.Equal(t, 0.5, getRoundedValue(m, 2, 2, 0, 0.5)[0])
-}
-
 func TestWarp1(t *testing.T) {
 	size := 5
 
