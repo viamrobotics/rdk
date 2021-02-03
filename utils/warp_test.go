@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"fmt"
 	"image"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,11 +18,11 @@ func increasingArray(start, inc float64, total int) []float64 {
 	return data
 }
 
-func TestGetRoundedValue(t *testing.T) {
-	m := mat.NewDense(2, 2, []float64{0, 1, 10, 20})
+func TestWarpGetRoundedValue(t *testing.T) {
+	m := &WarpMatrixConnector{mat.NewDense(2, 2, []float64{0, 1, 10, 20}), nil}
 
-	assert.Equal(t, 0.0, getRoundedValue(m, 0, 0))
-	assert.Equal(t, 0.5, getRoundedValue(m, 0, 0.5))
+	assert.Equal(t, 0.0, getRoundedValue(m, 2, 2, 0, 0)[0])
+	assert.Equal(t, 0.5, getRoundedValue(m, 2, 2, 0, 0.5)[0])
 }
 
 func TestWarp1(t *testing.T) {
@@ -42,14 +42,43 @@ func TestWarp1(t *testing.T) {
 			{size, size},
 		})
 
-	fmt.Println(m)
-
 	input := mat.NewDense(size, size, increasingArray(0, 1, size*size))
 
-	res1 := Warpgocv(input, m)
-	fmt.Println(res1)
+	res := mat.NewDense(size, size, nil)
+	Warp(&WarpMatrixConnector{input, res}, m)
 
-	res2 := Warp(input, m)
-	fmt.Println(res2)
+	assert.Equal(t, 6.0, res.At(0, 0))
+	assert.Equal(t, 20.4, res.At(4, 4))
+}
+
+func TestWarp2(t *testing.T) {
+	img, err := ReadImageFromFile("data/canny1.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	size := 800
+
+	m := GetPerspectiveTransform(
+		[]image.Point{
+			{100, 100},
+			{700, 100},
+			{100, 700},
+			{700, 700},
+		},
+		[]image.Point{
+			{0, 0},
+			{size, 0},
+			{0, size},
+			{size, size},
+		})
+
+	out := WarpImage(img, m)
+
+	os.MkdirAll("out", 0775)
+	err = WriteImageToFile("out/canny1-warped.png", out)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 }
