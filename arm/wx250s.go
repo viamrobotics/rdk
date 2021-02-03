@@ -88,7 +88,7 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	if err != nil {
 		return ci, err
 	}
-	setJointTelNums = append(setJointTelNums, curPos[0:6]...)
+	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
 	// HACK my joint angles are reversed for these joints. Fix.
 	setJointTelNums[1] *= -1
@@ -172,41 +172,42 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	// HACK my joint angles are reversed for these joints. Fix.
 	servoPosList[1] *= -1
 	servoPosList[2] *= -1
-	return a.MoveToJointPositions(servoPosList)
+	return a.MoveToJointPositions(JointPositions{servoPosList})
 	//~ return nil
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
-func (a *Wx250s) MoveToJointPositions(positions []float64) error {
+func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 
-	if len(positions) > len(a.JointOrder()) {
+	if len(jp.Degrees) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
 
 	// TODO: make block configurable
 	block := false
-	for i, pos := range positions {
+	for i, pos := range jp.Degrees {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
 	return nil
 }
 
 // CurrentJointPositions returns a sorted (from base outwards) slice of joint angles in degrees
-func (a *Wx250s) CurrentJointPositions() ([]float64, error) {
-	var positions []float64
+func (a *Wx250s) CurrentJointPositions() (JointPositions, error) {
+
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
-		return positions, err
+		return JointPositions{}, err
 	}
 
+	var positions []float64
 	for _, jointName := range a.JointOrder() {
 		//2048 is the halfway position for Dynamixel servos
 		// TODO: Function for servo pos/degree/radian conversion
 		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
 	}
-	return positions, nil
+	return JointPositions{positions}, nil
 }
 
 func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {
