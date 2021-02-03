@@ -23,6 +23,7 @@ type Wx250s struct {
 	kinConn  *telnet.Conn
 	Joints   map[string][]*servo.Servo
 	moveLock sync.Mutex
+	kinLock  sync.Mutex
 }
 
 // servoPosToRadians takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -118,11 +119,15 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 		floatVal, err := strconv.ParseFloat(floatStr, 64)
 		if err == nil {
 			cartFloatList = append(cartFloatList, floatVal*0.001)
+			//~ cartFloatList = append(cartFloatList, floatVal)
 		} else {
 			return ci, err
 		}
 	}
 
+	//~ ci.X = cartFloatList[0] * 1000
+	//~ ci.Y = cartFloatList[1] * 1000
+	//~ ci.Z = cartFloatList[2] * 1000
 	ci.X = cartFloatList[0]
 	ci.Y = cartFloatList[1]
 	ci.Z = cartFloatList[2]
@@ -168,6 +173,7 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	servoPosList[1] *= -1
 	servoPosList[2] *= -1
 	return a.MoveToJointPositions(servoPosList)
+	//~ return nil
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
@@ -372,7 +378,26 @@ func (a *Wx250s) TorqueOff() error {
 
 // Set a joint to a position
 func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
-	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
+
+	// Adjust for how Dynamixel servos only go to within ~30 of the goal, annoyingly
+	startPos, err := a.GetServos(jointName)[0].PresentPosition()
+	if err != nil {
+		golog.Global.Errorf("jointTo get pos error: %s", err)
+	}
+
+	if startPos < pos {
+		pos += 30
+	} else {
+		pos -= 30
+	}
+
+	if pos > 4095 {
+		pos = 4095
+	} else if pos < 0 {
+		pos = 0
+	}
+
+	err = servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
 		golog.Global.Errorf("jointTo error: %s", err)
 	}
@@ -433,11 +458,15 @@ func (a *Wx250s) WaitForMovement() error {
 // TODO: Make the above-mentioned code less prone to segfaults than what RL provides
 
 func (a *Wx250s) telnetSend(telString string) error {
+	a.kinLock.Lock()
+	defer a.kinLock.Unlock()
 	_, err := a.kinConn.Write([]byte(telString + "\n"))
 	return err
 }
 
 func (a *Wx250s) telnetRead() (string, error) {
+	a.kinLock.Lock()
+	defer a.kinLock.Unlock()
 	out := ""
 	var buffer [1]byte
 	recvData := buffer[:]
