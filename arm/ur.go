@@ -64,13 +64,13 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
-func (arm *URArm) CurrentJointPositions() ([]float64, error) {
+func (arm *URArm) CurrentJointPositions() (JointPositions, error) {
 	radians := []float64{}
 	state := arm.State()
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return radians, nil
+	return JointPositionsFromRadians(radians), nil
 }
 
 func (arm *URArm) CurrentPosition() (Position, error) {
@@ -94,8 +94,8 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 	return arm.MoveToJointPositionRadians(radians)
 }
 
-func (arm *URArm) MoveToJointPositions(joints []float64) error {
-	return arm.MoveToJointPositionRadians(joints)
+func (arm *URArm) MoveToJointPositions(joints JointPositions) error {
+	return arm.MoveToJointPositionRadians(joints.Radians())
 }
 
 func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {

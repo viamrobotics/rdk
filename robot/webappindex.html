@@ -187,10 +187,10 @@
 {{define "J"}}
 <li>
   Joint {{index . 1}}
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.1', 'joint' )">++</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=.01', 'joint' )">+</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.01', 'joint' )">-</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-.1', 'joint' )">--</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=10', 'joint' )">++</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=1', 'joint' )">+</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-1', 'joint' )">-</button>
+  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-10', 'joint' )">--</button>
   <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
 </li>
 {{end}}
