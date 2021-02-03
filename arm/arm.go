@@ -40,13 +40,35 @@ func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) Position {
 	}
 }
 
-// this is probably wrong, just trying to start abstracting
+type JointPositions struct {
+	Degrees []float64
+}
+
+func (jp JointPositions) Radians() []float64 {
+	n := make([]float64, len(jp.Degrees))
+	for idx, d := range jp.Degrees {
+		n[idx] = utils.DegToRad(d)
+	}
+	return n
+}
+
+func JointPositionsFromRadians(radians []float64) JointPositions {
+	n := make([]float64, len(radians))
+	for idx, a := range radians {
+		n[idx] = utils.RadToDeg(a)
+	}
+	return JointPositions{n}
+}
+
+// -----
+
 type Arm interface {
 	CurrentPosition() (Position, error)
 	MoveToPosition(c Position) error
 
-	MoveToJointPositions([]float64) error           // TODO(erh): make it clear the units
-	CurrentJointPositions() ([]float64, error)      // TODO(erh): make it clear the units
+	MoveToJointPositions(JointPositions) error
+	CurrentJointPositions() (JointPositions, error)
+
 	JointMoveDelta(joint int, amount float64) error // TODO(erh): make it clear the units
 
 	Close()

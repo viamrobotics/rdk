@@ -69,12 +69,12 @@ type evaKinematics struct {
 	Orientation evaOrientation
 }
 
-func (e *eva) CurrentJointPositions() ([]float64, error) {
+func (e *eva) CurrentJointPositions() (JointPositions, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return nil, err
+		return JointPositions{}, err
 	}
-	return data.ServosPosition, nil
+	return JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 func (e *eva) CurrentPosition() (Position, error) {
@@ -119,11 +119,13 @@ func (e *eva) MoveToPosition(pos Position) error {
 		return err
 	}
 
-	return e.MoveToJointPositions(joints)
+	return e.MoveToJointPositions(JointPositionsFromRadians(joints))
 }
 
-func (e *eva) MoveToJointPositions(joints []float64) error {
-	err := e.doMoveJoints(joints)
+func (e *eva) MoveToJointPositions(newPositions JointPositions) error {
+	radians := newPositions.Radians()
+
+	err := e.doMoveJoints(radians)
 	if err == nil {
 		return nil
 	}
@@ -137,7 +139,7 @@ func (e *eva) MoveToJointPositions(joints []float64) error {
 		return fmt.Errorf("move failure, and couldn't reset errors %s %s", err, err2)
 	}
 
-	return e.doMoveJoints(joints)
+	return e.doMoveJoints(radians)
 }
 
 func (e *eva) doMoveJoints(joints []float64) error {
