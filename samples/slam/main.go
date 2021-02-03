@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -164,57 +163,35 @@ func main() {
 	}
 	lar.Start()
 	defer lar.Stop()
+	areaViewer := &slam.AreaViewer{area, 100}
 
 	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
 
 	// setup robot view
 	config.StreamName = "robot view"
-	robotView, err := gostream.NewRemoteView(config)
+	remoteView, err := gostream.NewRemoteView(config)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	lar.RegisterCommands(robotView.CommandRegistry())
+	lar.RegisterCommands(remoteView.CommandRegistry())
 
 	clientWidth := 800
 	clientHeight := 600
 
-	robotView.SetOnClickHandler(func(x, y int) {
+	remoteView.SetOnClickHandler(func(x, y int) {
 		golog.Global.Debugw("click", "x", x, "y", y)
 		resp, err := lar.HandleClick(x, y, clientWidth, clientHeight)
 		if err != nil {
-			robotView.SendText(err.Error())
+			remoteView.SendText(err.Error())
 			return
 		}
 		if resp != "" {
-			robotView.SendText(resp)
+			remoteView.SendText(resp)
 		}
 	})
 
-	// setup world view
-	config.StreamNumber = 1
-	config.StreamName = "area view"
-	areaViewerRemoteView, err := gostream.NewRemoteView(config)
-	if err != nil {
-		golog.Global.Fatal(err)
-	}
-	areaViewer := &slam.AreaViewer{area, 100}
-	areaViewerRemoteView.SetOnDataHandler(func(data []byte) {
-		golog.Global.Debugw("data", "raw", string(data))
-		if bytes.HasPrefix(data, []byte("set_scale ")) {
-			newScaleStr := string(bytes.TrimPrefix(data, []byte("set_scale ")))
-			newScale, err := strconv.ParseInt(newScaleStr, 10, 32)
-			if err != nil {
-				areaViewerRemoteView.SendText(err.Error())
-				return
-			}
-			areaViewer.ViewScale = int(newScale)
-			areaViewerRemoteView.SendText(fmt.Sprintf("scale set to %d", newScale))
-		}
-	})
-
-	server := gostream.NewRemoteViewServer(port, robotView, golog.Global)
-	server.AddView(areaViewerRemoteView)
+	server := gostream.NewRemoteViewServer(port, remoteView, golog.Global)
 	server.Run()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -229,8 +206,10 @@ func main() {
 
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
 	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}
-	go gostream.StreamSource(cancelCtx, worldViewMatSource, areaViewerRemoteView, frameSpeed)
-	gostream.StreamSource(cancelCtx, robotViewMatSource, robotView, frameSpeed)
+	started := make(chan struct{})
+	go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(started) }, robotViewMatSource, "robot perspective", remoteView, frameSpeed)
+	<-started
+	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world", remoteView, frameSpeed)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
