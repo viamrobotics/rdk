@@ -2,8 +2,6 @@ package chess
 
 import (
 	"testing"
-
-	"github.com/viamrobotics/robotcore/utils"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {
@@ -22,6 +20,11 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	err = theBoard.WriteDebugImages("out/board2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	game, err := NewGame(theBoard)
 	if err != nil {
 		t.Fatal(err)
@@ -30,11 +33,6 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, theBoard, "e1", "white")
 	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
 	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
-
-	err = utils.WriteImageToFile("out/board2-edges.png", theBoard.edges)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
 	if err != nil {
@@ -50,7 +48,7 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, nextBoard, "e5", "black")
 	_testPieceStatusHelper(t, game, nextBoard, "e7", "black")
 
-	err = utils.WriteImageToFile("out/board3-edges.png", nextBoard.edges)
+	err = nextBoard.WriteDebugImages("out/board3")
 	if err != nil {
 		t.Fatal(err)
 	}

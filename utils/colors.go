@@ -1,4 +1,4 @@
-package vision
+package utils
 
 import (
 	"fmt"
@@ -204,8 +204,21 @@ func ConvertToColorful(c color.RGBA) colorful.Color {
 	}
 }
 
+func ConvertToColorful2(c color.Color) colorful.Color {
+	r, g, b, _ := c.RGBA()
+	return colorful.Color{
+		R: float64(r) / 65535.0,
+		G: float64(g) / 65535.0,
+		B: float64(b) / 65535.0,
+	}
+}
+
 func ConvertToHSV(c color.RGBA) HSV {
 	return NewHSV(ConvertToColorful(c).Hsv())
+}
+
+func ConvertToHSV2(c color.Color) HSV {
+	return NewHSV(ConvertToColorful2(c).Hsv())
 }
 
 // ---
