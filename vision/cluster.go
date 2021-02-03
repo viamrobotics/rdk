@@ -3,14 +3,16 @@ package vision
 import (
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
+
+	"github.com/viamrobotics/robotcore/utils"
 )
 
-func hsvfrom(point clusters.Coordinates) HSV {
-	return HSV{point[0], point[1], point[2]}
+func hsvfrom(point clusters.Coordinates) utils.HSV {
+	return utils.HSV{point[0], point[1], point[2]}
 }
 
 type HSVObservation struct {
-	hsv HSV
+	hsv utils.HSV
 }
 
 func (o HSVObservation) Coordinates() clusters.Coordinates {
@@ -21,7 +23,7 @@ func (o HSVObservation) Distance(point clusters.Coordinates) float64 {
 	return o.hsv.Distance(hsvfrom(point))
 }
 
-func ClusterHSV(data []HSV, numClusters int) ([]HSV, error) {
+func ClusterHSV(data []utils.HSV, numClusters int) ([]utils.HSV, error) {
 	all := []clusters.Observation{}
 	for _, c := range data {
 		all = append(all, HSVObservation{c})
@@ -34,7 +36,7 @@ func ClusterHSV(data []HSV, numClusters int) ([]HSV, error) {
 		return nil, err
 	}
 
-	res := []HSV{}
+	res := []utils.HSV{}
 	for _, c := range clusters {
 		res = append(res, hsvfrom(c.Center))
 	}
