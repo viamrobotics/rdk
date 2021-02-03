@@ -43,3 +43,4 @@ make lint
 2. Always run `make format`, `make lint`, and test before pushing.
 3. Try to avoid large merges unless you're really doing a big merge. Try to rebase.
 4. Write tests!
+5. Delete any non-release branches ASAP when done, or use a personal fork
