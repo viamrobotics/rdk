@@ -8,8 +8,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 
 	"github.com/lucasb-eyer/go-colorful"
-
-	"gocv.io/x/gocv"
 )
 
 type TransformationMatrix mat.Matrix
@@ -79,10 +77,43 @@ func (c *WarpImageConnector) NumFields() int {
 
 // -----
 
+// cribbed from opencv cv::getPerspectiveTransform
 func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
-	m := gocv.GetPerspectiveTransform(src, dst)
-	defer m.Close()
-	return togonum(&m)
+
+	a := mat.NewDense(8, 8, nil)
+	b := mat.NewDense(8, 1, nil)
+
+	for i := 0; i < 4; i++ {
+		a.Set(i+4, 3, float64(src[i].X))
+		a.Set(i, 0, a.At(i+4, 3))
+
+		a.Set(i+4, 4, float64(src[i].Y))
+		a.Set(i, 1, a.At(i+4, 4))
+
+		a.Set(i, 2, 1)
+		a.Set(i+4, 5, 1)
+
+		a.Set(i, 6, float64(-src[i].X*dst[i].X))
+		a.Set(i, 7, float64(-src[i].Y*dst[i].X))
+		a.Set(i+4, 6, float64(-src[i].X*dst[i].Y))
+		a.Set(i+4, 7, float64(-src[i].Y*dst[i].Y))
+
+		b.Set(i, 0, float64(dst[i].X))
+		b.Set(i+4, 0, float64(dst[i].Y))
+	}
+
+	raw := make([]float64, 8)
+	x := mat.NewDense(8, 1, raw)
+
+	err := x.Solve(a, b)
+	if err != nil {
+		panic(err)
+	}
+
+	raw = append(raw, 1.0)
+	m := mat.NewDense(3, 3, raw)
+
+	return m
 }
 
 func invert(m mat.Matrix) *mat.Dense {
@@ -152,14 +183,4 @@ func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *im
 	conn := &WarpImageConnector{img, out}
 	Warp(conn, m)
 	return conn.Output
-}
-
-func togonum(m *gocv.Mat) *mat.Dense {
-	d := mat.NewDense(m.Rows(), m.Cols(), nil)
-	for r := 0; r < m.Rows(); r++ {
-		for c := 0; c < m.Cols(); c++ {
-			d.Set(r, c, m.GetDoubleAt(r, c))
-		}
-	}
-	return d
 }
