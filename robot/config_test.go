@@ -2,7 +2,11 @@ package robot
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -38,6 +42,8 @@ func TestConfig1(t *testing.T) {
 	if bounds.Max.X < 100 {
 		t.Errorf("pictures seems wrong %d %d", bounds.Max.X, bounds.Max.Y)
 	}
+
+	assert.Equal(t, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")), cfg.Components[0].Attributes["bar"])
 
 }
 
