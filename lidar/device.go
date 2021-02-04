@@ -6,6 +6,8 @@ type Device interface {
 	Start()
 	Stop()
 	Close()
+	// assumes the device is in a fixed point for the duration
+	// of the scan
 	Scan() (Measurements, error)
 	Range() int
 	Bounds() (image.Point, error)
