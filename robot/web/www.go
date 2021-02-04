@@ -77,16 +77,16 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	temp := Temp{}
 
-	for idx := range app.theRobot.Bases {
-		temp.Bases = append(temp.Bases, fmt.Sprintf("base%d", idx))
+	for _, b := range app.theRobot.Bases {
+		temp.Bases = append(temp.Bases, app.theRobot.ComponentFor(b).Name)
 	}
 
-	for idx := range app.theRobot.Arms {
-		temp.Arms = append(temp.Arms, fmt.Sprintf("arm%d", idx))
+	for _, a := range app.theRobot.Arms {
+		temp.Arms = append(temp.Arms, app.theRobot.ComponentFor(a).Name)
 	}
 
-	for idx := range app.theRobot.Grippers {
-		temp.Grippers = append(temp.Grippers, fmt.Sprintf("gripper%d", idx))
+	for _, g := range app.theRobot.Grippers {
+		temp.Grippers = append(temp.Grippers, app.theRobot.ComponentFor(g).Name)
 	}
 
 	for _, remoteView := range app.remoteViews {
