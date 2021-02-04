@@ -49,5 +49,11 @@ func ReadConfig(fn string) (Config, error) {
 		return cfg, err
 	}
 
+	for idx, c := range cfg.Components {
+		for k, v := range c.Attributes {
+			cfg.Components[idx].Attributes[k] = os.ExpandEnv(v)
+		}
+	}
+
 	return cfg, nil
 }

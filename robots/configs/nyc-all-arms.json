@@ -1,0 +1,26 @@
+{
+    "components" : [
+        { "name" : "pieceArm",
+          "type": "arm",
+          "model": "ur",
+          "host" : "10.237.115.238"
+        },
+        { "name" : "cameraOver",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "10.237.115.131",
+          "port" : 8181,
+          "attributes" : {
+              "num" : "1"
+          }
+        },
+        { "name" : "silly",
+          "type": "arm",
+          "model": "eva",
+          "host" : "10.237.115.3",
+          "attributes" : {
+              "token" : "${eva_token}"
+          }
+        }
+    ]
+}
