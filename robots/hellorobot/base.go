@@ -42,7 +42,7 @@ func (b *Base) Close() {
 	}
 }
 
-const baseTranslateSpeed = 1.0 / 5 // m/sec
+const baseTranslateSpeed = 1.0 / 4 // m/sec
 
 func (b *Base) TranslateBy(meters float64, block bool) {
 	b.baseObj.CallMethod("translate_by", python.PyFloat_FromDouble(meters))
