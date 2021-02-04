@@ -4,8 +4,6 @@ import (
 	"image"
 	"testing"
 
-	"github.com/disintegration/imaging"
-
 	"github.com/viamrobotics/robotcore/vision"
 	"github.com/viamrobotics/robotcore/vision/segmentation"
 )
@@ -39,9 +37,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			}
 		}
 
-		i2 := imaging.Blur(&warped, 3)
-
-		res, err := segmentation.ShapeWalkMultiple(vision.NewImage(i2), starts, false)
+		res, err := segmentation.ShapeWalkMultiple(warped, starts, false)
 		if err != nil {
 			return err
 		}
