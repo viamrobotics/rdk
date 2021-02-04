@@ -1,5 +1,9 @@
 {
   "components": [
+    { 
+      "type": "provider",
+      "model": "hellorobot"
+    },
     {
       "model": "hellorobot",
       "name": "base",
