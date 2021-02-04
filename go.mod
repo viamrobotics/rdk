@@ -13,7 +13,7 @@ require (
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
-	github.com/golangci/golangci-lint v1.34.1
+	github.com/golangci/golangci-lint v1.34.1 // indirect
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect

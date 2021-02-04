@@ -3,7 +3,7 @@ package vision
 import (
 	"image"
 
-	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 var (
@@ -30,7 +30,7 @@ func Center(contour []image.Point, maxDiff int) image.Point {
 	numPoints := 0
 	box := image.Rectangle{image.Point{1000000, 100000}, image.Point{0, 0}}
 	for _, p := range contour {
-		if rcutil.AbsInt(p.X-weightedMiddle.X) > maxDiff || rcutil.AbsInt(p.Y-weightedMiddle.Y) > maxDiff {
+		if utils.AbsInt(p.X-weightedMiddle.X) > maxDiff || utils.AbsInt(p.Y-weightedMiddle.Y) > maxDiff {
 			continue
 		}
 

@@ -8,8 +8,6 @@ import (
 	"math"
 	"strings"
 
-	"github.com/viamrobotics/robotcore/rcutil"
-
 	"github.com/edaniels/golog"
 	"github.com/lucasb-eyer/go-colorful"
 )
@@ -102,7 +100,7 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		wv *= 1.5
 	} else {
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
-		dd = rcutil.Square(math.Min(s1, s2)) + rcutil.Square(math.Min(v1, v2)) // 0 -> 2
+		dd = Square(math.Min(s1, s2)) + Square(math.Min(v1, v2)) // 0 -> 2
 
 		ddScale := 5.0
 		dds := dd / ddScale
@@ -133,23 +131,23 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			// we're playing with the angle of the v1,s1 -> v2,s2 vector
 			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
 			ac = math.Pow(ac, .3333)
-			wh *= rcutil.Square(1 - ac)                // the further from normal the more we care about hue
+			wh *= Square(1 - ac)                // the further from normal the more we care about hue
 			ws *= 4.7 * ac * math.Pow(1-(s1+s2)/2, .3) // the higher the saturation, the less saturation differences matter
 			wv *= 1.1 * ac
 		} else {
 			/*
 			// we're playing with the angle of the v1,s1 -> v2,s2 vector
 			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-			wh *= rcutil.Square(1 - ac)         // the further from normal the more we care about hue
+			wh *= Square(1 - ac)         // the further from normal the more we care about hue
 			ws *= 3.2 * ac
 			wv *= 1.2 * ac
 		}
 	*/
 
 	hd := _loopedDiff(h1, h2)
-	sum := rcutil.Square(wh * hd)
-	sum += rcutil.Square(ws * (s1 - s2))
-	sum += rcutil.Square(wv * (v1 - v2))
+	sum := Square(wh * hd)
+	sum += Square(ws * (s1 - s2))
+	sum += Square(wv * (v1 - v2))
 
 	res := math.Sqrt(sum)
 
@@ -157,8 +155,8 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		golog.Global.Debugf("%v -- %v", c, b)
 		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", rcutil.Square(hd), rcutil.Square(s1-s2), rcutil.Square(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", rcutil.Square(wh*hd), rcutil.Square(ws*(s1-s2)), rcutil.Square(wv*(v1-v2)))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", Square(hd), Square(s1-s2), Square(v1-v2))
+		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", Square(wh*hd), Square(ws*(s1-s2)), Square(wv*(v1-v2)))
 		golog.Global.Debugf("\t res: %f ac: %f dd: %f", res, ac, dd)
 	}
 	return res
@@ -312,9 +310,9 @@ func colorDistanceRaw(r1, g1, b1, r2, g2, b2 float64) float64 {
 
 	rLine := (r1 + r2) / 2
 
-	diff := (2 + (rLine / 256)) * rcutil.Square(r2-r1)
-	diff += 4 * rcutil.Square(g2-g1)
-	diff += (2 + ((255 - rLine) / 256)) * rcutil.Square(b2-b1)
+	diff := (2 + (rLine / 256)) * Square(r2-r1)
+	diff += 4 * Square(g2-g1)
+	diff += (2 + ((255 - rLine) / 256)) * Square(b2-b1)
 
 	return math.Sqrt(diff)
 }
