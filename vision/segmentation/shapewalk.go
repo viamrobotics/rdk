@@ -51,15 +51,19 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 	}
 
 	myColor := ws.img.ColorHSV(start)
+	avgColor := ws.img.AverageColor(start, 1)
 
 	originalDistance := originalColor.Distance(myColor)
 	lastDistance := lastColor.Distance(myColor)
+	avgDistance := avgColor.Distance(myColor)
 
-	good := originalDistance < ColorThreshold || (originalDistance < (ColorThreshold*1.1) && lastDistance < ColorThreshold/1)
+	good := (originalDistance < ColorThreshold) ||
+		(originalDistance < (ColorThreshold*1.1) && lastDistance < ColorThreshold) ||
+		(originalDistance < (ColorThreshold*2) && avgDistance < ColorThreshold/10)
 
 	if ws.debug {
-		golog.Global.Debugf("good: %v originalColor: %s point: %v myColor: %s originalDistance: %v lastDistance: %v",
-			good, originalColor.ToColorful().Hex(), start, myColor.ToColorful().Hex(), originalDistance, lastDistance)
+		golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v avgDistance: %v",
+			start, good, originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance, avgDistance)
 	}
 	if !good {
 		ws.setDotValue(start, -1)
@@ -80,7 +84,7 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 }
 
 func (ws *walkState) piece(start image.Point, colorNumber int) error {
-	init := ws.img.ColorHSV(start)
+	init := ws.img.AverageColor(start, 1)
 
 	ws.help(init, init, start, colorNumber)
 
@@ -114,6 +118,9 @@ func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (imag
 	}
 
 	for idx, start := range starts {
+		if debug {
+			golog.Global.Debugf("ShapeWalkMultiple start: %v", start)
+		}
 		err := ws.piece(start, idx+1)
 		if err != nil {
 			return nil, err

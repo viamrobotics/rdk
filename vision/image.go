@@ -189,6 +189,10 @@ func (i *Image) AverageColorXY(x, y int, radius int) utils.HSV {
 
 	for X := x - radius; X < x+radius; X++ {
 		for Y := y - radius; Y < y+radius; Y++ {
+			if X < 0 || Y < 0 || x >= i.width || y >= i.height {
+				continue
+			}
+
 			data := i.ColorHSV(image.Point{X, Y})
 			h += data.H
 			s += data.S
