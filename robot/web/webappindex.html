@@ -59,7 +59,7 @@
       {{ end }}
 
       function updateJointView(arm) {
-          makeApiCall("/api/arm?mode=joint&arm=" + arm, function(response) {
+          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
               var j = response["joints"];
               for ( var i=0; i<j.length; i++) {
                   var id = "arm_j_" + arm + "_" + i;
@@ -70,7 +70,7 @@
       }
 
       function updateGridView(arm) {
-          makeApiCall("/api/arm?mode=grid&arm=" + arm, function(response) {
+          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
               for ( var i in response) {
                   var id = "arm_c_" + arm + "_" + i;
                   var e = document.getElementById(id);
