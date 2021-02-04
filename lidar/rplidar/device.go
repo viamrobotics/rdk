@@ -4,11 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
+	"sort"
 	"sync"
 
 	"github.com/viamrobotics/robotcore/lidar"
 	rplidargen "github.com/viamrobotics/robotcore/lidar/rplidar/gen"
 	"github.com/viamrobotics/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 const ModelName = "rplidar"
@@ -231,6 +235,8 @@ func (rpl *RPLidar) Close() {
 	rpl.Stop()
 }
 
+const numScans = 3
+
 func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	if !rpl.started {
 		rpl.Start()
@@ -238,24 +244,54 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	}
 
 	nodeCount := int64(rpl.nodeSize)
-	result := rpl.driver.GrabScanDataHq(rpl.nodes, &nodeCount, defaultTimeout)
-	if Result(result) != ResultOk {
-		return nil, fmt.Errorf("bad scan: %w", Result(result).Failed())
-	}
-	measurements := make(lidar.Measurements, 0, nodeCount)
-	rpl.driver.AscendScanData(rpl.nodes, nodeCount)
+	measurements := make(lidar.Measurements, 0, nodeCount*numScans)
 
-	for pos := 0; pos < int(nodeCount); pos++ {
-		node := rplidargen.MeasurementNodeHqArray_getitem(rpl.nodes, pos)
-		if node.GetDist_mm_q2() == 0 {
-			continue // TODO(erd): okay to skip?
+	for i := 0; i < numScans; i++ {
+		nodeCount = int64(rpl.nodeSize)
+		result := rpl.driver.GrabScanDataHq(rpl.nodes, &nodeCount, defaultTimeout)
+		if Result(result) != ResultOk {
+			return nil, fmt.Errorf("bad scan: %w", Result(result).Failed())
 		}
+		rpl.driver.AscendScanData(rpl.nodes, nodeCount)
 
-		nodeAngle := (float64(node.GetAngle_z_q14()) * 90 / (1 << 14))
-		nodeAngle = utils.DegToRad(nodeAngle)
-		nodeDistance := float64(node.GetDist_mm_q2()) / 4
-		measurements = append(measurements, lidar.NewMeasurement(nodeAngle, nodeDistance/1000))
+		for pos := 0; pos < int(nodeCount); pos++ {
+			node := rplidargen.MeasurementNodeHqArray_getitem(rpl.nodes, pos)
+			if node.GetDist_mm_q2() == 0 {
+				continue // TODO(erd): okay to skip?
+			}
+
+			nodeAngle := (float64(node.GetAngle_z_q14()) * 90 / (1 << 14))
+			nodeAngle = utils.DegToRad(nodeAngle)
+			nodeDistance := float64(node.GetDist_mm_q2()) / 4
+			measurements = append(measurements, lidar.NewMeasurement(nodeAngle, nodeDistance/1000))
+		}
 	}
-
+	if len(measurements) == 0 {
+		return nil, nil
+	}
 	return measurements, nil
+
+	//nolint
+	sort.Sort(measurements)
+	filteredMeasurements := make(lidar.Measurements, 0, len(measurements))
+
+	prev := measurements[0]
+	for mIdx := 1; mIdx < len(measurements); mIdx++ {
+		curr := measurements[mIdx]
+		currAngle := utils.RadToDeg(curr.Angle())
+		prevAngle := utils.RadToDeg(prev.Angle())
+		currDist := curr.Distance()
+		prevDist := prev.Distance()
+		prev = curr
+		if math.Abs(currAngle-prevAngle) < 0.1 {
+			_ = currDist
+			_ = prevDist
+			// if math.Abs(currDist-prevDist) > 0.01 {
+			continue
+			// }
+		}
+		filteredMeasurements = append(filteredMeasurements, curr)
+	}
+	golog.Global.Debugw("filtered measurements", "percent", (float64(len(measurements)-len(filteredMeasurements))/float64(len(measurements)))*100)
+	return filteredMeasurements, nil
 }

@@ -37,9 +37,10 @@ type LocationAwareRobot struct {
 	areaBounds    image.Point
 	distinctAreas []*SquareArea
 
-	clientDeviceNum int
-	clientZoom      float64
-	clientClickMode string
+	clientDeviceNum     int
+	clientZoom          float64
+	clientClickMode     string
+	clientLidarViewMode string
 
 	isMoving         int32
 	moveMu           sync.Mutex
@@ -91,10 +92,11 @@ func NewLocationAwareRobot(
 		areaBounds:    areaBounds,
 		distinctAreas: distinctAreas,
 
-		clientDeviceNum: -1,
-		clientZoom:      1,
-		clientClickMode: clientClickModeInfo,
-		closeCh:         make(chan struct{}),
+		clientDeviceNum:     -1,
+		clientZoom:          1,
+		clientClickMode:     clientClickModeInfo,
+		clientLidarViewMode: clientLidarViewModeStored,
+		closeCh:             make(chan struct{}),
 	}, nil
 }
 
@@ -351,83 +353,96 @@ func (lar *LocationAwareRobot) cullLoop() {
 
 const cullTTL = 3
 
+func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *SquareArea, distinctAreas ...*SquareArea) ([]float64, error) {
+	basePosX, basePosY := lar.basePos()
+	baseRect := lar.baseRect()
+
+	allMeasurements := make([]lidar.Measurements, len(devices))
+	for i, dev := range devices {
+		measurements, err := dev.Scan()
+		if err != nil {
+			return nil, fmt.Errorf("bad scan on device %d: %w", i, err)
+		}
+		allMeasurements[i] = measurements
+	}
+
+	areaSize, scaleDown := area.Size()
+	areaSize *= scaleDown
+	orientations := make([]float64, 0, len(allMeasurements))
+	for i, measurements := range allMeasurements {
+		minAngle := math.Inf(1)
+		var adjust bool
+		var offsets DeviceOffset
+		if i != 0 && i-1 < len(lar.deviceOffsets) {
+			offsets = lar.deviceOffsets[i-1]
+			adjust = true
+		}
+		// TODO(erd): better to just adjust in advance?
+		for _, next := range measurements {
+			angle := next.Angle()
+			x, y := next.Coords()
+			if adjust || lar.baseOrientation != 0 {
+				offset := (float64(lar.baseOrientation) + offsets.Angle)
+				angle += math.Mod(offset, 360)
+				angleRad := utils.DegToRad(angle)
+				// rotate vector around base ccw
+				newX := math.Cos(angleRad)*x - math.Sin(angleRad)*y
+				newY := math.Sin(angleRad)*x + math.Cos(angleRad)*y
+				x = newX
+				y = newY
+			}
+			if angle < minAngle {
+				minAngle = angle
+			}
+			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleDown))
+			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleDown))
+			if detectedX < 0 || detectedX >= areaSize {
+				continue
+			}
+			if detectedY < 0 || detectedY >= areaSize {
+				continue
+			}
+			if (image.Point{detectedX, detectedY}).In(baseRect) {
+				continue
+			}
+			// TODO(erd): should we also add here as a sense of permanency
+			// Want to also combine this with occlusion, right. So if there's
+			// a wall detected, and we're pretty confident it's staying there,
+			// it being occluded should give it a low chance of it being removed.
+			// Realistically once the bounds of a location are determined, most
+			// environments would only have it deform over very long periods of time.
+			// Probably longer than the lifetime of the application itself.
+			area.Mutate(func(area MutableArea) {
+				area.Set(detectedX, detectedY, cullTTL)
+			})
+			if len(distinctAreas) > i {
+				lar.distinctAreas[i].Mutate(func(area MutableArea) {
+					area.Set(detectedX, detectedY, cullTTL)
+				})
+			}
+		}
+		orientations = append(orientations, minAngle)
+	}
+	return orientations, nil
+}
+
 func (lar *LocationAwareRobot) updateLoop() {
 	update := func() {
 		if atomic.LoadInt32(&lar.isMoving) == 1 {
 			return
 		}
 		basePosX, basePosY := lar.basePos()
-		baseRect := lar.baseRect()
-
 		for _, dev := range lar.devices {
 			if fake, ok := dev.(*fake.Lidar); ok {
 				fake.SetPosition(image.Point{basePosX, basePosY})
 			}
 		}
-		allMeasurements := make([]lidar.Measurements, len(lar.devices))
-		for i, dev := range lar.devices {
-			measurements, err := dev.Scan()
-			if err != nil {
-				golog.Global.Debugw("bad scan", "device", i, "error", err)
-				continue
-			}
-			allMeasurements[i] = measurements
+		orientations, err := lar.scanAndStore(lar.devices, lar.area, lar.distinctAreas...)
+		if err != nil {
+			golog.Global.Debugw("error scanning and storing", "error", err)
+			return
 		}
-
-		areaSize, scaleDown := lar.area.Size()
-		areaSize *= scaleDown
-		for i, measurements := range allMeasurements {
-			minAngle := math.Inf(1)
-			var adjust bool
-			var offsets DeviceOffset
-			if i != 0 && i-1 < len(lar.deviceOffsets) {
-				offsets = lar.deviceOffsets[i-1]
-				adjust = true
-			}
-			// TODO(erd): better to just adjust in advance?
-			for _, next := range measurements {
-				angle := next.Angle()
-				x, y := next.Coords()
-				if adjust || lar.baseOrientation != 0 {
-					offset := (float64(lar.baseOrientation) + offsets.Angle)
-					angle += math.Mod(offset, 360)
-					angleRad := utils.DegToRad(angle)
-					// rotate vector around base ccw
-					newX := math.Cos(angleRad)*x - math.Sin(angleRad)*y
-					newY := math.Sin(angleRad)*x + math.Cos(angleRad)*y
-					x = newX
-					y = newY
-				}
-				if angle < minAngle {
-					minAngle = angle
-				}
-				detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleDown))
-				detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleDown))
-				if detectedX < 0 || detectedX >= areaSize {
-					continue
-				}
-				if detectedY < 0 || detectedY >= areaSize {
-					continue
-				}
-				if (image.Point{detectedX, detectedY}).In(baseRect) {
-					continue
-				}
-				// TODO(erd): should we also add here as a sense of permanency
-				// Want to also combine this with occlusion, right. So if there's
-				// a wall detected, and we're pretty confident it's staying there,
-				// it being occluded should give it a low chance of it being removed.
-				// Realistically once the bounds of a location are determined, most
-				// environments would only have it deform over very long periods of time.
-				// Probably longer than the lifetime of the application itself.
-				lar.area.Mutate(func(area MutableArea) {
-					area.Set(detectedX, detectedY, cullTTL)
-				})
-				lar.distinctAreas[i].Mutate(func(area MutableArea) {
-					area.Set(detectedX, detectedY, cullTTL)
-				})
-			}
-			lar.orientations[i] = minAngle
-		}
+		lar.orientations = orientations
 	}
 	ticker := time.NewTicker(33 * time.Millisecond)
 	go func() {
@@ -465,17 +480,17 @@ func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 	)
 }
 
-func (lar *LocationAwareRobot) areaToView() (image.Point, *SquareArea, error) {
+func (lar *LocationAwareRobot) areaToView() ([]lidar.Device, image.Point, *SquareArea, error) {
 	devNum := lar.getClientDeviceNum()
 	if devNum == -1 {
-		return lar.maxBounds, lar.area, nil
+		return lar.devices, lar.maxBounds, lar.area, nil
 	}
-	dev := lar.devices[devNum]
-	bounds, err := dev.Bounds()
+	dev := lar.devices[devNum : devNum+1]
+	bounds, err := dev[0].Bounds()
 	if err != nil {
-		return image.Point{}, nil, err
+		return nil, image.Point{}, nil, err
 	}
-	return bounds, lar.distinctAreas[devNum], nil
+	return dev, bounds, lar.distinctAreas[devNum], nil
 }
 
 func (lar *LocationAwareRobot) getClientDeviceNum() int {

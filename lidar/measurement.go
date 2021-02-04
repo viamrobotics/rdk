@@ -6,6 +6,24 @@ import (
 
 type Measurements []*Measurement
 
+func (ms Measurements) Len() int {
+	return len(ms)
+}
+
+func (ms Measurements) Swap(i, j int) {
+	ms[i], ms[j] = ms[j], ms[i]
+}
+
+func (ms Measurements) Less(i, j int) bool {
+	if ms[i].angle < ms[j].angle {
+		return true
+	}
+	if ms[i].angle == ms[j].angle {
+		return ms[i].distance < ms[j].distance
+	}
+	return false
+}
+
 type Measurement struct {
 	angle    float64
 	distance float64

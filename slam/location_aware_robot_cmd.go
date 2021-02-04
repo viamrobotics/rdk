@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/viamrobotics/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/gostream"
 )
@@ -25,6 +26,7 @@ const (
 	commandClientClickMode   = "cl_click_mode"
 	commandClientZoom        = "cl_zoom"
 	commandLidarView         = "cl_lidar_view"
+	commandLidarViewMode     = "cl_lidar_view_mode"
 )
 
 const (
@@ -32,9 +34,26 @@ const (
 	clientClickModeInfo = "info"
 )
 
+const (
+	clientLidarViewModeStored = "stored"
+	clientLidarViewModeLive   = "live"
+)
+
 const defaultClientMoveAmount = 20
 
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
+	registry.Add(commandLidarViewMode, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		if len(cmd.Args) == 0 {
+			return nil, fmt.Errorf("mode required: [%s, %s]", clientLidarViewModeStored, clientLidarViewModeLive)
+		}
+		switch cmd.Args[0] {
+		case clientLidarViewModeStored, clientLidarViewModeLive:
+			lar.clientLidarViewMode = cmd.Args[0]
+		default:
+			return nil, fmt.Errorf("unknown mode %q", cmd.Args[0])
+		}
+		return nil, nil
+	})
 	registry.Add(commandClientClickMode, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
 			return nil, fmt.Errorf("mode required: [%s, %s]", clientClickModeMove, clientClickModeInfo)
@@ -242,7 +261,7 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
 	case clientClickModeInfo:
 		// TODO(erd): refactor to viewCoordToReal
-		bounds, area, err := lar.areaToView()
+		_, bounds, area, err := lar.areaToView()
 		if err != nil {
 			return "", err
 		}
@@ -258,17 +277,26 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		areaX := minX + int(float64(bounds.X)*(float64(x)/float64(viewWidth)))
 		areaY := minY + int(float64(bounds.Y)*(float64(y)/float64(viewHeight)))
 
-		distanceCenter := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY)))))
+		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
+		distanceCenter := int(distanceCenterF)
 		baseWidthScaled := baseWidthMeters * float64(scaleDown)
 		frontY := basePosY - int(baseWidthScaled/2)
 		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
+
+		xForAngle := (areaX - basePosX)
+		yForAngle := (areaY - basePosY)
+		yForAngle *= -1
+		angleCenter := utils.RadToDeg(math.Atan2(float64(xForAngle), float64(yForAngle)))
+		if angleCenter < 0 {
+			angleCenter = 360 + angleCenter
+		}
 
 		var present bool
 		area.Mutate(func(area MutableArea) {
 			present = area.At(areaX, areaY) != 0
 		})
 
-		return fmt.Sprintf("(%d,%d): object=%t, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, distanceCenter, distanceFront), nil
+		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, angleCenter, distanceCenter, distanceFront), nil
 	default:
 		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
 	}
