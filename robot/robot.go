@@ -184,6 +184,13 @@ func NewRobot(cfg Config) (*Robot, error) {
 				return nil, err
 			}
 			r.AddProvider(p, c)
+		}
+	}
+
+	for _, c := range cfg.Components {
+		switch c.Type {
+		case ComponentTypeProvider:
+			// hanlded above
 		case ComponentTypeBase:
 			b, err := r.newBase(c)
 			if err != nil {
@@ -244,13 +251,13 @@ func (r *Robot) newBase(config Component) (base.Base, error) {
 	case fake.ModelName:
 		return &fake.Base{}, nil
 	case hellorobot.ModelName:
-		t, err := r.providerByModel(config.Model)
+		t, err := r.providerByModel(hellorobot.ModelName)
 		if err != nil {
 			return nil, err
 		}
 		return t.(*hellorobot.Robot).Base(), nil
 	case minirover2.ModelName:
-		t, err := r.providerByModel(config.Model)
+		t, err := r.providerByModel(minirover2.ModelName)
 		if err != nil {
 			return nil, err
 		}
@@ -272,7 +279,7 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
-		t, err := r.providerByModel(config.Model)
+		t, err := r.providerByModel(hellorobot.ModelName)
 		if err != nil {
 			return nil, err
 		}
