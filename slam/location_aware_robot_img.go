@@ -2,6 +2,7 @@ package slam
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -12,11 +13,17 @@ import (
 )
 
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
-	bounds, area, err := lar.areaToView()
-	if err != nil {
-		return nil, err
+	switch lar.clientLidarViewMode {
+	case clientLidarViewModeStored:
+		return lar.renderStoredView()
+	case clientLidarViewModeLive:
+		return lar.renderLiveView()
+	default:
+		return nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
 	}
+}
 
+func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, orientations []float64) (image.Image, error) {
 	_, scaleDown := area.Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
 	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
@@ -90,7 +97,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 		dc.Fill()
 	}
 
-	for i, orientation := range lar.orientations {
+	for i, orientation := range orientations {
 		if math.IsInf(orientation, 1) {
 			continue
 		}
@@ -117,4 +124,30 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	}
 
 	return dc.Image(), nil
+}
+
+func (lar *LocationAwareRobot) renderStoredView() (image.Image, error) {
+	_, bounds, area, err := lar.areaToView()
+	if err != nil {
+		return nil, err
+	}
+
+	return lar.renderArea(bounds, area, lar.orientations)
+}
+
+func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
+	devices, bounds, area, err := lar.areaToView()
+	if err != nil {
+		return nil, err
+	}
+
+	meters, scaleTo := area.Size()
+	blankArea := NewSquareArea(meters, scaleTo)
+
+	orientations, err := lar.scanAndStore(devices, blankArea)
+	if err != nil {
+		return nil, err
+	}
+
+	return lar.renderArea(bounds, blankArea, orientations)
 }
