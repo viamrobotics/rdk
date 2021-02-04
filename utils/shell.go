@@ -1,4 +1,4 @@
-package rcutil
+package utils
 
 import (
 	"os/exec"
