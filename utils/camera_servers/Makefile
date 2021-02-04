@@ -14,3 +14,6 @@ intelrealserver: intelrealserver.cpp $(LIB_FILES)
 
 royaleserver: royaleserver.cpp $(LIB_FILES)
 	g++ -g -std=c++17 royaleserver.cpp $(LIB_FILES) `pkg-config --cflags --libs royale` $(packages) $(special) -o royaleserver
+
+opencvserver: opencvserver.cpp $(LIB_FILES)
+	g++ -g -std=c++17 opencvserver.cpp $(LIB_FILES) `pkg-config --cflags --libs opencv4 libhttpserver` $(special) -o opencvserver

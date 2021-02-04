@@ -156,3 +156,14 @@ void installWebHandlers(httpserver::webserver* ws) {
     ws->register_resource("/depth.dat", new depth_resource(x));
     ws->register_resource("/both", new combined_resource(x));
 }
+
+std::string my_write_ppm(const char* pixels, int x, int y,
+                         int bytes_per_pixel) {
+    std::stringbuf buffer;
+    std::ostream os(&buffer);
+
+    os << "P6\n" << x << " " << y << "\n255\n";
+    buffer.sputn((const char*)pixels, x * y * bytes_per_pixel);
+
+    return buffer.str();
+}

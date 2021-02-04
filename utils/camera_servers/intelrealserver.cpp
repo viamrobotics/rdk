@@ -12,17 +12,6 @@
 //#define DEBUG(x) std::cout << x << std::endl
 #define DEBUG(x)
 
-std::string my_write_ppm(const char* pixels, int x, int y,
-                         int bytes_per_pixel) {
-    std::stringbuf buffer;
-    std::ostream os(&buffer);
-
-    os << "P6\n" << x << " " << y << "\n255\n";
-    buffer.sputn((const char*)pixels, x * y * bytes_per_pixel);
-
-    return buffer.str();
-}
-
 void cameraThread() {
     rs2::context ctx;
 

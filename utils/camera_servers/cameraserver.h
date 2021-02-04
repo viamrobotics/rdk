@@ -70,3 +70,5 @@ class camera_resource : public httpserver::http_resource {
 };
 
 void installWebHandlers(httpserver::webserver* ws);
+
+std::string my_write_ppm(const char* pixels, int x, int y, int bytes_per_pixel);
