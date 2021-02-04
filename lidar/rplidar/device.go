@@ -11,8 +11,6 @@ import (
 	"github.com/viamrobotics/robotcore/lidar"
 	rplidargen "github.com/viamrobotics/robotcore/lidar/rplidar/gen"
 	"github.com/viamrobotics/robotcore/utils"
-
-	"github.com/edaniels/golog"
 )
 
 const ModelName = "rplidar"
@@ -176,11 +174,16 @@ func (rpl *RPLidar) HardwareRevision() int {
 	return rpl.hardwareRevision
 }
 
+const (
+	modelA1 = 24
+	modelA3 = 49
+)
+
 func (rpl *RPLidar) Model() string {
 	switch rpl.model {
-	case 24:
+	case modelA1:
 		return "A1"
-	case 49:
+	case modelA3:
 		return "A3"
 	default:
 		return "unknown"
@@ -189,12 +192,23 @@ func (rpl *RPLidar) Model() string {
 
 func (rpl *RPLidar) Range() int {
 	switch rpl.model {
-	case 24: // A1
+	case modelA1:
 		return 12
-	case 49: // A3
+	case modelA3:
 		return 25
 	default:
 		panic(fmt.Errorf("range unknown for model %d", rpl.model))
+	}
+}
+
+func (rpl *RPLidar) filterParams() (minAngleDiff float64, maxDistDiff float64) {
+	switch rpl.model {
+	case modelA1:
+		return .9, .05
+	case modelA3:
+		return .3375, .05
+	default:
+		return -math.MaxFloat64, math.MaxFloat64
 	}
 }
 
@@ -269,29 +283,29 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	if len(measurements) == 0 {
 		return nil, nil
 	}
-	return measurements, nil
-
-	//nolint
-	sort.Sort(measurements)
+	sort.Stable(measurements)
 	filteredMeasurements := make(lidar.Measurements, 0, len(measurements))
 
+	minAngleDiff, maxDistDiff := rpl.filterParams()
 	prev := measurements[0]
+	detectedRay := false
 	for mIdx := 1; mIdx < len(measurements); mIdx++ {
 		curr := measurements[mIdx]
 		currAngle := utils.RadToDeg(curr.Angle())
 		prevAngle := utils.RadToDeg(prev.Angle())
 		currDist := curr.Distance()
 		prevDist := prev.Distance()
-		prev = curr
-		if math.Abs(currAngle-prevAngle) < 0.1 {
-			_ = currDist
-			_ = prevDist
-			// if math.Abs(currDist-prevDist) > 0.01 {
-			continue
-			// }
+		if math.Abs(currAngle-prevAngle) < minAngleDiff {
+			if math.Abs(currDist-prevDist) > maxDistDiff {
+				detectedRay = true
+				continue
+			}
 		}
-		filteredMeasurements = append(filteredMeasurements, curr)
+		prev = curr
+		if !detectedRay {
+			filteredMeasurements = append(filteredMeasurements, curr)
+		}
+		detectedRay = false
 	}
-	golog.Global.Debugw("filtered measurements", "percent", (float64(len(measurements)-len(filteredMeasurements))/float64(len(measurements)))*100)
 	return filteredMeasurements, nil
 }

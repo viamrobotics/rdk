@@ -286,7 +286,8 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		xForAngle := (areaX - basePosX)
 		yForAngle := (areaY - basePosY)
 		yForAngle *= -1
-		angleCenter := utils.RadToDeg(math.Atan2(float64(xForAngle), float64(yForAngle)))
+		angelCenterRad := math.Atan2(float64(xForAngle), float64(yForAngle))
+		angleCenter := utils.RadToDeg(angelCenterRad)
 		if angleCenter < 0 {
 			angleCenter = 360 + angleCenter
 		}
@@ -296,7 +297,7 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 			present = area.At(areaX, areaY) != 0
 		})
 
-		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, angleCenter, distanceCenter, distanceFront), nil
+		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f,%f, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, angleCenter, angelCenterRad, distanceCenter, distanceFront), nil
 	default:
 		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
 	}
