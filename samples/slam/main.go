@@ -16,7 +16,7 @@ import (
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/lidar"
 	"github.com/viamrobotics/robotcore/lidar/rplidar"
-	"github.com/viamrobotics/robotcore/lidar/usb"
+	"github.com/viamrobotics/robotcore/lidar/search"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/slam"
@@ -91,7 +91,10 @@ func main() {
 		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
 	}
 
-	deviceDescs := usb.DetectDevices()
+	deviceDescs, err := search.Devices()
+	if err != nil {
+		golog.Global.Debugw("error searching for lidar devices", "error", err)
+	}
 	if len(deviceDescs) != 0 {
 		golog.Global.Debugf("detected %d lidar devices", len(deviceDescs))
 		for _, desc := range deviceDescs {
@@ -100,7 +103,7 @@ func main() {
 	}
 	if len(deviceOffsetFlags) == 0 && len(deviceDescs) == 0 {
 		deviceDescs = append(deviceDescs,
-			lidar.DeviceDescription{lidar.DeviceTypeFake, "0"})
+			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 	if len(devicePathFlags) != 0 {
 		deviceDescs = nil
@@ -108,10 +111,10 @@ func main() {
 			switch devicePath {
 			case fakeDev:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{lidar.DeviceTypeFake, fmt.Sprintf("%d", i)})
+					lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: fmt.Sprintf("%d", i)})
 			default:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{rplidar.DeviceType, devicePath})
+					lidar.DeviceDescription{Type: rplidar.DeviceType, Path: devicePath})
 			}
 		}
 	}

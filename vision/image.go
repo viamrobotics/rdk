@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/viamrobotics/robotcore/rcutil"
 	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/fogleman/gg"
@@ -146,8 +145,8 @@ func (i *Image) ImageCopy() *image.RGBA {
 
 // TODO(erh): move this to a better file
 func PointDistance(a, b image.Point) float64 {
-	x := rcutil.SquareInt(b.X - a.X)
-	x += rcutil.SquareInt(b.Y - a.Y)
+	x := utils.SquareInt(b.X - a.X)
+	x += utils.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
 }
 

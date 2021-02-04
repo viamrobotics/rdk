@@ -7,8 +7,7 @@
 * vision - random vision utilities
   * chess - chess specific vision tools
 * ml - assorted machine learning utility code
-* rcutil - random math functions and likely other small things that don't belong elsewhere
-* utils - non golang software
+* utils - random math functions and likely other small things that don't belong elsewhere
   * intel_real_server/intelrealserver.cpp - webserver for capturing data from intel real sense cameras, then server via http, both depth and rgb
 * robot - robot configuration and initalization
 

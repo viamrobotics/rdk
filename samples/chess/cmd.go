@@ -14,7 +14,6 @@ import (
 
 	"github.com/viamrobotics/robotcore/arm"
 	"github.com/viamrobotics/robotcore/gripper"
-	"github.com/viamrobotics/robotcore/rcutil"
 	"github.com/viamrobotics/robotcore/robot"
 	"github.com/viamrobotics/robotcore/robot/web"
 	"github.com/viamrobotics/robotcore/utils"
@@ -421,7 +420,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		offsetX := center.X - lowest.X
 		offsetY := center.Y - lowest.Y
 
-		if rcutil.AbsInt(offsetX) < 3 && rcutil.AbsInt(offsetY) < 3 {
+		if utils.AbsInt(offsetX) < 3 && utils.AbsInt(offsetY) < 3 {
 			fmt.Printf("success!\n")
 			return nil
 		}

@@ -1,6 +1,7 @@
 package robot
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/robots/minirover2"
-	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
@@ -24,14 +25,14 @@ type Robot struct {
 	Cameras      []vision.ImageDepthSource
 	LidarDevices []lidar.Device
 	Bases        []base.Base
+	providers    []interface{}
 
-	robotSingletons map[string]interface{}
-
-	armComponents     []Component
-	gripperComponents []Component
-	cameraComponents  []Component
-	lidarComponents   []Component
-	baseComponents    []Component
+	armComponents      []Component
+	gripperComponents  []Component
+	cameraComponents   []Component
+	lidarComponents    []Component
+	baseComponents     []Component
+	providerComponents []Component
 }
 
 // theRobot.ComponentFor( theRobot.Arms[0] )
@@ -106,6 +107,15 @@ func (r *Robot) LidarDeviceByName(name string) lidar.Device {
 	return nil
 }
 
+func (r *Robot) providerByModel(model string) (interface{}, error) {
+	for i, c := range r.providerComponents {
+		if c.Model == model {
+			return r.providers[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no provider for model %q", model)
+}
+
 func (r *Robot) AddArm(a arm.Arm, c Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
@@ -126,6 +136,10 @@ func (r *Robot) AddLidar(device lidar.Device, c Component) {
 func (r *Robot) AddBase(b base.Base, c Component) {
 	r.Bases = append(r.Bases, b)
 	r.baseComponents = append(r.baseComponents, c)
+}
+func (r *Robot) AddProvider(p interface{}, c Component) {
+	r.providers = append(r.providers, p)
+	r.providerComponents = append(r.providerComponents, c)
 }
 
 func (r *Robot) Close() {
@@ -156,7 +170,7 @@ func NewBlankRobot() *Robot {
 }
 
 func NewRobot(cfg Config) (*Robot, error) {
-	r := &Robot{robotSingletons: map[string]interface{}{}}
+	r := &Robot{}
 	logger := cfg.Logger
 	if logger == nil {
 		logger = golog.Global
@@ -164,6 +178,12 @@ func NewRobot(cfg Config) (*Robot, error) {
 
 	for _, c := range cfg.Components {
 		switch c.Type {
+		case ComponentTypeProvider:
+			p, err := r.newProvider(c)
+			if err != nil {
+				return nil, err
+			}
+			r.AddProvider(p, c)
 		case ComponentTypeBase:
 			b, err := r.newBase(c)
 			if err != nil {
@@ -203,24 +223,19 @@ func NewRobot(cfg Config) (*Robot, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) getRobotSingleton(name string) (interface{}, error) {
-	if root, ok := r.robotSingletons[name]; ok {
-		return root, nil
-	}
-	switch name {
+func (r *Robot) newProvider(config Component) (interface{}, error) {
+	switch config.Model {
 	case hellorobot.ModelName:
-		r.robotSingletons[name] = hellorobot.New()
-	case "minirover2":
-		temp, err := minirover2.NewRover()
+		return hellorobot.New(), nil
+	case minirover2.ModelName:
+		rover, err := minirover2.NewRover(config.Attributes["file_path"])
 		if err != nil {
 			return nil, err
 		}
-		r.robotSingletons[name] = temp
-
+		return rover, nil
 	default:
-		return nil, fmt.Errorf("do not know how to get root for %q", name)
+		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
 	}
-	return r.robotSingletons[name], nil
 }
 
 // TODO(erd): prefer registration pattern
@@ -229,13 +244,13 @@ func (r *Robot) newBase(config Component) (base.Base, error) {
 	case fake.ModelName:
 		return &fake.Base{}, nil
 	case hellorobot.ModelName:
-		t, err := r.getRobotSingleton(config.Model)
+		t, err := r.providerByModel(config.Model)
 		if err != nil {
 			return nil, err
 		}
 		return t.(*hellorobot.Robot).Base(), nil
-	case "minirover2":
-		t, err := r.getRobotSingleton(config.Model)
+	case minirover2.ModelName:
+		t, err := r.providerByModel(config.Model)
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +272,7 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
-		t, err := r.getRobotSingleton(config.Model)
+		t, err := r.providerByModel(config.Model)
 		if err != nil {
 			return nil, err
 		}
@@ -274,14 +289,21 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 		return gripper.NewRobotiqGripper(config.Host, logger)
 	case "serial":
 
-		port, err := utils.ConnectArduinoSerial("A")
+		devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
+		if err != nil {
+			return nil, err
+		}
+		if len(devices) == 0 {
+			return nil, errors.New("no applicable serial devices found for gripper")
+		}
+		device, err := serial.OpenDevice(devices[0].Path)
 		if err != nil {
 			return nil, err
 		}
 
 		time.Sleep(1000 * time.Millisecond) // wait for startup?
 
-		return gripper.NewSerialGripper(port)
+		return gripper.NewSerialGripper(device)
 	case fake.ModelName:
 		return &fake.Gripper{}, nil
 	default:

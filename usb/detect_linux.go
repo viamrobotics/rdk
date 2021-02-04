@@ -9,23 +9,23 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/viamrobotics/robotcore/lidar"
 )
 
 const sysPath = "/sys/bus/usb-serial/devices"
 
-func DetectDevices() []lidar.DeviceDescription {
+type SearchFilter struct{}
+
+func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) ([]DeviceDescription, error) {
 	devicesDir, err := os.Open(sysPath)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	defer devicesDir.Close()
 	devices, err := devicesDir.Readdir(0)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	var results []lidar.DeviceDescription
+	var results []DeviceDescription
 	for _, device := range devices {
 		linkedFile, err := os.Readlink(path.Join(sysPath, device.Name()))
 		if err != nil {
@@ -60,13 +60,15 @@ func DetectDevices() []lidar.DeviceDescription {
 			if err != nil {
 				continue
 			}
-			lidarType := checkProductDeviceIDs(int(vendorID), int(productID))
-			if lidarType == lidar.DeviceTypeUnknown {
+			if !includeDevice(int(vendorID), int(productID)) {
 				continue
 			}
-			results = append(results, lidar.DeviceDescription{
-				lidarType, filepath.Join("/dev", device.Name())})
+			results = append(results, DeviceDescription{
+				VendorID:  int(vendorID),
+				ProductID: int(productID),
+				Path:      filepath.Join("/dev", device.Name()),
+			})
 		}
 	}
-	return results
+	return results, nil
 }

@@ -30,6 +30,11 @@ boat1-compile: boat1/boat1.ino ../arduino/RCore/*.cpp ../arduino/RCore/*.h
 boat1: boat1-compile
 	arduino-cli upload --port ${PORT} --fqbn ${ARCH} boat1
 
+gy511-compile: boat1/boat1.ino ../arduino/RCore/*.cpp ../arduino/RCore/*.h
+	arduino-cli ${COMPILE_FLAGS} boat1
+
+gy511: gy511-compile
+	arduino-cli upload --port ${PORT} --fqbn ${ARCH} gy511
 
 serial:
 	minicom -b 9600 -D ${PORT}

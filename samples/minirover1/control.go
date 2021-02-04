@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
@@ -22,7 +22,7 @@ func getSerialConfig() (serial.OpenOptions, error) {
 		MinimumReadSize: 4,
 	}
 
-	lines, err := rcutil.ExecuteShellCommand("arduino-cli", "board", "list")
+	lines, err := utils.ExecuteShellCommand("arduino-cli", "board", "list")
 	if err != nil {
 		return options, err
 	}

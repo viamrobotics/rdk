@@ -1,11 +1,11 @@
 // +build !linux,!darwin
 
-package usb
+package search
 
 import (
 	"github.com/viamrobotics/robotcore/lidar"
 )
 
-func DetectDevices() []lidar.DeviceDescription {
-	return nil
+func Devices() ([]lidar.DeviceDescription, error) {
+	return nil, nil
 }
