@@ -1,4 +1,4 @@
-package usb
+package search
 
 import (
 	"github.com/viamrobotics/robotcore/lidar"

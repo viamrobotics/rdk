@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/viamrobotics/robotcore/rcutil"
 	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 
@@ -73,7 +72,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 			colorDiff := c.Distance(c2)
 
-			if d > 0 && d2 > 0 && rcutil.AbsInt(d-d2) > 20 && colorDiff > .3 {
+			if d > 0 && d2 > 0 && utils.AbsInt(d-d2) > 20 && colorDiff > .3 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
 					dc.SetColor(utils.Red.C)

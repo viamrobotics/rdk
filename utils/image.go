@@ -8,11 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fogleman/gg"
-
-	"github.com/lucasb-eyer/go-colorful"
-
 	"github.com/disintegration/imaging"
+	"github.com/fogleman/gg"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 func WriteImageToFile(path string, img image.Image) error {

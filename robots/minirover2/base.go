@@ -8,12 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/rcutil"
+	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
+
+const ModelName = "minirover2"
 
 const (
 	PanCenter  = 83
@@ -45,8 +47,8 @@ func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
 	d := "f"
 	if distanceMM < 0 || speed < 0 {
 		d = "b"
-		distanceMM = rcutil.AbsInt(distanceMM)
-		speed = rcutil.AbsInt(speed)
+		distanceMM = utils.AbsInt(distanceMM)
+		speed = utils.AbsInt(speed)
 	}
 
 	power := speed // TODO(erh): convert speed to power at some point
@@ -102,7 +104,7 @@ func (r *Rover) Spin(degrees int, power int, block bool) error {
 		a, b = "b", "f"
 	}
 
-	ticks := rcutil.AbsInt(degrees * 5)
+	ticks := utils.AbsInt(degrees * 5)
 
 	err := r.moveTicks(
 		a, b, a, b,
@@ -173,10 +175,10 @@ func (r *Rover) processLine(line string) {
 	r.lastStatus = line
 }
 
-func NewRover() (base.Base, error) {
-	port, err := utils.ConnectArduinoSerial("Mega")
+func NewRover(devicePath string) (base.Base, error) {
+	port, err := serial.OpenDevice(devicePath)
 	if err != nil {
-		return nil, fmt.Errorf("can't connecto to arduino for rover: %v", err)
+		return nil, fmt.Errorf("can't connect to arduino for rover: %v", err)
 	}
 
 	time.Sleep(1000 * time.Millisecond) // wait for startup?
