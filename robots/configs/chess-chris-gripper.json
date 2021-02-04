@@ -1,0 +1,29 @@
+{
+    "components" : [
+        { "name" : "pieceArm",
+          "type": "arm",
+          "model": "ur",
+          "host" : "10.237.115.238"
+        },
+        { "name" : "cameraOver",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "10.237.115.131",
+          "port" : 8181,
+          "attributes" : {
+              "num" : "1"
+          }
+        },
+        { "name" : "grippie",
+          "type" : "gripper",
+          "model" : "serial"
+        },
+        { "name" : "gripperCam",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "127.0.0.1",
+          "port" : 8181
+        }
+
+    ]
+}
