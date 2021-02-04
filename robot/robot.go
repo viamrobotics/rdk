@@ -25,12 +25,49 @@ type Robot struct {
 	LidarDevices []lidar.Device
 	Bases        []base.Base
 
-	robotSingletons   map[string]interface{}
+	robotSingletons map[string]interface{}
+
 	armComponents     []Component
 	gripperComponents []Component
 	cameraComponents  []Component
 	lidarComponents   []Component
 	baseComponents    []Component
+}
+
+// theRobot.ComponentFor( theRobot.Arms[0] )
+func (r *Robot) ComponentFor(theThing interface{}) *Component {
+
+	for idx, a := range r.Arms {
+		if theThing == a {
+			return &r.armComponents[idx]
+		}
+	}
+
+	for idx, g := range r.Grippers {
+		if theThing == g {
+			return &r.gripperComponents[idx]
+		}
+	}
+
+	for idx, c := range r.Cameras {
+		if theThing == c {
+			return &r.cameraComponents[idx]
+		}
+	}
+
+	for idx, l := range r.LidarDevices {
+		if theThing == l {
+			return &r.lidarComponents[idx]
+		}
+	}
+
+	for idx, b := range r.Bases {
+		if theThing == b {
+			return &r.baseComponents[idx]
+		}
+	}
+
+	return nil
 }
 
 func (r *Robot) ArmByName(name string) arm.Arm {
