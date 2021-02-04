@@ -2,6 +2,8 @@ package lidar
 
 import (
 	"math"
+
+	"github.com/viamrobotics/robotcore/utils"
 )
 
 type Measurements []*Measurement
@@ -26,6 +28,7 @@ func (ms Measurements) Less(i, j int) bool {
 
 type Measurement struct {
 	angle    float64
+	angleDeg float64
 	distance float64
 	x        float64
 	y        float64
@@ -42,6 +45,7 @@ func NewMeasurement(angle, distance float64) *Measurement {
 	y := distance * -math.Cos(angle)
 	return &Measurement{
 		angle:    angle,
+		angleDeg: utils.RadToDeg(angle),
 		distance: distance,
 		x:        x,
 		y:        y,
