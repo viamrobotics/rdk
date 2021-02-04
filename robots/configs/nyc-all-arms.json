@@ -14,7 +14,11 @@
               "num" : "0"
           }
         },
-
+        { "name" : "robotiq-2finger",
+          "type": "gripper",
+          "model": "robotiq",
+          "host" : "10.237.115.238"
+        },
         { "name" : "chess-over",
           "type" : "camera",
           "model" : "intel",
