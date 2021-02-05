@@ -1,7 +1,10 @@
 package compass
 
-type Sensor interface {
-	Heading() float64
+import "github.com/viamrobotics/robotcore/sensor"
+
+type Device interface {
+	sensor.Device
+	Heading() (float64, error)
 }
 
 type DeviceType string
