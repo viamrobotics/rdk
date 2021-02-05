@@ -186,8 +186,8 @@ func (i *Image) AverageColorXY(x, y int, radius int) utils.HSV {
 
 	num := 0.0
 
-	for X := x - radius; X < x+radius; X++ {
-		for Y := y - radius; Y < y+radius; Y++ {
+	for X := x - radius; X <= x+radius; X++ {
+		for Y := y - radius; Y <= y+radius; Y++ {
 			if X < 0 || Y < 0 || X >= i.width || Y >= i.height {
 				continue
 			}
