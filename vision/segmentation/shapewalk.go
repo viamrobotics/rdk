@@ -51,19 +51,16 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 	}
 
 	myColor := ws.img.ColorHSV(start)
-	avgColor := ws.img.AverageColor(start, 1)
 
 	originalDistance := originalColor.Distance(myColor)
 	lastDistance := lastColor.Distance(myColor)
-	avgDistance := avgColor.Distance(myColor)
 
-	good := (originalDistance < ColorThreshold) ||
-		(originalDistance < (ColorThreshold*1.1) && lastDistance < ColorThreshold) ||
-		(originalDistance < (ColorThreshold*2) && avgDistance < ColorThreshold/10)
+	good := (originalDistance < ColorThreshold && lastDistance < (ColorThreshold*2)) ||
+		(originalDistance < (ColorThreshold*2) && lastDistance < ColorThreshold)
 
 	if ws.debug {
-		golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v avgDistance: %v",
-			start, good, originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance, avgDistance)
+		golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v", // avgDistance: %v",
+			start, good, originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance) //, avgDistance)
 	}
 	if !good {
 		ws.setDotValue(start, -1)
@@ -84,7 +81,11 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 }
 
 func (ws *walkState) piece(start image.Point, colorNumber int) error {
-	init := ws.img.AverageColor(start, 1)
+	if ws.debug {
+		golog.Global.Debugf("segmentation.piece start: %v", start)
+	}
+
+	init := ws.img.ColorHSV(start)
 
 	ws.help(init, init, start, colorNumber)
 
@@ -118,9 +119,6 @@ func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (imag
 	}
 
 	for idx, start := range starts {
-		if debug {
-			golog.Global.Debugf("ShapeWalkMultiple start: %v", start)
-		}
 		err := ws.piece(start, idx+1)
 		if err != nil {
 			return nil, err
@@ -177,6 +175,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 		}
 
 		start := found.(MyWalkError).pos
+
 		if err := ws.piece(start, color+1); err != nil {
 			return nil, err
 		}

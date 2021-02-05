@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
+	github.com/edaniels/golinters v0.0.4 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
