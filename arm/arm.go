@@ -9,7 +9,7 @@ import (
 type Position struct {
 	X, Y, Z float64 // meters of the end effector from the base
 
-	Rx, Ry, Rz float64 // rotations around each axis, in degrees
+	Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
 }
 
 func (p Position) NondelimitedString() string {
