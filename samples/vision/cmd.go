@@ -20,9 +20,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
 	"github.com/fogleman/gg"
-	"github.com/golang/freetype/truetype"
 	"github.com/gonum/stat"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 var (
@@ -138,13 +136,6 @@ func view(img vision.Image) error {
 
 	imgs := []image.Image{img.Image()}
 
-	font, err := truetype.Parse(goregular.TTF)
-	if err != nil {
-		return err
-	}
-
-	face := truetype.NewFace(font, &truetype.Options{Size: 16})
-
 	remoteView.SetOnClickHandler(func(x, y int) {
 		if x < 0 || y < 0 {
 			return
@@ -167,9 +158,7 @@ func view(img vision.Image) error {
 		}
 
 		dc := gg.NewContextForImage(walked)
-		dc.SetFontFace(face)
-		dc.SetColor(utils.White.C)
-		dc.DrawStringAnchored(text, 0, 20, 0, 0)
+		utils.DrawString(dc, text, image.Point{0, 20}, utils.White.C, 16)
 		imgs[0] = dc.Image()
 	})
 
