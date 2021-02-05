@@ -8,8 +8,8 @@ void setup() {
   Wire.begin();
   compass.init();
   compass.enableDefault();
-  compass.m_min = (LSM303::vector<int16_t>){-32767, -32767, -32767};
-  compass.m_max = (LSM303::vector<int16_t>){+32767, +32767, +32767};
+  compass.m_min = (LSM303::vector<int16_t>){-29, -703, +10};
+  compass.m_max = (LSM303::vector<int16_t>){386, -364, 85};
 }
 
 void loop() {
