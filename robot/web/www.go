@@ -105,7 +105,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func InstallWebBase(mux *http.ServeMux, theBase base.Base) {
+func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 
 	mux.HandleFunc("/api/base", func(w http.ResponseWriter, req *http.Request) {
 		speed := 64 // TODO(erh): this is proably the wrong default
