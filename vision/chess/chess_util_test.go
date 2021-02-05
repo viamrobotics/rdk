@@ -176,3 +176,27 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 	}
 
 }
+
+func TestWarpColorAndDepthToChess5(t *testing.T) {
+	os.MkdirAll("out", 0775)
+
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board5")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = theBoard.WriteDebugImages("out/board5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	/* TODO(erh): make this work
+	if theBoard.IsBoardBlocked() {
+		t.Errorf("blocked")
+	}
+
+	_, err := NewGame(theBoard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	*/
+}
