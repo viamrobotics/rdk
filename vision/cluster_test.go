@@ -7,13 +7,13 @@ import (
 	"github.com/viamrobotics/robotcore/utils"
 )
 
-func TestCluster1(t *testing.T) {
-	img, err := NewImageFromFile("data/warped-board-1605543525.png")
+func doTest(t *testing.T, fn string, numClusters int) {
+	img, err := NewImageFromFile("data/" + fn)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	clusters, err := img.ClusterHSV(4)
+	clusters, err := img.ClusterHSV(numClusters)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,9 +21,16 @@ func TestCluster1(t *testing.T) {
 	os.Mkdir("out", 7555)
 
 	res := ClusterImage(clusters, img)
-	err = utils.WriteImageToFile("out/warped-board-1605543525-kemans.png", res)
+	err = utils.WriteImageToFile("out/"+fn, res)
 	if err != nil {
 		t.Fatal(err)
 	}
+}
 
+func TestCluster1(t *testing.T) {
+	doTest(t, "warped-board-1605543525.png", 4)
+}
+
+func TestCluster2(t *testing.T) {
+	doTest(t, "chess-segment2.png", 4)
 }
