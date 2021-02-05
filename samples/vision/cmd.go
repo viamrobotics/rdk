@@ -217,7 +217,10 @@ func main() {
 	case "shapeWalkEntire":
 		out, err := segmentation.ShapeWalkEntireDebug(img, *debug)
 		if err == nil {
-			utils.WriteImageToFile(_getOutputfile(), out)
+			err = utils.WriteImageToFile(_getOutputfile(), out)
+			if err != nil {
+				panic(err)
+			}
 		}
 	case "shapeWalkLine":
 		err = shapeWalkLine(img, *xFlag, *yFlag)
