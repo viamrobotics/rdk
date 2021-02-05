@@ -25,7 +25,7 @@ require (
 	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lmittmann/ppm v1.0.0
-	github.com/lucasb-eyer/go-colorful v1.0.3
+	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
