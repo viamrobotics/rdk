@@ -6,11 +6,12 @@ import (
 	"image/color"
 	"image/png"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/disintegration/imaging"
 	"github.com/fogleman/gg"
 	"github.com/golang/freetype/truetype"
+	"github.com/lmittmann/ppm"
 	"github.com/lucasb-eyer/go-colorful"
 	"golang.org/x/image/font/gofont/goregular"
 )
@@ -30,15 +31,21 @@ func Font() *truetype.Font {
 }
 
 func WriteImageToFile(path string, img image.Image) error {
-	if !strings.HasSuffix(path, ".png") {
-		return fmt.Errorf("utils.WriteImageToFile can only write to .png for now")
-	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return png.Encode(f, img)
+
+	switch filepath.Ext(path) {
+	case ".png":
+		return png.Encode(f, img)
+	case ".ppm":
+		return ppm.Encode(f, img)
+	default:
+		return fmt.Errorf("utils.WriteImageToFile unsupported format: %s", filepath.Ext(path))
+	}
+
 }
 
 func ReadImageFromFile(path string) (image.Image, error) {
