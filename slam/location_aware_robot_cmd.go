@@ -10,6 +10,7 @@ import (
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/utils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 )
 
@@ -27,6 +28,7 @@ const (
 	commandClientZoom        = "cl_zoom"
 	commandLidarView         = "cl_lidar_view"
 	commandLidarViewMode     = "cl_lidar_view_mode"
+	commandCalibrate         = "calibrate"
 )
 
 const (
@@ -42,6 +44,26 @@ const (
 const defaultClientMoveAmount = 20
 
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
+	registry.Add(commandCalibrate, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		if lar.compassSensor != nil {
+			golog.Global.Info("calibrating compass")
+			if err := lar.compassSensor.StartCalibration(); err != nil {
+				return nil, err
+			}
+		}
+		step := 10
+		for i := 0; i < 360; i += step {
+			if err := lar.base.Spin(step, 0, true); err != nil {
+				return nil, err
+			}
+		}
+		if lar.compassSensor != nil {
+			if err := lar.compassSensor.StopCalibration(); err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
 	registry.Add(commandLidarViewMode, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
 			return nil, fmt.Errorf("mode required: [%s, %s]", clientLidarViewModeStored, clientLidarViewModeLive)

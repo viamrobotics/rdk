@@ -11,6 +11,7 @@ import (
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/lidar"
 	"github.com/viamrobotics/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/sensor/compass"
 	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -37,6 +38,8 @@ type LocationAwareRobot struct {
 	areaBounds    image.Point
 	distinctAreas []*SquareArea
 
+	compassSensor compass.Device
+
 	clientDeviceNum     int
 	clientZoom          float64
 	clientClickMode     string
@@ -57,6 +60,7 @@ func NewLocationAwareRobot(
 	deviceOffsets []DeviceOffset,
 	area *SquareArea,
 	areaBounds image.Point,
+	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
 	areaSize, areaSizeScale := area.Size()
 	distinctAreas := make([]*SquareArea, 0, len(devices))
@@ -91,6 +95,8 @@ func NewLocationAwareRobot(
 		area:          area,
 		areaBounds:    areaBounds,
 		distinctAreas: distinctAreas,
+
+		compassSensor: compassSensor,
 
 		clientDeviceNum:     -1,
 		clientZoom:          1,
@@ -212,7 +218,12 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		default:
 			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
 		}
-		rotateBy := from - to
+		var rotateBy int
+		if from > to {
+			rotateBy = to - from
+		} else {
+			rotateBy = from - to
+		}
 		if rotateBy != 180 && rotateBy != -180 {
 			rotateBy = (rotateBy + 180) % 180
 			if from > to {

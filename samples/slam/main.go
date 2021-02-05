@@ -19,6 +19,9 @@ import (
 	"github.com/viamrobotics/robotcore/lidar/search"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
+	"github.com/viamrobotics/robotcore/sensor/compass"
+	"github.com/viamrobotics/robotcore/sensor/compass/gy511"
+	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/slam"
 	"github.com/viamrobotics/robotcore/utils"
 
@@ -65,6 +68,21 @@ func main() {
 		base = robot.Base()
 	default:
 		panic(fmt.Errorf("do not know how to make a %q base", baseType))
+	}
+
+	// TODO(erd): this will find too many
+	sensorDevices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
+	if err != nil {
+		golog.Global.Fatal(err)
+	}
+	var compassSensor compass.Device
+	if len(sensorDevices) != 0 {
+		var err error
+		compassSensor, err = gy511.New(sensorDevices[0].Path)
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		defer compassSensor.Close()
 	}
 
 	var deviceOffests []slam.DeviceOffset
@@ -160,6 +178,7 @@ func main() {
 		deviceOffests,
 		area,
 		image.Point{areaSize * areaSizeScale, areaSize * areaSizeScale},
+		compassSensor,
 	)
 	if err != nil {
 		panic(err)
