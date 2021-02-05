@@ -5,6 +5,8 @@ import "github.com/viamrobotics/robotcore/sensor"
 type Device interface {
 	sensor.Device
 	Heading() (float64, error)
+	StartCalibration() error
+	StopCalibration() error
 }
 
 type DeviceType string
