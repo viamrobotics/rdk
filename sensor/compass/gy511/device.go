@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"math"
 	"strconv"
 	"sync"
 
@@ -14,8 +15,8 @@ import (
 type Device struct {
 	mu          sync.Mutex
 	rwc         io.ReadWriteCloser
-	reader      *bufio.Reader
 	lastHeading *float64
+	calibrating bool
 }
 
 func New(path string) (compass.Device, error) {
@@ -23,7 +24,30 @@ func New(path string) (compass.Device, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Device{rwc: rwc, reader: bufio.NewReader(rwc)}, nil
+	d := &Device{rwc: rwc}
+	if err := d.StopCalibration(); err != nil {
+		if err := rwc.Close(); err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
+	return d, nil
+}
+
+func (d *Device) StartCalibration() error {
+	d.mu.Lock()
+	d.calibrating = true
+	d.mu.Unlock()
+	_, err := d.rwc.Write([]byte{'1'})
+	return err
+}
+
+func (d *Device) StopCalibration() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.calibrating = false
+	_, err := d.rwc.Write([]byte{'0'})
+	return err
 }
 
 func (d *Device) Readings() ([]interface{}, error) {
@@ -37,7 +61,22 @@ func (d *Device) Readings() ([]interface{}, error) {
 func (d *Device) Heading() (float64, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	line, _, err := d.reader.ReadLine()
+	if d.calibrating {
+		return math.NaN(), nil
+	}
+
+	// discard serial buffer
+	var discardBuf [64]byte
+	//nolint
+	d.rwc.Read(discardBuf[:])
+
+	// discard first newline
+	buf := bufio.NewReader(d.rwc)
+	_, _, err := buf.ReadLine()
+	if err != nil {
+		return 0, err
+	}
+	line, _, err := buf.ReadLine()
 	if err != nil {
 		return 0, err
 	}
