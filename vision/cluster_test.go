@@ -18,7 +18,7 @@ func doTest(t *testing.T, fn string, numClusters int) {
 		t.Fatal(err)
 	}
 
-	os.Mkdir("out", 7555)
+	os.Mkdir("out", 0755)
 
 	res := ClusterImage(clusters, img)
 	err = utils.WriteImageToFile("out/"+fn, res)
@@ -32,5 +32,5 @@ func TestCluster1(t *testing.T) {
 }
 
 func TestCluster2(t *testing.T) {
-	doTest(t, "chess-segment2.png", 4)
+	doTest(t, "chess-segment2.png", 3)
 }
