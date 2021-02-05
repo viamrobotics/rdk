@@ -203,3 +203,13 @@ func (i *Image) AverageColorXY(x, y int, radius int) utils.HSV {
 
 	return utils.HSV{h / num, s / num, v / num}
 }
+
+func (i *Image) ClusterHSV(numClusters int) ([]utils.HSV, error) {
+	allColors := make([]utils.HSV, i.width*i.height)
+	for x := 0; x < i.Width(); x++ {
+		for y := 0; y < i.Height(); y++ {
+			allColors[(x*i.height)+y] = i.ColorHSV(image.Point{x, y})
+		}
+	}
+	return ClusterHSV(allColors, numClusters)
+}
