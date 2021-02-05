@@ -36,7 +36,7 @@ func randomWalkIncrement(theRobot *robot.Robot) error {
 	}
 
 	_, points := roverWalk(&pc, false)
-	if points < 100 {
+	if points < 200 {
 		golog.Global.Debugf("safe to move forward")
 		return theRobot.Bases[0].MoveStraight(200, 50, true)
 	}

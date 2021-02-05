@@ -95,8 +95,8 @@ func (r *Rover) waitForMotorsToStop() error {
 
 func (r *Rover) Spin(degrees int, power int, block bool) error {
 
-	if power < 100 {
-		power = 100
+	if power < 120 {
+		power = 120
 	}
 
 	a, b := "f", "b"
