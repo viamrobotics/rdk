@@ -1,0 +1,71 @@
+<html>
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js" integrity="sha512-yocoLferfPbcwpCMr8v/B0AB4SWpJlouBwgE0D3ZHaiP1nuu5djZclFEIj9znuqghaZ3tdCMRrreLoM8km+jIQ==" crossorigin="anonymous"></script>
+    <script>
+      function init(){
+          var color1 = document.getElementById("color1");
+
+          var color2 = document.getElementById("color2");
+          color2.innerHTML = color1.innerHTML.replace(/color1/g, "color2")
+
+          var color3 = document.getElementById("color3");
+          color3.innerHTML = color1.innerHTML.replace(/color1/g, "color3")
+          
+          var color4 = document.getElementById("color4");
+          color4.innerHTML = color1.innerHTML.replace(/color1/g, "color4")
+
+          if (window.location.hash != null && window.location.hash.length > 3 ) {
+              var foo = "?" + window.location.hash.substring(1)
+              var params = new URLSearchParams(foo);
+
+              for (var i=1; i<=4; i++ ) {
+                  var s = "" + i;
+                  var c = params.get(s);
+                  if (c != null) {
+                      document.getElementById("color" + i + "_input").value = c;
+                      inputChange("color" + i);
+                  }
+              }
+
+          }
+          
+      }
+
+      function inputChange(x) {
+          var i = document.getElementById(x + "_input");
+          
+          var hsv = null;
+          try {
+              hsv = chroma(i.value).hsv();
+          } catch (e) {
+              document.getElementById(x + "_hsv").innerHTML = "invalid hex";
+              return;
+          }
+          console.log(i.value + "->" + hsv);
+          console.log(hsv);
+          document.getElementById(x + "_hsv").innerHTML = hsv[0].toFixed(0) + ", " + hsv[1].toFixed(2) + ", " + hsv[2].toFixed(2)
+          document.getElementById(x + "_display").style.backgroundColor = i.value;
+          
+
+      }
+    </script>
+  </head>
+  <body onLoad="init();">
+    <table>
+      <tr>
+        <td>
+          <div id="color1">
+            <input id="color1_input" onKeyUp="inputChange('color1');"/><br>
+            HSV: <span id="color1_hsv"></span><br>
+            <div id="color1_display" style="width: 300px; height: 300px">&nbsp;</div>
+        </div>
+        </td>
+        <td><div id="color2"></div></td>
+        <td><div id="color3"></div></td>
+        <td><div id="color4"></div></td>
+          
+        
+      </tr>
+    </table>
+  </body>
+</html>
