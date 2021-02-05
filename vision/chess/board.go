@@ -66,9 +66,6 @@ func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error
 	return &Board{a, b, edges, golog.Global}, nil
 }
 
-func (b *Board) Close() {
-}
-
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	return b.SquareCenterHeight2(square, radius, false)
 }
