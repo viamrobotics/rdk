@@ -37,10 +37,6 @@ func (state *boardStateGuesser) newData(newBoard *chess.Board) (bool, error) {
 	}
 
 	if len(state.boards) > NumBoards {
-		toRemove := state.boards[0 : len(state.boards)-NumBoards]
-		for _, b := range toRemove {
-			b.Close()
-		}
 		state.boards = state.boards[len(state.boards)-NumBoards:]
 	}
 
@@ -63,9 +59,6 @@ func (state *boardStateGuesser) Ready() bool {
 }
 
 func (state *boardStateGuesser) Clear() {
-	for _, board := range state.boards {
-		board.Close()
-	}
 	state.boards = state.boards[:0]
 }
 

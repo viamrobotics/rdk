@@ -542,66 +542,64 @@ func main() {
 				if theBoard.IsBoardBlocked() {
 					golog.Global.Debug("board blocked")
 					boardState.Clear()
-					theBoard.Close()
-					return
-				}
-
-				// boardState now owns theBoard
-				interessting, err := boardState.newData(theBoard)
-				if err != nil {
 					wantPicture = 1
-					golog.Global.Debug(err)
-					boardState.Clear()
-					theBoard.Close()
-				} else if interessting {
-					wantPicture = 1
-				}
-				theBoard = nil // indicate theBoard is no longer owned
-
-				if boardState.Ready() {
-					if !initialPositionOk {
-						bb, err := boardState.GetBitBoard()
-						if err != nil {
-							golog.Global.Debug("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
-							golog.Global.Debugf("not in initial chess piece setup")
-							bb.Print()
-						} else {
-							initialPositionOk = true
-							golog.Global.Debugf("GOT initial chess piece setup")
-						}
-					} else {
-						// so we've already made sure we're safe, let's see if a move was made
-						m, err := boardState.GetPrevMove(currentPosition)
-						if err != nil {
-							// trouble reading board, let's reset
-							golog.Global.Debug("got inconsistency reading board, let's try again")
-							boardState.Clear()
-						} else if m != nil {
-							golog.Global.Debugf("we detected a move: %s", m)
-
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("invalid move!")
-							}
-
-							currentPosition.Print()
-							currentPosition.PrintFen()
-
-							currentPosition, m = searchForNextMove(currentPosition)
-							golog.Global.Debugf("computer will make move: %s", m)
-							err = movePiece(boardState, myRobot, myArm, myGripper, m.String()[0:2], m.String()[2:])
-							if err != nil {
-								panic(err)
-							}
-							if !engine.MakeValidMove(*m, &currentPosition) {
-								panic("wtf - invalid move chosen by computer")
-							}
-							currentPosition.Print()
-							boardState.Clear()
-						}
+				} else {
+					// boardState now owns theBoard
+					interessting, err := boardState.newData(theBoard)
+					if err != nil {
+						wantPicture = 1
+						golog.Global.Debug(err)
+						boardState.Clear()
+					} else if interessting {
+						wantPicture = 1
 					}
+					theBoard = nil // indicate theBoard is no longer owned
 
+					if boardState.Ready() {
+						if !initialPositionOk {
+							bb, err := boardState.GetBitBoard()
+							if err != nil {
+								golog.Global.Debug("got inconsistency reading board, let's try again")
+								boardState.Clear()
+							} else if currentPosition.AllOccupiedSqsBb().Value() != bb.Value() {
+								golog.Global.Debugf("not in initial chess piece setup")
+								bb.Print()
+							} else {
+								initialPositionOk = true
+								golog.Global.Debugf("GOT initial chess piece setup")
+							}
+						} else {
+							// so we've already made sure we're safe, let's see if a move was made
+							m, err := boardState.GetPrevMove(currentPosition)
+							if err != nil {
+								// trouble reading board, let's reset
+								golog.Global.Debug("got inconsistency reading board, let's try again")
+								boardState.Clear()
+							} else if m != nil {
+								golog.Global.Debugf("we detected a move: %s", m)
+
+								if !engine.MakeValidMove(*m, &currentPosition) {
+									panic("invalid move!")
+								}
+
+								currentPosition.Print()
+								currentPosition.PrintFen()
+
+								currentPosition, m = searchForNextMove(currentPosition)
+								golog.Global.Debugf("computer will make move: %s", m)
+								err = movePiece(boardState, myRobot, myArm, myGripper, m.String()[0:2], m.String()[2:])
+								if err != nil {
+									panic(err)
+								}
+								if !engine.MakeValidMove(*m, &currentPosition) {
+									panic("wtf - invalid move chosen by computer")
+								}
+								currentPosition.Print()
+								boardState.Clear()
+							}
+						}
+
+					}
 				}
 
 				annotatedImageHolder.TheImage = annotated
