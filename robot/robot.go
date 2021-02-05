@@ -24,7 +24,7 @@ type Robot struct {
 	Grippers     []gripper.Gripper
 	Cameras      []vision.ImageDepthSource
 	LidarDevices []lidar.Device
-	Bases        []base.Base
+	Bases        []base.Device
 	providers    []interface{}
 
 	armComponents      []Component
@@ -133,7 +133,7 @@ func (r *Robot) AddLidar(device lidar.Device, c Component) {
 	r.LidarDevices = append(r.LidarDevices, device)
 	r.lidarComponents = append(r.lidarComponents, c)
 }
-func (r *Robot) AddBase(b base.Base, c Component) {
+func (r *Robot) AddBase(b base.Device, c Component) {
 	r.Bases = append(r.Bases, b)
 	r.baseComponents = append(r.baseComponents, c)
 }
@@ -246,7 +246,7 @@ func (r *Robot) newProvider(config Component) (interface{}, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newBase(config Component) (base.Base, error) {
+func (r *Robot) newBase(config Component) (base.Device, error) {
 	switch config.Model {
 	case fake.ModelName:
 		return &fake.Base{}, nil
@@ -261,7 +261,7 @@ func (r *Robot) newBase(config Component) (base.Base, error) {
 		if err != nil {
 			return nil, err
 		}
-		return t.(base.Base), nil
+		return t.(base.Device), nil
 	default:
 		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}
