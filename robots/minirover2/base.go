@@ -175,7 +175,7 @@ func (r *Rover) processLine(line string) {
 	r.lastStatus = line
 }
 
-func NewRover(devicePath string) (base.Base, error) {
+func NewRover(devicePath string) (base.Device, error) {
 	port, err := serial.OpenDevice(devicePath)
 	if err != nil {
 		return nil, fmt.Errorf("can't connect to arduino for rover: %v", err)

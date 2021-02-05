@@ -24,7 +24,7 @@ type DeviceOffset struct {
 }
 
 type LocationAwareRobot struct {
-	base            base.Base
+	base            base.Device
 	baseOrientation int // relative to map
 	basePosX        int
 	basePosY        int
@@ -54,7 +54,7 @@ type LocationAwareRobot struct {
 }
 
 func NewLocationAwareRobot(
-	base base.Base,
+	base base.Device,
 	baseStart image.Point,
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,

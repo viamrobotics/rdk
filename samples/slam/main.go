@@ -59,13 +59,13 @@ func main() {
 	areaCenter := area.Center()
 	areaSize, areaSizeScale := area.Size()
 
-	var base base.Base
+	var baseDevice base.Device
 	switch baseType {
 	case fakeDev:
-		base = &fake.Base{}
+		baseDevice = &fake.Base{}
 	case "hello":
 		robot := hellorobot.New()
-		base = robot.Base()
+		baseDevice = robot.Base()
 	default:
 		panic(fmt.Errorf("do not know how to make a %q base", baseType))
 	}
@@ -83,6 +83,8 @@ func main() {
 			golog.Global.Fatal(err)
 		}
 		defer compassSensor.Close()
+
+		// baseDevice = base.Augment(baseDevice, compassSensor)
 	}
 
 	var deviceOffests []slam.DeviceOffset
@@ -172,7 +174,7 @@ func main() {
 	}
 
 	lar, err := slam.NewLocationAwareRobot(
-		base,
+		baseDevice,
 		image.Point{areaCenter.X, areaCenter.Y},
 		lidarDevices,
 		deviceOffests,
