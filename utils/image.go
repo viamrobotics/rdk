@@ -10,8 +10,24 @@ import (
 
 	"github.com/disintegration/imaging"
 	"github.com/fogleman/gg"
+	"github.com/golang/freetype/truetype"
 	"github.com/lucasb-eyer/go-colorful"
+	"golang.org/x/image/font/gofont/goregular"
 )
+
+var font *truetype.Font
+
+func init() {
+	var err error
+	font, err = truetype.Parse(goregular.TTF)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Font() *truetype.Font {
+	return font
+}
 
 func WriteImageToFile(path string, img image.Image) error {
 	if !strings.HasSuffix(path, ".png") {
@@ -35,6 +51,12 @@ func ReadImageFromFile(path string) (image.Image, error) {
 		return nil, err
 	}
 	return img, nil
+}
+
+func DrawString(dc *gg.Context, text string, p image.Point, c color.Color, size float64) {
+	dc.SetFontFace(truetype.NewFace(Font(), &truetype.Options{Size: size}))
+	dc.SetColor(c)
+	dc.DrawString(text, float64(p.X), float64(p.Y))
 }
 
 func DrawRectangleEmpty(dc *gg.Context, r image.Rectangle, c color.Color, width float64) {

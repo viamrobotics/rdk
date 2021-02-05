@@ -9,21 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
-	"github.com/golang/freetype/truetype"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 )
-
-var face font.Face
-
-func init() {
-	font, err := truetype.Parse(goregular.TTF)
-	if err != nil {
-		panic(err)
-	}
-
-	face = truetype.NewFace(font, &truetype.Options{Size: 64})
-}
 
 func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
@@ -105,9 +91,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 		dc.SetColor(utils.Red.C)
 		dc.Fill()
 
-		dc.SetFontFace(face)
-		dc.SetColor(utils.Green.C)
-		dc.DrawStringAnchored(fmt.Sprintf("%d", points), 20, 80, 0, 0)
+		utils.DrawString(dc, fmt.Sprintf("%d", points), image.Point{20, 80}, utils.Green.C, 64)
 	}
 
 	golog.Global.Debugf("\t %d", points)
