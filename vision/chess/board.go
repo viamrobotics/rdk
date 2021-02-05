@@ -11,26 +11,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
-	"github.com/golang/freetype/truetype"
 	"github.com/gonum/stat"
-	"golang.org/x/image/font"
-	"golang.org/x/image/font/gofont/goregular"
 )
 
 const (
 	EdgeThreshold = 100
 )
-
-var face font.Face
-
-func init() {
-	font, err := truetype.Parse(goregular.TTF)
-	if err != nil {
-		panic(err)
-	}
-
-	face = truetype.NewFace(font, &truetype.Options{Size: 12})
-}
 
 type Board struct {
 	color  vision.Image // TODO(erh): should we get rid of
@@ -236,9 +222,7 @@ func (b *Board) Annotate() image.Image {
 			edges := b.SquareCenterEdges(s)
 
 			p.Y -= 20
-			dc.SetFontFace(face)
-			dc.SetColor(utils.Green.C)
-			dc.DrawStringAnchored(fmt.Sprintf("%d,%d", int(height), edges), float64(p.X), float64(p.Y), 0, 0)
+			utils.DrawString(dc, fmt.Sprintf("%d,%d", int(height), edges), p, utils.Green.C, 12)
 
 		}
 	}
