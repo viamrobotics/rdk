@@ -30,6 +30,10 @@ func (c HSV) ToColor() Color {
 	return NewColorFromColorful(c.ToColorful())
 }
 
+func (c HSV) RGBA() (r, g, b, a uint32) {
+	return c.ToColorful().RGBA()
+}
+
 func (c HSV) ToColorful() colorful.Color {
 	return colorful.Hsv(c.H, c.S, c.V)
 }
