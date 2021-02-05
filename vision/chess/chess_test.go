@@ -43,6 +43,17 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 		}
 
 		d.GotDebugImage(res, "shapes")
+
+		if false {
+			clusters, err := warped.ClusterHSV(4)
+			if err != nil {
+				return err
+			}
+
+			clustered := vision.ClusterImage(clusters, warped)
+
+			d.GotDebugImage(clustered, "kmeans")
+		}
 	}
 
 	return nil

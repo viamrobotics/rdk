@@ -1,6 +1,10 @@
 package vision
 
 import (
+	"image"
+
+	"github.com/lucasb-eyer/go-colorful"
+
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 
@@ -42,4 +46,20 @@ func ClusterHSV(data []utils.HSV, numClusters int) ([]utils.HSV, error) {
 	}
 
 	return res, nil
+}
+
+func ClusterImage(clusters []utils.HSV, img Image) *image.RGBA {
+	palette := colorful.FastWarmPalette(4)
+
+	clustered := image.NewRGBA(img.Bounds())
+
+	for x := 0; x < img.Width(); x++ {
+		for y := 0; y < img.Height(); y++ {
+			p := image.Point{x, y}
+			idx, _, _ := img.ColorHSV(p).Closest(clusters)
+			clustered.Set(x, y, palette[idx])
+		}
+	}
+
+	return clustered
 }
