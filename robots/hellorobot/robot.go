@@ -50,3 +50,8 @@ func (r *Robot) Arm() *Arm {
 	arm := r.robotObj.GetAttrString("arm")
 	return &Arm{robot: r, armObj: arm}
 }
+
+func (r *Robot) Compass() *Compass {
+	pimu := r.robotObj.GetAttrString("pimu")
+	return &Compass{robot: r, pimuObj: pimu}
+}
