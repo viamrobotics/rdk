@@ -296,28 +296,13 @@ func TestColorHSVDistanceChess1(t *testing.T) {
 		t.Errorf("too close %v %v %v", x1, x2, xd)
 	}
 
-	// these are different white chess piece colors
 	w1 := NewColor(132, 120, 75, "w1")
 	w2 := NewColor(184, 159, 110, "w2")
+	_assertNotSame(t, w1.AsHSV, w2.AsHSV) // note: i changed this as i was trying to force something that shouldn't be true
 
-	wd := w1.AsHSV.Distance(w2.AsHSV)
-	if wd > 1 {
-		t.Errorf("too far %v %v %v", w1, w2, wd)
-	}
-
-	x1, err := NewColorFromHex("#8d836a", "squareWhite-2")
-	if err != nil {
-		t.Fatal(err)
-	}
-	x2, err = NewColorFromHex("#8e7e51", "pieceWhite-2")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	xd = x1.AsHSV.Distance(x2.AsHSV)
-	if xd < 1 {
-		t.Errorf("too close %v %v %v", x1, x2, xd)
-	}
+	x1 = NewColorFromHexOrPanic("#8d836a", "squareWhite-2")
+	x2 = NewColorFromHexOrPanic("#8e7e51", "pieceWhite-2")
+	_assertNotSame(t, x1.AsHSV, x2.AsHSV)
 }
 
 func TestColorHSVDistanceChess2(t *testing.T) {
@@ -418,4 +403,11 @@ func readColorsFromFile(fn string) ([]Color, error) {
 	}
 
 	return all, nil
+}
+
+func TestColorHSVDistanceChessA(t *testing.T) {
+	a := NewColorFromHexOrPanic("#8c9173", "")
+	b := NewColorFromHexOrPanic("#7b7e6c", "")
+	_assertNotSame(t, a.AsHSV, b.AsHSV)
+
 }
