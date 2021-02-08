@@ -9,7 +9,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func TestWhatColor1(t *testing.T) {
+func TestColorWhatColor1(t *testing.T) {
 	data := NewColor(200, 20, 20, "")
 	c := WhatColor(data)
 	if c.Name != "red" {
@@ -35,11 +35,21 @@ func _checkAllDifferent(t *testing.T, colors []Color) {
 }
 
 func _checkAllSame(t *testing.T, colors []Color) {
+	_checkAllClose(t, colors, 1.0)
+}
+
+func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
+	numErrors := 0
 	for _, c1 := range colors {
 		for _, c2 := range colors {
 			d := c1.AsHSV.Distance(c2.AsHSV)
-			if d > 1.0 {
+			if d > maxDistance {
 				t.Errorf("%v and %v are too far %v", c1, c2, d)
+				numErrors++
+				if numErrors > 20 {
+					t.Fatalf("stopping after %d errors", numErrors)
+				}
+
 			}
 		}
 	}
@@ -63,7 +73,7 @@ func _assertNotSame(t *testing.T, a, b HSV) {
 	t.Errorf("%v and %v should be different, but difference is %f", a, b, d)
 }
 
-func TestHSVColorConversion(t *testing.T) {
+func TestColorHSVColorConversion(t *testing.T) {
 	c, err := colorful.Hex("#ff0000")
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +119,7 @@ func TestHSVColorConversion(t *testing.T) {
 	}
 }
 
-func TestHSVDistanceSanityCheckDiff(t *testing.T) {
+func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
 	data := [][]float64{
 		{0.0, 0.5, 0.5},
 		{0.2, 0.5, 0.3},
@@ -127,7 +137,7 @@ func TestHSVDistanceSanityCheckDiff(t *testing.T) {
 
 }
 
-func TestHSVDistanceSanityCheck(t *testing.T) {
+func TestColorHSVDistanceSanityCheck(t *testing.T) {
 	d := White.AsHSV.Distance(Gray.AsHSV)
 	if d < 1 {
 		t.Fatalf("Wtf %v", d)
@@ -146,7 +156,7 @@ func TestHSVDistanceSanityCheck(t *testing.T) {
 
 }
 
-func TestHSVDistanceSanityCheck2(t *testing.T) {
+func TestColorHSVDistanceSanityCheck2(t *testing.T) {
 	// check rotating aroudn 360
 	_assertSame(t, HSV{190, 1.0, 1.0}, HSV{195, 1.0, 1.0})
 	_assertSame(t, HSV{355, 1.0, 1.0}, HSV{359, 1.0, 1.0})
@@ -187,7 +197,7 @@ func TestHSVDistanceSanityCheck2(t *testing.T) {
 	_assertNotSame(t, HSV{50, .6, .08}, HSV{210, 1.0, .18})
 }
 
-func TestHSVDistanceBlacks1(t *testing.T) {
+func TestColorHSVDistanceBlacks1(t *testing.T) {
 	data := []Color{
 		NewColorFromHexOrPanic("#020300", ""),
 		NewColorFromHexOrPanic("#010101", ""),
@@ -207,7 +217,7 @@ func TestHSVDistanceBlacks1(t *testing.T) {
 	_checkAllSame(t, data)
 }
 
-func TestHSVDistanceDarks(t *testing.T) {
+func TestColorHSVDistanceDarks(t *testing.T) {
 	veryDarkBlue := NewColorFromHexOrPanic("#0a1a1f", "")
 	mostlyDarkBlue := NewColorFromHexOrPanic("#09202d", "")
 
@@ -233,7 +243,7 @@ func TestHSVDistanceDarks(t *testing.T) {
 
 }
 
-func TestRatioOffFrom135Finish(t *testing.T) {
+func TestColorRatioOffFrom135Finish(t *testing.T) {
 	data := [][]float64{
 		{.000, 0.50},
 		{.125, 0.75},
@@ -255,7 +265,7 @@ func TestRatioOffFrom135Finish(t *testing.T) {
 
 }
 
-func TestRatioOffFrom135(t *testing.T) {
+func TestColorRatioOffFrom135(t *testing.T) {
 	data := [][]float64{
 		{1.0, 1.0, 1.0}, // a 45 degree angle is "bad" so should be 1
 		{-1.0, -1.0, 1.0},
@@ -276,7 +286,7 @@ func TestRatioOffFrom135(t *testing.T) {
 	}
 }
 
-func TestHSVDistanceChess1(t *testing.T) {
+func TestColorHSVDistanceChess1(t *testing.T) {
 
 	x1 := NewColor(158, 141, 112, "squareWhite-1")
 	x2 := NewColor(176, 154, 101, "pieceWhite-1")
@@ -310,7 +320,7 @@ func TestHSVDistanceChess1(t *testing.T) {
 	}
 }
 
-func TestHSVDistanceChess2(t *testing.T) {
+func TestColorHSVDistanceChess2(t *testing.T) {
 	data := []Color{
 		NewColor(5, 51, 85, "squareBlue"),
 		NewColor(158, 141, 112, "squareWhite"),
@@ -321,7 +331,7 @@ func TestHSVDistanceChess2(t *testing.T) {
 
 }
 
-func TestHSVDistanceChess3(t *testing.T) {
+func TestColorHSVDistanceChess3(t *testing.T) {
 	pieceColor, err := NewColorFromHex("#8e7e51", "a white piece")
 	if err != nil {
 		t.Fatal(err)
@@ -339,40 +349,62 @@ func TestHSVDistanceChess3(t *testing.T) {
 		t.Fatalf("harbinger2 and other are too close %f\n", distance)
 	}
 
-	raw, err := ioutil.ReadFile("data/hsvdistancechess3.txt")
+	allColors, err := readColorsFromFile("data/hsvdistancechess3.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, squareColor := range strings.Split(string(raw), "\n") {
-		squareColor = strings.TrimSpace(squareColor)
-		if len(squareColor) == 0 {
-			continue
-		}
-		myColor, err := NewColorFromHex(squareColor, "")
-		if err != nil {
-			t.Fatal(err)
-		}
+	for _, myColor := range allColors {
 		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
 
 		if distance < 1 {
-			t.Errorf("%s %f\n", squareColor, distance)
+			t.Errorf("%s %f\n", myColor.Hex(), distance)
 		}
 	}
 
+	_checkAllClose(t, allColors, 2)
+
 }
 
-func TestHSVDistanceChess4(t *testing.T) {
+func TestColorHSVDistanceChess4(t *testing.T) {
 	pieceColor, err := NewColorFromHex("#052e50", "a blue square")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	raw, err := ioutil.ReadFile("data/hsvdistancechess4.txt")
+	allColors, err := readColorsFromFile("data/hsvdistancechess4.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	for _, myColor := range allColors {
+		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
+
+		if distance > 1 {
+			t.Errorf("%s %f\n", myColor.Hex(), distance)
+		}
+	}
+
+	_checkAllClose(t, allColors, 2)
+
+}
+
+func TestColorHSVDistanceChess5(t *testing.T) {
+	allColors, err := readColorsFromFile("data/hsvdistancechess5.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_checkAllClose(t, allColors, 2)
+}
+
+func readColorsFromFile(fn string) ([]Color, error) {
+	raw, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return nil, err
+	}
+
+	all := []Color{}
 	for _, squareColor := range strings.Split(string(raw), "\n") {
 		squareColor = strings.TrimSpace(squareColor)
 		if len(squareColor) == 0 {
@@ -380,13 +412,10 @@ func TestHSVDistanceChess4(t *testing.T) {
 		}
 		myColor, err := NewColorFromHex(squareColor, "")
 		if err != nil {
-			t.Fatal(err)
+			return nil, err
 		}
-		distance := pieceColor.AsHSV.Distance(myColor.AsHSV)
-
-		if distance > 1 {
-			t.Errorf("%s %f\n", squareColor, distance)
-		}
+		all = append(all, myColor)
 	}
 
+	return all, nil
 }
