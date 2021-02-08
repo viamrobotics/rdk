@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 )
 
@@ -13,6 +14,21 @@ type chunkImageDebug struct {
 }
 
 func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
+
+	type AShape struct {
+		Start      image.Point
+		PixelRange []int
+	}
+
+	type imgConfig struct {
+		Shapes []AShape
+	}
+
+	cfg := imgConfig{}
+	err := d.CurrentImgConfig(&cfg)
+	if err != nil {
+		return err
+	}
 
 	type MyPoint struct {
 		corner      image.Point
@@ -45,8 +61,10 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 
 					myColor := img.ColorHSV(image.Point{xx, yy})
 					myDistance := avg.Distance(myColor)
-					if myDistance > 1 && x > 405 && x < 495 && y > 505 && y < 595 {
-						fmt.Printf("%v,%v avg: %v myColor: %v myDistance: %v\n", xx, yy, avg, myColor, myDistance)
+					if false {
+						if myDistance > 1 && x > 405 && x < 495 && y > 505 && y < 595 {
+							fmt.Printf("%v,%v avg: %v myColor: %v myDistance: %v\n", xx, yy, avg, myColor, myDistance)
+						}
 					}
 					total += myDistance
 				}
@@ -82,31 +100,72 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 		return fmt.Errorf("maxDistance too low %v", maxDistance)
 	}
 
-	out := image.NewGray(img.Bounds())
+	if true {
+		out := image.NewGray(img.Bounds())
 
-	for _, p := range points {
-		scale := (p.avgDistance - t1) / (maxDistance - t1)
-		if scale < 0 {
-			scale = 0
-		}
-		clr := color.Gray{uint8(254 * scale)}
+		for _, p := range points {
+			scale := (p.avgDistance - t1) / (maxDistance - t1)
+			if scale < 0 {
+				scale = 0
+			}
+			clr := color.Gray{uint8(254 * scale)}
 
-		for a := 0; a < 3; a++ {
-			for b := 0; b < 3; b++ {
-				xx := p.corner.X + a
-				yy := p.corner.Y + b
-				out.SetGray(xx, yy, clr)
+			for a := 0; a < 3; a++ {
+				for b := 0; b < 3; b++ {
+					xx := p.corner.X + a
+					yy := p.corner.Y + b
+					out.SetGray(xx, yy, clr)
+				}
 			}
 		}
+
+		d.GotDebugImage(out, "interesting1")
 	}
 
-	d.GotDebugImage(out, "interesting1")
+	if false {
+		// play with 1 blue quare
+
+		out := image.NewRGBA(img.Bounds())
+		for x := 410; x < 490; x++ {
+			for y := 210; y < 290; y++ {
+				out.Set(x, y, img.At(x, y))
+				fmt.Println(utils.ConvertToColorful2(img.At(x, y)).Hex())
+			}
+
+		}
+
+		d.GotDebugImage(out, "play1")
+
+	}
+
+	if true {
+		starts := []image.Point{}
+
+		for _, s := range cfg.Shapes {
+			starts = append(starts, s.Start)
+		}
+
+		out, err := ShapeWalkMultiple(img, starts, false)
+		if err != nil {
+			return err
+		}
+
+		d.GotDebugImage(out, "shapes")
+
+		for idx, s := range cfg.Shapes {
+			numPixels := out.PixelsInSegmemnt(idx + 1)
+			if numPixels < s.PixelRange[0] || numPixels > s.PixelRange[1] {
+				d.T.Errorf("out of pixel range %v %d", s, numPixels)
+			}
+		}
+
+	}
 
 	return nil
 }
 
 func TestChunk1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("segmentation/test1", "*.png")
+	d := vision.NewMultipleImageTestDebugger(t, "segmentation/test1", "*.png")
 	err := d.Process(&chunkImageDebug{})
 	if err != nil {
 		t.Fatal(err)

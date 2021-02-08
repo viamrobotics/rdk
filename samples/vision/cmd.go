@@ -152,7 +152,7 @@ func view(img vision.Image) error {
 			colorHSV.H, colorHSV.S, colorHSV.V,
 			color.R, color.G, color.B, color.A)
 
-		walked, err := segmentation.ShapeWalk(img, x, y, *debug)
+		walked, err := segmentation.ShapeWalk(img, p, *debug)
 		if err != nil {
 			panic(err)
 		}

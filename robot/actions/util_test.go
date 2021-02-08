@@ -35,7 +35,7 @@ func (ddd MyDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img v
 }
 
 func Test1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("minirover2/autodrive", "*.png")
+	d := vision.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png")
 	err := d.Process(MyDebug{})
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, im
 }
 
 func TestCharge1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("minirover2/charging2", "*.both.gz")
+	d := vision.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz")
 	err := d.Process(ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)
