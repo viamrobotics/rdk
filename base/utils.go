@@ -41,6 +41,14 @@ func Augment(device Device, with interface{}) Device {
 	return device
 }
 
+func Reduce(device Device) Device {
+	switch v := device.(type) {
+	case deviceWithCompass:
+		return v.Device
+	}
+	return device
+}
+
 type deviceWithCompass struct {
 	Device
 	compass compass.Device
