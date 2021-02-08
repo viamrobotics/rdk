@@ -1,6 +1,7 @@
 package vision
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/viamrobotics/robotcore/utils"
@@ -16,6 +18,7 @@ import (
 )
 
 type MultipleImageTestDebugger struct {
+	T      *testing.T
 	name   string
 	glob   string
 	inroot string
@@ -25,6 +28,24 @@ type MultipleImageTestDebugger struct {
 	currentFile string
 
 	pendingImages int32
+}
+
+func (d *MultipleImageTestDebugger) currentImgConfigFile() string {
+	idx := strings.LastIndexByte(d.currentFile, '.')
+	return fmt.Sprintf("%s.json", d.currentFile[0:idx])
+}
+
+func (d *MultipleImageTestDebugger) CurrentImgConfig(out interface{}) error {
+	fn := d.currentImgConfigFile()
+
+	file, err := os.Open(fn)
+	if err != nil {
+		return fmt.Errorf("error opening %s: %w", fn, err)
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	return decoder.Decode(out)
 }
 
 func (d *MultipleImageTestDebugger) GotDebugImage(img image.Image, name string) {
@@ -51,9 +72,10 @@ type MultipleImageTestDebuggerProcessor interface {
 	Process(d *MultipleImageTestDebugger, fn string, img Image) error
 }
 
-func NewMultipleImageTestDebugger(prefix, glob string) MultipleImageTestDebugger {
+func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
 
 	d := MultipleImageTestDebugger{}
+	d.T = t
 	d.glob = glob
 	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
 	d.name = strings.Replace(prefix, "/", "-", 100)

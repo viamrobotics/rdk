@@ -15,30 +15,97 @@ const (
 	ColorThreshold = 1.0
 )
 
+type SegmentedImage struct {
+	palette []color.Color
+	dots    []int //  a value of 0 means no segment, < 0 is transient, > 0 is the segment number
+	width   int
+	height  int
+}
+
+func newSegmentedImage(img vision.Image) *SegmentedImage {
+	si := &SegmentedImage{
+		width:  img.Width(),
+		height: img.Height(),
+	}
+	si.dots = make([]int, si.width*si.height)
+	return si
+}
+
+func (si *SegmentedImage) toK(p image.Point) int {
+	return (p.Y * si.width) + p.X
+}
+
+func (si *SegmentedImage) get(p image.Point) int {
+	k := si.toK(p)
+	return si.dots[k]
+}
+
+func (si *SegmentedImage) set(p image.Point, val int) {
+	k := si.toK(p)
+	si.dots[k] = val
+}
+
+func (si *SegmentedImage) PixelsInSegmemnt(segment int) int {
+	num := 0
+	for _, v := range si.dots {
+		if v == segment {
+			num++
+		}
+	}
+	return num
+}
+
+func (si *SegmentedImage) clearTransients() {
+	for k, v := range si.dots {
+		if v == -1 {
+			si.dots[k] = 0
+		}
+	}
+}
+
+func (si *SegmentedImage) ColorModel() color.Model {
+	return color.RGBAModel
+}
+
+func (si *SegmentedImage) Bounds() image.Rectangle {
+	return image.Rect(0, 0, si.width, si.height)
+}
+
+func (si *SegmentedImage) At(x, y int) color.Color {
+	v := si.get(image.Point{x, y})
+	if v <= 0 {
+		return color.RGBA{0, 0, 0, 0}
+	}
+	return si.palette[v-1]
+}
+
+func (si *SegmentedImage) createPalette() {
+	max := 0
+	for _, v := range si.dots {
+		if v > max {
+			max = v
+		}
+	}
+
+	if max == 0 {
+		// no segments
+		return
+	}
+
+	palette := colorful.FastWarmPalette(max)
+
+	for _, p := range palette {
+		si.palette = append(si.palette, p)
+	}
+
+}
+
+// -----
+
 type walkState struct {
 	img   vision.Image
-	dots  []int
+	dots  *SegmentedImage
 	debug bool
-}
-
-func (ws *walkState) toK(p image.Point) int {
-	return (p.Y * ws.img.Width()) + p.X
-}
-
-func (ws *walkState) fromK(k int) (int, int) {
-	y := k / ws.img.Width()
-	x := k - (y * ws.img.Width())
-	return x, y
-}
-
-func (ws *walkState) dotValue(p image.Point) int {
-	k := ws.toK(p)
-	return ws.dots[k]
-}
-
-func (ws *walkState) setDotValue(p image.Point, val int) {
-	k := ws.toK(p)
-	ws.dots[k] = val
 }
 
 func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start image.Point, colorNumber int) {
@@ -46,7 +113,7 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 		return
 	}
 
-	if ws.dotValue(start) != 0 {
+	if ws.dots.get(start) != 0 {
 		return
 	}
 
@@ -63,10 +130,10 @@ func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start im
 			start, good, originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance) //, avgDistance)
 	}
 	if !good {
-		ws.setDotValue(start, -1)
+		ws.dots.set(start, -1)
 		return
 	}
-	ws.setDotValue(start, colorNumber)
+	ws.dots.set(start, colorNumber)
 
 	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y - 1}, colorNumber)
 	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y + 0}, colorNumber)
@@ -89,33 +156,22 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 
 	ws.help(init, init, start, colorNumber)
 
-	for k, v := range ws.dots {
-		if v == -1 {
-			ws.dots[k] = 0
-		}
-	}
+	ws.dots.clearTransients()
 
 	return nil
 }
 
-func ShapeWalk(img vision.Image, startX, startY int, debug bool) (image.Image, error) {
+func ShapeWalk(img vision.Image, start image.Point, debug bool) (*SegmentedImage, error) {
 
-	start := image.Point{startX, startY}
 	return ShapeWalkMultiple(img, []image.Point{start}, debug)
 }
 
-func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (image.Image, error) {
+func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (*SegmentedImage, error) {
 
 	ws := walkState{
 		img:   img,
-		dots:  make([]int, img.Width()*img.Height()),
+		dots:  newSegmentedImage(img),
 		debug: debug,
-	}
-
-	palette := colorful.FastWarmPalette(len(starts))
-	p2 := []color.RGBA{}
-	for _, p := range palette {
-		p2 = append(p2, utils.NewColorFromColorful(p).C)
 	}
 
 	for idx, start := range starts {
@@ -125,18 +181,9 @@ func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (imag
 		}
 	}
 
-	dc := img.ImageCopy()
+	ws.dots.createPalette()
 
-	for k, v := range ws.dots {
-		if v < 1 {
-			continue
-		}
-
-		x, y := ws.fromK(k)
-		dc.Set(x, y, p2[v-1])
-	}
-
-	return dc, nil
+	return ws.dots, nil
 }
 
 type MyWalkError struct {
@@ -147,16 +194,14 @@ func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
-func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
+func ShapeWalkEntireDebug(img vision.Image, debug bool) (*SegmentedImage, error) {
 	ws := walkState{
 		img:   img,
-		dots:  make([]int, img.Width()*img.Height()),
+		dots:  newSegmentedImage(img),
 		debug: debug,
 	}
 
-	palette := colorful.FastWarmPalette(1000)
-
-	for color := 0; color < len(palette); color++ {
+	for color := 0; color < 1000; color++ {
 
 		found := vision.Walk(img.Width()/2, img.Height()/2, img.Width(),
 			func(x, y int) error {
@@ -164,7 +209,7 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 					return nil
 				}
 
-				if ws.dotValue(image.Point{x, y}) != 0 {
+				if ws.dots.get(image.Point{x, y}) != 0 {
 					return nil
 				}
 				return MyWalkError{image.Point{x, y}}
@@ -181,18 +226,8 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (image.Image, error) {
 		}
 	}
 
-	dc := img.ImageCopy()
+	ws.dots.createPalette()
 
-	for k, v := range ws.dots {
-		if v <= 0 {
-			continue
-		}
-
-		x, y := ws.fromK(k)
-		myColor := utils.NewColorFromColorful(palette[v-1]).C
-		dc.Set(x, y, myColor)
-	}
-
-	return dc, nil
+	return ws.dots, nil
 
 }
