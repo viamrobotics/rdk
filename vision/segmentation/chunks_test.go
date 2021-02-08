@@ -61,11 +61,6 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 
 					myColor := img.ColorHSV(image.Point{xx, yy})
 					myDistance := avg.Distance(myColor)
-					if false {
-						if myDistance > 1 && x > 405 && x < 495 && y > 505 && y < 595 {
-							fmt.Printf("%v,%v avg: %v myColor: %v myDistance: %v\n", xx, yy, avg, myColor, myDistance)
-						}
-					}
 					total += myDistance
 				}
 			}
@@ -145,7 +140,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			starts = append(starts, s.Start)
 		}
 
-		out, err := ShapeWalkMultiple(img, starts, false)
+		out, err := ShapeWalkMultiple(img, starts, true)
 		if err != nil {
 			return err
 		}
