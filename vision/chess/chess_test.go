@@ -42,13 +42,6 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			return err
 		}
 
-		if false {
-			_, err = segmentation.ShapeWalk(warped, 150, 750, true)
-			if err != nil {
-				return err
-			}
-		}
-
 		d.GotDebugImage(res, "shapes")
 
 		if false {
@@ -67,7 +60,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 }
 
 func TestChessCheatRed1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger("chess/boardseliot2", "*.png")
+	d := vision.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*.png")
 	err := d.Process(&ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)
