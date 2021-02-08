@@ -42,6 +42,13 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			return err
 		}
 
+		if false {
+			_, err = segmentation.ShapeWalk(warped, 150, 750, true)
+			if err != nil {
+				return err
+			}
+		}
+
 		d.GotDebugImage(res, "shapes")
 
 		if false {
