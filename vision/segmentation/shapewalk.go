@@ -55,14 +55,6 @@ func (si *SegmentedImage) PixelsInSegmemnt(segment int) int {
 	return num
 }
 
-func (si *SegmentedImage) clearTransients() {
-	for k, v := range si.dots {
-		if v == -1 {
-			si.dots[k] = 0
-		}
-	}
-}
-
 func (si *SegmentedImage) ColorModel() color.Model {
 	return color.RGBAModel
 }
@@ -106,45 +98,30 @@ type walkState struct {
 	img   vision.Image
 	dots  *SegmentedImage
 	debug bool
+
+	originalColor utils.HSV
+	originalPoint image.Point
 }
 
-func (ws *walkState) help(originalColor utils.HSV, lastColor utils.HSV, start image.Point, colorNumber int) {
-	if start.X < 0 || start.X >= ws.img.Width() || start.Y < 0 || start.Y >= ws.img.Height() {
-		return
+func (ws *walkState) towardsCenter(p image.Point) image.Point {
+	xd := p.X - ws.originalPoint.X
+	yd := p.Y - ws.originalPoint.Y
+
+	ret := p
+
+	if xd < 0 {
+		ret.X++
+	} else if xd > 0 {
+		ret.X--
 	}
 
-	if ws.dots.get(start) != 0 {
-		return
+	if yd < 0 {
+		ret.Y++
+	} else if yd > 0 {
+		ret.Y--
 	}
 
-	myColor := ws.img.ColorHSV(start)
-
-	originalDistance := originalColor.Distance(myColor)
-	lastDistance := lastColor.Distance(myColor)
-
-	good := (originalDistance < ColorThreshold && lastDistance < (ColorThreshold*2)) ||
-		(originalDistance < (ColorThreshold*2) && lastDistance < ColorThreshold)
-
-	if ws.debug {
-		golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v", // avgDistance: %v",
-			start, good, originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance) //, avgDistance)
-	}
-	if !good {
-		ws.dots.set(start, -1)
-		return
-	}
-	ws.dots.set(start, colorNumber)
-
-	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y - 1}, colorNumber)
-	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y + 0}, colorNumber)
-	ws.help(originalColor, myColor, image.Point{start.X + 1, start.Y + 1}, colorNumber)
-
-	ws.help(originalColor, myColor, image.Point{start.X - 1, start.Y - 1}, colorNumber)
-	ws.help(originalColor, myColor, image.Point{start.X - 1, start.Y + 0}, colorNumber)
-	ws.help(originalColor, myColor, image.Point{start.X - 1, start.Y + 1}, colorNumber)
-
-	ws.help(originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
-	ws.help(originalColor, myColor, image.Point{start.X + 0, start.Y + 1}, colorNumber)
+	return ret
 }
 
 func (ws *walkState) piece(start image.Point, colorNumber int) error {
@@ -152,13 +129,46 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 		golog.Global.Debugf("segmentation.piece start: %v", start)
 	}
 
-	init := ws.img.ColorHSV(start)
+	ws.dots.set(start, colorNumber)
 
-	ws.help(init, init, start, colorNumber)
+	ws.originalColor = ws.img.ColorHSV(start)
+	ws.originalPoint = start
 
-	ws.dots.clearTransients()
+	// TODO(erh): if i do a full "circle" without a point, stop
+	return vision.Walk(start.X, start.Y, ws.img.Width(),
+		func(x, y int) error {
+			start := image.Point{x, y}
+			if start.X < 0 || start.X >= ws.img.Width() || start.Y < 0 || start.Y >= ws.img.Height() {
+				return nil
+			}
 
-	return nil
+			lastPoint := ws.towardsCenter(start)
+			lastCluster := ws.dots.get(lastPoint)
+			if lastCluster != colorNumber {
+				return nil
+			}
+
+			lastColor := ws.img.ColorHSV(lastPoint)
+			myColor := ws.img.ColorHSV(start)
+
+			originalDistance := ws.originalColor.Distance(myColor)
+			lastDistance := lastColor.Distance(myColor)
+
+			good := (originalDistance < ColorThreshold && lastDistance < (ColorThreshold*2)) ||
+				(originalDistance < (ColorThreshold*2) && lastDistance < ColorThreshold)
+
+			if ws.debug {
+				golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v", // avgDistance: %v",
+					start, good, ws.originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance) //, avgDistance)
+			}
+
+			if good {
+				ws.dots.set(start, colorNumber)
+			}
+
+			return nil
+
+		})
 }
 
 func ShapeWalk(img vision.Image, start image.Point, debug bool) (*SegmentedImage, error) {
