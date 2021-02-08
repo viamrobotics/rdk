@@ -24,7 +24,7 @@ type DeviceOffset struct {
 }
 
 type LocationAwareRobot struct {
-	base            base.Device
+	baseDevice      base.Device
 	baseOrientation int // relative to map
 	basePosX        int
 	basePosY        int
@@ -54,7 +54,7 @@ type LocationAwareRobot struct {
 }
 
 func NewLocationAwareRobot(
-	base base.Device,
+	baseDevice base.Device,
 	baseStart image.Point,
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
@@ -83,10 +83,10 @@ func NewLocationAwareRobot(
 	}
 
 	return &LocationAwareRobot{
-		base:      base,
-		basePosX:  baseStart.X,
-		basePosY:  baseStart.Y,
-		maxBounds: image.Point{maxBoundsX, maxBoundsY},
+		baseDevice: baseDevice,
+		basePosX:   baseStart.X,
+		basePosY:   baseStart.Y,
+		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
 
 		devices:       devices,
 		deviceOffsets: deviceOffsets,
@@ -276,7 +276,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		// detect obstacle END
 	}
 
-	if _, _, err := base.DoMove(move, lar.base); err != nil {
+	if _, _, err := base.DoMove(move, lar.baseDevice); err != nil {
 		return err
 	}
 	lar.basePosX = newX

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/utils"
 
@@ -53,7 +54,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		step := 10
 		for i := 0; i < 360; i += step {
-			if err := lar.base.Spin(step, 0, true); err != nil {
+			if err := base.Reduce(lar.baseDevice).Spin(step, 0, true); err != nil {
 				return nil, err
 			}
 		}

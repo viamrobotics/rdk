@@ -84,7 +84,7 @@ func main() {
 		}
 		defer compassSensor.Close()
 
-		// baseDevice = base.Augment(baseDevice, compassSensor)
+		baseDevice = base.Augment(baseDevice, compassSensor)
 	}
 
 	var deviceOffests []slam.DeviceOffset
