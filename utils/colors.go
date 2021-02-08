@@ -101,11 +101,16 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		if v1 < .1 && v2 < .1 {
 			ws /= 3
 		}
-	} else if s1 < .1 || s2 < .1 {
+	} else if s1 < .10 || s2 < .10 {
 		// we're in the light range
 		wh /= 100
 		ws *= 1.5
 		wv *= 1.5
+	} else if s1 < .20 || s2 < .20 {
+		// we're in the light range
+		wh /= 20
+		ws *= 1.25
+		wv *= 1.25
 	} else {
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = Square(math.Min(s1, s2)) + Square(math.Min(v1, v2)) // 0 -> 2
