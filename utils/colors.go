@@ -121,8 +121,8 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		wh *= dds
 
 		if s1 < .5 || s2 < .5 {
-			wh *= .95
-			ws *= 2.25
+			wh *= 1
+			ws *= 2.3
 			wv *= 1.0
 		}
 
