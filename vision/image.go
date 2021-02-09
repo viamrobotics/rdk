@@ -175,6 +175,32 @@ func (i *Image) Circle(center image.Point, radius int, c utils.Color) {
 	dc.Fill()
 }
 
+// return avg color, avg distances to avg color
+func (i *Image) AverageColorAndStats(p image.Point, radius int) (utils.HSV, float64) {
+	avg := i.AverageColor(p, 1)
+
+	total := 0.0
+	num := 0.0
+
+	for xx := p.X - radius; xx <= p.X+radius; xx++ {
+		for yy := p.Y - radius; yy <= p.Y+radius; yy++ {
+			if xx < 0 || yy < 0 || xx >= i.width || yy >= i.height {
+				continue
+			}
+
+			num++
+
+			myColor := i.ColorHSV(image.Point{xx, yy})
+			myDistance := avg.Distance(myColor)
+			total += myDistance
+		}
+	}
+
+	avgDistance := total / num
+
+	return avg, avgDistance
+}
+
 func (i *Image) AverageColor(p image.Point, radius int) utils.HSV {
 	return i.AverageColorXY(p.X, p.Y, radius)
 }

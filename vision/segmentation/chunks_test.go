@@ -45,27 +45,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 	for x := 0; x < img.Width(); x += 3 {
 		for y := 0; y < img.Height(); y += 3 {
 
-			avg := img.AverageColorXY(x+1, y+1, 1)
-
-			total := 0.0
-			num := 0.0
-
-			for a := 0; a < 3; a++ {
-				for b := 0; b < 3; b++ {
-					xx := x + a
-					yy := y + b
-					if xx >= img.Width() || yy >= img.Height() {
-						continue
-					}
-					num++
-
-					myColor := img.ColorHSV(image.Point{xx, yy})
-					myDistance := avg.Distance(myColor)
-					total += myDistance
-				}
-			}
-
-			avgDistance := total / num
+			_, avgDistance := img.AverageColorAndStats(image.Point{x + 1, y + 1}, 1)
 
 			points = append(points, MyPoint{image.Point{x, y}, avgDistance})
 
