@@ -158,8 +158,18 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 				(originalDistance < (ColorThreshold*2) && lastDistance < ColorThreshold)
 
 			if ws.debug {
-				golog.Global.Debugf("\t %v g: %v origColor: %s myColor: %s origDistance: %v lastDistance: %v", // avgDistance: %v",
-					start, good, ws.originalColor.ToColorful().Hex(), myColor.ToColorful().Hex(), originalDistance, lastDistance) //, avgDistance)
+				golog.Global.Debugf("\t %v "+
+					"g: %v "+
+					"origColor: %s "+
+					"myColor: %s "+
+					"origDistance: %v "+
+					"lastDistance: %v",
+					start,
+					good,
+					ws.originalColor.ToColorful().Hex(),
+					myColor.ToColorful().Hex(),
+					originalDistance,
+					lastDistance)
 			}
 
 			if good {
