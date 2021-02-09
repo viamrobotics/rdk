@@ -69,12 +69,17 @@ func (l *Lidar) Stop() {
 	l.started = false
 }
 
-func (l *Lidar) Close() {
+func (l *Lidar) Close() error {
 	l.Stop()
+	return nil
 }
 
 func (l *Lidar) Range() int {
 	return 25
+}
+
+func (l *Lidar) AngularResolution() float64 {
+	return 1
 }
 
 func (l *Lidar) Bounds() (image.Point, error) {

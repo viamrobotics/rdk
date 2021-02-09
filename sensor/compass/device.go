@@ -9,6 +9,11 @@ type Device interface {
 	StopCalibration() error
 }
 
+type RelativeDevice interface {
+	Device
+	Mark() error
+}
+
 type DeviceType string
 
 const (
