@@ -1,4 +1,4 @@
-PORT = `arduino-cli board list  | grep "arduino:" | grep -o "/dev/cu.[a-z0-9]*"`
+PORT = `arduino-cli board list  | grep "arduino:" | grep -o "/dev/[cu|ty]*.[a-zA-Z0-9]*"`
 ARCH = `arduino-cli board list  | grep "arduino:" | grep -o "arduino:[a-z]*:[a-z_]*"`
 
 COMPILE_FLAGS = compile --libraries ../arduino/ --fqbn ${ARCH}

@@ -10,19 +10,21 @@ void logMsg(const char* msg) {
 }
 
 void debug(const char* name, int x) {
-    char buf[16];
+    char buf[128];
     sprintf(buf, "@%s: %d", name, x);
     Serial.println(buf);
 }
 
 class Gripper {
    public:
-    Gripper(Motor* m)
+    Gripper(Motor* m, int locationSensor, int forceSensor)
         : _motor(m),
           _initialized(false),
           _initializeState(0),
-          _fullTicks(500),
-          _power(128) {
+          _power(8),
+          _locationSensor(locationSensor),
+          _forceSensor(forceSensor),
+          _moving(false) {
         _motor->setSlowDown(true);
     }
 
@@ -33,67 +35,64 @@ class Gripper {
 
         if (_initializeState == INIT_STATE_START) {  // haven't started yet
             logMsg("Gripper::initialzeReady opening 1");
-            _currentSpot = 0;
-            open(_fullTicks);
+            _lastSpot = getRawPos();
+            _myts = millis();
+            open();
             _initializeState = INIT_STATE_OPEN1;
             return false;
         }
 
-        auto howLong = millis() - _motor->lastTick();
-        int howLongThreshold = 300;
-        if (_currentSpot == 0) {
-            howLongThreshold *= 3;
-        }
-        if (_motor->moving() && howLong < howLongThreshold) {
-            return false;
+        auto pos = getRawPos();
+        // debug("pos", pos);
+        if (!same(pos, _lastSpot)) {
+            // we're still moving
+            _lastSpot = pos;
+            _myts = millis();
+            return;
         }
 
-        auto encoderTicksStop = _motor->encoderTicksStop();
-        _motor->stop();
+        auto now = millis();
+        if (millis() - _myts < 500) {
+            // wait longer
+            return;
+        }
 
-        auto numTicks =
-            _motor->encoderTicks() - (encoderTicksStop - _fullTicks);
+        // we've waited long enough
 
         if (_initializeState == INIT_STATE_OPEN2) {
-            if (_fullTicks == 0) {
-                logMsg("_fullTicks is 0, starting over");
-                _initializeState = INIT_STATE_START;
-                _fullTicks = 500;
-                return false;
-            }
-            _currentSpot = 0;
+            logMsg("Gripper::initialzeReady opening done");
+            auto diff = abs(pos - _fullyOpen);
+            debug("Gripper::_initializeState diff", diff);
             _initialized = true;
-
-            if (encoderTicksStop == 0) {
-                debug("perfect", _fullTicks);
-                _initialized = true;
-                return true;
-            }
-
-            debug("medium", _fullTicks);
-
-            return true;
+            _rawGoal = pos;
+            _forceSensorDefault = rawForceSensor();
+            return;
         }
 
-        if (encoderTicksStop == INIT_STATE_START) {
-            logMsg("it stopped on it's own, this is unexpected");
-            return false;
-        }
-
-        if (_initializeState == INIT_STATE_OPEN1) {  // we opened, now we close
+        if (_initializeState == INIT_STATE_OPEN1) {
+            logMsg("Gripper::initialzeReady closing");
+            _fullyOpen = pos;
             _initializeState = INIT_STATE_CLOSE;
-            logMsg("Gripper::initialzeReady closing 1");
-            _currentSpot = 0;
-            close(_fullTicks);
-            return false;
+            close();
+            _myts = millis();
+            delay(20);
+            return;
         }
 
-        if (_initializeState ==
-            INIT_STATE_CLOSE) {  // we closed, how many ticks was there
-            _fullTicks = numTicks;
-            open(_fullTicks);
+        if (_initializeState == INIT_STATE_CLOSE) {
+            logMsg("Gripper::initialzeReady opening 2");
+            _fullyClosed = pos;
+            debug("_fullyOpen", _fullyOpen);
+            debug("_fullyClosed", _fullyClosed);
+            if (same(_fullyClosed, _fullyOpen)) {
+                logMsg("Gripper::initialzeReady NOT MOVING");
+                _initializeState = INIT_STATE_START;
+                return;
+            }
             _initializeState = INIT_STATE_OPEN2;
-            return false;
+            _myts = millis();
+            open();
+            return;
         }
 
         debug("unknown _initializeState", _initializeState);
@@ -101,44 +100,32 @@ class Gripper {
         return false;
     }
 
-    bool moving() const { return _motor->moving(); }
+    void setPos(double pos) {
+        double delta = abs(_fullyClosed - _fullyOpen);
+        double diff = pos * delta;
 
-    void checkEncoder() {
-        _motor->checkEncoder();
-        if (_initialized && moving()) {
-            auto howLong = millis() - _motor->lastTick();
-            if (howLong > 500) {
-                //_motor->stop();
-            }
-        }
-    }
-
-    void encoderTick() {
-        _motor->encoderTick();
-        if (_opening) {
-            _currentSpot--;
-            if (_currentSpot < 0) {
-                _currentSpot = 0;
-            }
+        if (_fullyOpen < _fullyClosed) {
+            setRawPos(_fullyOpen + diff);
         } else {
-            _currentSpot++;
-            if (_currentSpot > _fullTicks) {
-                _currentSpot = _fullTicks;
-            }
+            setRawPos(_fullyOpen - diff);
         }
     }
 
-    void setPos(double pos) { setRawPos(int(pos * _fullTicks)); }
-
-    double getPos() const { return double(_currentSpot) / double(_fullTicks); }
-    int getRawPos() const { return _currentSpot; }
+    double getPos() const {
+        double delta = abs(_fullyClosed - _fullyOpen);
+        auto pos = getRawPos();
+        if (_fullyOpen < _fullyClosed) {
+            return (pos - _fullyOpen) / delta;
+        }
+        return 1 - ((pos - _fullyClosed) / delta);
+    }
 
     // g0.3 -- go to position .0
     // p  - return current position
     void processCommand(const char* command, Buffer* b) {
         if (command[0] == 'g') {
-            auto pos = atof(command + 1);
-            debug("got g", pos);
+            double pos = atof(command + 1);
+            debug("got g", 100 * pos);
             setPos(pos);
         } else if (command[0] == 'p') {
             auto pos = int(100 * getPos());
@@ -154,42 +141,115 @@ class Gripper {
         }
     }
 
-   private:
-    void setRawPos(int pos) {
-        if (pos < 0) {
-            pos = 0;
-        } else if (pos > _fullTicks) {
-            pos = _fullTicks;
-        }
-
-        if (pos == _currentSpot) {
+    void check() {
+        if (!_initialized) {
             return;
-        } else if (pos < _currentSpot) {
-            open(_currentSpot - pos);
+        }
+
+        if (_holding) {
+            auto force = rawForceSensor();
+            if (!same(force, _lastForce, 20)) {
+                debug("F1", force);
+                debug("F2", _lastForce);
+                close(2);
+                return;
+            }
+        }
+
+        if (!_moving) {
+            return;
+        }
+
+        auto now = getRawPos();
+        if (same(now, _rawGoal)) {
+            _motor->stop();
+            _moving = false;
+            debug("s1", now);
+            debug("s2", _rawGoal);
+            return;
+        }
+
+        auto force = rawForceSensor();
+        if (_forceSensorDefault - force > 100) {
+            debug("force", force);
+            _motor->stop();
+            _moving = false;
+            _holding = true;
+            _lastForce = force;
+            return;
+        }
+
+        setRawPos(_rawGoal);
+    }
+
+    // private:
+    bool same(int raw1, int raw2, int delta = 10) {
+        return abs(raw1 - raw2) < delta;
+    }
+
+    void setRawPos(int pos) {
+        auto current = getRawPos();
+        if (current == pos) {
+            return;
+        }
+
+        _rawGoal = pos;
+
+        if (_fullyOpen < _fullyClosed) {
+            if (pos < current) {
+                open();
+            } else {
+                close();
+            }
         } else {
-            close(pos - _currentSpot);
+            if (pos < current) {
+                close();
+            } else {
+                open();
+            }
         }
     }
 
-    void open(int ticks) {
+    void open() {
+        _holding = false;
+        _moving = true;
         _opening = true;
-        _motor->forward(_power, ticks);
+        _motor->forward(_power);
     }
 
-    void close(int ticks) {
+    void close(int powerMul = 1) {
+        _holding = false;
+        _moving = true;
         _opening = false;
-        _motor->backward(_power, ticks);
+        _motor->backward(_power * powerMul);
     }
+
+    int getRawPos() { return analogRead(_locationSensor); }
+
+    int rawForceSensor() { return analogRead(_forceSensor); }
 
     Motor* _motor;
-    int _fullTicks;
+    int _locationSensor;
+    int _forceSensor;
+
     int _power;
 
-    bool _opening;     // true is opening, false is closing
-    int _currentSpot;  // 0 is open
+    bool _moving;
+    bool _opening;  // true is opening, false is closing
+    int _rawGoal;
 
     bool _initialized;
     int _initializeState;
+    unsigned long _myts;
+    int _lastSpot;  // just used for initialization
+
+    int _fullyOpen;
+    int _fullyClosed;
+
+    int _forceSensorDefault;
+
+    bool _holding;
+    int _lastForce;
 
     static const int INIT_STATE_START = 0;
     static const int INIT_STATE_OPEN1 = 1;
@@ -204,16 +264,11 @@ void setup() {
     b = new Buffer(&Serial);
     debugSerial = &Serial;
 
-    g = new Gripper(new Motor(6, 7, 9, true));
-
-    pinMode(2, INPUT);
-    digitalWrite(2, HIGH);  // enable internal pullup resistor
-    attachInterrupt(digitalPinToInterrupt(2), interruptName,
-                    RISING);  // Interrupt initialization
+    g = new Gripper(new Motor(2, 4, 3, true), 3, 5);
 }
 
 void loop() {
-    g->checkEncoder();
+    g->check();
 
     if (g->initialzeReady()) {
         if (b->readTillNewLine()) {
@@ -228,5 +283,3 @@ void loop() {
         }
     }
 }
-
-void interruptName() { g->encoderTick(); }
