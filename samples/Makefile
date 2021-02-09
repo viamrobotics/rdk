@@ -1,5 +1,10 @@
+
+ifeq ($(PORT),)
 PORT = `arduino-cli board list  | grep "arduino:" | grep -o "/dev/[cu|ty]*.[a-zA-Z0-9]*"`
+endif
+ifeq ($(ARCH),)
 ARCH = `arduino-cli board list  | grep "arduino:" | grep -o "arduino:[a-z]*:[a-z_]*"`
+endif
 
 COMPILE_FLAGS = compile --libraries ../arduino/ --fqbn ${ARCH}
 
