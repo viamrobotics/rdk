@@ -410,4 +410,14 @@ func TestColorHSVDistanceChessA(t *testing.T) {
 	b := NewColorFromHexOrPanic("#7b7e6c", "")
 	_assertNotSame(t, a.AsHSV, b.AsHSV)
 
+	a = NewColorFromHexOrPanic("#909571", "")
+	b = NewColorFromHexOrPanic("#83876f", "")
+	_assertNotSame(t, a.AsHSV, b.AsHSV)
+
+}
+
+func TestColorHSVDistanceChessB(t *testing.T) {
+	a := NewColorFromHexOrPanic("#828263", "")
+	b := NewColorFromHexOrPanic("#868363", "")
+	_assertSame(t, a.AsHSV, b.AsHSV)
 }
