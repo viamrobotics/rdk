@@ -1,6 +1,6 @@
 #include <Wire.h>
-#include <LSM303.h>
 #include <EEPROM.h>
+#include "LSM303.h"
 
 LSM303 compass;
 LSM303::vector<int16_t> calibratedMin = {32767, 32767, 32767}, calibratedMax = {-32768, -32768, -32768};
@@ -68,7 +68,7 @@ void loop() {
     calibratedMax.z = max(calibratedMax.z, compass.m.z);
   } else {
     const float heading = compass.heading();
-    Serial.print(heading);
+    Serial.print(heading, 5);
     Serial.print('\n');
   }
 

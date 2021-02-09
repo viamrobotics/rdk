@@ -245,8 +245,9 @@ func (rpl *RPLidar) Stop() {
 	rpl.driver.StopMotor()
 }
 
-func (rpl *RPLidar) Close() {
+func (rpl *RPLidar) Close() error {
 	rpl.Stop()
+	return nil
 }
 
 const numScans = 3
@@ -308,4 +309,15 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 		detectedRay = false
 	}
 	return filteredMeasurements, nil
+}
+
+func (rpl *RPLidar) AngularResolution() float64 {
+	switch rpl.model {
+	case modelA1:
+		return .9
+	case modelA3:
+		return .3375
+	default:
+		return 1
+	}
 }

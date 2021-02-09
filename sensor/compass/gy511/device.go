@@ -2,22 +2,28 @@ package gy511
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"math"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/viamrobotics/robotcore/sensor/compass"
 	"github.com/viamrobotics/robotcore/serial"
+
+	movingaverage "github.com/RobinUS2/golang-moving-average"
+	"github.com/edaniels/golog"
 )
 
 type Device struct {
 	mu          sync.Mutex
 	rwc         io.ReadWriteCloser
-	lastHeading *float64
+	heading     atomic.Value
 	calibrating bool
+	closeCh     chan struct{}
 }
+
+const headingWindow = 100
 
 func New(path string) (compass.Device, error) {
 	rwc, err := serial.OpenDevice(path)
@@ -31,6 +37,51 @@ func New(path string) (compass.Device, error) {
 		}
 		return nil, err
 	}
+	d.heading.Store(math.NaN())
+
+	// discard serial buffer
+	var discardBuf [64]byte
+	//nolint
+	d.rwc.Read(discardBuf[:])
+
+	// discard first newline
+	buf := bufio.NewReader(d.rwc)
+	_, _, err = buf.ReadLine()
+	if err != nil {
+		return nil, err
+	}
+
+	d.closeCh = make(chan struct{})
+	ma := movingaverage.New(headingWindow)
+	go func() {
+		readHeading := func() (float64, error) {
+			line, _, err := buf.ReadLine()
+			if err != nil {
+				return math.NaN(), err
+			}
+			if len(line) == 0 {
+				return math.NaN(), nil
+			}
+			return strconv.ParseFloat(string(line), 64)
+		}
+		for {
+			select {
+			case <-d.closeCh:
+				return
+			default:
+			}
+			heading, err := readHeading()
+			if err != nil {
+				golog.Global.Debugw("error reading heading", "error", err)
+			}
+
+			if math.IsNaN(heading) {
+				continue
+			}
+			ma.Add(heading)
+			d.heading.Store(ma.Avg())
+		}
+	}()
 	return d, nil
 }
 
@@ -64,36 +115,10 @@ func (d *Device) Heading() (float64, error) {
 	if d.calibrating {
 		return math.NaN(), nil
 	}
-
-	// discard serial buffer
-	var discardBuf [64]byte
-	//nolint
-	d.rwc.Read(discardBuf[:])
-
-	// discard first newline
-	buf := bufio.NewReader(d.rwc)
-	_, _, err := buf.ReadLine()
-	if err != nil {
-		return 0, err
-	}
-	line, _, err := buf.ReadLine()
-	if err != nil {
-		return 0, err
-	}
-	if len(line) == 0 {
-		if d.lastHeading == nil {
-			return 0, errors.New("no last heading")
-		}
-		return *d.lastHeading, nil
-	}
-	heading, err := strconv.ParseFloat(string(line), 64)
-	if err != nil {
-		return 0, err
-	}
-	d.lastHeading = &heading
-	return heading, nil
+	return d.heading.Load().(float64), nil
 }
 
 func (d *Device) Close() error {
+	close(d.closeCh)
 	return d.rwc.Close()
 }

@@ -1,4 +1,3 @@
-
 ifeq ($(PORT),)
 PORT = `arduino-cli board list  | grep "arduino:" | grep -o "/dev/[cu|ty]*.[a-zA-Z0-9]*"`
 endif
@@ -35,11 +34,11 @@ boat1-compile: boat1/boat1.ino ../arduino/RCore/*.cpp ../arduino/RCore/*.h
 boat1: boat1-compile
 	arduino-cli upload --port ${PORT} --fqbn ${ARCH} boat1
 
-gy511-compile: ../sensor/compass/gy511/arduino/control.ino
-	arduino-cli ${COMPILE_FLAGS} ../sensor/compass/gy511/arduino
+gy511-compile: ../sensor/compass/gy511/arduino/control/control.ino
+	arduino-cli ${COMPILE_FLAGS} ../sensor/compass/gy511/arduino/control
 
 gy511: gy511-compile
-	arduino-cli upload --port ${PORT} --fqbn ${ARCH} ../sensor/compass/gy511/arduino
+	arduino-cli upload --port ${PORT} --fqbn ${ARCH} ../sensor/compass/gy511/arduino/control
 
 serial:
 	minicom -b 9600 -D ${PORT}
