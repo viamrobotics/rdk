@@ -37,11 +37,17 @@ func (si *SegmentedImage) toK(p image.Point) int {
 
 func (si *SegmentedImage) get(p image.Point) int {
 	k := si.toK(p)
+	if k < 0 || k >= len(si.dots) {
+		return 0
+	}
 	return si.dots[k]
 }
 
 func (si *SegmentedImage) set(p image.Point, val int) {
 	k := si.toK(p)
+	if k < 0 || k >= len(si.dots) {
+		return
+	}
 	si.dots[k] = val
 }
 
@@ -92,6 +98,14 @@ func (si *SegmentedImage) createPalette() {
 
 }
 
+func (si *SegmentedImage) clearTransients() {
+	for k, v := range si.dots {
+		if v == -1 {
+			si.dots[k] = 0
+		}
+	}
+}
+
 // -----
 
 type walkState struct {
@@ -103,25 +117,112 @@ type walkState struct {
 	originalPoint image.Point
 }
 
-func (ws *walkState) towardsCenter(p image.Point) image.Point {
+func (ws *walkState) valid(p image.Point) bool {
+	return p.X >= 0 && p.X < ws.img.Width() && p.Y >= 0 && p.Y < ws.img.Height()
+}
+
+/*
+func (ws *walkState) towardsCenter(p image.Point, amount int) image.Point {
 	xd := p.X - ws.originalPoint.X
 	yd := p.Y - ws.originalPoint.Y
 
 	ret := p
 
 	if xd < 0 {
-		ret.X++
+		ret.X += utils.MinInt(amount, utils.AbsInt(xd))
 	} else if xd > 0 {
-		ret.X--
+		ret.X -= utils.MinInt(amount, utils.AbsInt(xd))
 	}
 
 	if yd < 0 {
-		ret.Y++
+		ret.Y += utils.MinInt(amount, utils.AbsInt(yd))
 	} else if yd > 0 {
-		ret.Y--
+		ret.Y -= utils.MinInt(amount, utils.AbsInt(yd))
 	}
 
 	return ret
+}
+*/
+func (ws *walkState) isPixelIsCluster(p image.Point, colorNumber int, path []image.Point) bool {
+	v := ws.dots.get(p)
+	if v == 0 {
+		good := ws.computeIfPixelIsCluster(p, colorNumber, path)
+		if good {
+			v = colorNumber
+		} else {
+			v = -1
+		}
+		ws.dots.set(p, v)
+	}
+
+	return v == colorNumber
+}
+
+func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, path []image.Point) bool {
+	if !ws.valid(p) {
+		return false
+	}
+
+	if len(path) == 0 {
+		if p.X == ws.originalPoint.X && p.Y == ws.originalPoint.Y {
+			return true
+		}
+		panic("wtf")
+	}
+
+	myColor := ws.img.ColorHSV(p)
+
+	if ws.debug {
+		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
+	}
+
+	for _, prev := range path[utils.MaxInt(0, len(path)-28):] {
+		prevColor := ws.img.ColorHSV(prev)
+		d := prevColor.Distance(myColor)
+
+		thresold := ColorThreshold // - (20.0-float64(idx))/100
+
+		good := d < thresold
+
+		if ws.debug {
+			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
+		}
+
+		if !good {
+			return false
+		}
+
+	}
+
+	return true
+}
+
+func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point) {
+	if !ws.valid(start) {
+		return
+	}
+
+	if ws.dots.get(start) != 0 {
+		// don't recompute a spot
+		return
+	}
+
+	if !ws.isPixelIsCluster(start, colorNumber, path) {
+		return
+	}
+
+	ws.pieceWalk(image.Point{start.X - 1, start.Y - 1}, colorNumber, append(path, start))
+	ws.pieceWalk(image.Point{start.X + 0, start.Y - 1}, colorNumber, append(path, start))
+	ws.pieceWalk(image.Point{start.X + 1, start.Y - 1}, colorNumber, append(path, start))
+
+	ws.pieceWalk(image.Point{start.X + 1, start.Y + 0}, colorNumber, append(path, start))
+
+	ws.pieceWalk(image.Point{start.X + 1, start.Y + 1}, colorNumber, append(path, start))
+	ws.pieceWalk(image.Point{start.X + 0, start.Y + 1}, colorNumber, append(path, start))
+	ws.pieceWalk(image.Point{start.X - 1, start.Y + 1}, colorNumber, append(path, start))
+
+	ws.pieceWalk(image.Point{start.X - 1, start.Y + 0}, colorNumber, append(path, start))
+
 }
 
 func (ws *walkState) piece(start image.Point, colorNumber int) error {
@@ -129,56 +230,13 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 		golog.Global.Debugf("segmentation.piece start: %v", start)
 	}
 
-	ws.dots.set(start, colorNumber)
-
 	ws.originalColor = ws.img.ColorHSV(start)
 	ws.originalPoint = start
 
-	// TODO(erh): if i do a full "circle" without a point, stop
-	return vision.Walk(start.X, start.Y, ws.img.Width(),
-		func(x, y int) error {
-			start := image.Point{x, y}
-			if start.X < 0 || start.X >= ws.img.Width() || start.Y < 0 || start.Y >= ws.img.Height() {
-				return nil
-			}
+	ws.pieceWalk(start, colorNumber, []image.Point{})
 
-			lastPoint := ws.towardsCenter(start)
-			lastCluster := ws.dots.get(lastPoint)
-			if lastCluster != colorNumber {
-				return nil
-			}
-
-			lastColor := ws.img.ColorHSV(lastPoint)
-			myColor := ws.img.ColorHSV(start)
-
-			originalDistance := ws.originalColor.Distance(myColor)
-			lastDistance := lastColor.Distance(myColor)
-
-			good := (originalDistance < ColorThreshold && lastDistance < (ColorThreshold*2)) ||
-				(originalDistance < (ColorThreshold*2) && lastDistance < ColorThreshold)
-
-			if ws.debug {
-				golog.Global.Debugf("\t %v "+
-					"g: %v "+
-					"origColor: %s "+
-					"myColor: %s "+
-					"origDistance: %v "+
-					"lastDistance: %v",
-					start,
-					good,
-					ws.originalColor.ToColorful().Hex(),
-					myColor.ToColorful().Hex(),
-					originalDistance,
-					lastDistance)
-			}
-
-			if good {
-				ws.dots.set(start, colorNumber)
-			}
-
-			return nil
-
-		})
+	ws.dots.clearTransients()
+	return nil
 }
 
 func ShapeWalk(img vision.Image, start image.Point, debug bool) (*SegmentedImage, error) {
