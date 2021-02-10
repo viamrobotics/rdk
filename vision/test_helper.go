@@ -102,6 +102,9 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	d.html.WriteString("<html><body><table>")
 
 	for _, f := range files {
+		if !IsImageFile(f) {
+			continue
+		}
 		d.currentFile = f
 		golog.Global.Debug(f)
 		img, err := NewImageFromFile(f)
