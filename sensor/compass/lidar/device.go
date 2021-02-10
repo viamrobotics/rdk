@@ -21,6 +21,10 @@ type Device struct {
 	mark atomic.Value
 }
 
+func From(lidarDevice lidar.Device) compass.RelativeDevice {
+	return &Device{Device: lidarDevice}
+}
+
 func New(deviceDesc lidar.DeviceDescription) (compass.RelativeDevice, error) {
 	lidarDevice, err := lidar.CreateDevice(deviceDesc)
 	if err != nil {
@@ -91,7 +95,7 @@ func (d *Device) Heading() (float64, error) {
 	}
 	wait.Wait()
 	sort.Sort(results)
-	return results[0][1], nil
+	return math.Mod(float64(360)-results[0][1], 360), nil
 }
 
 func (d *Device) scanToMat() (*mat.Dense, error) {
