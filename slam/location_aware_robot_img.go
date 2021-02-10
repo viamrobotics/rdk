@@ -40,17 +40,12 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 		image.Point{0, int(textScaleYStart)},
 		utils.Green.C,
 		textScaleYStart/2)
-	if lar.compassSensor != nil {
-		liveHeading, err := lar.compassSensor.Heading()
-		if err == nil {
-			utils.DrawString(
-				dc,
-				fmt.Sprintf("compass: %.02f", liveHeading),
-				image.Point{0, int(textScaleYStart * 1.5)},
-				utils.Green.C,
-				textScaleYStart/2)
-		}
-	}
+	utils.DrawString(
+		dc,
+		fmt.Sprintf("orientation: %.02f", lar.orientation()),
+		image.Point{0, int(textScaleYStart * 1.5)},
+		utils.Green.C,
+		textScaleYStart/2)
 
 	basePosX, basePosY := lar.basePos()
 	minX := basePosX - bounds.X/2

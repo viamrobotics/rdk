@@ -106,14 +106,15 @@ func NewLocationAwareRobot(
 	}, nil
 }
 
-func (lar *LocationAwareRobot) Start() {
+func (lar *LocationAwareRobot) Start() error {
 	select {
 	case <-lar.closeCh:
-		return
+		return nil
 	default:
 	}
 	lar.cullLoop()
 	lar.updateLoop()
+	return nil
 }
 
 func (lar *LocationAwareRobot) Stop() {
