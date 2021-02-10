@@ -2,6 +2,7 @@ package base
 
 import (
 	"math"
+	"time"
 
 	"github.com/viamrobotics/robotcore/sensor/compass"
 	"github.com/viamrobotics/robotcore/utils"
@@ -73,6 +74,7 @@ func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error 
 		if err := dwc.Device.Spin(degrees, power, block); err != nil {
 			return err
 		}
+		time.Sleep(1 * time.Second)
 		endHeading, err := compass.AverageHeading(dwc.compass)
 		if err != nil {
 			return err
