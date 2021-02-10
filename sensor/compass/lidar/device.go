@@ -94,7 +94,7 @@ func (d *Device) Heading() (float64, error) {
 	}
 	wait.Wait()
 	sort.Sort(results)
-	return math.Mod(float64(360)-results[0][1], 360), nil
+	return utils.CcwToCwDeg(results[0][1]), nil
 }
 
 func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {

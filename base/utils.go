@@ -4,6 +4,9 @@ import (
 	"math"
 
 	"github.com/viamrobotics/robotcore/sensor/compass"
+	"github.com/viamrobotics/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 type Move struct {
@@ -54,44 +57,37 @@ type deviceWithCompass struct {
 	compass compass.Device
 }
 
-func angleDiff(a1, a2 float64) float64 {
-	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
-}
-
-func avgHeading(device compass.Device) (float64, error) {
-	numReadings := 10
-	sum := 0.0
-	for i := 0; i < numReadings; i++ {
-		heading, err := device.Heading()
-		if err != nil {
-			return 0, err
-		}
-		sum += heading
-	}
-	return sum / float64(numReadings), nil
-}
-
 func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error {
+	rel, _ := dwc.compass.(compass.RelativeDevice)
+	if rel != nil {
+		if err := rel.Mark(); err != nil {
+			return err
+		}
+	}
 	for {
-		startHeading, err := avgHeading(dwc.compass)
+		startHeading, err := compass.AverageHeading(dwc.compass)
 		if err != nil {
 			return err
 		}
+		golog.Global.Debugf("start heading %f", startHeading)
 		if err := dwc.Device.Spin(degrees, power, block); err != nil {
 			return err
 		}
-		endHeading, err := avgHeading(dwc.compass)
+		endHeading, err := compass.AverageHeading(dwc.compass)
 		if err != nil {
 			return err
 		}
-		actual := angleDiff(startHeading, endHeading)
+		golog.Global.Debugf("end heading %f", endHeading)
+		actual := utils.AngleDiffDeg(startHeading, endHeading)
 		offBy := math.Abs(math.Abs(degrees) - actual)
+		golog.Global.Debugf("off by %f", offBy)
 		if offBy < 1 {
 			return nil
 		}
 		if actual > degrees {
 			offBy *= -1
 		}
+		golog.Global.Debugf("next %f", offBy)
 		degrees = offBy
 	}
 }

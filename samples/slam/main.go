@@ -85,8 +85,6 @@ func main() {
 			golog.Global.Fatal(err)
 		}
 		defer compassSensor.Close()
-
-		baseDevice = base.Augment(baseDevice, compassSensor)
 	}
 
 	var deviceOffests []slam.DeviceOffset
@@ -190,6 +188,10 @@ func main() {
 		compassSensor = compasslidar.From(bestResolutionDevice)
 	}
 
+	if compassSensor != nil {
+		baseDevice = base.Augment(baseDevice, compassSensor)
+	}
+
 	lar, err := slam.NewLocationAwareRobot(
 		baseDevice,
 		image.Point{areaCenter.X, areaCenter.Y},
@@ -202,7 +204,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	lar.Start()
+	if err := lar.Start(); err != nil {
+		panic(err)
+	}
 	defer lar.Stop()
 	areaViewer := &slam.AreaViewer{area, 100}
 

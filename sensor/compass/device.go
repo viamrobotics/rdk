@@ -1,6 +1,9 @@
 package compass
 
-import "github.com/viamrobotics/robotcore/sensor"
+import (
+	"github.com/viamrobotics/robotcore/sensor"
+	"github.com/viamrobotics/robotcore/utils"
+)
 
 type Device interface {
 	sensor.Device
@@ -24,4 +27,17 @@ const (
 type DeviceDescription struct {
 	Type DeviceType
 	Path string
+}
+
+func AverageHeading(device Device) (float64, error) {
+	var headings []float64
+	numReadings := 10
+	for i := 0; i < numReadings; i++ {
+		heading, err := device.Heading()
+		if err != nil {
+			return 0, err
+		}
+		headings = append(headings, heading)
+	}
+	return utils.AverageAngleDeg(headings...), nil
 }

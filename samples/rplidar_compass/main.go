@@ -73,6 +73,8 @@ func main() {
 		cancelFunc()
 	}()
 
+	avgCount := 0
+	avgCountLimit := 10
 	for {
 		select {
 		case <-cancelCtx.Done():
@@ -80,7 +82,15 @@ func main() {
 		default:
 		}
 		time.Sleep(100 * time.Millisecond)
-		heading, err := lidarCompass.Heading()
+		var heading float64
+		var err error
+		if avgCount != 0 && avgCount%avgCountLimit == 0 {
+			golog.Global.Debug("getting average")
+			heading, err = compass.AverageHeading(lidarCompass)
+		} else {
+			heading, err = lidarCompass.Heading()
+		}
+		avgCount++
 		if err != nil {
 			golog.Global.Errorw("failed to get lidar compass heading", "error", err)
 			continue

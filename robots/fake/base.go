@@ -1,10 +1,5 @@
 package fake
 
-import (
-	"errors"
-	"math"
-)
-
 // tracks in CM
 type Base struct {
 }
@@ -14,9 +9,6 @@ func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
 }
 
 func (b *Base) Spin(degrees float64, power int, block bool) error {
-	if math.Mod(degrees, 90) != 0 {
-		return errors.New("can only spin by 90 degree multiples")
-	}
 	return nil
 }
 

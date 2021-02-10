@@ -10,6 +10,25 @@ func RadToDeg(radians float64) float64 {
 	return radians * 180 / math.Pi
 }
 
+func AngleDiffDeg(a1, a2 float64) float64 {
+	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
+}
+
+func CcwToCwDeg(deg float64) float64 {
+	return math.Mod(float64(360)-deg, 360)
+}
+
+func AverageAngleDeg(angles ...float64) float64 {
+	sumSin := 0.0
+	sumCos := 0.0
+	for _, ang := range angles {
+		angleRad := DegToRad(ang)
+		sumSin += math.Sin(angleRad)
+		sumCos += math.Cos(angleRad)
+	}
+	return CcwToCwDeg(RadToDeg(math.Atan2(sumSin, sumCos)))
+}
+
 func AbsInt(n int) int {
 	if n < 0 {
 		return -1 * n
