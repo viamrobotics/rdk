@@ -25,7 +25,7 @@ type DeviceOffset struct {
 
 type LocationAwareRobot struct {
 	baseDevice      base.Device
-	baseOrientation int // relative to map
+	baseOrientation float64 // relative to map
 	basePosX        int
 	basePosY        int
 	maxBounds       image.Point
@@ -131,7 +131,7 @@ const detectionBuffer = 15
 
 // the move rect will always be ahead of the base itself even though the
 // toX, toY are within the base rect since we move relative to the center.
-func (lar *LocationAwareRobot) moveRect(toX, toY, orientation int) image.Rectangle {
+func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) image.Rectangle {
 	baseRect := lar.baseRect()
 	distX, distY := int(math.Abs(float64(lar.basePosX-toX))), int(math.Abs(float64(lar.basePosY-toY)))
 	var pathX0, pathY0, pathX1, pathY1 int
@@ -156,15 +156,17 @@ func (lar *LocationAwareRobot) moveRect(toX, toY, orientation int) image.Rectang
 		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
 		pathX1 = int(math.Max(0, float64(pathX0-distX-detectionBuffer)))
 		pathY1 = pathY0 + baseRect.Dy()
+	default:
+		panic(fmt.Errorf("bad orientation %f", orientation))
 	}
 	return image.Rect(pathX0, pathY0, pathX1, pathY1)
 }
 
-func (lar *LocationAwareRobot) calculateMove(orientation int, amount int) (image.Point, int, error) {
+func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (image.Point, int, error) {
 	newX := lar.basePosX
 	newY := lar.basePosY
 
-	errMsg := fmt.Errorf("cannot move at orientation %d; stuck", orientation)
+	errMsg := fmt.Errorf("cannot move at orientation %f; stuck", orientation)
 	switch orientation {
 	case 0:
 		if lar.basePosY-amount < 0 {
@@ -187,9 +189,17 @@ func (lar *LocationAwareRobot) calculateMove(orientation int, amount int) (image
 		}
 		newX = lar.basePosX - amount
 	default:
-		return image.Point{}, 0, fmt.Errorf("cannot move at orientation %d", orientation)
+		return image.Point{}, 0, fmt.Errorf("cannot move at orientation %f", orientation)
 	}
 	return image.Point{newX, newY}, amount, nil
+}
+
+func (lar *LocationAwareRobot) orientation() float64 {
+	return lar.baseOrientation
+}
+
+func (lar *LocationAwareRobot) setOrientation(orientation float64) {
+	lar.baseOrientation = orientation
 }
 
 func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
@@ -202,10 +212,11 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 
 	move := base.Move{Speed: 0, Block: true}
 
+	currentOrientation := lar.orientation()
 	if rotateTo != nil {
 		golog.Global.Debugw("request to rotate", "dir", *rotateTo)
-		from := lar.baseOrientation
-		var to int
+		from := currentOrientation
+		var to float64
 		switch *rotateTo {
 		case DirectionUp:
 			to = 0
@@ -218,21 +229,21 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		default:
 			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
 		}
-		var rotateBy int
+		var rotateBy float64
 		if from > to {
 			rotateBy = to - from
 		} else {
 			rotateBy = from - to
 		}
 		if rotateBy != 180 && rotateBy != -180 {
-			rotateBy = (rotateBy + 180) % 180
+			rotateBy = math.Mod((rotateBy + 180), 180)
 			if from > to {
 				rotateBy *= -1
 			}
 		}
 		move.AngleDeg = rotateBy
 	}
-	newOrientation := (((lar.baseOrientation + move.AngleDeg) % 360) + 360) % 360
+	newOrientation := math.Mod(math.Mod((currentOrientation+move.AngleDeg), 360)+360, 360)
 
 	newX := lar.basePosX
 	newY := lar.basePosY
@@ -257,7 +268,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 
 		moveOrientation := newOrientation
 		if amount != nil && *amount < 0 {
-			moveOrientation = (newOrientation + 180) % 360
+			moveOrientation = math.Mod(newOrientation+180, 360)
 		}
 		moveRect := lar.moveRect(newX, newY, moveOrientation)
 
@@ -270,7 +281,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 			})
 		})
 		if collides {
-			return fmt.Errorf("cannot move to (%d,%d) via %d; would collide", newX, newY, moveOrientation)
+			return fmt.Errorf("cannot move to (%d,%d) via %f; would collide", newX, newY, moveOrientation)
 		}
 
 		// detect obstacle END
@@ -281,7 +292,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 	}
 	lar.basePosX = newX
 	lar.basePosY = newY
-	lar.baseOrientation = newOrientation
+	lar.setOrientation(newOrientation)
 	return nil
 }
 
@@ -392,8 +403,9 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 		for _, next := range measurements {
 			angle := next.Angle()
 			x, y := next.Coords()
-			if adjust || lar.baseOrientation != 0 {
-				offset := (float64(lar.baseOrientation) + offsets.Angle)
+			currentOrientation := lar.orientation()
+			if adjust || currentOrientation != 0 {
+				offset := (currentOrientation + offsets.Angle)
 				angle += math.Mod(offset, 360)
 				angleRad := utils.DegToRad(angle)
 				// rotate vector around base ccw
