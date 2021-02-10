@@ -25,6 +25,16 @@ type Image struct {
 	height int
 }
 
+func IsImageFile(fn string) bool {
+	extensions := []string{".both.gz", "ppm", "png", "jpg", "jpeg", "gif"}
+	for _, suffix := range extensions {
+		if strings.HasSuffix(fn, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func NewImageFromFile(fn string) (Image, error) {
 	if strings.HasSuffix(fn, ".both.gz") {
 
