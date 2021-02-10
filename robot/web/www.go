@@ -141,7 +141,7 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 				return
 			}
 
-			err = theBase.Spin(int(a2), speed, false)
+			err = theBase.Spin(float64(a2), speed, false)
 		} else {
 			http.Error(w, "no stop, distanceMM, angle given", http.StatusBadRequest)
 			return

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"math"
 	"os"
 	"os/signal"
 	"runtime"
@@ -21,6 +22,7 @@ import (
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/sensor/compass"
 	"github.com/viamrobotics/robotcore/sensor/compass/gy511"
+	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
 	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/slam"
 	"github.com/viamrobotics/robotcore/utils"
@@ -171,6 +173,21 @@ func main() {
 				"hardware_rev", rpl.HardwareRevision())
 		}
 		defer lidarDev.Stop()
+	}
+
+	if compassSensor == nil {
+		bestResolution := math.MaxFloat64
+		bestResolutionDeviceNum := 0
+		for i, lidarDev := range lidarDevices {
+			if lidarDev.AngularResolution() < bestResolution {
+				bestResolution = lidarDev.AngularResolution()
+				bestResolutionDeviceNum = i
+			}
+		}
+		bestResolutionDevice := lidarDevices[bestResolutionDeviceNum]
+		desc := deviceDescs[bestResolutionDeviceNum]
+		golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
+		compassSensor = compasslidar.From(bestResolutionDevice)
 	}
 
 	lar, err := slam.NewLocationAwareRobot(

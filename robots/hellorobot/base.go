@@ -23,11 +23,11 @@ func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
 	return nil
 }
 
-func (b *Base) Spin(degrees int, power int, block bool) error {
+func (b *Base) Spin(degrees float64, power int, block bool) error {
 	if power != 0 {
 		golog.Global.Info("Base.Spin does not support power")
 	}
-	b.RotateBy(float64(degrees), block)
+	b.RotateBy(degrees, block)
 	return nil
 }
 

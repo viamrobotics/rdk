@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -93,7 +94,7 @@ func (r *Rover) waitForMotorsToStop() error {
 	return nil
 }
 
-func (r *Rover) Spin(degrees int, power int, block bool) error {
+func (r *Rover) Spin(degrees float64, power int, block bool) error {
 
 	if power < 120 {
 		power = 120
@@ -104,7 +105,7 @@ func (r *Rover) Spin(degrees int, power int, block bool) error {
 		a, b = "b", "f"
 	}
 
-	ticks := utils.AbsInt(degrees * 5)
+	ticks := int(math.Abs(degrees * 5))
 
 	err := r.moveTicks(
 		a, b, a, b,
