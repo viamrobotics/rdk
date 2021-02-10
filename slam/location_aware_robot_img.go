@@ -70,7 +70,7 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 			relX := centerX - distX
 			relY := centerY - distY
 
-			dc.DrawPoint(float64(relX), float64(relY), 1)
+			dc.DrawPoint(float64(relX), float64(relY), 4)
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
 			dc.Fill()
 		})

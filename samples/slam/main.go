@@ -51,11 +51,7 @@ func main() {
 	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
 	flag.Parse()
 
-	// The area is 600m^2 tracked in centimeters
-	// 0 means no detected obstacle
-	// 1 means a detected obstacle
-	// TODO(erd): where is center? is a hack to just square the whole thing?
-	areaSizeMeters := 600
+	areaSizeMeters := 50
 	areaScale := 100 // cm
 	area := slam.NewSquareArea(areaSizeMeters, areaScale)
 	areaCenter := area.Center()
@@ -208,7 +204,7 @@ func main() {
 		panic(err)
 	}
 	defer lar.Stop()
-	areaViewer := &slam.AreaViewer{area, 100}
+	areaViewer := &slam.AreaViewer{area}
 
 	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
