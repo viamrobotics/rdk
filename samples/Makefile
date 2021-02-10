@@ -5,7 +5,7 @@ ifeq ($(ARCH),)
 ARCH = `arduino-cli board list  | grep "arduino:" | grep -o "arduino:[a-z]*:[a-z_]*"`
 endif
 
-COMPILE_FLAGS = compile --libraries ../arduino/ --fqbn ${ARCH}
+COMPILE_FLAGS = compile --libraries ../arduino/ --fqbn ${ARCH} --warnings all
 
 foo:
 	echo ${PORT} ${ARCH}

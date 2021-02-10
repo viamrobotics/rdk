@@ -19,12 +19,12 @@ class Gripper {
    public:
     Gripper(Motor* m, int locationSensor, int forceSensor)
         : _motor(m),
-          _initialized(false),
-          _initializeState(0),
-          _power(8),
           _locationSensor(locationSensor),
           _forceSensor(forceSensor),
-          _moving(false) {
+          _power(8),
+          _moving(false),
+          _initialized(false),
+          _initializeState(0) {
         _motor->setSlowDown(true);
     }
 
@@ -48,13 +48,13 @@ class Gripper {
             // we're still moving
             _lastSpot = pos;
             _myts = millis();
-            return;
+            return false;
         }
 
         auto now = millis();
-        if (millis() - _myts < 500) {
+        if (now - _myts < 500) {
             // wait longer
-            return;
+            return false;
         }
 
         // we've waited long enough
@@ -66,7 +66,7 @@ class Gripper {
             _initialized = true;
             _rawGoal = pos;
             _forceSensorDefault = rawForceSensor();
-            return;
+            return true;
         }
 
         if (_initializeState == INIT_STATE_OPEN1) {
@@ -74,9 +74,9 @@ class Gripper {
             _fullyOpen = pos;
             _initializeState = INIT_STATE_CLOSE;
             close();
-            _myts = millis();
+            _myts = now;
             delay(20);
-            return;
+            return false;
         }
 
         if (_initializeState == INIT_STATE_CLOSE) {
@@ -87,12 +87,12 @@ class Gripper {
             if (same(_fullyClosed, _fullyOpen)) {
                 logMsg("Gripper::initialzeReady NOT MOVING");
                 _initializeState = INIT_STATE_START;
-                return;
+                return false;
             }
             _initializeState = INIT_STATE_OPEN2;
-            _myts = millis();
+            _myts = now;
             open();
-            return;
+            return false;
         }
 
         debug("unknown _initializeState", _initializeState);
@@ -132,8 +132,8 @@ class Gripper {
             if (pos >= 100) {
                 b->println("gp:1.0");
             } else {
-                char buf[16];
-                auto x = sprintf(buf, "gp:.%.2d %d", pos, getRawPos());
+                char buf[32];
+                sprintf(buf, "gp:.%.2d %d", pos, getRawPos());
                 b->println(buf);
             }
         } else {
@@ -224,9 +224,9 @@ class Gripper {
         _motor->backward(_power * powerMul);
     }
 
-    int getRawPos() { return analogRead(_locationSensor); }
+    int getRawPos() const { return analogRead(_locationSensor); }
 
-    int rawForceSensor() { return analogRead(_forceSensor); }
+    int rawForceSensor() const { return analogRead(_forceSensor); }
 
     Motor* _motor;
     int _locationSensor;
