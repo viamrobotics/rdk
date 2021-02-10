@@ -176,7 +176,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
 	}
 
-	for _, prev := range path[utils.MaxInt(0, len(path)-28):] {
+	for _, prev := range path[utils.MaxInt(0, len(path)-10):] {
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
@@ -197,12 +197,12 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 	return true
 }
 
-func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point) {
+func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point, quadrant image.Point) {
 	if !ws.valid(start) {
 		return
 	}
 
-	if ws.dots.get(start) != 0 {
+	if len(path) > 0 && ws.dots.get(start) != 0 {
 		// don't recompute a spot
 		return
 	}
@@ -211,18 +211,9 @@ func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.
 		return
 	}
 
-	ws.pieceWalk(image.Point{start.X - 1, start.Y - 1}, colorNumber, append(path, start))
-	ws.pieceWalk(image.Point{start.X + 0, start.Y - 1}, colorNumber, append(path, start))
-	ws.pieceWalk(image.Point{start.X + 1, start.Y - 1}, colorNumber, append(path, start))
-
-	ws.pieceWalk(image.Point{start.X + 1, start.Y + 0}, colorNumber, append(path, start))
-
-	ws.pieceWalk(image.Point{start.X + 1, start.Y + 1}, colorNumber, append(path, start))
-	ws.pieceWalk(image.Point{start.X + 0, start.Y + 1}, colorNumber, append(path, start))
-	ws.pieceWalk(image.Point{start.X - 1, start.Y + 1}, colorNumber, append(path, start))
-
-	ws.pieceWalk(image.Point{start.X - 1, start.Y + 0}, colorNumber, append(path, start))
-
+	ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
+	ws.pieceWalk(image.Point{start.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
+	ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y}, colorNumber, append(path, start), quadrant)
 }
 
 func (ws *walkState) piece(start image.Point, colorNumber int) error {
@@ -233,7 +224,16 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 	ws.originalColor = ws.img.ColorHSV(start)
 	ws.originalPoint = start
 
-	ws.pieceWalk(start, colorNumber, []image.Point{})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 1})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 0})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, -1})
+
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 1})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 0})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, -1})
+
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, 1})
+	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, -1})
 
 	ws.dots.clearTransients()
 	return nil
