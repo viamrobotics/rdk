@@ -8,16 +8,16 @@ import (
 
 type Move struct {
 	DistanceMM int
-	AngleDeg   int
+	AngleDeg   float64
 	Speed      int
 	Block      bool
 }
 
-func DoMove(move Move, device Device) (int, int, error) {
+func DoMove(move Move, device Device) (float64, int, error) {
 	if move.AngleDeg != 0 {
 		if err := device.Spin(move.AngleDeg, move.Speed, move.Block); err != nil {
 			// TODO(erd): Spin should report amount spun if errored
-			return 0, 0, err
+			return math.NaN(), 0, err
 		}
 	}
 
@@ -71,7 +71,7 @@ func avgHeading(device compass.Device) (float64, error) {
 	return sum / float64(numReadings), nil
 }
 
-func (dwc deviceWithCompass) Spin(degrees int, power int, block bool) error {
+func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error {
 	for {
 		startHeading, err := avgHeading(dwc.compass)
 		if err != nil {
@@ -85,13 +85,13 @@ func (dwc deviceWithCompass) Spin(degrees int, power int, block bool) error {
 			return err
 		}
 		actual := angleDiff(startHeading, endHeading)
-		offBy := math.Abs(math.Abs(float64(degrees)) - actual)
+		offBy := math.Abs(math.Abs(degrees) - actual)
 		if offBy < 1 {
 			return nil
 		}
-		if actual > float64(degrees) {
+		if actual > degrees {
 			offBy *= -1
 		}
-		degrees = int(offBy)
+		degrees = offBy
 	}
 }

@@ -57,8 +57,8 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 				return nil, err
 			}
 		}
-		step := 10
-		for i := 0; i < 360; i += step {
+		step := 10.0
+		for i := 0.0; i < 360; i += step {
 			if err := base.Reduce(lar.baseDevice).Spin(step, 0, true); err != nil {
 				return nil, err
 			}

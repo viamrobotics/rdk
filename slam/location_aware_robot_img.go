@@ -81,7 +81,7 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 		})
 	})
 
-	for _, orientation := range []int{0, 90, 180, 270} {
+	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
 		if err == nil {
 			moveRect := lar.moveRect(calcP.X, calcP.Y, orientation)
@@ -106,7 +106,7 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 		// 90°  -  (1, 0) // Right
 		// 180° -  (0, 1) // Down
 		// 270° -  (-1,0) // Left
-		orientationRads := utils.DegToRad(float64(orientation))
+		orientationRads := utils.DegToRad(orientation)
 		x := distance * math.Sin(orientationRads)
 		y := distance * -math.Cos(orientationRads)
 		relX := float64(centerX) + x
