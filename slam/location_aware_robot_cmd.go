@@ -20,7 +20,7 @@ const (
 	commandRobotMove         = "robot_move"
 	commandRobotMoveForward  = "robot_move_forward"
 	commandRobotMoveBackward = "robot_move_backward"
-	commandRobotRotateTo     = "robot_rotate_to"
+	commandRobotTurnTo       = "robot_turn_to"
 	commandRobotStats        = "robot_stats"
 	commandRobotDeviceOffset = "robot_device_offset"
 	commandRobotLidarStart   = "robot_lidar_start"
@@ -120,7 +120,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved backwards\n%s", lar)), nil
 	})
-	registry.Add(commandRobotRotateTo, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+	registry.Add(commandRobotTurnTo, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
 			return nil, fmt.Errorf("rotation direction required: [%s, %s, %s, %s]",
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
