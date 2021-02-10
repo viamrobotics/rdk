@@ -96,7 +96,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 }
 
 func TestChunk1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger(t, "segmentation/test1", "*.png")
+	d := vision.NewMultipleImageTestDebugger(t, "segmentation/test1", "*")
 	err := d.Process(&chunkImageDebug{})
 	if err != nil {
 		t.Fatal(err)
