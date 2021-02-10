@@ -31,7 +31,7 @@ type DeviceDescription struct {
 
 func AverageHeading(device Device) (float64, error) {
 	var headings []float64
-	numReadings := 10
+	numReadings := 5
 	for i := 0; i < numReadings; i++ {
 		heading, err := device.Heading()
 		if err != nil {
