@@ -17,7 +17,8 @@ import (
 
 type Device struct {
 	lidar.Device
-	mark atomic.Value
+	mark    atomic.Value
+	markMat atomic.Value
 }
 
 func From(lidarDevice lidar.Device) compass.RelativeDevice {
@@ -49,17 +50,65 @@ func (d *Device) Readings() ([]interface{}, error) {
 	return []interface{}{heading}, nil
 }
 
+var parallelFactor = runtime.NumCPU()
+
 func (d *Device) Heading() (float64, error) {
 	rotatedMatsIfc := d.mark.Load()
 	if rotatedMatsIfc == nil {
 		return math.NaN(), nil
 	}
 	rotatedMats := rotatedMatsIfc.([]*utils.Vec2Matrix)
+	origMat := d.markMat.Load().(*utils.Vec2Matrix)
 	measureMat, err := d.scanToVec2Matrix()
 	if err != nil {
 		return math.NaN(), err
 	}
-	parallelFactor := runtime.NumCPU()
+
+	angularRes := d.Device.AngularResolution()
+
+	// fast path
+	if true {
+		const searchSize = 10 // always >= 2
+		var findDistance func(from, to float64) float64
+		findDistance = func(from, to float64) float64 {
+			if to-from <= angularRes {
+				return from
+			}
+
+			span := to - from
+			spanSplit := span / (searchSize - 1)
+
+			angs := make([]float64, 0, searchSize)
+			dists := make([]float64, 0, searchSize)
+			for i := 0; i < searchSize; i++ {
+				ang := from + (float64(i) * spanSplit)
+				rot := origMat.RotateMatrixAbout(0, 0, ang)
+				angs = append(angs, ang)
+				dists = append(dists, rot.DistanceMSETo(measureMat))
+			}
+
+			minIdx := 0
+			minDist := dists[0]
+			for i := 1; i < len(dists); i++ {
+				if dists[i] < minDist {
+					minIdx = i
+					minDist = dists[i]
+				}
+			}
+			if minIdx == 0 {
+				return findDistance(angs[minIdx], angs[minIdx+1])
+			}
+			if minIdx == len(dists)-1 {
+				return findDistance(angs[minIdx-1], angs[minIdx])
+			}
+			if math.Abs(dists[minIdx-1]-minDist) < math.Abs(dists[minIdx+1]-minDist) {
+				return findDistance(angs[minIdx-1], angs[minIdx])
+			}
+			return findDistance(angs[minIdx], angs[minIdx+1])
+		}
+		return utils.CcwToCwDeg(findDistance(0, 360)), nil
+	}
+
 	maxTheta := 360
 	if maxTheta%parallelFactor != 0 {
 		return math.NaN(), fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor)
@@ -126,7 +175,6 @@ func (d *Device) Mark() error {
 		return err
 	}
 
-	parallelFactor := runtime.NumCPU()
 	maxTheta := 360
 	if maxTheta%parallelFactor != 0 {
 		return fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor)
@@ -157,5 +205,6 @@ func (d *Device) Mark() error {
 	wait.Wait()
 
 	d.mark.Store(rotatedMats)
+	d.markMat.Store(measureMat)
 	return nil
 }

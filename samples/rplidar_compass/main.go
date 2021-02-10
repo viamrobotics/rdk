@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"log"
 	"math"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +22,10 @@ import (
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
 	var devicePath string
 	flag.StringVar(&devicePath, "device", "", "lidar device")
 	flag.Parse()
@@ -108,7 +115,7 @@ func main() {
 		var err error
 		if avgCount != 0 && avgCount%avgCountLimit == 0 {
 			golog.Global.Debug("getting average")
-			// heading, err = compass.AverageHeading(lidarCompass)
+			heading, err = compass.AverageHeading(lidarCompass)
 		} else {
 			heading, err = lidarCompass.Heading()
 		}
