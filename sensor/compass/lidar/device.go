@@ -68,7 +68,7 @@ func (d *Device) Heading() (float64, error) {
 
 	// fast path
 	if true {
-		const searchSize = 10 // always >= 2
+		const searchSize = 75 // always >= 2
 		var findDistance func(from, to float64) float64
 		findDistance = func(from, to float64) float64 {
 			if to-from <= angularRes {
