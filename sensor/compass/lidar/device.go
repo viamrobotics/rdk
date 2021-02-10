@@ -13,7 +13,6 @@ import (
 	"github.com/viamrobotics/robotcore/utils"
 
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/stat"
 )
 
 type Device struct {
@@ -55,8 +54,8 @@ func (d *Device) Heading() (float64, error) {
 	if rotatedMatsIfc == nil {
 		return math.NaN(), nil
 	}
-	rotatedMats := rotatedMatsIfc.([]*mat.Dense)
-	measureMat, err := d.scanToMat()
+	rotatedMats := rotatedMatsIfc.([]*utils.Vec2Matrix)
+	measureMat, err := d.scanToVec2Matrix()
 	if err != nil {
 		return math.NaN(), err
 	}
@@ -68,7 +67,7 @@ func (d *Device) Heading() (float64, error) {
 	thetaParts := maxTheta / parallelFactor
 	var wait sync.WaitGroup
 	wait.Add(parallelFactor)
-	results := make(vec2s, parallelFactor)
+	results := make(utils.Vec2Fs, parallelFactor)
 	groupSize := maxTheta / parallelFactor
 	for i := 0; i < parallelFactor; i++ {
 		iCopy := i
@@ -84,7 +83,7 @@ func (d *Device) Heading() (float64, error) {
 			for theta := from; theta < to; theta += step {
 				rotated := rotatedMats[(i*groupSize)+angleNum]
 				angleNum++
-				dist := distanceMSE(rotated, measureMat)
+				dist := rotated.DistanceMSETo(measureMat)
 				if dist < minDist {
 					minDist = dist
 					minTheta = theta
@@ -98,7 +97,7 @@ func (d *Device) Heading() (float64, error) {
 	return math.Mod(float64(360)-results[0][1], 360), nil
 }
 
-func (d *Device) scanToMat() (*mat.Dense, error) {
+func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 	var measurements lidar.Measurements
 	attempts := 5
 	for i := 0; i < attempts; i++ {
@@ -118,11 +117,11 @@ func (d *Device) scanToMat() (*mat.Dense, error) {
 		measureMat.Set(1, i, y)
 		measureMat.Set(2, i, 1)
 	}
-	return measureMat, nil
+	return (*utils.Vec2Matrix)(measureMat), nil
 }
 
 func (d *Device) Mark() error {
-	measureMat, err := d.scanToMat()
+	measureMat, err := d.scanToVec2Matrix()
 	if err != nil {
 		return err
 	}
@@ -138,7 +137,7 @@ func (d *Device) Mark() error {
 	var wait sync.WaitGroup
 	wait.Add(parallelFactor)
 	numRotations := int(math.Ceil(float64(maxTheta) / angularRes))
-	rotatedMats := make([]*mat.Dense, numRotations)
+	rotatedMats := make([]*utils.Vec2Matrix, numRotations)
 	for i := 0; i < parallelFactor; i++ {
 		iCopy := i
 		go func() {
@@ -149,8 +148,7 @@ func (d *Device) Mark() error {
 			to := float64(thetaParts * (i + 1))
 			angleNum := 0
 			for theta := from; theta < to; theta += step {
-				thetaRad := utils.DegToRad(theta)
-				rotated := rotateMatrixAbout(measureMat, 0, 0, thetaRad)
+				rotated := measureMat.RotateMatrixAbout(0, 0, theta)
 				rotatedMats[(i*groupSize)+angleNum] = rotated
 				angleNum++
 			}
@@ -160,99 +158,4 @@ func (d *Device) Mark() error {
 
 	d.mark.Store(rotatedMats)
 	return nil
-}
-
-// TODO(erd): move to math
-// ccw
-func rotationMatrixAbout(x, y, theta float64) mat.Matrix {
-	tNeg1 := mat.NewDense(3, 3, []float64{
-		1, 0, x,
-		0, 1, y,
-		0, 0, 1,
-	})
-	rot := mat.NewDense(3, 3, []float64{
-		math.Cos(theta), -math.Sin(theta), 0,
-		math.Sin(theta), math.Cos(theta), 0,
-		0, 0, 1,
-	})
-	t := mat.NewDense(3, 3, []float64{
-		1, 0, -x,
-		0, 1, -y,
-		0, 0, 1,
-	})
-	var rotFinal mat.Dense
-	rotFinal.Product(tNeg1, rot, t)
-	return &rotFinal
-}
-
-func rotateMatrixAbout(src mat.Matrix, x, y, theta float64) *mat.Dense {
-	rot := rotationMatrixAbout(x, y, theta)
-	var rotated mat.Dense
-	rotated.Mul(rot, src)
-	return &rotated
-}
-
-func sortMat(target *mat.Dense) *mat.Dense {
-	numCols := target.RowView(0).Len()
-	cols := make([][]float64, 0, target.RowView(0).Len())
-	targetT := mat.DenseCopyOf(target.T())
-	for i := 0; i < numCols; i++ {
-		cols = append(cols, targetT.RawRowView(i))
-	}
-	sort.Sort(vec2s(cols))
-	r, c := target.Dims()
-	sortedMat := mat.NewDense(r, c, nil)
-	for i := 0; i < numCols; i++ {
-		sortedMat.SetCol(i, cols[i])
-	}
-	return sortedMat
-}
-
-type vec2s [][]float64
-
-func (vs vec2s) Len() int {
-	return len(vs)
-}
-
-func (vs vec2s) Swap(i, j int) {
-	vs[i], vs[j] = vs[j], vs[i]
-}
-
-func (vs vec2s) Less(i, j int) bool {
-	if vs[i][0] < vs[j][0] {
-		return true
-	}
-	if vs[i][0] > vs[j][0] {
-		return false
-	}
-	return vs[i][1] < vs[j][1]
-}
-
-func distanceMSE(from *mat.Dense, to *mat.Dense) float64 {
-	from = sortMat(from)
-	to = sortMat(to)
-	_, fromLen := from.Dims()
-	_, toLen := to.Dims()
-	numRows := from.ColView(0).Len()
-	compareFrom := from
-	compareTo := to
-	if fromLen < toLen {
-		compareTo = mat.DenseCopyOf(to.Slice(0, numRows, 0, fromLen))
-	} else if fromLen > toLen {
-		compareFrom = mat.DenseCopyOf(from.Slice(0, numRows, 0, toLen))
-	}
-
-	var subbed mat.Dense
-	subbed.Sub(compareFrom, compareTo)
-
-	var powwed mat.Dense
-	powwed.MulElem(&subbed, &subbed)
-
-	var plussed mat.Dense
-	plussed.Add(powwed.RowView(0), powwed.RowView(1))
-
-	var rooted mat.Dense
-	rooted.Apply(func(i, j int, v float64) float64 { return math.Sqrt(v) }, &plussed)
-
-	return stat.Mean(rooted.RawRowView(0), nil)
 }
