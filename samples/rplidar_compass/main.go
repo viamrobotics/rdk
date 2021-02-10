@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,13 +47,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	lidarDevice, err := compasslidar.New(deviceDescs[0])
+	lidarDevices, err := lidar.CreateDevices(deviceDescs)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	defer lidarDevice.(lidar.Device).Stop()
+	for i, lidarDev := range lidarDevices {
+		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
+			golog.Global.Infow("rplidar",
+				"dev_path", deviceDescs[i].Path,
+				"model", rpl.Model(),
+				"serial", rpl.SerialNumber(),
+				"firmware_ver", rpl.FirmwareVersion(),
+				"hardware_rev", rpl.HardwareRevision())
+		}
+		defer lidarDev.Stop()
+	}
 
-	var lidarCompass compass.RelativeDevice = lidarDevice
+	bestResolution := math.MaxFloat64
+	bestResolutionDeviceNum := 0
+	for i, lidarDev := range lidarDevices {
+		if lidarDev.AngularResolution() < bestResolution {
+			bestResolution = lidarDev.AngularResolution()
+			bestResolutionDeviceNum = i
+		}
+	}
+	bestResolutionDevice := lidarDevices[bestResolutionDeviceNum]
+	desc := deviceDescs[bestResolutionDeviceNum]
+	golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
+	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResolutionDevice)
 
 	quitC := make(chan os.Signal, 2)
 	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
@@ -86,7 +108,7 @@ func main() {
 		var err error
 		if avgCount != 0 && avgCount%avgCountLimit == 0 {
 			golog.Global.Debug("getting average")
-			heading, err = compass.AverageHeading(lidarCompass)
+			// heading, err = compass.AverageHeading(lidarCompass)
 		} else {
 			heading, err = lidarCompass.Heading()
 		}
