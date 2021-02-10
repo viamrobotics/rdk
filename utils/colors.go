@@ -126,6 +126,10 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			wv *= 1.0
 		}
 
+		if v1 < .25 || v2 < .25 {
+			wv *= 3
+		}
+
 		/*
 			// we're playing with the angle of the v1,s1 -> v2,s2 vector
 			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)

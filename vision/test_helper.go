@@ -109,6 +109,8 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 			return err
 		}
 
+		d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))
+
 		d.html.WriteString("<tr>")
 		d.GotDebugImage(img.Image(), "raw")
 

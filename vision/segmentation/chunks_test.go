@@ -120,7 +120,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			starts = append(starts, s.Start)
 		}
 
-		out, err := ShapeWalkMultiple(img, starts, true)
+		out, err := ShapeWalkMultiple(img, starts, false)
 		if err != nil {
 			return err
 		}
@@ -130,6 +130,12 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 		for idx, s := range cfg.Shapes {
 			numPixels := out.PixelsInSegmemnt(idx + 1)
 			if numPixels < s.PixelRange[0] || numPixels > s.PixelRange[1] {
+				// run again with debugging on
+				_, err := ShapeWalkMultiple(img, starts, true)
+				if err != nil {
+					return err
+				}
+
 				d.T.Errorf("out of pixel range %v %d", s, numPixels)
 			}
 		}
