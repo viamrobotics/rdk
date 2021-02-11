@@ -33,14 +33,6 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 	}
 
 	if true {
-		out, err := ShapeWalkEntireDebug(img, false)
-		if err != nil {
-			return err
-		}
-		d.GotDebugImage(out, "entire")
-	}
-
-	if true {
 		starts := []image.Point{}
 
 		for _, s := range cfg.Shapes {
@@ -63,10 +55,18 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 					return err
 				}
 
-				d.T.Errorf("out of pixel range %v %d", s, numPixels)
+				d.T.Errorf("out of pixel range %s %v %d", fn, s, numPixels)
 			}
 		}
 
+	}
+
+	if true {
+		out, err := ShapeWalkEntireDebug(img, false)
+		if err != nil {
+			return err
+		}
+		d.GotDebugImage(out, "entire")
 	}
 
 	return nil

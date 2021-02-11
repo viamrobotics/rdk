@@ -128,6 +128,12 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 
 		if v1 < .25 || v2 < .25 {
 			wv *= 3
+			ws /= 3
+			wh *= .5
+		}
+
+		if s1 > .9 && s2 > .9 {
+			wv *= .6
 		}
 
 		/*
