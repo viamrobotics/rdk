@@ -101,6 +101,19 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 
 	d.html.WriteString("<html><body><table>")
 
+	defer func() {
+		for {
+			pending := atomic.LoadInt32(&d.pendingImages)
+			if pending <= 0 {
+				break
+			}
+
+			golog.Global.Debugf("sleeping for pending images %d", pending)
+
+			time.Sleep(time.Duration(50*pending) * time.Millisecond)
+		}
+	}()
+
 	for _, f := range files {
 		if !IsImageFile(f) {
 			continue
@@ -119,7 +132,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 
 		err = x.Process(d, f, img)
 		if err != nil {
-			return err
+			return fmt.Errorf("error processing file %s : %w", f, err)
 		}
 
 		d.html.WriteString("</tr>")
@@ -129,17 +142,6 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
 	golog.Global.Debug(htmlOutFile)
-
-	for {
-		pending := atomic.LoadInt32(&d.pendingImages)
-		if pending <= 0 {
-			break
-		}
-
-		golog.Global.Debugf("sleeping for pending images %d", pending)
-
-		time.Sleep(time.Duration(50*pending) * time.Millisecond)
-	}
 
 	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
 }

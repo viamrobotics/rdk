@@ -55,13 +55,29 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 	}
 }
 
+func _testColorFailure(t *testing.T, a, b HSV, threshold float64, comparison string) {
+	d := a.distanceDebug(b, true)
+	t.Errorf("%v(%s) %v(%s) difference should be %s %f, but is %f", a, a.Hex(), b, b.Hex(), comparison, threshold, d)
+}
+
+func _assertCloseHex(t *testing.T, a, b string, threshold float64) {
+	aa := NewColorFromHexOrPanic(a, "")
+	bb := NewColorFromHexOrPanic(b, "")
+
+	d := aa.AsHSV.Distance(bb.AsHSV)
+	if d < threshold {
+		return
+	}
+
+	_testColorFailure(t, aa.AsHSV, bb.AsHSV, threshold, "<")
+}
+
 func _assertSame(t *testing.T, a, b HSV) {
 	d := a.Distance(b)
 	if d < 1 {
 		return
 	}
-	a.distanceDebug(b, true)
-	t.Errorf("%v and %v should be the same, but difference is %f", a, b, d)
+	_testColorFailure(t, a, b, 1, "<")
 }
 
 func _assertNotSame(t *testing.T, a, b HSV) {
@@ -69,8 +85,7 @@ func _assertNotSame(t *testing.T, a, b HSV) {
 	if d > 1 {
 		return
 	}
-	a.distanceDebug(b, true)
-	t.Errorf("%v and %v should be different, but difference is %f", a, b, d)
+	_testColorFailure(t, a, b, 1, ">")
 }
 
 func TestColorHSVColorConversion(t *testing.T) {
@@ -428,4 +443,11 @@ func TestColorHSVDistanceChessB(t *testing.T) {
 	a := NewColorFromHexOrPanic("#828263", "")
 	b := NewColorFromHexOrPanic("#868363", "")
 	_assertSame(t, a.AsHSV, b.AsHSV)
+}
+
+func TestColorHSVDistanceRandom1(t *testing.T) {
+	_assertCloseHex(t, "#182b2b", "#0f2725", 1.2)
+	_assertCloseHex(t, "#2f433c", "#283e3d", 1.1)
+	_assertCloseHex(t, "#001b3d", "#002856", 1.1)
+
 }
