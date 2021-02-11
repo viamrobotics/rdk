@@ -176,16 +176,21 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
 	}
 
-	for _, prev := range path[utils.MaxInt(0, len(path)-10):] {
+	lookback := 10
+	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
-		thresold := ColorThreshold // - (20.0-float64(idx))/100
+		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 5.0))
 
 		good := d < thresold
 
 		if ws.debug {
 			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
+			if !good && d < 1.5 {
+				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex(), prevColor.Hex())
+			}
+
 		}
 
 		if !good {
@@ -197,26 +202,36 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 	return true
 }
 
-func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point, quadrant image.Point) {
+// return the number of pieces added
+func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point, quadrant image.Point) int {
 	if !ws.valid(start) {
-		return
+		return 0
 	}
 
 	if len(path) > 0 && ws.dots.get(start) != 0 {
 		// don't recompute a spot
-		return
+		return 0
 	}
 
 	if !ws.isPixelIsCluster(start, colorNumber, path) {
-		return
+		return 0
 	}
 
-	ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
-	ws.pieceWalk(image.Point{start.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
-	ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y}, colorNumber, append(path, start), quadrant)
+	total := 0
+	if len(path) > 0 {
+		// the original pixel is special and is counted in the main piece function
+		total++
+	}
+
+	total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
+	total += ws.pieceWalk(image.Point{start.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
+	total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y}, colorNumber, append(path, start), quadrant)
+
+	return total
 }
 
-func (ws *walkState) piece(start image.Point, colorNumber int) error {
+// return the number of pieces in the cell
+func (ws *walkState) piece(start image.Point, colorNumber int) int {
 	if ws.debug {
 		golog.Global.Debugf("segmentation.piece start: %v", start)
 	}
@@ -224,19 +239,21 @@ func (ws *walkState) piece(start image.Point, colorNumber int) error {
 	ws.originalColor = ws.img.ColorHSV(start)
 	ws.originalPoint = start
 
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 1})
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 0})
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, -1})
+	total := 1
 
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 1})
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 0})
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, -1})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 1})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 0})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, -1})
 
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, 1})
-	ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, -1})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 1})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 0})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, -1})
+
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, 1})
+	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, -1})
 
 	ws.dots.clearTransients()
-	return nil
+	return total
 }
 
 func ShapeWalk(img vision.Image, start image.Point, debug bool) (*SegmentedImage, error) {
@@ -253,10 +270,7 @@ func ShapeWalkMultiple(img vision.Image, starts []image.Point, debug bool) (*Seg
 	}
 
 	for idx, start := range starts {
-		err := ws.piece(start, idx+1)
-		if err != nil {
-			return nil, err
-		}
+		ws.piece(start, idx+1)
 	}
 
 	ws.dots.createPalette()
@@ -298,9 +312,14 @@ func ShapeWalkEntireDebug(img vision.Image, debug bool) (*SegmentedImage, error)
 		}
 
 		start := found.(MyWalkError).pos
-
-		if err := ws.piece(start, color+1); err != nil {
-			return nil, err
+		numPixels := ws.piece(start, color+1)
+		if numPixels < 10 {
+			golog.Global.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
+			if numPixels == 1 {
+				ws.debug = true
+				ws.piece(start, color+1)
+				ws.debug = debug
+			}
 		}
 	}
 
