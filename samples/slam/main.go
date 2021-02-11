@@ -250,7 +250,7 @@ func main() {
 	started := make(chan struct{})
 	go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(started) }, robotViewMatSource, "robot perspective", remoteView, frameSpeed)
 	<-started
-	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world", remoteView, frameSpeed)
+	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView, frameSpeed)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

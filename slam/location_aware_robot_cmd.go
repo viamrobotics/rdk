@@ -6,7 +6,6 @@ import (
 	"math"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/robots/fake"
@@ -47,10 +46,8 @@ const defaultClientMoveAmount = 20
 
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
 	registry.Add(commandCalibrate, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		lar.scanMu.Lock()
-		defer lar.scanMu.Unlock()
-		atomic.StoreInt32(&lar.isMoving, 1)
-		defer atomic.StoreInt32(&lar.isMoving, 0)
+		lar.serverMu.Lock()
+		defer lar.serverMu.Unlock()
 		if lar.compassSensor != nil {
 			golog.Global.Info("calibrating compass")
 			if err := lar.compassSensor.StartCalibration(); err != nil {
@@ -289,12 +286,12 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
 	case clientClickModeInfo:
 		// TODO(erd): refactor to viewCoordToReal
-		_, bounds, area, err := lar.areaToView()
+		_, bounds, areas, err := lar.areasToView()
 		if err != nil {
 			return "", err
 		}
 
-		_, scaleDown := area.Size()
+		_, scaleDown := areas[0].Size()
 		bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
 		bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
 
@@ -321,9 +318,14 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		}
 
 		var present bool
-		area.Mutate(func(area MutableArea) {
-			present = area.At(areaX, areaY) != 0
-		})
+		for _, area := range areas {
+			area.Mutate(func(area MutableArea) {
+				present = area.At(areaX, areaY) != 0
+			})
+			if present {
+				break
+			}
+		}
 
 		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f,%f, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, angleCenter, angelCenterRad, distanceCenter, distanceFront), nil
 	default:
