@@ -302,6 +302,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		// detect obstacle END
 	}
 
+	defer lar.newPresentView() // TODO(erd): what about errors?
 	if _, _, err := base.DoMove(move, lar.baseDevice); err != nil {
 		return err
 	}
