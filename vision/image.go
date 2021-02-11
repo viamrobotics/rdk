@@ -249,3 +249,30 @@ func (i *Image) ClusterHSV(numClusters int) ([]utils.HSV, error) {
 	}
 	return ClusterHSV(allColors, numClusters)
 }
+
+func (i *Image) InterestingPixels(t float64) *image.Gray {
+	out := image.NewGray(i.Bounds())
+
+	for x := 0; x < i.Width(); x += 3 {
+		for y := 0; y < i.Height(); y += 3 {
+
+			_, avgDistance := i.AverageColorAndStats(image.Point{x + 1, y + 1}, 1)
+
+			clr := color.Gray{0}
+			if avgDistance > t {
+				clr = color.Gray{255}
+			}
+
+			for a := 0; a < 3; a++ {
+				for b := 0; b < 3; b++ {
+					xx := x + a
+					yy := y + b
+					out.SetGray(xx, yy, clr)
+				}
+			}
+
+		}
+	}
+
+	return out
+}
