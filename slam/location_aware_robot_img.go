@@ -23,8 +23,9 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	}
 }
 
-func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, orientations []float64) (image.Image, error) {
-	_, scaleDown := area.Size()
+func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea, orientations []float64) (image.Image, error) {
+	// all areas are the same size
+	_, scaleDown := areas[0].Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
 	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
 	centerX := bounds.X / 2
@@ -60,21 +61,23 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
-	area.Mutate(func(area MutableArea) {
-		area.DoNonZero(func(x, y int, _ float64) {
-			if x < minX || x > maxX || y < minY || y > maxY {
-				return
-			}
-			distX := basePosX - x
-			distY := basePosY - y
-			relX := centerX - distX
-			relY := centerY - distY
+	for _, area := range areas {
+		area.Mutate(func(area MutableArea) {
+			area.DoNonZero(func(x, y int, _ float64) {
+				if x < minX || x > maxX || y < minY || y > maxY {
+					return
+				}
+				distX := basePosX - x
+				distY := basePosY - y
+				relX := centerX - distX
+				relY := centerY - distY
 
-			dc.DrawPoint(float64(relX), float64(relY), 4)
-			dc.SetColor(color.RGBA{255, 0, 0, 255})
-			dc.Fill()
+				dc.DrawPoint(float64(relX), float64(relY), 4)
+				dc.SetColor(color.RGBA{255, 0, 0, 255})
+				dc.Fill()
+			})
 		})
-	})
+	}
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
@@ -142,21 +145,21 @@ func (lar *LocationAwareRobot) renderArea(bounds image.Point, area *SquareArea, 
 }
 
 func (lar *LocationAwareRobot) renderStoredView() (image.Image, error) {
-	_, bounds, area, err := lar.areaToView()
+	_, bounds, areas, err := lar.areasToView()
 	if err != nil {
 		return nil, err
 	}
 
-	return lar.renderArea(bounds, area, lar.orientations)
+	return lar.renderAreas(bounds, areas, lar.orientations)
 }
 
 func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
-	devices, bounds, area, err := lar.areaToView()
+	devices, bounds, areas, err := lar.areasToView()
 	if err != nil {
 		return nil, err
 	}
 
-	meters, scaleTo := area.Size()
+	meters, scaleTo := areas[0].Size()
 	blankArea := NewSquareArea(meters, scaleTo)
 
 	orientations, err := lar.scanAndStore(devices, blankArea)
@@ -164,5 +167,5 @@ func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
 		return nil, err
 	}
 
-	return lar.renderArea(bounds, blankArea, orientations)
+	return lar.renderAreas(bounds, []*SquareArea{blankArea}, orientations)
 }
