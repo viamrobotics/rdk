@@ -2,7 +2,6 @@ package segmentation
 
 import (
 	"image"
-	"image/color"
 	"testing"
 
 	"github.com/viamrobotics/robotcore/vision"
@@ -28,32 +27,10 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 		return err
 	}
 
-	t1 := .2
-
-	out1 := image.NewGray(img.Bounds())
-
-	for x := 0; x < img.Width(); x += 3 {
-		for y := 0; y < img.Height(); y += 3 {
-
-			_, avgDistance := img.AverageColorAndStats(image.Point{x + 1, y + 1}, 1)
-
-			clr := color.Gray{0}
-			if avgDistance > t1 {
-				clr = color.Gray{255}
-			}
-
-			for a := 0; a < 3; a++ {
-				for b := 0; b < 3; b++ {
-					xx := x + a
-					yy := y + b
-					out1.SetGray(xx, yy, clr)
-				}
-			}
-
-		}
+	if true {
+		out := img.InterestingPixels(.2)
+		d.GotDebugImage(out, "t")
 	}
-
-	d.GotDebugImage(out1, "t")
 
 	if true {
 		out, err := ShapeWalkEntireDebug(img, false)
