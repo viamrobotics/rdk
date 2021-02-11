@@ -24,6 +24,20 @@
 * libvpx
 * python2.7-dev
 * swig
+* yasm
+
+### libvpx (linux)
+
+```
+git clone https://github.com/webmproject/libvpx
+cd libvpx
+cd build
+../configure --enable-runtime-cpu-detect --enable-vp9 --enable-vp8    --enable-postproc --enable-vp9-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-vp9-highbitdepth --enable-onthefly-bitpacking
+make -j$(nproc)
+sudo make install
+```
+
+Add to your shell rc `export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig`
 
 ## Linting
 
