@@ -72,6 +72,18 @@ func _assertCloseHex(t *testing.T, a, b string, threshold float64) {
 	_testColorFailure(t, aa.AsHSV, bb.AsHSV, threshold, "<")
 }
 
+func _assertNotCloseHex(t *testing.T, a, b string, threshold float64) {
+	aa := NewColorFromHexOrPanic(a, "")
+	bb := NewColorFromHexOrPanic(b, "")
+
+	d := aa.AsHSV.Distance(bb.AsHSV)
+	if d > threshold {
+		return
+	}
+
+	_testColorFailure(t, aa.AsHSV, bb.AsHSV, threshold, ">")
+}
+
 func _assertSame(t *testing.T, a, b HSV) {
 	d := a.Distance(b)
 	if d < 1 {
@@ -449,5 +461,10 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#182b2b", "#0f2725", 1.2)
 	_assertCloseHex(t, "#2f433c", "#283e3d", 1.1)
 	_assertCloseHex(t, "#001b3d", "#002856", 1.1)
+	_assertCloseHex(t, "#393330", "#291f1f", 1.0)
 
+	_assertCloseHex(t, "#282737", "#261f2d", 1.2)
+	_assertNotCloseHex(t, "#282737", "#261f2d", 0.9)
+
+	//_assertCloseHex(t, "#1b3351", "#1d233c", 1.2) // TODO(erh)
 }
