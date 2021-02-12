@@ -66,7 +66,7 @@ func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error 
 		}
 	}
 	for {
-		startHeading, err := compass.AverageHeading(dwc.compass)
+		startHeading, err := compass.MedianHeading(dwc.compass)
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,7 @@ func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error 
 			return err
 		}
 		time.Sleep(1 * time.Second)
-		endHeading, err := compass.AverageHeading(dwc.compass)
+		endHeading, err := compass.MedianHeading(dwc.compass)
 		if err != nil {
 			return err
 		}
