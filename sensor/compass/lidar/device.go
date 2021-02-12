@@ -57,7 +57,7 @@ func (d *Device) Heading() (float64, error) {
 	if rotatedMatsIfc == nil {
 		return math.NaN(), nil
 	}
-	rotatedMats := rotatedMatsIfc.([]*utils.Vec2Matrix)
+	rotatedMatss := rotatedMatsIfc.([][]rotS)
 	origMat := d.markMat.Load().(*utils.Vec2Matrix)
 	measureMat, err := d.scanToVec2Matrix()
 	if err != nil {
@@ -67,7 +67,7 @@ func (d *Device) Heading() (float64, error) {
 	angularRes := d.Device.AngularResolution()
 
 	// fast path
-	if true {
+	if false {
 		const searchSize = 75 // always >= 2
 		var findDistance func(from, to float64) float64
 		findDistance = func(from, to float64) float64 {
@@ -106,7 +106,7 @@ func (d *Device) Heading() (float64, error) {
 			}
 			return findDistance(angs[minIdx], angs[minIdx+1])
 		}
-		return utils.CcwToCwDeg(findDistance(0, 360)), nil
+		return findDistance(0, 360), nil
 	}
 
 	maxTheta := 360
@@ -117,7 +117,6 @@ func (d *Device) Heading() (float64, error) {
 	var wait sync.WaitGroup
 	wait.Add(parallelFactor)
 	results := make(utils.Vec2Fs, parallelFactor)
-	groupSize := maxTheta / parallelFactor
 	for i := 0; i < parallelFactor; i++ {
 		iCopy := i
 		go func() {
@@ -129,10 +128,11 @@ func (d *Device) Heading() (float64, error) {
 			from := float64(thetaParts * i)
 			to := float64(thetaParts * (i + 1))
 			angleNum := 0
+			rotatedMats := rotatedMatss[i]
 			for theta := from; theta < to; theta += step {
-				rotated := rotatedMats[(i*groupSize)+angleNum]
+				rotatedS := rotatedMats[angleNum]
 				angleNum++
-				dist := rotated.DistanceMSETo(measureMat)
+				dist := rotatedS.mat.DistanceMSETo(measureMat)
 				if dist < minDist {
 					minDist = dist
 					minTheta = theta
@@ -143,7 +143,7 @@ func (d *Device) Heading() (float64, error) {
 	}
 	wait.Wait()
 	sort.Sort(results)
-	return utils.CcwToCwDeg(results[0][1]), nil
+	return results[0][1], nil
 }
 
 func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
@@ -151,7 +151,7 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		var err error
-		measurements, err = d.Device.Scan()
+		measurements, err = d.Device.Scan(lidar.ScanOptions{Count: 5, NoFilter: true})
 		if err != nil && i+1 >= attempts {
 			return nil, err
 		}
@@ -160,13 +160,22 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 		}
 	}
 	measureMat := mat.NewDense(3, len(measurements), nil)
+	var angSum float64
+	var distSum float64
 	for i, next := range measurements {
+		angSum += next.Angle()
+		distSum += next.Distance()
 		x, y := next.Coords()
 		measureMat.Set(0, i, x)
 		measureMat.Set(1, i, y)
 		measureMat.Set(2, i, 1)
 	}
 	return (*utils.Vec2Matrix)(measureMat), nil
+}
+
+type rotS struct {
+	mat   *utils.Vec2Matrix
+	theta float64
 }
 
 func (d *Device) Mark() error {
@@ -179,32 +188,32 @@ func (d *Device) Mark() error {
 	if maxTheta%parallelFactor != 0 {
 		return fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor)
 	}
-	groupSize := maxTheta / parallelFactor
 	angularRes := d.Device.AngularResolution()
 	thetaParts := maxTheta / parallelFactor
 	var wait sync.WaitGroup
 	wait.Add(parallelFactor)
 	numRotations := int(math.Ceil(float64(maxTheta) / angularRes))
-	rotatedMats := make([]*utils.Vec2Matrix, numRotations)
+	rotatedMatss := make([][]rotS, parallelFactor)
+	groupSize := int(math.Ceil(float64(numRotations) / float64(parallelFactor)))
 	for i := 0; i < parallelFactor; i++ {
 		iCopy := i
 		go func() {
 			defer wait.Done()
+			rotatedMats := make([]rotS, 0, groupSize)
 			i := iCopy
 			step := angularRes
 			from := float64(thetaParts * i)
 			to := float64(thetaParts * (i + 1))
-			angleNum := 0
 			for theta := from; theta < to; theta += step {
 				rotated := measureMat.RotateMatrixAbout(0, 0, theta)
-				rotatedMats[(i*groupSize)+angleNum] = rotated
-				angleNum++
+				rotatedMats = append(rotatedMats, rotS{rotated, theta})
 			}
+			rotatedMatss[i] = rotatedMats
 		}()
 	}
 	wait.Wait()
 
-	d.mark.Store(rotatedMats)
+	d.mark.Store(rotatedMatss)
 	d.markMat.Store(measureMat)
 	return nil
 }
