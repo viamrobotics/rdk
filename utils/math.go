@@ -14,7 +14,7 @@ func AngleDiffDeg(a1, a2 float64) float64 {
 	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
 }
 
-func CcwToCwDeg(deg float64) float64 {
+func AntiCWDeg(deg float64) float64 {
 	return math.Mod(float64(360)-deg, 360)
 }
 
@@ -26,7 +26,27 @@ func AverageAngleDeg(angles ...float64) float64 {
 		sumSin += math.Sin(angleRad)
 		sumCos += math.Cos(angleRad)
 	}
-	return CcwToCwDeg(RadToDeg(math.Atan2(sumSin, sumCos)))
+	ret := RadToDeg(math.Atan2(sumSin, sumCos))
+	if ret < 0 {
+		ret = 360 + ret
+	}
+	return ret
+}
+
+func MedianAngleDeg(angles ...float64) float64 {
+	rets := make([]float64, 0, len(angles))
+	for _, ang := range angles {
+		angleRad := DegToRad(ang)
+		sin := math.Sin(angleRad)
+		cos := math.Cos(angleRad)
+		ret := RadToDeg(math.Atan2(sin, cos))
+		if ret < 0 {
+			ret = 360 + ret
+		}
+		rets = append(rets, ret)
+	}
+
+	return rets[int(math.Floor(float64(len(rets))/2))]
 }
 
 func AbsInt(n int) int {

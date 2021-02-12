@@ -397,7 +397,7 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 
 	allMeasurements := make([]lidar.Measurements, len(devices))
 	for i, dev := range devices {
-		measurements, err := dev.Scan()
+		measurements, err := dev.Scan(lidar.ScanOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("bad scan on device %d: %w", i, err)
 		}
