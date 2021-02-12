@@ -111,6 +111,8 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		wh /= 20
 		ws *= 1.25
 		wv *= 1.25
+	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
+		wh /= 5
 	} else {
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = Square(math.Min(s1, s2)) + Square(math.Min(v1, v2)) // 0 -> 2
@@ -127,7 +129,7 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		}
 
 		if v1 < .25 || v2 < .25 {
-			wv *= 3
+			wv *= 2.7
 			ws /= 3
 			wh *= .5
 		}
@@ -136,36 +138,10 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			wv *= .6
 		}
 
-		/*
-			// we're playing with the angle of the v1,s1 -> v2,s2 vector
-			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-			//ac = math.Pow(ac, .3333)
-			AC_SCALE := 2.0
-			acs := ac / AC_SCALE
-			acs += (1-(1/AC_SCALE))
-			wh *= acs
-			ws /= acs
-			wv /= acs
-		*/
-	}
-
-	/*
-		else if s1 < .45 || v1 < .45 || s2 < .45 || v2 < .45 {
-			// we're playing with the angle of the v1,s1 -> v2,s2 vector
-			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-			ac = math.Pow(ac, .3333)
-			wh *= Square(1 - ac)                // the further from normal the more we care about hue
-			ws *= 4.7 * ac * math.Pow(1-(s1+s2)/2, .3) // the higher the saturation, the less saturation differences matter
-			wv *= 1.1 * ac
-		} else {
-			/*
-			// we're playing with the angle of the v1,s1 -> v2,s2 vector
-			ac = _ratioOffFrom135(v2-v1, s2-s1) // this is 0(more similar) -> 1(less similar)
-			wh *= Square(1 - ac)         // the further from normal the more we care about hue
-			ws *= 3.2 * ac
-			wv *= 1.2 * ac
+		if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
+			wh *= .75
 		}
-	*/
+	}
 
 	hd := _loopedDiff(h1, h2)
 	sum := Square(wh * hd)
