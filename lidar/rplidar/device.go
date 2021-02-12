@@ -7,6 +7,7 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/viamrobotics/robotcore/lidar"
 	rplidargen "github.com/viamrobotics/robotcore/lidar/rplidar/gen"
@@ -148,12 +149,13 @@ func NewDevice(devicePath string) (*RPLidar, error) {
 }
 
 type RPLidar struct {
-	mu       sync.Mutex
-	driver   rplidargen.RPlidarDriver
-	nodes    rplidargen.Rplidar_response_measurement_node_hq_t
-	nodeSize int
-	started  bool
-	bounds   *image.Point
+	mu          sync.Mutex
+	driver      rplidargen.RPlidarDriver
+	nodes       rplidargen.Rplidar_response_measurement_node_hq_t
+	nodeSize    int
+	started     bool
+	scannedOnce bool
+	bounds      *image.Point
 
 	// info
 	model            byte
@@ -226,6 +228,10 @@ func (rpl *RPLidar) Bounds() (image.Point, error) {
 func (rpl *RPLidar) Start() {
 	rpl.mu.Lock()
 	defer rpl.mu.Unlock()
+	rpl.start()
+}
+
+func (rpl *RPLidar) start() {
 	rpl.started = true
 	rpl.driver.StartMotor()
 	rpl.driver.StartScan(false, true)
@@ -250,17 +256,37 @@ func (rpl *RPLidar) Close() error {
 	return nil
 }
 
-const numScans = 3
+const defaultNumScans = 3
 
-func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
+func (rpl *RPLidar) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
+	rpl.mu.Lock()
+	defer rpl.mu.Unlock()
+	return rpl.scan(options)
+}
+
+func (rpl *RPLidar) scan(options lidar.ScanOptions) (lidar.Measurements, error) {
 	if !rpl.started {
-		rpl.Start()
+		rpl.start()
 		rpl.started = true
 	}
+	if !rpl.scannedOnce {
+		rpl.scannedOnce = true
+		// discard scans for warmup
+		//nolint
+		rpl.scan(lidar.ScanOptions{Count: 10})
+		time.Sleep(time.Second)
+	}
+
+	numScans := defaultNumScans
+	if options.Count != 0 {
+		numScans = options.Count
+	}
+	// numScans = 1
 
 	nodeCount := int64(rpl.nodeSize)
-	measurements := make(lidar.Measurements, 0, nodeCount*numScans)
+	measurements := make(lidar.Measurements, 0, nodeCount*int64(numScans))
 
+	var dropCount int
 	for i := 0; i < numScans; i++ {
 		nodeCount = int64(rpl.nodeSize)
 		result := rpl.driver.GrabScanDataHq(rpl.nodes, &nodeCount, defaultTimeout)
@@ -272,6 +298,7 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 		for pos := 0; pos < int(nodeCount); pos++ {
 			node := rplidargen.MeasurementNodeHqArray_getitem(rpl.nodes, pos)
 			if node.GetDist_mm_q2() == 0 {
+				dropCount++
 				continue // TODO(erd): okay to skip?
 			}
 
@@ -283,6 +310,9 @@ func (rpl *RPLidar) Scan() (lidar.Measurements, error) {
 	}
 	if len(measurements) == 0 {
 		return nil, nil
+	}
+	if options.NoFilter {
+		return measurements, nil
 	}
 	sort.Stable(measurements)
 	filteredMeasurements := make(lidar.Measurements, 0, len(measurements))

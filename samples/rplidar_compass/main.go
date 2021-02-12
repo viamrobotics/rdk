@@ -19,6 +19,7 @@ import (
 	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
 
 	"github.com/edaniels/golog"
+	"gonum.org/v1/gonum/stat"
 )
 
 func main() {
@@ -104,6 +105,7 @@ func main() {
 
 	avgCount := 0
 	avgCountLimit := 10
+	var headings []float64
 	for {
 		select {
 		case <-cancelCtx.Done():
@@ -114,16 +116,31 @@ func main() {
 		var heading float64
 		var err error
 		if avgCount != 0 && avgCount%avgCountLimit == 0 {
+			golog.Global.Debugf("variance %f", stat.Variance(headings, nil))
+			headings = nil
 			golog.Global.Debug("getting average")
 			heading, err = compass.AverageHeading(lidarCompass)
+			if err != nil {
+				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
+				continue
+			}
+			golog.Global.Infow("average heading", "data", heading)
+			golog.Global.Debug("getting median")
+			heading, err = compass.MedianHeading(lidarCompass)
+			if err != nil {
+				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
+				continue
+			}
+			golog.Global.Infow("median heading", "data", heading)
 		} else {
 			heading, err = lidarCompass.Heading()
+			if err != nil {
+				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
+				continue
+			}
+			headings = append(headings, heading)
+			golog.Global.Infow("heading", "data", heading)
 		}
 		avgCount++
-		if err != nil {
-			golog.Global.Errorw("failed to get lidar compass heading", "error", err)
-			continue
-		}
-		golog.Global.Infow("heading", "data", heading)
 	}
 }

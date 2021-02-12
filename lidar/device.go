@@ -8,7 +8,7 @@ type Device interface {
 	Close() error
 	// assumes the device is in a fixed point for the duration
 	// of the scan
-	Scan() (Measurements, error)
+	Scan(options ScanOptions) (Measurements, error)
 	Range() int
 	Bounds() (image.Point, error)
 	AngularResolution() float64
@@ -24,4 +24,9 @@ const (
 type DeviceDescription struct {
 	Type DeviceType
 	Path string
+}
+
+type ScanOptions struct {
+	Count    int
+	NoFilter bool
 }

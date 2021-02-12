@@ -87,7 +87,7 @@ func (l *Lidar) Bounds() (image.Point, error) {
 	return image.Point{x, x}, nil
 }
 
-func (l *Lidar) Scan() (lidar.Measurements, error) {
+func (l *Lidar) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if !l.started {

@@ -11,7 +11,7 @@ import (
 type Vec2Matrix mat.Dense
 
 func (v2m *Vec2Matrix) RotateMatrixAbout(x, y, theta float64) *Vec2Matrix {
-	thetaRad := DegToRad(theta)
+	thetaRad := DegToRad(AntiCWDeg(theta))
 	rot := vec2RotationMatrixAbout(x, y, thetaRad)
 	var rotated mat.Dense
 	rotated.Mul(rot, (*mat.Dense)(v2m))
@@ -40,18 +40,18 @@ func vec2RotationMatrixAbout(x, y, theta float64) mat.Matrix {
 }
 
 func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
-	fromMat := sortMat((*mat.Dense)(v2m))
-	toMat := sortMat((*mat.Dense)(to))
-	_, fromLen := fromMat.Dims()
-	_, toLen := toMat.Dims()
-	numRows := fromMat.ColView(0).Len()
-	compareFrom := fromMat
-	compareTo := toMat
+	_, fromLen := (*mat.Dense)(v2m).Dims()
+	_, toLen := (*mat.Dense)(to).Dims()
+	compareFrom := (*mat.Dense)(v2m)
+	compareTo := (*mat.Dense)(to)
 	if fromLen < toLen {
-		compareTo = mat.DenseCopyOf(toMat.Slice(0, numRows, 0, fromLen))
+		compareFrom = mat.DenseCopyOf(compareFrom).Grow(0, toLen-fromLen).(*mat.Dense)
 	} else if fromLen > toLen {
-		compareFrom = mat.DenseCopyOf(fromMat.Slice(0, numRows, 0, toLen))
+		compareTo = mat.DenseCopyOf(compareTo).Grow(0, fromLen-toLen).(*mat.Dense)
 	}
+
+	compareFrom = sortMat(compareFrom)
+	compareTo = sortMat(compareTo)
 
 	var subbed mat.Dense
 	subbed.Sub(compareFrom, compareTo)

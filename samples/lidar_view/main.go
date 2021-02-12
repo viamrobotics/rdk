@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"strconv"
@@ -13,6 +14,8 @@ import (
 	"github.com/viamrobotics/robotcore/lidar"
 	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/lidar/search"
+	"github.com/viamrobotics/robotcore/sensor/compass"
+	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
 	"github.com/viamrobotics/robotcore/utils"
 
 	// register fake
@@ -115,6 +118,46 @@ func main() {
 		autoTiler.AddSource(lidar.NewImageSource(dev))
 		break
 	}
+
+	bestResolution := math.MaxFloat64
+	bestResolutionDeviceNum := 0
+	for i, lidarDev := range lidarDevices {
+		if lidarDev.AngularResolution() < bestResolution {
+			bestResolution = lidarDev.AngularResolution()
+			bestResolutionDeviceNum = i
+		}
+	}
+	bestResolutionDevice := lidarDevices[bestResolutionDeviceNum]
+	desc := deviceDescs[bestResolutionDeviceNum]
+	golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
+	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResolutionDevice)
+	go func() {
+		for {
+			select {
+			case <-cancelCtx.Done():
+				return
+			default:
+			}
+			time.Sleep(100 * time.Millisecond)
+			heading, err := lidarCompass.Heading()
+			if err != nil {
+				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
+				continue
+			}
+			golog.Global.Infow("heading", "data", heading)
+		}
+	}()
+	quitC := make(chan os.Signal, 2)
+	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
+	go func() {
+		for {
+			<-quitC
+			golog.Global.Debug("marking")
+			lidarCompass.Mark()
+			golog.Global.Debug("marked")
+		}
+	}()
+
 	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 33*time.Millisecond)
 
 	if err := server.Stop(context.Background()); err != nil {
