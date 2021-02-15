@@ -20,6 +20,9 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 		return err
 	}
 
+	swOptions := segmentation.ShapeWalkOptions{}
+	swOptions.MaxRadius = 50
+
 	d.GotDebugImage(out, "corners")
 
 	if corners != nil {
@@ -37,7 +40,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			}
 		}
 
-		res, err := segmentation.ShapeWalkMultiple(warped, starts, false)
+		res, err := segmentation.ShapeWalkMultiple(warped, starts, swOptions)
 		if err != nil {
 			return err
 		}

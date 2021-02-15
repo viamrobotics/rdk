@@ -39,7 +39,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			starts = append(starts, s.Start)
 		}
 
-		out, err := ShapeWalkMultiple(img, starts, false)
+		out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{})
 		if err != nil {
 			return err
 		}
@@ -50,7 +50,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			numPixels := out.PixelsInSegmemnt(idx + 1)
 			if numPixels < s.PixelRange[0] || numPixels > s.PixelRange[1] {
 				// run again with debugging on
-				_, err := ShapeWalkMultiple(img, starts, true)
+				_, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{Debug: true})
 				if err != nil {
 					return err
 				}
@@ -62,7 +62,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 	}
 
 	if true {
-		out, err := ShapeWalkEntireDebug(img, false)
+		out, err := ShapeWalkEntireDebug(img, ShapeWalkOptions{})
 		if err != nil {
 			return err
 		}
