@@ -152,7 +152,7 @@ func view(img vision.Image) error {
 			colorHSV.H, colorHSV.S, colorHSV.V,
 			color.R, color.G, color.B, color.A)
 
-		walked, err := segmentation.ShapeWalk(img, p, *debug)
+		walked, err := segmentation.ShapeWalk(img, p, segmentation.ShapeWalkOptions{Debug: *debug})
 		if err != nil {
 			panic(err)
 		}
@@ -215,7 +215,7 @@ func main() {
 	case "hsvHisto":
 		hsvHistogram(img)
 	case "shapeWalkEntire":
-		out, err := segmentation.ShapeWalkEntireDebug(img, *debug)
+		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug})
 		if err == nil {
 			err = utils.WriteImageToFile(_getOutputfile(), out)
 			if err != nil {
