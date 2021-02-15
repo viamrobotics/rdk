@@ -102,7 +102,7 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			ws /= 3
 		}
 	} else if s1 < .10 || s2 < .10 {
-		// we're in the light range
+		// we're in the very light range
 		wh /= 100
 		ws *= 1.5
 		wv *= 1.5
@@ -112,7 +112,22 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		ws *= 1.25
 		wv *= 1.25
 	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
+		// we're in the bottom left quadrat
 		wh /= 5
+	} else if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
+		// bottom left bigger quadrant
+		wh /= 2.5
+	} else if s1 > .9 && s2 > .9 {
+		// in the very right side of the chart
+		wv *= .6
+	} else if v1 < .20 || v2 < .20 {
+		wv *= 3
+		ws /= 3
+		wh *= .5
+	} else if v1 < .25 || v2 < .25 {
+		wv *= 1.5
+		ws /= 3
+		wh *= .5
 	} else {
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = Square(math.Min(s1, s2)) + Square(math.Min(v1, v2)) // 0 -> 2
@@ -128,19 +143,6 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			wv *= 1.0
 		}
 
-		if v1 < .25 || v2 < .25 {
-			wv *= 2.7
-			ws /= 3
-			wh *= .5
-		}
-
-		if s1 > .9 && s2 > .9 {
-			wv *= .6
-		}
-
-		if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
-			wh *= .75
-		}
 	}
 
 	hd := _loopedDiff(h1, h2)
