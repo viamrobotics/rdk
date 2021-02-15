@@ -91,44 +91,55 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 
 	ac := -1.0
 	dd := 1.0
+	var section int
 
 	if v1 < .13 || v2 < .13 {
+		section = 1
 		// we're in the dark range
 		wh /= 30
-		ws /= 5
+		ws /= 7
 		wv *= 1.5
 
 		if v1 < .1 && v2 < .1 {
 			ws /= 3
 		}
+	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
+		section = 2
+		// we're in the bottom left quadrat
+		wh /= 5
+		ws /= 2
+	} else if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
+		section = 3
+		// bottom left bigger quadrant
+		wh /= 2.5
 	} else if s1 < .10 || s2 < .10 {
+		section = 4
 		// we're in the very light range
 		wh /= 100
 		ws *= 1.5
 		wv *= 1.5
 	} else if s1 < .19 && s2 < .19 {
+		section = 5
 		// we're in the light range
 		wh /= 20
 		ws *= 1.25
 		wv *= 1.25
-	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
-		// we're in the bottom left quadrat
-		wh /= 5
-	} else if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
-		// bottom left bigger quadrant
-		wh /= 2.5
 	} else if s1 > .9 && s2 > .9 {
+		section = 6
 		// in the very right side of the chart
 		wv *= .6
 	} else if v1 < .20 || v2 < .20 {
+		section = 7
 		wv *= 3
-		ws /= 3
-		wh *= .5
+		ws /= 4
+		wh *= .4
 	} else if v1 < .25 || v2 < .25 {
+		section = 8
 		wv *= 1.5
-		ws /= 3
+		ws /= 5
 		wh *= .5
 	} else {
+		section = 9
 		// if dd is 0, hue is less important, if dd is 2, hue is more important
 		dd = Square(math.Min(s1, s2)) + Square(math.Min(v1, v2)) // 0 -> 2
 
@@ -158,7 +169,7 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", Square(hd), Square(s1-s2), Square(v1-v2))
 		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", Square(wh*hd), Square(ws*(s1-s2)), Square(wv*(v1-v2)))
-		golog.Global.Debugf("\t res: %f ac: %f dd: %f", res, ac, dd)
+		golog.Global.Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
 	}
 	return res
 }
