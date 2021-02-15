@@ -57,7 +57,8 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 
 func _testColorFailure(t *testing.T, a, b HSV, threshold float64, comparison string) {
 	d := a.distanceDebug(b, true)
-	t.Errorf("%v(%s) %v(%s) difference should be %s %f, but is %f", a, a.Hex(), b, b.Hex(), comparison, threshold, d)
+	t.Errorf("%v(%s) %v(%s) difference should be %s %f, but is %f https://www.viam.com/color.html?#1=%s&2=%s",
+		a, a.Hex(), b, b.Hex(), comparison, threshold, d, a.Hex(), b.Hex())
 }
 
 func _assertCloseHex(t *testing.T, a, b string, threshold float64) {
@@ -433,21 +434,10 @@ func readColorsFromFile(fn string) ([]Color, error) {
 }
 
 func TestColorHSVDistanceChessA(t *testing.T) {
-	a := NewColorFromHexOrPanic("#8c9173", "")
-	b := NewColorFromHexOrPanic("#7b7e6c", "")
-	_assertNotSame(t, a.AsHSV, b.AsHSV)
-
-	a = NewColorFromHexOrPanic("#909571", "")
-	b = NewColorFromHexOrPanic("#83876f", "")
-	_assertNotSame(t, a.AsHSV, b.AsHSV)
-
-	a = NewColorFromHexOrPanic("#0d1e2a", "")
-	b = NewColorFromHexOrPanic("#0e273f", "")
-	_assertNotSame(t, a.AsHSV, b.AsHSV)
-
-	a = NewColorFromHexOrPanic("#041726", "")
-	b = NewColorFromHexOrPanic("#031e39", "")
-	_assertNotSame(t, a.AsHSV, b.AsHSV)
+	_assertNotCloseHex(t, "#8c9173", "#7b7e6c", 1.0)
+	_assertNotCloseHex(t, "#909571", "#83876f", 1.0)
+	_assertNotCloseHex(t, "#0d1e2a", "#0e273f", 1.0)
+	_assertNotCloseHex(t, "#041726", "#031e39", 1.0)
 
 }
 
@@ -466,5 +456,5 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#282737", "#261f2d", 1.2)
 	_assertNotCloseHex(t, "#282737", "#261f2d", 0.9)
 
-	//_assertCloseHex(t, "#1b3351", "#1d233c", 1.2) // TODO(erh)
+	_assertCloseHex(t, "#1b3351", "#1d233c", 1.2) // TODO(erh)
 }
