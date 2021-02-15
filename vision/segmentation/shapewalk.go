@@ -187,7 +187,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 
 		if ws.debug {
 			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
-			if !good && d < 1.5 {
+			if !good && d-thresold < .05 {
 				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex(), prevColor.Hex())
 			}
 

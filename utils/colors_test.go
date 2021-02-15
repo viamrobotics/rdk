@@ -456,5 +456,10 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#282737", "#261f2d", 1.2)
 	_assertNotCloseHex(t, "#282737", "#261f2d", 0.9)
 
-	_assertCloseHex(t, "#1b3351", "#1d233c", 1.2) // TODO(erh)
+	_assertCloseHex(t, "#1b3351", "#1d233c", 1.2)
+
+	_assertCloseHex(t, "#303330", "#202825", 1.1)
+	_assertCloseHex(t, "#000204", "#162320", 1.1)
+	_assertCloseHex(t, "#1d252f", "#192326", 1.1)
+
 }
