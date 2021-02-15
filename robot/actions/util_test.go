@@ -54,7 +54,7 @@ func (cd ChargeDebug) Process(d *vision.MultipleImageTestDebugger, fn string, im
 
 	d.GotDebugImage(goImg, "rotated")
 
-	m2, err := segmentation.ShapeWalkEntireDebug(img, false)
+	m2, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{})
 	if err != nil {
 		return err
 	}
