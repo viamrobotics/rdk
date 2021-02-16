@@ -108,29 +108,31 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		// we're in the bottom left quadrat
 		wh /= 5
 		ws /= 2
-	} else if (s1 < .3 && v1 < .3) || (s2 < .3 && v2 < .3) {
+	} else if (s1 < .3 && v1 < .35) || (s2 < .3 && v2 < .35) {
 		section = 3
 		// bottom left bigger quadrant
 		wh /= 2.5
 	} else if s1 < .10 || s2 < .10 {
 		section = 4
 		// we're in the very light range
-		wh /= 100
-		ws *= 1.5
-		wv *= 1.5
+		wh *= .06 * (v1 + v2) * ((s1 + s2) * 5)
+		ws *= 1.15
+		wv *= 1.54
 	} else if s1 < .19 && s2 < .19 {
 		section = 5
 		// we're in the light range
-		wh /= 20
+		wh *= .3
 		ws *= 1.25
 		wv *= 1.25
 	} else if s1 > .9 && s2 > .9 {
 		section = 6
 		// in the very right side of the chart
-		wv *= .6
+		wh *= 1.2
+		ws *= 1.1
+		wv *= .7
 	} else if v1 < .20 || v2 < .20 {
 		section = 7
-		wv *= 3
+		wv *= 2.8
 		ws /= 4
 		wh *= .4
 	} else if v1 < .25 || v2 < .25 {
@@ -152,6 +154,8 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 			wh *= 1
 			ws *= 2.3
 			wv *= 1.0
+		} else {
+			ws *= .5
 		}
 
 	}
