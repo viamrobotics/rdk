@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"image"
 	"math"
 	"os"
 	"os/signal"
@@ -16,10 +17,11 @@ import (
 	"github.com/viamrobotics/robotcore/lidar/search"
 	"github.com/viamrobotics/robotcore/sensor/compass"
 	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
+	"github.com/viamrobotics/robotcore/slam"
 	"github.com/viamrobotics/robotcore/utils"
 
 	// register fake
-	_ "github.com/viamrobotics/robotcore/robots/fake"
+	"github.com/viamrobotics/robotcore/robots/fake"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -31,6 +33,8 @@ const fakeDev = "fake"
 func main() {
 	var devicePathFlags utils.StringFlags
 	flag.Var(&devicePathFlags, "device", "lidar devices")
+	var saveToDisk string
+	flag.StringVar(&saveToDisk, "save", "", "save data to disk (LAS)")
 	flag.Parse()
 
 	port := 5555
@@ -91,6 +95,33 @@ func main() {
 		defer lidarDev.Stop()
 	}
 
+	var lar *slam.LocationAwareRobot
+	var area *slam.SquareArea
+	if saveToDisk != "" {
+		areaSizeMeters := 50
+		areaScale := 100 // cm
+		area = slam.NewSquareArea(areaSizeMeters, areaScale)
+		areaCenter := area.Center()
+		areaSize, areaSizeScale := area.Size()
+
+		var err error
+		lar, err = slam.NewLocationAwareRobot(
+			&fake.Base{},
+			image.Point{areaCenter.X, areaCenter.Y},
+			lidarDevices,
+			nil,
+			area,
+			image.Point{areaSize * areaSizeScale, areaSize * areaSizeScale},
+			nil,
+		)
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		if err := lar.Start(); err != nil {
+			panic(err)
+		}
+	}
+
 	config := vpx.DefaultRemoteViewConfig
 	config.Debug = false
 	remoteView, err := gostream.NewRemoteView(config)
@@ -111,6 +142,12 @@ func main() {
 	go func() {
 		<-c
 		cancelFunc()
+		if saveToDisk != "" {
+			lar.Stop()
+			if err := area.WriteToFile(saveToDisk); err != nil {
+				golog.Global.Fatal(err)
+			}
+		}
 	}()
 
 	autoTiler := gostream.NewAutoTiler(1280, 720)
@@ -131,14 +168,16 @@ func main() {
 	desc := deviceDescs[bestResolutionDeviceNum]
 	golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
 	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResolutionDevice)
+	compassDone := make(chan struct{})
 	go func() {
+		defer close(compassDone)
 		for {
 			select {
 			case <-cancelCtx.Done():
 				return
 			default:
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Second)
 			heading, err := lidarCompass.Heading()
 			if err != nil {
 				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
@@ -149,9 +188,15 @@ func main() {
 	}()
 	quitC := make(chan os.Signal, 2)
 	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
+	markDone := make(chan struct{})
 	go func() {
+		defer close(markDone)
 		for {
-			<-quitC
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-quitC:
+			}
 			golog.Global.Debug("marking")
 			lidarCompass.Mark()
 			golog.Global.Debug("marked")
@@ -163,4 +208,6 @@ func main() {
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
 	}
+	<-compassDone
+	<-markDone
 }
