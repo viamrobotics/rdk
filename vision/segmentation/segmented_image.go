@@ -29,6 +29,12 @@ func (si *SegmentedImage) toK(p image.Point) int {
 	return (p.Y * si.width) + p.X
 }
 
+func (si *SegmentedImage) fromK(k int) image.Point {
+	y := k / si.width
+	x := k - (y * si.width)
+	return image.Point{x, y}
+}
+
 func (si *SegmentedImage) get(p image.Point) int {
 	k := si.toK(p)
 	if k < 0 || k >= len(si.dots) {
@@ -94,7 +100,7 @@ func (si *SegmentedImage) createPalette() {
 
 func (si *SegmentedImage) clearTransients() {
 	for k, v := range si.dots {
-		if v == -1 {
+		if v < 0 {
 			si.dots[k] = 0
 		}
 	}
