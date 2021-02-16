@@ -30,6 +30,7 @@ const (
 	commandLidarView         = "cl_lidar_view"
 	commandLidarViewMode     = "cl_lidar_view_mode"
 	commandCalibrate         = "calibrate"
+	commandSave              = "save"
 )
 
 const (
@@ -45,6 +46,14 @@ const (
 const defaultClientMoveAmount = 20
 
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
+	registry.Add(commandSave, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+		lar.serverMu.Lock()
+		defer lar.serverMu.Unlock()
+		if len(cmd.Args) == 0 {
+			return nil, errors.New("file to save to required")
+		}
+		return nil, lar.rootArea.WriteToFile(cmd.Args[0])
+	})
 	registry.Add(commandCalibrate, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		lar.serverMu.Lock()
 		defer lar.serverMu.Unlock()
