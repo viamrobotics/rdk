@@ -1,8 +1,7 @@
-package slam
+package pc
 
 import (
 	"fmt"
-	"math/rand"
 	"path/filepath"
 
 	"github.com/jblindsay/lidario"
@@ -47,42 +46,53 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 	if err != nil {
 		return err
 	}
+
+	pointFormatID := 0
+	if pc.hasColor {
+		pointFormatID = 2
+	}
 	if err := lf.AddHeader(lidario.LasHeader{
-		PointFormatID: 2,
+		PointFormatID: byte(pointFormatID),
 	}); err != nil {
 		return err
 	}
 
 	var lastErr error
-	var count int
 	pc.Iterate(func(p Point) bool {
 		pos := p.Position()
-		redVal := rand.Intn(256) * 256
-		greenVal := rand.Intn(256) * 256
-		blueVal := rand.Intn(256) * 256
-		count++
-		if err := lf.AddLasPoint(&lidario.PointRecord2{
-			PointRecord0: &lidario.PointRecord0{
-				X:         float64(pos.X),
-				Y:         float64(pos.Y),
-				Z:         float64(pos.Z),
-				Intensity: 0,
-				BitField: lidario.PointBitField{
-					Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
-				},
-				ClassBitField: lidario.ClassificationBitField{
-					Value: 0,
-				},
-				ScanAngle:     0,
-				UserData:      0,
-				PointSourceID: 1,
+		var lp lidario.LasPointer
+		pr0 := &lidario.PointRecord0{
+			X:         float64(pos.X),
+			Y:         float64(pos.Y),
+			Z:         float64(pos.Z),
+			Intensity: 0,
+			BitField: lidario.PointBitField{
+				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
 			},
-			RGB: &lidario.RgbData{
-				Red:   uint16(redVal),
-				Green: uint16(greenVal),
-				Blue:  uint16(blueVal),
+			ClassBitField: lidario.ClassificationBitField{
+				Value: 0,
 			},
-		}); err != nil {
+			ScanAngle:     0,
+			UserData:      0,
+			PointSourceID: 1,
+		}
+		lp = pr0
+		if pc.hasColor {
+			red, green, blue := 255, 255, 255
+			if cp, ok := p.(ColoredPoint); ok {
+				c := cp.Color()
+				red, green, blue = int(c.R), int(c.G), int(c.B)
+			}
+			lp = &lidario.PointRecord2{
+				PointRecord0: pr0,
+				RGB: &lidario.RgbData{
+					Red:   uint16(red * 256),
+					Green: uint16(green * 256),
+					Blue:  uint16(blue * 256),
+				},
+			}
+		}
+		if err := lf.AddLasPoint(lp); err != nil {
 			lastErr = err
 			return false
 		}

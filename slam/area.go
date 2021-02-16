@@ -4,11 +4,13 @@ import (
 	"image"
 	"math"
 	"sync"
+
+	"github.com/viamrobotics/robotcore/pc"
 )
 
 func NewSquareArea(meters int, scaleTo int) *SquareArea {
 	measurementScaled := meters * scaleTo
-	pc := NewPointCloud()
+	pc := pc.NewPointCloud()
 	centerX := measurementScaled / 2
 	centerY := centerX
 
@@ -25,7 +27,7 @@ type SquareArea struct {
 	mu         sync.Mutex
 	sizeMeters int
 	scale      int
-	pc         *PointCloud
+	pc         *pc.PointCloud
 	centerX    int
 	centerY    int
 }
@@ -58,9 +60,9 @@ func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 type mutableSquareArea SquareArea
 
 func (msa *mutableSquareArea) Iterate(visit func(x, y int, v float64) bool) {
-	msa.pc.Iterate(func(p Point) bool {
+	msa.pc.Iterate(func(p pc.Point) bool {
 		pos := p.Position()
-		return visit(pos.X, pos.Y, p.(FloatPoint).Value())
+		return visit(pos.X, pos.Y, p.(pc.FloatPoint).Value())
 	})
 }
 
@@ -69,11 +71,11 @@ func (msa *mutableSquareArea) At(x, y int) float64 {
 	if p == nil {
 		return math.NaN()
 	}
-	return p.(FloatPoint).Value()
+	return p.(pc.FloatPoint).Value()
 }
 
 func (msa *mutableSquareArea) Set(x, y int, v float64) {
-	msa.pc.Set(NewFloatPoint(x, y, 0, v))
+	msa.pc.Set(pc.NewFloatPoint(x, y, 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
