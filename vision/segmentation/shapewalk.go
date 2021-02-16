@@ -53,22 +53,22 @@ func (ws *walkState) towardsCenter(p image.Point, amount int) image.Point {
 	return ret
 }
 */
-func (ws *walkState) isPixelIsCluster(p image.Point, colorNumber int, path []image.Point) bool {
+func (ws *walkState) isPixelIsCluster(p image.Point, clusterNumber int, path []image.Point) bool {
 	v := ws.dots.get(p)
 	if v == 0 {
-		good := ws.computeIfPixelIsCluster(p, colorNumber, path)
+		good := ws.computeIfPixelIsCluster(p, clusterNumber, path)
 		if good {
-			v = colorNumber
-		} else {
-			v = -1
+			v = clusterNumber
+			//} else {
+			//v = -1 // TODO(erh): remove clearTransients if i don't put this back
 		}
 		ws.dots.set(p, v)
 	}
 
-	return v == colorNumber
+	return v == clusterNumber
 }
 
-func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, path []image.Point) bool {
+func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, path []image.Point) bool {
 	if !ws.valid(p) {
 		return false
 	}
@@ -121,7 +121,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 }
 
 // return the number of pieces added
-func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.Point, quadrant image.Point) int {
+func (ws *walkState) pieceWalk(start image.Point, clusterNumber int, path []image.Point, quadrant image.Point) int {
 	if !ws.valid(start) {
 		return 0
 	}
@@ -131,7 +131,7 @@ func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.
 		return 0
 	}
 
-	if !ws.isPixelIsCluster(start, colorNumber, path) {
+	if !ws.isPixelIsCluster(start, clusterNumber, path) {
 		return 0
 	}
 
@@ -141,15 +141,17 @@ func (ws *walkState) pieceWalk(start image.Point, colorNumber int, path []image.
 		total++
 	}
 
-	total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
-	total += ws.pieceWalk(image.Point{start.X, start.Y + quadrant.Y}, colorNumber, append(path, start), quadrant)
-	total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y}, colorNumber, append(path, start), quadrant)
+	total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y + quadrant.Y}, clusterNumber, append(path, start), quadrant)
+	if quadrant.Y != 0 && quadrant.X != 0 {
+		total += ws.pieceWalk(image.Point{start.X, start.Y + quadrant.Y}, clusterNumber, append(path, start), quadrant)
+		total += ws.pieceWalk(image.Point{start.X + quadrant.X, start.Y}, clusterNumber, append(path, start), quadrant)
+	}
 
 	return total
 }
 
 // return the number of pieces in the cell
-func (ws *walkState) piece(start image.Point, colorNumber int) int {
+func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 	if ws.options.Debug {
 		golog.Global.Debugf("segmentation.piece start: %v", start)
 	}
@@ -159,19 +161,59 @@ func (ws *walkState) piece(start image.Point, colorNumber int) int {
 
 	total := 1
 
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 1})
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, 0})
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{1, -1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, 1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, 0})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, -1})
 
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 1})
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, 0})
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{-1, -1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, 1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, 0})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, -1})
 
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, 1})
-	total += ws.pieceWalk(start, colorNumber, []image.Point{}, image.Point{0, -1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{0, 1})
+	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{0, -1})
 
 	ws.dots.clearTransients()
+
+	ws.lookForWeirdShapes(clusterNumber) // TODO: adjust total
+
 	return total
+}
+
+func (ws *walkState) countOut(start image.Point, clusterNumber int, dir image.Point) int {
+	total := 0
+	for {
+		start = image.Point{start.X + dir.X, start.Y + dir.Y}
+		if ws.dots.get(start) != clusterNumber {
+			break
+		}
+		total++
+	}
+
+	return total
+}
+
+func (ws *walkState) lookForWeirdShapes(clusterNumber int) {
+	for k, v := range ws.dots.dots {
+		if v != clusterNumber {
+			continue
+		}
+
+		start := ws.dots.fromK(k)
+
+		for _, dir := range []image.Point{{1, 0}, {1, 1}, {0, 1}, {-1, 1}} {
+			r := ws.countOut(start, clusterNumber, dir)
+			r += ws.countOut(start, clusterNumber, image.Point{dir.X * -1, dir.Y * -1})
+			if r < 3 {
+				if ws.options.Debug {
+					golog.Global.Debugf("removing %v b/c radius: %d for direction: %v", start, r, dir)
+				}
+				ws.dots.dots[k] = 0
+				break
+			}
+		}
+	}
+
+	// TODO(erh): remove parts we can't reach
 }
 
 func ShapeWalk(img vision.Image, start image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
