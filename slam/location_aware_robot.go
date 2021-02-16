@@ -122,6 +122,7 @@ func (lar *LocationAwareRobot) Start() error {
 func (lar *LocationAwareRobot) Stop() {
 	lar.closeOnce.Do(func() {
 		close(lar.closeCh)
+		lar.newPresentView()
 	})
 }
 
@@ -135,8 +136,9 @@ func (lar *LocationAwareRobot) newPresentView() {
 	// overlay presentView onto rootArea
 	lar.rootArea.Mutate(func(mutRoot MutableArea) {
 		lar.presentViewArea.Mutate(func(mutPresent MutableArea) {
-			mutPresent.DoNonZero(func(x, y int, v float64) {
+			mutPresent.Iterate(func(x, y int, v float64) bool {
 				mutRoot.Set(x, y, v)
+				return true
 			})
 		})
 	})
@@ -289,10 +291,12 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 
 		var collides bool
 		lar.presentViewArea.Mutate(func(mutArea MutableArea) {
-			mutArea.DoNonZero(func(x, y int, v float64) {
+			mutArea.Iterate(func(x, y int, v float64) bool {
 				if (image.Point{x, y}.In(moveRect)) {
 					collides = true
+					return false
 				}
+				return true
 			})
 		})
 		if collides {
@@ -342,11 +346,16 @@ func (lar *LocationAwareRobot) cullLoop() {
 		// within the area (assuming the lidar is active)
 		cullArea := func(area *SquareArea, minX, maxX, minY, maxY int) {
 			area.Mutate(func(mutArea MutableArea) {
-				mutArea.DoNonZero(func(x, y int, v float64) {
+				mutArea.Iterate(func(x, y int, v float64) bool {
 					if x < minX || x > maxX || y < minY || y > maxY {
-						return
+						return true
 					}
-					mutArea.Set(x, y, v-1)
+					if v-1 == 0 {
+						mutArea.Unset(x, y)
+					} else {
+						mutArea.Set(x, y, v-1)
+					}
+					return true
 				})
 			})
 		}

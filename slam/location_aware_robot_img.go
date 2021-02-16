@@ -63,9 +63,9 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	// if this starts going slower. fast as long as there are not many points
 	for _, area := range areas {
 		area.Mutate(func(area MutableArea) {
-			area.DoNonZero(func(x, y int, _ float64) {
+			area.Iterate(func(x, y int, _ float64) bool {
 				if x < minX || x > maxX || y < minY || y > maxY {
-					return
+					return true
 				}
 				distX := basePosX - x
 				distY := basePosY - y
@@ -75,6 +75,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 				dc.DrawPoint(float64(relX), float64(relY), 1)
 				dc.SetColor(color.RGBA{255, 0, 0, 255})
 				dc.Fill()
+				return true
 			})
 		})
 	}
