@@ -42,14 +42,11 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 	numErrors := 0
 	for _, c1 := range colors {
 		for _, c2 := range colors {
-			d := c1.AsHSV.Distance(c2.AsHSV)
-			if d > maxDistance {
-				t.Errorf("%v and %v are too far %v", c1, c2, d)
+			if !_assertClose(t, c1.AsHSV, c2.AsHSV, maxDistance) {
 				numErrors++
 				if numErrors > 20 {
 					t.Fatalf("stopping after %d errors", numErrors)
 				}
-
 			}
 		}
 	}
@@ -61,28 +58,34 @@ func _testColorFailure(t *testing.T, a, b HSV, threshold float64, comparison str
 		a, a.Hex(), b, b.Hex(), comparison, threshold, d, a.Hex(), b.Hex())
 }
 
-func _assertCloseHex(t *testing.T, a, b string, threshold float64) {
+func _assertCloseHex(t *testing.T, a, b string, threshold float64) bool {
 	aa := NewColorFromHexOrPanic(a, "")
 	bb := NewColorFromHexOrPanic(b, "")
 
-	d := aa.AsHSV.Distance(bb.AsHSV)
-	if d < threshold {
-		return
-	}
-
-	_testColorFailure(t, aa.AsHSV, bb.AsHSV, threshold, "<")
+	return _assertClose(t, aa.AsHSV, bb.AsHSV, threshold)
 }
 
-func _assertNotCloseHex(t *testing.T, a, b string, threshold float64) {
+func _assertClose(t *testing.T, a, b HSV, threshold float64) bool {
+	d := a.Distance(b)
+	if d < threshold {
+		return true
+	}
+
+	_testColorFailure(t, a, b, threshold, "<")
+	return false
+}
+
+func _assertNotCloseHex(t *testing.T, a, b string, threshold float64) bool {
 	aa := NewColorFromHexOrPanic(a, "")
 	bb := NewColorFromHexOrPanic(b, "")
 
 	d := aa.AsHSV.Distance(bb.AsHSV)
 	if d > threshold {
-		return
+		return true
 	}
 
 	_testColorFailure(t, aa.AsHSV, bb.AsHSV, threshold, ">")
+	return false
 }
 
 func _assertSame(t *testing.T, a, b HSV) {
@@ -461,5 +464,18 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#303330", "#202825", 1.1)
 	_assertCloseHex(t, "#000204", "#162320", 1.1)
 	_assertCloseHex(t, "#1d252f", "#192326", 1.1)
+
+	_assertCloseHex(t, "#013b74", "#0e2f53", 1.0)
+	_assertCloseHex(t, "#022956", "#0f284a", 1.0)
+	_assertCloseHex(t, "#001d35", "#071723", 1.1)
+	_assertCloseHex(t, "#747373", "#595863", 1.07)
+
+	_assertNotCloseHex(t, "#515445", "#524e4d", 1.1)
+	_assertNotCloseHex(t, "#9fa59c", "#adc3c5", 1.1)
+	_assertNotCloseHex(t, "#adc3c5", "#9ab0a7", 1.1)
+
+	_assertNotCloseHex(t, "#adc3c5", "#aaaca0", 1.2)
+	_assertNotCloseHex(t, "#adc3c5", "#abafa2", 1.2)
+	_assertNotCloseHex(t, "#031c31", "#002b64", 1.2)
 
 }
