@@ -24,6 +24,7 @@ require (
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
+	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -53,3 +54,5 @@ require (
 )
 
 replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64
+
+replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216155142-e848b21e991f
