@@ -1,4 +1,4 @@
-package slam
+package pc
 
 type Vec3 struct {
 	X, Y, Z int
@@ -7,7 +7,8 @@ type Vec3 struct {
 type key Vec3
 
 type PointCloud struct {
-	points map[key]Point
+	points   map[key]Point
+	hasColor bool
 }
 
 func NewPointCloud() *PointCloud {
@@ -24,6 +25,9 @@ func (pc *PointCloud) At(x, y, z int) Point {
 
 func (pc *PointCloud) Set(p Point) {
 	pc.points[key(p.Position())] = p
+	if _, ok := p.(ColoredPoint); ok {
+		pc.hasColor = true
+	}
 }
 
 func (pc *PointCloud) Unset(x, y, z int) {
