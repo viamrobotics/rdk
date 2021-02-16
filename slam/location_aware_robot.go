@@ -122,6 +122,7 @@ func (lar *LocationAwareRobot) Start() error {
 func (lar *LocationAwareRobot) Stop() {
 	lar.closeOnce.Do(func() {
 		close(lar.closeCh)
+		lar.newPresentView()
 	})
 }
 
