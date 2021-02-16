@@ -144,9 +144,9 @@ func main() {
 		cancelFunc()
 		if saveToDisk != "" {
 			lar.Stop()
-			// if err := area.WriteToFile(saveToDisk); err != nil {
-			// 	golog.Global.Fatal(err)
-			// }
+			if err := area.WriteToFile(saveToDisk); err != nil {
+				golog.Global.Fatal(err)
+			}
 		}
 	}()
 

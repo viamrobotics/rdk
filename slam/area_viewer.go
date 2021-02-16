@@ -21,10 +21,11 @@ func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
 	dc := gg.NewContext(areaSize*scaleDown, areaSize*scaleDown)
 
 	av.Area.Mutate(func(area MutableArea) {
-		area.DoNonZero(func(x, y int, _ float64) {
+		area.Iterate(func(x, y int, _ float64) bool {
 			dc.DrawPoint(float64(x), float64(y), 1)
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
 			dc.Fill()
+			return true
 		})
 	})
 
