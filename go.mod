@@ -11,7 +11,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9
-	github.com/edaniels/test v0.0.0-20210216172129-d5480f936c40
+	github.com/edaniels/test v0.0.0-20210216191522-4cb99463440a
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
