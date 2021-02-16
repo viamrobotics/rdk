@@ -94,19 +94,19 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, colorNumber int, pat
 		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
 	}
 
-	lookback := 10
+	lookback := 20
 	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
-		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 5.0))
+		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 12.0))
 
 		good := d < thresold
 
 		if ws.options.Debug {
 			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
 			if !good && d-thresold < .05 {
-				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex(), prevColor.Hex())
+				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex()[1:], prevColor.Hex()[1:])
 			}
 
 		}
@@ -231,13 +231,8 @@ func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*Segmente
 
 		start := found.(MyWalkError).pos
 		numPixels := ws.piece(start, color+1)
-		if numPixels < 10 {
+		if options.Debug && numPixels < 10 {
 			golog.Global.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
-			if numPixels == 1 {
-				ws.options.Debug = true
-				ws.piece(start, color+1)
-				ws.options.Debug = options.Debug
-			}
 		}
 	}
 
