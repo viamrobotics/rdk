@@ -168,7 +168,9 @@ func main() {
 	desc := deviceDescs[bestResolutionDeviceNum]
 	golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
 	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResolutionDevice)
+	compassDone := make(chan struct{})
 	go func() {
+		defer close(compassDone)
 		for {
 			select {
 			case <-cancelCtx.Done():
@@ -186,9 +188,15 @@ func main() {
 	}()
 	quitC := make(chan os.Signal, 2)
 	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
+	markDone := make(chan struct{})
 	go func() {
+		defer close(markDone)
 		for {
-			<-quitC
+			select {
+			case <-cancelCtx.Done():
+				return
+			case <-quitC:
+			}
 			golog.Global.Debug("marking")
 			lidarCompass.Mark()
 			golog.Global.Debug("marked")
@@ -200,4 +208,6 @@ func main() {
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
 	}
+	<-compassDone
+	<-markDone
 }

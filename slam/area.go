@@ -1,7 +1,10 @@
 package slam
 
 import (
+	"fmt"
 	"image"
+	"math/rand"
+	"path/filepath"
 	"sync"
 
 	"github.com/james-bowman/sparse"
@@ -52,18 +55,34 @@ func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 	mutator(sa.points)
 }
 
+func NewFromFile(fn string) (*SquareArea, error) {
+	switch filepath.Ext(fn) {
+	case ".las":
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("do not kno whow to read file %q", fn)
+	}
+}
+
 func (sa *SquareArea) WriteToFile(fn string) error {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
 		return err
 	}
-	if err := lf.AddHeader(lidario.LasHeader{}); err != nil {
+	if err := lf.AddHeader(lidario.LasHeader{
+		PointFormatID: 2,
+	}); err != nil {
 		return err
 	}
 
 	var lastErr error
+	var count int
 	sa.Mutate(func(area MutableArea) {
 		area.DoNonZero(func(x, y int, v float64) {
+			redVal := rand.Intn(256) * 256
+			greenVal := rand.Intn(256) * 256
+			blueVal := rand.Intn(256) * 256
+			count++
 			if err := lf.AddLasPoint(&lidario.PointRecord2{
 				PointRecord0: &lidario.PointRecord0{
 					X:         float64(x),
@@ -81,7 +100,9 @@ func (sa *SquareArea) WriteToFile(fn string) error {
 					PointSourceID: 1,
 				},
 				RGB: &lidario.RgbData{
-					Red: 255,
+					Red:   uint16(redVal),
+					Green: uint16(greenVal),
+					Blue:  uint16(blueVal),
 				},
 			}); err != nil {
 				lastErr = err
