@@ -135,10 +135,12 @@ github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwa
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
 github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9 h1:lHvlX9Wl5OT3oqCxx8SHyPMYC4Z3j72YQMpxZpvkjR0=
 github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9/go.mod h1:qmF1VnMdm00oVa71qsAE8pWzqr08kPM4dwjOflg+Z4A=
-github.com/edaniels/lidario v0.0.0-20210216155142-e848b21e991f h1:ymEVtWHxEn5SjDnOIMi9pt11EquJf3cX5W7NiKL4DVE=
-github.com/edaniels/lidario v0.0.0-20210216155142-e848b21e991f/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
+github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
+github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64 h1:OBY3x4TCn+QiKJqExDPP84KLiz7f4zyWdWuY8flAsh0=
 github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64/go.mod h1:HOZWnzAhhj+VzcFydwLl7WzAwZS1RZ9DcrNcWagnb8g=
+github.com/edaniels/test v0.0.0-20210216172129-d5480f936c40 h1:l3E+kXvCTI7kevZ1YmmZV6k8rX1iGvRotb6zq2O8RXc=
+github.com/edaniels/test v0.0.0-20210216172129-d5480f936c40/go.mod h1:/LAnCjNg+OR38AJKwnVDxxZt7dn4C+a3FjKXJvJn158=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
