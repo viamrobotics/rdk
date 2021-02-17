@@ -12,7 +12,7 @@ func TestNewPointCloudFromFile(t *testing.T) {
 	pc, err := NewPointCloudFromFile("data/test.las")
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := pc.Size()
-	test.That(t, numPoints, test.ShouldEqual, 874)
+	test.That(t, numPoints, test.ShouldEqual, 8413)
 
 	temp, err := ioutil.TempFile("", "*.las")
 	test.That(t, err, test.ShouldBeNil)

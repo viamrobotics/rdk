@@ -9,6 +9,7 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
+	github.com/edaniels/golinters v0.0.4 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9
 	github.com/edaniels/test v0.0.0-20210216191522-4cb99463440a
@@ -24,7 +25,6 @@ require (
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
-	github.com/james-bowman/sparse v0.0.0-20201127142138-e56f85f66dd5
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lmittmann/ppm v1.0.0
