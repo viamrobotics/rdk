@@ -1,7 +1,6 @@
 package mdl
 
-
-type NloptIK struct{
+type NloptIK struct {
 	Mdl        *Model
 	lowerBound []float64
 	upperBound []float64
@@ -11,12 +10,12 @@ type NloptIK struct{
 }
 
 //~ func CreateIKSolver(*Model) *NloptIK{
-	//~ ik := NloptIK{}
-	//~ ik.Mdl = mdl
-	//~ ik.epsilon = 0.001
-	//~ ik.iterations = 1000
-	//~ ik.svd = true
-	//~ return &ik
+//~ ik := NloptIK{}
+//~ ik.Mdl = mdl
+//~ ik.epsilon = 0.001
+//~ ik.iterations = 1000
+//~ ik.svd = true
+//~ return &ik
 //~ }
 
 //~ func (ik *NloptIK) AddGoal(kinmath.Transform, int)

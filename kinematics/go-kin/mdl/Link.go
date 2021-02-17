@@ -1,15 +1,15 @@
 package mdl
 
-import(
+import (
 	"gonum.org/v1/gonum/graph"
 )
 
-type Element interface{
+type Element interface {
 	ForwardPosition()
 	ForwardVelocity()
 }
 
-type Link interface{
+type Link interface {
 	ForwardPosition()
 	ForwardVelocity()
 	SetEdgeDescriptor(graph.Edge)
