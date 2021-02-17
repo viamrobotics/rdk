@@ -22,7 +22,7 @@ func NewRobot(xmlFile string) (*Kinematics, error) {
 	}
 	// TODO: configurable IK method once more than one is supported
 	ik := mdl.CreateJacobianIKSolver(m)
-	return &Kinematics{ik, 0}
+	return &Kinematics{ik, 0}, nil
 }
 
 // Returns the end effector's current Position
