@@ -1,6 +1,6 @@
 package kinmath
 
-import(
+import (
 	"math"
 	//~ "fmt"
 
@@ -8,21 +8,20 @@ import(
 )
 
 // Defines the rotational Matrix to perform rigid transforMations in 3d
-type Transform struct{
+type Transform struct {
 	Mat mgl64.Mat4
 }
 
-
 // Return a pointer to a new Transform object whose Matrix is an identity Matrix
-func NewTransform() *Transform{
-	return &Transform{mgl64.Ident4(),}
+func NewTransform() *Transform {
+	return &Transform{mgl64.Ident4()}
 }
 
 // Return a pointer to a new Transform object whose Matrix has been xyz rotated by the specified number of degrees
-func NewTransformFromRotation(x, y, z float64) *Transform{
-	return &Transform{mgl64.HomogRotate3DZ(z * math.Pi/180).Mul4(
-						mgl64.HomogRotate3DY(y * math.Pi/180).Mul4(
-						mgl64.HomogRotate3DX(x * math.Pi/180))),
+func NewTransformFromRotation(x, y, z float64) *Transform {
+	return &Transform{mgl64.HomogRotate3DZ(z * math.Pi / 180).Mul4(
+		mgl64.HomogRotate3DY(y * math.Pi / 180).Mul4(
+			mgl64.HomogRotate3DX(x * math.Pi / 180))),
 	}
 }
 
@@ -31,11 +30,11 @@ func (m *Transform) Matrix() mgl64.Mat4 {
 }
 
 func (m *Transform) At(r, c int) float64 {
-	return m.Mat.At(r,c)
+	return m.Mat.At(r, c)
 }
 
 // Linear and Rotation are the same thing
-// Both return the top left 3x3 Matrix 
+// Both return the top left 3x3 Matrix
 func (m *Transform) Linear() mgl64.Mat3 {
 	return m.Mat.Mat3()
 }
@@ -70,26 +69,26 @@ func (m *Transform) SetZ(z float64) {
 
 // Set X rotation. Takes degrees.
 func (m *Transform) RotX(x float64) {
-	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DX(x * math.Pi/180))
+	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DX(x * math.Pi / 180))
 }
 
 // Set Y rotation. Takes degrees.
 func (m *Transform) RotY(y float64) {
-	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DY(y * math.Pi/180))
+	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DY(y * math.Pi / 180))
 }
 
 // Set Z rotation. Takes degrees.
 func (m *Transform) RotZ(z float64) {
-	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DZ(z * math.Pi/180))
+	m.Mat = m.Mat.Mul4(mgl64.HomogRotate3DZ(z * math.Pi / 180))
 }
 
 // ToDelta returns the difference between two transforms
-func (m *Transform) ToDelta(other *Transform) []float64{
+func (m *Transform) ToDelta(other *Transform) []float64 {
 	ret := make([]float64, 6)
-	ret[0] = other.At(0,3) - m.At(0,3)
-	ret[1] = other.At(1,3) - m.At(1,3)
-	ret[2] = other.At(2,3) - m.At(2,3)
-	
+	ret[0] = other.At(0, 3) - m.At(0, 3)
+	ret[1] = other.At(1, 3) - m.At(1, 3)
+	ret[2] = other.At(2, 3) - m.At(2, 3)
+
 	quat := mgl64.Mat4ToQuat(other.Linear().Mul3(m.Linear().Transpose()).Mat4())
 	axisAngle := QuatToAxisAngle(quat)
 	ret[3] = axisAngle[1] * axisAngle[0]
@@ -100,23 +99,21 @@ func (m *Transform) ToDelta(other *Transform) []float64{
 
 // This converts a quat to an axis angle in the same way the C++ Eigen library does
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToAxisAngle(quat mgl64.Quat) []float64{
+func QuatToAxisAngle(quat mgl64.Quat) []float64 {
 	denom := quat.Norm()
-	
+
 	angle := 2 * math.Atan2(denom, math.Abs(quat.W))
-	if quat.W < 0{
+	if quat.W < 0 {
 		angle *= -1
 	}
-	
+
 	axisAngle := []float64{angle}
-	
+
 	if denom < 1e-6 {
-		axisAngle = append(axisAngle, 1,0,0)
-	}else{
+		axisAngle = append(axisAngle, 1, 0, 0)
+	} else {
 		x, y, z := quat.V.Mul(1 / denom).Elem()
-		axisAngle = append(axisAngle, x,y,z)
+		axisAngle = append(axisAngle, x, y, z)
 	}
 	return axisAngle
 }
-
-
