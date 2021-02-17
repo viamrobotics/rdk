@@ -82,7 +82,7 @@ func (m *Model) CalculateJacobian() {
 	m.Jacobian = mgl64.NewMatrix(m.GetOperationalDof()*6, m.GetDof())
 
 	for i := 0; i < m.GetDof(); i++ {
-		fakeVel := SetZero(m.GetDof())
+		fakeVel := make([]float64, m.GetDof())
 		for j := 0; j < m.GetDof(); j++ {
 			if i == j {
 				fakeVel[j] = 1
@@ -154,7 +154,7 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			// TODO: Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}
 
-	} else {
+		//~ } else {
 		// Not done, do not use. Missing matrix inversion, etc
 		//~ m.Jacobian.Transpose().MulMxN(nil, m.Jacobian.Transpose().MulMxN(nil, m.Jacobian).Add(nil, mgl64.IdentN(nil, m.GetOperationalDof() * 6).Mul(nil, lambda * lambda)))
 	}
