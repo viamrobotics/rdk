@@ -1,10 +1,11 @@
 package mdl
 
 import (
-	"fmt"
-	"github.com/subchen/go-xmldom"
 	"math"
 	"strconv"
+
+	"github.com/subchen/go-xmldom"
+
 	//~ "github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
 	//~ "github.com/go-gl/mathgl/mgl64"
 	"github.com/edaniels/golog"
@@ -112,16 +113,31 @@ func ParseFile(filename string) (*Model, error) {
 		rev.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 		model.Edges[rev.GetEdgeDescriptor()] = rev
 
-		max, _ := strconv.ParseFloat(revNode.GetChild("max").Text, 64)
-		min, _ := strconv.ParseFloat(revNode.GetChild("min").Text, 64)
+		max, err := strconv.ParseFloat(revNode.GetChild("max").Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse joint max")
+		}
+		min, err := strconv.ParseFloat(revNode.GetChild("min").Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse joint min")
+		}
 		rev.max = append(rev.max, max*180/math.Pi)
 		rev.min = append(rev.min, min*180/math.Pi)
 
 		// TODO: Add default on z
 		// TODO: Enforce between 0 and 1
-		xrot, _ := strconv.ParseFloat(revNode.GetChild("axis").GetChild("x").Text, 64)
-		yrot, _ := strconv.ParseFloat(revNode.GetChild("axis").GetChild("y").Text, 64)
-		zrot, _ := strconv.ParseFloat(revNode.GetChild("axis").GetChild("z").Text, 64)
+		xrot, err := strconv.ParseFloat(revNode.GetChild("axis").GetChild("x").Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse x axis rotation")
+		}
+		yrot, err := strconv.ParseFloat(revNode.GetChild("axis").GetChild("y").Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse y axis rotation")
+		}
+		zrot, err := strconv.ParseFloat(revNode.GetChild("axis").GetChild("z").Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse z axis rotation")
+		}
 
 		rev.SpatialMat.Set(0, 0, xrot)
 		rev.SpatialMat.Set(1, 0, yrot)
@@ -133,7 +149,10 @@ func ParseFile(filename string) (*Model, error) {
 	model.Update()
 	homeNode := modelNode.GetChild("home")
 	for i, qNode := range homeNode.GetChildren("q") {
-		angle, _ := strconv.ParseFloat(qNode.Text, 64)
+		angle, err := strconv.ParseFloat(qNode.Text, 64)
+		if err != nil {
+			golog.Global.Error("Failed to parse home angle")
+		}
 		model.Home[i] = angle
 		if qNode.GetAttribute("unit").Value == "deg" {
 			model.Home[i] *= math.Pi / 180

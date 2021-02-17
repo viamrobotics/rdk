@@ -1,7 +1,6 @@
 package mdl
 
 import (
-	"fmt"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
 )
@@ -39,16 +38,13 @@ func (ik *JacobianIK) GetGoals() []Goal {
 
 func (ik *JacobianIK) Solve() bool {
 	q := ik.Mdl.GetPosition()
-	dq := SetZero(ik.Mdl.GetDofPosition())
-	dx := SetZero(ik.Mdl.GetOperationalDof() * 6)
-	//~ rand := SetZero(ik.Mdl.GetDof())
 	iteration := 0
 
 	for iteration < ik.iterations {
 		for iteration < ik.iterations {
 			iteration++
 			ik.Mdl.ForwardPosition()
-			dx = SetZero(ik.Mdl.GetOperationalDof() * 6)
+			dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
 
 			// Update dx with the delta to the desired position
 			for _, goal := range ik.GetGoals() {
@@ -65,7 +61,6 @@ func (ik *JacobianIK) Solve() bool {
 				ik.Mdl.SetPosition(q)
 
 				if ik.Mdl.IsValid(q) {
-					fmt.Println(iteration)
 					return true
 				}
 			}
@@ -74,7 +69,7 @@ func (ik *JacobianIK) Solve() bool {
 
 			ik.Mdl.CalculateJacobianInverse(0, ik.svd)
 
-			dq = ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
+			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
 			newPos := ik.Mdl.Step(q, dq)
 			ik.Mdl.SetPosition(newPos)
@@ -87,6 +82,5 @@ func (ik *JacobianIK) Solve() bool {
 		// TODO
 		//~ ik.Mdl.SetPosition(ik.Mdl.GetRandomJointPositions())
 	}
-	fmt.Println("solved")
 	return false
 }

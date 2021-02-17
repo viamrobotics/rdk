@@ -7,6 +7,7 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
+
 	//~ "github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
 	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath/spatial"
 )
@@ -22,15 +23,15 @@ type Joint struct {
 	//~ a           spatial.MotionVector
 	//~ c           spatial.MotionVector
 	//~ D           *mgl64.MatMxN
-	max        []float64
-	min        []float64
-	offset     []float64
-	position   []float64
-	qUnits     []float64
-	positiond  []float64
-	qdUnits    []float64
-	positiondd []float64
-	qddUnits   []float64
+	max      []float64
+	min      []float64
+	offset   []float64
+	position []float64
+	//~ qUnits     []float64
+	positionD []float64
+	//~ qdUnits    []float64
+	positionDD []float64
+	//~ qddUnits   []float64
 	SpatialMat *mgl64.MatMxN
 	//~ speed       []float64
 	//~ speedUnits  []float64
@@ -57,8 +58,8 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.wraparound = make([]bool, dPos)
 	j.offset = make([]float64, dPos)
 	j.position = make([]float64, dPos)
-	j.positiond = make([]float64, dVel)
-	j.positiondd = make([]float64, dVel)
+	j.positionD = make([]float64, dVel)
+	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
 	j.v = &spatial.MotionVector{}
 	j.v.SetZero()
@@ -104,7 +105,7 @@ func (j *Joint) ForwardVelocity() {
 }
 
 func (j *Joint) GetDof() int {
-	return len(j.positiond)
+	return len(j.positionD)
 }
 
 func (j *Joint) GetDofPosition() int {
@@ -166,7 +167,7 @@ func (j *Joint) SetPosition(pos []float64) {
 
 // SetVelocity will set the joint's velocity
 func (j *Joint) SetVelocity(vel []float64) {
-	j.positiond = vel
+	j.positionD = vel
 	motionVec := j.SpatialMat.MulNx1(mgl64.NewVecN(0), mgl64.NewVecNFromData(vel))
 	j.v = spatial.NewMVFromVecN(motionVec)
 }
