@@ -1,0 +1,21 @@
+#VRML V2.0 utf8
+Transform {
+	children [
+		DEF wx250s Transform {
+			children [
+				Inline {
+					url "wx250s/wx250s.wrl"
+				}
+			]
+		}
+		DEF empty Transform {
+			translation 0 0 -500
+			scale 1000 1000 1000
+			children [
+				Inline {
+					url "empty.wrl"
+				}
+			]
+		}
+	]
+}
