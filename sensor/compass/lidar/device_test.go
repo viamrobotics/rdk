@@ -3,12 +3,15 @@ package lidar
 import (
 	"errors"
 	"image"
+	"math"
 	"testing"
 
 	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/sensor/compass"
 	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/test"
+	"gonum.org/v1/gonum/mat"
 )
 
 func TestNew(t *testing.T) {
@@ -42,6 +45,142 @@ func TestNew(t *testing.T) {
 	dev, err := New(desc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dev, test.ShouldNotBeNil)
+}
+
+func TestFrom(t *testing.T) {
+	dev := &injectDevice{}
+	compassDev := From(dev)
+	var relDev *compass.RelativeDevice = nil
+	test.That(t, compassDev, test.ShouldImplement, relDev)
+}
+
+func getInjected() (*Device, *injectDevice) {
+	dev := &injectDevice{}
+	return From(dev).(*Device), dev
+}
+
+func TestCompass(t *testing.T) {
+	t.Run("StartCalibration", func(t *testing.T) {
+		compassDev, _ := getInjected()
+		test.That(t, compassDev.StartCalibration(), test.ShouldBeNil)
+	})
+
+	t.Run("StopCalibration", func(t *testing.T) {
+		compassDev, _ := getInjected()
+		test.That(t, compassDev.StopCalibration(), test.ShouldBeNil)
+	})
+}
+
+func TestScanToVec2Matrix(t *testing.T) {
+	t.Run("with no results should produce an empty matrix", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			return nil, nil
+		}
+		m, err := compassDev.scanToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, (*mat.Dense)(m).IsEmpty(), test.ShouldBeTrue)
+	})
+
+	t.Run("should request a scan with more than 1 count and no filtering", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			test.That(t, options.Count, test.ShouldBeGreaterThan, 1)
+			test.That(t, options.NoFilter, test.ShouldBeTrue)
+			return nil, nil
+		}
+		m, err := compassDev.scanToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, (*mat.Dense)(m).IsEmpty(), test.ShouldBeTrue)
+	})
+
+	t.Run("should error out if all of the scans fail", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		count := 0
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			count++
+			return nil, errors.New("oops")
+		}
+		_, err := compassDev.scanToVec2Matrix()
+		test.That(t, err, test.ShouldBeError, "oops")
+		test.That(t, count, test.ShouldBeGreaterThan, 1)
+	})
+
+	t.Run("should convert measurments into a matrix", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			return lidar.Measurements{
+				lidar.NewMeasurement(1, 10),
+				lidar.NewMeasurement(20, 2),
+				lidar.NewMeasurement(30, 5),
+			}, nil
+		}
+		m, err := compassDev.scanToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
+		mD := (*mat.Dense)(m)
+		test.That(t, mD.IsEmpty(), test.ShouldBeFalse)
+		r, c := mD.Dims()
+		test.That(t, r, test.ShouldEqual, 3)
+		test.That(t, c, test.ShouldEqual, 3)
+		test.That(t, mD.RawRowView(0), test.ShouldResemble, []float64{
+			8.414709848078965,
+			1.8258905014552553,
+			-4.940158120464309,
+		}) // x
+		test.That(t, mD.RawRowView(1), test.ShouldResemble, []float64{
+			-5.403023058681398,
+			-0.8161641236267839,
+			-0.7712572494379202,
+		}) // y
+		test.That(t, mD.RawRowView(2), test.ShouldResemble, []float64{1, 1, 1}) // fill
+	})
+}
+
+func TestHeading(t *testing.T) {
+	t.Run("with no results should NaN", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			return nil, nil
+		}
+		h, err := compassDev.Heading()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, math.IsNaN(h), test.ShouldBeTrue)
+	})
+
+	t.Run("with some results should NaN without mark", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			return lidar.Measurements{
+				lidar.NewMeasurement(1, 10),
+				lidar.NewMeasurement(20, 2),
+				lidar.NewMeasurement(30, 5),
+			}, nil
+		}
+		h, err := compassDev.Heading()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, math.IsNaN(h), test.ShouldBeTrue)
+	})
+
+	t.Run("with mark", func(t *testing.T) {
+		compassDev, injectDev := getInjected()
+		injectDev.AngularResolutionFunc = func() float64 {
+			return 1
+		}
+		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			return lidar.Measurements{
+				lidar.NewMeasurement(1, 10),
+				lidar.NewMeasurement(20, 2),
+				lidar.NewMeasurement(30, 5),
+			}, nil
+		}
+		test.That(t, compassDev.Mark(), test.ShouldBeNil)
+
+		t.Run("heading should be 0", func(t *testing.T) {
+			heading, err := compassDev.Heading()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, heading, test.ShouldEqual, 0)
+		})
+	})
 }
 
 type injectDevice struct {
