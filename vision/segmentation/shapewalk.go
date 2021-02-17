@@ -14,8 +14,9 @@ const (
 )
 
 type ShapeWalkOptions struct {
-	Debug     bool
-	MaxRadius int // 0 means no max
+	Debug        bool
+	MaxRadius    int // 0 means no max
+	SkipCleaning bool
 }
 
 type walkState struct {
@@ -150,6 +151,21 @@ func (ws *walkState) pieceWalk(start image.Point, clusterNumber int, path []imag
 	return total
 }
 
+var (
+	allDirections = []image.Point{
+		{1, 1},
+		{1, 0},
+		{1, -1},
+
+		{-1, 1},
+		{-1, 0},
+		{-1, -1},
+
+		{0, 1},
+		{1, 0},
+	}
+)
+
 // return the number of pieces in the cell
 func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 	if ws.options.Debug {
@@ -159,22 +175,22 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 	ws.originalColor = ws.img.ColorHSV(start)
 	ws.originalPoint = start
 
-	total := 1
+	origTotal := 1
 
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, 1})
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, 0})
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{1, -1})
+	for _, dir := range allDirections {
+		origTotal += ws.pieceWalk(start, clusterNumber, []image.Point{}, dir)
+	}
 
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, 1})
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, 0})
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{-1, -1})
+	total := origTotal
+	if !ws.options.SkipCleaning {
+		total = ws.lookForWeirdShapes(clusterNumber)
+	}
 
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{0, 1})
-	total += ws.pieceWalk(start, clusterNumber, []image.Point{}, image.Point{0, -1})
+	if ws.options.Debug && total != origTotal {
+		golog.Global.Debugf("shape walk did %v -> %v", origTotal, total)
+	}
 
 	ws.dots.clearTransients()
-
-	ws.lookForWeirdShapes(clusterNumber) // TODO: adjust total
 
 	return total
 }
@@ -192,7 +208,32 @@ func (ws *walkState) countOut(start image.Point, clusterNumber int, dir image.Po
 	return total
 }
 
-func (ws *walkState) lookForWeirdShapes(clusterNumber int) {
+func (ws *walkState) lookForWeirdShapesReset(start image.Point, clusterNumber int, dir image.Point, depth int) int {
+	old := ws.dots.get(start)
+
+	good := (old == clusterNumber*-1) || (old == clusterNumber && depth == 0)
+	if !good {
+		return 0
+	}
+
+	ws.dots.set(start, clusterNumber)
+
+	total := 0
+
+	if depth > 0 {
+		total++
+	}
+
+	total += ws.lookForWeirdShapesReset(image.Point{start.X + dir.X, start.Y + dir.Y}, clusterNumber, dir, depth+1)
+	if dir.X != 0 && dir.Y != 0 {
+		total += ws.lookForWeirdShapesReset(image.Point{start.X + dir.X, start.Y}, clusterNumber, dir, depth+1)
+		total += ws.lookForWeirdShapesReset(image.Point{start.X, start.Y + dir.Y}, clusterNumber, dir, depth+1)
+	}
+
+	return total
+}
+
+func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 	for k, v := range ws.dots.dots {
 		if v != clusterNumber {
 			continue
@@ -213,7 +254,22 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) {
 		}
 	}
 
-	// TODO(erh): remove parts we can't reach
+	for k, v := range ws.dots.dots {
+		if v != clusterNumber {
+			continue
+		}
+
+		ws.dots.dots[k] = -1 * clusterNumber
+	}
+
+	total := 1
+
+	ws.dots.set(ws.originalPoint, clusterNumber)
+	for _, dir := range allDirections {
+		total += ws.lookForWeirdShapesReset(ws.originalPoint, clusterNumber, dir, 0)
+	}
+
+	return total
 }
 
 func ShapeWalk(img vision.Image, start image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
