@@ -13,7 +13,7 @@ func (f *ForceVector) Dot(other MotionVector) float64 {
 	return f.Moment.Dot(other.Angular) + f.Force.Dot(other.Linear)
 }
 
-func (m *ForceVector) SetZero() {
-	m.Moment = mgl64.Vec3{0, 0, 0}
-	m.Force = mgl64.Vec3{0, 0, 0}
+func (f *ForceVector) SetZero() {
+	f.Moment = mgl64.Vec3{0, 0, 0}
+	f.Force = mgl64.Vec3{0, 0, 0}
 }

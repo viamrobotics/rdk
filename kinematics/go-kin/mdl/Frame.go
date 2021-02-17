@@ -3,22 +3,22 @@ package mdl
 import (
 	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
 	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath/spatial"
-	"gonum.org/v1/gonum/graph/simple"
+	//~ "gonum.org/v1/gonum/graph/simple"
 )
 
 // TODO: add more descriptive field names once I work out what they ought to be
 type Frame struct {
 	//~ Element
 	a spatial.MotionVector
-	c spatial.MotionVector
-	f spatial.ForceVector
+	//~ c spatial.MotionVector
+	//~ f spatial.ForceVector
 	//~ i              spatial.RigidBodyInertia
 	//~ iA             spatial.ArticulatedBodyInertia
-	pA spatial.ForceVector
-	i  Transform
-	v  spatial.MotionVector
+	//~ pA spatial.ForceVector
+	i Transform
+	v spatial.MotionVector
 	//~ x              spatial.PlueckerTransform
-	descriptor    simple.Node
+	//~ descriptor    simple.Node
 	IsWorld       bool
 	IsBody        bool
 	id            int64
