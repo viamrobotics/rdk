@@ -14,7 +14,7 @@ type InverseKinematics interface {
 	AddGoal(*kinmath.Transform, int)
 	ClearGoals()
 	GetGoals() []Goal
-	Solve()
+	Solve() bool
 }
 
 // Returns the dot product of a vector with itself
