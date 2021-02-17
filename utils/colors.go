@@ -124,6 +124,12 @@ func (c HSV) distanceDebug(b HSV, debug bool) float64 {
 		wh *= .3
 		ws *= 1.25
 		wv *= 1.25
+
+		if v1 > .6 && v2 > .6 {
+			// this is shiny stuff, be a little more hue generous
+			wh *= 1
+			wv *= .7
+		}
 	} else if s1 > .9 && s2 > .9 {
 		section = 6
 		// in the very right side of the chart

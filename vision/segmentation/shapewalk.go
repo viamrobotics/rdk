@@ -95,18 +95,18 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
 	}
 
-	lookback := 20
+	lookback := 15
 	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
-		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 12.0))
+		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 10.0))
 
 		good := d < thresold
 
 		if ws.options.Debug {
 			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
-			if !good && d-thresold < .05 {
+			if !good && d-thresold < .2 {
 				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex()[1:], prevColor.Hex()[1:])
 			}
 
