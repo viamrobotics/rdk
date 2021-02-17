@@ -169,7 +169,7 @@ func (m *Model) Update() {
 }
 
 func (m *Model) UpdateOnFrame(frameID int64) {
-	frame, _ := m.Nodes[frameID]
+	frame := m.Nodes[frameID]
 	m.Frames = append(m.Frames, frame)
 	m.Elements = append(m.Elements, frame)
 	if frame.IsBody {
@@ -181,9 +181,9 @@ func (m *Model) UpdateOnFrame(frameID int64) {
 	for outNodes.Next() {
 		hadNode = true
 		nodeID := outNodes.Node()
-		outFrame, _ := m.Nodes[nodeID.ID()]
+		outFrame := m.Nodes[nodeID.ID()]
 		edge := m.tree.Edge(frameID, nodeID.ID())
-		link, _ := m.Edges[edge]
+		link := m.Edges[edge]
 		m.Links = append(m.Links, link)
 		m.Elements = append(m.Elements, link)
 
@@ -210,13 +210,4 @@ func (m *Model) UpdateOnFrame(frameID int64) {
 	mgl64.IdentN(m.InvGammaPosition, m.GetDofPosition())
 
 	m.Home = make([]float64, m.GetDofPosition())
-}
-
-// SetZero returns a float slice containing the requested number of zeros
-func SetZero(i int) []float64 {
-	var zeros []float64
-	for len(zeros) < i {
-		zeros = append(zeros, 0)
-	}
-	return zeros
 }
