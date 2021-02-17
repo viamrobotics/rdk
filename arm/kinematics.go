@@ -57,9 +57,8 @@ func (k *Kinematics) SetForwardPosition(pos Position) error {
 	k.model.ForwardPosition()
 	if couldSolve {
 		return nil
-	} else {
-		return fmt.Errorf("Could not solve for position")
-	}
+	} 
+	return fmt.Errorf("could not solve for position")
 }
 
 // Returns the arm's current joint angles in degrees
