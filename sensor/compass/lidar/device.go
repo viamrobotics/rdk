@@ -159,6 +159,9 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 			break
 		}
 	}
+	if len(measurements) == 0 {
+		return &utils.Vec2Matrix{}, nil
+	}
 	measureMat := mat.NewDense(3, len(measurements), nil)
 	var angSum float64
 	var distSum float64

@@ -139,6 +139,8 @@ github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopR
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/test v0.0.0-20210216191522-4cb99463440a h1:mr79Ses0GaNa9B2KQLEomS5FHst8ikyxkfRBkQsctHo=
 github.com/edaniels/test v0.0.0-20210216191522-4cb99463440a/go.mod h1:/LAnCjNg+OR38AJKwnVDxxZt7dn4C+a3FjKXJvJn158=
+github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0 h1:hnK+cHF0aYBvT6osQLGV/WxRDV7/rxk8OI3iALTV+qI=
+github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0/go.mod h1:/LAnCjNg+OR38AJKwnVDxxZt7dn4C+a3FjKXJvJn158=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
