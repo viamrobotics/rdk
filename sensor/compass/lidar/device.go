@@ -1,7 +1,6 @@
 package lidar
 
 import (
-	"fmt"
 	"math"
 	"runtime"
 	"sort"
@@ -170,13 +169,13 @@ type groupWorkDoneFunc func()
 type groupWorkFunc func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc)
 
 func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) {
-	maxTheta := 360
-	if maxTheta%parallelFactor != 0 {
-		panic(fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor))
-	}
-	thetaParts := maxTheta / parallelFactor
+	maxTheta := 360.0
+	// if maxTheta%parallelFactor != 0 {
+	// 	panic(fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor))
+	// }
+	thetaParts := maxTheta / float64(parallelFactor)
 	rotRes := d.rotationResolution()
-	numRotations := int(math.Ceil(float64(maxTheta) / rotRes))
+	numRotations := int(math.Ceil(maxTheta / rotRes))
 	groupSize := int(math.Ceil(float64(numRotations) / float64(parallelFactor)))
 
 	numGroups := parallelFactor
@@ -191,8 +190,8 @@ func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork
 			groupNum := groupNumCopy
 
 			memberWork, groupWorkDone := groupWork(groupNum, groupSize)
-			from := float64(thetaParts * groupNum)
-			to := float64(thetaParts * (groupNum + 1))
+			from := thetaParts * float64(groupNum)
+			to := thetaParts * float64(groupNum+1)
 			memberNum := 0
 			for theta := from; theta < to; theta += rotRes {
 				memberWork(memberNum, theta)
