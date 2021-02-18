@@ -2,7 +2,7 @@ package mdl
 
 import (
 	//~ "github.com/go-gl/mathgl/mgl64"
-	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
+	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 )
 
 type Goal struct {

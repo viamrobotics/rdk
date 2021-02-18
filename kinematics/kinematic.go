@@ -6,8 +6,8 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
-	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath/spatial"
+	"github.com/viamrobotics/robotcore/kinematics/kinmath"
+	"github.com/viamrobotics/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/mat"
 )
 
