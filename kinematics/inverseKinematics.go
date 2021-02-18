@@ -1,4 +1,4 @@
-package mdl
+package kinematics
 
 import (
 	//~ "github.com/go-gl/mathgl/mgl64"

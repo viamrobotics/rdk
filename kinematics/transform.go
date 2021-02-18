@@ -1,4 +1,4 @@
-package mdl
+package kinematics
 
 import (
 	//~ "fmt"
