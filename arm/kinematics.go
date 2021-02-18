@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/viamrobotics/robotcore/kinematics"
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
+	"github.com/viamrobotics/robotcore/kinematics"
 )
 
 type Kinematics struct {
