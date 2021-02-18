@@ -416,6 +416,10 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 		if err != nil {
 			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
 		}
+		// Set some nice-to-have settings
+		newServo.SetMovingThreshold(0)
+		newServo.SetPGain(1800)
+		newServo.SetIGain(10)
 		servos = append(servos, newServo)
 	}
 
