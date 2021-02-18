@@ -8,8 +8,8 @@ import (
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
 
-	//~ "github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
-	"github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath/spatial"
+	//~ "github.com/viamrobotics/robotcore/kinematics"
+	"github.com/viamrobotics/robotcore/kinematics/kinmath/spatial"
 )
 
 // TODO: initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
