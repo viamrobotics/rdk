@@ -303,7 +303,6 @@ func (rpl *RPLidar) scan(options lidar.ScanOptions) (lidar.Measurements, error) 
 			}
 
 			nodeAngle := (float64(node.GetAngle_z_q14()) * 90 / (1 << 14))
-			nodeAngle = utils.DegToRad(nodeAngle)
 			nodeDistance := float64(node.GetDist_mm_q2()) / 4
 			measurements = append(measurements, lidar.NewMeasurement(nodeAngle, nodeDistance/1000))
 		}

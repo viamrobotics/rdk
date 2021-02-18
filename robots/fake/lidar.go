@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/utils"
 )
 
 const LidarDeviceType = "fake"
@@ -109,7 +108,7 @@ func (l *Lidar) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
 	}
 	for i := 0; i < cap(measurements); i++ {
 		measurements = append(measurements, lidar.NewMeasurement(
-			utils.DegToRad(getFloat64()*360), getFloat64()*float64(l.Range())))
+			getFloat64()*360, getFloat64()*float64(l.Range())))
 	}
 	return measurements, nil
 }

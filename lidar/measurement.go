@@ -4,6 +4,8 @@ import (
 	"math"
 
 	"github.com/viamrobotics/robotcore/utils"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 type Measurements []*Measurement
@@ -41,11 +43,12 @@ func NewMeasurement(angle, distance float64) *Measurement {
 	// 90°  -  (1, 0) // Right
 	// 180° -  (0, 1) // Down
 	// 270° -  (-1,0) // Left
-	x := distance * math.Sin(angle)
-	y := distance * -math.Cos(angle)
+	rad := utils.DegToRad(angle)
+	x := distance * math.Sin(rad)
+	y := distance * -math.Cos(rad)
 	return &Measurement{
-		angle:    angle,
-		angleDeg: utils.RadToDeg(angle),
+		angle:    rad,
+		angleDeg: angle,
 		distance: distance,
 		x:        x,
 		y:        y,
@@ -63,4 +66,24 @@ func (m *Measurement) Distance() float64 {
 
 func (m *Measurement) Coords() (float64, float64) {
 	return m.x, m.y
+}
+
+func MeasurementsFromVec2Matrix(m *utils.Vec2Matrix) Measurements {
+	mD := (*mat.Dense)(m)
+	if mD.IsEmpty() {
+		return nil
+	}
+	_, c := mD.Dims()
+	ms := make(Measurements, 0, c)
+	for i := 0; i < c; i++ {
+		x := mD.At(0, i)
+		y := mD.At(1, i)
+
+		ang := utils.RadToDeg(math.Atan2(x, -y))
+		if ang < 0 {
+			ang = 360 + ang
+		}
+		ms = append(ms, NewMeasurement(ang, math.Sqrt(x*x+y*y)))
+	}
+	return ms
 }

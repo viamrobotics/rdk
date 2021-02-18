@@ -17,8 +17,7 @@ import (
 
 type Device struct {
 	lidar.Device
-	mark    atomic.Value
-	markMat atomic.Value
+	markedRotatedMats atomic.Value
 }
 
 func From(lidarDevice lidar.Device) compass.RelativeDevice {
@@ -32,6 +31,16 @@ func New(deviceDesc lidar.DeviceDescription) (compass.RelativeDevice, error) {
 	}
 
 	return &Device{Device: lidarDevice}, nil
+}
+
+func (d *Device) clone() *Device {
+	cloned := *d
+	cloned.markedRotatedMats.Store(d.markedRotatedMats.Load())
+	return &cloned
+}
+
+func (d *Device) setDevice(lidarDevice lidar.Device) {
+	d.Device = lidarDevice
 }
 
 func (d *Device) StartCalibration() error {
@@ -50,98 +59,46 @@ func (d *Device) Readings() ([]interface{}, error) {
 	return []interface{}{heading}, nil
 }
 
-var parallelFactor = runtime.NumCPU()
+func (d *Device) rotationResolution() float64 {
+	angularRes := d.Device.AngularResolution()
+	if angularRes <= .5 {
+		return .5
+	}
+	return 1
+}
 
 func (d *Device) Heading() (float64, error) {
-	rotatedMatsIfc := d.mark.Load()
-	if rotatedMatsIfc == nil {
+	markedRotatedMatsIfc := d.markedRotatedMats.Load()
+	if markedRotatedMatsIfc == nil {
 		return math.NaN(), nil
 	}
-	rotatedMatss := rotatedMatsIfc.([][]rotS)
-	origMat := d.markMat.Load().(*utils.Vec2Matrix)
+	markedRotatedMats := markedRotatedMatsIfc.([][]rotatedMat)
 	measureMat, err := d.scanToVec2Matrix()
 	if err != nil {
 		return math.NaN(), err
 	}
 
-	angularRes := d.Device.AngularResolution()
-
-	// fast path
-	if false {
-		const searchSize = 75 // always >= 2
-		var findDistance func(from, to float64) float64
-		findDistance = func(from, to float64) float64 {
-			if to-from <= angularRes {
-				return from
-			}
-
-			span := to - from
-			spanSplit := span / (searchSize - 1)
-
-			angs := make([]float64, 0, searchSize)
-			dists := make([]float64, 0, searchSize)
-			for i := 0; i < searchSize; i++ {
-				ang := from + (float64(i) * spanSplit)
-				rot := origMat.RotateMatrixAbout(0, 0, ang)
-				angs = append(angs, ang)
-				dists = append(dists, rot.DistanceMSETo(measureMat))
-			}
-
-			minIdx := 0
-			minDist := dists[0]
-			for i := 1; i < len(dists); i++ {
-				if dists[i] < minDist {
-					minIdx = i
-					minDist = dists[i]
-				}
-			}
-			if minIdx == 0 {
-				return findDistance(angs[minIdx], angs[minIdx+1])
-			}
-			if minIdx == len(dists)-1 {
-				return findDistance(angs[minIdx-1], angs[minIdx])
-			}
-			if math.Abs(dists[minIdx-1]-minDist) < math.Abs(dists[minIdx+1]-minDist) {
-				return findDistance(angs[minIdx-1], angs[minIdx])
-			}
-			return findDistance(angs[minIdx], angs[minIdx+1])
-		}
-		return findDistance(0, 360), nil
-	}
-
-	maxTheta := 360
-	if maxTheta%parallelFactor != 0 {
-		return math.NaN(), fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor)
-	}
-	thetaParts := maxTheta / parallelFactor
-	var wait sync.WaitGroup
-	wait.Add(parallelFactor)
-	results := make(utils.Vec2Fs, parallelFactor)
-	for i := 0; i < parallelFactor; i++ {
-		iCopy := i
-		go func() {
-			defer wait.Done()
-			i := iCopy
-			step := d.Device.AngularResolution()
+	var results utils.Vec2Fs
+	d.groupWorkParallel(
+		func(numGroups int) {
+			results = make(utils.Vec2Fs, numGroups)
+		},
+		func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc) {
 			minDist := math.MaxFloat64
 			var minTheta float64
-			from := float64(thetaParts * i)
-			to := float64(thetaParts * (i + 1))
-			angleNum := 0
-			rotatedMats := rotatedMatss[i]
-			for theta := from; theta < to; theta += step {
-				rotatedS := rotatedMats[angleNum]
-				angleNum++
-				dist := rotatedS.mat.DistanceMSETo(measureMat)
-				if dist < minDist {
-					minDist = dist
-					minTheta = theta
+			rotatedMats := markedRotatedMats[groupNum]
+			return func(memberNum int, theta float64) {
+					rotatedS := rotatedMats[memberNum]
+					dist := rotatedS.mat.DistanceMSETo(measureMat)
+					if dist < minDist {
+						minDist = dist
+						minTheta = theta
+					}
+				}, func() {
+					results[groupNum] = []float64{minDist, minTheta}
 				}
-			}
-			results[i] = []float64{minDist, minTheta}
-		}()
-	}
-	wait.Wait()
+		},
+	)
 	sort.Sort(results)
 	return results[0][1], nil
 }
@@ -176,7 +133,7 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 	return (*utils.Vec2Matrix)(measureMat), nil
 }
 
-type rotS struct {
+type rotatedMat struct {
 	mat   *utils.Vec2Matrix
 	theta float64
 }
@@ -186,37 +143,63 @@ func (d *Device) Mark() error {
 	if err != nil {
 		return err
 	}
+	var markedRotatedMats [][]rotatedMat
+	d.groupWorkParallel(
+		func(numGroups int) {
+			markedRotatedMats = make([][]rotatedMat, numGroups)
+		},
+		func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc) {
+			rotatedMats := make([]rotatedMat, 0, size)
+			return func(memberNum int, theta float64) {
+					rotated := measureMat.RotateMatrixAbout(0, 0, theta)
+					rotatedMats = append(rotatedMats, rotatedMat{rotated, theta})
+				}, func() {
+					markedRotatedMats[groupNum] = rotatedMats
+				}
+		},
+	)
+	d.markedRotatedMats.Store(markedRotatedMats)
+	return nil
+}
 
+var parallelFactor = runtime.NumCPU()
+
+type beforeParallelGroupWorkFunc func(groupSize int)
+type memberWorkFunc func(memberNum int, theta float64)
+type groupWorkDoneFunc func()
+type groupWorkFunc func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc)
+
+func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) {
 	maxTheta := 360
 	if maxTheta%parallelFactor != 0 {
-		return fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor)
+		panic(fmt.Errorf("parallelFactor %d not evenly divisible", parallelFactor))
 	}
-	angularRes := d.Device.AngularResolution()
 	thetaParts := maxTheta / parallelFactor
-	var wait sync.WaitGroup
-	wait.Add(parallelFactor)
-	numRotations := int(math.Ceil(float64(maxTheta) / angularRes))
-	rotatedMatss := make([][]rotS, parallelFactor)
+	rotRes := d.rotationResolution()
+	numRotations := int(math.Ceil(float64(maxTheta) / rotRes))
 	groupSize := int(math.Ceil(float64(numRotations) / float64(parallelFactor)))
-	for i := 0; i < parallelFactor; i++ {
-		iCopy := i
+
+	numGroups := parallelFactor
+	before(numGroups)
+
+	var wait sync.WaitGroup
+	wait.Add(numGroups)
+	for groupNum := 0; groupNum < numGroups; groupNum++ {
+		groupNumCopy := groupNum
 		go func() {
 			defer wait.Done()
-			rotatedMats := make([]rotS, 0, groupSize)
-			i := iCopy
-			step := angularRes
-			from := float64(thetaParts * i)
-			to := float64(thetaParts * (i + 1))
-			for theta := from; theta < to; theta += step {
-				rotated := measureMat.RotateMatrixAbout(0, 0, theta)
-				rotatedMats = append(rotatedMats, rotS{rotated, theta})
+			groupNum := groupNumCopy
+
+			memberWork, groupWorkDone := groupWork(groupNum, groupSize)
+			from := float64(thetaParts * groupNum)
+			to := float64(thetaParts * (groupNum + 1))
+			memberNum := 0
+			for theta := from; theta < to; theta += rotRes {
+				memberWork(memberNum, theta)
+				memberNum++
 			}
-			rotatedMatss[i] = rotatedMats
+			groupWorkDone()
 		}()
 	}
 	wait.Wait()
-
-	d.mark.Store(rotatedMatss)
-	d.markMat.Store(measureMat)
-	return nil
 }
