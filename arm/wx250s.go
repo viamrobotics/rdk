@@ -5,25 +5,20 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/reiver/go-telnet"
 	"github.com/viamrobotics/dynamixel/network"
 	"github.com/viamrobotics/dynamixel/servo"
 	"github.com/viamrobotics/dynamixel/servo/s_model"
 
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
 
-// Note: kinConn is NOT FOR COMMUNICATING WITH THE ROBOT
-// That is done directly via serial joint/servo control
-// kinConn is only for communicating with the forward/inverse kinematics provider
+
 type Wx250s struct {
-	kinConn  *telnet.Conn
 	Joints   map[string][]*servo.Servo
 	moveLock sync.Mutex
-	kinLock  sync.Mutex
+	kin      *Kinematics
 }
 
 // servoPosToRadians takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -49,14 +44,14 @@ func degreeToServoPos(pos float64) int {
 }
 
 func NewWx250s(attributes map[string]string) (*Wx250s, error) {
-	conn, err := telnet.DialTo(attributes["kinHost"] + ":" + attributes["kinPort"])
-	if err != nil {
-		golog.Global.Errorf("Could not open telnet connection: %s", err)
-	}
 	servos := findServos(attributes["usbPort"], attributes["baudRate"], attributes["armServoCount"])
-
+	kin, err := NewRobot(attributes["modelXML"])
+	if err != nil{
+		golog.Global.Errorf("Could not initialize kinematics: %s", err)
+	}
+	
 	newArm := Wx250s{
-		kinConn: conn,
+		kin: kin,
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -81,7 +76,6 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 
 	ci := Position{}
 	setJointTelNums := []float64{}
-	var cartPos string
 
 	// Update kinematics model with current robot location
 	curPos, err := a.CurrentJointPositions()
@@ -93,87 +87,27 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	// HACK my joint angles are reversed for these joints. Fix.
 	setJointTelNums[1] *= -1
 	setJointTelNums[2] *= -1
-
-	// "2 0" prefix is magic telnet for "set the following joint positions"
-	err = a.telnetSend("2 0 " + strings.Trim(strings.Join(strings.Fields(fmt.Sprint(setJointTelNums)), " "), "[]"))
-	if err != nil {
-		golog.Global.Errorf("Error on telnet send")
-		return ci, err
-	}
-
-	//Get current Forward Kinematics position
-	// "7 0" is magic telnet for "show me the current FK position"
-	err = a.telnetSend("7 0")
-	if err != nil {
-		return ci, err
-	}
-	cartPos, err = a.telnetRead()
-	if err != nil {
-		golog.Global.Errorf("Error on telnet read")
-		return ci, err
-	}
-
-	cartPosList := strings.Fields(cartPos)
-	var cartFloatList []float64
-	for _, floatStr := range cartPosList {
-		floatVal, err := strconv.ParseFloat(floatStr, 64)
-		if err == nil {
-			cartFloatList = append(cartFloatList, floatVal*0.001)
-			//~ cartFloatList = append(cartFloatList, floatVal)
-		} else {
-			return ci, err
-		}
-	}
-
-	//~ ci.X = cartFloatList[0] * 1000
-	//~ ci.Y = cartFloatList[1] * 1000
-	//~ ci.Z = cartFloatList[2] * 1000
-	ci.X = cartFloatList[0]
-	ci.Y = cartFloatList[1]
-	ci.Z = cartFloatList[2]
-	ci.Rx = cartFloatList[3]
-	ci.Ry = cartFloatList[4]
-	ci.Rz = cartFloatList[5]
+	
+	a.kin.SetJointPositions(setJointTelNums)
+	ci = a.kin.GetForwardPosition()
 	return ci, nil
 }
 
 //TODO: Motion planning rather than just setting the position
 func (a *Wx250s) MoveToPosition(c Position) error {
-	var jointPos string
 	c.X *= 1000
 	c.Y *= 1000
 	c.Z *= 1000
-	// "3 0" is magic telnet speak for "here are my goal cartesian parameters"
-	err := a.telnetSend("3 0 " + c.NondelimitedString())
+	err := a.kin.SetForwardPosition(c)
 	if err != nil {
 		return err
 	}
 
-	//Get current Forward Kinematics position
-	// "6 0" is magic telnet for "show me the current joint positions in degrees"
-	err = a.telnetSend("6 0")
-	if err != nil {
-		return err
-	}
-	jointPos, err = a.telnetRead()
-	if err != nil {
-		return err
-	}
-	jointPosList := strings.Fields(jointPos)
-	var servoPosList []float64
-	for _, floatStr := range jointPosList {
-		floatVal, err := strconv.ParseFloat(floatStr, 64)
-		if err == nil {
-			servoPosList = append(servoPosList, floatVal)
-		} else {
-			return err
-		}
-	}
+	servoPosList := a.kin.GetJointPositions()
 	// HACK my joint angles are reversed for these joints. Fix.
 	servoPosList[1] *= -1
 	servoPosList[2] *= -1
 	return a.MoveToJointPositions(JointPositions{servoPosList})
-	//~ return nil
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
@@ -452,43 +386,6 @@ func (a *Wx250s) WaitForMovement() error {
 	}
 	return nil
 }
-
-// Below this point is hacky telnet communications with RL
-// It uses telnet because that's what the RL example code uses and there are only so many hours in a day
-// TODO: Write our own code against Robotics Library that does not use telnet, then never use telnet again
-// TODO: Make the above-mentioned code less prone to segfaults than what RL provides
-
-func (a *Wx250s) telnetSend(telString string) error {
-	a.kinLock.Lock()
-	defer a.kinLock.Unlock()
-	_, err := a.kinConn.Write([]byte(telString + "\n"))
-	return err
-}
-
-func (a *Wx250s) telnetRead() (string, error) {
-	a.kinLock.Lock()
-	defer a.kinLock.Unlock()
-	out := ""
-	var buffer [1]byte
-	recvData := buffer[:]
-	var n int
-	var err error
-	for {
-		n, err = a.kinConn.Read(recvData)
-		// read until we get a linefeed character
-		if n <= 0 || err != nil || recvData[0] == 10 {
-			break
-		} else {
-			if recvData[0] != 0 {
-				out += string(recvData)
-			}
-		}
-	}
-	return out, err
-}
-
-// ~~~~~~~~~~~~~~~
-// End telnet section
 
 // Find the specified number of Dynamixel servos on the specified USB port
 // We're going to hardcode some USB parameters that we will literally never want to change
