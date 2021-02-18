@@ -30,16 +30,15 @@ func NewRobot(xmlFile string) (*Kinematics, error) {
 func (k *Kinematics) GetForwardPosition() Position {
 	k.model.ForwardPosition()
 
-	// Angles will be in radians
 	pos6d := k.model.Get6dPosition(k.effectorID)
 
 	pos := Position{}
 	pos.X = pos6d[0]
 	pos.Y = pos6d[1]
 	pos.Z = pos6d[2]
-	pos.Rx = pos6d[3] * 180 / math.Pi
-	pos.Ry = pos6d[4] * 180 / math.Pi
-	pos.Rz = pos6d[5] * 180 / math.Pi
+	pos.Rx = pos6d[3]
+	pos.Ry = pos6d[4]
+	pos.Rz = pos6d[5]
 
 	return pos
 }
@@ -70,7 +69,10 @@ func (k *Kinematics) GetJointPositions() []float64 {
 	return angles
 }
 
-// Sets new joint positions
-func (k *Kinematics) SetJointPositions(pos []float64) {
-	k.model.SetPosition(pos)
+// Sets new joint angles. Takes degrees, passes radians to model
+func (k *Kinematics) SetJointPositions(angles []float64) {
+	for i, angle := range angles {
+		angles[i] = angle * math.Pi/180
+	}
+	k.model.SetPosition(angles)
 }
