@@ -1,4 +1,4 @@
-package mdl
+package kinematics
 
 func (f *Frame) GetGravity() (x, y, z float64) {
 	return f.a.Linear.X(), f.a.Linear.Y(), f.a.Linear.Z()
