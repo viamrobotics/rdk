@@ -9,11 +9,11 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
-	github.com/edaniels/golinters v0.0.4 // indirect
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
+	github.com/go-gl/mathgl v1.0.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.34.1
@@ -38,6 +38,7 @@ require (
 	github.com/sbinet/go-python v0.1.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/stretchr/testify v1.6.1
+	github.com/subchen/go-xmldom v1.1.2
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/dynamixel v0.0.0-20210202154409-545f54f65230
