@@ -12,8 +12,7 @@
             "attributes" : {
               "usbPort"       : "/dev/ttyUSB0",
               "baudRate"      : "1000000",
-              "kinHost"       : "localhost",
-              "kinPort"       : "11235",
+              "modelXML"      : "/home/peter/Documents/echo/kinematics/models/mdl/wx250s.xml",
               "armServoCount" : "8"
            }
         }
