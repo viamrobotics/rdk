@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-
 type Wx250s struct {
 	Joints   map[string][]*servo.Servo
 	moveLock sync.Mutex
@@ -46,10 +45,10 @@ func degreeToServoPos(pos float64) int {
 func NewWx250s(attributes map[string]string) (*Wx250s, error) {
 	servos := findServos(attributes["usbPort"], attributes["baudRate"], attributes["armServoCount"])
 	kin, err := NewRobot(attributes["modelXML"])
-	if err != nil{
+	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
 	}
-	
+
 	newArm := Wx250s{
 		kin: kin,
 		Joints: map[string][]*servo.Servo{
@@ -87,7 +86,7 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	// HACK my joint angles are reversed for these joints. Fix.
 	setJointTelNums[1] *= -1
 	setJointTelNums[2] *= -1
-	
+
 	a.kin.SetJointPositions(setJointTelNums)
 	ci = a.kin.GetForwardPosition()
 	ci.X /= 1000
@@ -101,7 +100,7 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	c.X *= 1000
 	c.Y *= 1000
 	c.Z *= 1000
-	
+
 	err := a.kin.SetForwardPosition(c)
 	if err != nil {
 		return err
@@ -249,7 +248,7 @@ func (a *Wx250s) PrintPositions() error {
 // Return a slice containing all servos in the arm
 func (a *Wx250s) GetAllServos() []*servo.Servo {
 	var servos []*servo.Servo
-	for _, joint := range(a.JointOrder()){
+	for _, joint := range a.JointOrder() {
 		servos = append(servos, a.Joints[joint]...)
 	}
 	return servos

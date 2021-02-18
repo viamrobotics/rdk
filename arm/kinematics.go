@@ -56,7 +56,7 @@ func (k *Kinematics) SetForwardPosition(pos Position) error {
 	k.model.ForwardPosition()
 	if couldSolve {
 		return nil
-	} 
+	}
 	return fmt.Errorf("could not solve for position")
 }
 
@@ -72,7 +72,7 @@ func (k *Kinematics) GetJointPositions() []float64 {
 // Sets new joint angles. Takes degrees, passes radians to model
 func (k *Kinematics) SetJointPositions(angles []float64) {
 	for i, angle := range angles {
-		angles[i] = angle * math.Pi/180
+		angles[i] = angle * math.Pi / 180
 	}
 	k.model.SetPosition(angles)
 }
