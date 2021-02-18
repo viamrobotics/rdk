@@ -90,6 +90,9 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	
 	a.kin.SetJointPositions(setJointTelNums)
 	ci = a.kin.GetForwardPosition()
+	ci.X /= 1000
+	ci.Y /= 1000
+	ci.Z /= 1000
 	return ci, nil
 }
 
@@ -98,6 +101,7 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	c.X *= 1000
 	c.Y *= 1000
 	c.Z *= 1000
+	
 	err := a.kin.SetForwardPosition(c)
 	if err != nil {
 		return err
