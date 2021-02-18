@@ -4,25 +4,25 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 	"github.com/viamrobotics/robotcore/kinematics"
+	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 )
 
 type Kinematics struct {
-	model      *mdl.Model
-	ik         mdl.InverseKinematics
+	model      *kinematics.Model
+	ik         kinematics.InverseKinematics
 	effectorID int
 }
 
-// Returns a new mdl.Model from a correctly formatted XML file
+// Returns a new kinematics.Model from a correctly formatted XML file
 // Note that ParseFile is currently very fragile
 func NewRobot(xmlFile string) (*Kinematics, error) {
-	m, err := mdl.ParseFile(xmlFile)
+	m, err := kinematics.ParseFile(xmlFile)
 	if err != nil {
 		return nil, err
 	}
 	// TODO: configurable IK method once more than one is supported
-	ik := mdl.CreateJacobianIKSolver(m)
+	ik := kinematics.CreateJacobianIKSolver(m)
 	return &Kinematics{m, ik, 0}, nil
 }
 
