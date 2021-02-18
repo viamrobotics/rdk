@@ -41,7 +41,6 @@ require (
 	github.com/subchen/go-xmldom v1.1.2
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
-	github.com/viamrobotics/dynamixel v0.0.0-20210202154409-545f54f65230
 	go.mongodb.org/mongo-driver v1.4.4
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
