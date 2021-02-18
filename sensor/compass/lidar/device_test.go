@@ -2,12 +2,15 @@ package lidar
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"math"
 	"testing"
 
 	"github.com/viamrobotics/robotcore/lidar"
+	"github.com/viamrobotics/robotcore/pc"
 	"github.com/viamrobotics/robotcore/sensor/compass"
+	"github.com/viamrobotics/robotcore/testutils"
 	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/test"
@@ -162,24 +165,61 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
+		pointCloud, err := pc.NewPointCloudFromFile(testutils.ResolveFile("pc/data/test.las"))
+		test.That(t, err, test.ShouldBeNil)
+
+		mat2 := pointCloud.ToVec2Matrix()
+		firstMs := lidar.MeasurementsFromVec2Matrix(mat2)
 		compassDev, injectDev := getInjected()
+		angularRes := .3375
 		injectDev.AngularResolutionFunc = func() float64 {
-			return 1
+			return angularRes
 		}
 		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
-			return lidar.Measurements{
-				lidar.NewMeasurement(1, 10),
-				lidar.NewMeasurement(20, 2),
-				lidar.NewMeasurement(30, 5),
-			}, nil
+			return firstMs, nil
 		}
 		test.That(t, compassDev.Mark(), test.ShouldBeNil)
 
+		setup := func(t *testing.T) (*Device, *injectDevice) {
+			t.Helper()
+			_, injectDev := getInjected()
+			injectDev.AngularResolutionFunc = func() float64 {
+				return angularRes
+			}
+			injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+				return firstMs, nil
+			}
+			cloned := compassDev.clone()
+			cloned.setDevice(injectDev)
+			return cloned, injectDev
+		}
+
 		t.Run("heading should be 0", func(t *testing.T) {
+			compassDev, _ := setup(t)
 			heading, err := compassDev.Heading()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, heading, test.ShouldEqual, 0)
 		})
+
+		for i := 0; i < 360; i++ {
+			iCopy := i
+			t.Run(fmt.Sprintf("rotating %d heading should be %d", iCopy, iCopy), func(t *testing.T) {
+				t.Parallel()
+				compassDev, injectDev := setup(t)
+				m, err := compassDev.scanToVec2Matrix()
+				test.That(t, err, test.ShouldBeNil)
+				rot := m.RotateMatrixAbout(0, 0, float64(iCopy))
+				rotM := lidar.MeasurementsFromVec2Matrix(rot)
+
+				injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+					return rotM, nil
+				}
+
+				heading, err := compassDev.Heading()
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, heading, test.ShouldEqual, iCopy)
+			})
+		}
 	})
 }
 
