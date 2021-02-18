@@ -245,8 +245,8 @@ func (a *Wx250s) PrintPositions() error {
 // Return a slice containing all servos in the arm
 func (a *Wx250s) GetAllServos() []*servo.Servo {
 	var servos []*servo.Servo
-	for _, v := range a.Joints {
-		servos = append(servos, v...)
+	for _, joint := range(a.JointOrder()){
+		servos = append(servos, a.Joints[joint]...)
 	}
 	return servos
 }
@@ -314,25 +314,13 @@ func (a *Wx250s) TorqueOff() error {
 // Set a joint to a position
 func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
 
-	// Adjust for how Dynamixel servos only go to within ~30 of the goal, annoyingly
-	startPos, err := a.GetServos(jointName)[0].PresentPosition()
-	if err != nil {
-		golog.Global.Errorf("jointTo get pos error: %s", err)
-	}
-
-	if startPos < pos {
-		pos += 30
-	} else {
-		pos -= 30
-	}
-
 	if pos > 4095 {
 		pos = 4095
 	} else if pos < 0 {
 		pos = 0
 	}
 
-	err = servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
+	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
 		golog.Global.Errorf("jointTo error: %s", err)
 	}
