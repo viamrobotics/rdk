@@ -126,14 +126,10 @@ func TestScanToVec2Matrix(t *testing.T) {
 		test.That(t, r, test.ShouldEqual, 3)
 		test.That(t, c, test.ShouldEqual, 3)
 		test.That(t, mD.RawRowView(0), test.ShouldResemble, []float64{
-			8.414709848078965,
-			1.8258905014552553,
-			-4.940158120464309,
+			0.17452406437283513, 0.6840402866513374, 2.4999999999999996,
 		}) // x
 		test.That(t, mD.RawRowView(1), test.ShouldResemble, []float64{
-			-5.403023058681398,
-			-0.8161641236267839,
-			-0.7712572494379202,
+			-9.998476951563912, -1.8793852415718169, -4.330127018922194,
 		}) // y
 		test.That(t, mD.RawRowView(2), test.ShouldResemble, []float64{1, 1, 1}) // fill
 	})
@@ -180,6 +176,9 @@ func TestHeading(t *testing.T) {
 		}
 		test.That(t, compassDev.Mark(), test.ShouldBeNil)
 
+		scannedM, err := compassDev.scanToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
+
 		setup := func(t *testing.T) (*Device, *injectDevice) {
 			t.Helper()
 			_, injectDev := getInjected()
@@ -206,9 +205,7 @@ func TestHeading(t *testing.T) {
 			t.Run(fmt.Sprintf("rotating %d heading should be %d", iCopy, iCopy), func(t *testing.T) {
 				t.Parallel()
 				compassDev, injectDev := setup(t)
-				m, err := compassDev.scanToVec2Matrix()
-				test.That(t, err, test.ShouldBeNil)
-				rot := m.RotateMatrixAbout(0, 0, float64(iCopy))
+				rot := scannedM.RotateMatrixAbout(0, 0, float64(iCopy))
 				rotM := lidar.MeasurementsFromVec2Matrix(rot)
 
 				injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
