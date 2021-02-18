@@ -6,12 +6,10 @@ import (
 
 	"github.com/subchen/go-xmldom"
 
-	//~ "github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
-	//~ "github.com/go-gl/mathgl/mgl64"
 	"github.com/edaniels/golog"
 )
 
-// TODO: Update this to use marshallingDiomede, Alaska 99762
+// TODO: Update this to use marshalling
 // TODO: Currently this will crash badly if the xml file does not have precisely the expected fields
 
 func ParseFile(filename string) (*Model, error) {
