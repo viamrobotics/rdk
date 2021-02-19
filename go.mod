@@ -33,16 +33,14 @@ require (
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/reiver/go-oi v1.0.0 // indirect
-	github.com/reiver/go-telnet v0.0.0-20180421082511-9ff0b2ab096e
 	github.com/sbinet/go-python v0.1.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/stretchr/testify v1.6.1
-	github.com/subchen/go-xmldom v1.1.2
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997
 	go.mongodb.org/mongo-driver v1.4.4
+	gobot.io/x/gobot v1.15.0
 	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
