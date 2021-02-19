@@ -1,9 +1,11 @@
 package vision
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
+	"image/jpeg"
 
 	"github.com/blackjack/webcam"
 
@@ -12,7 +14,8 @@ import (
 
 const (
 	// from https://github.com/blackjack/webcam/blob/master/examples/http_mjpeg_streamer/webcam.go
-	v4l2_pix_fmt_yuyv = 0x56595559
+	v4l2PixFmtYuyv = 0x56595559
+	jpegVideo      = 1196444237
 )
 
 type WebcamSource struct {
@@ -30,10 +33,10 @@ func (s *WebcamSource) NextImageDepthPair(ctx context.Context) (image.Image, *De
 	return i, nil, err
 }
 
-func (s *WebcamSource) decode(frame []byte) image.Image {
+func (s *WebcamSource) decode(frame []byte) (image.Image, error) {
 
 	switch s.format {
-	case v4l2_pix_fmt_yuyv:
+	case v4l2PixFmtYuyv:
 		yuyv := image.NewYCbCr(image.Rect(0, 0, int(s.width), int(s.height)), image.YCbCrSubsampleRatio422)
 		for i := range yuyv.Cb {
 			ii := i * 4
@@ -43,7 +46,9 @@ func (s *WebcamSource) decode(frame []byte) image.Image {
 			yuyv.Cr[i] = frame[ii+3]
 
 		}
-		return yuyv
+		return yuyv, nil
+	case jpegVideo:
+		return jpeg.Decode(bytes.NewReader(frame))
 	default:
 		panic("invalid format ? - should be impossible")
 	}
@@ -65,7 +70,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 		return nil, fmt.Errorf("why is frame empty")
 	}
 
-	return s.decode(frame), nil
+	return s.decode(frame)
 }
 
 func tryWebcamOpen(path string) (ImageDepthSource, error) {
@@ -75,12 +80,28 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 	}
 
 	formats := cam.GetSupportedFormats()
-	_, ok := formats[v4l2_pix_fmt_yuyv]
-	if !ok {
-		return nil, fmt.Errorf("unsupported types %v", formats)
+	format := webcam.PixelFormat(0)
+
+	goodFormats := []webcam.PixelFormat{v4l2PixFmtYuyv, jpegVideo}
+	for _, f := range goodFormats {
+		_, ok := formats[f]
+		if !ok {
+			continue
+		}
+
+		if len(cam.GetSupportedFrameSizes(f)) == 0 {
+			continue
+		}
+
+		format = f
+		break
 	}
 
-	sizes := cam.GetSupportedFrameSizes(v4l2_pix_fmt_yuyv)
+	if format == 0 {
+		return nil, fmt.Errorf("no supported format, supported ones: %v", formats)
+	}
+
+	sizes := cam.GetSupportedFrameSizes(format)
 	bestSize := 0
 	for idx, s := range sizes {
 		if s.MaxWidth > sizes[bestSize].MaxWidth {
@@ -88,7 +109,7 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 		}
 	}
 
-	format, w, h, err := cam.SetImageFormat(v4l2_pix_fmt_yuyv, sizes[bestSize].MaxWidth, sizes[bestSize].MaxHeight)
+	format, w, h, err := cam.SetImageFormat(format, sizes[bestSize].MaxWidth, sizes[bestSize].MaxHeight)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set image format: %s", err)
 	}
