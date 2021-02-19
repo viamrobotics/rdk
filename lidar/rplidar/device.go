@@ -43,7 +43,7 @@ var (
 )
 
 func (r Result) Failed() error {
-	if int(r)&rplidargen.RESULT_FAIL_BIT == 0 {
+	if uint32(r)&rplidargen.RESULT_FAIL_BIT == 0 {
 		return nil
 	}
 	return ResultError{r}

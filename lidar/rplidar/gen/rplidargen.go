@@ -393,7 +393,7 @@ func ByteArray_setitem(arg1 *byte, arg2 int, arg3 byte) {
 
 const RPLIDAR_SDK_VERSION string = "1.12.0"
 const RESULT_OK int = 0
-const RESULT_FAIL_BIT int = 0x80000000
+const RESULT_FAIL_BIT uint32 = 0x80000000
 const RESULT_ALREADY_DONE int = 0x20
 const RESULT_REMAINING_DATA int = 0x21
 
