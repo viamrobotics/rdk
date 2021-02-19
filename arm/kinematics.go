@@ -16,8 +16,8 @@ type Kinematics struct {
 
 // Returns a new kinematics.Model from a correctly formatted XML file
 // Note that ParseFile is currently very fragile
-func NewRobot(xmlFile string) (*Kinematics, error) {
-	m, err := kinematics.ParseFile(xmlFile)
+func NewRobot(ymlFile string) (*Kinematics, error) {
+	m, err := kinematics.ParseYmlFile(ymlFile)
 	if err != nil {
 		return nil, err
 	}
