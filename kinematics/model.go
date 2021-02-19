@@ -89,7 +89,7 @@ func (m *Model) GetOperationalDof() int {
 	return len(m.Leaves)
 }
 
-// GetDof returns the sum of Dof from all joints
+// GetDof returns the sum of Dof from all joints- Should sum to the total degrees of freedom for the robot
 func (m *Model) GetDof() int {
 	dof := 0
 	for _, joint := range m.Joints {
@@ -98,7 +98,7 @@ func (m *Model) GetDof() int {
 	return dof
 }
 
-// GetDofPosition returns the sum of DofPosition from all joints
+// GetDofPosition returns the sum of DofPosition from all joints. Equal to GetDof() for standard 1dof revolute joints
 func (m *Model) GetDofPosition() int {
 	dof := 0
 	for _, joint := range m.Joints {
