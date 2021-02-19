@@ -290,7 +290,7 @@ static void measurementNodeHqArray_setitem(rplidar_response_measurement_node_hq_
 extern "C" {
 #endif
 
-void _wrap_Swig_free_rplidargen_5b9c62d0930caee0(void *_swig_go_0) {
+void _wrap_Swig_free_rplidargen_8edb49484e240529(void *_swig_go_0) {
   void *arg1 = (void *) 0 ;
   
   arg1 = *(void **)&_swig_go_0; 
@@ -300,7 +300,7 @@ void _wrap_Swig_free_rplidargen_5b9c62d0930caee0(void *_swig_go_0) {
 }
 
 
-void *_wrap_Swig_malloc_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
+void *_wrap_Swig_malloc_rplidargen_8edb49484e240529(intgo _swig_go_0) {
   int arg1 ;
   void *result = 0 ;
   void *_swig_go_result;
@@ -313,7 +313,7 @@ void *_wrap_Swig_malloc_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
 }
 
 
-char *_wrap_new_byteArray_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
+char *_wrap_new_byteArray_rplidargen_8edb49484e240529(intgo _swig_go_0) {
   int arg1 ;
   uint8_t *result = 0 ;
   char *_swig_go_result;
@@ -326,7 +326,7 @@ char *_wrap_new_byteArray_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
 }
 
 
-void _wrap_delete_byteArray_rplidargen_5b9c62d0930caee0(char *_swig_go_0) {
+void _wrap_delete_byteArray_rplidargen_8edb49484e240529(char *_swig_go_0) {
   uint8_t *arg1 = (uint8_t *) 0 ;
   
   arg1 = *(uint8_t **)&_swig_go_0; 
@@ -336,7 +336,7 @@ void _wrap_delete_byteArray_rplidargen_5b9c62d0930caee0(char *_swig_go_0) {
 }
 
 
-char _wrap_byteArray_getitem_rplidargen_5b9c62d0930caee0(char *_swig_go_0, intgo _swig_go_1) {
+char _wrap_byteArray_getitem_rplidargen_8edb49484e240529(char *_swig_go_0, intgo _swig_go_1) {
   uint8_t *arg1 = (uint8_t *) 0 ;
   int arg2 ;
   uint8_t result;
@@ -351,7 +351,7 @@ char _wrap_byteArray_getitem_rplidargen_5b9c62d0930caee0(char *_swig_go_0, intgo
 }
 
 
-void _wrap_byteArray_setitem_rplidargen_5b9c62d0930caee0(char *_swig_go_0, intgo _swig_go_1, char _swig_go_2) {
+void _wrap_byteArray_setitem_rplidargen_8edb49484e240529(char *_swig_go_0, intgo _swig_go_1, char _swig_go_2) {
   uint8_t *arg1 = (uint8_t *) 0 ;
   int arg2 ;
   uint8_t arg3 ;
@@ -365,7 +365,7 @@ void _wrap_byteArray_setitem_rplidargen_5b9c62d0930caee0(char *_swig_go_0, intgo
 }
 
 
-intgo _wrap_RESULT_INVALID_DATA_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_INVALID_DATA_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -376,7 +376,7 @@ intgo _wrap_RESULT_INVALID_DATA_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_OPERATION_FAIL_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_OPERATION_FAIL_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -387,7 +387,7 @@ intgo _wrap_RESULT_OPERATION_FAIL_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_OPERATION_TIMEOUT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_OPERATION_TIMEOUT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -398,7 +398,7 @@ intgo _wrap_RESULT_OPERATION_TIMEOUT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_OPERATION_STOP_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_OPERATION_STOP_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -409,7 +409,7 @@ intgo _wrap_RESULT_OPERATION_STOP_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_OPERATION_NOT_SUPPORT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_OPERATION_NOT_SUPPORT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -420,7 +420,7 @@ intgo _wrap_RESULT_OPERATION_NOT_SUPPORT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_FORMAT_NOT_SUPPORT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_FORMAT_NOT_SUPPORT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -431,7 +431,7 @@ intgo _wrap_RESULT_FORMAT_NOT_SUPPORT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_INSUFFICIENT_MEMORY_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_INSUFFICIENT_MEMORY_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -442,7 +442,7 @@ intgo _wrap_RESULT_INSUFFICIENT_MEMORY_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_OPERATION_ABORTED_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_OPERATION_ABORTED_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -453,7 +453,7 @@ intgo _wrap_RESULT_OPERATION_ABORTED_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_NOT_FOUND_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_NOT_FOUND_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -464,7 +464,7 @@ intgo _wrap_RESULT_NOT_FOUND_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RESULT_RECONNECTING_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RESULT_RECONNECTING_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -475,7 +475,7 @@ intgo _wrap_RESULT_RECONNECTING_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -486,7 +486,7 @@ intgo _wrap_RPLIDAR_ANS_HEADER_SUBTYPE_SHIFT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-void _wrap_rplidar_cmd_packet_t_syncByte_set_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_cmd_packet_t_syncByte_set_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 arg2 ;
   
@@ -498,7 +498,7 @@ void _wrap_rplidar_cmd_packet_t_syncByte_set_rplidargen_5b9c62d0930caee0(_rplida
 }
 
 
-char _wrap_rplidar_cmd_packet_t_syncByte_get_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0) {
+char _wrap_rplidar_cmd_packet_t_syncByte_get_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -511,7 +511,7 @@ char _wrap_rplidar_cmd_packet_t_syncByte_get_rplidargen_5b9c62d0930caee0(_rplida
 }
 
 
-void _wrap_rplidar_cmd_packet_t_cmd_flag_set_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_cmd_packet_t_cmd_flag_set_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 arg2 ;
   
@@ -523,7 +523,7 @@ void _wrap_rplidar_cmd_packet_t_cmd_flag_set_rplidargen_5b9c62d0930caee0(_rplida
 }
 
 
-char _wrap_rplidar_cmd_packet_t_cmd_flag_get_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0) {
+char _wrap_rplidar_cmd_packet_t_cmd_flag_get_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -536,7 +536,7 @@ char _wrap_rplidar_cmd_packet_t_cmd_flag_get_rplidargen_5b9c62d0930caee0(_rplida
 }
 
 
-void _wrap_rplidar_cmd_packet_t_size_set_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_cmd_packet_t_size_set_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0, char _swig_go_1) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 arg2 ;
   
@@ -548,7 +548,7 @@ void _wrap_rplidar_cmd_packet_t_size_set_rplidargen_5b9c62d0930caee0(_rplidar_cm
 }
 
 
-char _wrap_rplidar_cmd_packet_t_size_get_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0) {
+char _wrap_rplidar_cmd_packet_t_size_get_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -561,7 +561,7 @@ char _wrap_rplidar_cmd_packet_t_size_get_rplidargen_5b9c62d0930caee0(_rplidar_cm
 }
 
 
-void _wrap_rplidar_cmd_packet_t_data_set_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0, char *_swig_go_1) {
+void _wrap_rplidar_cmd_packet_t_data_set_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0, char *_swig_go_1) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 *arg2 ;
   
@@ -577,7 +577,7 @@ void _wrap_rplidar_cmd_packet_t_data_set_rplidargen_5b9c62d0930caee0(_rplidar_cm
 }
 
 
-char *_wrap_rplidar_cmd_packet_t_data_get_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0) {
+char *_wrap_rplidar_cmd_packet_t_data_get_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   _u8 *result = 0 ;
   char *_swig_go_result;
@@ -590,7 +590,7 @@ char *_wrap_rplidar_cmd_packet_t_data_get_rplidargen_5b9c62d0930caee0(_rplidar_c
 }
 
 
-_rplidar_cmd_packet_t *_wrap_new_rplidar_cmd_packet_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_cmd_packet_t *_wrap_new_rplidar_cmd_packet_t_rplidargen_8edb49484e240529() {
   _rplidar_cmd_packet_t *result = 0 ;
   _rplidar_cmd_packet_t *_swig_go_result;
   
@@ -601,7 +601,7 @@ _rplidar_cmd_packet_t *_wrap_new_rplidar_cmd_packet_t_rplidargen_5b9c62d0930caee
 }
 
 
-void _wrap_delete_rplidar_cmd_packet_t_rplidargen_5b9c62d0930caee0(_rplidar_cmd_packet_t *_swig_go_0) {
+void _wrap_delete_rplidar_cmd_packet_t_rplidargen_8edb49484e240529(_rplidar_cmd_packet_t *_swig_go_0) {
   _rplidar_cmd_packet_t *arg1 = (_rplidar_cmd_packet_t *) 0 ;
   
   arg1 = *(_rplidar_cmd_packet_t **)&_swig_go_0; 
@@ -611,7 +611,7 @@ void _wrap_delete_rplidar_cmd_packet_t_rplidargen_5b9c62d0930caee0(_rplidar_cmd_
 }
 
 
-void _wrap_rplidar_ans_header_t_syncByte1_set_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_ans_header_t_syncByte1_set_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 arg2 ;
   
@@ -623,7 +623,7 @@ void _wrap_rplidar_ans_header_t_syncByte1_set_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-char _wrap_rplidar_ans_header_t_syncByte1_get_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0) {
+char _wrap_rplidar_ans_header_t_syncByte1_get_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -636,7 +636,7 @@ char _wrap_rplidar_ans_header_t_syncByte1_get_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-void _wrap_rplidar_ans_header_t_syncByte2_set_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_ans_header_t_syncByte2_set_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 arg2 ;
   
@@ -648,7 +648,7 @@ void _wrap_rplidar_ans_header_t_syncByte2_set_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-char _wrap_rplidar_ans_header_t_syncByte2_get_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0) {
+char _wrap_rplidar_ans_header_t_syncByte2_get_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -661,7 +661,7 @@ char _wrap_rplidar_ans_header_t_syncByte2_get_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-void _wrap_rplidar_ans_header_t_size_q30_subtype_set_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_ans_header_t_size_q30_subtype_set_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u32 arg2 ;
   
@@ -673,7 +673,7 @@ void _wrap_rplidar_ans_header_t_size_q30_subtype_set_rplidargen_5b9c62d0930caee0
 }
 
 
-intgo _wrap_rplidar_ans_header_t_size_q30_subtype_get_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0) {
+intgo _wrap_rplidar_ans_header_t_size_q30_subtype_get_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -686,7 +686,7 @@ intgo _wrap_rplidar_ans_header_t_size_q30_subtype_get_rplidargen_5b9c62d0930caee
 }
 
 
-void _wrap_rplidar_ans_header_t_Xtype_set_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_ans_header_t_Xtype_set_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0, char _swig_go_1) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 arg2 ;
   
@@ -698,7 +698,7 @@ void _wrap_rplidar_ans_header_t_Xtype_set_rplidargen_5b9c62d0930caee0(_rplidar_a
 }
 
 
-char _wrap_rplidar_ans_header_t_Xtype_get_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0) {
+char _wrap_rplidar_ans_header_t_Xtype_get_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -711,7 +711,7 @@ char _wrap_rplidar_ans_header_t_Xtype_get_rplidargen_5b9c62d0930caee0(_rplidar_a
 }
 
 
-_rplidar_ans_header_t *_wrap_new_rplidar_ans_header_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_ans_header_t *_wrap_new_rplidar_ans_header_t_rplidargen_8edb49484e240529() {
   _rplidar_ans_header_t *result = 0 ;
   _rplidar_ans_header_t *_swig_go_result;
   
@@ -722,7 +722,7 @@ _rplidar_ans_header_t *_wrap_new_rplidar_ans_header_t_rplidargen_5b9c62d0930caee
 }
 
 
-void _wrap_delete_rplidar_ans_header_t_rplidargen_5b9c62d0930caee0(_rplidar_ans_header_t *_swig_go_0) {
+void _wrap_delete_rplidar_ans_header_t_rplidargen_8edb49484e240529(_rplidar_ans_header_t *_swig_go_0) {
   _rplidar_ans_header_t *arg1 = (_rplidar_ans_header_t *) 0 ;
   
   arg1 = *(_rplidar_ans_header_t **)&_swig_go_0; 
@@ -732,7 +732,7 @@ void _wrap_delete_rplidar_ans_header_t_rplidargen_5b9c62d0930caee0(_rplidar_ans_
 }
 
 
-intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_CCW_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_CCW_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -743,7 +743,7 @@ intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_CCW_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -754,7 +754,7 @@ intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_ENCODER_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -765,7 +765,7 @@ intgo _wrap_RPLIDAR_HQ_SCAN_FLAG_RAW_DISTANCE_rplidargen_5b9c62d0930caee0() {
 }
 
 
-void _wrap_rplidar_payload_express_scan_t_working_mode_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_payload_express_scan_t_working_mode_set_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0, char _swig_go_1) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u8 arg2 ;
   
@@ -777,7 +777,7 @@ void _wrap_rplidar_payload_express_scan_t_working_mode_set_rplidargen_5b9c62d093
 }
 
 
-char _wrap_rplidar_payload_express_scan_t_working_mode_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0) {
+char _wrap_rplidar_payload_express_scan_t_working_mode_get_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -790,7 +790,7 @@ char _wrap_rplidar_payload_express_scan_t_working_mode_get_rplidargen_5b9c62d093
 }
 
 
-void _wrap_rplidar_payload_express_scan_t_working_flags_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_payload_express_scan_t_working_flags_set_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0, short _swig_go_1) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u16 arg2 ;
   
@@ -802,7 +802,7 @@ void _wrap_rplidar_payload_express_scan_t_working_flags_set_rplidargen_5b9c62d09
 }
 
 
-short _wrap_rplidar_payload_express_scan_t_working_flags_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0) {
+short _wrap_rplidar_payload_express_scan_t_working_flags_get_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -815,7 +815,7 @@ short _wrap_rplidar_payload_express_scan_t_working_flags_get_rplidargen_5b9c62d0
 }
 
 
-void _wrap_rplidar_payload_express_scan_t_param_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_payload_express_scan_t_param_set_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0, short _swig_go_1) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u16 arg2 ;
   
@@ -827,7 +827,7 @@ void _wrap_rplidar_payload_express_scan_t_param_set_rplidargen_5b9c62d0930caee0(
 }
 
 
-short _wrap_rplidar_payload_express_scan_t_param_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0) {
+short _wrap_rplidar_payload_express_scan_t_param_get_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -840,7 +840,7 @@ short _wrap_rplidar_payload_express_scan_t_param_get_rplidargen_5b9c62d0930caee0
 }
 
 
-_rplidar_payload_express_scan_t *_wrap_new_rplidar_payload_express_scan_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_express_scan_t *_wrap_new_rplidar_payload_express_scan_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_express_scan_t *result = 0 ;
   _rplidar_payload_express_scan_t *_swig_go_result;
   
@@ -851,7 +851,7 @@ _rplidar_payload_express_scan_t *_wrap_new_rplidar_payload_express_scan_t_rplida
 }
 
 
-void _wrap_delete_rplidar_payload_express_scan_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_express_scan_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_express_scan_t_rplidargen_8edb49484e240529(_rplidar_payload_express_scan_t *_swig_go_0) {
   _rplidar_payload_express_scan_t *arg1 = (_rplidar_payload_express_scan_t *) 0 ;
   
   arg1 = *(_rplidar_payload_express_scan_t **)&_swig_go_0; 
@@ -861,7 +861,7 @@ void _wrap_delete_rplidar_payload_express_scan_t_rplidargen_5b9c62d0930caee0(_rp
 }
 
 
-void _wrap_rplidar_payload_hq_scan_t_flag_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_scan_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_payload_hq_scan_t_flag_set_rplidargen_8edb49484e240529(_rplidar_payload_hq_scan_t *_swig_go_0, char _swig_go_1) {
   _rplidar_payload_hq_scan_t *arg1 = (_rplidar_payload_hq_scan_t *) 0 ;
   _u8 arg2 ;
   
@@ -873,7 +873,7 @@ void _wrap_rplidar_payload_hq_scan_t_flag_set_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-char _wrap_rplidar_payload_hq_scan_t_flag_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_scan_t *_swig_go_0) {
+char _wrap_rplidar_payload_hq_scan_t_flag_get_rplidargen_8edb49484e240529(_rplidar_payload_hq_scan_t *_swig_go_0) {
   _rplidar_payload_hq_scan_t *arg1 = (_rplidar_payload_hq_scan_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -886,7 +886,7 @@ char _wrap_rplidar_payload_hq_scan_t_flag_get_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-void _wrap_rplidar_payload_hq_scan_t_reserved_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_scan_t *_swig_go_0, char *_swig_go_1) {
+void _wrap_rplidar_payload_hq_scan_t_reserved_set_rplidargen_8edb49484e240529(_rplidar_payload_hq_scan_t *_swig_go_0, char *_swig_go_1) {
   _rplidar_payload_hq_scan_t *arg1 = (_rplidar_payload_hq_scan_t *) 0 ;
   _u8 *arg2 ;
   
@@ -902,7 +902,7 @@ void _wrap_rplidar_payload_hq_scan_t_reserved_set_rplidargen_5b9c62d0930caee0(_r
 }
 
 
-char *_wrap_rplidar_payload_hq_scan_t_reserved_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_scan_t *_swig_go_0) {
+char *_wrap_rplidar_payload_hq_scan_t_reserved_get_rplidargen_8edb49484e240529(_rplidar_payload_hq_scan_t *_swig_go_0) {
   _rplidar_payload_hq_scan_t *arg1 = (_rplidar_payload_hq_scan_t *) 0 ;
   _u8 *result = 0 ;
   char *_swig_go_result;
@@ -915,7 +915,7 @@ char *_wrap_rplidar_payload_hq_scan_t_reserved_get_rplidargen_5b9c62d0930caee0(_
 }
 
 
-_rplidar_payload_hq_scan_t *_wrap_new_rplidar_payload_hq_scan_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_hq_scan_t *_wrap_new_rplidar_payload_hq_scan_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_hq_scan_t *result = 0 ;
   _rplidar_payload_hq_scan_t *_swig_go_result;
   
@@ -926,7 +926,7 @@ _rplidar_payload_hq_scan_t *_wrap_new_rplidar_payload_hq_scan_t_rplidargen_5b9c6
 }
 
 
-void _wrap_delete_rplidar_payload_hq_scan_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_scan_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_hq_scan_t_rplidargen_8edb49484e240529(_rplidar_payload_hq_scan_t *_swig_go_0) {
   _rplidar_payload_hq_scan_t *arg1 = (_rplidar_payload_hq_scan_t *) 0 ;
   
   arg1 = *(_rplidar_payload_hq_scan_t **)&_swig_go_0; 
@@ -936,7 +936,7 @@ void _wrap_delete_rplidar_payload_hq_scan_t_rplidargen_5b9c62d0930caee0(_rplidar
 }
 
 
-void _wrap_rplidar_payload_get_scan_conf_t_Xtype_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_get_scan_conf_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_payload_get_scan_conf_t_Xtype_set_rplidargen_8edb49484e240529(_rplidar_payload_get_scan_conf_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_payload_get_scan_conf_t *arg1 = (_rplidar_payload_get_scan_conf_t *) 0 ;
   _u32 arg2 ;
   
@@ -948,7 +948,7 @@ void _wrap_rplidar_payload_get_scan_conf_t_Xtype_set_rplidargen_5b9c62d0930caee0
 }
 
 
-intgo _wrap_rplidar_payload_get_scan_conf_t_Xtype_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
+intgo _wrap_rplidar_payload_get_scan_conf_t_Xtype_get_rplidargen_8edb49484e240529(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
   _rplidar_payload_get_scan_conf_t *arg1 = (_rplidar_payload_get_scan_conf_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -961,7 +961,7 @@ intgo _wrap_rplidar_payload_get_scan_conf_t_Xtype_get_rplidargen_5b9c62d0930caee
 }
 
 
-void _wrap_rplidar_payload_get_scan_conf_t_reserved_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_get_scan_conf_t *_swig_go_0, char *_swig_go_1) {
+void _wrap_rplidar_payload_get_scan_conf_t_reserved_set_rplidargen_8edb49484e240529(_rplidar_payload_get_scan_conf_t *_swig_go_0, char *_swig_go_1) {
   _rplidar_payload_get_scan_conf_t *arg1 = (_rplidar_payload_get_scan_conf_t *) 0 ;
   _u8 *arg2 ;
   
@@ -977,7 +977,7 @@ void _wrap_rplidar_payload_get_scan_conf_t_reserved_set_rplidargen_5b9c62d0930ca
 }
 
 
-char *_wrap_rplidar_payload_get_scan_conf_t_reserved_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
+char *_wrap_rplidar_payload_get_scan_conf_t_reserved_get_rplidargen_8edb49484e240529(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
   _rplidar_payload_get_scan_conf_t *arg1 = (_rplidar_payload_get_scan_conf_t *) 0 ;
   _u8 *result = 0 ;
   char *_swig_go_result;
@@ -990,7 +990,7 @@ char *_wrap_rplidar_payload_get_scan_conf_t_reserved_get_rplidargen_5b9c62d0930c
 }
 
 
-_rplidar_payload_get_scan_conf_t *_wrap_new_rplidar_payload_get_scan_conf_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_get_scan_conf_t *_wrap_new_rplidar_payload_get_scan_conf_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_get_scan_conf_t *result = 0 ;
   _rplidar_payload_get_scan_conf_t *_swig_go_result;
   
@@ -1001,7 +1001,7 @@ _rplidar_payload_get_scan_conf_t *_wrap_new_rplidar_payload_get_scan_conf_t_rpli
 }
 
 
-void _wrap_delete_rplidar_payload_get_scan_conf_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_get_scan_conf_t_rplidargen_8edb49484e240529(_rplidar_payload_get_scan_conf_t *_swig_go_0) {
   _rplidar_payload_get_scan_conf_t *arg1 = (_rplidar_payload_get_scan_conf_t *) 0 ;
   
   arg1 = *(_rplidar_payload_get_scan_conf_t **)&_swig_go_0; 
@@ -1011,7 +1011,7 @@ void _wrap_delete_rplidar_payload_get_scan_conf_t_rplidargen_5b9c62d0930caee0(_r
 }
 
 
-void _wrap_rplidar_payload_motor_pwm_t_pwm_value_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_motor_pwm_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_payload_motor_pwm_t_pwm_value_set_rplidargen_8edb49484e240529(_rplidar_payload_motor_pwm_t *_swig_go_0, short _swig_go_1) {
   _rplidar_payload_motor_pwm_t *arg1 = (_rplidar_payload_motor_pwm_t *) 0 ;
   _u16 arg2 ;
   
@@ -1023,7 +1023,7 @@ void _wrap_rplidar_payload_motor_pwm_t_pwm_value_set_rplidargen_5b9c62d0930caee0
 }
 
 
-short _wrap_rplidar_payload_motor_pwm_t_pwm_value_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_motor_pwm_t *_swig_go_0) {
+short _wrap_rplidar_payload_motor_pwm_t_pwm_value_get_rplidargen_8edb49484e240529(_rplidar_payload_motor_pwm_t *_swig_go_0) {
   _rplidar_payload_motor_pwm_t *arg1 = (_rplidar_payload_motor_pwm_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1036,7 +1036,7 @@ short _wrap_rplidar_payload_motor_pwm_t_pwm_value_get_rplidargen_5b9c62d0930caee
 }
 
 
-_rplidar_payload_motor_pwm_t *_wrap_new_rplidar_payload_motor_pwm_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_motor_pwm_t *_wrap_new_rplidar_payload_motor_pwm_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_motor_pwm_t *result = 0 ;
   _rplidar_payload_motor_pwm_t *_swig_go_result;
   
@@ -1047,7 +1047,7 @@ _rplidar_payload_motor_pwm_t *_wrap_new_rplidar_payload_motor_pwm_t_rplidargen_5
 }
 
 
-void _wrap_delete_rplidar_payload_motor_pwm_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_motor_pwm_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_motor_pwm_t_rplidargen_8edb49484e240529(_rplidar_payload_motor_pwm_t *_swig_go_0) {
   _rplidar_payload_motor_pwm_t *arg1 = (_rplidar_payload_motor_pwm_t *) 0 ;
   
   arg1 = *(_rplidar_payload_motor_pwm_t **)&_swig_go_0; 
@@ -1057,7 +1057,7 @@ void _wrap_delete_rplidar_payload_motor_pwm_t_rplidargen_5b9c62d0930caee0(_rplid
 }
 
 
-void _wrap_rplidar_payload_acc_board_flag_t_reserved_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_acc_board_flag_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_payload_acc_board_flag_t_reserved_set_rplidargen_8edb49484e240529(_rplidar_payload_acc_board_flag_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_payload_acc_board_flag_t *arg1 = (_rplidar_payload_acc_board_flag_t *) 0 ;
   _u32 arg2 ;
   
@@ -1069,7 +1069,7 @@ void _wrap_rplidar_payload_acc_board_flag_t_reserved_set_rplidargen_5b9c62d0930c
 }
 
 
-intgo _wrap_rplidar_payload_acc_board_flag_t_reserved_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_acc_board_flag_t *_swig_go_0) {
+intgo _wrap_rplidar_payload_acc_board_flag_t_reserved_get_rplidargen_8edb49484e240529(_rplidar_payload_acc_board_flag_t *_swig_go_0) {
   _rplidar_payload_acc_board_flag_t *arg1 = (_rplidar_payload_acc_board_flag_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -1082,7 +1082,7 @@ intgo _wrap_rplidar_payload_acc_board_flag_t_reserved_get_rplidargen_5b9c62d0930
 }
 
 
-_rplidar_payload_acc_board_flag_t *_wrap_new_rplidar_payload_acc_board_flag_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_acc_board_flag_t *_wrap_new_rplidar_payload_acc_board_flag_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_acc_board_flag_t *result = 0 ;
   _rplidar_payload_acc_board_flag_t *_swig_go_result;
   
@@ -1093,7 +1093,7 @@ _rplidar_payload_acc_board_flag_t *_wrap_new_rplidar_payload_acc_board_flag_t_rp
 }
 
 
-void _wrap_delete_rplidar_payload_acc_board_flag_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_acc_board_flag_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_acc_board_flag_t_rplidargen_8edb49484e240529(_rplidar_payload_acc_board_flag_t *_swig_go_0) {
   _rplidar_payload_acc_board_flag_t *arg1 = (_rplidar_payload_acc_board_flag_t *) 0 ;
   
   arg1 = *(_rplidar_payload_acc_board_flag_t **)&_swig_go_0; 
@@ -1103,7 +1103,7 @@ void _wrap_delete_rplidar_payload_acc_board_flag_t_rplidargen_5b9c62d0930caee0(_
 }
 
 
-void _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_set_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_set_rplidargen_8edb49484e240529(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0, short _swig_go_1) {
   _rplidar_payload_hq_spd_ctrl_t *arg1 = (_rplidar_payload_hq_spd_ctrl_t *) 0 ;
   _u16 arg2 ;
   
@@ -1115,7 +1115,7 @@ void _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_set_rplidargen_5b9c62d0930caee0(_rp
 }
 
 
-short _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_get_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0) {
+short _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_get_rplidargen_8edb49484e240529(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0) {
   _rplidar_payload_hq_spd_ctrl_t *arg1 = (_rplidar_payload_hq_spd_ctrl_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1128,7 +1128,7 @@ short _wrap_rplidar_payload_hq_spd_ctrl_t_rpm_get_rplidargen_5b9c62d0930caee0(_r
 }
 
 
-_rplidar_payload_hq_spd_ctrl_t *_wrap_new_rplidar_payload_hq_spd_ctrl_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_payload_hq_spd_ctrl_t *_wrap_new_rplidar_payload_hq_spd_ctrl_t_rplidargen_8edb49484e240529() {
   _rplidar_payload_hq_spd_ctrl_t *result = 0 ;
   _rplidar_payload_hq_spd_ctrl_t *_swig_go_result;
   
@@ -1139,7 +1139,7 @@ _rplidar_payload_hq_spd_ctrl_t *_wrap_new_rplidar_payload_hq_spd_ctrl_t_rplidarg
 }
 
 
-void _wrap_delete_rplidar_payload_hq_spd_ctrl_t_rplidargen_5b9c62d0930caee0(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0) {
+void _wrap_delete_rplidar_payload_hq_spd_ctrl_t_rplidargen_8edb49484e240529(_rplidar_payload_hq_spd_ctrl_t *_swig_go_0) {
   _rplidar_payload_hq_spd_ctrl_t *arg1 = (_rplidar_payload_hq_spd_ctrl_t *) 0 ;
   
   arg1 = *(_rplidar_payload_hq_spd_ctrl_t **)&_swig_go_0; 
@@ -1149,7 +1149,7 @@ void _wrap_delete_rplidar_payload_hq_spd_ctrl_t_rplidargen_5b9c62d0930caee0(_rpl
 }
 
 
-intgo _wrap_RPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1160,7 +1160,7 @@ intgo _wrap_RPLIDAR_RESP_ACC_BOARD_FLAG_MOTOR_CTRL_SUPPORT_MASK_rplidargen_5b9c6
 }
 
 
-void _wrap_rplidar_response_acc_board_flag_t_support_flag_set_rplidargen_5b9c62d0930caee0(_rplidar_response_acc_board_flag_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_acc_board_flag_t_support_flag_set_rplidargen_8edb49484e240529(_rplidar_response_acc_board_flag_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_response_acc_board_flag_t *arg1 = (_rplidar_response_acc_board_flag_t *) 0 ;
   _u32 arg2 ;
   
@@ -1172,7 +1172,7 @@ void _wrap_rplidar_response_acc_board_flag_t_support_flag_set_rplidargen_5b9c62d
 }
 
 
-intgo _wrap_rplidar_response_acc_board_flag_t_support_flag_get_rplidargen_5b9c62d0930caee0(_rplidar_response_acc_board_flag_t *_swig_go_0) {
+intgo _wrap_rplidar_response_acc_board_flag_t_support_flag_get_rplidargen_8edb49484e240529(_rplidar_response_acc_board_flag_t *_swig_go_0) {
   _rplidar_response_acc_board_flag_t *arg1 = (_rplidar_response_acc_board_flag_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -1185,7 +1185,7 @@ intgo _wrap_rplidar_response_acc_board_flag_t_support_flag_get_rplidargen_5b9c62
 }
 
 
-_rplidar_response_acc_board_flag_t *_wrap_new_rplidar_response_acc_board_flag_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_acc_board_flag_t *_wrap_new_rplidar_response_acc_board_flag_t_rplidargen_8edb49484e240529() {
   _rplidar_response_acc_board_flag_t *result = 0 ;
   _rplidar_response_acc_board_flag_t *_swig_go_result;
   
@@ -1196,7 +1196,7 @@ _rplidar_response_acc_board_flag_t *_wrap_new_rplidar_response_acc_board_flag_t_
 }
 
 
-void _wrap_delete_rplidar_response_acc_board_flag_t_rplidargen_5b9c62d0930caee0(_rplidar_response_acc_board_flag_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_acc_board_flag_t_rplidargen_8edb49484e240529(_rplidar_response_acc_board_flag_t *_swig_go_0) {
   _rplidar_response_acc_board_flag_t *arg1 = (_rplidar_response_acc_board_flag_t *) 0 ;
   
   arg1 = *(_rplidar_response_acc_board_flag_t **)&_swig_go_0; 
@@ -1206,7 +1206,7 @@ void _wrap_delete_rplidar_response_acc_board_flag_t_rplidargen_5b9c62d0930caee0(
 }
 
 
-intgo _wrap_RPLIDAR_RESP_MEASUREMENT_SYNCBIT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_MEASUREMENT_SYNCBIT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1217,7 +1217,7 @@ intgo _wrap_RPLIDAR_RESP_MEASUREMENT_SYNCBIT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RPLIDAR_RESP_HQ_FLAG_SYNCBIT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_HQ_FLAG_SYNCBIT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1228,7 +1228,7 @@ intgo _wrap_RPLIDAR_RESP_HQ_FLAG_SYNCBIT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_RPLIDAR_RESP_MEASUREMENT_CHECKBIT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_MEASUREMENT_CHECKBIT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1239,7 +1239,7 @@ intgo _wrap_RPLIDAR_RESP_MEASUREMENT_CHECKBIT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-void _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_set_rplidargen_5b9c62d0930caee0(_rplidar_response_sample_rate_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_set_rplidargen_8edb49484e240529(_rplidar_response_sample_rate_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_sample_rate_t *arg1 = (_rplidar_response_sample_rate_t *) 0 ;
   _u16 arg2 ;
   
@@ -1251,7 +1251,7 @@ void _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_set_rplidargen_
 }
 
 
-short _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_get_rplidargen_5b9c62d0930caee0(_rplidar_response_sample_rate_t *_swig_go_0) {
+short _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_get_rplidargen_8edb49484e240529(_rplidar_response_sample_rate_t *_swig_go_0) {
   _rplidar_response_sample_rate_t *arg1 = (_rplidar_response_sample_rate_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1264,7 +1264,7 @@ short _wrap_rplidar_response_sample_rate_t_std_sample_duration_us_get_rplidargen
 }
 
 
-void _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_set_rplidargen_5b9c62d0930caee0(_rplidar_response_sample_rate_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_set_rplidargen_8edb49484e240529(_rplidar_response_sample_rate_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_sample_rate_t *arg1 = (_rplidar_response_sample_rate_t *) 0 ;
   _u16 arg2 ;
   
@@ -1276,7 +1276,7 @@ void _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_set_rplidar
 }
 
 
-short _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_get_rplidargen_5b9c62d0930caee0(_rplidar_response_sample_rate_t *_swig_go_0) {
+short _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_get_rplidargen_8edb49484e240529(_rplidar_response_sample_rate_t *_swig_go_0) {
   _rplidar_response_sample_rate_t *arg1 = (_rplidar_response_sample_rate_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1289,7 +1289,7 @@ short _wrap_rplidar_response_sample_rate_t_express_sample_duration_us_get_rplida
 }
 
 
-_rplidar_response_sample_rate_t *_wrap_new_rplidar_response_sample_rate_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_sample_rate_t *_wrap_new_rplidar_response_sample_rate_t_rplidargen_8edb49484e240529() {
   _rplidar_response_sample_rate_t *result = 0 ;
   _rplidar_response_sample_rate_t *_swig_go_result;
   
@@ -1300,7 +1300,7 @@ _rplidar_response_sample_rate_t *_wrap_new_rplidar_response_sample_rate_t_rplida
 }
 
 
-void _wrap_delete_rplidar_response_sample_rate_t_rplidargen_5b9c62d0930caee0(_rplidar_response_sample_rate_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_sample_rate_t_rplidargen_8edb49484e240529(_rplidar_response_sample_rate_t *_swig_go_0) {
   _rplidar_response_sample_rate_t *arg1 = (_rplidar_response_sample_rate_t *) 0 ;
   
   arg1 = *(_rplidar_response_sample_rate_t **)&_swig_go_0; 
@@ -1310,7 +1310,7 @@ void _wrap_delete_rplidar_response_sample_rate_t_rplidargen_5b9c62d0930caee0(_rp
 }
 
 
-void _wrap_rplidar_response_measurement_node_t_sync_quality_set_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_t_sync_quality_set_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u8 arg2 ;
   
@@ -1322,7 +1322,7 @@ void _wrap_rplidar_response_measurement_node_t_sync_quality_set_rplidargen_5b9c6
 }
 
 
-char _wrap_rplidar_response_measurement_node_t_sync_quality_get_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0) {
+char _wrap_rplidar_response_measurement_node_t_sync_quality_get_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1335,7 +1335,7 @@ char _wrap_rplidar_response_measurement_node_t_sync_quality_get_rplidargen_5b9c6
 }
 
 
-void _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_set_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_set_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u16 arg2 ;
   
@@ -1347,7 +1347,7 @@ void _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_set_rplidargen_
 }
 
 
-short _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_get_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0) {
+short _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_get_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1360,7 +1360,7 @@ short _wrap_rplidar_response_measurement_node_t_angle_q6_checkbit_get_rplidargen
 }
 
 
-void _wrap_rplidar_response_measurement_node_t_distance_q2_set_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_t_distance_q2_set_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u16 arg2 ;
   
@@ -1372,7 +1372,7 @@ void _wrap_rplidar_response_measurement_node_t_distance_q2_set_rplidargen_5b9c62
 }
 
 
-short _wrap_rplidar_response_measurement_node_t_distance_q2_get_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0) {
+short _wrap_rplidar_response_measurement_node_t_distance_q2_get_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1385,7 +1385,7 @@ short _wrap_rplidar_response_measurement_node_t_distance_q2_get_rplidargen_5b9c6
 }
 
 
-_rplidar_response_measurement_node_t *_wrap_new_rplidar_response_measurement_node_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_measurement_node_t *_wrap_new_rplidar_response_measurement_node_t_rplidargen_8edb49484e240529() {
   _rplidar_response_measurement_node_t *result = 0 ;
   _rplidar_response_measurement_node_t *_swig_go_result;
   
@@ -1396,7 +1396,7 @@ _rplidar_response_measurement_node_t *_wrap_new_rplidar_response_measurement_nod
 }
 
 
-void _wrap_delete_rplidar_response_measurement_node_t_rplidargen_5b9c62d0930caee0(_rplidar_response_measurement_node_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_measurement_node_t_rplidargen_8edb49484e240529(_rplidar_response_measurement_node_t *_swig_go_0) {
   _rplidar_response_measurement_node_t *arg1 = (_rplidar_response_measurement_node_t *) 0 ;
   
   arg1 = *(_rplidar_response_measurement_node_t **)&_swig_go_0; 
@@ -1406,7 +1406,7 @@ void _wrap_delete_rplidar_response_measurement_node_t_rplidargen_5b9c62d0930caee
 }
 
 
-intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1417,7 +1417,7 @@ intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_ANGLE_MASK_rplidargen_5b9c62d0930caee0(
 }
 
 
-intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1428,7 +1428,7 @@ intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_DISTANCE_MASK_rplidargen_5b9c62d0930cae
 }
 
 
-void _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_set_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_set_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1440,7 +1440,7 @@ void _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_set_rplidargen_5b9c62
 }
 
 
-short _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_get_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_get_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1453,7 +1453,7 @@ short _wrap_rplidar_response_cabin_nodes_t_distance_angle_1_get_rplidargen_5b9c6
 }
 
 
-void _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_set_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_set_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1465,7 +1465,7 @@ void _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_set_rplidargen_5b9c62
 }
 
 
-short _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_get_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_get_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1478,7 +1478,7 @@ short _wrap_rplidar_response_cabin_nodes_t_distance_angle_2_get_rplidargen_5b9c6
 }
 
 
-void _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_set_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_set_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1490,7 +1490,7 @@ void _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_set_rplidargen_5b9c62
 }
 
 
-char _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_get_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_get_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1503,7 +1503,7 @@ char _wrap_rplidar_response_cabin_nodes_t_offset_angles_q3_get_rplidargen_5b9c62
 }
 
 
-_rplidar_response_cabin_nodes_t *_wrap_new_rplidar_response_cabin_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_cabin_nodes_t *_wrap_new_rplidar_response_cabin_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_cabin_nodes_t *result = 0 ;
   _rplidar_response_cabin_nodes_t *_swig_go_result;
   
@@ -1514,7 +1514,7 @@ _rplidar_response_cabin_nodes_t *_wrap_new_rplidar_response_cabin_nodes_t_rplida
 }
 
 
-void _wrap_delete_rplidar_response_cabin_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_cabin_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_cabin_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_cabin_nodes_t *arg1 = (_rplidar_response_cabin_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_cabin_nodes_t **)&_swig_go_0; 
@@ -1524,7 +1524,7 @@ void _wrap_delete_rplidar_response_cabin_nodes_t_rplidargen_5b9c62d0930caee0(_rp
 }
 
 
-intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -1535,7 +1535,7 @@ intgo _wrap_RPLIDAR_RESP_MEASUREMENT_EXP_SYNCBIT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1547,7 +1547,7 @@ void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_set_rplidar
 }
 
 
-char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1560,7 +1560,7 @@ char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_1_get_rplidar
 }
 
 
-void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1572,7 +1572,7 @@ void _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_set_rplidar
 }
 
 
-char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1585,7 +1585,7 @@ char _wrap_rplidar_response_capsule_measurement_nodes_t_s_checksum_2_get_rplidar
 }
 
 
-void _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1597,7 +1597,7 @@ void _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_set_
 }
 
 
-short _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1610,7 +1610,7 @@ short _wrap_rplidar_response_capsule_measurement_nodes_t_start_angle_sync_q6_get
 }
 
 
-void _wrap_rplidar_response_capsule_measurement_nodes_t_cabins_set_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_cabin_nodes_t *_swig_go_1) {
+void _wrap_rplidar_response_capsule_measurement_nodes_t_cabins_set_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_cabin_nodes_t *_swig_go_1) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_cabin_nodes_t *arg2 ;
   
@@ -1626,7 +1626,7 @@ void _wrap_rplidar_response_capsule_measurement_nodes_t_cabins_set_rplidargen_5b
 }
 
 
-_rplidar_response_cabin_nodes_t (*_wrap_rplidar_response_capsule_measurement_nodes_t_cabins_get_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0))[16] {
+_rplidar_response_cabin_nodes_t (*_wrap_rplidar_response_capsule_measurement_nodes_t_cabins_get_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0))[16] {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_cabin_nodes_t *result = 0 ;
   _rplidar_response_cabin_nodes_t (*_swig_go_result)[16];
@@ -1639,7 +1639,7 @@ _rplidar_response_cabin_nodes_t (*_wrap_rplidar_response_capsule_measurement_nod
 }
 
 
-_rplidar_response_capsule_measurement_nodes_t *_wrap_new_rplidar_response_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_capsule_measurement_nodes_t *_wrap_new_rplidar_response_capsule_measurement_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_capsule_measurement_nodes_t *result = 0 ;
   _rplidar_response_capsule_measurement_nodes_t *_swig_go_result;
   
@@ -1650,7 +1650,7 @@ _rplidar_response_capsule_measurement_nodes_t *_wrap_new_rplidar_response_capsul
 }
 
 
-void _wrap_delete_rplidar_response_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_capsule_measurement_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_capsule_measurement_nodes_t *arg1 = (_rplidar_response_capsule_measurement_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_capsule_measurement_nodes_t **)&_swig_go_0; 
@@ -1660,7 +1660,7 @@ void _wrap_delete_rplidar_response_capsule_measurement_nodes_t_rplidargen_5b9c62
 }
 
 
-void _wrap_rplidar_response_dense_cabin_nodes_t_distance_set_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_dense_cabin_nodes_t_distance_set_rplidargen_8edb49484e240529(_rplidar_response_dense_cabin_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_dense_cabin_nodes_t *arg1 = (_rplidar_response_dense_cabin_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1672,7 +1672,7 @@ void _wrap_rplidar_response_dense_cabin_nodes_t_distance_set_rplidargen_5b9c62d0
 }
 
 
-short _wrap_rplidar_response_dense_cabin_nodes_t_distance_get_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_cabin_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_dense_cabin_nodes_t_distance_get_rplidargen_8edb49484e240529(_rplidar_response_dense_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_dense_cabin_nodes_t *arg1 = (_rplidar_response_dense_cabin_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1685,7 +1685,7 @@ short _wrap_rplidar_response_dense_cabin_nodes_t_distance_get_rplidargen_5b9c62d
 }
 
 
-_rplidar_response_dense_cabin_nodes_t *_wrap_new_rplidar_response_dense_cabin_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_dense_cabin_nodes_t *_wrap_new_rplidar_response_dense_cabin_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_dense_cabin_nodes_t *result = 0 ;
   _rplidar_response_dense_cabin_nodes_t *_swig_go_result;
   
@@ -1696,7 +1696,7 @@ _rplidar_response_dense_cabin_nodes_t *_wrap_new_rplidar_response_dense_cabin_no
 }
 
 
-void _wrap_delete_rplidar_response_dense_cabin_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_cabin_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_dense_cabin_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_dense_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_dense_cabin_nodes_t *arg1 = (_rplidar_response_dense_cabin_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_dense_cabin_nodes_t **)&_swig_go_0; 
@@ -1706,7 +1706,7 @@ void _wrap_delete_rplidar_response_dense_cabin_nodes_t_rplidargen_5b9c62d0930cae
 }
 
 
-void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1718,7 +1718,7 @@ void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_set_r
 }
 
 
-char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1731,7 +1731,7 @@ char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_1_get_r
 }
 
 
-void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1743,7 +1743,7 @@ void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_set_r
 }
 
 
-char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1756,7 +1756,7 @@ char _wrap_rplidar_response_dense_capsule_measurement_nodes_t_s_checksum_2_get_r
 }
 
 
-void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1768,7 +1768,7 @@ void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_q
 }
 
 
-short _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1781,7 +1781,7 @@ short _wrap_rplidar_response_dense_capsule_measurement_nodes_t_start_angle_sync_
 }
 
 
-void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_cabins_set_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_dense_cabin_nodes_t *_swig_go_1) {
+void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_cabins_set_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_dense_cabin_nodes_t *_swig_go_1) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_dense_cabin_nodes_t *arg2 ;
   
@@ -1797,7 +1797,7 @@ void _wrap_rplidar_response_dense_capsule_measurement_nodes_t_cabins_set_rplidar
 }
 
 
-_rplidar_response_dense_cabin_nodes_t (*_wrap_rplidar_response_dense_capsule_measurement_nodes_t_cabins_get_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0))[40] {
+_rplidar_response_dense_cabin_nodes_t (*_wrap_rplidar_response_dense_capsule_measurement_nodes_t_cabins_get_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0))[40] {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_dense_cabin_nodes_t *result = 0 ;
   _rplidar_response_dense_cabin_nodes_t (*_swig_go_result)[40];
@@ -1810,7 +1810,7 @@ _rplidar_response_dense_cabin_nodes_t (*_wrap_rplidar_response_dense_capsule_mea
 }
 
 
-_rplidar_response_dense_capsule_measurement_nodes_t *_wrap_new_rplidar_response_dense_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_dense_capsule_measurement_nodes_t *_wrap_new_rplidar_response_dense_capsule_measurement_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_dense_capsule_measurement_nodes_t *result = 0 ;
   _rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_result;
   
@@ -1821,7 +1821,7 @@ _rplidar_response_dense_capsule_measurement_nodes_t *_wrap_new_rplidar_response_
 }
 
 
-void _wrap_delete_rplidar_response_dense_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_dense_capsule_measurement_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_dense_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_dense_capsule_measurement_nodes_t *arg1 = (_rplidar_response_dense_capsule_measurement_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_dense_capsule_measurement_nodes_t **)&_swig_go_0; 
@@ -1831,7 +1831,7 @@ void _wrap_delete_rplidar_response_dense_capsule_measurement_nodes_t_rplidargen_
 }
 
 
-void _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_set_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_set_rplidargen_8edb49484e240529(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_response_ultra_cabin_nodes_t *arg1 = (_rplidar_response_ultra_cabin_nodes_t *) 0 ;
   _u32 arg2 ;
   
@@ -1843,7 +1843,7 @@ void _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_set_rplidargen_5b9c6
 }
 
 
-intgo _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_get_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0) {
+intgo _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_get_rplidargen_8edb49484e240529(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_cabin_nodes_t *arg1 = (_rplidar_response_ultra_cabin_nodes_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -1856,7 +1856,7 @@ intgo _wrap_rplidar_response_ultra_cabin_nodes_t_combined_x3_get_rplidargen_5b9c
 }
 
 
-_rplidar_response_ultra_cabin_nodes_t *_wrap_new_rplidar_response_ultra_cabin_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_ultra_cabin_nodes_t *_wrap_new_rplidar_response_ultra_cabin_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_ultra_cabin_nodes_t *result = 0 ;
   _rplidar_response_ultra_cabin_nodes_t *_swig_go_result;
   
@@ -1867,7 +1867,7 @@ _rplidar_response_ultra_cabin_nodes_t *_wrap_new_rplidar_response_ultra_cabin_no
 }
 
 
-void _wrap_delete_rplidar_response_ultra_cabin_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_ultra_cabin_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_ultra_cabin_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_cabin_nodes_t *arg1 = (_rplidar_response_ultra_cabin_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_ultra_cabin_nodes_t **)&_swig_go_0; 
@@ -1877,7 +1877,7 @@ void _wrap_delete_rplidar_response_ultra_cabin_nodes_t_rplidargen_5b9c62d0930cae
 }
 
 
-void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_set_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1889,7 +1889,7 @@ void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_set_r
 }
 
 
-char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_get_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1902,7 +1902,7 @@ char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_1_get_r
 }
 
 
-void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_set_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -1914,7 +1914,7 @@ void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_set_r
 }
 
 
-char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_get_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -1927,7 +1927,7 @@ char _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_s_checksum_2_get_r
 }
 
 
-void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_q6_set_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u16 arg2 ;
   
@@ -1939,7 +1939,7 @@ void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_q
 }
 
 
-short _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
+short _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_q6_get_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -1952,7 +1952,7 @@ short _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_start_angle_sync_
 }
 
 
-void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_ultra_cabins_set_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_ultra_cabin_nodes_t *_swig_go_1) {
+void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_ultra_cabins_set_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0, _rplidar_response_ultra_cabin_nodes_t *_swig_go_1) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_ultra_cabin_nodes_t *arg2 ;
   
@@ -1968,7 +1968,7 @@ void _wrap_rplidar_response_ultra_capsule_measurement_nodes_t_ultra_cabins_set_r
 }
 
 
-_rplidar_response_ultra_cabin_nodes_t (*_wrap_rplidar_response_ultra_capsule_measurement_nodes_t_ultra_cabins_get_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0))[32] {
+_rplidar_response_ultra_cabin_nodes_t (*_wrap_rplidar_response_ultra_capsule_measurement_nodes_t_ultra_cabins_get_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0))[32] {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_ultra_cabin_nodes_t *result = 0 ;
   _rplidar_response_ultra_cabin_nodes_t (*_swig_go_result)[32];
@@ -1981,7 +1981,7 @@ _rplidar_response_ultra_cabin_nodes_t (*_wrap_rplidar_response_ultra_capsule_mea
 }
 
 
-_rplidar_response_ultra_capsule_measurement_nodes_t *_wrap_new_rplidar_response_ultra_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_ultra_capsule_measurement_nodes_t *_wrap_new_rplidar_response_ultra_capsule_measurement_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_ultra_capsule_measurement_nodes_t *result = 0 ;
   _rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_result;
   
@@ -1992,7 +1992,7 @@ _rplidar_response_ultra_capsule_measurement_nodes_t *_wrap_new_rplidar_response_
 }
 
 
-void _wrap_delete_rplidar_response_ultra_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_ultra_capsule_measurement_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_ultra_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_ultra_capsule_measurement_nodes_t *arg1 = (_rplidar_response_ultra_capsule_measurement_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_ultra_capsule_measurement_nodes_t **)&_swig_go_0; 
@@ -2002,7 +2002,7 @@ void _wrap_delete_rplidar_response_ultra_capsule_measurement_nodes_t_rplidargen_
 }
 
 
-void _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_set_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_set_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, short _swig_go_1) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u16 arg2 ;
   
@@ -2014,7 +2014,7 @@ void _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_set_rplidargen_5b9
 }
 
 
-short _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_get_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+short _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_get_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -2027,7 +2027,7 @@ short _wrap_rplidar_response_measurement_node_hq_t_angle_z_q14_get_rplidargen_5b
 }
 
 
-void _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_set_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_set_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u32 arg2 ;
   
@@ -2039,7 +2039,7 @@ void _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_set_rplidargen_5b9c
 }
 
 
-intgo _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_get_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+intgo _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_get_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -2052,7 +2052,7 @@ intgo _wrap_rplidar_response_measurement_node_hq_t_dist_mm_q2_get_rplidargen_5b9
 }
 
 
-void _wrap_rplidar_response_measurement_node_hq_t_quality_set_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_hq_t_quality_set_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, char _swig_go_1) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u8 arg2 ;
   
@@ -2064,7 +2064,7 @@ void _wrap_rplidar_response_measurement_node_hq_t_quality_set_rplidargen_5b9c62d
 }
 
 
-char _wrap_rplidar_response_measurement_node_hq_t_quality_get_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+char _wrap_rplidar_response_measurement_node_hq_t_quality_get_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2077,7 +2077,7 @@ char _wrap_rplidar_response_measurement_node_hq_t_quality_get_rplidargen_5b9c62d
 }
 
 
-void _wrap_rplidar_response_measurement_node_hq_t_flag_set_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_measurement_node_hq_t_flag_set_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, char _swig_go_1) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u8 arg2 ;
   
@@ -2089,7 +2089,7 @@ void _wrap_rplidar_response_measurement_node_hq_t_flag_set_rplidargen_5b9c62d093
 }
 
 
-char _wrap_rplidar_response_measurement_node_hq_t_flag_get_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+char _wrap_rplidar_response_measurement_node_hq_t_flag_get_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2102,7 +2102,7 @@ char _wrap_rplidar_response_measurement_node_hq_t_flag_get_rplidargen_5b9c62d093
 }
 
 
-rplidar_response_measurement_node_hq_t *_wrap_new_rplidar_response_measurement_node_hq_t_rplidargen_5b9c62d0930caee0() {
+rplidar_response_measurement_node_hq_t *_wrap_new_rplidar_response_measurement_node_hq_t_rplidargen_8edb49484e240529() {
   rplidar_response_measurement_node_hq_t *result = 0 ;
   rplidar_response_measurement_node_hq_t *_swig_go_result;
   
@@ -2113,7 +2113,7 @@ rplidar_response_measurement_node_hq_t *_wrap_new_rplidar_response_measurement_n
 }
 
 
-void _wrap_delete_rplidar_response_measurement_node_hq_t_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_measurement_node_hq_t_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   
   arg1 = *(rplidar_response_measurement_node_hq_t **)&_swig_go_0; 
@@ -2123,7 +2123,7 @@ void _wrap_delete_rplidar_response_measurement_node_hq_t_rplidargen_5b9c62d0930c
 }
 
 
-void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_set_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_set_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u8 arg2 ;
   
@@ -2135,7 +2135,7 @@ void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_set_rplidar
 }
 
 
-char _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_get_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
+char _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_get_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2148,7 +2148,7 @@ char _wrap_rplidar_response_hq_capsule_measurement_nodes_t_sync_byte_get_rplidar
 }
 
 
-void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_set_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, long long _swig_go_1) {
+void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_set_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, long long _swig_go_1) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u64 arg2 ;
   
@@ -2160,7 +2160,7 @@ void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_set_rplida
 }
 
 
-long long _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_get_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
+long long _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_get_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u64 result;
   long long _swig_go_result;
@@ -2173,7 +2173,7 @@ long long _wrap_rplidar_response_hq_capsule_measurement_nodes_t_time_stamp_get_r
 }
 
 
-void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_node_hq_set_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1) {
+void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_node_hq_set_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_measurement_node_hq_t *arg2 ;
   
@@ -2189,7 +2189,7 @@ void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_node_hq_set_rplidarge
 }
 
 
-rplidar_response_measurement_node_hq_t (*_wrap_rplidar_response_hq_capsule_measurement_nodes_t_node_hq_get_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0))[16] {
+rplidar_response_measurement_node_hq_t (*_wrap_rplidar_response_hq_capsule_measurement_nodes_t_node_hq_get_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0))[16] {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   rplidar_response_measurement_node_hq_t *result = 0 ;
   rplidar_response_measurement_node_hq_t (*_swig_go_result)[16];
@@ -2202,7 +2202,7 @@ rplidar_response_measurement_node_hq_t (*_wrap_rplidar_response_hq_capsule_measu
 }
 
 
-void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_set_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_set_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0, intgo _swig_go_1) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u32 arg2 ;
   
@@ -2214,7 +2214,7 @@ void _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_set_rplidargen_
 }
 
 
-intgo _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_get_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
+intgo _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_get_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -2227,7 +2227,7 @@ intgo _wrap_rplidar_response_hq_capsule_measurement_nodes_t_crc32_get_rplidargen
 }
 
 
-_rplidar_response_hq_capsule_measurement_nodes_t *_wrap_new_rplidar_response_hq_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_hq_capsule_measurement_nodes_t *_wrap_new_rplidar_response_hq_capsule_measurement_nodes_t_rplidargen_8edb49484e240529() {
   _rplidar_response_hq_capsule_measurement_nodes_t *result = 0 ;
   _rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_result;
   
@@ -2238,7 +2238,7 @@ _rplidar_response_hq_capsule_measurement_nodes_t *_wrap_new_rplidar_response_hq_
 }
 
 
-void _wrap_delete_rplidar_response_hq_capsule_measurement_nodes_t_rplidargen_5b9c62d0930caee0(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_hq_capsule_measurement_nodes_t_rplidargen_8edb49484e240529(_rplidar_response_hq_capsule_measurement_nodes_t *_swig_go_0) {
   _rplidar_response_hq_capsule_measurement_nodes_t *arg1 = (_rplidar_response_hq_capsule_measurement_nodes_t *) 0 ;
   
   arg1 = *(_rplidar_response_hq_capsule_measurement_nodes_t **)&_swig_go_0; 
@@ -2248,7 +2248,7 @@ void _wrap_delete_rplidar_response_hq_capsule_measurement_nodes_t_rplidargen_5b9
 }
 
 
-void _wrap_rplidar_response_get_lidar_conf_t_Xtype_set_rplidargen_5b9c62d0930caee0(_rplidar_response_get_lidar_conf *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_get_lidar_conf_t_Xtype_set_rplidargen_8edb49484e240529(_rplidar_response_get_lidar_conf *_swig_go_0, intgo _swig_go_1) {
   _rplidar_response_get_lidar_conf *arg1 = (_rplidar_response_get_lidar_conf *) 0 ;
   _u32 arg2 ;
   
@@ -2260,7 +2260,7 @@ void _wrap_rplidar_response_get_lidar_conf_t_Xtype_set_rplidargen_5b9c62d0930cae
 }
 
 
-intgo _wrap_rplidar_response_get_lidar_conf_t_Xtype_get_rplidargen_5b9c62d0930caee0(_rplidar_response_get_lidar_conf *_swig_go_0) {
+intgo _wrap_rplidar_response_get_lidar_conf_t_Xtype_get_rplidargen_8edb49484e240529(_rplidar_response_get_lidar_conf *_swig_go_0) {
   _rplidar_response_get_lidar_conf *arg1 = (_rplidar_response_get_lidar_conf *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -2273,7 +2273,7 @@ intgo _wrap_rplidar_response_get_lidar_conf_t_Xtype_get_rplidargen_5b9c62d0930ca
 }
 
 
-void _wrap_rplidar_response_get_lidar_conf_t_payload_set_rplidargen_5b9c62d0930caee0(_rplidar_response_get_lidar_conf *_swig_go_0, char *_swig_go_1) {
+void _wrap_rplidar_response_get_lidar_conf_t_payload_set_rplidargen_8edb49484e240529(_rplidar_response_get_lidar_conf *_swig_go_0, char *_swig_go_1) {
   _rplidar_response_get_lidar_conf *arg1 = (_rplidar_response_get_lidar_conf *) 0 ;
   _u8 *arg2 ;
   
@@ -2289,7 +2289,7 @@ void _wrap_rplidar_response_get_lidar_conf_t_payload_set_rplidargen_5b9c62d0930c
 }
 
 
-char *_wrap_rplidar_response_get_lidar_conf_t_payload_get_rplidargen_5b9c62d0930caee0(_rplidar_response_get_lidar_conf *_swig_go_0) {
+char *_wrap_rplidar_response_get_lidar_conf_t_payload_get_rplidargen_8edb49484e240529(_rplidar_response_get_lidar_conf *_swig_go_0) {
   _rplidar_response_get_lidar_conf *arg1 = (_rplidar_response_get_lidar_conf *) 0 ;
   _u8 *result = 0 ;
   char *_swig_go_result;
@@ -2302,7 +2302,7 @@ char *_wrap_rplidar_response_get_lidar_conf_t_payload_get_rplidargen_5b9c62d0930
 }
 
 
-_rplidar_response_get_lidar_conf *_wrap_new_rplidar_response_get_lidar_conf_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_get_lidar_conf *_wrap_new_rplidar_response_get_lidar_conf_t_rplidargen_8edb49484e240529() {
   _rplidar_response_get_lidar_conf *result = 0 ;
   _rplidar_response_get_lidar_conf *_swig_go_result;
   
@@ -2313,7 +2313,7 @@ _rplidar_response_get_lidar_conf *_wrap_new_rplidar_response_get_lidar_conf_t_rp
 }
 
 
-void _wrap_delete_rplidar_response_get_lidar_conf_t_rplidargen_5b9c62d0930caee0(_rplidar_response_get_lidar_conf *_swig_go_0) {
+void _wrap_delete_rplidar_response_get_lidar_conf_t_rplidargen_8edb49484e240529(_rplidar_response_get_lidar_conf *_swig_go_0) {
   _rplidar_response_get_lidar_conf *arg1 = (_rplidar_response_get_lidar_conf *) 0 ;
   
   arg1 = *(_rplidar_response_get_lidar_conf **)&_swig_go_0; 
@@ -2323,7 +2323,7 @@ void _wrap_delete_rplidar_response_get_lidar_conf_t_rplidargen_5b9c62d0930caee0(
 }
 
 
-void _wrap_rplidar_response_set_lidar_conf_t_result_set_rplidargen_5b9c62d0930caee0(_rplidar_response_set_lidar_conf *_swig_go_0, intgo _swig_go_1) {
+void _wrap_rplidar_response_set_lidar_conf_t_result_set_rplidargen_8edb49484e240529(_rplidar_response_set_lidar_conf *_swig_go_0, intgo _swig_go_1) {
   _rplidar_response_set_lidar_conf *arg1 = (_rplidar_response_set_lidar_conf *) 0 ;
   _u32 arg2 ;
   
@@ -2335,7 +2335,7 @@ void _wrap_rplidar_response_set_lidar_conf_t_result_set_rplidargen_5b9c62d0930ca
 }
 
 
-intgo _wrap_rplidar_response_set_lidar_conf_t_result_get_rplidargen_5b9c62d0930caee0(_rplidar_response_set_lidar_conf *_swig_go_0) {
+intgo _wrap_rplidar_response_set_lidar_conf_t_result_get_rplidargen_8edb49484e240529(_rplidar_response_set_lidar_conf *_swig_go_0) {
   _rplidar_response_set_lidar_conf *arg1 = (_rplidar_response_set_lidar_conf *) 0 ;
   _u32 result;
   intgo _swig_go_result;
@@ -2348,7 +2348,7 @@ intgo _wrap_rplidar_response_set_lidar_conf_t_result_get_rplidargen_5b9c62d0930c
 }
 
 
-_rplidar_response_set_lidar_conf *_wrap_new_rplidar_response_set_lidar_conf_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_set_lidar_conf *_wrap_new_rplidar_response_set_lidar_conf_t_rplidargen_8edb49484e240529() {
   _rplidar_response_set_lidar_conf *result = 0 ;
   _rplidar_response_set_lidar_conf *_swig_go_result;
   
@@ -2359,7 +2359,7 @@ _rplidar_response_set_lidar_conf *_wrap_new_rplidar_response_set_lidar_conf_t_rp
 }
 
 
-void _wrap_delete_rplidar_response_set_lidar_conf_t_rplidargen_5b9c62d0930caee0(_rplidar_response_set_lidar_conf *_swig_go_0) {
+void _wrap_delete_rplidar_response_set_lidar_conf_t_rplidargen_8edb49484e240529(_rplidar_response_set_lidar_conf *_swig_go_0) {
   _rplidar_response_set_lidar_conf *arg1 = (_rplidar_response_set_lidar_conf *) 0 ;
   
   arg1 = *(_rplidar_response_set_lidar_conf **)&_swig_go_0; 
@@ -2369,7 +2369,7 @@ void _wrap_delete_rplidar_response_set_lidar_conf_t_rplidargen_5b9c62d0930caee0(
 }
 
 
-void _wrap_rplidar_response_device_info_t_model_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_device_info_t_model_set_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 arg2 ;
   
@@ -2381,7 +2381,7 @@ void _wrap_rplidar_response_device_info_t_model_set_rplidargen_5b9c62d0930caee0(
 }
 
 
-char _wrap_rplidar_response_device_info_t_model_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0) {
+char _wrap_rplidar_response_device_info_t_model_get_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2394,7 +2394,7 @@ char _wrap_rplidar_response_device_info_t_model_get_rplidargen_5b9c62d0930caee0(
 }
 
 
-void _wrap_rplidar_response_device_info_t_firmware_version_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_device_info_t_firmware_version_set_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u16 arg2 ;
   
@@ -2406,7 +2406,7 @@ void _wrap_rplidar_response_device_info_t_firmware_version_set_rplidargen_5b9c62
 }
 
 
-short _wrap_rplidar_response_device_info_t_firmware_version_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0) {
+short _wrap_rplidar_response_device_info_t_firmware_version_get_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -2419,7 +2419,7 @@ short _wrap_rplidar_response_device_info_t_firmware_version_get_rplidargen_5b9c6
 }
 
 
-void _wrap_rplidar_response_device_info_t_hardware_version_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_device_info_t_hardware_version_set_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 arg2 ;
   
@@ -2431,7 +2431,7 @@ void _wrap_rplidar_response_device_info_t_hardware_version_set_rplidargen_5b9c62
 }
 
 
-char _wrap_rplidar_response_device_info_t_hardware_version_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0) {
+char _wrap_rplidar_response_device_info_t_hardware_version_get_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2444,7 +2444,7 @@ char _wrap_rplidar_response_device_info_t_hardware_version_get_rplidargen_5b9c62
 }
 
 
-void _wrap_rplidar_response_device_info_t_serialnum_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0, char *_swig_go_1) {
+void _wrap_rplidar_response_device_info_t_serialnum_set_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0, char *_swig_go_1) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 *arg2 ;
   
@@ -2460,7 +2460,7 @@ void _wrap_rplidar_response_device_info_t_serialnum_set_rplidargen_5b9c62d0930ca
 }
 
 
-char *_wrap_rplidar_response_device_info_t_serialnum_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0) {
+char *_wrap_rplidar_response_device_info_t_serialnum_get_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   _u8 *result = 0 ;
   char *_swig_go_result;
@@ -2473,7 +2473,7 @@ char *_wrap_rplidar_response_device_info_t_serialnum_get_rplidargen_5b9c62d0930c
 }
 
 
-_rplidar_response_device_info_t *_wrap_new_rplidar_response_device_info_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_device_info_t *_wrap_new_rplidar_response_device_info_t_rplidargen_8edb49484e240529() {
   _rplidar_response_device_info_t *result = 0 ;
   _rplidar_response_device_info_t *_swig_go_result;
   
@@ -2484,7 +2484,7 @@ _rplidar_response_device_info_t *_wrap_new_rplidar_response_device_info_t_rplida
 }
 
 
-void _wrap_delete_rplidar_response_device_info_t_rplidargen_5b9c62d0930caee0(_rplidar_response_device_info_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_device_info_t_rplidargen_8edb49484e240529(_rplidar_response_device_info_t *_swig_go_0) {
   _rplidar_response_device_info_t *arg1 = (_rplidar_response_device_info_t *) 0 ;
   
   arg1 = *(_rplidar_response_device_info_t **)&_swig_go_0; 
@@ -2494,7 +2494,7 @@ void _wrap_delete_rplidar_response_device_info_t_rplidargen_5b9c62d0930caee0(_rp
 }
 
 
-void _wrap_rplidar_response_device_health_t_status_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_health_t *_swig_go_0, char _swig_go_1) {
+void _wrap_rplidar_response_device_health_t_status_set_rplidargen_8edb49484e240529(_rplidar_response_device_health_t *_swig_go_0, char _swig_go_1) {
   _rplidar_response_device_health_t *arg1 = (_rplidar_response_device_health_t *) 0 ;
   _u8 arg2 ;
   
@@ -2506,7 +2506,7 @@ void _wrap_rplidar_response_device_health_t_status_set_rplidargen_5b9c62d0930cae
 }
 
 
-char _wrap_rplidar_response_device_health_t_status_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_health_t *_swig_go_0) {
+char _wrap_rplidar_response_device_health_t_status_get_rplidargen_8edb49484e240529(_rplidar_response_device_health_t *_swig_go_0) {
   _rplidar_response_device_health_t *arg1 = (_rplidar_response_device_health_t *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2519,7 +2519,7 @@ char _wrap_rplidar_response_device_health_t_status_get_rplidargen_5b9c62d0930cae
 }
 
 
-void _wrap_rplidar_response_device_health_t_error_code_set_rplidargen_5b9c62d0930caee0(_rplidar_response_device_health_t *_swig_go_0, short _swig_go_1) {
+void _wrap_rplidar_response_device_health_t_error_code_set_rplidargen_8edb49484e240529(_rplidar_response_device_health_t *_swig_go_0, short _swig_go_1) {
   _rplidar_response_device_health_t *arg1 = (_rplidar_response_device_health_t *) 0 ;
   _u16 arg2 ;
   
@@ -2531,7 +2531,7 @@ void _wrap_rplidar_response_device_health_t_error_code_set_rplidargen_5b9c62d093
 }
 
 
-short _wrap_rplidar_response_device_health_t_error_code_get_rplidargen_5b9c62d0930caee0(_rplidar_response_device_health_t *_swig_go_0) {
+short _wrap_rplidar_response_device_health_t_error_code_get_rplidargen_8edb49484e240529(_rplidar_response_device_health_t *_swig_go_0) {
   _rplidar_response_device_health_t *arg1 = (_rplidar_response_device_health_t *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -2544,7 +2544,7 @@ short _wrap_rplidar_response_device_health_t_error_code_get_rplidargen_5b9c62d09
 }
 
 
-_rplidar_response_device_health_t *_wrap_new_rplidar_response_device_health_t_rplidargen_5b9c62d0930caee0() {
+_rplidar_response_device_health_t *_wrap_new_rplidar_response_device_health_t_rplidargen_8edb49484e240529() {
   _rplidar_response_device_health_t *result = 0 ;
   _rplidar_response_device_health_t *_swig_go_result;
   
@@ -2555,7 +2555,7 @@ _rplidar_response_device_health_t *_wrap_new_rplidar_response_device_health_t_rp
 }
 
 
-void _wrap_delete_rplidar_response_device_health_t_rplidargen_5b9c62d0930caee0(_rplidar_response_device_health_t *_swig_go_0) {
+void _wrap_delete_rplidar_response_device_health_t_rplidargen_8edb49484e240529(_rplidar_response_device_health_t *_swig_go_0) {
   _rplidar_response_device_health_t *arg1 = (_rplidar_response_device_health_t *) 0 ;
   
   arg1 = *(_rplidar_response_device_health_t **)&_swig_go_0; 
@@ -2565,7 +2565,7 @@ void _wrap_delete_rplidar_response_device_health_t_rplidargen_5b9c62d0930caee0(_
 }
 
 
-void _wrap_RplidarScanMode_id_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, short _swig_go_1) {
+void _wrap_RplidarScanMode_id_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, short _swig_go_1) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   _u16 arg2 ;
   
@@ -2577,7 +2577,7 @@ void _wrap_RplidarScanMode_id_set_rplidargen_5b9c62d0930caee0(rp::standalone::rp
 }
 
 
-short _wrap_RplidarScanMode_id_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+short _wrap_RplidarScanMode_id_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   _u16 result;
   short _swig_go_result;
@@ -2590,7 +2590,7 @@ short _wrap_RplidarScanMode_id_get_rplidargen_5b9c62d0930caee0(rp::standalone::r
 }
 
 
-void _wrap_RplidarScanMode_us_per_sample_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, float _swig_go_1) {
+void _wrap_RplidarScanMode_us_per_sample_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, float _swig_go_1) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   float arg2 ;
   
@@ -2602,7 +2602,7 @@ void _wrap_RplidarScanMode_us_per_sample_set_rplidargen_5b9c62d0930caee0(rp::sta
 }
 
 
-float _wrap_RplidarScanMode_us_per_sample_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+float _wrap_RplidarScanMode_us_per_sample_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   float result;
   float _swig_go_result;
@@ -2615,7 +2615,7 @@ float _wrap_RplidarScanMode_us_per_sample_get_rplidargen_5b9c62d0930caee0(rp::st
 }
 
 
-void _wrap_RplidarScanMode_max_distance_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, float _swig_go_1) {
+void _wrap_RplidarScanMode_max_distance_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, float _swig_go_1) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   float arg2 ;
   
@@ -2627,7 +2627,7 @@ void _wrap_RplidarScanMode_max_distance_set_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-float _wrap_RplidarScanMode_max_distance_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+float _wrap_RplidarScanMode_max_distance_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   float result;
   float _swig_go_result;
@@ -2640,7 +2640,7 @@ float _wrap_RplidarScanMode_max_distance_get_rplidargen_5b9c62d0930caee0(rp::sta
 }
 
 
-void _wrap_RplidarScanMode_ans_type_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, char _swig_go_1) {
+void _wrap_RplidarScanMode_ans_type_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, char _swig_go_1) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   _u8 arg2 ;
   
@@ -2652,7 +2652,7 @@ void _wrap_RplidarScanMode_ans_type_set_rplidargen_5b9c62d0930caee0(rp::standalo
 }
 
 
-char _wrap_RplidarScanMode_ans_type_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+char _wrap_RplidarScanMode_ans_type_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   _u8 result;
   char _swig_go_result;
@@ -2665,7 +2665,7 @@ char _wrap_RplidarScanMode_ans_type_get_rplidargen_5b9c62d0930caee0(rp::standalo
 }
 
 
-void _wrap_RplidarScanMode_scan_mode_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, _gostring_ _swig_go_1) {
+void _wrap_RplidarScanMode_scan_mode_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0, _gostring_ _swig_go_1) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   char *arg2 ;
   
@@ -2689,7 +2689,7 @@ void _wrap_RplidarScanMode_scan_mode_set_rplidargen_5b9c62d0930caee0(rp::standal
 }
 
 
-_gostring_ _wrap_RplidarScanMode_scan_mode_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+_gostring_ _wrap_RplidarScanMode_scan_mode_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   char *result = 0 ;
   _gostring_ _swig_go_result;
@@ -2702,7 +2702,7 @@ _gostring_ _wrap_RplidarScanMode_scan_mode_get_rplidargen_5b9c62d0930caee0(rp::s
 }
 
 
-rp::standalone::rplidar::RplidarScanMode *_wrap_new_RplidarScanMode_rplidargen_5b9c62d0930caee0() {
+rp::standalone::rplidar::RplidarScanMode *_wrap_new_RplidarScanMode_rplidargen_8edb49484e240529() {
   rp::standalone::rplidar::RplidarScanMode *result = 0 ;
   rp::standalone::rplidar::RplidarScanMode *_swig_go_result;
   
@@ -2713,7 +2713,7 @@ rp::standalone::rplidar::RplidarScanMode *_wrap_new_RplidarScanMode_rplidargen_5
 }
 
 
-void _wrap_delete_RplidarScanMode_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
+void _wrap_delete_RplidarScanMode_rplidargen_8edb49484e240529(rp::standalone::rplidar::RplidarScanMode *_swig_go_0) {
   rp::standalone::rplidar::RplidarScanMode *arg1 = (rp::standalone::rplidar::RplidarScanMode *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::RplidarScanMode **)&_swig_go_0; 
@@ -2723,7 +2723,7 @@ void _wrap_delete_RplidarScanMode_rplidargen_5b9c62d0930caee0(rp::standalone::rp
 }
 
 
-intgo _wrap_DRIVER_TYPE_SERIALPORT_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_DRIVER_TYPE_SERIALPORT_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -2735,7 +2735,7 @@ intgo _wrap_DRIVER_TYPE_SERIALPORT_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_DRIVER_TYPE_TCP_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_DRIVER_TYPE_TCP_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -2747,7 +2747,7 @@ intgo _wrap_DRIVER_TYPE_TCP_rplidargen_5b9c62d0930caee0() {
 }
 
 
-bool _wrap_ChannelDevice_bind_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2) {
+bool _wrap_ChannelDevice_bind_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   char *arg2 = (char *) 0 ;
   uint32_t arg3 ;
@@ -2769,7 +2769,7 @@ bool _wrap_ChannelDevice_bind_rplidargen_5b9c62d0930caee0(rp::standalone::rplida
 }
 
 
-bool _wrap_ChannelDevice_open_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+bool _wrap_ChannelDevice_open_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   bool result;
   bool _swig_go_result;
@@ -2782,7 +2782,7 @@ bool _wrap_ChannelDevice_open_rplidargen_5b9c62d0930caee0(rp::standalone::rplida
 }
 
 
-void _wrap_ChannelDevice_close_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_ChannelDevice_close_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2792,7 +2792,7 @@ void _wrap_ChannelDevice_close_rplidargen_5b9c62d0930caee0(rp::standalone::rplid
 }
 
 
-void _wrap_ChannelDevice_flush_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_ChannelDevice_flush_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2802,7 +2802,7 @@ void _wrap_ChannelDevice_flush_rplidargen_5b9c62d0930caee0(rp::standalone::rplid
 }
 
 
-bool _wrap_ChannelDevice_waitfordata__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1, intgo _swig_go_2, long long *_swig_go_3) {
+bool _wrap_ChannelDevice_waitfordata__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1, intgo _swig_go_2, long long *_swig_go_3) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   size_t arg2 ;
   _u32 arg3 ;
@@ -2821,7 +2821,7 @@ bool _wrap_ChannelDevice_waitfordata__SWIG_0_rplidargen_5b9c62d0930caee0(rp::sta
 }
 
 
-bool _wrap_ChannelDevice_waitfordata__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1, intgo _swig_go_2) {
+bool _wrap_ChannelDevice_waitfordata__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   size_t arg2 ;
   _u32 arg3 ;
@@ -2838,7 +2838,7 @@ bool _wrap_ChannelDevice_waitfordata__SWIG_1_rplidargen_5b9c62d0930caee0(rp::sta
 }
 
 
-bool _wrap_ChannelDevice_waitfordata__SWIG_2_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1) {
+bool _wrap_ChannelDevice_waitfordata__SWIG_2_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, long long _swig_go_1) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   size_t arg2 ;
   bool result;
@@ -2853,7 +2853,7 @@ bool _wrap_ChannelDevice_waitfordata__SWIG_2_rplidargen_5b9c62d0930caee0(rp::sta
 }
 
 
-intgo _wrap_ChannelDevice_senddata_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, char *_swig_go_1, long long _swig_go_2) {
+intgo _wrap_ChannelDevice_senddata_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, char *_swig_go_1, long long _swig_go_2) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   _u8 *arg2 = (_u8 *) 0 ;
   size_t arg3 ;
@@ -2870,7 +2870,7 @@ intgo _wrap_ChannelDevice_senddata_rplidargen_5b9c62d0930caee0(rp::standalone::r
 }
 
 
-intgo _wrap_ChannelDevice_recvdata_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0, char *_swig_go_1, long long _swig_go_2) {
+intgo _wrap_ChannelDevice_recvdata_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0, char *_swig_go_1, long long _swig_go_2) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   unsigned char *arg2 = (unsigned char *) 0 ;
   size_t arg3 ;
@@ -2887,7 +2887,7 @@ intgo _wrap_ChannelDevice_recvdata_rplidargen_5b9c62d0930caee0(rp::standalone::r
 }
 
 
-void _wrap_ChannelDevice_setDTR_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_ChannelDevice_setDTR_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2897,7 +2897,7 @@ void _wrap_ChannelDevice_setDTR_rplidargen_5b9c62d0930caee0(rp::standalone::rpli
 }
 
 
-void _wrap_ChannelDevice_clearDTR_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_ChannelDevice_clearDTR_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2907,7 +2907,7 @@ void _wrap_ChannelDevice_clearDTR_rplidargen_5b9c62d0930caee0(rp::standalone::rp
 }
 
 
-void _wrap_ChannelDevice_ReleaseRxTx_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_ChannelDevice_ReleaseRxTx_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2917,7 +2917,7 @@ void _wrap_ChannelDevice_ReleaseRxTx_rplidargen_5b9c62d0930caee0(rp::standalone:
 }
 
 
-void _wrap_delete_ChannelDevice_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
+void _wrap_delete_ChannelDevice_rplidargen_8edb49484e240529(rp::standalone::rplidar::ChannelDevice *_swig_go_0) {
   rp::standalone::rplidar::ChannelDevice *arg1 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::ChannelDevice **)&_swig_go_0; 
@@ -2927,7 +2927,7 @@ void _wrap_delete_ChannelDevice_rplidargen_5b9c62d0930caee0(rp::standalone::rpli
 }
 
 
-intgo _wrap_DEFAULT_TIMEOUT_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_DEFAULT_TIMEOUT_RPlidarDriver_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -2939,7 +2939,7 @@ intgo _wrap_DEFAULT_TIMEOUT_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_MAX_SCAN_NODES_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_MAX_SCAN_NODES_RPlidarDriver_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -2951,7 +2951,7 @@ intgo _wrap_MAX_SCAN_NODES_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
 }
 
 
-intgo _wrap_LEGACY_SAMPLE_DURATION_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
+intgo _wrap_LEGACY_SAMPLE_DURATION_RPlidarDriver_rplidargen_8edb49484e240529() {
   int result;
   intgo _swig_go_result;
   
@@ -2963,7 +2963,7 @@ intgo _wrap_LEGACY_SAMPLE_DURATION_RPlidarDriver_rplidargen_5b9c62d0930caee0() {
 }
 
 
-rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_0_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
+rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_0_rplidargen_8edb49484e240529(intgo _swig_go_0) {
   _u32 arg1 ;
   rp::standalone::rplidar::RPlidarDriver *result = 0 ;
   rp::standalone::rplidar::RPlidarDriver *_swig_go_result;
@@ -2976,7 +2976,7 @@ rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_0
 }
 
 
-rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_1_rplidargen_5b9c62d0930caee0() {
+rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_1_rplidargen_8edb49484e240529() {
   rp::standalone::rplidar::RPlidarDriver *result = 0 ;
   rp::standalone::rplidar::RPlidarDriver *_swig_go_result;
   
@@ -2987,7 +2987,7 @@ rp::standalone::rplidar::RPlidarDriver *_wrap_RPlidarDriver_CreateDriver__SWIG_1
 }
 
 
-void _wrap_RPlidarDriver_DisposeDriver_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+void _wrap_RPlidarDriver_DisposeDriver_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::RPlidarDriver **)&_swig_go_0; 
@@ -2997,7 +2997,7 @@ void _wrap_RPlidarDriver_DisposeDriver_rplidargen_5b9c62d0930caee0(rp::standalon
 }
 
 
-intgo _wrap_RPlidarDriver_connect__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2, intgo _swig_go_3) {
+intgo _wrap_RPlidarDriver_connect__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2, intgo _swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   char *arg2 = (char *) 0 ;
   _u32 arg3 ;
@@ -3021,7 +3021,7 @@ intgo _wrap_RPlidarDriver_connect__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standa
 }
 
 
-intgo _wrap_RPlidarDriver_connect__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_connect__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _gostring_ _swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   char *arg2 = (char *) 0 ;
   _u32 arg3 ;
@@ -3043,7 +3043,7 @@ intgo _wrap_RPlidarDriver_connect__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standa
 }
 
 
-void _wrap_RPlidarDriver_disconnect_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+void _wrap_RPlidarDriver_disconnect_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::RPlidarDriver **)&_swig_go_0; 
@@ -3053,7 +3053,7 @@ void _wrap_RPlidarDriver_disconnect_rplidargen_5b9c62d0930caee0(rp::standalone::
 }
 
 
-bool _wrap_RPlidarDriver_isConnected_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+bool _wrap_RPlidarDriver_isConnected_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool result;
   bool _swig_go_result;
@@ -3066,7 +3066,7 @@ bool _wrap_RPlidarDriver_isConnected_rplidargen_5b9c62d0930caee0(rp::standalone:
 }
 
 
-intgo _wrap_RPlidarDriver_reset__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, intgo _swig_go_1) {
+intgo _wrap_RPlidarDriver_reset__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, intgo _swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u32 arg2 ;
   u_result result;
@@ -3081,7 +3081,7 @@ intgo _wrap_RPlidarDriver_reset__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalo
 }
 
 
-intgo _wrap_RPlidarDriver_reset__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+intgo _wrap_RPlidarDriver_reset__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   u_result result;
   intgo _swig_go_result;
@@ -3094,7 +3094,7 @@ intgo _wrap_RPlidarDriver_reset__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalo
 }
 
 
-intgo _wrap_RPlidarDriver_clearNetSerialRxCache_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+intgo _wrap_RPlidarDriver_clearNetSerialRxCache_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   u_result result;
   intgo _swig_go_result;
@@ -3107,7 +3107,7 @@ intgo _wrap_RPlidarDriver_clearNetSerialRxCache_rplidargen_5b9c62d0930caee0(rp::
 }
 
 
-intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, std::vector< rp::standalone::rplidar::RplidarScanMode > *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, std::vector< rp::standalone::rplidar::RplidarScanMode > *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   std::vector< rp::standalone::rplidar::RplidarScanMode > *arg2 = 0 ;
   _u32 arg3 ;
@@ -3124,7 +3124,7 @@ intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_0_rplidargen_5b9c62d093
 }
 
 
-intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, std::vector< rp::standalone::rplidar::RplidarScanMode > *_swig_go_1) {
+intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, std::vector< rp::standalone::rplidar::RplidarScanMode > *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   std::vector< rp::standalone::rplidar::RplidarScanMode > *arg2 = 0 ;
   u_result result;
@@ -3139,7 +3139,7 @@ intgo _wrap_RPlidarDriver_getAllSupportedScanModes__SWIG_1_rplidargen_5b9c62d093
 }
 
 
-intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _u16 *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _u16 *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u16 *arg2 = 0 ;
   _u32 arg3 ;
@@ -3156,7 +3156,7 @@ intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_0_rplidargen_5b9c62d0930caee0
 }
 
 
-intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _u16 *_swig_go_1) {
+intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _u16 *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u16 *arg2 = 0 ;
   u_result result;
@@ -3171,7 +3171,7 @@ intgo _wrap_RPlidarDriver_getTypicalScanMode__SWIG_1_rplidargen_5b9c62d0930caee0
 }
 
 
-intgo _wrap_RPlidarDriver_startScan__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4) {
+intgo _wrap_RPlidarDriver_startScan__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   bool arg3 ;
@@ -3192,7 +3192,7 @@ intgo _wrap_RPlidarDriver_startScan__SWIG_0_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-intgo _wrap_RPlidarDriver_startScan__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2, intgo _swig_go_3) {
+intgo _wrap_RPlidarDriver_startScan__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2, intgo _swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   bool arg3 ;
@@ -3211,7 +3211,7 @@ intgo _wrap_RPlidarDriver_startScan__SWIG_1_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-intgo _wrap_RPlidarDriver_startScan__SWIG_2_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2) {
+intgo _wrap_RPlidarDriver_startScan__SWIG_2_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, bool _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   bool arg3 ;
@@ -3228,7 +3228,7 @@ intgo _wrap_RPlidarDriver_startScan__SWIG_2_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-intgo _wrap_RPlidarDriver_startScanExpress__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4, intgo _swig_go_5) {
+intgo _wrap_RPlidarDriver_startScanExpress__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4, intgo _swig_go_5) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   _u16 arg3 ;
@@ -3251,7 +3251,7 @@ intgo _wrap_RPlidarDriver_startScanExpress__SWIG_0_rplidargen_5b9c62d0930caee0(r
 }
 
 
-intgo _wrap_RPlidarDriver_startScanExpress__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4) {
+intgo _wrap_RPlidarDriver_startScanExpress__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3, rp::standalone::rplidar::RplidarScanMode *_swig_go_4) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   _u16 arg3 ;
@@ -3272,7 +3272,7 @@ intgo _wrap_RPlidarDriver_startScanExpress__SWIG_1_rplidargen_5b9c62d0930caee0(r
 }
 
 
-intgo _wrap_RPlidarDriver_startScanExpress__SWIG_2_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3) {
+intgo _wrap_RPlidarDriver_startScanExpress__SWIG_2_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2, intgo _swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   _u16 arg3 ;
@@ -3291,7 +3291,7 @@ intgo _wrap_RPlidarDriver_startScanExpress__SWIG_2_rplidargen_5b9c62d0930caee0(r
 }
 
 
-intgo _wrap_RPlidarDriver_startScanExpress__SWIG_3_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2) {
+intgo _wrap_RPlidarDriver_startScanExpress__SWIG_3_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, short _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   _u16 arg3 ;
@@ -3308,7 +3308,7 @@ intgo _wrap_RPlidarDriver_startScanExpress__SWIG_3_rplidargen_5b9c62d0930caee0(r
 }
 
 
-intgo _wrap_RPlidarDriver_getHealth__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_health_t *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_getHealth__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_health_t *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_device_health_t *arg2 = 0 ;
   _u32 arg3 ;
@@ -3325,7 +3325,7 @@ intgo _wrap_RPlidarDriver_getHealth__SWIG_0_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-intgo _wrap_RPlidarDriver_getHealth__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_health_t *_swig_go_1) {
+intgo _wrap_RPlidarDriver_getHealth__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_health_t *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_device_health_t *arg2 = 0 ;
   u_result result;
@@ -3340,7 +3340,7 @@ intgo _wrap_RPlidarDriver_getHealth__SWIG_1_rplidargen_5b9c62d0930caee0(rp::stan
 }
 
 
-intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_info_t *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_info_t *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_device_info_t *arg2 = 0 ;
   _u32 arg3 ;
@@ -3357,7 +3357,7 @@ intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_0_rplidargen_5b9c62d0930caee0(rp::
 }
 
 
-intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_info_t *_swig_go_1) {
+intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_device_info_t *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_device_info_t *arg2 = 0 ;
   u_result result;
@@ -3372,7 +3372,7 @@ intgo _wrap_RPlidarDriver_getDeviceInfo__SWIG_1_rplidargen_5b9c62d0930caee0(rp::
 }
 
 
-intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_sample_rate_t *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_sample_rate_t *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_sample_rate_t *arg2 = 0 ;
   _u32 arg3 ;
@@ -3389,7 +3389,7 @@ intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_0_rplidargen_5b9c62d0930cae
 }
 
 
-intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_sample_rate_t *_swig_go_1) {
+intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_sample_rate_t *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_sample_rate_t *arg2 = 0 ;
   u_result result;
@@ -3404,7 +3404,7 @@ intgo _wrap_RPlidarDriver_getSampleDuration_uS__SWIG_1_rplidargen_5b9c62d0930cae
 }
 
 
-intgo _wrap_RPlidarDriver_setMotorPWM_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1) {
+intgo _wrap_RPlidarDriver_setMotorPWM_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u16 arg2 ;
   u_result result;
@@ -3419,7 +3419,7 @@ intgo _wrap_RPlidarDriver_setMotorPWM_rplidargen_5b9c62d0930caee0(rp::standalone
 }
 
 
-intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u16 arg2 ;
   _u32 arg3 ;
@@ -3436,7 +3436,7 @@ intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_0_rplidargen_5b9c62d0930caee0(
 }
 
 
-intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1) {
+intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, short _swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u16 arg2 ;
   u_result result;
@@ -3451,7 +3451,7 @@ intgo _wrap_RPlidarDriver_setLidarSpinSpeed__SWIG_1_rplidargen_5b9c62d0930caee0(
 }
 
 
-intgo _wrap_RPlidarDriver_startMotor_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+intgo _wrap_RPlidarDriver_startMotor_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   u_result result;
   intgo _swig_go_result;
@@ -3464,7 +3464,7 @@ intgo _wrap_RPlidarDriver_startMotor_rplidargen_5b9c62d0930caee0(rp::standalone:
 }
 
 
-intgo _wrap_RPlidarDriver_stopMotor_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+intgo _wrap_RPlidarDriver_stopMotor_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   u_result result;
   intgo _swig_go_result;
@@ -3477,7 +3477,7 @@ intgo _wrap_RPlidarDriver_stopMotor_rplidargen_5b9c62d0930caee0(rp::standalone::
 }
 
 
-intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   _u32 arg3 ;
@@ -3494,7 +3494,7 @@ intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_0_rplidargen_5b9c62d0930ca
 }
 
 
-intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
+intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   u_result result;
@@ -3509,7 +3509,7 @@ intgo _wrap_RPlidarDriver_checkMotorCtrlSupport__SWIG_1_rplidargen_5b9c62d0930ca
 }
 
 
-intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   _u32 arg3 ;
@@ -3526,7 +3526,7 @@ intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_0_rplidargen_5b9c62d0930caee0(rp
 }
 
 
-intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
+intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   u_result result;
@@ -3541,7 +3541,7 @@ intgo _wrap_RPlidarDriver_checkIfTofLidar__SWIG_1_rplidargen_5b9c62d0930caee0(rp
 }
 
 
-intgo _wrap_RPlidarDriver_getFrequency__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, long long _swig_go_2, float *_swig_go_3, bool *_swig_go_4) {
+intgo _wrap_RPlidarDriver_getFrequency__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, long long _swig_go_2, float *_swig_go_3, bool *_swig_go_4) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   size_t arg3 ;
@@ -3562,7 +3562,7 @@ intgo _wrap_RPlidarDriver_getFrequency__SWIG_0_rplidargen_5b9c62d0930caee0(rp::s
 }
 
 
-intgo _wrap_RPlidarDriver_getFrequency__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rp::standalone::rplidar::RplidarScanMode *_swig_go_1, long long _swig_go_2, float *_swig_go_3) {
+intgo _wrap_RPlidarDriver_getFrequency__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rp::standalone::rplidar::RplidarScanMode *_swig_go_1, long long _swig_go_2, float *_swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rp::standalone::rplidar::RplidarScanMode *arg2 = 0 ;
   size_t arg3 ;
@@ -3581,7 +3581,7 @@ intgo _wrap_RPlidarDriver_getFrequency__SWIG_1_rplidargen_5b9c62d0930caee0(rp::s
 }
 
 
-intgo _wrap_RPlidarDriver_startScanNormal__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_startScanNormal__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   _u32 arg3 ;
@@ -3598,7 +3598,7 @@ intgo _wrap_RPlidarDriver_startScanNormal__SWIG_0_rplidargen_5b9c62d0930caee0(rp
 }
 
 
-intgo _wrap_RPlidarDriver_startScanNormal__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1) {
+intgo _wrap_RPlidarDriver_startScanNormal__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool _swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool arg2 ;
   u_result result;
@@ -3613,7 +3613,7 @@ intgo _wrap_RPlidarDriver_startScanNormal__SWIG_1_rplidargen_5b9c62d0930caee0(rp
 }
 
 
-intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
+intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1, intgo _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   _u32 arg3 ;
@@ -3630,7 +3630,7 @@ intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_0_rplidargen_5b9c62d09
 }
 
 
-intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
+intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, bool *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   bool *arg2 = 0 ;
   u_result result;
@@ -3645,7 +3645,7 @@ intgo _wrap_RPlidarDriver_checkExpressScanSupported__SWIG_1_rplidargen_5b9c62d09
 }
 
 
-intgo _wrap_RPlidarDriver_stop__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, intgo _swig_go_1) {
+intgo _wrap_RPlidarDriver_stop__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, intgo _swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   _u32 arg2 ;
   u_result result;
@@ -3660,7 +3660,7 @@ intgo _wrap_RPlidarDriver_stop__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalon
 }
 
 
-intgo _wrap_RPlidarDriver_stop__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+intgo _wrap_RPlidarDriver_stop__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   u_result result;
   intgo _swig_go_result;
@@ -3673,7 +3673,7 @@ intgo _wrap_RPlidarDriver_stop__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalon
 }
 
 
-intgo _wrap_RPlidarDriver_grabScanData__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2, intgo _swig_go_3) {
+intgo _wrap_RPlidarDriver_grabScanData__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2, intgo _swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_t *arg2 = (rplidar_response_measurement_node_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3692,7 +3692,7 @@ intgo _wrap_RPlidarDriver_grabScanData__SWIG_0_rplidargen_5b9c62d0930caee0(rp::s
 }
 
 
-intgo _wrap_RPlidarDriver_grabScanData__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2) {
+intgo _wrap_RPlidarDriver_grabScanData__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_t *arg2 = (rplidar_response_measurement_node_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3709,7 +3709,7 @@ intgo _wrap_RPlidarDriver_grabScanData__SWIG_1_rplidargen_5b9c62d0930caee0(rp::s
 }
 
 
-intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2, intgo _swig_go_3) {
+intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2, intgo _swig_go_3) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_hq_t *arg2 = (rplidar_response_measurement_node_hq_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3728,7 +3728,7 @@ intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_0_rplidargen_5b9c62d0930caee0(rp:
 }
 
 
-intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2) {
+intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_hq_t *arg2 = (rplidar_response_measurement_node_hq_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3745,7 +3745,7 @@ intgo _wrap_RPlidarDriver_grabScanDataHq__SWIG_1_rplidargen_5b9c62d0930caee0(rp:
 }
 
 
-intgo _wrap_RPlidarDriver_ascendScanData__SWIG_0_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, long long _swig_go_2) {
+intgo _wrap_RPlidarDriver_ascendScanData__SWIG_0_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, long long _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_t *arg2 = (rplidar_response_measurement_node_t *) 0 ;
   size_t arg3 ;
@@ -3762,7 +3762,7 @@ intgo _wrap_RPlidarDriver_ascendScanData__SWIG_0_rplidargen_5b9c62d0930caee0(rp:
 }
 
 
-intgo _wrap_RPlidarDriver_ascendScanData__SWIG_1_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, long long _swig_go_2) {
+intgo _wrap_RPlidarDriver_ascendScanData__SWIG_1_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, long long _swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_hq_t *arg2 = (rplidar_response_measurement_node_hq_t *) 0 ;
   size_t arg3 ;
@@ -3779,7 +3779,7 @@ intgo _wrap_RPlidarDriver_ascendScanData__SWIG_1_rplidargen_5b9c62d0930caee0(rp:
 }
 
 
-intgo _wrap_RPlidarDriver_getScanDataWithInterval_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2) {
+intgo _wrap_RPlidarDriver_getScanDataWithInterval_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, _rplidar_response_measurement_node_t *_swig_go_1, size_t *_swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_t *arg2 = (rplidar_response_measurement_node_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3796,7 +3796,7 @@ intgo _wrap_RPlidarDriver_getScanDataWithInterval_rplidargen_5b9c62d0930caee0(rp
 }
 
 
-intgo _wrap_RPlidarDriver_getScanDataWithIntervalHq_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2) {
+intgo _wrap_RPlidarDriver_getScanDataWithIntervalHq_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rplidar_response_measurement_node_hq_t *_swig_go_1, size_t *_swig_go_2) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rplidar_response_measurement_node_hq_t *arg2 = (rplidar_response_measurement_node_hq_t *) 0 ;
   size_t *arg3 = 0 ;
@@ -3813,7 +3813,7 @@ intgo _wrap_RPlidarDriver_getScanDataWithIntervalHq_rplidargen_5b9c62d0930caee0(
 }
 
 
-void _wrap_delete_RPlidarDriver_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+void _wrap_delete_RPlidarDriver_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   
   arg1 = *(rp::standalone::rplidar::RPlidarDriver **)&_swig_go_0; 
@@ -3823,7 +3823,7 @@ void _wrap_delete_RPlidarDriver_rplidargen_5b9c62d0930caee0(rp::standalone::rpli
 }
 
 
-void _wrap_RPlidarDriver__chanDev_set_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rp::standalone::rplidar::ChannelDevice *_swig_go_1) {
+void _wrap_RPlidarDriver__chanDev_set_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0, rp::standalone::rplidar::ChannelDevice *_swig_go_1) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rp::standalone::rplidar::ChannelDevice *arg2 = (rp::standalone::rplidar::ChannelDevice *) 0 ;
   
@@ -3835,7 +3835,7 @@ void _wrap_RPlidarDriver__chanDev_set_rplidargen_5b9c62d0930caee0(rp::standalone
 }
 
 
-rp::standalone::rplidar::ChannelDevice *_wrap_RPlidarDriver__chanDev_get_rplidargen_5b9c62d0930caee0(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
+rp::standalone::rplidar::ChannelDevice *_wrap_RPlidarDriver__chanDev_get_rplidargen_8edb49484e240529(rp::standalone::rplidar::RPlidarDriver *_swig_go_0) {
   rp::standalone::rplidar::RPlidarDriver *arg1 = (rp::standalone::rplidar::RPlidarDriver *) 0 ;
   rp::standalone::rplidar::ChannelDevice *result = 0 ;
   rp::standalone::rplidar::ChannelDevice *_swig_go_result;
@@ -3848,7 +3848,7 @@ rp::standalone::rplidar::ChannelDevice *_wrap_RPlidarDriver__chanDev_get_rplidar
 }
 
 
-rplidar_response_measurement_node_hq_t *_wrap_new_measurementNodeHqArray_rplidargen_5b9c62d0930caee0(intgo _swig_go_0) {
+rplidar_response_measurement_node_hq_t *_wrap_new_measurementNodeHqArray_rplidargen_8edb49484e240529(intgo _swig_go_0) {
   int arg1 ;
   rplidar_response_measurement_node_hq_t *result = 0 ;
   rplidar_response_measurement_node_hq_t *_swig_go_result;
@@ -3861,7 +3861,7 @@ rplidar_response_measurement_node_hq_t *_wrap_new_measurementNodeHqArray_rplidar
 }
 
 
-void _wrap_delete_measurementNodeHqArray_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0) {
+void _wrap_delete_measurementNodeHqArray_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   
   arg1 = *(rplidar_response_measurement_node_hq_t **)&_swig_go_0; 
@@ -3871,7 +3871,7 @@ void _wrap_delete_measurementNodeHqArray_rplidargen_5b9c62d0930caee0(rplidar_res
 }
 
 
-rplidar_response_measurement_node_hq_t *_wrap_measurementNodeHqArray_getitem_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1) {
+rplidar_response_measurement_node_hq_t *_wrap_measurementNodeHqArray_getitem_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   int arg2 ;
   rplidar_response_measurement_node_hq_t result;
@@ -3886,7 +3886,7 @@ rplidar_response_measurement_node_hq_t *_wrap_measurementNodeHqArray_getitem_rpl
 }
 
 
-void _wrap_measurementNodeHqArray_setitem_rplidargen_5b9c62d0930caee0(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1, rplidar_response_measurement_node_hq_t *_swig_go_2) {
+void _wrap_measurementNodeHqArray_setitem_rplidargen_8edb49484e240529(rplidar_response_measurement_node_hq_t *_swig_go_0, intgo _swig_go_1, rplidar_response_measurement_node_hq_t *_swig_go_2) {
   rplidar_response_measurement_node_hq_t *arg1 = (rplidar_response_measurement_node_hq_t *) 0 ;
   int arg2 ;
   rplidar_response_measurement_node_hq_t arg3 ;
