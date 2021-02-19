@@ -127,11 +127,11 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
 	return dm.data[x][y]
 }
 
-func _readNext(r io.Reader) (int, error) {
+func _readNext(r io.Reader) (int64, error) {
 	data := make([]byte, 8)
 	x, err := r.Read(data)
 	if x == 8 {
-		return int(binary.LittleEndian.Uint64(data)), nil
+		return int64(binary.LittleEndian.Uint64(data)), nil
 	}
 
 	return 0, fmt.Errorf("got %d bytes, and %s", x, err)
@@ -159,19 +159,21 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	var err error
 	dm := DepthMap{}
 
-	dm.width, err = _readNext(f)
+	rawWidth, err := _readNext(f)
 	if err != nil {
 		return nil, err
 	}
+	dm.width = int(rawWidth)
 
-	if dm.width == 6363110499870197078 { // magic number for VERSIONX
+	if rawWidth == 6363110499870197078 { // magic number for VERSIONX
 		return readDepthMapFormat2(f)
 	}
 
-	dm.height, err = _readNext(f)
+	rawHeight, err := _readNext(f)
 	if err != nil {
 		return nil, err
 	}
+	dm.height = int(rawHeight)
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
 		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
@@ -182,10 +184,11 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	for x := 0; x < dm.width; x++ {
 		dm.data[x] = make([]int, dm.height)
 		for y := 0; y < dm.height; y++ {
-			dm.data[x][y], err = _readNext(f)
+			temp, err := _readNext(f)
 			if err != nil {
 				return nil, err
 			}
+			dm.data[x][y] = int(temp)
 		}
 	}
 
