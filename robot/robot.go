@@ -351,6 +351,9 @@ func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
 	case "file":
 		return &vision.FileSource{config.Attributes["color"], config.Attributes["depth"]}, nil
 
+	case "webcam":
+		return vision.NewWebcamSource(config.Attributes)
+
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
