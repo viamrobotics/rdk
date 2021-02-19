@@ -311,6 +311,8 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 		time.Sleep(1000 * time.Millisecond) // wait for startup?
 
 		return gripper.NewSerialGripper(device)
+	case "viam":
+		return gripper.NewViamGripperFromConfig(config.Attributes)
 	case fake.ModelName:
 		return &fake.Gripper{}, nil
 	default:
