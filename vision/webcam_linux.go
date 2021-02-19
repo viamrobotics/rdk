@@ -12,8 +12,7 @@ import (
 
 const (
 	// from https://github.com/blackjack/webcam/blob/master/examples/http_mjpeg_streamer/webcam.go
-	//V4L2_PIX_FMT_PJPG = 0x47504A50
-	V4L2_PIX_FMT_YUYV = 0x56595559
+	v4l2_pix_fmt_yuyv = 0x56595559
 )
 
 type WebcamSource struct {
@@ -34,7 +33,7 @@ func (s *WebcamSource) NextImageDepthPair(ctx context.Context) (image.Image, *De
 func (s *WebcamSource) decode(frame []byte) image.Image {
 
 	switch s.format {
-	case V4L2_PIX_FMT_YUYV:
+	case v4l2_pix_fmt_yuyv:
 		yuyv := image.NewYCbCr(image.Rect(0, 0, int(s.width), int(s.height)), image.YCbCrSubsampleRatio422)
 		for i := range yuyv.Cb {
 			ii := i * 4
@@ -76,12 +75,12 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 	}
 
 	formats := cam.GetSupportedFormats()
-	_, ok := formats[V4L2_PIX_FMT_YUYV]
+	_, ok := formats[v4l2_pix_fmt_yuyv]
 	if !ok {
 		return nil, fmt.Errorf("unsupported types %v", formats)
 	}
 
-	sizes := cam.GetSupportedFrameSizes(V4L2_PIX_FMT_YUYV)
+	sizes := cam.GetSupportedFrameSizes(v4l2_pix_fmt_yuyv)
 	bestSize := 0
 	for idx, s := range sizes {
 		if s.MaxWidth > sizes[bestSize].MaxWidth {
@@ -89,7 +88,7 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 		}
 	}
 
-	format, w, h, err := cam.SetImageFormat(V4L2_PIX_FMT_YUYV, sizes[bestSize].MaxWidth, sizes[bestSize].MaxHeight)
+	format, w, h, err := cam.SetImageFormat(v4l2_pix_fmt_yuyv, sizes[bestSize].MaxWidth, sizes[bestSize].MaxHeight)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set image format: %s", err)
 	}
