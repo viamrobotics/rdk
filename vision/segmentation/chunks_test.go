@@ -39,6 +39,15 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			starts = append(starts, s.Start)
 		}
 
+		if true {
+			// this shows things with the cleaning, is it useful, not sure
+			out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{SkipCleaning: true})
+			if err != nil {
+				return err
+			}
+			d.GotDebugImage(out, "shapes-noclean")
+		}
+
 		out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{})
 		if err != nil {
 			return err
@@ -59,13 +68,6 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 			}
 		}
 
-		if true {
-			out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{SkipCleaning: true})
-			if err != nil {
-				return err
-			}
-			d.GotDebugImage(out, "shapes-noclean")
-		}
 	}
 
 	if true {
