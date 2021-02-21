@@ -309,28 +309,40 @@ func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*Segmente
 		options: options,
 	}
 
-	for color := 0; color < 1000; color++ {
+	xSegments := 20
+	ySegments := 20
 
-		found := vision.Walk(img.Width()/2, img.Height()/2, img.Width(),
-			func(x, y int) error {
-				if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
-					return nil
-				}
+	nextColor := 1
 
-				if ws.dots.get(image.Point{x, y}) != 0 {
-					return nil
-				}
-				return MyWalkError{image.Point{x, y}}
-			})
+	for x := 0; x < xSegments; x++ {
+		for y := 0; y < ySegments; y++ {
 
-		if found == nil {
-			break
-		}
+			startX := (x + 1) * (img.Width() / (xSegments + 2))
+			startY := (y + 1) * (img.Height() / (ySegments + 2))
 
-		start := found.(MyWalkError).pos
-		numPixels := ws.piece(start, color+1)
-		if options.Debug && numPixels < 10 {
-			golog.Global.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
+			found := vision.Walk(startX, startY, img.Width(),
+				func(x, y int) error {
+					if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
+						return nil
+					}
+
+					if ws.dots.get(image.Point{x, y}) != 0 {
+						return nil
+					}
+					return MyWalkError{image.Point{x, y}}
+				})
+
+			if found == nil {
+				break
+			}
+
+			start := found.(MyWalkError).pos
+			numPixels := ws.piece(start, nextColor)
+			if options.Debug && numPixels < 10 {
+				golog.Global.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
+			}
+
+			nextColor++
 		}
 	}
 
