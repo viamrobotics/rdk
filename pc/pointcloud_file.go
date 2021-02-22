@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"image/color"
 	"math"
 	"path/filepath"
 
@@ -48,17 +49,23 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		data := p.PointData()
 
 		x, y, z := data.X, data.Y, data.Z
+		pToSet := NewPoint(x, y, z)
+
+		if p.RgbData() != nil {
+			r := uint8(p.RgbData().Red / 256)
+			g := uint8(p.RgbData().Green / 256)
+			b := uint8(p.RgbData().Blue / 256)
+			pToSet = WithPointColor(pToSet, &color.RGBA{r, g, b, 0})
+		}
 
 		var v float64
 		if hasValue {
 			bits := binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8])
 			v = math.Float64frombits(bits)
-			pc.Set(NewFloatPoint(x, y, z, v))
-			continue
+			pToSet = WithPointValue(pToSet, v)
 		}
 
-		// TODO(erd): color data
-		pc.Set(NewPoint(x, y, z))
+		pc.Set(pToSet)
 	}
 	return pc, nil
 }
@@ -113,7 +120,7 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		lp = pr0
 		if pc.hasColor {
 			red, green, blue := 255, 255, 255
-			if cp, ok := p.(ColoredPoint); ok {
+			if ok, cp := IsColored(p); ok {
 				c := cp.Color()
 				red, green, blue = int(c.R), int(c.G), int(c.B)
 			}
@@ -127,7 +134,7 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 			}
 		}
 		if pc.hasValue {
-			if fp, ok := p.(FloatPoint); ok {
+			if ok, fp := IsFloat(p); ok {
 				pVals = append(pVals, fp.Value())
 			} else {
 				pVals = append(pVals, math.NaN())
