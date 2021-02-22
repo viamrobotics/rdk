@@ -180,7 +180,7 @@ func (i *Image) ToBytes() ([]byte, error) {
 
 func (i *Image) Circle(center image.Point, radius int, c utils.Color) {
 	dc := gg.NewContextForRGBA(i.img) // no copy
-	dc.DrawCircle(float64(center.X), float64(center.Y), 1)
+	dc.DrawCircle(float64(center.X), float64(center.Y), float64(radius))
 	dc.SetColor(c.C)
 	dc.Fill()
 }
