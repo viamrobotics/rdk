@@ -8,7 +8,7 @@ type Point interface {
 	Position() Vec3
 }
 
-func NewPoint(x, y, z int) Point {
+func NewPoint(x, y, z float64) Point {
 	return basicPoint{x, y, z}
 }
 
@@ -23,7 +23,7 @@ type FloatPoint interface {
 	Value() float64
 }
 
-func NewFloatPoint(x, y, z int, v float64) FloatPoint {
+func NewFloatPoint(x, y, z float64, v float64) FloatPoint {
 	return basicFloatPoint{basicPoint{x, y, z}, v}
 }
 
@@ -41,7 +41,7 @@ type ColoredPoint interface {
 	Color() *color.RGBA
 }
 
-func NewColoredPoint(x, y, z int, c *color.RGBA) ColoredPoint {
+func NewColoredPoint(x, y, z float64, c *color.RGBA) ColoredPoint {
 	return basicColoredPoint{basicPoint{x, y, z}, c}
 }
 
