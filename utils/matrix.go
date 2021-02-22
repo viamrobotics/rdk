@@ -45,8 +45,6 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 	compareFrom := (*mat.Dense)(v2m)
 	compareTo := (*mat.Dense)(to)
 
-	// fmt.Println("FROM", compareFrom.RawRowView(0)[0:5])
-	// fmt.Println("TO", compareTo.RawRowView(0)[0:5])
 	min := math.MaxFloat64
 	for i := 0; i < fromLen; i++ {
 		v := compareFrom.At(0, i)
@@ -54,7 +52,6 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 			min = v
 		}
 	}
-	// fmt.Println("FROM_M", min)
 
 	if fromLen < toLen {
 		compareFrom = mat.DenseCopyOf(compareFrom).Grow(0, toLen-fromLen).(*mat.Dense)
@@ -62,14 +59,8 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 		compareTo = mat.DenseCopyOf(compareTo).Grow(0, fromLen-toLen).(*mat.Dense)
 	}
 
-	// fmt.Println("FROM_R", compareFrom.RawRowView(0)[0:5])
-	// fmt.Println("TO_R", compareTo.RawRowView(0)[0:5])
-
 	compareFrom = sortMat(compareFrom)
 	compareTo = sortMat(compareTo)
-
-	// fmt.Println("FROM_S", compareFrom.RawRowView(0)[0:5])
-	// fmt.Println("TO_S", compareTo.RawRowView(0)[0:5])
 
 	var subbed mat.Dense
 	subbed.Sub(compareFrom, compareTo)
