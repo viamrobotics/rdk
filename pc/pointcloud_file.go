@@ -51,7 +51,7 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		x, y, z := data.X, data.Y, data.Z
 		pToSet := NewPoint(x, y, z)
 
-		if p.RgbData() != nil {
+		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
 			g := uint8(p.RgbData().Green / 256)
 			b := uint8(p.RgbData().Blue / 256)
