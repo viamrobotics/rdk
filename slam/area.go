@@ -8,6 +8,9 @@ import (
 	"github.com/viamrobotics/robotcore/pc"
 )
 
+// TODO(erd): adapt to use float64 on points, if it makes sense.
+// If it does not make sense, then reason how to resolve duplicate
+// points in the cloud at the same X or Y.
 func NewSquareArea(meters int, scaleTo int) *SquareArea {
 	cloud := pc.NewPointCloud()
 	return SquareAreaFromPointCloud(cloud, meters, scaleTo)
@@ -74,12 +77,12 @@ type mutableSquareArea SquareArea
 func (msa *mutableSquareArea) Iterate(visit func(x, y int, v float64) bool) {
 	msa.cloud.Iterate(func(p pc.Point) bool {
 		pos := p.Position()
-		return visit(pos.X, pos.Y, p.(pc.FloatPoint).Value())
+		return visit(int(pos.X), int(pos.Y), p.(pc.FloatPoint).Value())
 	})
 }
 
 func (msa *mutableSquareArea) At(x, y int) float64 {
-	p := msa.cloud.At(x, y, 0)
+	p := msa.cloud.At(float64(x), float64(y), 0)
 	if p == nil {
 		return math.NaN()
 	}
@@ -87,9 +90,9 @@ func (msa *mutableSquareArea) At(x, y int) float64 {
 }
 
 func (msa *mutableSquareArea) Set(x, y int, v float64) {
-	msa.cloud.Set(pc.NewFloatPoint(x, y, 0, v))
+	msa.cloud.Set(pc.NewFloatPoint(float64(x), float64(y), 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
-	msa.cloud.Unset(x, y, 0)
+	msa.cloud.Unset(float64(x), float64(y), 0)
 }

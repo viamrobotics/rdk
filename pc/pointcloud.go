@@ -8,7 +8,7 @@ import (
 )
 
 type Vec3 struct {
-	X, Y, Z int
+	X, Y, Z float64
 }
 
 type key Vec3
@@ -17,9 +17,9 @@ type PointCloud struct {
 	points     map[key]Point
 	hasColor   bool
 	hasValue   bool
-	minX, maxX int
-	minY, maxY int
-	minZ, maxZ int
+	minX, maxX float64
+	minY, maxY float64
+	minZ, maxZ float64
 }
 
 func NewPointCloud() *PointCloud {
@@ -38,7 +38,7 @@ func (cloud *PointCloud) Size() int {
 	return len(cloud.points)
 }
 
-func (cloud *PointCloud) At(x, y, z int) Point {
+func (cloud *PointCloud) At(x, y, z float64) Point {
 	return cloud.points[key{x, y, z}]
 }
 
@@ -81,7 +81,7 @@ func (cloud *PointCloud) Set(p Point) {
 	}
 }
 
-func (cloud *PointCloud) Unset(x, y, z int) {
+func (cloud *PointCloud) Unset(x, y, z float64) {
 	delete(cloud.points, key{x, y, z})
 }
 
@@ -93,14 +93,14 @@ func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
 	}
 }
 
-func newDensePivotFromCloud(cloud *PointCloud, dim, idx int) *mat.Dense {
+func newDensePivotFromCloud(cloud *PointCloud, dim int, idx float64) *mat.Dense {
 	size := cloud.Size()
 	m := mat.NewDense(2, size, nil)
 	var data []float64
 	c := 0
 	cloud.Iterate(func(p Point) bool {
 		v := p.Position()
-		var i, j, k int
+		var i, j, k float64
 		switch dim {
 		case 0:
 			i = v.Y
@@ -120,9 +120,9 @@ func newDensePivotFromCloud(cloud *PointCloud, dim, idx int) *mat.Dense {
 		if k != idx {
 			return true
 		}
-		m.Set(0, c, float64(i))
-		m.Set(1, c, float64(j))
-		data = append(data, float64(i), float64(j))
+		m.Set(0, c, i)
+		m.Set(1, c, j)
+		data = append(data, i, j)
 		c++
 		return true
 	})
@@ -130,6 +130,6 @@ func newDensePivotFromCloud(cloud *PointCloud, dim, idx int) *mat.Dense {
 }
 
 // TODO(erd): intermediate, lazy structure that is not dense floats?
-func (cloud *PointCloud) DenseZ(zIdx int) *mat.Dense {
+func (cloud *PointCloud) DenseZ(zIdx float64) *mat.Dense {
 	return newDensePivotFromCloud(cloud, 2, zIdx)
 }
