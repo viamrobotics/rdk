@@ -29,19 +29,6 @@ type DeviceDescription struct {
 	Path string
 }
 
-func AverageHeading(device Device) (float64, error) {
-	var headings []float64
-	numReadings := 5
-	for i := 0; i < numReadings; i++ {
-		heading, err := device.Heading()
-		if err != nil {
-			return 0, err
-		}
-		headings = append(headings, heading)
-	}
-	return utils.AverageAngleDeg(headings...), nil
-}
-
 func MedianHeading(device Device) (float64, error) {
 	var headings []float64
 	numReadings := 5
@@ -52,5 +39,5 @@ func MedianHeading(device Device) (float64, error) {
 		}
 		headings = append(headings, heading)
 	}
-	return utils.MedianAngleDeg(headings...), nil
+	return utils.Median(headings...), nil
 }
