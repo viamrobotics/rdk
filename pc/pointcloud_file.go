@@ -20,6 +20,8 @@ func NewPointCloudFromFile(fn string) (*PointCloud, error) {
 	}
 }
 
+const pointValueDataTag = "rc|pv"
+
 func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
@@ -29,11 +31,12 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 
 	var hasValue bool
 	var valueData []byte
-	if len(lf.VlrData) != 0 {
-		// assumes it is float64s in first index
-		hasValue = true
-		// TODO(erd): verify this is correct data (tag?)
-		valueData = lf.VlrData[0].BinaryData
+	for _, d := range lf.VlrData {
+		if d.Description == pointValueDataTag {
+			hasValue = true
+			valueData = d.BinaryData
+			break
+		}
 	}
 
 	pc := NewPointCloud()
@@ -44,8 +47,7 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		}
 		data := p.PointData()
 
-		// TODO(erd): truncating out float data, fine?
-		x, y, z := int(data.X), int(data.Y), int(data.Z)
+		x, y, z := data.X, data.Y, data.Z
 
 		var v float64
 		if hasValue {
@@ -94,9 +96,9 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
-			X:         float64(pos.X),
-			Y:         float64(pos.Y),
-			Z:         float64(pos.Z),
+			X:         pos.X,
+			Y:         pos.Y,
+			Z:         pos.Z,
 			Intensity: 0,
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
@@ -147,7 +149,7 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		}
 		if err := lf.AddVLR(lidario.VLR{
 			UserID:                  "",
-			Description:             "point values",
+			Description:             pointValueDataTag,
 			BinaryData:              buf.Bytes(),
 			RecordLengthAfterHeader: buf.Len(),
 		}); err != nil {
