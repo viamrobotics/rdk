@@ -1,0 +1,30 @@
+datalogger.cpp.o: datalogger.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h datalogger.h callbackmanagerxda.h xscallback.h \
+ xscallbackplainc.h ../xstypes/pstdint.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsinforequest.h xsdevicestate.h xscontrollerconfig.h \
+ ../xstypes/xsarray.h xsconnectivitystate.h xsprotocoltype.h
+datalogger.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+datalogger.h:
+callbackmanagerxda.h:
+xscallback.h:
+xscallbackplainc.h:
+../xstypes/pstdint.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsinforequest.h:
+xsdevicestate.h:
+xscontrollerconfig.h:
+../xstypes/xsarray.h:
+xsconnectivitystate.h:
+xsprotocoltype.h:

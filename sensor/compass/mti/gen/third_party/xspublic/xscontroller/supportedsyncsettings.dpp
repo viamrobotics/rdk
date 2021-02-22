@@ -1,0 +1,30 @@
+supportedsyncsettings.cpp.o: supportedsyncsettings.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h supportedsyncsettings.h ../xstypes/xsdeviceid.h \
+ ../xstypes/xsstring.h synclinemk4.h ../xstypes/xssyncline.h \
+ synclinegmt.h ../xstypes/xssyncsettingarray.h ../xstypes/xssyncsetting.h \
+ ../xstypes/xssyncline.h ../xstypes/xssyncfunction.h \
+ ../xstypes/xssyncpolarity.h
+supportedsyncsettings.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+supportedsyncsettings.h:
+../xstypes/xsdeviceid.h:
+../xstypes/xsstring.h:
+synclinemk4.h:
+../xstypes/xssyncline.h:
+synclinegmt.h:
+../xstypes/xssyncsettingarray.h:
+../xstypes/xssyncsetting.h:
+../xstypes/xssyncline.h:
+../xstypes/xssyncfunction.h:
+../xstypes/xssyncpolarity.h:

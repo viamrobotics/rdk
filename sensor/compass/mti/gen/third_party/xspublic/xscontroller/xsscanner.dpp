@@ -1,0 +1,38 @@
+xsscanner.cpp.o: xsscanner.cpp xscontrollerconfig.h ../xscommon/journaller.h \
+ ../xscommon/journalloglevel.h ../xscommon/abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/pstdint.h ../xstypes/xsarray.h xsscanner.h \
+ xscontrollerconfig.h ../xstypes/xsbaud.h ../xstypes/xsbaudcode.h \
+ ../xstypes/xsbaudrate.h ../xstypes/xsportinfoarray.h \
+ ../xstypes/xsportinfo.h ../xstypes/xsdeviceid.h ../xstypes/xsstring.h \
+ ../xstypes/xsbaud.h ../xstypes/xsintarray.h ../xstypes/xsstringarray.h \
+ xsusbhubinfo.h scanner.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsportinfo.h ../xstypes/xsbaudrate.h enumerateusbdevices.h
+xsscanner.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+xsscanner.h:
+xscontrollerconfig.h:
+../xstypes/xsbaud.h:
+../xstypes/xsbaudcode.h:
+../xstypes/xsbaudrate.h:
+../xstypes/xsportinfoarray.h:
+../xstypes/xsportinfo.h:
+../xstypes/xsdeviceid.h:
+../xstypes/xsstring.h:
+../xstypes/xsbaud.h:
+../xstypes/xsintarray.h:
+../xstypes/xsstringarray.h:
+xsusbhubinfo.h:
+scanner.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsportinfo.h:
+../xstypes/xsbaudrate.h:
+enumerateusbdevices.h:

@@ -1,0 +1,26 @@
+journalexception.cpp.o: journalexception.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h journalstackwalker.h stackwalker_linux.h \
+ journaller.h journalloglevel.h abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xsarray.h journalexception.h \
+ ../xstypes/xsexception.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsstring.h
+journalexception.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+journalstackwalker.h:
+stackwalker_linux.h:
+journaller.h:
+journalloglevel.h:
+abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+journalexception.h:
+../xstypes/xsexception.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsstring.h:

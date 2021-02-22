@@ -1,0 +1,139 @@
+scanner.cpp.o: scanner.cpp xscontrollerconfig.h ../xscommon/journaller.h \
+ ../xscommon/journalloglevel.h ../xscommon/abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/pstdint.h ../xstypes/xsarray.h scanner.h \
+ ../xstypes/xsresultvalue.h ../xstypes/xsportinfo.h \
+ ../xstypes/xsdeviceid.h ../xstypes/xsstring.h ../xstypes/xsbaud.h \
+ ../xstypes/xsbaudcode.h ../xstypes/xsbaudrate.h \
+ ../xstypes/xsportinfoarray.h ../xstypes/xsportinfo.h \
+ ../xstypes/xsbaudrate.h xsusbhubinfo.h xscontrollerconfig.h xsscanner.h \
+ ../xstypes/xsbaud.h ../xstypes/xsintarray.h ../xstypes/xsstringarray.h \
+ xslibusb.h udev.h serialportcommunicator.h serialcommunicator.h \
+ devicecommunicator.h communicator.h callbackmanagerxda.h xscallback.h \
+ xscallbackplainc.h ../xstypes/pstdint.h ../xstypes/xsinforequest.h \
+ xsdevicestate.h ../xstypes/xsarray.h xsconnectivitystate.h \
+ xsprotocoltype.h openportstage.h protocolmanager.h messagelocation.h \
+ iprotocolmanager.h ../xstypes/xsmessage.h ../xstypes/xsbytearray.h \
+ ../xstypes/xsdataidentifier.h ../xstypes/xsdataidentifiervalue.h \
+ ../xstypes/xsxbusmessageid.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsbusid.h replyobject.h ../xstypes/xsdeviceid.h \
+ ../xscommon/xsens_mutex.h ../xstypes/xsthread.h ../xstypes/xstime.h \
+ ../xstypes/xstimestamp.h ../xstypes/xstimeinfo.h \
+ ../xstypes/xstimestamp.h iointerfacefile.h ../xstypes/xsplatform.h \
+ iointerface.h ../xstypes/xstime.h ../xstypes/xsfilepos.h \
+ ../xstypes/xsbytearray.h ../xstypes/xsfile.h ../xstypes/xsfilepos.h \
+ iprotocolhandler.h serialinterface.h streaminterface.h \
+ ../xstypes/xscontrolline.h messageextractor.h xsdevice_def.h \
+ ../xstypes/xssyncrole.h ../xstypes/xsversion.h \
+ ../xstypes/xssimpleversion.h packetstamper.h xsdeviceconfiguration.h \
+ ../xstypes/xsbusid.h ../xstypes/xstypedefs.h ../xstypes/xsexception.h \
+ xserrormode.h ../xstypes/xsresetmethod.h ../xstypes/xsoption.h \
+ xsrejectreason.h xsalignmentframe.h xsaccesscontrolmode.h \
+ datapacketcache.h ../xstypes/xsdeviceoptionflag.h lastresultmanager.h \
+ xsgnssplatform.h xsoperationalmode.h xsdevice_public.h dataparser.h \
+ ../xscommon/threading.h ../xscommon/xsens_mutex.h mtthread.h \
+ datapoller.h usbcommunicator.h ../xscommon/xsens_janitors.h \
+ enumerateusbdevices.h
+scanner.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+scanner.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsportinfo.h:
+../xstypes/xsdeviceid.h:
+../xstypes/xsstring.h:
+../xstypes/xsbaud.h:
+../xstypes/xsbaudcode.h:
+../xstypes/xsbaudrate.h:
+../xstypes/xsportinfoarray.h:
+../xstypes/xsportinfo.h:
+../xstypes/xsbaudrate.h:
+xsusbhubinfo.h:
+xscontrollerconfig.h:
+xsscanner.h:
+../xstypes/xsbaud.h:
+../xstypes/xsintarray.h:
+../xstypes/xsstringarray.h:
+xslibusb.h:
+udev.h:
+serialportcommunicator.h:
+serialcommunicator.h:
+devicecommunicator.h:
+communicator.h:
+callbackmanagerxda.h:
+xscallback.h:
+xscallbackplainc.h:
+../xstypes/pstdint.h:
+../xstypes/xsinforequest.h:
+xsdevicestate.h:
+../xstypes/xsarray.h:
+xsconnectivitystate.h:
+xsprotocoltype.h:
+openportstage.h:
+protocolmanager.h:
+messagelocation.h:
+iprotocolmanager.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:
+replyobject.h:
+../xstypes/xsdeviceid.h:
+../xscommon/xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:
+iointerfacefile.h:
+../xstypes/xsplatform.h:
+iointerface.h:
+../xstypes/xstime.h:
+../xstypes/xsfilepos.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsfile.h:
+../xstypes/xsfilepos.h:
+iprotocolhandler.h:
+serialinterface.h:
+streaminterface.h:
+../xstypes/xscontrolline.h:
+messageextractor.h:
+xsdevice_def.h:
+../xstypes/xssyncrole.h:
+../xstypes/xsversion.h:
+../xstypes/xssimpleversion.h:
+packetstamper.h:
+xsdeviceconfiguration.h:
+../xstypes/xsbusid.h:
+../xstypes/xstypedefs.h:
+../xstypes/xsexception.h:
+xserrormode.h:
+../xstypes/xsresetmethod.h:
+../xstypes/xsoption.h:
+xsrejectreason.h:
+xsalignmentframe.h:
+xsaccesscontrolmode.h:
+datapacketcache.h:
+../xstypes/xsdeviceoptionflag.h:
+lastresultmanager.h:
+xsgnssplatform.h:
+xsoperationalmode.h:
+xsdevice_public.h:
+dataparser.h:
+../xscommon/threading.h:
+../xscommon/xsens_mutex.h:
+mtthread.h:
+datapoller.h:
+usbcommunicator.h:
+../xscommon/xsens_janitors.h:
+enumerateusbdevices.h:

@@ -1,0 +1,18 @@
+xslibusb.cpp.o: xslibusb.cpp xscontrollerconfig.h ../xscommon/journaller.h \
+ ../xscommon/journalloglevel.h ../xscommon/abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/pstdint.h ../xstypes/xsarray.h xslibusb.h \
+ ../xstypes/xslibraryloader.h ../xstypes/xsstring.h
+xslibusb.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+xslibusb.h:
+../xstypes/xslibraryloader.h:
+../xstypes/xsstring.h:

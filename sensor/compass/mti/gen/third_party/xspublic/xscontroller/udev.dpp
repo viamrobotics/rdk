@@ -1,0 +1,18 @@
+udev.cpp.o: udev.cpp xscontrollerconfig.h ../xscommon/journaller.h \
+ ../xscommon/journalloglevel.h ../xscommon/abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/pstdint.h ../xstypes/xsarray.h udev.h \
+ ../xstypes/xslibraryloader.h ../xstypes/xsstring.h
+udev.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+udev.h:
+../xstypes/xslibraryloader.h:
+../xstypes/xsstring.h:

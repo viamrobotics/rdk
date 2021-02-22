@@ -1,0 +1,17 @@
+communicatorfactory.cpp.o: communicatorfactory.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h communicatorfactory.h compat.h
+communicatorfactory.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+communicatorfactory.h:
+compat.h:

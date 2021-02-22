@@ -1,0 +1,40 @@
+journaller.cpp.o: journaller.cpp xscommon_config.h ../xstypes/xstypesconfig.h \
+ ../xstypes/xstypedefs.h ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h journalstackwalker.h stackwalker_linux.h \
+ journaller.h journalloglevel.h abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xsarray.h journalthreader.h \
+ xscommon_config.h xsens_mutex.h ../xstypes/xsthread.h \
+ ../xstypes/xstime.h ../xstypes/xstimestamp.h ../xstypes/xsstring.h \
+ ../xstypes/xstimeinfo.h ../xstypes/xstimestamp.h journalfile.h \
+ ../xstypes/xsfile.h ../xstypes/xsresultvalue.h ../xstypes/xsfilepos.h \
+ ../xstypes/xstime.h ../xstypes/pstdint.h ../xstypes/xstimeinfo.h
+journaller.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+journalstackwalker.h:
+stackwalker_linux.h:
+journaller.h:
+journalloglevel.h:
+abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+journalthreader.h:
+xscommon_config.h:
+xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xsstring.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:
+journalfile.h:
+../xstypes/xsfile.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsfilepos.h:
+../xstypes/xstime.h:
+../xstypes/pstdint.h:
+../xstypes/xstimeinfo.h:

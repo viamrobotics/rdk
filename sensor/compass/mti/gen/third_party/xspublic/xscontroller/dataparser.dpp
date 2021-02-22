@@ -1,0 +1,41 @@
+dataparser.cpp.o: dataparser.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h dataparser.h ../xstypes/xsresultvalue.h \
+ ../xscommon/threading.h ../xscommon/xsens_mutex.h ../xstypes/xsthread.h \
+ ../xstypes/xstime.h ../xstypes/xstimestamp.h ../xstypes/xsstring.h \
+ ../xstypes/xstimeinfo.h ../xstypes/xstimestamp.h \
+ ../xstypes/xsbytearray.h xscontrollerconfig.h ../xstypes/xsmessage.h \
+ ../xstypes/xsbytearray.h ../xstypes/xsdataidentifier.h \
+ ../xstypes/xsdataidentifiervalue.h ../xstypes/xsxbusmessageid.h \
+ ../xstypes/xsresultvalue.h ../xstypes/xsbusid.h
+dataparser.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+dataparser.h:
+../xstypes/xsresultvalue.h:
+../xscommon/threading.h:
+../xscommon/xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xsstring.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:
+../xstypes/xsbytearray.h:
+xscontrollerconfig.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:

@@ -1,0 +1,22 @@
+enumexpandersbase.cpp.o: enumexpandersbase.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h enumexpandersbase.h journaller.h \
+ journalloglevel.h abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xsarray.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsxbusmessageid.h
+enumexpandersbase.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+enumexpandersbase.h:
+journaller.h:
+journalloglevel.h:
+abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsxbusmessageid.h:

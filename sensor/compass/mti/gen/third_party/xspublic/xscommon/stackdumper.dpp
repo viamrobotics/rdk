@@ -1,0 +1,13 @@
+stackdumper.cpp.o: stackdumper.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h stackdumper.h stackwalker_linux.h
+stackdumper.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+stackdumper.h:
+stackwalker_linux.h:

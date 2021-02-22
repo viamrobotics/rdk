@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Public XDA C++ Example MTi Receive Data", "public_xda_cpp_example_mti_receive_data.vcxproj", "{8BFF1125-985B-40FE-8DCE-6C7780948FF6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Public XDA C++ Example MTi Parse Logfile", "public_xda_cpp_example_mti_parse_logfile.vcxproj", "{37D83179-04F5-48D4-A51B-21D665F42B0C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Debug|x64 = Debug|x64
+		Release|Win32 = Release|Win32
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Debug|Win32.Build.0 = Debug|Win32
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Debug|x64.ActiveCfg = Debug|x64
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Debug|x64.Build.0 = Debug|x64
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Release|Win32.ActiveCfg = Release|Win32
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Release|Win32.Build.0 = Release|Win32
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Release|x64.ActiveCfg = Release|x64
+		{8BFF1125-985B-40FE-8DCE-6C7780948FF6}.Release|x64.Build.0 = Release|x64
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Debug|Win32.Build.0 = Debug|Win32
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Debug|x64.ActiveCfg = Debug|x64
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Debug|x64.Build.0 = Debug|x64
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Release|Win32.ActiveCfg = Release|Win32
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Release|Win32.Build.0 = Release|Win32
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Release|x64.ActiveCfg = Release|x64
+		{37D83179-04F5-48D4-A51B-21D665F42B0C}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

@@ -11,3 +11,6 @@ sdk:
 
 swig:
 	cd gen && swig -v -go -cgo -c++ -intgosize 64 rplidar.i
+
+clean:
+	cd gen/third_party/rplidar_sdk-release-${VERSION}/sdk && make clean_sdk

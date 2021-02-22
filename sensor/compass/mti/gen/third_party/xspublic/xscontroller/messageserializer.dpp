@@ -1,0 +1,47 @@
+messageserializer.cpp.o: messageserializer.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h messageserializer.h ../xstypes/xsmessage.h \
+ ../xstypes/xsbytearray.h ../xstypes/xsstring.h \
+ ../xstypes/xsdataidentifier.h ../xstypes/xsdataidentifiervalue.h \
+ ../xstypes/xsxbusmessageid.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsbusid.h ../xstypes/xsdataidentifier.h \
+ ../xstypes/xscandataidentifier.h ../xstypes/xscanframeformat.h \
+ ../xstypes/xsdeviceid.h ../xstypes/xsoutputconfiguration.h \
+ ../xstypes/xsoutputconfigurationarray.h \
+ ../xstypes/xsoutputconfiguration.h ../xstypes/xscanoutputconfiguration.h \
+ ../xstypes/xscandataidentifier.h ../xstypes/xscanframeformat.h \
+ ../xstypes/xscanoutputconfigurationarray.h \
+ ../xstypes/xscanoutputconfiguration.h
+messageserializer.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+messageserializer.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsstring.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xscandataidentifier.h:
+../xstypes/xscanframeformat.h:
+../xstypes/xsdeviceid.h:
+../xstypes/xsoutputconfiguration.h:
+../xstypes/xsoutputconfigurationarray.h:
+../xstypes/xsoutputconfiguration.h:
+../xstypes/xscanoutputconfiguration.h:
+../xstypes/xscandataidentifier.h:
+../xstypes/xscanframeformat.h:
+../xstypes/xscanoutputconfigurationarray.h:
+../xstypes/xscanoutputconfiguration.h:

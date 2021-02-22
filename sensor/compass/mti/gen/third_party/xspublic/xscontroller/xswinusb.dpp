@@ -1,0 +1,17 @@
+xswinusb.cpp.o: xswinusb.cpp xscontrollerconfig.h ../xscommon/journaller.h \
+ ../xscommon/journalloglevel.h ../xscommon/abstractadditionallogger.h \
+ ../xstypes/xsstring.h ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/pstdint.h ../xstypes/xsarray.h xswinusb.h \
+ xscontrollerconfig.h
+xswinusb.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+xswinusb.h:
+xscontrollerconfig.h:

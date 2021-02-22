@@ -1,0 +1,52 @@
+xsdatapacket.c.o: xsdatapacket.cpp xsdatapacket.h xstypedefs.h \
+ xstypesconfig.h pstdint.h xsmessage.h xsbytearray.h xsarray.h xsstring.h \
+ xsdataidentifier.h xsdataidentifiervalue.h xsxbusmessageid.h \
+ xsresultvalue.h xsbusid.h xstimestamp.h xstimeinfo.h xsushortvector.h \
+ xsscrdata.h xscalibrateddata.h xsvector3.h xsvector.h xsmath.h \
+ xsfloatmath.h xsmath2.h xspressure.h xssdidata.h xsquaternion.h \
+ xsmatrix.h xseuler.h xsanalogindata.h xsrawgnsspvtdata.h \
+ xsrawgnsssatinfo.h xsdeviceid.h xsrange.h xstriggerindicationdata.h \
+ xssnapshot.h xsglovesnapshot.h xsglovedata.h xshandid.h datapacket_p.h \
+ xsmatrix3x3.h xsrssi.h
+xsdatapacket.cpp:
+xsdatapacket.h:
+xstypedefs.h:
+xstypesconfig.h:
+pstdint.h:
+xsmessage.h:
+xsbytearray.h:
+xsarray.h:
+xsstring.h:
+xsdataidentifier.h:
+xsdataidentifiervalue.h:
+xsxbusmessageid.h:
+xsresultvalue.h:
+xsbusid.h:
+xstimestamp.h:
+xstimeinfo.h:
+xsushortvector.h:
+xsscrdata.h:
+xscalibrateddata.h:
+xsvector3.h:
+xsvector.h:
+xsmath.h:
+xsfloatmath.h:
+xsmath2.h:
+xspressure.h:
+xssdidata.h:
+xsquaternion.h:
+xsmatrix.h:
+xseuler.h:
+xsanalogindata.h:
+xsrawgnsspvtdata.h:
+xsrawgnsssatinfo.h:
+xsdeviceid.h:
+xsrange.h:
+xstriggerindicationdata.h:
+xssnapshot.h:
+xsglovesnapshot.h:
+xsglovedata.h:
+xshandid.h:
+datapacket_p.h:
+xsmatrix3x3.h:
+xsrssi.h:

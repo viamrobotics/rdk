@@ -1,0 +1,9 @@
+xssensorranges.c.o: xssensorranges.cpp xssensorranges.h xstypesconfig.h \
+ xstypedefs.h pstdint.h xsstring.h xsarray.h
+xssensorranges.cpp:
+xssensorranges.h:
+xstypesconfig.h:
+xstypedefs.h:
+pstdint.h:
+xsstring.h:
+xsarray.h:

@@ -1,0 +1,60 @@
+mtbdatalogger.cpp.o: mtbdatalogger.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h mtbdatalogger.h datalogger.h callbackmanagerxda.h \
+ xscallback.h xscallbackplainc.h ../xstypes/pstdint.h \
+ ../xstypes/xsresultvalue.h ../xstypes/xsinforequest.h xsdevicestate.h \
+ xscontrollerconfig.h ../xstypes/xsarray.h xsconnectivitystate.h \
+ xsprotocoltype.h iointerfacefile.h ../xstypes/xsplatform.h iointerface.h \
+ ../xstypes/xsmessage.h ../xstypes/xsbytearray.h ../xstypes/xsstring.h \
+ ../xstypes/xsdataidentifier.h ../xstypes/xsdataidentifiervalue.h \
+ ../xstypes/xsxbusmessageid.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsbusid.h ../xstypes/xstime.h ../xstypes/xstimestamp.h \
+ ../xstypes/xstimeinfo.h ../xstypes/xsfilepos.h ../xstypes/xsbytearray.h \
+ ../xstypes/xsfile.h ../xstypes/xsfilepos.h protocolhandler.h \
+ iprotocolhandler.h messagelocation.h
+mtbdatalogger.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+mtbdatalogger.h:
+datalogger.h:
+callbackmanagerxda.h:
+xscallback.h:
+xscallbackplainc.h:
+../xstypes/pstdint.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsinforequest.h:
+xsdevicestate.h:
+xscontrollerconfig.h:
+../xstypes/xsarray.h:
+xsconnectivitystate.h:
+xsprotocoltype.h:
+iointerfacefile.h:
+../xstypes/xsplatform.h:
+iointerface.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsstring.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xsfilepos.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsfile.h:
+../xstypes/xsfilepos.h:
+protocolhandler.h:
+iprotocolhandler.h:
+messagelocation.h:

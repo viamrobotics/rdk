@@ -1,0 +1,28 @@
+enumexpanders.cpp.o: enumexpanders.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h enumexpanders.h ../xscommon/enumexpandersbase.h \
+ ../xscommon/journaller.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsxbusmessageid.h xsdevicestate.h xscontrollerconfig.h \
+ ../xstypes/xsarray.h xsoperationalmode.h xsconnectivitystate.h
+enumexpanders.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+enumexpanders.h:
+../xscommon/enumexpandersbase.h:
+../xscommon/journaller.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsxbusmessageid.h:
+xsdevicestate.h:
+xscontrollerconfig.h:
+../xstypes/xsarray.h:
+xsoperationalmode.h:
+xsconnectivitystate.h:

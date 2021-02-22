@@ -1,0 +1,38 @@
+replymonitor.cpp.o: replymonitor.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h replymonitor.h ../xscommon/xsens_mutex.h \
+ ../xstypes/xsthread.h ../xstypes/xstime.h ../xstypes/xstimestamp.h \
+ ../xstypes/xsstring.h ../xstypes/xstimeinfo.h ../xstypes/xstimestamp.h \
+ replyobject.h ../xstypes/xsmessage.h ../xstypes/xsbytearray.h \
+ ../xstypes/xsdataidentifier.h ../xstypes/xsdataidentifiervalue.h \
+ ../xstypes/xsxbusmessageid.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsbusid.h ../xstypes/xsdeviceid.h
+replymonitor.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+replymonitor.h:
+../xscommon/xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xsstring.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:
+replyobject.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:
+../xstypes/xsdeviceid.h:

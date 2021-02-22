@@ -1,0 +1,20 @@
+journalfile.cpp.o: journalfile.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h journalfile.h ../xstypes/xsstring.h \
+ ../xstypes/xsarray.h ../xstypes/xsfile.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsfilepos.h ../xstypes/xsstring.h
+journalfile.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+journalfile.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+../xstypes/xsfile.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsfilepos.h:
+../xstypes/xsstring.h:

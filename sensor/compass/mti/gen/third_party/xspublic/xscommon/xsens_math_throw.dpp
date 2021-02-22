@@ -1,0 +1,26 @@
+xsens_math_throw.cpp.o: xsens_math_throw.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h xsens_math_throw.h ../xstypes/xsexception.h \
+ ../xstypes/xsresultvalue.h ../xstypes/xsstring.h ../xstypes/xsarray.h \
+ xsens_mutex.h ../xstypes/xsthread.h ../xstypes/xstime.h \
+ ../xstypes/xstimestamp.h ../xstypes/xstimeinfo.h \
+ ../xstypes/xstimestamp.h
+xsens_math_throw.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+xsens_math_throw.h:
+../xstypes/xsexception.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:

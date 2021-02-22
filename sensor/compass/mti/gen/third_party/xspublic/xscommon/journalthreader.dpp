@@ -1,0 +1,32 @@
+journalthreader.cpp.o: journalthreader.cpp xscommon_config.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h \
+ ../xstypes/xstypesconfig.h ../xstypes/pstdint.h \
+ ../xstypes/xsens_compat.h journalthreader.h xscommon_config.h \
+ journalloglevel.h xsens_mutex.h ../xstypes/xsthread.h \
+ ../xstypes/xstime.h ../xstypes/xstimestamp.h ../xstypes/xsstring.h \
+ ../xstypes/xsarray.h ../xstypes/xstimeinfo.h ../xstypes/xstimestamp.h \
+ journalfile.h ../xstypes/xsstring.h ../xstypes/xsfile.h \
+ ../xstypes/xsresultvalue.h ../xstypes/xsfilepos.h
+journalthreader.cpp:
+xscommon_config.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/xstypesconfig.h:
+../xstypes/pstdint.h:
+../xstypes/xsens_compat.h:
+journalthreader.h:
+xscommon_config.h:
+journalloglevel.h:
+xsens_mutex.h:
+../xstypes/xsthread.h:
+../xstypes/xstime.h:
+../xstypes/xstimestamp.h:
+../xstypes/xsstring.h:
+../xstypes/xsarray.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xstimestamp.h:
+journalfile.h:
+../xstypes/xsstring.h:
+../xstypes/xsfile.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsfilepos.h:

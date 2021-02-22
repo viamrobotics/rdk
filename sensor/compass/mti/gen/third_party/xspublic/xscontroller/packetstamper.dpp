@@ -1,0 +1,66 @@
+packetstamper.cpp.o: packetstamper.cpp xscontrollerconfig.h \
+ ../xscommon/journaller.h ../xscommon/journalloglevel.h \
+ ../xscommon/abstractadditionallogger.h ../xstypes/xsstring.h \
+ ../xstypes/xstypesconfig.h ../xstypes/xstypedefs.h ../xstypes/pstdint.h \
+ ../xstypes/xsarray.h ../xstypes/xsdatapacket.h ../xstypes/xsmessage.h \
+ ../xstypes/xsbytearray.h ../xstypes/xsstring.h \
+ ../xstypes/xsdataidentifier.h ../xstypes/xsdataidentifiervalue.h \
+ ../xstypes/xsxbusmessageid.h ../xstypes/xsresultvalue.h \
+ ../xstypes/xsbusid.h ../xstypes/xstimestamp.h ../xstypes/xstimeinfo.h \
+ ../xstypes/xsushortvector.h ../xstypes/xsscrdata.h \
+ ../xstypes/xscalibrateddata.h ../xstypes/xsvector3.h \
+ ../xstypes/xsvector.h ../xstypes/xsmath.h ../xstypes/xsfloatmath.h \
+ ../xstypes/xsmath2.h ../xstypes/xspressure.h ../xstypes/xssdidata.h \
+ ../xstypes/xsquaternion.h ../xstypes/xsmatrix.h ../xstypes/xseuler.h \
+ ../xstypes/xsanalogindata.h ../xstypes/xsrawgnsspvtdata.h \
+ ../xstypes/xsrawgnsssatinfo.h ../xstypes/xsdeviceid.h \
+ ../xstypes/xsrange.h ../xstypes/xstriggerindicationdata.h \
+ ../xstypes/xssnapshot.h ../xstypes/xsglovesnapshot.h \
+ ../xstypes/xsglovedata.h ../xstypes/xshandid.h packetstamper.h \
+ ../xstypes/pstdint.h
+packetstamper.cpp:
+xscontrollerconfig.h:
+../xscommon/journaller.h:
+../xscommon/journalloglevel.h:
+../xscommon/abstractadditionallogger.h:
+../xstypes/xsstring.h:
+../xstypes/xstypesconfig.h:
+../xstypes/xstypedefs.h:
+../xstypes/pstdint.h:
+../xstypes/xsarray.h:
+../xstypes/xsdatapacket.h:
+../xstypes/xsmessage.h:
+../xstypes/xsbytearray.h:
+../xstypes/xsstring.h:
+../xstypes/xsdataidentifier.h:
+../xstypes/xsdataidentifiervalue.h:
+../xstypes/xsxbusmessageid.h:
+../xstypes/xsresultvalue.h:
+../xstypes/xsbusid.h:
+../xstypes/xstimestamp.h:
+../xstypes/xstimeinfo.h:
+../xstypes/xsushortvector.h:
+../xstypes/xsscrdata.h:
+../xstypes/xscalibrateddata.h:
+../xstypes/xsvector3.h:
+../xstypes/xsvector.h:
+../xstypes/xsmath.h:
+../xstypes/xsfloatmath.h:
+../xstypes/xsmath2.h:
+../xstypes/xspressure.h:
+../xstypes/xssdidata.h:
+../xstypes/xsquaternion.h:
+../xstypes/xsmatrix.h:
+../xstypes/xseuler.h:
+../xstypes/xsanalogindata.h:
+../xstypes/xsrawgnsspvtdata.h:
+../xstypes/xsrawgnsssatinfo.h:
+../xstypes/xsdeviceid.h:
+../xstypes/xsrange.h:
+../xstypes/xstriggerindicationdata.h:
+../xstypes/xssnapshot.h:
+../xstypes/xsglovesnapshot.h:
+../xstypes/xsglovedata.h:
+../xstypes/xshandid.h:
+packetstamper.h:
+../xstypes/pstdint.h:
