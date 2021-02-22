@@ -13,6 +13,14 @@ func NewSquareArea(meters int, scaleTo int) *SquareArea {
 	return SquareAreaFromPointCloud(cloud, meters, scaleTo)
 }
 
+func NewSquareAreaFromFile(fn string, meters int, scaleTo int) (*SquareArea, error) {
+	cloud, err := pc.NewPointCloudFromFile(fn)
+	if err != nil {
+		return nil, err
+	}
+	return SquareAreaFromPointCloud(cloud, meters, scaleTo), nil
+}
+
 func SquareAreaFromPointCloud(cloud *pc.PointCloud, meters int, scaleTo int) *SquareArea {
 	measurementScaled := meters * scaleTo
 	centerX := measurementScaled / 2
