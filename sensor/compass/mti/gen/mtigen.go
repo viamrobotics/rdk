@@ -2565,28 +2565,26 @@ import "unsafe"
 import _ "runtime/cgo"
 import "sync"
 
-
 type _ unsafe.Pointer
-
-
 
 var Swig_escape_always_false bool
 var Swig_escape_val interface{}
 
-
 type _swig_fnptr *byte
 type _swig_memberptr *byte
 
-
 type _ sync.Mutex
 
+type swig_gostring struct {
+	p uintptr
+	n int
+}
 
-type swig_gostring struct { p uintptr; n int }
 func swigCopyString(s string) string {
-  p := *(*swig_gostring)(unsafe.Pointer(&s))
-  r := string((*[0x7fffffff]byte)(unsafe.Pointer(p.p))[:p.n])
-  Swig_free(p.p)
-  return r
+	p := *(*swig_gostring)(unsafe.Pointer(&s))
+	r := string((*[0x7fffffff]byte)(unsafe.Pointer(p.p))[:p.n])
+	Swig_free(p.p)
+	return r
 }
 
 func Swig_free(arg1 uintptr) {
@@ -2604,32 +2602,38 @@ func Swig_malloc(arg1 int) (_swig_ret uintptr) {
 const X__LOC__ string = "third_party/xspublic/xstypes/xstypesconfig.h(78) : WARNING: "
 const X_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES int = 1
 const XSENS_PFSHARED string = ".dll"
+
 func _swig_getXSENS_PFPRE() (_swig_ret string) {
 	var swig_r string
 	swig_r_p := C._wrap_XSENS_PFPRE_mtigen_083b31a658b8ff73()
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
 var XSENS_PFPRE string = _swig_getXSENS_PFPRE()
+
 const XSENS_PFBITS string = "32"
 const QT_NO_DEBUG int = 1
 const XSENS_CONFIG int = 3
+
 func _swig_getXSENS_PFCONF() (_swig_ret string) {
 	var swig_r string
 	swig_r_p := C._wrap_XSENS_PFCONF_mtigen_083b31a658b8ff73()
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
 var XSENS_PFCONF string = _swig_getXSENS_PFCONF()
+
 const XSENS_PFFULL string = "32"
 const XSREAL_ALLOWS_MEMCPY int = 1
+
 type XsDataFlags int
+
 func _swig_getXSDF_None() (_swig_ret XsDataFlags) {
 	var swig_r XsDataFlags
 	swig_r = (XsDataFlags)(C._wrap_XSDF_None_mtigen_083b31a658b8ff73())
@@ -2637,6 +2641,7 @@ func _swig_getXSDF_None() (_swig_ret XsDataFlags) {
 }
 
 var XSDF_None XsDataFlags = _swig_getXSDF_None()
+
 func _swig_getXSDF_Managed() (_swig_ret XsDataFlags) {
 	var swig_r XsDataFlags
 	swig_r = (XsDataFlags)(C._wrap_XSDF_Managed_mtigen_083b31a658b8ff73())
@@ -2644,6 +2649,7 @@ func _swig_getXSDF_Managed() (_swig_ret XsDataFlags) {
 }
 
 var XSDF_Managed XsDataFlags = _swig_getXSDF_Managed()
+
 func _swig_getXSDF_FixedSize() (_swig_ret XsDataFlags) {
 	var swig_r XsDataFlags
 	swig_r = (XsDataFlags)(C._wrap_XSDF_FixedSize_mtigen_083b31a658b8ff73())
@@ -2651,6 +2657,7 @@ func _swig_getXSDF_FixedSize() (_swig_ret XsDataFlags) {
 }
 
 var XSDF_FixedSize XsDataFlags = _swig_getXSDF_FixedSize()
+
 func _swig_getXSDF_Empty() (_swig_ret XsDataFlags) {
 	var swig_r XsDataFlags
 	swig_r = (XsDataFlags)(C._wrap_XSDF_Empty_mtigen_083b31a658b8ff73())
@@ -2658,13 +2665,14 @@ func _swig_getXSDF_Empty() (_swig_ret XsDataFlags) {
 }
 
 var XSDF_Empty XsDataFlags = _swig_getXSDF_Empty()
+
 func XsDataFlags_toString(arg1 XsDataFlags) (_swig_ret string) {
 	var swig_r string
 	_swig_i_0 := arg1
 	swig_r_p := C._wrap_XsDataFlags_toString_mtigen_083b31a658b8ff73(C.swig_intgo(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -2674,7 +2682,7 @@ func ToString(arg1 XsDataFlags) (_swig_ret string) {
 	swig_r_p := C._wrap_toString_mtigen_083b31a658b8ff73(C.swig_intgo(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -3671,6 +3679,7 @@ type XsArrayXsPortInfo interface {
 
 const XSENS_VENDOR_ID int = 0x2639
 const FTDI_VENDOR_ID int = 0x0403
+
 func XsPortInfo_clear(arg1 XSPortInfo) {
 	_swig_i_0 := arg1.Swigcptr()
 	C._wrap_XsPortInfo_clear_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
@@ -3710,7 +3719,7 @@ func XsPortInfo_networkServiceName(arg1 XSPortInfo) (_swig_ret string) {
 	swig_r_p := C._wrap_XsPortInfo_networkServiceName_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -3735,6 +3744,7 @@ func XsPortInfo_swap(arg1 XSPortInfo, arg2 XSPortInfo) {
 }
 
 type XsPortLinesOptions int
+
 func _swig_getXPLO_Invalid() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_Invalid_mtigen_083b31a658b8ff73())
@@ -3742,6 +3752,7 @@ func _swig_getXPLO_Invalid() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_Invalid XsPortLinesOptions = _swig_getXPLO_Invalid()
+
 func _swig_getXPLO_RTS_Set() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_RTS_Set_mtigen_083b31a658b8ff73())
@@ -3749,6 +3760,7 @@ func _swig_getXPLO_RTS_Set() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_RTS_Set XsPortLinesOptions = _swig_getXPLO_RTS_Set()
+
 func _swig_getXPLO_RTS_Clear() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_RTS_Clear_mtigen_083b31a658b8ff73())
@@ -3756,6 +3768,7 @@ func _swig_getXPLO_RTS_Clear() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_RTS_Clear XsPortLinesOptions = _swig_getXPLO_RTS_Clear()
+
 func _swig_getXPLO_RTS_Ignore() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_RTS_Ignore_mtigen_083b31a658b8ff73())
@@ -3763,6 +3776,7 @@ func _swig_getXPLO_RTS_Ignore() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_RTS_Ignore XsPortLinesOptions = _swig_getXPLO_RTS_Ignore()
+
 func _swig_getXPLO_DTR_Set() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_DTR_Set_mtigen_083b31a658b8ff73())
@@ -3770,6 +3784,7 @@ func _swig_getXPLO_DTR_Set() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_DTR_Set XsPortLinesOptions = _swig_getXPLO_DTR_Set()
+
 func _swig_getXPLO_DTR_Clear() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_DTR_Clear_mtigen_083b31a658b8ff73())
@@ -3777,6 +3792,7 @@ func _swig_getXPLO_DTR_Clear() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_DTR_Clear XsPortLinesOptions = _swig_getXPLO_DTR_Clear()
+
 func _swig_getXPLO_DTR_Ignore() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_DTR_Ignore_mtigen_083b31a658b8ff73())
@@ -3784,6 +3800,7 @@ func _swig_getXPLO_DTR_Ignore() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_DTR_Ignore XsPortLinesOptions = _swig_getXPLO_DTR_Ignore()
+
 func _swig_getXPLO_All_Set() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_All_Set_mtigen_083b31a658b8ff73())
@@ -3791,6 +3808,7 @@ func _swig_getXPLO_All_Set() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_All_Set XsPortLinesOptions = _swig_getXPLO_All_Set()
+
 func _swig_getXPLO_All_Clear() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_All_Clear_mtigen_083b31a658b8ff73())
@@ -3798,6 +3816,7 @@ func _swig_getXPLO_All_Clear() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_All_Clear XsPortLinesOptions = _swig_getXPLO_All_Clear()
+
 func _swig_getXPLO_All_Ignore() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_All_Ignore_mtigen_083b31a658b8ff73())
@@ -3805,6 +3824,7 @@ func _swig_getXPLO_All_Ignore() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_All_Ignore XsPortLinesOptions = _swig_getXPLO_All_Ignore()
+
 func _swig_getXPLO_RtsCtsFlowControl() (_swig_ret XsPortLinesOptions) {
 	var swig_r XsPortLinesOptions
 	swig_r = (XsPortLinesOptions)(C._wrap_XPLO_RtsCtsFlowControl_mtigen_083b31a658b8ff73())
@@ -3812,6 +3832,7 @@ func _swig_getXPLO_RtsCtsFlowControl() (_swig_ret XsPortLinesOptions) {
 }
 
 var XPLO_RtsCtsFlowControl XsPortLinesOptions = _swig_getXPLO_RtsCtsFlowControl()
+
 type SwigcptrXSPortInfo uintptr
 
 func (p SwigcptrXSPortInfo) Swigcptr() uintptr {
@@ -3950,7 +3971,7 @@ func (arg1 SwigcptrXSPortInfo) PortName_c_str() (_swig_ret string) {
 	swig_r_p := C._wrap_XSPortInfo_portName_c_str_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -10054,16 +10075,18 @@ type XSDevice interface {
 }
 
 const XSDEVICEID_PRODUCT_CODE_LEN int = 24
+
 func _swig_getXSDEVICEID_PRODUCT_CODE_INIT() (_swig_ret string) {
 	var swig_r string
 	swig_r_p := C._wrap_XSDEVICEID_PRODUCT_CODE_INIT_mtigen_083b31a658b8ff73()
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
 var XSDEVICEID_PRODUCT_CODE_INIT string = _swig_getXSDEVICEID_PRODUCT_CODE_INIT()
+
 func XsDeviceId_isLegacyDeviceId(arg1 XSDeviceId) (_swig_ret int) {
 	var swig_r int
 	_swig_i_0 := arg1.Swigcptr()
@@ -12586,7 +12609,7 @@ func (arg1 SwigcptrXSString) C_str__SWIG_0() (_swig_ret string) {
 	swig_r_p := C._wrap_XSString_c_str__SWIG_0_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -12596,7 +12619,7 @@ func (arg1 SwigcptrXSString) C_str__SWIG_1() (_swig_ret string) {
 	swig_r_p := C._wrap_XSString_c_str__SWIG_1_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -12617,7 +12640,7 @@ func (arg1 SwigcptrXSString) ToStdString() (_swig_ret string) {
 	swig_r_p := C._wrap_XSString_toStdString_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
- swig_r_1 = swigCopyString(swig_r) 
+	swig_r_1 = swigCopyString(swig_r)
 	return swig_r_1
 }
 
@@ -13567,7 +13590,9 @@ type XSString interface {
 const B230400 int = 0010003
 const B460800 int = 0010004
 const B921600 int = 0010007
+
 type XsBaudRate int
+
 func _swig_getXBR_Invalid() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_Invalid_mtigen_083b31a658b8ff73())
@@ -13575,6 +13600,7 @@ func _swig_getXBR_Invalid() (_swig_ret XsBaudRate) {
 }
 
 var XBR_Invalid XsBaudRate = _swig_getXBR_Invalid()
+
 func _swig_getXBR_4800() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_4800_mtigen_083b31a658b8ff73())
@@ -13582,6 +13608,7 @@ func _swig_getXBR_4800() (_swig_ret XsBaudRate) {
 }
 
 var XBR_4800 XsBaudRate = _swig_getXBR_4800()
+
 func _swig_getXBR_9600() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_9600_mtigen_083b31a658b8ff73())
@@ -13589,6 +13616,7 @@ func _swig_getXBR_9600() (_swig_ret XsBaudRate) {
 }
 
 var XBR_9600 XsBaudRate = _swig_getXBR_9600()
+
 func _swig_getXBR_19k2() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_19k2_mtigen_083b31a658b8ff73())
@@ -13596,6 +13624,7 @@ func _swig_getXBR_19k2() (_swig_ret XsBaudRate) {
 }
 
 var XBR_19k2 XsBaudRate = _swig_getXBR_19k2()
+
 func _swig_getXBR_38k4() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_38k4_mtigen_083b31a658b8ff73())
@@ -13603,6 +13632,7 @@ func _swig_getXBR_38k4() (_swig_ret XsBaudRate) {
 }
 
 var XBR_38k4 XsBaudRate = _swig_getXBR_38k4()
+
 func _swig_getXBR_57k6() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_57k6_mtigen_083b31a658b8ff73())
@@ -13610,6 +13640,7 @@ func _swig_getXBR_57k6() (_swig_ret XsBaudRate) {
 }
 
 var XBR_57k6 XsBaudRate = _swig_getXBR_57k6()
+
 func _swig_getXBR_115k2() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_115k2_mtigen_083b31a658b8ff73())
@@ -13617,6 +13648,7 @@ func _swig_getXBR_115k2() (_swig_ret XsBaudRate) {
 }
 
 var XBR_115k2 XsBaudRate = _swig_getXBR_115k2()
+
 func _swig_getXBR_230k4() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_230k4_mtigen_083b31a658b8ff73())
@@ -13624,6 +13656,7 @@ func _swig_getXBR_230k4() (_swig_ret XsBaudRate) {
 }
 
 var XBR_230k4 XsBaudRate = _swig_getXBR_230k4()
+
 func _swig_getXBR_460k8() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_460k8_mtigen_083b31a658b8ff73())
@@ -13631,6 +13664,7 @@ func _swig_getXBR_460k8() (_swig_ret XsBaudRate) {
 }
 
 var XBR_460k8 XsBaudRate = _swig_getXBR_460k8()
+
 func _swig_getXBR_921k6() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_921k6_mtigen_083b31a658b8ff73())
@@ -13638,6 +13672,7 @@ func _swig_getXBR_921k6() (_swig_ret XsBaudRate) {
 }
 
 var XBR_921k6 XsBaudRate = _swig_getXBR_921k6()
+
 func _swig_getXBR_2000k() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_2000k_mtigen_083b31a658b8ff73())
@@ -13645,6 +13680,7 @@ func _swig_getXBR_2000k() (_swig_ret XsBaudRate) {
 }
 
 var XBR_2000k XsBaudRate = _swig_getXBR_2000k()
+
 func _swig_getXBR_3500k() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_3500k_mtigen_083b31a658b8ff73())
@@ -13652,6 +13688,7 @@ func _swig_getXBR_3500k() (_swig_ret XsBaudRate) {
 }
 
 var XBR_3500k XsBaudRate = _swig_getXBR_3500k()
+
 func _swig_getXBR_4000k() (_swig_ret XsBaudRate) {
 	var swig_r XsBaudRate
 	swig_r = (XsBaudRate)(C._wrap_XBR_4000k_mtigen_083b31a658b8ff73())
@@ -13659,6 +13696,7 @@ func _swig_getXBR_4000k() (_swig_ret XsBaudRate) {
 }
 
 var XBR_4000k XsBaudRate = _swig_getXBR_4000k()
+
 func XsDataPacket_construct(arg1 XSDataPacket) {
 	_swig_i_0 := arg1.Swigcptr()
 	C._wrap_XsDataPacket_construct_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0))
@@ -20201,684 +20239,767 @@ func AddCallbackHandler(arg1 CallbackHandler, arg2 XSDevice) {
 	C._wrap_addCallbackHandler_mtigen_083b31a658b8ff73(C.uintptr_t(_swig_i_0), C.uintptr_t(_swig_i_1))
 }
 
-
 type SwigcptrXsFilterProfile uintptr
 type XsFilterProfile interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsFilterProfile) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsVector uintptr
 type XsVector interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsVector) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsResultValue uintptr
 type XsResultValue interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsResultValue) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDeviceConfiguration uintptr
 type XsDeviceConfiguration interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDeviceConfiguration) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsOutputConfiguration uintptr
 type XsOutputConfiguration interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsOutputConfiguration) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_vector_Sl_int_Sg_ uintptr
 type Std_vector_Sl_int_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_vector_Sl_int_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsTriggerIndicationData uintptr
 type XsTriggerIndicationData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsTriggerIndicationData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImplConst_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_char_Sc_g_xsStringDescriptor_Sc_XsString_Sg__IteratorImpl_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsOutputConfiguration_Sc_g_xsOutputConfigurationArrayDescriptor_Sc_XsOutputConfigurationArray_Sg__IteratorImpl_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSelfTestResult uintptr
 type XsSelfTestResult interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSelfTestResult) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsIccRepMotionResult uintptr
 type XsIccRepMotionResult interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsIccRepMotionResult) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsXbusMessageId uintptr
 type XsXbusMessageId interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsXbusMessageId) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsCalibratedData uintptr
 type XsCalibratedData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsCalibratedData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsens_GuardedMutex uintptr
 type Xsens_GuardedMutex interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsens_GuardedMutex) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsUsbHubInfo uintptr
 type XsUsbHubInfo interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsUsbHubInfo) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsResetMethod uintptr
 type XsResetMethod interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsResetMethod) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsRange uintptr
 type XsRange interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsRange) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsRejectReason uintptr
 type XsRejectReason interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsRejectReason) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsHandId uintptr
 type XsHandId interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsHandId) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsFilterProfileArray uintptr
 type XsFilterProfileArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsFilterProfileArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsStringOutputTypeArray uintptr
 type XsStringOutputTypeArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsStringOutputTypeArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsByteArray uintptr
 type XsByteArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsByteArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsPressure uintptr
 type XsPressure interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsPressure) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsDevicePtr_Sc_g_xsDevicePtrArrayDescriptor_Sc_XsDevicePtrArray_Sg__IteratorImpl_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_shared_ptr_Sl_ReplyObject_Sg_ uintptr
 type Std_shared_ptr_Sl_ReplyObject_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_shared_ptr_Sl_ReplyObject_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDeviceState uintptr
 type XsDeviceState interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDeviceState) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrDataLogger uintptr
 type DataLogger interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrDataLogger) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsErrorMode uintptr
 type XsErrorMode interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsErrorMode) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_vector_Sl_XsDeviceId_Sg_ uintptr
 type Std_vector_Sl_XsDeviceId_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_vector_Sl_XsDeviceId_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSyncSetting uintptr
 type XsSyncSetting interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSyncSetting) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDevicePtr uintptr
 type XsDevicePtr interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDevicePtr) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsCanOutputConfigurationArray uintptr
 type XsCanOutputConfigurationArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsCanOutputConfigurationArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsUShortVector uintptr
 type XsUShortVector interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsUShortVector) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_vector_Sl_XsDevice_Sm__Sg_ uintptr
 type Std_vector_Sl_XsDevice_Sm__Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_vector_Sl_XsDevice_Sm__Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_unique_ptr_Sl_xsens_Lock_Sg_ uintptr
 type Std_unique_ptr_Sl_xsens_Lock_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_unique_ptr_Sl_xsens_Lock_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsFilePos uintptr
 type XsFilePos interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsFilePos) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrDataPacketPrivate uintptr
 type DataPacketPrivate interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrDataPacketPrivate) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSdiData uintptr
 type XsSdiData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSdiData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImpl_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl__Ss_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl_1_Sg_ uintptr
 type XsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl_1_Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsArrayImpl_Sl_XsPortInfo_Sc_g_xsPortInfoArrayDescriptor_Sc_XsPortInfoArray_Sg__IteratorImplConst_Sl_1_Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSyncRole uintptr
 type XsSyncRole interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSyncRole) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsVersion uintptr
 type XsVersion interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsVersion) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsOption uintptr
 type XsOption interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsOption) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_map_Sl_XsDataIdentifier_Sc_void_Sm__Sg_ uintptr
 type Std_map_Sl_XsDataIdentifier_Sc_void_Sm__Sg_ interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_map_Sl_XsDataIdentifier_Sc_void_Sm__Sg_) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrWchar_t uintptr
 type Wchar_t interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrWchar_t) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSyncSettingArray uintptr
 type XsSyncSettingArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSyncSettingArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsStringArray uintptr
 type XsStringArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsStringArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsTimeStamp uintptr
 type XsTimeStamp interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsTimeStamp) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsOperationalMode uintptr
 type XsOperationalMode interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsOperationalMode) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsGloveData uintptr
 type XsGloveData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsGloveData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsAccessControlMode uintptr
 type XsAccessControlMode interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsAccessControlMode) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDeviceOptionFlag uintptr
 type XsDeviceOptionFlag interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDeviceOptionFlag) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDataPacketPtrArray uintptr
 type XsDataPacketPtrArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDataPacketPtrArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsRawGnssSatInfo uintptr
 type XsRawGnssSatInfo interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsRawGnssSatInfo) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsPortInfoArray uintptr
 type XsPortInfoArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsPortInfoArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsTimeInfo uintptr
 type XsTimeInfo interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsTimeInfo) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsAlignmentFrame uintptr
 type XsAlignmentFrame interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsAlignmentFrame) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsInfoRequest uintptr
 type XsInfoRequest interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsInfoRequest) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsSnapshot uintptr
 type XsSnapshot interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsSnapshot) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsGloveSnapshot uintptr
 type XsGloveSnapshot interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsGloveSnapshot) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrStd_wstring uintptr
 type Std_wstring interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrStd_wstring) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsScrData uintptr
 type XsScrData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsScrData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsMatrix uintptr
 type XsMatrix interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsMatrix) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsConnectivityState uintptr
 type XsConnectivityState interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsConnectivityState) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrCommunicator uintptr
 type Communicator interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrCommunicator) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsMessage uintptr
 type XsMessage interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsMessage) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsAnalogInData uintptr
 type XsAnalogInData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsAnalogInData) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsGnssPlatform uintptr
 type XsGnssPlatform interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsGnssPlatform) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDeviceParameter uintptr
 type XsDeviceParameter interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDeviceParameter) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsIntArray uintptr
 type XsIntArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsIntArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDataIdentifier uintptr
 type XsDataIdentifier interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDataIdentifier) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsDeviceIdArray uintptr
 type XsDeviceIdArray interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsDeviceIdArray) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsProtocolType uintptr
 type XsProtocolType interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsProtocolType) Swigcptr() uintptr {
 	return uintptr(p)
 }
 
 type SwigcptrXsRawGnssPvtData uintptr
 type XsRawGnssPvtData interface {
-	Swigcptr() uintptr;
+	Swigcptr() uintptr
 }
+
 func (p SwigcptrXsRawGnssPvtData) Swigcptr() uintptr {
 	return uintptr(p)
 }
-

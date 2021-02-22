@@ -118,13 +118,6 @@ func main() {
 		if avgCount != 0 && avgCount%avgCountLimit == 0 {
 			golog.Global.Debugf("variance %f", stat.Variance(headings, nil))
 			headings = nil
-			golog.Global.Debug("getting average")
-			heading, err = compass.AverageHeading(lidarCompass)
-			if err != nil {
-				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
-				continue
-			}
-			golog.Global.Infow("average heading", "data", heading)
 			golog.Global.Debug("getting median")
 			heading, err = compass.MedianHeading(lidarCompass)
 			if err != nil {
