@@ -2,6 +2,7 @@ package segmentation
 
 import (
 	"image"
+	"math"
 
 	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
@@ -10,7 +11,12 @@ import (
 )
 
 const (
-	DefaultColorThreshold = 1.0
+	DefaultColorThreshold             = 1.0
+	DefaultLookback                   = 15  // how many pixels do we ensure are similar
+	DefaultLookbackScaling            = 6.0 // the bigger the number, the tighter the threshold
+	DefaultInterestingThreshold       = .45
+	DefaultInterestingRange           = 5
+	DefaultAverageColorDistanceWeight = 1.5
 )
 
 type ShapeWalkOptions struct {
@@ -26,8 +32,44 @@ type walkState struct {
 	options   ShapeWalkOptions
 	threshold float64
 
-	originalColor utils.HSV
-	originalPoint image.Point
+	originalColor                   utils.HSV
+	originalPoint                   image.Point
+	originalInterestingPixelDensity float64
+
+	interestingPixels *image.Gray
+}
+
+func (ws *walkState) initIfNot() {
+	if ws.interestingPixels == nil {
+		ws.interestingPixels = ws.img.InterestingPixels(.2)
+	}
+}
+
+func (ws *walkState) interestingPixelDensity(p image.Point) float64 {
+	total := 0.0
+	interesting := 0.0
+
+	err := vision.Walk(p.X, p.Y, DefaultInterestingRange,
+		func(x, y int) error {
+			if x < 0 || x >= ws.img.Width() || y < 0 || y >= ws.img.Height() {
+				return nil
+			}
+
+			total++
+
+			k := ws.interestingPixels.PixOffset(x, y)
+			if ws.interestingPixels.Pix[k] > 0 {
+				interesting++
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		panic(err) // impossible
+	}
+
+	return interesting / total
 }
 
 func (ws *walkState) valid(p image.Point) bool {
@@ -93,22 +135,31 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 
 	myColor := ws.img.ColorHSV(p)
 
+	myInterestingPixelDensity := ws.interestingPixelDensity(p)
+
 	if ws.options.Debug {
-		golog.Global.Debugf("\t %v %v", p, myColor.Hex())
+		golog.Global.Debugf("\t %v %v myInterestingPixelDensity: %v", p, myColor.Hex(), myInterestingPixelDensity)
 	}
 
-	lookback := 15
+	if math.Abs(myInterestingPixelDensity-ws.originalInterestingPixelDensity) > DefaultInterestingThreshold {
+		if ws.options.Debug {
+			golog.Global.Debugf("\t\t blocked b/c density")
+		}
+		return false
+	}
+
+	lookback := DefaultLookback
 	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
-		thresold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * 10.0))
+		threshold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * DefaultLookbackScaling))
 
-		good := d < thresold
+		good := d < threshold
 
 		if ws.options.Debug {
-			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, thresold)
-			if !good && d-thresold < .2 {
+			golog.Global.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, threshold)
+			if !good && d-threshold < .2 {
 				golog.Global.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex()[1:], prevColor.Hex()[1:])
 			}
 
@@ -174,10 +225,30 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 		golog.Global.Debugf("segmentation.piece start: %v", start)
 	}
 
-	ws.originalColor = ws.img.ColorHSV(start)
-	ws.originalPoint = start
+	ws.initIfNot()
 
-	origTotal := 1
+	//ws.originalColor = ws.img.ColorHSV(start)
+	ws.originalPoint = start
+	ws.originalInterestingPixelDensity = ws.interestingPixelDensity(start)
+
+	temp, averageColorDistance := ws.img.AverageColorAndStats(start, 1)
+	ws.originalColor = temp
+	if ws.options.Debug {
+		golog.Global.Debugf("\t\t averageColorDistance: %v originalInterestingPixelDensity: %v",
+			averageColorDistance,
+			ws.originalInterestingPixelDensity,
+		)
+	}
+
+	oldThreshold := ws.threshold
+	defer func() {
+		ws.threshold = oldThreshold
+	}()
+
+	ws.threshold += averageColorDistance * DefaultAverageColorDistanceWeight
+	ws.threshold += ws.originalInterestingPixelDensity
+
+	origTotal := 1 // we count the original pixel here
 
 	for _, dir := range allDirections {
 		origTotal += ws.pieceWalk(start, clusterNumber, []image.Point{}, dir)
@@ -315,6 +386,11 @@ func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*Segmente
 			return nil, err
 		}
 
+		if true {
+			// TODO(erh): is this idea worth exploring
+			break
+		}
+
 		if float64(si.NumInAnyCluster()) > float64(img.Width()*img.Height())*.9 {
 			break
 		}
@@ -323,12 +399,12 @@ func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*Segmente
 	return si, err
 }
 
-func shapeWalkEntireDebugOnePass(img vision.Image, options ShapeWalkOptions, extraThresold float64) (*SegmentedImage, error) {
+func shapeWalkEntireDebugOnePass(img vision.Image, options ShapeWalkOptions, extraThreshold float64) (*SegmentedImage, error) {
 	ws := walkState{
 		img:       img,
 		dots:      newSegmentedImage(img),
 		options:   options,
-		threshold: DefaultColorThreshold + options.ThresholdMod + extraThresold,
+		threshold: DefaultColorThreshold + options.ThresholdMod + extraThreshold,
 	}
 
 	xSegments := 20
