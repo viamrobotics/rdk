@@ -1,9 +1,13 @@
 package pc
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"path/filepath"
 
+	"github.com/edaniels/golog"
 	"github.com/jblindsay/lidario"
 )
 
@@ -23,6 +27,15 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 	}
 	defer lf.Close()
 
+	var hasValue bool
+	var valueData []byte
+	if len(lf.VlrData) != 0 {
+		// assumes it is float64s in first index
+		hasValue = true
+		// TODO(erd): verify this is correct data (tag?)
+		valueData = lf.VlrData[0].BinaryData
+	}
+
 	pc := NewPointCloud()
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
@@ -31,12 +44,19 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		}
 		data := p.PointData()
 
-		// TODO(erd): losing float data
+		// TODO(erd): truncating out float data, fine?
+		x, y, z := int(data.X), int(data.Y), int(data.Z)
+
+		var v float64
+		if hasValue {
+			bits := binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8])
+			v = math.Float64frombits(bits)
+			pc.Set(NewFloatPoint(x, y, z, v))
+			continue
+		}
+
 		// TODO(erd): color data
-		pc.Set(NewPoint(
-			int(data.X),
-			int(data.Y),
-			int(data.Z)))
+		pc.Set(NewPoint(x, y, z))
 	}
 	return pc, nil
 }
@@ -46,6 +66,14 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 	if err != nil {
 		return err
 	}
+	var successful bool
+	defer func() {
+		if !successful {
+			if err := lf.Close(); err != nil {
+				golog.Global.Debug(err)
+			}
+		}
+	}()
 
 	pointFormatID := 0
 	if pc.hasColor {
@@ -57,6 +85,10 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		return err
 	}
 
+	var pVals []float64
+	if pc.hasValue {
+		pVals = make([]float64, 0, pc.Size())
+	}
 	var lastErr error
 	pc.Iterate(func(p Point) bool {
 		pos := p.Position()
@@ -92,18 +124,40 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 				},
 			}
 		}
+		if pc.hasValue {
+			if fp, ok := p.(FloatPoint); ok {
+				pVals = append(pVals, fp.Value())
+			} else {
+				pVals = append(pVals, math.NaN())
+			}
+		}
 		if err := lf.AddLasPoint(lp); err != nil {
 			lastErr = err
 			return false
 		}
 		return true
 	})
-	if lastErr != nil {
-		if err := lf.Close(); err != nil {
+	if pc.hasValue {
+		var buf bytes.Buffer
+		for _, v := range pVals {
+			bits := math.Float64bits(v)
+			bytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(bytes, bits)
+			buf.Write(bytes)
+		}
+		if err := lf.AddVLR(lidario.VLR{
+			UserID:                  "",
+			Description:             "point values",
+			BinaryData:              buf.Bytes(),
+			RecordLengthAfterHeader: buf.Len(),
+		}); err != nil {
 			return err
 		}
+	}
+	if lastErr != nil {
 		return lastErr
 	}
 
+	successful = true
 	return lf.Close()
 }

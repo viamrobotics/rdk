@@ -16,6 +16,7 @@ type key Vec3
 type PointCloud struct {
 	points     map[key]Point
 	hasColor   bool
+	hasValue   bool
 	minX, maxX int
 	minY, maxY int
 	minZ, maxZ int
@@ -45,6 +46,9 @@ func (cloud *PointCloud) Set(p Point) {
 	cloud.points[key(p.Position())] = p
 	if _, ok := p.(ColoredPoint); ok {
 		cloud.hasColor = true
+	}
+	if _, ok := p.(FloatPoint); ok {
+		cloud.hasValue = true
 	}
 	v := p.Position()
 	if v.X < 0 {
