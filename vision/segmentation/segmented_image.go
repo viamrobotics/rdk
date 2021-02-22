@@ -98,6 +98,16 @@ func (si *SegmentedImage) createPalette() {
 
 }
 
+func (si *SegmentedImage) NumInAnyCluster() int {
+	num := 0
+	for _, v := range si.dots {
+		if v > 0 {
+			num++
+		}
+	}
+	return num
+}
+
 func (si *SegmentedImage) clearTransients() {
 	for k, v := range si.dots {
 		if v < 0 {

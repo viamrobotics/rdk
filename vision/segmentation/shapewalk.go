@@ -10,19 +10,21 @@ import (
 )
 
 const (
-	ColorThreshold = 1.0
+	DefaultColorThreshold = 1.0
 )
 
 type ShapeWalkOptions struct {
 	Debug        bool
 	MaxRadius    int // 0 means no max
 	SkipCleaning bool
+	ThresholdMod float64 // 0 means no modificatin > 0 means more things will match
 }
 
 type walkState struct {
-	img     vision.Image
-	dots    *SegmentedImage
-	options ShapeWalkOptions
+	img       vision.Image
+	dots      *SegmentedImage
+	options   ShapeWalkOptions
+	threshold float64
 
 	originalColor utils.HSV
 	originalPoint image.Point
@@ -100,7 +102,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 		prevColor := ws.img.ColorHSV(prev)
 		d := prevColor.Distance(myColor)
 
-		thresold := ColorThreshold + (float64(lookback-idx) / (float64(lookback) * 10.0))
+		thresold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * 10.0))
 
 		good := d < thresold
 
@@ -280,9 +282,10 @@ func ShapeWalk(img vision.Image, start image.Point, options ShapeWalkOptions) (*
 func ShapeWalkMultiple(img vision.Image, starts []image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
 
 	ws := walkState{
-		img:     img,
-		dots:    newSegmentedImage(img),
-		options: options,
+		img:       img,
+		dots:      newSegmentedImage(img),
+		options:   options,
+		threshold: DefaultColorThreshold + options.ThresholdMod,
 	}
 
 	for idx, start := range starts {
@@ -303,10 +306,29 @@ func (e MyWalkError) Error() string {
 }
 
 func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*SegmentedImage, error) {
+	var si *SegmentedImage
+	var err error
+
+	for extra := 0.0; extra < .7; extra += .2 {
+		si, err = shapeWalkEntireDebugOnePass(img, options, extra)
+		if err != nil {
+			return nil, err
+		}
+
+		if float64(si.NumInAnyCluster()) > float64(img.Width()*img.Height())*.9 {
+			break
+		}
+	}
+
+	return si, err
+}
+
+func shapeWalkEntireDebugOnePass(img vision.Image, options ShapeWalkOptions, extraThresold float64) (*SegmentedImage, error) {
 	ws := walkState{
-		img:     img,
-		dots:    newSegmentedImage(img),
-		options: options,
+		img:       img,
+		dots:      newSegmentedImage(img),
+		options:   options,
+		threshold: DefaultColorThreshold + options.ThresholdMod + extraThresold,
 	}
 
 	xSegments := 20
