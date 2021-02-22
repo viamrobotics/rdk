@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"os"
@@ -375,6 +376,44 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
 	})
 }
 
+func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
+	theFunc := func(w http.ResponseWriter, req *http.Request) {
+		num := 0
+		if req.FormValue("num") != "" {
+			num2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			num = int(num2)
+		}
+
+		// TODO(erh): search by name
+
+		if num >= len(theRobot.Cameras) {
+			http.Error(w, "invalid camera number", http.StatusBadRequest)
+			return
+		}
+
+		img, err := theRobot.Cameras[num].Next(context.TODO())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		//TODO(erh): choice of encoding
+
+		w.Header().Set("Content-Type", "image/jpeg")
+		err = jpeg.Encode(w, img, nil)
+		if err != nil {
+			golog.Global.Debugf("error encoding jpeg: %s", err)
+		}
+	}
+	mux.HandleFunc("/api/camera", theFunc)
+	mux.HandleFunc("/api/camera/", theFunc)
+
+}
+
 // ---------------
 
 func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
@@ -415,6 +454,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	InstallWebGrippers(mux, theRobot)
 
 	InstallActions(mux, theRobot)
+
+	InstallSimpleCamera(mux, theRobot)
 
 	mux.Handle("/", app)
 
