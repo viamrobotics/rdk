@@ -33,7 +33,6 @@ void loop() {
     switch (control) {
       case '0':
         if (calibrating) {
-          // TODO(erd): save calibration to ROM
           compass.m_min = calibratedMin;
           compass.m_max = calibratedMax;
           EEPROM.write(0, char(calibratedMin.x));

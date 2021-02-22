@@ -13,6 +13,8 @@ type Vec3 struct {
 
 type key Vec3
 
+// TODO(erd): LAS stores 4 byte longs for x,y,z
+// so float64 doesn't really work here
 type PointCloud struct {
 	points     map[key]Point
 	hasColor   bool
@@ -44,10 +46,10 @@ func (cloud *PointCloud) At(x, y, z float64) Point {
 
 func (cloud *PointCloud) Set(p Point) {
 	cloud.points[key(p.Position())] = p
-	if _, ok := p.(ColoredPoint); ok {
+	if ok, _ := IsColored(p); ok {
 		cloud.hasColor = true
 	}
-	if _, ok := p.(FloatPoint); ok {
+	if ok, _ := IsFloat(p); ok {
 		cloud.hasValue = true
 	}
 	v := p.Position()
