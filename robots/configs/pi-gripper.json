@@ -11,6 +11,13 @@
               "potentiometer" : "0",
               "pressure": "7"
 		  }
+        },
+        { "name" : "gripper-cam",
+          "type" : "camera",
+          "model" : "webcam",
+          "attributes" : {
+              "path" :  "/dev/video0"
+          }
         }
 	]
 }
