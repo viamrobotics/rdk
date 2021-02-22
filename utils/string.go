@@ -19,6 +19,9 @@ func init() {
 // note: all random strings are subject to modulus bias; hope that
 // does not matter to you
 func RandomAlphaString(size int) string {
+	if size < 0 {
+		return ""
+	}
 	chars := make([]byte, 0, size)
 	for i := 0; i < size; i++ {
 		val := int(randSrc.Int63())
