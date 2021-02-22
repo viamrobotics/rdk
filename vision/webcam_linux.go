@@ -114,6 +114,11 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 		return nil, fmt.Errorf("cannot set image format: %s", err)
 	}
 
+	err = cam.SetBufferCount(2)
+	if err != nil {
+		return nil, fmt.Errorf("cannot SetBufferCount stream for %s : %s", path, err)
+	}
+
 	err = cam.StartStreaming()
 	if err != nil {
 		return nil, fmt.Errorf("cannot start webcam stream for %s : %s", path, err)
