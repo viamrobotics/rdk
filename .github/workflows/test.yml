@@ -25,6 +25,9 @@ jobs:
         cd lidar/rplidar
         make
         cd $cwd
+        cd sensor/compass/mti
+        make
+        cd $cwd
         go build -v ./...
 
     - name: Lint
