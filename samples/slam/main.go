@@ -56,7 +56,7 @@ func main() {
 	areaScale := 100 // cm
 	area := slam.NewSquareArea(areaSizeMeters, areaScale)
 	areaCenter := area.Center()
-	areaSize, areaSizeScale := area.Size()
+	areaX, areaY := area.Dims()
 
 	var baseDevice base.Device
 	switch baseType {
@@ -214,7 +214,7 @@ func main() {
 		lidarDevices,
 		deviceOffests,
 		area,
-		image.Point{areaSize * areaSizeScale, areaSize * areaSizeScale},
+		image.Point{areaX, areaY},
 		compassSensor,
 	)
 	if err != nil {

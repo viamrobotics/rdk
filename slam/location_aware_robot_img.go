@@ -72,9 +72,8 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 				relX := centerX - distX
 				relY := centerY - distY
 
-				dc.DrawPoint(float64(relX), float64(relY), 1)
 				dc.SetColor(color.RGBA{255, 0, 0, 255})
-				dc.Fill()
+				dc.SetPixel(relX, relY)
 				return true
 			})
 		})
@@ -111,9 +110,8 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 		relX := float64(centerX) + x
 		relY := float64(centerY) + y
 
-		dc.DrawPoint(relX, relY, 1)
 		dc.SetColor(color.RGBA{0, 255, 0, 255})
-		dc.Fill()
+		dc.SetPixel(int(relX), int(relY))
 	}
 
 	for i, orientation := range orientations {

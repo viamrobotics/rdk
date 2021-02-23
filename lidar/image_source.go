@@ -63,9 +63,8 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
 		x, y := next.Coords()
 		x = float64(centerX) + (x * float64(scaleDown))
 		y = float64(centerY) + (y * float64(scaleDown))
-		dc.DrawPoint(x, y, 4)
 		dc.SetColor(color.RGBA{255, 0, 0, 255})
-		dc.Fill()
+		dc.SetPixel(int(x), int(y))
 	}
 
 	rotMat := (*mat.Dense)((*utils.Vec2Matrix)(first).RotateMatrixAbout(float64(0), float64(0), 90))
@@ -75,9 +74,8 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
 		y := rotMat.At(1, i)
 		x = float64(centerX) + (x * float64(scaleDown))
 		y = float64(centerY) + (y * float64(scaleDown))
-		dc.DrawPoint(x, y, 4)
 		dc.SetColor(color.RGBA{0, 255, 0, 255})
-		dc.Fill()
+		dc.SetPixel(int(x), int(y))
 	}
 
 	return dc.Image(), nil

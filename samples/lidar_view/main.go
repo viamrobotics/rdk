@@ -115,7 +115,7 @@ func main() {
 		areaScale := 100 // cm
 		area = slam.NewSquareArea(areaSizeMeters, areaScale)
 		areaCenter := area.Center()
-		areaSize, areaSizeScale := area.Size()
+		areaX, areaY := area.Dims()
 
 		var err error
 		lar, err = slam.NewLocationAwareRobot(
@@ -124,7 +124,7 @@ func main() {
 			lidarDevices,
 			nil,
 			area,
-			image.Point{areaSize * areaSizeScale, areaSize * areaSizeScale},
+			image.Point{areaX, areaY},
 			nil,
 		)
 		if err != nil {
@@ -220,7 +220,7 @@ func main() {
 		}
 	}()
 
-	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 33*time.Millisecond)
+	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 1*time.Second)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
