@@ -36,5 +36,4 @@ vendor
 example_mti_parse_logfile
 example_mti_receive_data
 librplidar_sdk.a
-simple_grabber
-ultra_simple
+**/sdk/output

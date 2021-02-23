@@ -57,7 +57,7 @@ sudo make install
 ## Building
 
 ```
-make build
+make -j$(nproc) build
 ```
 
 ## Linting
