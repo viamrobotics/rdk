@@ -23,11 +23,11 @@ func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
 	return nil
 }
 
-func (b *Base) Spin(degrees float64, power int, block bool) error {
-	if power != 0 {
-		golog.Global.Info("Base.Spin does not support power")
+func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
+	if speed != 0 {
+		golog.Global.Info("Base.Spin does not support speed")
 	}
-	b.RotateBy(degrees, block)
+	b.RotateBy(angleDeg, block)
 	return nil
 }
 
@@ -54,8 +54,8 @@ func (b *Base) TranslateBy(meters float64, block bool) {
 
 const baseRotateSpeed = 2 * math.Pi / 5 // rad/sec
 
-func (b *Base) RotateBy(degrees float64, block bool) {
-	rads := -utils.DegToRad(degrees)
+func (b *Base) RotateBy(angleDeg float64, block bool) {
+	rads := -utils.DegToRad(angleDeg)
 	b.baseObj.CallMethod("rotate_by", python.PyFloat_FromDouble(rads))
 	b.robot.pushCommand()
 	if block {
