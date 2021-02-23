@@ -12,10 +12,10 @@ import (
 // Tests orientation setting
 func TestSetOrient(t *testing.T) {
 	trans := NewTransform()
-	o1 := Orientation{ThreeD{0, 0, 0}, ThreeD{0, 0, 0}}
-	o2 := Orientation{ThreeD{45, 45, 70}, ThreeD{0, 0, 0}}
-	o3 := Orientation{ThreeD{0, 0, 0}, ThreeD{1, 2, 3}}
-	o4 := Orientation{ThreeD{60, -30, 40}, ThreeD{4, 5, 6}}
+	o1 := [6]float64{0, 0, 0, 0, 0, 0}
+	o2 := [6]float64{45, 45, 70, 0, 0, 0}
+	o3 := [6]float64{0, 0, 0, 1, 2, 3}
+	o4 := [6]float64{60, -30, 40, 4, 5, 6}
 
 	m2 := mgl64.Mat3FromRows(mgl64.Vec3{0.241845, -0.493453, 0.835473},
 		mgl64.Vec3{0.664463, 0.711691, 0.228002},
@@ -63,8 +63,8 @@ func TestSetOrient(t *testing.T) {
 // Should not need to actually test the contained rotation/translation values
 // since that will be caught by tests to the actual kinematics
 // So we'll just check that we read in the right number of joints
-func TestParseYmlFile(t *testing.T) {
-	model, err := ParseYmlFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.yml"))
+func TestParseJsonFile(t *testing.T) {
+	model, err := ParseJsonFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	if len(model.Joints) != 6 {
