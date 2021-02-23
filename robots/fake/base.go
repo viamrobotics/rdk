@@ -8,7 +8,7 @@ func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
 	return nil
 }
 
-func (b *Base) Spin(degrees float64, power int, block bool) error {
+func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
 	return nil
 }
 

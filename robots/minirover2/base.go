@@ -94,22 +94,22 @@ func (r *Rover) waitForMotorsToStop() error {
 	return nil
 }
 
-func (r *Rover) Spin(degrees float64, power int, block bool) error {
+func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 
-	if power < 120 {
-		power = 120
+	if speed < 120 {
+		speed = 120
 	}
 
 	a, b := "f", "b"
-	if degrees < 0 {
+	if angleDeg < 0 {
 		a, b = "b", "f"
 	}
 
-	ticks := int(math.Abs(degrees * 5))
+	ticks := int(math.Abs(angleDeg * 5))
 
 	err := r.moveTicks(
 		a, b, a, b,
-		power, power, power, power,
+		speed, speed, speed, speed,
 		ticks, ticks, ticks, ticks)
 
 	if err != nil {

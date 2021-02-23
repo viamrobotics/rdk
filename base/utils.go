@@ -58,7 +58,7 @@ type deviceWithCompass struct {
 	compass compass.Device
 }
 
-func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error {
+func (dwc deviceWithCompass) Spin(angleDeg float64, speed int, block bool) error {
 	rel, _ := dwc.compass.(compass.RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(); err != nil {
@@ -71,7 +71,7 @@ func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error 
 			return err
 		}
 		golog.Global.Debugf("start heading %f", startHeading)
-		if err := dwc.Device.Spin(degrees, power, block); err != nil {
+		if err := dwc.Device.Spin(angleDeg, speed, block); err != nil {
 			return err
 		}
 		time.Sleep(1 * time.Second)
@@ -81,15 +81,15 @@ func (dwc deviceWithCompass) Spin(degrees float64, power int, block bool) error 
 		}
 		golog.Global.Debugf("end heading %f", endHeading)
 		actual := utils.AngleDiffDeg(startHeading, endHeading)
-		offBy := math.Abs(math.Abs(degrees) - actual)
+		offBy := math.Abs(math.Abs(angleDeg) - actual)
 		golog.Global.Debugf("off by %f", offBy)
 		if offBy < 1 {
 			return nil
 		}
-		if actual > degrees {
+		if actual > angleDeg {
 			offBy *= -1
 		}
 		golog.Global.Debugf("next %f", offBy)
-		degrees = offBy
+		angleDeg = offBy
 	}
 }
