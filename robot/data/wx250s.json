@@ -12,7 +12,7 @@
             "attributes" : {
               "usbPort"       : "/dev/ttyUSB0",
               "baudRate"      : "1000000",
-              "modelYML"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.yml",
+              "modelYML"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.json",
               "armServoCount" : "8"
            }
         }
