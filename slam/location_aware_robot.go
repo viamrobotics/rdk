@@ -62,10 +62,9 @@ func NewLocationAwareRobot(
 	areaBounds image.Point,
 	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
-	areaSize, areaSizeScale := area.Size()
 	distinctAreas := make([]*SquareArea, 0, len(devices))
 	for range devices {
-		distinctAreas = append(distinctAreas, NewSquareArea(areaSize, areaSizeScale))
+		distinctAreas = append(distinctAreas, area.BlankCopy())
 	}
 
 	var maxBoundsX, maxBoundsY int
@@ -93,7 +92,7 @@ func NewLocationAwareRobot(
 		orientations:  make([]float64, len(devices)),
 
 		rootArea:        area,
-		presentViewArea: NewSquareArea(areaSize, areaSizeScale),
+		presentViewArea: area.BlankCopy(),
 		areaBounds:      areaBounds,
 		distinctAreas:   distinctAreas,
 

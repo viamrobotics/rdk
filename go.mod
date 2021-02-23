@@ -7,6 +7,7 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539
 	github.com/disintegration/imaging v1.6.2
+	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210203174951-6182641025c9
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
@@ -34,8 +35,6 @@ require (
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
 	nhooyr.io/websocket v1.8.6
 )
-
-replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
