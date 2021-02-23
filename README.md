@@ -20,18 +20,21 @@
 ## Dependencies
 
 * go1.15.*
-* opencv4
 * libvpx
 * python2.7-dev
 * swig
 * yasm
 
+### Setup
+
+Some setup can be performed with `make setup`
+
 ### Third Party Libraries
 
 Make sure the following is in your shell rc/profile. This will ensure any installed third party libraries will be properly found
 ```
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
-export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
 ```
 
 ### Python (macos)
@@ -50,8 +53,6 @@ cd build
 make -j$(nproc)
 sudo make install
 ```
-
-Add to your shell rc `export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig`
 
 ## Building
 

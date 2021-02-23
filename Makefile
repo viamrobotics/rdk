@@ -5,6 +5,9 @@ goformat:
 format: goformat
 	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils arduino -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
 
+setup:
+	bash etc/setup.sh
+
 build:
 	cd lidar/rplidar && make
 	cd sensor/compass/mti && make
