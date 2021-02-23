@@ -21,7 +21,7 @@ func TestAllKinematics(t *testing.T) {
 	if !mat.ApproxEqualThreshold(m1, 0.0000001) {
 		t.Fatalf("Starting 6d position incorrect")
 	}
-	
+
 	newPos := []float64{1.1, 0.1, 1.3, 0, 0, -1}
 	newExpect := mgl64.NewVecNFromData([]float64{69.80961299265694, -35.53086645234494, 674.4093770982129, -84.6760069731363, 8.222778583003974, 6.1125444468247565})
 	m.SetPosition(newPos)
