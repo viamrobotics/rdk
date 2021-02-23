@@ -2,6 +2,8 @@ package kinematics
 
 import (
 	"math"
+	"math/rand"
+
 	//~ "fmt"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -83,6 +85,18 @@ func (j *Joint) Clip(q []float64) {
 			q[i] = j.min[i]
 		}
 	}
+}
+
+func (j *Joint) RandomJointPositions() []float64 {
+	var positions []float64
+	for i := 0; i < j.GetDofPosition(); i++ {
+		jRange := math.Abs(j.max[i] - j.min[i])
+		// Note that rand is unseeded and so will produce the same sequence of floats every time
+		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
+		newPos := rand.Float64()*jRange + j.min[i]
+		positions = append(positions, newPos)
+	}
+	return positions
 }
 
 // TODO: Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()

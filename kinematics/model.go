@@ -71,10 +71,14 @@ func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 
 //~ func (m *Model) Leaves() []graph.Node{
 
-//~ }
-//~ func (m *Model) getOperationalDof() int{
-//~ return len(m.Leaves())
-//~ }
+// Generate a list of radian joint positions that are random but valid for each joint
+func (m *Model) RandomJointPositions() []float64 {
+	var jointPos []float64
+	for _, joint := range m.Joints {
+		jointPos = append(jointPos, joint.RandomJointPositions()...)
+	}
+	return jointPos
+}
 
 func (m *Model) GetJoint(i int) *Joint {
 	return m.Joints[i]
