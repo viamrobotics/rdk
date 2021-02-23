@@ -26,6 +26,20 @@
 * swig
 * yasm
 
+### Third Party Libraries
+
+Make sure the following is in your shell rc/profile. This will ensure any installed third party libraries will be properly found
+```
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
+export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib
+```
+
+### Python (macos)
+
+```
+make python-macos
+```
+
 ### libvpx (linux)
 
 ```
@@ -38,6 +52,12 @@ sudo make install
 ```
 
 Add to your shell rc `export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig`
+
+## Building
+
+```
+make build
+```
 
 ## Linting
 
