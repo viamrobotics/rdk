@@ -10,7 +10,7 @@ import (
 
 // This should test all of the kinematics functions
 func TestAllKinematics(t *testing.T) {
-	m, err := ParseJsonFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 0,-365, 360.25
