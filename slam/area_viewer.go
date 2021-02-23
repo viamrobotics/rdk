@@ -13,18 +13,17 @@ type AreaViewer struct {
 }
 
 func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
-	areaSize, scaleDown := av.Area.Size()
+	areaX, areaY := av.Area.Dims()
 
 	// TODO(erd): any way to make this really fast? Allocate these in advance in
 	// a goroutine? Pool?
 
-	dc := gg.NewContext(areaSize*scaleDown, areaSize*scaleDown)
+	dc := gg.NewContext(areaX, areaY)
 
 	av.Area.Mutate(func(area MutableArea) {
 		area.Iterate(func(x, y int, _ float64) bool {
-			dc.DrawPoint(float64(x), float64(y), 1)
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
-			dc.Fill()
+			dc.SetPixel(x, y)
 			return true
 		})
 	})
