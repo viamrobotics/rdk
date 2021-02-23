@@ -12,8 +12,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
-	"github.com/viamrobotics/robotcore/utils"
+	//~ "github.com/viamrobotics/robotcore/utils"
 )
 
 type evaData struct {
@@ -48,26 +47,27 @@ type eva struct {
 	token        string
 	sessionToken string
 
+	kin      *Kinematics
 	moveLock sync.Mutex
 }
 
-type evaPosition struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
+//~ type evaPosition struct {
+//~ X float64 `json:"x"`
+//~ Y float64 `json:"y"`
+//~ Z float64 `json:"z"`
+//~ }
 
-type evaOrientation struct {
-	W float64 `json:"w"`
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
+//~ type evaOrientation struct {
+//~ W float64 `json:"w"`
+//~ X float64 `json:"x"`
+//~ Y float64 `json:"y"`
+//~ Z float64 `json:"z"`
+//~ }
 
-type evaKinematics struct {
-	Position    evaPosition
-	Orientation evaOrientation
-}
+//~ type evaKinematics struct {
+//~ Position    evaPosition
+//~ Orientation evaOrientation
+//~ }
 
 func (e *eva) CurrentJointPositions() (JointPositions, error) {
 	data, err := e.DataSnapshot()
@@ -78,48 +78,64 @@ func (e *eva) CurrentJointPositions() (JointPositions, error) {
 }
 
 func (e *eva) CurrentPosition() (Position, error) {
-	data, err := e.DataSnapshot()
+	//~ data, err := e.DataSnapshot()
+	//~ if err != nil {
+	//~ return Position{}, err
+	//~ }
+
+	//~ fk, err := e.apiCalcForwardKinematics(data.ServosPosition)
+	//~ if err != nil {
+	//~ return Position{}, err
+	//~ }
+	setJointTelNums := []float64{}
+	curPos, err := e.CurrentJointPositions()
 	if err != nil {
 		return Position{}, err
 	}
+	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
-	fk, err := e.apiCalcForwardKinematics(data.ServosPosition)
-	if err != nil {
-		return Position{}, err
-	}
+	e.kin.SetJointPositions(setJointTelNums)
+	pos := e.kin.GetForwardPosition()
 
-	pos := Position{}
-	pos.X = fk.Position.X
-	pos.Y = fk.Position.Y
-	pos.Z = fk.Position.Z
+	//~ pos := Position{}
+	//~ pos.X = fk.Position.X
+	//~ pos.Y = fk.Position.Y
+	//~ pos.Z = fk.Position.Z
 
 	// TODO(erh): finish orientation stuff
-	pos.Rx = utils.RadToDeg(fk.Orientation.X)
-	pos.Ry = utils.RadToDeg(fk.Orientation.Y)
-	pos.Rz = utils.RadToDeg(fk.Orientation.Z)
+	//~ pos.Rx = utils.RadToDeg(fk.Orientation.X)
+	//~ pos.Ry = utils.RadToDeg(fk.Orientation.Y)
+	//~ pos.Rz = utils.RadToDeg(fk.Orientation.Z)
 
-	golog.Global.Debugf("W: %v", fk.Orientation.W)
+	//~ golog.Global.Debugf("W: %v", fk.Orientation.W)
 
 	return pos, nil
 }
 
 func (e *eva) MoveToPosition(pos Position) error {
-	k := evaKinematics{}
-	k.Position.X = pos.X
-	k.Position.Y = pos.Y
-	k.Position.Z = pos.Z
+	//~ k := evaKinematics{}
+	//~ k.Position.X = pos.X
+	//~ k.Position.Y = pos.Y
+	//~ k.Position.Z = pos.Z
 
-	k.Orientation.W = 1
-	k.Orientation.X = utils.DegToRad(pos.Rx)
-	k.Orientation.Y = utils.DegToRad(pos.Ry)
-	k.Orientation.Z = utils.DegToRad(pos.Rz)
+	//~ k.Orientation.W = 1
+	//~ k.Orientation.X = utils.DegToRad(pos.Rx)
+	//~ k.Orientation.Y = utils.DegToRad(pos.Ry)
+	//~ k.Orientation.Z = utils.DegToRad(pos.Rz)
 
-	joints, err := e.apiCalcInverseKinematics(k)
+	//~ joints, err := e.apiCalcInverseKinematics(k)
+	//~ if err != nil {
+	//~ return err
+	//~ }
+
+	err := e.kin.SetForwardPosition(pos)
 	if err != nil {
 		return err
 	}
 
-	return e.MoveToJointPositions(JointPositionsFromRadians(joints))
+	joints := JointPositions{e.kin.GetJointPositions()}
+
+	return e.MoveToJointPositions(joints)
 }
 
 func (e *eva) MoveToJointPositions(newPositions JointPositions) error {
@@ -292,41 +308,41 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	return nil
 }
 
-func (e *eva) apiCalcForwardKinematics(joints []float64) (evaKinematics, error) {
-	body := map[string]interface{}{"joints": joints}
-	type Temp struct {
-		Fk evaKinematics
-	}
-	res := &Temp{}
-	err := e.apiRequest("PUT", "calc/forward_kinematics", body, true, &res)
-	return res.Fk, err
-}
+//~ func (e *eva) apiCalcForwardKinematics(joints []float64) (evaKinematics, error) {
+//~ body := map[string]interface{}{"joints": joints}
+//~ type Temp struct {
+//~ Fk evaKinematics
+//~ }
+//~ res := &Temp{}
+//~ err := e.apiRequest("PUT", "calc/forward_kinematics", body, true, &res)
+//~ return res.Fk, err
+//~ }
 
-func (e *eva) apiCalcInverseKinematics(k evaKinematics) ([]float64, error) {
-	body := map[string]interface{}{"guess": []float64{0, 0, 0, 0, 0, 0}, "position": k.Position, "orientation": k.Orientation}
+//~ func (e *eva) apiCalcInverseKinematics(k evaKinematics) ([]float64, error) {
+//~ body := map[string]interface{}{"guess": []float64{0, 0, 0, 0, 0, 0}, "position": k.Position, "orientation": k.Orientation}
 
-	type Temp1 struct {
-		Joints []float64
-		Result string
-		Error  interface{}
-	}
+//~ type Temp1 struct {
+//~ Joints []float64
+//~ Result string
+//~ Error  interface{}
+//~ }
 
-	type Temp struct {
-		Ik Temp1
-	}
-	res := &Temp{}
+//~ type Temp struct {
+//~ Ik Temp1
+//~ }
+//~ res := &Temp{}
 
-	err := e.apiRequest("PUT", "calc/inverse_kinematics", &body, true, &res)
-	if err != nil {
-		return nil, err
-	}
+//~ err := e.apiRequest("PUT", "calc/inverse_kinematics", &body, true, &res)
+//~ if err != nil {
+//~ return nil, err
+//~ }
 
-	if res.Ik.Result != "success" {
-		return nil, fmt.Errorf("inverse_kinematics failure %v to %v", res.Ik, k)
-	}
+//~ if res.Ik.Result != "success" {
+//~ return nil, fmt.Errorf("inverse_kinematics failure %v to %v", res.Ik, k)
+//~ }
 
-	return res.Ik.Joints, nil
-}
+//~ return res.Ik.Joints, nil
+//~ }
 
 func (e *eva) apiLock() error {
 	return e.apiRequest("POST", "controls/lock", nil, true, nil)
@@ -340,10 +356,16 @@ func (e *eva) apiUnlock() {
 }
 
 func NewEva(host string, attrs map[string]string) (Arm, error) {
+	kin, err := NewRobot(attrs["modelJSON"])
+	if err != nil {
+		golog.Global.Errorf("Could not initialize kinematics: %s", err)
+	}
+
 	e := &eva{
 		host:    host,
 		version: "v1",
 		token:   attrs["token"],
+		kin:     kin,
 	}
 
 	name, err := e.apiName()
