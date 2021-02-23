@@ -5,6 +5,11 @@ goformat:
 format: goformat
 	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils arduino -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
 
+build:
+	cd lidar/rplidar && make
+	cd sensor/compass/mti && make
+	go build -v ./...
+
 lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 	go get -u github.com/edaniels/golinters/cmd/combined
