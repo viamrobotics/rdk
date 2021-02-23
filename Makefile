@@ -9,9 +9,13 @@ setup:
 	bash etc/setup.sh
 
 build:
-	cd lidar/rplidar && make
-	cd sensor/compass/mti && make
+	cd lidar/rplidar && $(MAKE)
+	cd sensor/compass/mti && $(MAKE)
 	go build -v ./...
+
+clean:
+	cd lidar/rplidar && $(MAKE) clean
+	cd sensor/compass/mti && $(MAKE) clean
 
 lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
