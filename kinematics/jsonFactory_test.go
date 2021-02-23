@@ -63,8 +63,8 @@ func TestSetOrient(t *testing.T) {
 // Should not need to actually test the contained rotation/translation values
 // since that will be caught by tests to the actual kinematics
 // So we'll just check that we read in the right number of joints
-func TestParseJsonFile(t *testing.T) {
-	model, err := ParseJsonFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+func TestParseJSONFile(t *testing.T) {
+	model, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	if len(model.Joints) != 6 {
