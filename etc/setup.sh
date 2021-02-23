@@ -35,8 +35,8 @@ fi
 case $(basename $SHELL) in
   bash)
     echo "You need some exports in your .bashrc"
-    echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
-	echo 'echo export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH  >> ~/.zshrc'
+    echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
+	echo 'echo export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH  >> ~/.bashrc'
     ;;
 
   zsh)
