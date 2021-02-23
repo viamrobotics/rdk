@@ -13,19 +13,19 @@ func DirectionFromXY(x, y, viewWidth, viewHeight int) Direction {
 	centerX := viewWidth / 2
 	centerY := viewHeight / 2
 
-	var rotateTo Direction
+	var dir Direction
 	if x < centerX {
 		if y < centerY {
-			rotateTo = DirectionUp
+			dir = DirectionUp
 		} else {
-			rotateTo = DirectionLeft
+			dir = DirectionLeft
 		}
 	} else {
 		if y < centerY {
-			rotateTo = DirectionDown
+			dir = DirectionDown
 		} else {
-			rotateTo = DirectionRight
+			dir = DirectionRight
 		}
 	}
-	return rotateTo
+	return dir
 }
