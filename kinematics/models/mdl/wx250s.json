@@ -2,23 +2,6 @@
    "model": {
       "manufacturer": "Trossen Robotics",
       "name": "wx250s",
-      "world": {
-         "rotation": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-         },
-         "translation": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-         },
-         "g": {
-            "x": 0,
-            "y": 0,
-            "z": 0
-         }
-      },
       "framecount": 8,
       "bodies": [
          {
@@ -317,14 +300,6 @@
             "max": 179,
             "min": -179
          }
-      ],
-      "home": [
-         0,
-         0,
-         0,
-         0,
-         0,
-         0
       ]
    }
 }

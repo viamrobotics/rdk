@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	//~ "fmt"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 )
@@ -40,6 +41,13 @@ func (ik *JacobianIK) Solve() bool {
 	q := ik.Mdl.GetPosition()
 	iteration := 0
 
+	// Variables used to mutate the original position to help avoid getting stuck
+	origJointPos := ik.Mdl.GetPosition()
+	// Which joint to mutate
+	jointMut := 0
+	// How much to mutate it by
+	jointAmt := 0.05
+
 	for iteration < ik.iterations {
 		for iteration < ik.iterations {
 			iteration++
@@ -75,12 +83,25 @@ func (ik *JacobianIK) Solve() bool {
 			ik.Mdl.SetPosition(newPos)
 			q = newPos
 
-			if iteration%300 == 0 {
+			if iteration%150 == 0 {
 				break
 			}
 		}
-		// TODO
-		//~ ik.Mdl.SetPosition(ik.Mdl.GetRandomJointPositions())
+		if jointMut < len(origJointPos) {
+			var mutJointPos []float64
+			mutJointPos = append(mutJointPos, origJointPos...)
+			mutJointPos[jointMut] += jointAmt
+			ik.Mdl.SetPosition(mutJointPos)
+
+			// Test +/- jointAmt
+			jointAmt *= -1
+			if jointAmt > 0 {
+				jointMut++
+			}
+		} else {
+			ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
+		}
 	}
+	ik.Mdl.SetPosition(origJointPos)
 	return false
 }
