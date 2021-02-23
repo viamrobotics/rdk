@@ -21,7 +21,7 @@ jobs:
 
     - name: Build
       run: |
-        make build
+        make -j$(nproc) build
 
     - name: Lint
       run: |
