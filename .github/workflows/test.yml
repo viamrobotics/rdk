@@ -21,14 +21,7 @@ jobs:
 
     - name: Build
       run: |
-        cwd=`pwd`
-        cd lidar/rplidar
-        make
-        cd $cwd
-        cd sensor/compass/mti
-        make
-        cd $cwd
-        go build -v ./...
+        make build
 
     - name: Lint
       run: |

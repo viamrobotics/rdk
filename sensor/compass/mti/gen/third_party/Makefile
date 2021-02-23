@@ -21,7 +21,7 @@ xspublic :
 example_mti_receive_data: example_mti_receive_data.cpp.o
 example_mti_parse_logfile: example_mti_parse_logfile.cpp.o
 
-$(TARGETS):
+$(TARGETS): | $(OBJLIBS)
 	$(CXX) $(CFLAGS) $(INCLUDE) $^ -o $@ $(LFLAGS)
 
 %.cpp.o: %.cpp
