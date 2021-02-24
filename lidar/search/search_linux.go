@@ -18,7 +18,7 @@ func Devices() ([]lidar.DeviceDescription, error) {
 	}
 	lidarDeviceDecss := make([]lidar.DeviceDescription, 0, len(usbDevices))
 	for _, dev := range usbDevices {
-		lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
+		devType := lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
 		lidarDeviceDecss = append(lidarDeviceDecss, lidar.DeviceDescription{
 			Type: devType,
 			Path: dev.Path,
