@@ -4,6 +4,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/robotcore/vision"
 	"github.com/viamrobotics/robotcore/vision/segmentation"
 )
@@ -46,6 +47,23 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 		}
 
 		d.GotDebugImage(res, "shapes")
+
+		if true {
+			out := vision.NewImage(image.NewRGBA(res.Bounds()))
+			for idx, p := range starts {
+				count := res.PixelsInSegmemnt(idx + 1)
+				clr := utils.Red
+
+				if count > 7000 {
+					clr = utils.Green
+				}
+
+				out.Circle(p, 20, clr)
+
+			}
+
+			d.GotDebugImage(&out, "marked")
+		}
 
 		if false {
 			clusters, err := warped.ClusterHSV(4)
