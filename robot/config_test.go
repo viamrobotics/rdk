@@ -27,6 +27,9 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	assert.Equal(t, 1, len(cfg.Boards))
+	assert.Equal(t, "38", cfg.Boards[0].Motors[0].Pins["b"])
+
 	r, err := NewRobot(cfg)
 	if err != nil {
 		t.Fatal(err)

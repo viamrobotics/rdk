@@ -7,6 +7,7 @@ import (
 
 	"github.com/viamrobotics/robotcore/arm"
 	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/gripper"
 	"github.com/viamrobotics/robotcore/lidar"
 	"github.com/viamrobotics/robotcore/lidar/rplidar"
@@ -20,6 +21,8 @@ import (
 )
 
 type Robot struct {
+	Boards []board.Board
+
 	Arms         []arm.Arm
 	Grippers     []gripper.Gripper
 	Cameras      []vision.ImageDepthSource
@@ -176,6 +179,14 @@ func NewRobot(cfg Config) (*Robot, error) {
 		logger = golog.Global
 	}
 
+	for _, c := range cfg.Boards {
+		b, err := board.NewBoard(c)
+		if err != nil {
+			return nil, err
+		}
+		r.Boards = append(r.Boards, b)
+	}
+
 	for _, c := range cfg.Components {
 		switch c.Type {
 		case ComponentTypeProvider:
@@ -312,7 +323,10 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 
 		return gripper.NewSerialGripper(device)
 	case "viam":
-		return gripper.NewViamGripperFromConfig(config.Attributes)
+		if len(r.Boards) != 1 {
+			return nil, fmt.Errorf("viam gripper requires exactly 1 board")
+		}
+		return gripper.NewViamGripper(r.Boards[0])
 	case fake.ModelName:
 		return &fake.Gripper{}, nil
 	default:

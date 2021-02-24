@@ -6,20 +6,14 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"gobot.io/x/gobot/drivers/aio"
-	"gobot.io/x/gobot/drivers/gpio"
-	"gobot.io/x/gobot/drivers/spi"
-	"gobot.io/x/gobot/platforms/raspi"
-
+	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/utils"
 )
 
 type ViamGripper struct {
-	motor  *gpio.MotorDriver
-	analog aio.AnalogReader
-
-	potentiometerPin string
-	pressurePin      string
+	motor         board.Motor
+	potentiometer board.AnalogReader
+	pressure      board.AnalogReader
 
 	potentiometerOpen   int
 	potentiometerClosed int
@@ -29,45 +23,21 @@ type ViamGripper struct {
 	closeDirection, openDirection string
 }
 
-func NewViamGripperFromConfig(atts map[string]string) (*ViamGripper, error) {
-	for _, r := range []string{"motorA", "motorB", "pwm", "potentiometer", "pressure"} {
-		s := atts[r]
-		if s == "" {
-			return nil, fmt.Errorf("attribute [%s] required for viam gripper and is missing", r)
-		}
-	}
-
-	if atts["board"] != "pi" {
-		return nil, fmt.Errorf("viam gripper only supports pis for now, not [%s]", atts["motor"])
-	}
-
-	r := raspi.NewAdaptor()
-
-	motor := gpio.NewMotorDriver(r, atts["pwm"])
-	motor.ForwardPin = atts["motorA"]
-	motor.BackwardPin = atts["motorB"]
-
-	adc := spi.NewMCP3008Driver(r)
-	err := adc.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewViamGripper(motor, adc, atts["potentiometer"], atts["pressure"])
-}
-
-func NewViamGripper(
-	m *gpio.MotorDriver,
-	ar aio.AnalogReader,
-	potentiometerPin string,
-	pressurePin string) (*ViamGripper, error) {
+func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
 
 	vg := &ViamGripper{
-		motor:            m,
-		analog:           ar,
-		potentiometerPin: potentiometerPin,
-		pressurePin:      pressurePin,
-		defaultSpeed:     16,
+		motor:         theBoard.Motor("g"),
+		potentiometer: theBoard.AnalogReader("potentiometer"),
+		pressure:      theBoard.AnalogReader("pressure"),
+		defaultSpeed:  16,
+	}
+
+	if vg.motor == nil {
+		return nil, fmt.Errorf("gripper needs a motor named 'g'")
+	}
+
+	if vg.potentiometer == nil || vg.pressure == nil {
+		return nil, fmt.Errorf("gripper needs a potentiometer and a pressure reader")
 	}
 
 	// pick a direction and move till it stops
@@ -190,7 +160,7 @@ func (vg *ViamGripper) Stop() error {
 }
 
 func (vg *ViamGripper) readPotentiometer() (int, error) {
-	return vg.analog.AnalogRead(vg.potentiometerPin)
+	return vg.potentiometer.Read()
 }
 
 func (vg *ViamGripper) potentiometerSame(a, b int) bool {
@@ -198,7 +168,7 @@ func (vg *ViamGripper) potentiometerSame(a, b int) bool {
 }
 
 func (vg *ViamGripper) readPressure() (int, error) {
-	return vg.analog.AnalogRead(vg.pressurePin)
+	return vg.pressure.Read()
 }
 
 func (vg *ViamGripper) hasPressure() (bool, error) {
