@@ -1,5 +1,42 @@
 {
-    "components" : [
+    "boards" : [
+        { "name" : "local",
+          "model" : "pi",
+          "motors" : [
+              { "name" : "fl-m",
+                "pins" : {
+                    "a" : "38",
+                    "b" : "40",
+                    "pwm" : "11"
+                },
+                "encoder" : "fl-e",
+                "ticksPerRotation" : 200
+              },
+              { "name" : "fr-m",
+                "pins" : {
+                    "a" : "22",
+                    "b" : "32",
+                    "pwm" : "7"
+                },
+                "encoder" : "fr-e",
+                "ticksPerRotation" : 200
+              }
+
+          ],
+          "digitalInterrupts" : [
+              { "name" : "fl-e",
+                "pin" : "36",
+                "mode" : "falling"
+              },
+              { "name" : "fr-e",
+                "pin" : "18",
+                "mode" : "falling"
+              }
+
+          ]
+        }
+    ],
+    "components2" : [
         { 
           "type": "provider",
           "model": "minirover2",
