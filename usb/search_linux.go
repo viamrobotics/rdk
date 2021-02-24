@@ -79,9 +79,11 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 					continue
 				}
 				results = append(results, DeviceDescription{
-					VendorID:  int(vendorID),
-					ProductID: int(productID),
-					Path:      filepath.Join("/dev", ttys[0].Name()),
+					ID: Identifier{
+						Vendor:  int(vendorID),
+						Product: int(productID),
+					},
+					Path: filepath.Join("/dev", ttys[0].Name()),
 				})
 			}
 		}

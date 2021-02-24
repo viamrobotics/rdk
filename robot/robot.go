@@ -1,6 +1,7 @@
 package robot
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -10,12 +11,14 @@ import (
 	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/gripper"
 	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/robots/minirover2"
 	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/vision"
+	"github.com/viamrobotics/rplidar"
+
+	_ "github.com/viamrobotics/rplidar/ws" // registration
 
 	"github.com/edaniels/golog"
 )
@@ -145,7 +148,7 @@ func (r *Robot) AddProvider(p interface{}, c Component) {
 	r.providerComponents = append(r.providerComponents, c)
 }
 
-func (r *Robot) Close() {
+func (r *Robot) Close(ctx context.Context) error {
 	for _, x := range r.Arms {
 		x.Close()
 	}
@@ -159,20 +162,23 @@ func (r *Robot) Close() {
 	}
 
 	for _, x := range r.LidarDevices {
-		x.Close()
+		if err := x.Close(ctx); err != nil {
+			golog.Global.Error("error closing lidar device", "error", err)
+		}
 	}
 
 	for _, x := range r.Bases {
 		x.Close()
 	}
 
+	return nil
 }
 
 func NewBlankRobot() *Robot {
 	return &Robot{}
 }
 
-func NewRobot(cfg Config) (*Robot, error) {
+func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 	r := &Robot{}
 	logger := cfg.Logger
 	if logger == nil {
@@ -227,7 +233,7 @@ func NewRobot(cfg Config) (*Robot, error) {
 			}
 			r.AddCamera(camera, c)
 		case ComponentTypeLidar:
-			lidarDevice, err := r.newLidar(c)
+			lidarDevice, err := r.newLidar(ctx, c)
 			if err != nil {
 				return nil, err
 			}
@@ -374,12 +380,13 @@ func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newLidar(config Component) (lidar.Device, error) {
+func (r *Robot) newLidar(ctx context.Context, config Component) (lidar.Device, error) {
 	switch config.Model {
 	case rplidar.ModelName:
-		return lidar.CreateDevice(lidar.DeviceDescription{
+		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
 			Type: rplidar.DeviceType,
-			Path: config.Attributes["file_path"],
+			Host: config.Host,
+			Port: config.Port,
 		})
 	case fake.ModelName:
 		return fake.NewLidar(), nil

@@ -15,17 +15,15 @@
       "type": "arm"
     },
     {
-      "attributes": {
-        "file_path": "/dev/hello-lrf"
-      },
+      "host": "127.0.0.1",
+      "port": 4444,
       "model": "rplidar",
       "name": "lidarBase",
       "type": "lidar"
     },
     {
-      "attributes": {
-        "file_path": "/dev/hello-lrf-top"
-      },
+      "host": "127.0.0.1",
+      "port": 4445,
       "model": "rplidar",
       "name": "lidarTop",
       "type": "lidar"
