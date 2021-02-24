@@ -17,7 +17,7 @@ type JacobianIK struct {
 func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	ik := JacobianIK{}
 	ik.Mdl = mdl
-	ik.epsilon = 0.001
+	ik.epsilon = 0.0001
 	ik.iterations = 3000
 	ik.svd = true
 	return &ik
@@ -65,7 +65,7 @@ func (ik *JacobianIK) Solve() bool {
 
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
-				ik.Mdl.Normalize(q)
+				
 				ik.Mdl.SetPosition(q)
 
 				if ik.Mdl.IsValid(q) {
@@ -80,6 +80,7 @@ func (ik *JacobianIK) Solve() bool {
 			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
 			newPos := ik.Mdl.Step(q, dq)
+			newPos = ik.Mdl.Normalize(newPos)
 			ik.Mdl.SetPosition(newPos)
 			q = newPos
 
