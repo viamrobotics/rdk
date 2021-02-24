@@ -89,7 +89,7 @@
       }
 
       function boardAction(type, boardName, typeName, action) {
-          var path = "/api/board/" + boardName + "/" + type + "/" + typeName + "?" + action;
+          var path = "/api/board/" + boardName + "/" + type + "?name=" + typeName + "&" + action;
           console.log(path);
           makeApiCall(path);
       }
@@ -217,6 +217,18 @@
           <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=64')">++</button>
         </td>
       </tr>
+      {{ if $m.Encoder }}
+      <tr>
+        <td></td>
+        <td>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=64&r=10')">-10</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=32&r=1')">-1</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=32&r=1')">+1</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=64&r=10')">+10</button>
+        </td>
+      </tr>
+      {{end }}
+      
       {{ end }}
       {{end}}
     

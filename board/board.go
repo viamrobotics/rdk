@@ -6,10 +6,12 @@ import (
 
 // designed to match the gobot one for now
 type Motor interface {
-	Forward(speed byte) error
-	Backward(speed byte) error
 	Speed(speed byte) error
-	Direction(d string) error // "forward", "backward", "none" // TODO(erh): not sure if i want to keep this
+	// "forward", "backward", "none" // TODO(erh): not sure if i want to keep this
+	Go(d string, speed byte) error
+
+	GoFor(d string, speed byte, rotations float64, block bool) error
+
 	Off() error
 	IsOn() bool
 }
@@ -18,17 +20,12 @@ type AnalogReader interface {
 	Read() (int, error)
 }
 
-type DigitalInterrupt interface {
-	// the number of times this interrupt has fired
-	Count() int64
-}
-
 type Board interface {
 	// nil if cannot find
 	Motor(name string) Motor
 
 	AnalogReader(name string) AnalogReader
-	DigitalInterrupt(name string) DigitalInterrupt
+	DigitalInterrupt(name string) *DigitalInterrupt
 
 	Close() error
 
@@ -42,4 +39,47 @@ func NewBoard(cfg Config) (Board, error) {
 	default:
 		return nil, fmt.Errorf("unknown board model: %v", cfg.Model)
 	}
+}
+
+type diCallback struct {
+	threshold int64
+	c         chan int64
+}
+
+// should this be an interface
+type DigitalInterrupt struct {
+	cfg   DigitalInterruptConfig
+	count int64
+
+	callbacks []diCallback
+}
+
+func (i *DigitalInterrupt) Count() int64 {
+	return i.count
+}
+
+func (i *DigitalInterrupt) tick() {
+	i.count++
+
+	for {
+		got := false
+
+		for idx, c := range i.callbacks {
+			if i.count < c.threshold {
+				continue
+			}
+
+			c.c <- i.count
+			i.callbacks = append(i.callbacks[0:idx], i.callbacks[idx+1:]...)
+			got = true
+			break
+		}
+		if !got {
+			break
+		}
+	}
+}
+
+func (i *DigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
+	i.callbacks = append(i.callbacks, diCallback{i.count + delta, c})
 }

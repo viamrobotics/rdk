@@ -71,11 +71,7 @@ func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
 }
 
 func (vg *ViamGripper) Open() error {
-	err := vg.motor.Direction(vg.openDirection)
-	if err != nil {
-		return err
-	}
-	err = vg.motor.Speed(vg.defaultSpeed)
+	err := vg.motor.Go(vg.openDirection, vg.defaultSpeed)
 	if err != nil {
 		return err
 	}
@@ -102,11 +98,7 @@ func (vg *ViamGripper) Open() error {
 }
 
 func (vg *ViamGripper) Grab() (bool, error) {
-	err := vg.motor.Direction(vg.closeDirection)
-	if err != nil {
-		return false, err
-	}
-	err = vg.motor.Speed(vg.defaultSpeed)
+	err := vg.motor.Go(vg.closeDirection, vg.defaultSpeed)
 	if err != nil {
 		return false, err
 	}
@@ -156,7 +148,7 @@ func (vg *ViamGripper) Close() error {
 }
 
 func (vg *ViamGripper) Stop() error {
-	return vg.motor.Direction("none") // Off is currently broken in gobot
+	return vg.motor.Off()
 }
 
 func (vg *ViamGripper) readPotentiometer() (int, error) {
@@ -184,11 +176,7 @@ func (vg *ViamGripper) moveInDirectionTillWontMoveMore(dir string) (int, bool, e
 		}
 	}()
 
-	err := vg.motor.Direction(dir)
-	if err != nil {
-		return -1, false, err
-	}
-	err = vg.motor.Speed(vg.defaultSpeed)
+	err := vg.motor.Go(dir, vg.defaultSpeed)
 	if err != nil {
 		return -1, false, err
 	}

@@ -1,8 +1,10 @@
 package board
 
 type MotorConfig struct {
-	Name string
-	Pins map[string]string
+	Name             string
+	Pins             map[string]string
+	Encoder          string // name of the digital interrupt that is the encoder
+	TicksPerRotation int
 }
 
 type AnalogConfig struct {

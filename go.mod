@@ -59,4 +59,4 @@ replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-2021
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
-replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210223224414-fabb9da21abd
+replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210224202823-fc106e87f377
