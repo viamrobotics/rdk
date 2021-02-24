@@ -21,7 +21,7 @@ func searchUSB(filter SearchFilter) ([]DeviceDescription, error) {
 	}
 	serialDeviceDecss := make([]DeviceDescription, 0, len(usbDevices))
 	for _, dev := range usbDevices {
-		devType := checkProductDeviceIDs(dev.VendorID, dev.ProductID)
+		devType := checkProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
 		if filter.Type != "" && filter.Type != devType {
 			continue
 		}

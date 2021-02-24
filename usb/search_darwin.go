@@ -71,9 +71,11 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 		}
 		if dialinDevice != "" {
 			results = append(results, DeviceDescription{
-				VendorID:  vendorID,
-				ProductID: productID,
-				Path:      dialinDevice,
+				ID: Identifier{
+					Vendor:  vendorID,
+					Product: productID,
+				},
+				Path: dialinDevice,
 			})
 		}
 	}
