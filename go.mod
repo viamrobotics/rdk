@@ -50,8 +50,9 @@ require (
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
+	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
+	nhooyr.io/websocket v1.8.6
 )
 
 replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64
