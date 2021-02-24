@@ -54,6 +54,7 @@ func (k *Kinematics) SetForwardPosition(pos Position) error {
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
 	k.model.ForwardPosition()
+	k.ik.ClearGoals()
 	if couldSolve {
 		return nil
 	}

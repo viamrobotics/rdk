@@ -217,6 +217,8 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 }
 
 // Only valid for revolute joints
+// This should ensure that joint positions are the lowest reasonable value
+// For example, rather than 375 degrees, it should be 15 degrees
 func (j *Joint) Normalize(posvec []float64) []float64 {
 	remain := math.Remainder(posvec[0], math.Pi)
 	if remain < j.min[0] {
