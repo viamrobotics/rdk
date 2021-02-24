@@ -21,14 +21,17 @@ jobs:
 
     - name: Build
       run: |
+        export GOPRIVATE=github.com/viamrobotics/*
         make -j$(nproc) build
 
     - name: Lint
       run: |
+        export GOPRIVATE=github.com/viamrobotics/*
         make lint
 
     - name: Test
       run: |
+       export GOPRIVATE=github.com/viamrobotics/*
        make test
 
     - name: Upload coverage to Codecov
