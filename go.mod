@@ -1,6 +1,6 @@
 module github.com/viamrobotics/robotcore
 
-go 1.14
+go 1.16
 
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
