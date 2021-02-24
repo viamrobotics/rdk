@@ -851,8 +851,10 @@ github.com/veandco/go-sdl2 v0.3.3/go.mod h1:FB+kTpX9YTE+urhYiClnRzpOXbiWgaU3+5F2
 github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997 h1:p4DWV9qAfFKMB0jzxdB2PqBBmtkDBDblZ7/sr9/jHro=
 github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997/go.mod h1:cnviaku/Hs1rKlwToSzGmxx86kRl9z8rQGiOxNJhaT8=
 github.com/viamrobotics/robotcore v0.0.0-20210224164541-498581e635aa/go.mod h1:JWlwjovjxgxfP773PNRo1B9Ig6lwrVAA0130tqLRFAw=
-github.com/viamrobotics/rplidar v0.0.0-20210224232235-7ae3ca01ba11 h1:xqK0Nd/ES6D9iH1hVLsc50IwV8qcVI9aiqEX6Amw9TM=
+github.com/viamrobotics/robotcore v0.0.0-20210224232800-3538afe89682/go.mod h1:d1L5mmuInOVR2dRJsSEHbREki240WxHnrVa48cbEr4M=
 github.com/viamrobotics/rplidar v0.0.0-20210224232235-7ae3ca01ba11/go.mod h1:SKswhNlYsYqYF3TEQrfW5bF4uyOxswyeH4/ZhfbBTM4=
+github.com/viamrobotics/rplidar v0.0.0-20210224232905-36f689afba0e h1:QMtUKGV0dH/LogEAlO0h11KuTDMMSqpc7tQsHk055Uk=
+github.com/viamrobotics/rplidar v0.0.0-20210224232905-36f689afba0e/go.mod h1:CF4DDbUNpSuZfqOjzlZnoNZpc1ockqqb7KFzs5tqBsI=
 github.com/wcharczuk/go-chart v2.0.1+incompatible h1:0pz39ZAycJFF7ju/1mepnk26RLVLBCWz1STcD3doU0A=
 github.com/wcharczuk/go-chart v2.0.1+incompatible/go.mod h1:PF5tmL4EIx/7Wf+hEkpCqYi5He4u90sw+0+6FhrryuE=
 github.com/wcharczuk/go-chart/v2 v2.1.0 h1:tY2slqVQ6bN+yHSnDYwZebLQFkphK4WNrVwnt7CJZ2I=
