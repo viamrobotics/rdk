@@ -108,11 +108,16 @@ func (e *eva) CurrentPosition() (Position, error) {
 	//~ pos.Rz = utils.RadToDeg(fk.Orientation.Z)
 
 	//~ golog.Global.Debugf("W: %v", fk.Orientation.W)
-
+	pos.X /= 1000
+	pos.Y /= 1000
+	pos.Z /= 1000
 	return pos, nil
 }
 
 func (e *eva) MoveToPosition(pos Position) error {
+	pos.X *= 1000
+	pos.Y *= 1000
+	pos.Z *= 1000
 	//~ k := evaKinematics{}
 	//~ k.Position.X = pos.X
 	//~ k.Position.Y = pos.Y
