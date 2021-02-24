@@ -58,3 +58,5 @@ require (
 replace github.com/james-bowman/sparse => github.com/edaniels/sparse v0.0.0-20210125173045-c57b5e1e0d64
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
+
+replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210223224414-fabb9da21abd
