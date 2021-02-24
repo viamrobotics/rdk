@@ -9,6 +9,7 @@
 *.d
 *.mtb
 *.a
+*.dpp
 
 # Test binary, built with `go test -c`
 *.test
