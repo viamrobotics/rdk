@@ -88,6 +88,29 @@
           setTimeout(updateGridView, 500, arm);
       }
 
+      function boardAction(type, boardName, typeName, action) {
+          var path = "/api/board/" + boardName + "/" + type + "/" + typeName + "?" + action;
+          console.log(path);
+          makeApiCall(path);
+      }
+
+      function updateBoardView(name) {
+          makeApiCall("/api/board/" + name, function(response) {
+              //console.log(response);
+              for (var a in response.analogs ) {
+                  var id = "board_a_" + name + "_" + a;
+                  var e = document.getElementById(id);
+                  e.innerHTML = response.analogs[a];
+              }
+              for (var di in response.digitalInterrupts) {
+                  var id = "board_di_" + name + "_" + di;
+                  var e = document.getElementById(id);
+                  e.innerHTML = response.digitalInterrupts[di];
+              }
+          });
+          setTimeout(updateBoardView, 500, name);
+      }
+      
     </script>
   </head>
   <body>
@@ -175,6 +198,48 @@
       </tr>
       </table>
 
+    {{ range $b := .Boards }}
+    <h3>Board {{$b.Name}}</h3>
+    <table border="1">
+      <tr><th>Model</th><td>{{$b.Model}}</td></tr>
+      
+      {{if $b.Motors }}
+      <tr><th colspan="2">Motors</th></tr>
+      
+      {{ range $m := $b.Motors }}
+      <tr>
+        <th>{{$m.Name}}</th>
+        <td>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=64')">--</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=32')">-</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=none&s=0')">0</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=32')">+</button>
+          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=64')">++</button>
+        </td>
+      </tr>
+      {{ end }}
+      {{end}}
+    
+      {{if $b.Analogs }}
+      <tr><th colspan="2">Analogs</th></tr>
+      {{ range $a := $b.Analogs }}
+      <tr><th>{{$a.Name}}</th><td id="board_a_{{$b.Name}}_{{$a.Name}}"></td></tr>
+      {{ end }}
+      {{end}}
+
+      {{if $b.DigitalInterrupts }}
+      <tr><th colspan="2">DigitalInterrupts</th></tr>
+      {{ range $i := $b.DigitalInterrupts }}
+      <tr><th>{{$i.Name}}</th><td id="board_di_{{$b.Name}}_{{$i.Name}}"></td></tr>
+      {{ end }}
+      {{end}}
+
+      
+    </table>
+    <script>updateBoardView('{{$b.Name}}');</script>
+    {{end}} <!-- end Boards -->
+    
+    
     <div id="res"></div>
     
   </body>

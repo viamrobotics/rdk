@@ -23,6 +23,7 @@ import (
 	"github.com/edaniels/gostream/codec/vpx"
 
 	"github.com/viamrobotics/robotcore/base"
+	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/lidar"
 	"github.com/viamrobotics/robotcore/robot"
 	"github.com/viamrobotics/robotcore/robot/actions"
@@ -74,6 +75,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Bases       []string
 		Arms        []string
 		Grippers    []string
+		Boards      []board.Config
 	}
 
 	temp := Temp{}
@@ -88,6 +90,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	for _, g := range app.theRobot.Grippers {
 		temp.Grippers = append(temp.Grippers, app.theRobot.ComponentFor(g).Name)
+	}
+
+	for _, b := range app.theRobot.Boards {
+		temp.Boards = append(temp.Boards, b.GetConfig())
 	}
 
 	for _, remoteView := range app.remoteViews {
@@ -414,6 +420,67 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 
 }
 
+func installBoard(mux *http.ServeMux, b board.Board) {
+	cfg := b.GetConfig()
+
+	makePath := func(t, n string) string {
+		return fmt.Sprintf("/api/board/%s/%s/%s", cfg.Name, t, n)
+	}
+
+	for _, m := range cfg.Motors {
+		mux.Handle(makePath("motor", m.Name), &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+			theMotor := b.Motor(m.Name)
+			if theMotor == nil {
+				return nil, fmt.Errorf("this should be impossible, no motor")
+			}
+
+			speed, err := strconv.ParseInt(req.FormValue("s"), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+
+			err = theMotor.Speed(byte(speed))
+			if err != nil {
+				return nil, err
+			}
+
+			return map[string]interface{}{}, theMotor.Direction(req.FormValue("d"))
+		}})
+	}
+
+	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+		analogs := map[string]int{}
+		for _, a := range cfg.Analogs {
+			res, err := b.AnalogReader(a.Name).Read()
+			if err != nil {
+				return nil, fmt.Errorf("couldn't read %s: %s", a.Name, err)
+			}
+			analogs[a.Name] = res
+		}
+
+		digitalInterrupts := map[string]int{}
+		for _, di := range cfg.DigitalInterrupts {
+			res := b.DigitalInterrupt(di.Name).Count()
+			digitalInterrupts[di.Name] = int(res)
+		}
+
+		return map[string]interface{}{
+			"analogs":           analogs,
+			"digitalInterrupts": digitalInterrupts,
+		}, nil
+	}})
+
+	mux.Handle("/api/board", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+		return nil, fmt.Errorf("unknown")
+	}})
+}
+
+func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot) {
+	for _, b := range theRobot.Boards {
+		installBoard(mux, b)
+	}
+}
+
 // ---------------
 
 func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
@@ -456,6 +523,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	InstallActions(mux, theRobot)
 
 	InstallSimpleCamera(mux, theRobot)
+
+	InstallBoards(mux, theRobot)
 
 	mux.Handle("/", app)
 
