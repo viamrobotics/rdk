@@ -114,6 +114,8 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 		return nil, fmt.Errorf("cannot set image format: %s", err)
 	}
 
+	golog.Global.Debugf("%s format: %v w: %v h: %v", path, format, w, h)
+
 	err = cam.SetBufferCount(2)
 	if err != nil {
 		return nil, fmt.Errorf("cannot SetBufferCount stream for %s : %s", path, err)
@@ -130,6 +132,7 @@ func tryWebcamOpen(path string) (ImageDepthSource, error) {
 func NewWebcamSource(attrs map[string]string) (ImageDepthSource, error) {
 
 	path := attrs["path"]
+	debug := attrs["debug"] == "true"
 
 	if path != "" {
 		return tryWebcamOpen(path)
@@ -141,6 +144,9 @@ func NewWebcamSource(attrs map[string]string) (ImageDepthSource, error) {
 		if err == nil {
 			golog.Global.Debugf("found webcam %s", path)
 			return s, nil
+		}
+		if debug {
+			golog.Global.Debugf("failed webcam %s %s", path, err)
 		}
 	}
 
