@@ -65,7 +65,7 @@ func (ik *JacobianIK) Solve() bool {
 
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
-				
+
 				ik.Mdl.SetPosition(q)
 				q = ik.Mdl.Normalize(q)
 
@@ -81,7 +81,7 @@ func (ik *JacobianIK) Solve() bool {
 			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
 			newPos := ik.Mdl.Step(q, dq)
-			
+
 			ik.Mdl.SetPosition(newPos)
 			q = newPos
 
