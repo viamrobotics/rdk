@@ -1,7 +1,0 @@
-xsdebugcounters.c.o: xsdebugcounters.cpp xsdebugcounters.h xstypesconfig.h \
- xstypedefs.h pstdint.h
-xsdebugcounters.cpp:
-xsdebugcounters.h:
-xstypesconfig.h:
-xstypedefs.h:
-pstdint.h:
