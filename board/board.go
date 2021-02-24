@@ -18,13 +18,21 @@ type AnalogReader interface {
 	Read() (int, error)
 }
 
+type DigitalInterrupt interface {
+	// the number of times this interrupt has fired
+	Count() int64
+}
+
 type Board interface {
 	// nil if cannot find
 	Motor(name string) Motor
 
 	AnalogReader(name string) AnalogReader
+	DigitalInterrupt(name string) DigitalInterrupt
 
 	Close() error
+
+	GetConfig() Config
 }
 
 func NewBoard(cfg Config) (Board, error) {
