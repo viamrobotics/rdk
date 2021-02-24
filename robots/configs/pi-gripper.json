@@ -19,21 +19,12 @@
                 "pin" : "7"
               }
           ]
-              
         }
     ],
     "components" : [
         { "name" : "vg1",
 		  "type": "gripper",
-		  "model": "viam",
-		  "attributes" : {
-			  "board" : "pi",
-              "motorA" : "40",
-              "motorB" : "38",
-              "pwm": "11",
-              "potentiometer" : "0",
-              "pressure": "7"
-		  }
+		  "model": "viam"
         },
         { "name" : "gripper-cam",
           "type" : "camera",
