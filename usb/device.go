@@ -1,7 +1,11 @@
 package usb
 
 type DeviceDescription struct {
-	VendorID  int
-	ProductID int
-	Path      string
+	ID   Identifier
+	Path string
+}
+
+type Identifier struct {
+	Vendor  int
+	Product int
 }

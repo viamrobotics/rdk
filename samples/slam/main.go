@@ -16,7 +16,6 @@ import (
 
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/lidar/search"
 	"github.com/viamrobotics/robotcore/robots/fake"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
@@ -26,17 +25,19 @@ import (
 	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/slam"
 	"github.com/viamrobotics/robotcore/utils"
+	"github.com/viamrobotics/rplidar"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
+	rplidarws "github.com/viamrobotics/rplidar/ws"
 )
 
 const fakeDev = "fake"
 
 func main() {
 	var baseType string
-	var devicePathFlags utils.StringFlags
+	var addressFlags utils.StringFlags
 	var deviceOffsetFlags utils.StringFlags
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -47,7 +48,7 @@ func main() {
 	} else {
 		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
 	}
-	flag.Var(&devicePathFlags, "device", "lidar devices")
+	flag.Var(&addressFlags, "device", "lidar devices")
 	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
 	flag.Parse()
 
@@ -80,7 +81,11 @@ func main() {
 		if err != nil {
 			golog.Global.Fatal(err)
 		}
-		defer compassSensor.Close()
+		defer func() {
+			if err := compassSensor.Close(context.Background()); err != nil {
+				golog.Global.Error(err)
+			}
+		}()
 	}
 
 	var deviceOffests []slam.DeviceOffset
@@ -121,16 +126,24 @@ func main() {
 		deviceDescs = append(deviceDescs,
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
-	if len(devicePathFlags) != 0 {
+	if len(addressFlags) != 0 {
 		deviceDescs = nil
-		for i, devicePath := range devicePathFlags {
-			switch devicePath {
+		for i, address := range addressFlags {
+			addressParts := strings.Split(address, ":")
+			if len(addressParts) != 2 {
+				continue
+			}
+			port, err := strconv.ParseInt(addressParts[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			switch address {
 			case fakeDev:
 				deviceDescs = append(deviceDescs,
 					lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: fmt.Sprintf("%d", i)})
 			default:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{Type: rplidar.DeviceType, Path: devicePath})
+					lidar.DeviceDescription{Type: rplidar.DeviceType, Host: addressParts[0], Port: int(port)})
 			}
 		}
 	}
@@ -153,28 +166,35 @@ func main() {
 		port = int(portParsed)
 	}
 
-	lidarDevices, err := lidar.CreateDevices(deviceDescs)
+	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	for i, lidarDev := range lidarDevices {
-		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
+	for _, lidarDev := range lidarDevices {
+		if rpl, ok := lidarDev.(*rplidarws.Device); ok {
+			info, err := rpl.Info(context.Background())
+			if err != nil {
+				golog.Global.Fatal(err)
+			}
 			golog.Global.Infow("rplidar",
-				"dev_path", deviceDescs[i].Path,
-				"model", rpl.Model(),
-				"serial", rpl.SerialNumber(),
-				"firmware_ver", rpl.FirmwareVersion(),
-				"hardware_rev", rpl.HardwareRevision())
+				"model", info.Model,
+				"serial", info.SerialNumber,
+				"firmware_ver", info.FirmwareVersion,
+				"hardware_rev", info.HardwareRevision)
 		}
-		defer lidarDev.Stop()
+		defer lidarDev.Stop(context.Background())
 	}
 
 	if compassSensor == nil {
 		bestResolution := math.MaxFloat64
 		bestResolutionDeviceNum := 0
 		for i, lidarDev := range lidarDevices {
-			if lidarDev.AngularResolution() < bestResolution {
-				bestResolution = lidarDev.AngularResolution()
+			angRes, err := lidarDev.AngularResolution(context.Background())
+			if err != nil {
+				golog.Global.Fatal(err)
+			}
+			if angRes < bestResolution {
+				bestResolution = angRes
 				bestResolutionDeviceNum = i
 			}
 		}

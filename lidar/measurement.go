@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/viamrobotics/robotcore/utils"
@@ -19,21 +20,33 @@ func (ms Measurements) Swap(i, j int) {
 }
 
 func (ms Measurements) Less(i, j int) bool {
-	if ms[i].angle < ms[j].angle {
+	if ms[i].data.Angle < ms[j].data.Angle {
 		return true
 	}
-	if ms[i].angle == ms[j].angle {
-		return ms[i].distance < ms[j].distance
+	if ms[i].data.Angle == ms[j].data.Angle {
+		return ms[i].data.Distance < ms[j].data.Distance
 	}
 	return false
 }
 
 type Measurement struct {
-	angle    float64
-	angleDeg float64
-	distance float64
-	x        float64
-	y        float64
+	data measurementData
+}
+
+type measurementData struct {
+	Angle    float64 `json:"angle"`
+	AngleDeg float64 `json:"angle_deg"`
+	Distance float64 `json:"distance"`
+	X        float64 `json:"x"`
+	Y        float64 `json:"y"`
+}
+
+func (m *Measurement) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.data)
+}
+
+func (m *Measurement) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &m.data)
 }
 
 func NewMeasurement(angle, distance float64) *Measurement {
@@ -47,25 +60,27 @@ func NewMeasurement(angle, distance float64) *Measurement {
 	x := distance * math.Sin(rad)
 	y := distance * -math.Cos(rad)
 	return &Measurement{
-		angle:    rad,
-		angleDeg: angle,
-		distance: distance,
-		x:        x,
-		y:        y,
+		data: measurementData{
+			Angle:    rad,
+			AngleDeg: angle,
+			Distance: distance,
+			X:        x,
+			Y:        y,
+		},
 	}
 }
 
 // in radians
 func (m *Measurement) Angle() float64 {
-	return m.angle
+	return m.data.Angle
 }
 
 func (m *Measurement) Distance() float64 {
-	return m.distance
+	return m.data.Distance
 }
 
 func (m *Measurement) Coords() (float64, float64) {
-	return m.x, m.y
+	return m.data.X, m.data.Y
 }
 
 func MeasurementsFromVec2Matrix(m *utils.Vec2Matrix) Measurements {

@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -19,13 +20,13 @@ import (
 
 func TestNew(t *testing.T) {
 	// unknown type
-	_, err := New(lidar.DeviceDescription{Type: "what"})
+	_, err := New(context.Background(), lidar.DeviceDescription{Type: "what"})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
 	var newFunc func(desc lidar.DeviceDescription) (lidar.Device, error)
 	lidar.RegisterDeviceType(devType, lidar.DeviceTypeRegistration{
-		New: func(desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
 			return newFunc(desc)
 		},
 	})
@@ -37,7 +38,7 @@ func TestNew(t *testing.T) {
 		return nil, newErr
 	}
 
-	_, err = New(desc)
+	_, err = New(context.Background(), desc)
 	test.That(t, err, test.ShouldEqual, newErr)
 
 	injectDev := &injectDevice{}
@@ -45,7 +46,7 @@ func TestNew(t *testing.T) {
 		return injectDev, nil
 	}
 
-	dev, err := New(desc)
+	dev, err := New(context.Background(), desc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dev, test.ShouldNotBeNil)
 }
@@ -77,7 +78,7 @@ func TestCompass(t *testing.T) {
 func TestScanToVec2Matrix(t *testing.T) {
 	t.Run("with no results should produce an empty matrix", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return nil, nil
 		}
 		m, err := compassDev.scanToVec2Matrix()
@@ -87,7 +88,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 
 	t.Run("should request a scan with more than 1 count and no filtering", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			test.That(t, options.Count, test.ShouldBeGreaterThan, 1)
 			test.That(t, options.NoFilter, test.ShouldBeTrue)
 			return nil, nil
@@ -100,7 +101,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 	t.Run("should error out if all of the scans fail", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
 		count := 0
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			count++
 			return nil, errors.New("oops")
 		}
@@ -111,7 +112,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 
 	t.Run("should convert measurments into a matrix", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return lidar.Measurements{
 				lidar.NewMeasurement(1, 10),
 				lidar.NewMeasurement(20, 2),
@@ -138,7 +139,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 func TestHeading(t *testing.T) {
 	t.Run("with no results should NaN", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return nil, nil
 		}
 		h, err := compassDev.Heading()
@@ -148,7 +149,7 @@ func TestHeading(t *testing.T) {
 
 	t.Run("with some results should NaN without mark", func(t *testing.T) {
 		compassDev, injectDev := getInjected()
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return lidar.Measurements{
 				lidar.NewMeasurement(1, 10),
 				lidar.NewMeasurement(20, 2),
@@ -168,10 +169,10 @@ func TestHeading(t *testing.T) {
 		firstMs := lidar.MeasurementsFromVec2Matrix(mat2)
 		compassDev, injectDev := getInjected()
 		angularRes := .3375
-		injectDev.AngularResolutionFunc = func() float64 {
-			return angularRes
+		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return angularRes, nil
 		}
-		injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return firstMs, nil
 		}
 		test.That(t, compassDev.Mark(), test.ShouldBeNil)
@@ -182,10 +183,10 @@ func TestHeading(t *testing.T) {
 		setup := func(t *testing.T) (*Device, *injectDevice) {
 			t.Helper()
 			_, injectDev := getInjected()
-			injectDev.AngularResolutionFunc = func() float64 {
-				return angularRes
+			injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+				return angularRes, nil
 			}
-			injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+			injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 				return firstMs, nil
 			}
 			cloned := compassDev.clone()
@@ -208,7 +209,7 @@ func TestHeading(t *testing.T) {
 				rot := scannedM.RotateMatrixAbout(0, 0, float64(iCopy))
 				rotM := lidar.MeasurementsFromVec2Matrix(rot)
 
-				injectDev.ScanFunc = func(options lidar.ScanOptions) (lidar.Measurements, error) {
+				injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 					return rotM, nil
 				}
 
@@ -222,60 +223,60 @@ func TestHeading(t *testing.T) {
 
 type injectDevice struct {
 	lidar.Device
-	StartFunc             func()
-	StopFunc              func()
-	CloseFunc             func() error
-	ScanFunc              func(options lidar.ScanOptions) (lidar.Measurements, error)
-	RangeFunc             func() int
-	BoundsFunc            func() (image.Point, error)
-	AngularResolutionFunc func() float64
+	StartFunc             func(ctx context.Context) error
+	StopFunc              func(ctx context.Context) error
+	CloseFunc             func(ctx context.Context) error
+	ScanFunc              func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error)
+	RangeFunc             func(ctx context.Context) (int, error)
+	BoundsFunc            func(ctx context.Context) (image.Point, error)
+	AngularResolutionFunc func(ctx context.Context) (float64, error)
 }
 
-func (ij *injectDevice) Start() {
+func (ij *injectDevice) Start(ctx context.Context) error {
 	if ij.StartFunc == nil {
-		ij.Device.Start()
+		return ij.Device.Start(ctx)
 	}
-	ij.StartFunc()
+	return ij.StartFunc(ctx)
 }
 
-func (ij *injectDevice) Stop() {
+func (ij *injectDevice) Stop(ctx context.Context) error {
 	if ij.StopFunc == nil {
-		ij.Device.Stop()
+		return ij.Device.Stop(ctx)
 	}
-	ij.StopFunc()
+	return ij.StopFunc(ctx)
 }
 
-func (ij *injectDevice) Close() error {
+func (ij *injectDevice) Close(ctx context.Context) error {
 	if ij.CloseFunc == nil {
-		return ij.Device.Close()
+		return ij.Device.Close(ctx)
 	}
-	return ij.CloseFunc()
+	return ij.CloseFunc(ctx)
 }
 
-func (ij *injectDevice) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
+func (ij *injectDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	if ij.ScanFunc == nil {
-		return ij.Device.Scan(options)
+		return ij.Device.Scan(ctx, options)
 	}
-	return ij.ScanFunc(options)
+	return ij.ScanFunc(ctx, options)
 }
 
-func (ij *injectDevice) Range() int {
+func (ij *injectDevice) Range(ctx context.Context) (int, error) {
 	if ij.RangeFunc == nil {
-		return ij.Device.Range()
+		return ij.Device.Range(ctx)
 	}
-	return ij.RangeFunc()
+	return ij.RangeFunc(ctx)
 }
 
-func (ij *injectDevice) Bounds() (image.Point, error) {
+func (ij *injectDevice) Bounds(ctx context.Context) (image.Point, error) {
 	if ij.BoundsFunc == nil {
-		return ij.Device.Bounds()
+		return ij.Device.Bounds(ctx)
 	}
-	return ij.BoundsFunc()
+	return ij.BoundsFunc(ctx)
 }
 
-func (ij *injectDevice) AngularResolution() float64 {
+func (ij *injectDevice) AngularResolution(ctx context.Context) (float64, error) {
 	if ij.AngularResolutionFunc == nil {
-		return ij.Device.AngularResolution()
+		return ij.Device.AngularResolution(ctx)
 	}
-	return ij.AngularResolutionFunc()
+	return ij.AngularResolutionFunc(ctx)
 }

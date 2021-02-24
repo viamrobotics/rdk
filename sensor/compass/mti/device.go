@@ -1,6 +1,7 @@
 package mti
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -110,7 +111,7 @@ func (d *Device) StopCalibration() error {
 	return nil
 }
 
-func (d *Device) Readings() ([]interface{}, error) {
+func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
 	heading, err := d.Heading()
 	if err != nil {
 		return nil, err
@@ -122,7 +123,7 @@ func (d *Device) Heading() (float64, error) {
 	return d.heading.Load().(float64), nil
 }
 
-func (d *Device) Close() error {
+func (d *Device) Close(ctx context.Context) error {
 	d.closeOnce.Do(func() {
 		close(d.closeCh)
 		defer d.control.Destruct()

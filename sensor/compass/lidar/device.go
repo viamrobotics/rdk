@@ -1,6 +1,7 @@
 package lidar
 
 import (
+	"context"
 	"math"
 	"runtime"
 	"sort"
@@ -23,8 +24,8 @@ func From(lidarDevice lidar.Device) compass.RelativeDevice {
 	return &Device{Device: lidarDevice}
 }
 
-func New(deviceDesc lidar.DeviceDescription) (compass.RelativeDevice, error) {
-	lidarDevice, err := lidar.CreateDevice(deviceDesc)
+func New(ctx context.Context, deviceDesc lidar.DeviceDescription) (compass.RelativeDevice, error) {
+	lidarDevice, err := lidar.CreateDevice(ctx, deviceDesc)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func (d *Device) StopCalibration() error {
 	return nil
 }
 
-func (d *Device) Readings() ([]interface{}, error) {
+func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
 	heading, err := d.Heading()
 	if err != nil {
 		return nil, err
@@ -58,12 +59,15 @@ func (d *Device) Readings() ([]interface{}, error) {
 	return []interface{}{heading}, nil
 }
 
-func (d *Device) rotationResolution() float64 {
-	angularRes := d.Device.AngularResolution()
-	if angularRes <= .5 {
-		return .5
+func (d *Device) rotationResolution() (float64, error) {
+	angularRes, err := d.Device.AngularResolution(context.TODO())
+	if err != nil {
+		return math.NaN(), err
 	}
-	return 1
+	if angularRes <= .5 {
+		return .5, nil
+	}
+	return 1, nil
 }
 
 func (d *Device) Heading() (float64, error) {
@@ -107,7 +111,7 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		var err error
-		measurements, err = d.Device.Scan(lidar.ScanOptions{Count: 5, NoFilter: true})
+		measurements, err = d.Device.Scan(context.TODO(), lidar.ScanOptions{Count: 5, NoFilter: true})
 		if err != nil && i+1 >= attempts {
 			return nil, err
 		}
@@ -184,7 +188,10 @@ type groupWorkFunc func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc)
 
 func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) {
 	thetaParts := maxTheta / float64(parallelFactor)
-	rotRes := d.rotationResolution()
+	rotRes, err := d.rotationResolution()
+	if err != nil {
+		panic(err)
+	}
 	numRotations := int(math.Ceil(maxTheta / rotRes))
 	groupSize := int(math.Ceil(float64(numRotations) / float64(parallelFactor)))
 

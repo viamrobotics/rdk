@@ -1,6 +1,7 @@
 package slam
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -180,7 +181,9 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err != nil {
 			return nil, err
 		}
-		lar.devices[lidarDeviceNum].Start()
+		if err := lar.devices[lidarDeviceNum].Start(context.TODO()); err != nil {
+			return nil, err
+		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d stopped", lidarDeviceNum)), nil
 	})
 	registry.Add(commandRobotLidarStop, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
@@ -192,7 +195,9 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err != nil {
 			return nil, err
 		}
-		lar.devices[lidarDeviceNum].Stop()
+		if err := lar.devices[lidarDeviceNum].Stop(context.TODO()); err != nil {
+			return nil, err
+		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d stopped", lidarDeviceNum)), nil
 	})
 	registry.Add(commandRobotLidarSeed, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {

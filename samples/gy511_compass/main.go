@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -40,7 +41,7 @@ func main() {
 
 	for {
 		time.Sleep(100 * time.Millisecond)
-		readings, err := sensor.Readings()
+		readings, err := sensor.Readings(context.Background())
 		if err != nil {
 			golog.Global.Errorw("failed to get sensor reading", "error", err)
 			continue

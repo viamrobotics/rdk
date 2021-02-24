@@ -1,6 +1,7 @@
 package slam
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"math"
@@ -69,7 +70,7 @@ func NewLocationAwareRobot(
 
 	var maxBoundsX, maxBoundsY int
 	for _, dev := range devices {
-		bounds, err := dev.Bounds()
+		bounds, err := dev.Bounds(context.TODO())
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +364,7 @@ func (lar *LocationAwareRobot) cullLoop() {
 		cullArea(lar.presentViewArea, areaMinX, areaMaxX, areaMinY, areaMaxY)
 
 		for i, area := range lar.distinctAreas {
-			bounds, err := lar.devices[i].Bounds()
+			bounds, err := lar.devices[i].Bounds(context.TODO())
 			if err != nil {
 				panic(err)
 			}
@@ -406,7 +407,7 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 
 	allMeasurements := make([]lidar.Measurements, len(devices))
 	for i, dev := range devices {
-		measurements, err := dev.Scan(lidar.ScanOptions{})
+		measurements, err := dev.Scan(context.TODO(), lidar.ScanOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("bad scan on device %d: %w", i, err)
 		}
@@ -536,7 +537,7 @@ func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*Sq
 		return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}, nil
 	}
 	dev := lar.devices[devNum : devNum+1]
-	bounds, err := dev[0].Bounds()
+	bounds, err := dev[0].Bounds(context.TODO())
 	if err != nil {
 		return nil, image.Point{}, nil, err
 	}

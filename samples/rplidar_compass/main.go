@@ -9,16 +9,19 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/lidar/search"
 	"github.com/viamrobotics/robotcore/sensor/compass"
 	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
+	"github.com/viamrobotics/rplidar"
 
 	"github.com/edaniels/golog"
+	rplidarws "github.com/viamrobotics/rplidar/ws"
 	"gonum.org/v1/gonum/stat"
 )
 
@@ -27,8 +30,8 @@ func main() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
-	var devicePath string
-	flag.StringVar(&devicePath, "device", "", "lidar device")
+	var address string
+	flag.StringVar(&address, "device", "", "lidar device")
 	flag.Parse()
 
 	deviceDescs, err := search.Devices()
@@ -41,13 +44,18 @@ func main() {
 			golog.Global.Debugf("%s (%s)", desc.Type, desc.Path)
 		}
 	}
-	if len(devicePath) != 0 {
+	if len(address) != 0 {
 		deviceDescs = nil
-		switch devicePath {
-		default:
-			deviceDescs = append(deviceDescs,
-				lidar.DeviceDescription{Type: rplidar.DeviceType, Path: devicePath})
+		addressParts := strings.Split(address, ":")
+		if len(addressParts) != 2 {
+			golog.Global.Error("invalid address")
 		}
+		port, err := strconv.ParseInt(addressParts[1], 10, 64)
+		if err != nil {
+			golog.Global.Error("invalid address")
+		}
+		deviceDescs = append(deviceDescs,
+			lidar.DeviceDescription{Type: rplidar.DeviceType, Host: addressParts[0], Port: int(port)})
 	}
 
 	if len(deviceDescs) == 0 {
@@ -55,27 +63,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	lidarDevices, err := lidar.CreateDevices(deviceDescs)
+	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
-	for i, lidarDev := range lidarDevices {
-		if rpl, ok := lidarDev.(*rplidar.RPLidar); ok {
+	for _, lidarDev := range lidarDevices {
+		if rpl, ok := lidarDev.(*rplidarws.Device); ok {
+			info, err := rpl.Info(context.Background())
+			if err != nil {
+				golog.Global.Fatal(err)
+			}
 			golog.Global.Infow("rplidar",
-				"dev_path", deviceDescs[i].Path,
-				"model", rpl.Model(),
-				"serial", rpl.SerialNumber(),
-				"firmware_ver", rpl.FirmwareVersion(),
-				"hardware_rev", rpl.HardwareRevision())
+				"model", info.Model,
+				"serial", info.SerialNumber,
+				"firmware_ver", info.FirmwareVersion,
+				"hardware_rev", info.HardwareRevision)
 		}
-		defer lidarDev.Stop()
+		defer lidarDev.Stop(context.Background())
 	}
 
 	bestResolution := math.MaxFloat64
 	bestResolutionDeviceNum := 0
 	for i, lidarDev := range lidarDevices {
-		if lidarDev.AngularResolution() < bestResolution {
-			bestResolution = lidarDev.AngularResolution()
+		angRes, err := lidarDev.AngularResolution(context.Background())
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		if angRes < bestResolution {
+			bestResolution = angRes
 			bestResolutionDeviceNum = i
 		}
 	}

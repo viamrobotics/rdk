@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/lidar/rplidar"
 	"github.com/viamrobotics/robotcore/robot"
 	"github.com/viamrobotics/robotcore/robot/web"
 	"github.com/viamrobotics/robotcore/robots/hellorobot"
 	"github.com/viamrobotics/robotcore/vision"
 
 	"github.com/edaniels/golog"
+	rplidarws "github.com/viamrobotics/rplidar/ws"
 )
 
 func main() {
@@ -26,27 +26,33 @@ func main() {
 		srcURL = flag.Arg(0)
 	}
 
-	lidarDevPath := "/dev/hello-lrf"
+	lidarDevAddr := "127.0.0.1:4444"
 	if flag.NArg() >= 2 {
-		lidarDevPath = flag.Arg(1)
+		lidarDevAddr = flag.Arg(1)
 	}
 
 	helloRobot := hellorobot.New()
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
-	lidarDev, err := rplidar.NewDevice(lidarDevPath)
+	lidarDev, err := rplidarws.NewDevice(context.Background(), lidarDevAddr)
 	if err != nil {
 		panic(err)
 	}
-	lidarDev.Start()
+	if err := lidarDev.Start(context.Background()); err != nil {
+		panic(err)
+	}
 
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(helloRobot.Base(), robot.Component{})
 	theRobot.AddCamera(vision.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
 	theRobot.AddLidar(lidarDev, robot.Component{})
 
-	defer theRobot.Close()
+	defer func() {
+		if err := theRobot.Close(context.Background()); err != nil {
+			panic(err)
+		}
+	}()
 
 	mux := http.NewServeMux()
 

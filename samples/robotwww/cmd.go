@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 
 	"github.com/viamrobotics/robotcore/robot"
@@ -21,7 +22,7 @@ func main() {
 		panic(err)
 	}
 
-	myRobot, err := robot.NewRobot(cfg)
+	myRobot, err := robot.NewRobot(context.Background(), cfg)
 	if err != nil {
 		panic(err)
 	}

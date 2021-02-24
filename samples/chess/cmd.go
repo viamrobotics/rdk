@@ -463,11 +463,15 @@ func main() {
 		panic(err)
 	}
 
-	myRobot, err := robot.NewRobot(cfg)
+	myRobot, err := robot.NewRobot(context.Background(), cfg)
 	if err != nil {
 		panic(err)
 	}
-	defer myRobot.Close()
+	defer func() {
+		if err := myRobot.Close(context.Background()); err != nil {
+			panic(err)
+		}
+	}()
 
 	if len(myRobot.Arms) == 0 {
 		panic("need an arm")

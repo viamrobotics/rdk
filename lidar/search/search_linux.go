@@ -11,14 +11,14 @@ func Devices() ([]lidar.DeviceDescription, error) {
 	usbDevices, err := usb.SearchDevices(
 		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
-			return checkProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
+			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
 		})
 	if err != nil {
 		return nil, err
 	}
 	lidarDeviceDecss := make([]lidar.DeviceDescription, 0, len(usbDevices))
 	for _, dev := range usbDevices {
-		devType := checkProductDeviceIDs(dev.VendorID, dev.ProductID)
+		lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
 		lidarDeviceDecss = append(lidarDeviceDecss, lidar.DeviceDescription{
 			Type: devType,
 			Path: dev.Path,

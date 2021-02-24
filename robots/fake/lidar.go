@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"fmt"
 	"hash/fnv"
 	"image"
@@ -15,7 +16,7 @@ const LidarDeviceType = "fake"
 
 func init() {
 	lidar.RegisterDeviceType(LidarDeviceType, lidar.DeviceTypeRegistration{
-		New: func(desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
 			seed, err := strconv.ParseInt(desc.Path, 10, 64)
 			if err != nil {
 				return nil, err
@@ -56,37 +57,42 @@ func (l *Lidar) SetSeed(seed int64) {
 	l.seed = seed
 }
 
-func (l *Lidar) Start() {
+func (l *Lidar) Start(ctx context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.started = true
-}
-
-func (l *Lidar) Stop() {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.started = false
-}
-
-func (l *Lidar) Close() error {
-	l.Stop()
 	return nil
 }
 
-func (l *Lidar) Range() int {
-	return 25
+func (l *Lidar) Stop(ctx context.Context) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.started = false
+	return nil
 }
 
-func (l *Lidar) AngularResolution() float64 {
-	return 1
+func (l *Lidar) Close(ctx context.Context) error {
+	return l.Stop(ctx)
 }
 
-func (l *Lidar) Bounds() (image.Point, error) {
-	x := l.Range() * 2
+func (l *Lidar) Range(ctx context.Context) (int, error) {
+	return 25, nil
+}
+
+func (l *Lidar) AngularResolution(ctx context.Context) (float64, error) {
+	return 1, nil
+}
+
+func (l *Lidar) Bounds(ctx context.Context) (image.Point, error) {
+	r, err := l.Range(ctx)
+	if err != nil {
+		return image.Point{}, err
+	}
+	x := r * 2
 	return image.Point{x, x}, nil
 }
 
-func (l *Lidar) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
+func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if !l.started {
@@ -106,9 +112,13 @@ func (l *Lidar) Scan(options lidar.ScanOptions) (lidar.Measurements, error) {
 		}
 		return f
 	}
+	rang, err := l.Range(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for i := 0; i < cap(measurements); i++ {
 		measurements = append(measurements, lidar.NewMeasurement(
-			getFloat64()*360, getFloat64()*float64(l.Range())))
+			getFloat64()*360, getFloat64()*float64(rang)))
 	}
 	return measurements, nil
 }

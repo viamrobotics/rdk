@@ -1,17 +1,21 @@
 package lidar
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/viamrobotics/robotcore/usb"
 )
 
 var registrations = map[DeviceType]DeviceTypeRegistration{}
 var registrationsMu sync.Mutex
 
 type DeviceTypeRegistration struct {
-	New func(desc DeviceDescription) (Device, error)
+	New     func(ctx context.Context, desc DeviceDescription) (Device, error)
+	USBInfo *usb.Identifier
 }
 
 func RegisterDeviceType(deviceType DeviceType, reg DeviceTypeRegistration) {
@@ -20,15 +24,15 @@ func RegisterDeviceType(deviceType DeviceType, reg DeviceTypeRegistration) {
 	registrationsMu.Unlock()
 }
 
-func CreateDevice(desc DeviceDescription) (Device, error) {
+func CreateDevice(ctx context.Context, desc DeviceDescription) (Device, error) {
 	reg, ok := registrations[desc.Type]
 	if !ok {
 		return nil, fmt.Errorf("do not know how to create a %q device", desc.Type)
 	}
-	return reg.New(desc)
+	return reg.New(ctx, desc)
 }
 
-func CreateDevices(deviceDescs []DeviceDescription) ([]Device, error) {
+func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription) ([]Device, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(deviceDescs))
 	devices := make([]Device, len(deviceDescs))
@@ -39,7 +43,7 @@ func CreateDevices(deviceDescs []DeviceDescription) ([]Device, error) {
 		go func() {
 			defer wg.Done()
 			i, devDesc := savedI, savedDesc
-			dev, err := CreateDevice(devDesc)
+			dev, err := CreateDevice(ctx, devDesc)
 			if err != nil {
 				errs[i] = err
 				atomic.AddInt32(&numErrs, 1)
@@ -54,7 +58,9 @@ func CreateDevices(deviceDescs []DeviceDescription) ([]Device, error) {
 		var allErrs []interface{}
 		for i, err := range errs {
 			if err == nil {
-				devices[i].Close()
+				if err := devices[i].Close(ctx); err != nil {
+					allErrs = append(allErrs, err)
+				}
 				continue
 			}
 			allErrs = append(allErrs, err)
@@ -63,8 +69,23 @@ func CreateDevices(deviceDescs []DeviceDescription) ([]Device, error) {
 	}
 
 	for _, dev := range devices {
-		dev.Start()
+		if err := dev.Start(ctx); err != nil {
+			return nil, fmt.Errorf("error starting: %w", err)
+		}
 	}
 
 	return devices, nil
+}
+
+func CheckProductDeviceIDs(vendorID, productID int) DeviceType {
+	registrationsMu.Lock()
+	defer registrationsMu.Unlock()
+
+	for t, reg := range registrations {
+		if reg.USBInfo != nil &&
+			reg.USBInfo.Vendor == vendorID && reg.USBInfo.Product == productID {
+			return t
+		}
+	}
+	return DeviceTypeUnknown
 }

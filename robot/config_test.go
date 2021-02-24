@@ -27,7 +27,7 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := NewRobot(cfg)
+	r, err := NewRobot(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,9 +63,11 @@ func TestConfigFake(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := NewRobot(cfg)
+	r, err := NewRobot(context.Background(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	r.Close()
+	if err := r.Close(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 }

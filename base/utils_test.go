@@ -1,6 +1,7 @@
 package base
 
 import (
+	"context"
 	"errors"
 	"math"
 	"testing"
@@ -132,18 +133,18 @@ func TestDoMove(t *testing.T) {
 
 type injectCompass struct {
 	compass.Device
-	ReadingsFunc         func() ([]interface{}, error)
+	ReadingsFunc         func(ctx context.Context) ([]interface{}, error)
 	HeadingFunc          func() (float64, error)
 	StartCalibrationFunc func() error
 	StopCalibrationFunc  func() error
-	CloseFunc            func() error
+	CloseFunc            func(ctx context.Context) error
 }
 
-func (ic *injectCompass) Readings() ([]interface{}, error) {
+func (ic *injectCompass) Readings(ctx context.Context) ([]interface{}, error) {
 	if ic.ReadingsFunc == nil {
-		return ic.Device.Readings()
+		return ic.Device.Readings(ctx)
 	}
-	return ic.ReadingsFunc()
+	return ic.ReadingsFunc(ctx)
 }
 
 func (ic *injectCompass) Heading() (float64, error) {
@@ -167,11 +168,11 @@ func (ic *injectCompass) StopCalibration() error {
 	return ic.StopCalibrationFunc()
 }
 
-func (ic *injectCompass) Close() error {
+func (ic *injectCompass) Close(ctx context.Context) error {
 	if ic.CloseFunc == nil {
-		return ic.Device.Close()
+		return ic.Device.Close(ctx)
 	}
-	return ic.CloseFunc()
+	return ic.CloseFunc(ctx)
 }
 
 func TestAugmentReduce(t *testing.T) {
