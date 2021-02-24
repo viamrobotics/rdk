@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/edaniels/golog"
+
+	"github.com/viamrobotics/robotcore/board"
 )
 
 type ComponentType string
@@ -31,6 +33,7 @@ type Component struct {
 }
 
 type Config struct {
+	Boards     []board.Config
 	Components []Component
 	Logger     golog.Logger
 }

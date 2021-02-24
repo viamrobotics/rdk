@@ -1,4 +1,27 @@
 {
+    "boards" : [
+        { "name" : "local",
+          "model" : "pi",
+          "motors" : [
+              { "name" : "g",
+                "pins" : {
+                    "a" : "40",
+                    "b" : "38",
+                    "pwm" : "11"
+                }
+              }
+          ],
+          "analogs" : [
+              { "name" : "potentiometer",
+                "pin" : "0"
+              },
+              { "name" : "pressure",
+                "pin" : "7"
+              }
+          ]
+              
+        }
+    ],
     "components" : [
         { "name" : "vg1",
 		  "type": "gripper",
