@@ -423,30 +423,28 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 func installBoard(mux *http.ServeMux, b board.Board) {
 	cfg := b.GetConfig()
 
-	makePath := func(t, n string) string {
-		return fmt.Sprintf("/api/board/%s/%s/%s", cfg.Name, t, n)
-	}
+	mux.Handle("/api/board/"+cfg.Name+"/motor", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+		name := req.FormValue("name")
+		theMotor := b.Motor(name)
+		if theMotor == nil {
+			return nil, fmt.Errorf("unknown motor: %s", req.FormValue("name"))
+		}
 
-	for _, m := range cfg.Motors {
-		mux.Handle(makePath("motor", m.Name), &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-			theMotor := b.Motor(m.Name)
-			if theMotor == nil {
-				return nil, fmt.Errorf("this should be impossible, no motor")
-			}
+		speed, err := strconv.ParseInt(req.FormValue("s"), 10, 64)
+		if err != nil {
+			return nil, err
+		}
 
-			speed, err := strconv.ParseInt(req.FormValue("s"), 10, 64)
+		r := 0.0
+		if req.FormValue("r") != "" {
+			r, err = strconv.ParseFloat(req.FormValue("r"), 64)
 			if err != nil {
 				return nil, err
 			}
+		}
 
-			err = theMotor.Speed(byte(speed))
-			if err != nil {
-				return nil, err
-			}
-
-			return map[string]interface{}{}, theMotor.Direction(req.FormValue("d"))
-		}})
-	}
+		return map[string]interface{}{}, theMotor.GoFor(req.FormValue("d"), byte(speed), r, false)
+	}})
 
 	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {
 		analogs := map[string]int{}
