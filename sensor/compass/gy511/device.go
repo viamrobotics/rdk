@@ -2,6 +2,7 @@ package gy511
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"math"
 	"strconv"
@@ -101,7 +102,7 @@ func (d *Device) StopCalibration() error {
 	return err
 }
 
-func (d *Device) Readings() ([]interface{}, error) {
+func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
 	heading, err := d.Heading()
 	if err != nil {
 		return nil, err
@@ -118,7 +119,7 @@ func (d *Device) Heading() (float64, error) {
 	return d.heading.Load().(float64), nil
 }
 
-func (d *Device) Close() error {
+func (d *Device) Close(ctx context.Context) error {
 	close(d.closeCh)
 	return d.rwc.Close()
 }

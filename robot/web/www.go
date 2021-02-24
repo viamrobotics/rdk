@@ -565,7 +565,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 helper if you don't need to customize at all
 */
 func RunWeb(theRobot *robot.Robot) error {
-	defer theRobot.Close()
+	defer theRobot.Close(context.TODO())
 	mux := http.NewServeMux()
 
 	webCloser, err := InstallWeb(mux, theRobot)
