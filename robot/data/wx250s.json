@@ -1,9 +1,15 @@
 {
     "components": [
         {
-            "model": "fake",
+            "model": "wx250s",
             "name": "pieceGripper",
-            "type": "gripper"
+            "type": "gripper",
+            "attributes" : {
+              "usbPort"       : "/dev/ttyUSB0",
+              "baudRate"      : "1000000",
+              "modelJSON"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.json",
+              "armServoCount" : "8"
+           }
         },
         {
             "model": "wx250s",
@@ -15,6 +21,14 @@
               "modelJSON"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.json",
               "armServoCount" : "8"
            }
-        }
+        },
+      {
+      "model": "webcam",
+      "name": "cameraOver",
+      "type": "camera",
+      "attributes" : {
+          "path": "/dev/video0"
+      }
+    }
     ]
 }
