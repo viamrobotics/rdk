@@ -134,9 +134,9 @@ func TestDoMove(t *testing.T) {
 type injectCompass struct {
 	compass.Device
 	ReadingsFunc         func(ctx context.Context) ([]interface{}, error)
-	HeadingFunc          func() (float64, error)
-	StartCalibrationFunc func() error
-	StopCalibrationFunc  func() error
+	HeadingFunc          func(ctx context.Context) (float64, error)
+	StartCalibrationFunc func(ctx context.Context) error
+	StopCalibrationFunc  func(ctx context.Context) error
 	CloseFunc            func(ctx context.Context) error
 }
 
@@ -147,25 +147,25 @@ func (ic *injectCompass) Readings(ctx context.Context) ([]interface{}, error) {
 	return ic.ReadingsFunc(ctx)
 }
 
-func (ic *injectCompass) Heading() (float64, error) {
+func (ic *injectCompass) Heading(ctx context.Context) (float64, error) {
 	if ic.HeadingFunc == nil {
-		return ic.Device.Heading()
+		return ic.Device.Heading(ctx)
 	}
-	return ic.HeadingFunc()
+	return ic.HeadingFunc(ctx)
 }
 
-func (ic *injectCompass) StartCalibration() error {
+func (ic *injectCompass) StartCalibration(ctx context.Context) error {
 	if ic.StartCalibrationFunc == nil {
-		return ic.Device.StartCalibration()
+		return ic.Device.StartCalibration(ctx)
 	}
-	return ic.StartCalibrationFunc()
+	return ic.StartCalibrationFunc(ctx)
 }
 
-func (ic *injectCompass) StopCalibration() error {
+func (ic *injectCompass) StopCalibration(ctx context.Context) error {
 	if ic.StopCalibrationFunc == nil {
-		return ic.Device.StopCalibration()
+		return ic.Device.StopCalibration(ctx)
 	}
-	return ic.StopCalibrationFunc()
+	return ic.StopCalibrationFunc(ctx)
 }
 
 func (ic *injectCompass) Close(ctx context.Context) error {
@@ -199,7 +199,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			i++
 			return nil
 		}
-		comp.HeadingFunc = func() (float64, error) {
+		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
 				return 0, nil
 			}
@@ -216,7 +216,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			i++
 			return nil
 		}
-		comp.HeadingFunc = func() (float64, error) {
+		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
 				return 0, nil
 			}
@@ -233,7 +233,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			i++
 			return nil
 		}
-		comp.HeadingFunc = func() (float64, error) {
+		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
 				return 0, nil
 			}
@@ -249,7 +249,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			return nil
 		}
 		err1 := errors.New("oh no")
-		comp.HeadingFunc = func() (float64, error) {
+		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, err1
 		}
 		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
@@ -262,7 +262,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		dev.SpinFunc = func(angleDeg float64, speed int, block bool) error {
 			return err1
 		}
-		comp.HeadingFunc = func() (float64, error) {
+		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)

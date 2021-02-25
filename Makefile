@@ -9,11 +9,7 @@ setup:
 	bash etc/setup.sh
 
 build:
-	cd sensor/compass/mti && $(MAKE)
 	go build -v ./...
-
-clean:
-	cd sensor/compass/mti && $(MAKE) clean
 
 lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v

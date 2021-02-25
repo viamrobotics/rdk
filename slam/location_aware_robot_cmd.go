@@ -60,7 +60,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		defer lar.serverMu.Unlock()
 		if lar.compassSensor != nil {
 			golog.Global.Info("calibrating compass")
-			if err := lar.compassSensor.StartCalibration(); err != nil {
+			if err := lar.compassSensor.StartCalibration(context.TODO()); err != nil {
 				return nil, err
 			}
 		}
@@ -71,7 +71,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 			}
 		}
 		if lar.compassSensor != nil {
-			if err := lar.compassSensor.StopCalibration(); err != nil {
+			if err := lar.compassSensor.StopCalibration(context.TODO()); err != nil {
 				return nil, err
 			}
 		}

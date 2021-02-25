@@ -26,13 +26,13 @@ type Device struct {
 
 const headingWindow = 100
 
-func New(path string) (compass.Device, error) {
+func New(ctx context.Context, path string) (compass.Device, error) {
 	rwc, err := serial.OpenDevice(path)
 	if err != nil {
 		return nil, err
 	}
 	d := &Device{rwc: rwc}
-	if err := d.StopCalibration(); err != nil {
+	if err := d.StopCalibration(ctx); err != nil {
 		if err := rwc.Close(); err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ func New(path string) (compass.Device, error) {
 	return d, nil
 }
 
-func (d *Device) StartCalibration() error {
+func (d *Device) StartCalibration(ctx context.Context) error {
 	d.mu.Lock()
 	d.calibrating = true
 	d.mu.Unlock()
@@ -94,7 +94,7 @@ func (d *Device) StartCalibration() error {
 	return err
 }
 
-func (d *Device) StopCalibration() error {
+func (d *Device) StopCalibration(ctx context.Context) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.calibrating = false
@@ -103,14 +103,14 @@ func (d *Device) StopCalibration() error {
 }
 
 func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := d.Heading()
+	heading, err := d.Heading(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return []interface{}{heading}, nil
 }
 
-func (d *Device) Heading() (float64, error) {
+func (d *Device) Heading(ctx context.Context) (float64, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.calibrating {
