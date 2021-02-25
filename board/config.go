@@ -7,6 +7,11 @@ type MotorConfig struct {
 	TicksPerRotation int
 }
 
+type ServoConfig struct {
+	Name string
+	Pin  string
+}
+
 type AnalogConfig struct {
 	Name string
 	Pin  string
@@ -22,6 +27,7 @@ type Config struct {
 	Name              string
 	Model             string // example: "pi"
 	Motors            []MotorConfig
+	Servos            []ServoConfig
 	Analogs           []AnalogConfig
 	DigitalInterrupts []DigitalInterruptConfig
 }

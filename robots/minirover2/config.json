@@ -39,8 +39,6 @@
                 "encoder" : "br-e",
                 "ticksPerRotation" : 250
               }
-
-
           ],
           "digitalInterrupts" : [
               { "name" : "fl-e",
@@ -59,8 +57,12 @@
                 "pin" : "16",
                 "mode" : "falling"
               }
-
-
+          ],
+          "servos" : [
+              { "name" : "pan",
+                "pin" : "19" },
+              { "name" : "tilt",
+                "pin" : "21" }
           ]
         }
     ],
@@ -73,7 +75,14 @@
         { "name" : "rover",
           "type" : "base",
           "model" : "minirover2"
+        },
+        { "name" : "front",
+          "type" : "camera",
+          "model" : "webcam",
+          "attributes" : {
+          }
         }
+
     ],
     "components2" :[
         { "name" : "cam1",

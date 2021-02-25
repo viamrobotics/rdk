@@ -28,6 +28,7 @@ type Rover struct {
 	theBoard board.Board
 
 	fl, fr, bl, br board.Motor
+	pan, tilt      board.Servo
 }
 
 func (r *Rover) Close() {
@@ -135,19 +136,18 @@ func (r *Rover) Stop() error {
 	)
 }
 
-/*
 func (r *Rover) neckCenter() error {
 	return r.neckPosition(PanCenter, TiltCenter)
 }
 
 func (r *Rover) neckOffset(left int) error {
-	return r.neckPosition(PanCenter+(left*-30), TiltCenter-20)
+	return r.neckPosition(uint8(PanCenter+(left*-30)), uint8(TiltCenter-20))
 }
 
-func (r *Rover) neckPosition(pan, tilt int) error {
-	return r.sendCommand(fmt.Sprintf("p%d\rt%d\r", pan, tilt))
+func (r *Rover) neckPosition(pan, tilt uint8) error {
+	golog.Global.Debugf("neckPosition to %v %v", pan, tilt)
+	return multierr.Combine(r.pan.Move(pan), r.tilt.Move(tilt))
 }
-*/
 
 func NewRover(theBoard board.Board) (base.Device, error) {
 	rover := &Rover{theBoard: theBoard}
@@ -160,39 +160,40 @@ func NewRover(theBoard board.Board) (base.Device, error) {
 		return nil, fmt.Errorf("missing a motor for minirover2")
 	}
 
-	/*
-		if false {
-			go func() {
-				for {
-					time.Sleep(1500 * time.Millisecond)
-					err := rover.neckCenter()
-					if err != nil {
-						panic(err)
-					}
+	rover.pan = theBoard.Servo("pan")
+	rover.tilt = theBoard.Servo("tilt")
 
-					time.Sleep(1500 * time.Millisecond)
-
-					err = rover.neckOffset(-1)
-					if err != nil {
-						panic(err)
-					}
-
-					time.Sleep(1500 * time.Millisecond)
-
-					err = rover.neckOffset(1)
-					if err != nil {
-						panic(err)
-					}
-
+	if false {
+		go func() {
+			for {
+				time.Sleep(1500 * time.Millisecond)
+				err := rover.neckCenter()
+				if err != nil {
+					panic(err)
 				}
-			}()
-		} else {
-			err = rover.neckCenter()
-			if err != nil {
-				return nil, err
+
+				time.Sleep(1500 * time.Millisecond)
+
+				err = rover.neckOffset(-1)
+				if err != nil {
+					panic(err)
+				}
+
+				time.Sleep(1500 * time.Millisecond)
+
+				err = rover.neckOffset(1)
+				if err != nil {
+					panic(err)
+				}
+
 			}
+		}()
+	} else {
+		err := rover.neckCenter()
+		if err != nil {
+			return nil, err
 		}
-	*/
+	}
 
 	golog.Global.Debug("rover ready")
 
