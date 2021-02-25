@@ -126,6 +126,8 @@ func (j *Joint) GetDofPosition() int {
 	return len(j.position)
 }
 
+
+// Returns the joint's position in radians
 func (j *Joint) GetPosition() []float64 {
 	return j.position
 }

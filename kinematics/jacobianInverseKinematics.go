@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	//~ "fmt"
+	"fmt"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 )
@@ -38,7 +38,11 @@ func (ik *JacobianIK) GetGoals() []Goal {
 }
 
 func (ik *JacobianIK) Solve() bool {
+	// q is the position over which we will iterate
 	q := ik.Mdl.GetPosition()
+	
+	// qNorm will be the normalized version of q, used to actually calculate kinematics etc
+	qNorm := ik.Mdl.GetPosition()
 	iteration := 0
 
 	// Variables used to mutate the original position to help avoid getting stuck
@@ -47,6 +51,7 @@ func (ik *JacobianIK) Solve() bool {
 	jointMut := 0
 	// How much to mutate it by
 	jointAmt := 0.05
+	var dxDelta []float64
 
 	for iteration < ik.iterations {
 		for iteration < ik.iterations {
@@ -56,20 +61,23 @@ func (ik *JacobianIK) Solve() bool {
 
 			// Update dx with the delta to the desired position
 			for _, goal := range ik.GetGoals() {
-				dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+				dxDelta = ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
 				dxIdx := goal.EffectorID * 6
-				for i, delta := range dxDelta {
+				for i, delta := range(dxDelta){
 					dx[dxIdx+i] = delta
 				}
 			}
 
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
+				
 
-				ik.Mdl.SetPosition(q)
-				q = ik.Mdl.Normalize(q)
+				
+				ik.Mdl.SetPosition(qNorm)
 
-				if ik.Mdl.IsValid(q) {
+				if ik.Mdl.IsValid(qNorm) {
+					goal := ik.GetGoals()[0]
+					
 					return true
 				}
 			}
@@ -81,15 +89,18 @@ func (ik *JacobianIK) Solve() bool {
 			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
 			newPos := ik.Mdl.Step(q, dq)
-
-			ik.Mdl.SetPosition(newPos)
 			q = newPos
+			qNorm = ik.Mdl.Normalize(q)
+			
+			ik.Mdl.SetPosition(qNorm)
+
 
 			if iteration%150 == 0 {
 				break
 			}
 		}
 		if jointMut < len(origJointPos) {
+			//~ fmt.Println("mutating!")
 			var mutJointPos []float64
 			mutJointPos = append(mutJointPos, origJointPos...)
 			mutJointPos[jointMut] += jointAmt
@@ -101,6 +112,7 @@ func (ik *JacobianIK) Solve() bool {
 				jointMut++
 			}
 		} else {
+			//~ fmt.Println("setting random!")
 			ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 		}
 	}
