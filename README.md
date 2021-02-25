@@ -30,8 +30,6 @@ Also run `git config --global url.ssh://git@github.com/.insteadOf https://github
 * go1.15.*
 * libvpx
 * python2.7-dev
-* swig
-* yasm
 
 ### Setup
 
@@ -67,7 +65,8 @@ make lint
 
 1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
 2. Install `act` with `brew install act`
-3. Then just run `act`
+4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration) 
+5. Then just run `act`
 
 ## Some Rules
 1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real directory.
