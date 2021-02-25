@@ -42,7 +42,7 @@ func (ik *JacobianIK) Solve() bool {
 	q := ik.Mdl.GetPosition()
 
 	// qNorm will be the normalized version of q, used to actually calculate kinematics etc
-	//~ qNorm := ik.Mdl.GetPosition()
+	qNorm := ik.Mdl.GetPosition()
 	iteration := 0
 
 	// Variables used to mutate the original position to help avoid getting stuck
@@ -71,9 +71,9 @@ func (ik *JacobianIK) Solve() bool {
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
 
-				ik.Mdl.SetPosition(q)
+				ik.Mdl.SetPosition(qNorm)
 
-				if ik.Mdl.IsValid(q) {
+				if ik.Mdl.IsValid(qNorm) {
 					return true
 				}
 			}
@@ -84,9 +84,10 @@ func (ik *JacobianIK) Solve() bool {
 
 			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
-			newPos := ik.Mdl.Step(q, dq)
-			q = newPos
-			//~ qNorm = ik.Mdl.Normalize(q)
+			q = ik.Mdl.Step(q, dq)
+			qNorm = ik.Mdl.Normalize(q)
+			
+			ik.Mdl.SetPosition(qNorm)
 
 			ik.Mdl.SetPosition(q)
 

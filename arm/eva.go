@@ -299,6 +299,10 @@ func (e *eva) DataSnapshot() (evaData, error) {
 	return res.Snapshot, err
 }
 
+func (e *eva) GetKinematics() *Kinematics {
+	return e.kin
+}
+
 func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	body := map[string]interface{}{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
 	err := e.apiRequest("POST", "controls/go_to", &body, true, nil)

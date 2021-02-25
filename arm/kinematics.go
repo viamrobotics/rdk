@@ -9,7 +9,7 @@ import (
 )
 
 type Kinematics struct {
-	model      *kinematics.Model
+	Model      *kinematics.Model
 	ik         kinematics.InverseKinematics
 	effectorID int
 }
@@ -28,9 +28,9 @@ func NewRobot(jsonFile string) (*Kinematics, error) {
 
 // Returns the end effector's current Position
 func (k *Kinematics) GetForwardPosition() Position {
-	k.model.ForwardPosition()
+	k.Model.ForwardPosition()
 
-	pos6d := k.model.Get6dPosition(k.effectorID)
+	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	pos := Position{}
 	pos.X = pos6d[0]
@@ -53,7 +53,7 @@ func (k *Kinematics) SetForwardPosition(pos Position) error {
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
-	k.model.ForwardPosition()
+	k.Model.ForwardPosition()
 	k.ik.ClearGoals()
 	if couldSolve {
 		return nil
@@ -63,17 +63,17 @@ func (k *Kinematics) SetForwardPosition(pos Position) error {
 
 // Returns the arm's current joint angles in degrees
 func (k *Kinematics) GetJointPositions() []float64 {
-	angles := k.model.GetPosition()
+	angles := k.Model.GetPosition()
 	for i, angle := range angles {
 		angles[i] = angle * 180 / math.Pi
 	}
 	return angles
 }
 
-// Sets new joint angles. Takes degrees, passes radians to model
+// Sets new joint angles. Takes degrees, passes radians to Model
 func (k *Kinematics) SetJointPositions(angles []float64) {
 	for i, angle := range angles {
 		angles[i] = angle * math.Pi / 180
 	}
-	k.model.SetPosition(angles)
+	k.Model.SetPosition(angles)
 }
