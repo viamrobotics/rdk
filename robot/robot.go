@@ -253,7 +253,10 @@ func (r *Robot) newProvider(config Component) (interface{}, error) {
 	case hellorobot.ModelName:
 		return hellorobot.New(), nil
 	case minirover2.ModelName:
-		rover, err := minirover2.NewRover(config.Attributes["file_path"])
+		if len(r.Boards) != 1 {
+			return nil, fmt.Errorf("minirover2 needs exactly 1 baord right now")
+		}
+		rover, err := minirover2.NewRover(r.Boards[0])
 		if err != nil {
 			return nil, err
 		}

@@ -1,16 +1,12 @@
 package minirover2
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"math"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/serial"
+	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -21,19 +17,23 @@ const ModelName = "minirover2"
 const (
 	PanCenter  = 83
 	TiltCenter = 100
+
+	WheelCircumferenceMM = math.Pi * 150
 )
 
 // ------
 
 type Rover struct {
-	port       io.ReadWriteCloser
-	sendLock   sync.Mutex
-	lastStatus string
+	theBoard board.Board
+
+	fl, fr, bl, br board.Motor
 }
 
 func (r *Rover) Close() {
-	r.Stop() // nolint
-	r.port.Close()
+	err := r.Stop()
+	if err != nil {
+		golog.Global.Warnf("error stopping minirover2 in Close: %s", err)
+	}
 }
 
 func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
@@ -45,21 +45,56 @@ func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
 		return fmt.Errorf("if distanceMM is set, speed has to be positive")
 	}
 
-	d := "f"
+	d := "forward"
 	if distanceMM < 0 || speed < 0 {
-		d = "b"
+		d = "backward"
 		distanceMM = utils.AbsInt(distanceMM)
 		speed = utils.AbsInt(speed)
 	}
 
-	power := speed // TODO(erh): convert speed to power at some point
-
 	var err error
-	ticks := int(float64(distanceMM) * .35)
-	err = r.moveTicks(d, d, d, d, power, power, power, power, ticks, ticks, ticks, ticks)
+	rotations := float64(distanceMM) / WheelCircumferenceMM
+
+	err = utils.CombineErrors(
+		r.fl.GoFor(d, byte(speed), rotations, false),
+		r.fr.GoFor(d, byte(speed), rotations, false),
+		r.bl.GoFor(d, byte(speed), rotations, false),
+		r.br.GoFor(d, byte(speed), rotations, false),
+	)
 
 	if err != nil {
-		return err
+		return utils.CombineErrors(err, r.Stop())
+	}
+
+	if !block {
+		return nil
+	}
+
+	return r.waitForMotorsToStop()
+}
+
+func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
+
+	if speed < 120 {
+		speed = 120
+	}
+
+	a, b := "forward", "backward"
+	if angleDeg < 0 {
+		a, b = "backward", "forward"
+	}
+
+	rotations := math.Abs(float64(angleDeg) / 5.0)
+
+	err := utils.CombineErrors(
+		r.fl.GoFor(a, byte(speed), rotations, false),
+		r.fr.GoFor(b, byte(speed), rotations, false),
+		r.bl.GoFor(a, byte(speed), rotations, false),
+		r.br.GoFor(b, byte(speed), rotations, false),
+	)
+
+	if err != nil {
+		return utils.CombineErrors(err, r.Stop())
 	}
 
 	if !block {
@@ -70,86 +105,32 @@ func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
 }
 
 func (r *Rover) waitForMotorsToStop() error {
-	time.Sleep(10 * time.Millisecond)
-	r.lastStatus = ""
-	time.Sleep(10 * time.Millisecond)
-
 	for {
 		time.Sleep(10 * time.Millisecond)
-		err := r.sendCommand("?\r")
-		if err != nil {
-			return err
-		}
-		time.Sleep(10 * time.Millisecond)
 
-		if len(r.lastStatus) == 0 {
+		if r.fl.IsOn() ||
+			r.fr.IsOn() ||
+			r.bl.IsOn() ||
+			r.br.IsOn() {
 			continue
 		}
 
-		if r.lastStatus == "#0000" {
-			break
-		}
+		break
 	}
 
 	return nil
 }
 
-func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
-
-	if speed < 120 {
-		speed = 120
-	}
-
-	a, b := "f", "b"
-	if angleDeg < 0 {
-		a, b = "b", "f"
-	}
-
-	ticks := int(math.Abs(angleDeg * 5))
-
-	err := r.moveTicks(
-		a, b, a, b,
-		speed, speed, speed, speed,
-		ticks, ticks, ticks, ticks)
-
-	if err != nil {
-		return err
-	}
-
-	if !block {
-		return nil
-	}
-
-	return r.waitForMotorsToStop()
-}
-
 func (r *Rover) Stop() error {
-	s := fmt.Sprintf("0s\r" +
-		"1s\r" +
-		"2s\r" +
-		"3s\r")
-	return r.sendCommand(s)
+	return utils.CombineErrors(
+		r.fl.Off(),
+		r.fr.Off(),
+		r.bl.Off(),
+		r.br.Off(),
+	)
 }
 
-func (r *Rover) moveTicks(a1, a2, a3, a4 string, p1, p2, p3, p4 int, t1, t2, t3, t4 int) error {
-	s := fmt.Sprintf("0%s%d,%d\r"+
-		"1%s%d,%d\r"+
-		"2%s%d,%d\r"+
-		"3%s%d,%d\r", a1, p1, t1, a2, p2, t2, a3, p3, t3, a4, p4, t4)
-	return r.sendCommand(s)
-}
-
-func (r *Rover) sendCommand(cmd string) error {
-	if len(cmd) > 2 {
-		golog.Global.Debug("rover cmd[%s]", strings.ReplaceAll(cmd, "\r", ""))
-	}
-
-	r.sendLock.Lock()
-	defer r.sendLock.Unlock()
-	_, err := r.port.Write([]byte(cmd))
-	return err
-}
-
+/*
 func (r *Rover) neckCenter() error {
 	return r.neckPosition(PanCenter, TiltCenter)
 }
@@ -161,75 +142,52 @@ func (r *Rover) neckOffset(left int) error {
 func (r *Rover) neckPosition(pan, tilt int) error {
 	return r.sendCommand(fmt.Sprintf("p%d\rt%d\r", pan, tilt))
 }
+*/
 
-func (r *Rover) processLine(line string) {
-	line = strings.TrimSpace(line)
-	if len(line) == 0 {
-		return
+func NewRover(theBoard board.Board) (base.Device, error) {
+	rover := &Rover{theBoard: theBoard}
+	rover.fl = theBoard.Motor("fl-m")
+	rover.fr = theBoard.Motor("fr-m")
+	rover.bl = theBoard.Motor("bl-m")
+	rover.br = theBoard.Motor("br-m")
+
+	if rover.fl == nil || rover.fr == nil || rover.bl == nil || rover.br == nil {
+		return nil, fmt.Errorf("missing a motor for minirover2")
 	}
 
-	if line[0] != '#' {
-		golog.Global.Debug("debug line from rover: %s", line)
-		return
-	}
+	/*
+		if false {
+			go func() {
+				for {
+					time.Sleep(1500 * time.Millisecond)
+					err := rover.neckCenter()
+					if err != nil {
+						panic(err)
+					}
 
-	r.lastStatus = line
-}
+					time.Sleep(1500 * time.Millisecond)
 
-func NewRover(devicePath string) (base.Device, error) {
-	port, err := serial.OpenDevice(devicePath)
-	if err != nil {
-		return nil, fmt.Errorf("can't connect to arduino for rover: %v", err)
-	}
+					err = rover.neckOffset(-1)
+					if err != nil {
+						panic(err)
+					}
 
-	time.Sleep(1000 * time.Millisecond) // wait for startup?
+					time.Sleep(1500 * time.Millisecond)
 
-	rover := &Rover{}
-	rover.port = port
+					err = rover.neckOffset(1)
+					if err != nil {
+						panic(err)
+					}
 
-	go func() {
-		in := bufio.NewReader(port)
-		for {
-			line, err := in.ReadString('\n')
+				}
+			}()
+		} else {
+			err = rover.neckCenter()
 			if err != nil {
-				panic(err)
-			} else {
-				rover.processLine(line)
+				return nil, err
 			}
 		}
-	}()
-
-	if false {
-		go func() {
-			for {
-				time.Sleep(1500 * time.Millisecond)
-				err := rover.neckCenter()
-				if err != nil {
-					panic(err)
-				}
-
-				time.Sleep(1500 * time.Millisecond)
-
-				err = rover.neckOffset(-1)
-				if err != nil {
-					panic(err)
-				}
-
-				time.Sleep(1500 * time.Millisecond)
-
-				err = rover.neckOffset(1)
-				if err != nil {
-					panic(err)
-				}
-
-			}
-		}()
-	} else {
-		err = rover.neckCenter()
-		if err != nil {
-			return nil, err
-		}
-	}
+	*/
 
 	golog.Global.Debug("rover ready")
 

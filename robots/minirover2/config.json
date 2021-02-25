@@ -64,14 +64,18 @@
           ]
         }
     ],
-    "components2" : [
-        { 
-          "type": "provider",
+    "components" : [
+        { "type": "provider",
           "model": "minirover2",
           "attributes": {
-            "file_path": "/dev/ttyTHS0"
           }
         },
+        { "name" : "rover",
+          "type" : "base",
+          "model" : "minirover2"
+        }
+    ],
+    "components2" :[
         { "name" : "cam1",
           "type" : "camera",
           "model" : "intel",
