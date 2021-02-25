@@ -16,7 +16,7 @@ import (
 
 type Wx250s struct {
 	Joints   map[string][]*servo.Servo
-	moveLock sync.Mutex
+	moveLock *sync.Mutex
 	kin      *Kinematics
 }
 
@@ -42,11 +42,15 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewWx250s(attributes map[string]string) (*Wx250s, error) {
+func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error) {
 	servos := findServos(attributes["usbPort"], attributes["baudRate"], attributes["armServoCount"])
 	kin, err := NewRobot(attributes["modelJSON"])
 	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
+	}
+
+	if mutex == nil {
+		mutex = &sync.Mutex{}
 	}
 
 	newArm := Wx250s{
@@ -59,8 +63,9 @@ func NewWx250s(attributes map[string]string) (*Wx250s, error) {
 			"Wrist":       {servos[6]},
 			"Wrist_rot":   {servos[7]},
 		},
+		moveLock: mutex,
 	}
-	err = newArm.SetVelocity(2000)
+	err = newArm.SetVelocity(1500)
 	if err != nil {
 		golog.Global.Errorf("Could not set arm velocity: %s", err)
 	}
@@ -341,6 +346,10 @@ func (a *Wx250s) SleepPosition() error {
 	a.JointTo("Elbow", 3090, sleepWait)
 	a.moveLock.Unlock()
 	return a.WaitForMovement()
+}
+
+func (a *Wx250s) GetMoveLock() *sync.Mutex {
+	return a.moveLock
 }
 
 //Go to the home position

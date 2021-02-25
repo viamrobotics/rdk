@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/viamrobotics/robotcore/arm"
@@ -292,7 +293,14 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 	case "eva":
 		return arm.NewEva(config.Host, config.Attributes)
 	case "wx250s":
-		return arm.NewWx250s(config.Attributes)
+		mutex := &sync.Mutex{}
+		for _, grip := range r.Grippers {
+			switch sGrip := grip.(type) {
+			case *gripper.Wx250s:
+				mutex = sGrip.GetMoveLock()
+			}
+		}
+		return arm.NewWx250s(config.Attributes, mutex)
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
@@ -311,6 +319,15 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 	switch config.Model {
 	case "robotiq":
 		return gripper.NewRobotiqGripper(config.Host, logger)
+	case "wx250s":
+		mutex := &sync.Mutex{}
+		for _, thisArm := range r.Arms {
+			switch sArm := thisArm.(type) {
+			case *arm.Wx250s:
+				mutex = sArm.GetMoveLock()
+			}
+		}
+		return gripper.NewWx250s(config.Attributes, mutex)
 	case "serial":
 
 		devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
