@@ -862,7 +862,6 @@ github.com/valyala/tcplisten v0.0.0-20161114210144-ceec8f93295a/go.mod h1:v3UYOV
 github.com/veandco/go-sdl2 v0.3.3/go.mod h1:FB+kTpX9YTE+urhYiClnRzpOXbiWgaU3+5F2AB78DPg=
 github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997 h1:p4DWV9qAfFKMB0jzxdB2PqBBmtkDBDblZ7/sr9/jHro=
 github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997/go.mod h1:cnviaku/Hs1rKlwToSzGmxx86kRl9z8rQGiOxNJhaT8=
-github.com/viamrobotics/mti v0.0.0-20210225175246-7a083665e7fe h1:KIQpsQ7cP9k0MawkvVzvYfcK3zUC2FjZehshdU4gMiI=
 github.com/viamrobotics/mti v0.0.0-20210225175246-7a083665e7fe/go.mod h1:lephp8ttJrOsrSae/uQkUcuje0KKcWVt0M4zP4LGFgM=
 github.com/viamrobotics/mti v0.0.0-20210225180044-8dcdde09087b h1:0Y6zeR2Ww961t/71by7bQuualZ66rUO9BKJquFuHqh4=
 github.com/viamrobotics/mti v0.0.0-20210225180044-8dcdde09087b/go.mod h1:RGGP5ZpywR3dG7CnHjQ9RGa6bHeXiM47Jubw/eewYsk=
@@ -872,8 +871,9 @@ github.com/viamrobotics/robotcore v0.0.0-20210225172749-b778e1c9e3eb/go.mod h1:P
 github.com/viamrobotics/robotcore v0.0.0-20210225175508-50616707abab/go.mod h1:9kT3bsc+9O15hdfT2WgXBN4Sbrul+4HMVEIAmNzJv2I=
 github.com/viamrobotics/rplidar v0.0.0-20210224232235-7ae3ca01ba11/go.mod h1:SKswhNlYsYqYF3TEQrfW5bF4uyOxswyeH4/ZhfbBTM4=
 github.com/viamrobotics/rplidar v0.0.0-20210224232905-36f689afba0e/go.mod h1:CF4DDbUNpSuZfqOjzlZnoNZpc1ockqqb7KFzs5tqBsI=
-github.com/viamrobotics/rplidar v0.0.0-20210225174233-a6da398e02b4 h1:CW+y19Zw9KkY6Ohpqw/65C1AHTgURKF+06bT1V5s+HE=
 github.com/viamrobotics/rplidar v0.0.0-20210225174233-a6da398e02b4/go.mod h1:8kmXFslaJuvT3W+mC+4jWXVAeurf+wtD0MIKarH+yas=
+github.com/viamrobotics/rplidar v0.0.0-20210225180408-097fcb311779 h1:Kor/nq10Yv/N7XDi+UjXUGv89uTkv1xQiBfn7Z6GpsY=
+github.com/viamrobotics/rplidar v0.0.0-20210225180408-097fcb311779/go.mod h1:7w6CINW/Oou327qtBeF+oCFEPQsqA/JghQsGtXuKHts=
 github.com/wcharczuk/go-chart v2.0.1+incompatible h1:0pz39ZAycJFF7ju/1mepnk26RLVLBCWz1STcD3doU0A=
 github.com/wcharczuk/go-chart v2.0.1+incompatible/go.mod h1:PF5tmL4EIx/7Wf+hEkpCqYi5He4u90sw+0+6FhrryuE=
 github.com/wcharczuk/go-chart/v2 v2.1.0 h1:tY2slqVQ6bN+yHSnDYwZebLQFkphK4WNrVwnt7CJZ2I=
