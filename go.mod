@@ -9,11 +9,10 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210225185431-04d9a353c329
+	github.com/edaniels/gostream v0.0.0-20210225194545-b2d6bf85806c
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/go-gl/mathgl v1.0.0
-	github.com/go-nlopt/nlopt v0.0.0-20201128195645-1ea4d778a465 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golangci/golangci-lint v1.37.1
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b
@@ -31,6 +30,7 @@ require (
 	github.com/viamrobotics/mti v0.0.0-20210225182555-b978de4208e5
 	github.com/viamrobotics/rplidar v0.0.0-20210225182551-f9ad856893d3
 	go.mongodb.org/mongo-driver v1.4.4
+	go.uber.org/multierr v1.6.0
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
 	gonum.org/v1/gonum v0.8.2
