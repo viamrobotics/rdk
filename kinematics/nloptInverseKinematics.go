@@ -1,16 +1,16 @@
 package kinematics
 
 import(
-	"math"
+	//~ "math"
 	
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
-	"github.com/go-nlopt/nlopt"
+	//~ "github.com/go-nlopt/nlopt"
 )
 
 type NloptIK struct {
 	Mdl        *Model
-	lowerBound []float64
-	upperBound []float64
+	//~ lowerBound []float64
+	//~ upperBound []float64
 	iterations int
 	epsilon    float64
 	Goals      []Goal
@@ -40,12 +40,12 @@ func (ik *NloptIK) GetGoals() []Goal{
 }
 
 func (ik *NloptIK) Solve() bool {
-	opt, err := nlopt.NewNLopt(nlopt.LD_MMA, 2)
-	if err != nil {
-		return false
-	}
-	defer opt.Destroy()
+	//~ opt, err := nlopt.NewNLopt(nlopt.LD_MMA, 2)
+	//~ if err != nil {
+		//~ return false
+	//~ }
+	//~ defer opt.Destroy()
 
-	opt.SetLowerBounds([]float64{math.Inf(-1), 0.})
+	//~ opt.SetLowerBounds([]float64{math.Inf(-1), 0.})
 	return false
 }
