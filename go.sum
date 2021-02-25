@@ -168,6 +168,8 @@ github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/erh/gobot v0.0.0-20210224202823-fc106e87f377 h1:QrDrIScHVfCUyP9gQViYZZN7npBHTo51KVmchhoJ+3U=
 github.com/erh/gobot v0.0.0-20210224202823-fc106e87f377/go.mod h1:CwlG5umITB/BP7qlwGdJ/LPtRu71jAXtv9hu3q+yhKo=
+github.com/erh/gobot v0.0.0-20210225151211-f55d7247ce47 h1:HIhsk4sFfpKjZ3Koppd8kX3qZrAf7oqXssQGIrLGezk=
+github.com/erh/gobot v0.0.0-20210225151211-f55d7247ce47/go.mod h1:CwlG5umITB/BP7qlwGdJ/LPtRu71jAXtv9hu3q+yhKo=
 github.com/esimonov/ifshort v1.0.1 h1:p7hlWD15c9XwvwxYg3W7f7UZHmwg7l9hC0hBiF95gd0=
 github.com/esimonov/ifshort v1.0.1/go.mod h1:yZqNJUrNn20K8Q9n2CrjTKYyVEmX209Hgu+M1LBpeZE=
 github.com/fatih/addlint v0.0.0-20190906181921-76b21bd409a2/go.mod h1:jDmgAsni5lF2hjg3Eozc5y+Uh9hE26oBfZ1fCLSet0U=
