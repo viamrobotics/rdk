@@ -3,11 +3,11 @@ package lidar
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/viamrobotics/robotcore/usb"
+	"go.uber.org/multierr"
 )
 
 var registrations = map[DeviceType]DeviceTypeRegistration{}
@@ -55,17 +55,17 @@ func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription) ([]Devi
 	wg.Wait()
 
 	if numErrs != 0 {
-		var allErrs []interface{}
+		var allErrs error
 		for i, err := range errs {
 			if err == nil {
 				if err := devices[i].Close(ctx); err != nil {
-					allErrs = append(allErrs, err)
+					allErrs = multierr.Append(allErrs, err)
 				}
 				continue
 			}
-			allErrs = append(allErrs, err)
+			allErrs = multierr.Append(allErrs, err)
 		}
-		return nil, fmt.Errorf("encountered errors:"+strings.Repeat(" %w", len(allErrs)), allErrs...)
+		return nil, allErrs
 	}
 
 	for _, dev := range devices {

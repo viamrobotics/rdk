@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/multierr"
 	"gobot.io/x/gobot/drivers/aio"
 	"gobot.io/x/gobot/drivers/gpio"
 	"gobot.io/x/gobot/drivers/spi"
@@ -12,8 +13,6 @@ import (
 	"gobot.io/x/gobot/sysfs"
 
 	"github.com/edaniels/golog"
-
-	"github.com/viamrobotics/robotcore/utils"
 )
 
 type gobotAnalogReader struct {
@@ -87,7 +86,7 @@ func (m *gobotMotor) Go(d Direction, force byte) error {
 	m.lastForce = force
 	dd := dirToGobot(d)
 	//golog.Global.Debugf("gobotMotor d: %s speed: %v", dd, speed)
-	return utils.CombineErrors(m.motor.Speed(force), m.motor.Direction(dd))
+	return multierr.Combine(m.motor.Speed(force), m.motor.Direction(dd))
 }
 
 func (m *gobotMotor) rpmMonitor() {
@@ -285,7 +284,7 @@ func (pi *piBoard) Close() error {
 	}
 	err = append(err, pi.r.Finalize())
 
-	return utils.CombineErrors(err...)
+	return multierr.Combine(err...)
 }
 
 func NewPiBoard(cfg Config) (Board, error) {

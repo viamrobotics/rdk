@@ -1,14 +1,14 @@
 package kinematics
 
-import(
+import (
 	//~ "math"
-	
+
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 	//~ "github.com/go-nlopt/nlopt"
 )
 
 type NloptIK struct {
-	Mdl        *Model
+	Mdl *Model
 	//~ lowerBound []float64
 	//~ upperBound []float64
 	iterations int
@@ -16,7 +16,7 @@ type NloptIK struct {
 	Goals      []Goal
 }
 
-func CreateIKSolver(mdl *Model) *NloptIK{
+func CreateIKSolver(mdl *Model) *NloptIK {
 	ik := NloptIK{}
 	ik.Mdl = mdl
 	ik.epsilon = 0.001
@@ -24,25 +24,24 @@ func CreateIKSolver(mdl *Model) *NloptIK{
 	return &ik
 }
 
-func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int){
+func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int) {
 	newtrans := &kinmath.Transform{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
 
-
-func (ik *NloptIK) ClearGoals(){
+func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 }
 
-func (ik *NloptIK) GetGoals() []Goal{
+func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
 func (ik *NloptIK) Solve() bool {
 	//~ opt, err := nlopt.NewNLopt(nlopt.LD_MMA, 2)
 	//~ if err != nil {
-		//~ return false
+	//~ return false
 	//~ }
 	//~ defer opt.Destroy()
 
