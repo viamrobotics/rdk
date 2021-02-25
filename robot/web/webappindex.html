@@ -96,17 +96,17 @@
 
       function updateBoardView(name) {
           makeApiCall("/api/board/" + name, function(response) {
-              //console.log(response);
-              for (var a in response.analogs ) {
-                  var id = "board_a_" + name + "_" + a;
-                  var e = document.getElementById(id);
-                  e.innerHTML = response.analogs[a];
+
+              function fillIn(longName, shortName) {
+                  for (var a in response[longName] ) {
+                      var id = "board_" + shortName + "_" + name + "_" + a;
+                      var e = document.getElementById(id);
+                      e.innerHTML = response[longName][a];
+                  }
               }
-              for (var di in response.digitalInterrupts) {
-                  var id = "board_di_" + name + "_" + di;
-                  var e = document.getElementById(id);
-                  e.innerHTML = response.digitalInterrupts[di];
-              }
+              fillIn("analogs", "a");
+              fillIn("digitalInterrupts", "di");
+              fillIn("servos", "s");
           });
           setTimeout(updateBoardView, 500, name);
       }
@@ -246,6 +246,16 @@
       {{ end }}
       {{end}}
 
+      {{if $b.Servos}}
+      <tr><th colspan="2">Servos</th></tr>
+      {{ range $i := $b.Servos }}
+      <tr><th>{{$i.Name}}</th><td id="board_s_{{$b.Name}}_{{$i.Name}}"></td></tr>
+      <tr>
+        <td></td>
+        <td>a</td>
+      </tr>
+      {{ end }}      
+      {{end}}
       
     </table>
     <script>updateBoardView('{{$b.Name}}');</script>
