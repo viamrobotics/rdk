@@ -66,12 +66,12 @@ func getInjected() (*Device, *injectDevice) {
 func TestCompass(t *testing.T) {
 	t.Run("StartCalibration", func(t *testing.T) {
 		compassDev, _ := getInjected()
-		test.That(t, compassDev.StartCalibration(), test.ShouldBeNil)
+		test.That(t, compassDev.StartCalibration(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("StopCalibration", func(t *testing.T) {
 		compassDev, _ := getInjected()
-		test.That(t, compassDev.StopCalibration(), test.ShouldBeNil)
+		test.That(t, compassDev.StopCalibration(context.Background()), test.ShouldBeNil)
 	})
 }
 
@@ -142,7 +142,7 @@ func TestHeading(t *testing.T) {
 		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return nil, nil
 		}
-		h, err := compassDev.Heading()
+		h, err := compassDev.Heading(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, math.IsNaN(h), test.ShouldBeTrue)
 	})
@@ -156,7 +156,7 @@ func TestHeading(t *testing.T) {
 				lidar.NewMeasurement(30, 5),
 			}, nil
 		}
-		h, err := compassDev.Heading()
+		h, err := compassDev.Heading(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, math.IsNaN(h), test.ShouldBeTrue)
 	})
@@ -196,7 +196,7 @@ func TestHeading(t *testing.T) {
 
 		t.Run("heading should be 0", func(t *testing.T) {
 			compassDev, _ := setup(t)
-			heading, err := compassDev.Heading()
+			heading, err := compassDev.Heading(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, heading, test.ShouldEqual, 0)
 		})
@@ -213,7 +213,7 @@ func TestHeading(t *testing.T) {
 					return rotM, nil
 				}
 
-				heading, err := compassDev.Heading()
+				heading, err := compassDev.Heading(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, heading, test.ShouldEqual, iCopy)
 			})
