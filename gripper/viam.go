@@ -197,7 +197,7 @@ func (vg *ViamGripper) moveInDirectionTillWontMoveMore(dir board.Direction) (int
 		golog.Global.Debugf("dir: %s last: %v now: %v", dir, last, now)
 		if vg.potentiometerSame(last, now) {
 			// increase power temporarily
-			err := vg.motor.Speed(128)
+			err := vg.motor.Force(128)
 			if err != nil {
 				return -1, false, err
 			}

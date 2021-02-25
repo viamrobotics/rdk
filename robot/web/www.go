@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html/template"
 	"image/jpeg"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -114,13 +113,12 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 
-	mux.HandleFunc("/api/base", func(w http.ResponseWriter, req *http.Request) {
+	mux.Handle("/api/base", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
 		speed := 64 // TODO(erh): this is proably the wrong default
 		if req.FormValue("speed") != "" {
 			speed2, err := strconv.ParseInt(req.FormValue("speed"), 10, 64)
 			if err != nil {
-				http.Error(w, fmt.Sprintf("bad speed [%s] %s", req.FormValue("speed"), err), http.StatusBadRequest)
-				return
+				return nil, err
 			}
 			speed = int(speed2)
 		}
@@ -136,31 +134,28 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 		} else if d != "" {
 			d2, err2 := strconv.ParseInt(d, 10, 64)
 			if err2 != nil {
-				http.Error(w, fmt.Sprintf("bad distance [%s] %s", d, err2), http.StatusBadRequest)
-				return
+				return nil, err2
 			}
 
 			err = theBase.MoveStraight(int(d2), speed, false)
 		} else if a != "" {
 			a2, err2 := strconv.ParseInt(a, 10, 64)
 			if err2 != nil {
-				http.Error(w, fmt.Sprintf("bad angle [%s] %s", d, err2), http.StatusBadRequest)
-				return
+				return nil, err2
 			}
 
 			err = theBase.Spin(float64(a2), speed, false)
 		} else {
-			http.Error(w, "no stop, distanceMM, angle given", http.StatusBadRequest)
-			return
+			return nil, fmt.Errorf("no stop, distanceMM, angle given")
 		}
 
 		if err != nil {
-			http.Error(w, fmt.Sprintf("erorr moving %s", err), http.StatusInternalServerError)
-		} else {
-			io.WriteString(w, "ok") // nolint
+			return nil, fmt.Errorf("erorr moving %s", err)
 		}
 
-	})
+		return nil, nil
+
+	}})
 }
 
 type apiMethod func(req *http.Request) (map[string]interface{}, error)
@@ -172,12 +167,17 @@ type apiCall struct {
 func (ac *apiCall) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	res, err := ac.theMethod(req)
 	if err != nil {
-		golog.Global.Debugf("error in api call: %s", err)
+		golog.Global.Warnf("error in api call: %s", err)
 		res = map[string]interface{}{"err": err.Error()}
+	}
+
+	if res == nil {
+		res = map[string]interface{}{"ok": true}
 	}
 
 	js, err := json.Marshal(res)
 	if err != nil {
+		golog.Global.Warnf("cannot marshal json: %s", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

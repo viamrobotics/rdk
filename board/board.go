@@ -30,7 +30,7 @@ func DirectionFromString(s string) Direction {
 
 // designed to match the gobot one for now
 type Motor interface {
-	Speed(speed byte) error
+	Force(force byte) error
 	// "forward", "backward", "none" // TODO(erh): not sure if i want to keep this
 	Go(d Direction, speed byte) error
 
