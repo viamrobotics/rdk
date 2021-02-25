@@ -178,6 +178,11 @@ func NewPiBoard(cfg Config) (Board, error) {
 			t := &DigitalInterrupt{cfg: di, count: 0}
 			b.interrupts = append(b.interrupts, t)
 
+			err = b.r.DigitalPinSetPullUpDown(di.Pin, true) // TODO(erh): make this configurable, but for most things we want up
+			if err != nil {
+				return nil, err
+			}
+
 			pin, err := b.r.DigitalPin(di.Pin, "")
 			if err != nil {
 				return nil, err
