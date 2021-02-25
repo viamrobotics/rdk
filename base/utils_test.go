@@ -13,13 +13,13 @@ import (
 
 type injectDevice struct {
 	Device
-	MoveStraightFunc func(distanceMM int, speed int, block bool) error
+	MoveStraightFunc func(distanceMM int, speed float64, block bool) error
 	SpinFunc         func(angleDeg float64, speed int, block bool) error
 	StopFunc         func() error
 	CloseFunc        func()
 }
 
-func (id *injectDevice) MoveStraight(distanceMM int, speed int, block bool) error {
+func (id *injectDevice) MoveStraight(distanceMM int, speed float64, block bool) error {
 	if id.MoveStraightFunc == nil {
 		return id.Device.MoveStraight(distanceMM, speed, block)
 	}
@@ -56,7 +56,7 @@ func TestDoMove(t *testing.T) {
 	test.That(t, dist, test.ShouldEqual, 0)
 
 	err1 := errors.New("oh no")
-	dev.MoveStraightFunc = func(distanceMM int, speed int, block bool) error {
+	dev.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {
 		return err1
 	}
 
@@ -66,7 +66,7 @@ func TestDoMove(t *testing.T) {
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	dev.MoveStraightFunc = func(distanceMM int, speed int, block bool) error {
+	dev.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {
 		test.That(t, distanceMM, test.ShouldEqual, m.DistanceMM)
 		test.That(t, speed, test.ShouldEqual, m.Speed)
 		test.That(t, block, test.ShouldEqual, m.Block)
@@ -119,7 +119,7 @@ func TestDoMove(t *testing.T) {
 	test.That(t, dist, test.ShouldEqual, m.DistanceMM)
 
 	t.Run("if rotation succeeds but moving straight fails, report rotation", func(t *testing.T) {
-		dev.MoveStraightFunc = func(distanceMM int, speed int, block bool) error {
+		dev.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {
 			return err1
 		}
 

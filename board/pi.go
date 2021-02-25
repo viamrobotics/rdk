@@ -3,6 +3,7 @@ package board
 import (
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"gobot.io/x/gobot/drivers/aio"
 	"gobot.io/x/gobot/drivers/gpio"
@@ -45,6 +46,12 @@ type gobotMotor struct {
 	encoder *DigitalInterrupt
 
 	regulated int32 // use atomic operations when access
+
+	// TODO(erh): check thread safety on this
+	desiredRPM float64 // <= 0 means thread should do nothing
+
+	startedRPMMonitor bool
+	lastForce         byte
 }
 
 func (m *gobotMotor) isRegulated() bool {
@@ -63,19 +70,89 @@ func (m *gobotMotor) Force(force byte) error {
 	if m.isRegulated() {
 		return fmt.Errorf("cannot control Force when motor in regulated mode")
 	}
+	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
+	return m.setForce(force)
+}
+
+func (m *gobotMotor) setForce(force byte) error {
+	m.lastForce = force
 	return m.motor.Speed(force)
 }
 
-func (m *gobotMotor) Go(d Direction, speed byte) error {
+func (m *gobotMotor) Go(d Direction, force byte) error {
 	if m.isRegulated() {
 		return fmt.Errorf("cannot tell motor to Go when motor in regulated mode")
 	}
+	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
+	m.lastForce = force
 	dd := dirToGobot(d)
 	//golog.Global.Debugf("gobotMotor d: %s speed: %v", dd, speed)
-	return utils.CombineErrors(m.motor.Speed(speed), m.motor.Direction(dd))
+	return utils.CombineErrors(m.motor.Speed(force), m.motor.Direction(dd))
 }
 
-func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block bool) error {
+func (m *gobotMotor) rpmMonitor() {
+	if m.startedRPMMonitor {
+		return
+	}
+	if m.encoder == nil {
+		golog.Global.Warnf("started rpmMonitor but have no encode")
+		return
+	}
+
+	m.startedRPMMonitor = true
+
+	lastCount := m.encoder.Count()
+	lastTime := time.Now().UnixNano()
+
+	for {
+
+		time.Sleep(50 * time.Millisecond)
+
+		count := m.encoder.Count()
+		now := time.Now().UnixNano()
+
+		if m.desiredRPM > 0 {
+			rotations := float64(count-lastCount) / float64(m.cfg.TicksPerRotation)
+			minutes := float64(now-lastTime) / (1e9 * 60)
+			currentRPM := rotations / minutes
+
+			var newForce byte
+
+			if currentRPM == 0 {
+				newForce = m.lastForce + 16
+			} else {
+				dOverC := m.desiredRPM / currentRPM
+				if dOverC > 2 {
+					dOverC = 2
+				}
+				neededForce := float64(m.lastForce) * dOverC
+
+				if neededForce < 8 {
+					neededForce = 8
+				} else if neededForce > 255 {
+					neededForce = 255
+				}
+
+				neededForce = (float64(m.lastForce) + neededForce) / 2 // slow down ramps
+
+				newForce = byte(neededForce)
+			}
+
+			if newForce != m.lastForce {
+				golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v", currentRPM, m.lastForce, newForce)
+				err := m.setForce(newForce)
+				if err != nil {
+					golog.Global.Warnf("rpm regulator cannot set force %s", err)
+				}
+			}
+		}
+
+		lastCount = count
+		lastTime = now
+	}
+}
+
+func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block bool) error {
 	if m.isRegulated() {
 		return fmt.Errorf("already running a GoFor directive, have to stop that first before can do another")
 	}
@@ -90,13 +167,26 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
 	}
 
+	if !m.startedRPMMonitor {
+		go m.rpmMonitor()
+	}
+
+	start := func() error {
+		err := m.Go(d, 8)
+		if err != nil {
+			return err
+		}
+		m.desiredRPM = speed
+		return nil
+	}
+
 	if rotations == 0 {
 		// go forever
 		if block {
 			return fmt.Errorf("you cannot block if you don't set a number of rotations")
 		}
 
-		return m.Go(d, speed)
+		return start()
 	}
 
 	numTicks := rotations * float64(m.cfg.TicksPerRotation)
@@ -104,7 +194,7 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 	done := make(chan int64)
 	m.encoder.AddCallbackDelta(int64(numTicks), done)
 
-	err := m.Go(d, speed)
+	err := start()
 	if err != nil {
 		return err
 	}
@@ -131,6 +221,7 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 }
 
 func (m *gobotMotor) Off() error {
+	m.desiredRPM = 0.0
 	if m.isRegulated() {
 		golog.Global.Warnf("turning motor off while in regulated mode, this could break things")
 	}
