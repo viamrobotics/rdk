@@ -443,7 +443,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			}
 		}
 
-		return map[string]interface{}{}, theMotor.GoFor(req.FormValue("d"), byte(speed), r, false)
+		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), byte(speed), r, false)
 	}})
 
 	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {

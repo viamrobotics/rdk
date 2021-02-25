@@ -20,7 +20,7 @@ type ViamGripper struct {
 
 	defaultSpeed byte
 
-	closeDirection, openDirection string
+	closeDirection, openDirection board.Direction
 }
 
 func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
@@ -41,12 +41,12 @@ func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
 	}
 
 	// pick a direction and move till it stops
-	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore("forward")
+	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(board.DirForward)
 	if err != nil {
 		return nil, err
 	}
 
-	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore("backward")
+	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(board.DirBackward)
 	if err != nil {
 		return nil, err
 	}
@@ -56,13 +56,13 @@ func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
 	}
 
 	if hasPressureA {
-		vg.closeDirection = "forward"
-		vg.openDirection = "backward"
+		vg.closeDirection = board.DirForward
+		vg.openDirection = board.DirBackward
 		vg.potentiometerOpen = sideB
 		vg.potentiometerClosed = sideA
 	} else {
-		vg.closeDirection = "backward"
-		vg.openDirection = "forward"
+		vg.closeDirection = board.DirBackward
+		vg.openDirection = board.DirForward
 		vg.potentiometerOpen = sideA
 		vg.potentiometerClosed = sideB
 	}
@@ -168,7 +168,7 @@ func (vg *ViamGripper) hasPressure() (bool, error) {
 	return p < 1000, err
 }
 
-func (vg *ViamGripper) moveInDirectionTillWontMoveMore(dir string) (int, bool, error) {
+func (vg *ViamGripper) moveInDirectionTillWontMoveMore(dir board.Direction) (int, bool, error) {
 	defer func() {
 		err := vg.Stop()
 		if err != nil {

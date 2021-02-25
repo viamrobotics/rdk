@@ -45,9 +45,9 @@ func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
 		return fmt.Errorf("if distanceMM is set, speed has to be positive")
 	}
 
-	d := "forward"
+	var d board.Direction = board.DirForward
 	if distanceMM < 0 || speed < 0 {
-		d = "backward"
+		d = board.DirBackward
 		distanceMM = utils.AbsInt(distanceMM)
 		speed = utils.AbsInt(speed)
 	}
@@ -79,9 +79,9 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 		speed = 120
 	}
 
-	a, b := "forward", "backward"
+	var a, b board.Direction = board.DirForward, board.DirBackward
 	if angleDeg < 0 {
-		a, b = "backward", "forward"
+		a, b = board.DirBackward, board.DirForward
 	}
 
 	rotations := math.Abs(angleDeg / 5.0)

@@ -4,13 +4,37 @@ import (
 	"fmt"
 )
 
+type Direction int
+
+const (
+	DirNone     = 0
+	DirForward  = 1
+	DirBackward = 2
+)
+
+func DirectionFromString(s string) Direction {
+	if len(s) == 0 {
+		return DirNone
+	}
+
+	if s[0] == 'f' {
+		return DirForward
+	}
+
+	if s[0] == 'b' {
+		return DirBackward
+	}
+
+	return DirNone
+}
+
 // designed to match the gobot one for now
 type Motor interface {
 	Speed(speed byte) error
 	// "forward", "backward", "none" // TODO(erh): not sure if i want to keep this
-	Go(d string, speed byte) error
+	Go(d Direction, speed byte) error
 
-	GoFor(d string, speed byte, rotations float64, block bool) error
+	GoFor(d Direction, speed byte, rotations float64, block bool) error
 
 	Off() error
 	IsOn() bool
