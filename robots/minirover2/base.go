@@ -84,7 +84,7 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 		a, b = "backward", "forward"
 	}
 
-	rotations := math.Abs(float64(angleDeg) / 5.0)
+	rotations := math.Abs(angleDeg / 5.0)
 
 	err := utils.CombineErrors(
 		r.fl.GoFor(a, byte(speed), rotations, false),
