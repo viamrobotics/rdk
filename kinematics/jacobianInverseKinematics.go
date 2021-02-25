@@ -40,7 +40,7 @@ func (ik *JacobianIK) GetGoals() []Goal {
 func (ik *JacobianIK) Solve() bool {
 	// q is the position over which we will iterate
 	q := ik.Mdl.GetPosition()
-	
+
 	// qNorm will be the normalized version of q, used to actually calculate kinematics etc
 	//~ qNorm := ik.Mdl.GetPosition()
 	iteration := 0
@@ -63,16 +63,14 @@ func (ik *JacobianIK) Solve() bool {
 			for _, goal := range ik.GetGoals() {
 				dxDelta = ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
 				dxIdx := goal.EffectorID * 6
-				for i, delta := range(dxDelta){
+				for i, delta := range dxDelta {
 					dx[dxIdx+i] = delta
 				}
 			}
 
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
-				
 
-				
 				ik.Mdl.SetPosition(q)
 
 				if ik.Mdl.IsValid(q) {
@@ -89,9 +87,8 @@ func (ik *JacobianIK) Solve() bool {
 			newPos := ik.Mdl.Step(q, dq)
 			q = newPos
 			//~ qNorm = ik.Mdl.Normalize(q)
-			
-			ik.Mdl.SetPosition(q)
 
+			ik.Mdl.SetPosition(q)
 
 			if iteration%150 == 0 {
 				break
