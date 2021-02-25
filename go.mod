@@ -28,7 +28,7 @@ require (
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997
 	github.com/viamrobotics/mti v0.0.0-20210225180044-8dcdde09087b
-	github.com/viamrobotics/rplidar v0.0.0-20210225174233-a6da398e02b4
+	github.com/viamrobotics/rplidar v0.0.0-20210225180408-097fcb311779
 	go.mongodb.org/mongo-driver v1.4.4
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
