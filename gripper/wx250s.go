@@ -22,12 +22,12 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}
-	jServo.SetTorqueEnable(true)
+	err := jServo.SetTorqueEnable(true)
 	newGripper := Wx250s{
 		jServo:   jServo,
 		moveLock: mutex,
 	}
-	return &newGripper, nil
+	return &newGripper, err
 }
 
 func (g *Wx250s) GetMoveLock() *sync.Mutex {
@@ -67,7 +67,10 @@ func (g *Wx250s) Grab() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	servo.WaitForMovementVar(g.jServo)
+	err = servo.WaitForMovementVar(g.jServo)
+	if err != nil {
+		return false, err
+	}
 	pos, err := g.jServo.PresentPosition()
 	if err != nil {
 		return false, err
