@@ -28,7 +28,6 @@ func DirectionFromString(s string) Direction {
 	return DirNone
 }
 
-// designed to match the gobot one for now
 type Motor interface {
 	Force(force byte) error
 
@@ -40,6 +39,12 @@ type Motor interface {
 	IsOn() bool
 }
 
+type Servo interface {
+	// moves to that angle (0-180)
+	Move(angle uint8) error
+	Current() uint8
+}
+
 type AnalogReader interface {
 	Read() (int, error)
 }
@@ -47,6 +52,7 @@ type AnalogReader interface {
 type Board interface {
 	// nil if cannot find
 	Motor(name string) Motor
+	Servo(name string) Servo
 
 	AnalogReader(name string) AnalogReader
 	DigitalInterrupt(name string) *DigitalInterrupt
