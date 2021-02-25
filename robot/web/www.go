@@ -447,6 +447,22 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), speed, r, false)
 	}})
 
+	mux.Handle("/api/board/"+cfg.Name+"/servo", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+		name := req.FormValue("name")
+		theServo := b.Servo(name)
+		if theServo == nil {
+			return nil, fmt.Errorf("unknown servo: %s", req.FormValue("name"))
+		}
+
+		angle, err := strconv.ParseInt(req.FormValue("angle"), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, theServo.Move(uint8(angle))
+
+	}})
+
 	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {
 		analogs := map[string]int{}
 		for _, a := range cfg.Analogs {
@@ -463,9 +479,16 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			digitalInterrupts[di.Name] = int(res)
 		}
 
+		servos := map[string]int{}
+		for _, di := range cfg.Servos {
+			res := b.Servo(di.Name).Current()
+			servos[di.Name] = int(res)
+		}
+
 		return map[string]interface{}{
 			"analogs":           analogs,
 			"digitalInterrupts": digitalInterrupts,
+			"servos":            servos,
 		}, nil
 	}})
 

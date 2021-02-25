@@ -233,11 +233,25 @@ func (m *gobotMotor) IsOn() bool {
 
 // ----
 
+type gobotServo struct {
+	driver  *gpio.ServoDriver
+	current uint8
+}
+
+func (s *gobotServo) Move(angle uint8) error {
+	s.current = angle
+	return s.driver.Move(angle)
+}
+func (s *gobotServo) Current() uint8 {
+	return s.current
+}
+
 type piBoard struct {
 	cfg    Config
 	r      *raspi.Adaptor
 	motors []*gobotMotor
 	ar     aio.AnalogReader
+	servos []*gobotServo
 
 	sysfsListner *sysfs.InterruptListener
 	interrupts   []*DigitalInterrupt
@@ -262,6 +276,15 @@ func (pi *piBoard) Motor(name string) Motor {
 	for idx, mc := range pi.cfg.Motors {
 		if name == mc.Name {
 			return pi.motors[idx]
+		}
+	}
+	return nil
+}
+
+func (pi *piBoard) Servo(name string) Servo {
+	for idx, sc := range pi.cfg.Servos {
+		if name == sc.Name {
+			return pi.servos[idx]
 		}
 	}
 	return nil
@@ -360,6 +383,10 @@ func NewPiBoard(cfg Config) (Board, error) {
 		}
 
 		b.motors = append(b.motors, mm)
+	}
+
+	for _, sc := range cfg.Servos {
+		b.servos = append(b.servos, &gobotServo{gpio.NewServoDriver(b.r, sc.Pin), 0})
 	}
 
 	return b, nil
