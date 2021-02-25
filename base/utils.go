@@ -14,13 +14,14 @@ import (
 type Move struct {
 	DistanceMM int
 	AngleDeg   float64
-	Speed      int
+	Speed      float64
 	Block      bool
 }
 
 func DoMove(move Move, device Device) (float64, int, error) {
 	if move.AngleDeg != 0 {
-		if err := device.Spin(move.AngleDeg, move.Speed, move.Block); err != nil {
+		// TODO(erh): speed is wrong
+		if err := device.Spin(move.AngleDeg, int(move.Speed), move.Block); err != nil {
 			// TODO(erd): Spin should report amount spun if errored
 			return math.NaN(), 0, err
 		}
