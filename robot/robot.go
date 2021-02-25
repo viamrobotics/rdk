@@ -17,9 +17,10 @@ import (
 	"github.com/viamrobotics/robotcore/robots/minirover2"
 	"github.com/viamrobotics/robotcore/serial"
 	"github.com/viamrobotics/robotcore/vision"
-	"github.com/viamrobotics/rplidar"
 
-	_ "github.com/viamrobotics/rplidar/ws" // registration
+	// "github.com/viamrobotics/rplidar"
+
+	// _ "github.com/viamrobotics/rplidar/ws" // registration
 
 	"github.com/edaniels/golog"
 )
@@ -402,12 +403,12 @@ func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
 // TODO(erd): prefer registration pattern
 func (r *Robot) newLidar(ctx context.Context, config Component) (lidar.Device, error) {
 	switch config.Model {
-	case rplidar.ModelName:
-		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
-			Type: rplidar.DeviceType,
-			Host: config.Host,
-			Port: config.Port,
-		})
+	// case rplidar.ModelName:
+	// 	return lidar.CreateDevice(ctx, lidar.DeviceDescription{
+	// 		Type: rplidar.DeviceType,
+	// 		Host: config.Host,
+	// 		Port: config.Port,
+	// 	})
 	case fake.ModelName:
 		return fake.NewLidar(), nil
 	default:
