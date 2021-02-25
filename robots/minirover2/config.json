@@ -20,7 +20,26 @@
                 },
                 "encoder" : "fr-e",
                 "ticksPerRotation" : 200
+              },
+              { "name" : "bl-m",
+                "pins" : {
+                    "a" : "37",
+                    "b" : "33",
+                    "pwm" : "13"
+                },
+                "encoder" : "bl-e",
+                "ticksPerRotation" : 200
+              },
+              { "name" : "br-m",
+                "pins" : {
+                    "a" : "29",
+                    "b" : "35",
+                    "pwm" : "15"
+                },
+                "encoder" : "bl-e",
+                "ticksPerRotation" : 200
               }
+
 
           ],
           "digitalInterrupts" : [
@@ -31,7 +50,16 @@
               { "name" : "fr-e",
                 "pin" : "18",
                 "mode" : "falling"
+              },
+              { "name" : "bl-e",
+                "pin" : "31",
+                "mode" : "falling"
+              },
+              { "name" : "br-e",
+                "pin" : "16",
+                "mode" : "falling"
               }
+
 
           ]
         }
