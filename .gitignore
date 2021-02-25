@@ -29,12 +29,11 @@
 *.#*
 *.DS_Store
 
+# act
+.secrets
+
 vision/chess/out
 /data/
 out/
 vendor
 ./minirover2
-example_mti_parse_logfile
-example_mti_receive_data
-librplidar_sdk.a
-**/sdk/output
