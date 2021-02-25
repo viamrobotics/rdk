@@ -36,30 +36,33 @@ func (r *Rover) Close() {
 	}
 }
 
-func (r *Rover) MoveStraight(distanceMM int, speed int, block bool) error {
+func (r *Rover) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
 	if distanceMM == 0 && block {
 		return fmt.Errorf("cannot block unless you have a distance")
 	}
 
-	if distanceMM != 0 && speed <= 0 {
+	if distanceMM != 0 && mmPerSec <= 0 {
 		return fmt.Errorf("if distanceMM is set, speed has to be positive")
 	}
 
 	var d board.Direction = board.DirForward
-	if distanceMM < 0 || speed < 0 {
+	if distanceMM < 0 || mmPerSec < 0 {
 		d = board.DirBackward
 		distanceMM = utils.AbsInt(distanceMM)
-		speed = utils.AbsInt(speed)
+		mmPerSec = math.Abs(mmPerSec)
 	}
 
 	var err error
 	rotations := float64(distanceMM) / WheelCircumferenceMM
 
+	rotationsPerSec := mmPerSec / WheelCircumferenceMM
+	rpm := 60 * rotationsPerSec
+
 	err = utils.CombineErrors(
-		r.fl.GoFor(d, byte(speed), rotations, false),
-		r.fr.GoFor(d, byte(speed), rotations, false),
-		r.bl.GoFor(d, byte(speed), rotations, false),
-		r.br.GoFor(d, byte(speed), rotations, false),
+		r.fl.GoFor(d, rpm, rotations, false),
+		r.fr.GoFor(d, rpm, rotations, false),
+		r.bl.GoFor(d, rpm, rotations, false),
+		r.br.GoFor(d, rpm, rotations, false),
 	)
 
 	if err != nil {
@@ -86,11 +89,12 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 
 	rotations := math.Abs(angleDeg / 5.0)
 
+	rpm := float64(speed) // TODO(erh): fix me
 	err := utils.CombineErrors(
-		r.fl.GoFor(a, byte(speed), rotations, false),
-		r.fr.GoFor(b, byte(speed), rotations, false),
-		r.bl.GoFor(a, byte(speed), rotations, false),
-		r.br.GoFor(b, byte(speed), rotations, false),
+		r.fl.GoFor(a, rpm, rotations, false),
+		r.fr.GoFor(b, rpm, rotations, false),
+		r.bl.GoFor(a, rpm, rotations, false),
+		r.br.GoFor(b, rpm, rotations, false),
 	)
 
 	if err != nil {

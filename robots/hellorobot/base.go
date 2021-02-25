@@ -15,8 +15,8 @@ type Base struct {
 	baseObj *python.PyObject
 }
 
-func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
-	if speed != 0 {
+func (b *Base) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
+	if mmPerSec != 0 {
 		golog.Global.Info("Base.MoveStraight does not support speed")
 	}
 	b.TranslateBy(float64(distanceMM)/1000, block)
