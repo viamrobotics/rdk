@@ -25,6 +25,19 @@ func (r *gobotAnalogReader) Read() (int, error) {
 
 // ----
 
+func dirToGobot(d Direction) string {
+	switch d {
+	case DirNone:
+		return "none"
+	case DirForward:
+		return "forever"
+	case DirBackward:
+		return "backward"
+	default:
+		panic(fmt.Errorf("unknown direction %v", d))
+	}
+}
+
 type gobotMotor struct {
 	cfg     MotorConfig
 	motor   *gpio.MotorDriver
@@ -35,11 +48,11 @@ func (m *gobotMotor) Speed(speed byte) error {
 	return m.motor.Speed(speed)
 }
 
-func (m *gobotMotor) Go(d string, speed byte) error {
-	return utils.CombineErrors(m.motor.Speed(speed), m.motor.Direction(d))
+func (m *gobotMotor) Go(d Direction, speed byte) error {
+	return utils.CombineErrors(m.motor.Speed(speed), m.motor.Direction(dirToGobot(d)))
 }
 
-func (m *gobotMotor) GoFor(d string, speed byte, rotations float64, block bool) error {
+func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block bool) error {
 	if rotations < 0 {
 		return fmt.Errorf("rotations has to be >= 0")
 	}
