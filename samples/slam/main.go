@@ -77,7 +77,7 @@ func main() {
 	var compassSensor compass.Device
 	if len(sensorDevices) != 0 {
 		var err error
-		compassSensor, err = gy511.New(sensorDevices[0].Path)
+		compassSensor, err = gy511.New(context.Background(), sensorDevices[0].Path)
 		if err != nil {
 			golog.Global.Fatal(err)
 		}

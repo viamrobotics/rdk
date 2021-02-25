@@ -134,14 +134,14 @@ func main() {
 			golog.Global.Debugf("variance %f", stat.Variance(headings, nil))
 			headings = nil
 			golog.Global.Debug("getting median")
-			heading, err = compass.MedianHeading(lidarCompass)
+			heading, err = compass.MedianHeading(context.Background(), lidarCompass)
 			if err != nil {
 				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
 				continue
 			}
 			golog.Global.Infow("median heading", "data", heading)
 		} else {
-			heading, err = lidarCompass.Heading()
+			heading, err = lidarCompass.Heading(context.Background())
 			if err != nil {
 				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
 				continue

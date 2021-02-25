@@ -1,6 +1,7 @@
 package base
 
 import (
+	"context"
 	"math"
 	"time"
 
@@ -66,7 +67,7 @@ func (dwc deviceWithCompass) Spin(angleDeg float64, speed int, block bool) error
 		}
 	}
 	for {
-		startHeading, err := compass.MedianHeading(dwc.compass)
+		startHeading, err := compass.MedianHeading(context.TODO(), dwc.compass)
 		if err != nil {
 			return err
 		}
@@ -75,7 +76,7 @@ func (dwc deviceWithCompass) Spin(angleDeg float64, speed int, block bool) error
 			return err
 		}
 		time.Sleep(1 * time.Second)
-		endHeading, err := compass.MedianHeading(dwc.compass)
+		endHeading, err := compass.MedianHeading(context.TODO(), dwc.compass)
 		if err != nil {
 			return err
 		}

@@ -1,15 +1,17 @@
 package compass
 
 import (
+	"context"
+
 	"github.com/viamrobotics/robotcore/sensor"
 	"github.com/viamrobotics/robotcore/utils"
 )
 
 type Device interface {
 	sensor.Device
-	Heading() (float64, error)
-	StartCalibration() error
-	StopCalibration() error
+	Heading(ctx context.Context) (float64, error)
+	StartCalibration(ctx context.Context) error
+	StopCalibration(ctx context.Context) error
 }
 
 type RelativeDevice interface {
@@ -29,11 +31,11 @@ type DeviceDescription struct {
 	Path string
 }
 
-func MedianHeading(device Device) (float64, error) {
+func MedianHeading(ctx context.Context, device Device) (float64, error) {
 	var headings []float64
 	numReadings := 5
 	for i := 0; i < numReadings; i++ {
-		heading, err := device.Heading()
+		heading, err := device.Heading(ctx)
 		if err != nil {
 			return 0, err
 		}

@@ -26,17 +26,17 @@ func main() {
 	if len(devices) == 0 {
 		golog.Global.Fatal("no applicable device found")
 	}
-	sensor, err := gy511.New(devices[0].Path)
+	sensor, err := gy511.New(context.Background(), devices[0].Path)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
 
 	if calibrate {
-		sensor.StartCalibration()
+		sensor.StartCalibration(context.Background())
 		c := make(chan os.Signal, 2)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
-		sensor.StopCalibration()
+		sensor.StopCalibration(context.Background())
 	}
 
 	for {
@@ -47,7 +47,7 @@ func main() {
 			continue
 		}
 		golog.Global.Infow("readings", "data", readings)
-		heading, err := sensor.Heading()
+		heading, err := sensor.Heading(context.Background())
 		if err != nil {
 			golog.Global.Errorw("failed to get sensor heading", "error", err)
 			continue

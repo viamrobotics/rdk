@@ -43,16 +43,16 @@ func (d *Device) setDevice(lidarDevice lidar.Device) {
 	d.Device = lidarDevice
 }
 
-func (d *Device) StartCalibration() error {
+func (d *Device) StartCalibration(ctx context.Context) error {
 	return nil
 }
 
-func (d *Device) StopCalibration() error {
+func (d *Device) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
 func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := d.Heading()
+	heading, err := d.Heading(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (d *Device) rotationResolution() (float64, error) {
 	return 1, nil
 }
 
-func (d *Device) Heading() (float64, error) {
+func (d *Device) Heading(ctx context.Context) (float64, error) {
 	markedRotatedMatsIfc := d.markedRotatedMats.Load()
 	if markedRotatedMatsIfc == nil {
 		return math.NaN(), nil

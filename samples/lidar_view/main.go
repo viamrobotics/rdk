@@ -195,7 +195,7 @@ func main() {
 			default:
 			}
 			time.Sleep(time.Second)
-			heading, err := lidarCompass.Heading()
+			heading, err := lidarCompass.Heading(cancelCtx)
 			if err != nil {
 				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
 				continue
