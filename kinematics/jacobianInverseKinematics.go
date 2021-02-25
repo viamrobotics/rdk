@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	"fmt"
+	//~ "fmt"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/viamrobotics/robotcore/kinematics/kinmath"
 )
@@ -76,8 +76,6 @@ func (ik *JacobianIK) Solve() bool {
 				ik.Mdl.SetPosition(qNorm)
 
 				if ik.Mdl.IsValid(qNorm) {
-					goal := ik.GetGoals()[0]
-					
 					return true
 				}
 			}
