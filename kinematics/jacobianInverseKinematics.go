@@ -42,7 +42,7 @@ func (ik *JacobianIK) Solve() bool {
 	q := ik.Mdl.GetPosition()
 	
 	// qNorm will be the normalized version of q, used to actually calculate kinematics etc
-	qNorm := ik.Mdl.GetPosition()
+	//~ qNorm := ik.Mdl.GetPosition()
 	iteration := 0
 
 	// Variables used to mutate the original position to help avoid getting stuck
@@ -73,9 +73,9 @@ func (ik *JacobianIK) Solve() bool {
 				
 
 				
-				ik.Mdl.SetPosition(qNorm)
+				ik.Mdl.SetPosition(q)
 
-				if ik.Mdl.IsValid(qNorm) {
+				if ik.Mdl.IsValid(q) {
 					return true
 				}
 			}
@@ -88,9 +88,9 @@ func (ik *JacobianIK) Solve() bool {
 
 			newPos := ik.Mdl.Step(q, dq)
 			q = newPos
-			qNorm = ik.Mdl.Normalize(q)
+			//~ qNorm = ik.Mdl.Normalize(q)
 			
-			ik.Mdl.SetPosition(qNorm)
+			ik.Mdl.SetPosition(q)
 
 
 			if iteration%150 == 0 {
