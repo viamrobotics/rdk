@@ -221,7 +221,7 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 // This should ensure that joint positions are the lowest reasonable value
 // For example, rather than 375 degrees, it should be 15 degrees
 func (j *Joint) Normalize(posvec []float64) []float64 {
-	remain := math.Remainder(posvec[0], math.Pi)
+	remain := math.Remainder(posvec[0], 2*math.Pi)
 	if remain < j.min[0] {
 		remain += 2 * math.Pi
 	} else if remain > j.max[0] {
