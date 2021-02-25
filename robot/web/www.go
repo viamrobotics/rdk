@@ -114,13 +114,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 
 	mux.Handle("/api/base", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-		speed := 64 // TODO(erh): this is proably the wrong default
+		mmPerSec := 500.0 // TODO(erh): this is proably the wrong default
 		if req.FormValue("speed") != "" {
-			speed2, err := strconv.ParseInt(req.FormValue("speed"), 10, 64)
+			speed2, err := strconv.ParseFloat(req.FormValue("speed"), 64)
 			if err != nil {
 				return nil, err
 			}
-			speed = int(speed2)
+			mmPerSec = speed2
 		}
 
 		s := req.FormValue("stop")
@@ -137,14 +137,15 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 				return nil, err2
 			}
 
-			err = theBase.MoveStraight(int(d2), speed, false)
+			err = theBase.MoveStraight(int(d2), mmPerSec, false)
 		} else if a != "" {
 			a2, err2 := strconv.ParseInt(a, 10, 64)
 			if err2 != nil {
 				return nil, err2
 			}
 
-			err = theBase.Spin(float64(a2), speed, false)
+			// TODO(erh): fix speed
+			err = theBase.Spin(float64(a2), 64, false)
 		} else {
 			return nil, fmt.Errorf("no stop, distanceMM, angle given")
 		}
@@ -430,7 +431,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			return nil, fmt.Errorf("unknown motor: %s", req.FormValue("name"))
 		}
 
-		speed, err := strconv.ParseInt(req.FormValue("s"), 10, 64)
+		speed, err := strconv.ParseFloat(req.FormValue("s"), 64)
 		if err != nil {
 			return nil, err
 		}
@@ -443,7 +444,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			}
 		}
 
-		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), byte(speed), r, false)
+		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), speed, r, false)
 	}})
 
 	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {

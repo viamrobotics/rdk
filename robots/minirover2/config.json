@@ -10,7 +10,7 @@
                     "pwm" : "11"
                 },
                 "encoder" : "fl-e",
-                "ticksPerRotation" : 200
+                "ticksPerRotation" : 250
               },
               { "name" : "fr-m",
                 "pins" : {
@@ -19,7 +19,7 @@
                     "pwm" : "7"
                 },
                 "encoder" : "fr-e",
-                "ticksPerRotation" : 200
+                "ticksPerRotation" : 250
               },
               { "name" : "bl-m",
                 "pins" : {
@@ -28,7 +28,7 @@
                     "pwm" : "13"
                 },
                 "encoder" : "bl-e",
-                "ticksPerRotation" : 200
+                "ticksPerRotation" : 250
               },
               { "name" : "br-m",
                 "pins" : {
@@ -36,8 +36,8 @@
                     "b" : "35",
                     "pwm" : "15"
                 },
-                "encoder" : "bl-e",
-                "ticksPerRotation" : 200
+                "encoder" : "br-e",
+                "ticksPerRotation" : 250
               }
 
 

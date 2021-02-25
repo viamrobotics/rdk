@@ -4,7 +4,7 @@ package fake
 type Base struct {
 }
 
-func (b *Base) MoveStraight(distanceMM int, speed int, block bool) error {
+func (b *Base) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
 	return nil
 }
 
