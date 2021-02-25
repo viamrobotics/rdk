@@ -8,6 +8,7 @@ import (
 	"github.com/viamrobotics/robotcore/base"
 	"github.com/viamrobotics/robotcore/board"
 	"github.com/viamrobotics/robotcore/utils"
+	"go.uber.org/multierr"
 
 	"github.com/edaniels/golog"
 )
@@ -58,7 +59,7 @@ func (r *Rover) MoveStraight(distanceMM int, mmPerSec float64, block bool) error
 	rotationsPerSec := mmPerSec / WheelCircumferenceMM
 	rpm := 60 * rotationsPerSec
 
-	err = utils.CombineErrors(
+	err = multierr.Combine(
 		r.fl.GoFor(d, rpm, rotations, false),
 		r.fr.GoFor(d, rpm, rotations, false),
 		r.bl.GoFor(d, rpm, rotations, false),
@@ -66,7 +67,7 @@ func (r *Rover) MoveStraight(distanceMM int, mmPerSec float64, block bool) error
 	)
 
 	if err != nil {
-		return utils.CombineErrors(err, r.Stop())
+		return multierr.Combine(err, r.Stop())
 	}
 
 	if !block {
@@ -90,7 +91,7 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 	rotations := math.Abs(angleDeg / 5.0)
 
 	rpm := float64(speed) // TODO(erh): fix me
-	err := utils.CombineErrors(
+	err := multierr.Combine(
 		r.fl.GoFor(a, rpm, rotations, false),
 		r.fr.GoFor(b, rpm, rotations, false),
 		r.bl.GoFor(a, rpm, rotations, false),
@@ -98,7 +99,7 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 	)
 
 	if err != nil {
-		return utils.CombineErrors(err, r.Stop())
+		return multierr.Combine(err, r.Stop())
 	}
 
 	if !block {
@@ -126,7 +127,7 @@ func (r *Rover) waitForMotorsToStop() error {
 }
 
 func (r *Rover) Stop() error {
-	return utils.CombineErrors(
+	return multierr.Combine(
 		r.fl.Off(),
 		r.fr.Off(),
 		r.bl.Off(),
