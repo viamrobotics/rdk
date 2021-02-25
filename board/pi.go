@@ -2,6 +2,7 @@ package board
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"gobot.io/x/gobot/drivers/aio"
 	"gobot.io/x/gobot/drivers/gpio"
@@ -30,7 +31,7 @@ func dirToGobot(d Direction) string {
 	case DirNone:
 		return "none"
 	case DirForward:
-		return "forever"
+		return "forward"
 	case DirBackward:
 		return "backward"
 	default:
@@ -42,22 +43,52 @@ type gobotMotor struct {
 	cfg     MotorConfig
 	motor   *gpio.MotorDriver
 	encoder *DigitalInterrupt
+
+	regulated int32 // use atomic operations when access
 }
 
-func (m *gobotMotor) Speed(speed byte) error {
-	return m.motor.Speed(speed)
+func (m *gobotMotor) isRegulated() bool {
+	return atomic.LoadInt32(&m.regulated) == 1
+}
+
+func (m *gobotMotor) setRegulated(b bool) {
+	if b {
+		atomic.StoreInt32(&m.regulated, 1)
+	} else {
+		atomic.StoreInt32(&m.regulated, 0)
+	}
+}
+
+func (m *gobotMotor) Force(force byte) error {
+	if m.isRegulated() {
+		return fmt.Errorf("cannot control Force when motor in regulated mode")
+	}
+	return m.motor.Speed(force)
 }
 
 func (m *gobotMotor) Go(d Direction, speed byte) error {
-	return utils.CombineErrors(m.motor.Speed(speed), m.motor.Direction(dirToGobot(d)))
+	if m.isRegulated() {
+		return fmt.Errorf("cannot tell motor to Go when motor in regulated mode")
+	}
+	dd := dirToGobot(d)
+	//golog.Global.Debugf("gobotMotor d: %s speed: %v", dd, speed)
+	return utils.CombineErrors(m.motor.Speed(speed), m.motor.Direction(dd))
 }
 
 func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block bool) error {
+	if m.isRegulated() {
+		return fmt.Errorf("already running a GoFor directive, have to stop that first before can do another")
+	}
+
 	if rotations < 0 {
 		return fmt.Errorf("rotations has to be >= 0")
 	}
 
-	golog.Global.Debugf("m: %s d: %s speed: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
+	golog.Global.Debugf("m: %s d: %v speed: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
+
+	if m.encoder == nil {
+		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
+	}
 
 	if rotations == 0 {
 		// go forever
@@ -66,10 +97,6 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 		}
 
 		return m.Go(d, speed)
-	}
-
-	if m.encoder == nil {
-		return fmt.Errorf("we don't have an encoder")
 	}
 
 	numTicks := rotations * float64(m.cfg.TicksPerRotation)
@@ -82,10 +109,17 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 		return err
 	}
 
+	m.setRegulated(true)
+
+	finish := func() error {
+		<-done
+		m.setRegulated(false)
+		return m.Off()
+	}
+
 	if !block {
 		go func() {
-			<-done
-			err := m.Off()
+			err := finish()
 			if err != nil {
 				golog.Global.Warnf("after non-blocking move, could not stop motor (%s): %s", m.cfg.Name, err)
 			}
@@ -93,11 +127,13 @@ func (m *gobotMotor) GoFor(d Direction, speed byte, rotations float64, block boo
 		return nil
 	}
 
-	<-done
-	return m.Off()
+	return finish()
 }
 
 func (m *gobotMotor) Off() error {
+	if m.isRegulated() {
+		golog.Global.Warnf("turning motor off while in regulated mode, this could break things")
+	}
 	return m.motor.Off()
 }
 
