@@ -8,7 +8,7 @@ on:
     branches: [ master ]
 
 env:
-  GOPRIVATE: "github.com/viamrobotics/*"
+  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
 
