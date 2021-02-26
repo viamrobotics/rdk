@@ -2,6 +2,8 @@ package hellorobot
 
 import (
 	"github.com/sbinet/go-python"
+
+	"go.viam.com/robotcore/api"
 )
 
 const ModelName = "hellorobot"
@@ -23,6 +25,10 @@ func New() *Robot {
 	robotMod := python.PyImport_ImportModule("stretch_body.robot")
 	robot := robotMod.CallMethod("Robot")
 	return &Robot{robotObj: robot}
+}
+
+func (r *Robot) Ready(theRobot api.Robot) error {
+	return nil
 }
 
 func (r *Robot) Startup() {

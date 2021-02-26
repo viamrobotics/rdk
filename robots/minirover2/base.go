@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/utils"
 
@@ -149,7 +149,12 @@ func (r *Rover) neckPosition(pan, tilt uint8) error {
 	return multierr.Combine(r.pan.Move(pan), r.tilt.Move(tilt))
 }
 
-func NewRover(theBoard board.Board) (base.Device, error) {
+func (r *Rover) Ready(theRobot api.Robot) error {
+	golog.Global.Debugf("minirover2 Ready called")
+	return nil
+}
+
+func NewRover(theBoard board.Board) (*Rover, error) {
 	rover := &Rover{theBoard: theBoard}
 	rover.fl = theBoard.Motor("fl-m")
 	rover.fr = theBoard.Motor("fr-m")

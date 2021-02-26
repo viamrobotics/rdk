@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/viamrobotics/rplidar"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/board"
@@ -32,8 +33,9 @@ type Robot struct {
 	Cameras      []vision.ImageDepthSource
 	LidarDevices []lidar.Device
 	Bases        []base.Device
-	providers    []interface{}
+	providers    []api.Provider
 
+	boardComponents    []board.Config
 	armComponents      []Component
 	gripperComponents  []Component
 	cameraComponents   []Component
@@ -75,6 +77,15 @@ func (r *Robot) ComponentFor(theThing interface{}) *Component {
 		}
 	}
 
+	return nil
+}
+
+func (r *Robot) BoardByName(name string) board.Board {
+	for i, c := range r.boardComponents {
+		if c.Name == name {
+			return r.Boards[i]
+		}
+	}
 	return nil
 }
 
@@ -123,6 +134,11 @@ func (r *Robot) providerByModel(model string) (interface{}, error) {
 	return nil, fmt.Errorf("no provider for model %q", model)
 }
 
+func (r *Robot) AddBoard(b board.Board, c board.Config) {
+	r.Boards = append(r.Boards, b)
+	r.boardComponents = append(r.boardComponents, c)
+}
+
 func (r *Robot) AddArm(a arm.Arm, c Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
@@ -144,7 +160,7 @@ func (r *Robot) AddBase(b base.Device, c Component) {
 	r.Bases = append(r.Bases, b)
 	r.baseComponents = append(r.baseComponents, c)
 }
-func (r *Robot) AddProvider(p interface{}, c Component) {
+func (r *Robot) AddProvider(p api.Provider, c Component) {
 	r.providers = append(r.providers, p)
 	r.providerComponents = append(r.providerComponents, c)
 }
@@ -191,7 +207,7 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 		if err != nil {
 			return nil, err
 		}
-		r.Boards = append(r.Boards, b)
+		r.AddBoard(b, c)
 	}
 
 	for _, c := range cfg.Components {
@@ -244,11 +260,18 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 		}
 	}
 
+	for _, p := range r.providers {
+		err := p.Ready(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return r, nil
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newProvider(config Component) (interface{}, error) {
+func (r *Robot) newProvider(config Component) (api.Provider, error) {
 	switch config.Model {
 	case hellorobot.ModelName:
 		return hellorobot.New(), nil
