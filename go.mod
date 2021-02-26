@@ -17,6 +17,7 @@ require (
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/go-gl/mathgl v1.0.0
+	github.com/go-nlopt/nlopt v0.0.0-20201128195645-1ea4d778a465 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.37.1
