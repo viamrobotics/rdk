@@ -454,7 +454,19 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			return nil, fmt.Errorf("unknown servo: %s", req.FormValue("name"))
 		}
 
-		angle, err := strconv.ParseInt(req.FormValue("angle"), 10, 64)
+		var angle int64
+		var err error
+
+		if req.FormValue("angle") != "" {
+			angle, err = strconv.ParseInt(req.FormValue("angle"), 10, 64)
+		} else if req.FormValue("delta") != "" {
+			var d int64
+			d, err = strconv.ParseInt(req.FormValue("delta"), 10, 64)
+			angle = int64(theServo.Current()) + d
+		} else {
+			err = fmt.Errorf("need to specify angle or delta")
+		}
+
 		if err != nil {
 			return nil, err
 		}
