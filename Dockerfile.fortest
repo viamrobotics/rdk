@@ -40,6 +40,11 @@ RUN set -ex \
     && unzip -qq opencv.zip -d /opt && rm -rf opencv.zip \
     && unzip -qq opencv_contrib.zip -d /opt && rm -rf opencv_contrib.zip
 
+RUN set -ex \
+    && wget -q --no-check-certificate https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0 \
+    && tar -xzvf v2.7.0 && rm -f v2.7.0 \
+    && cd nlopt-2.7.0 && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr .. && make && make install && cd ../.. \
+
 
 RUN set -ex \
     && cmake \
