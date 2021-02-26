@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/vision"
 
 	"github.com/lucasb-eyer/go-colorful"
 )

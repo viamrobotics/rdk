@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/viamrobotics/robotcore/vision"
-	"github.com/viamrobotics/robotcore/vision/chess"
+	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
 	"github.com/tonyOreglia/glee/pkg/bitboard"

@@ -1,4 +1,4 @@
-module github.com/viamrobotics/robotcore
+module go.viam.com/robotcore
 
 go 1.16
 

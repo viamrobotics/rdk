@@ -3,7 +3,7 @@ package kinematics
 import (
 	//~ "fmt"
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/viamrobotics/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
 type JacobianIK struct {

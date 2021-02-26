@@ -14,11 +14,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/search"
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
 	"github.com/viamrobotics/rplidar"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/lidar/search"
+	"go.viam.com/robotcore/sensor/compass"
+	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 
 	"github.com/edaniels/golog"
 	rplidarws "github.com/viamrobotics/rplidar/ws"

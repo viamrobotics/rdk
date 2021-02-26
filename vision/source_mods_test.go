@@ -5,7 +5,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 func TestRotateSource(t *testing.T) {

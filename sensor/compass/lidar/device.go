@@ -8,9 +8,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 
 	"gonum.org/v1/gonum/mat"
 )

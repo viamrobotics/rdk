@@ -4,9 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/utils"
-	"github.com/viamrobotics/robotcore/vision"
-	"github.com/viamrobotics/robotcore/vision/segmentation"
+	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/vision/segmentation"
 )
 
 type P func(vision.Image) (image.Image, []image.Point, error)

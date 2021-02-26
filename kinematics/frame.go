@@ -1,8 +1,8 @@
 package kinematics
 
 import (
-	"github.com/viamrobotics/robotcore/kinematics/kinmath"
-	"github.com/viamrobotics/robotcore/kinematics/kinmath/spatial"
+	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/kinematics/kinmath/spatial"
 	//~ "gonum.org/v1/gonum/graph/simple"
 )
 

@@ -2,7 +2,7 @@ package kinematics
 
 import (
 	//~ "github.com/go-gl/mathgl/mgl64"
-	"github.com/viamrobotics/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
 type Goal struct {

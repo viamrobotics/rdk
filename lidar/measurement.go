@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"math"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 
 	"gonum.org/v1/gonum/mat"
 )

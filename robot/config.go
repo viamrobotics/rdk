@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"github.com/viamrobotics/robotcore/board"
+	"go.viam.com/robotcore/board"
 )
 
 type ComponentType string

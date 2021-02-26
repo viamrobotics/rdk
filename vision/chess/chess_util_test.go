@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 func TestGetMinChessCorner(t *testing.T) {

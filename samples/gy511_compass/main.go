@@ -8,8 +8,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/sensor/compass/gy511"
-	"github.com/viamrobotics/robotcore/serial"
+	"go.viam.com/robotcore/sensor/compass/gy511"
+	"go.viam.com/robotcore/serial"
 
 	"github.com/edaniels/golog"
 )

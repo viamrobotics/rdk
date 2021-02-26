@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/utils"
-	"github.com/viamrobotics/robotcore/vision"
-	"github.com/viamrobotics/robotcore/vision/chess"
+	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/vision/chess"
 
 	"github.com/tonyOreglia/glee/pkg/position"
 )

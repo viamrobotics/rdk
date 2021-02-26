@@ -1,7 +1,7 @@
 package spatial
 
 import (
-	//~ "github.com/viamrobotics/robotcore/kinematics/go-kin/kinmath"
+	//~ "go.viam.com/robotcore/kinematics/go-kin/kinmath"
 	"github.com/go-gl/mathgl/mgl64"
 )
 

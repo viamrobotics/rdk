@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
-	"github.com/viamrobotics/robotcore/testutils"
+	"go.viam.com/robotcore/testutils"
 )
 
 // This should test all of the kinematics functions

@@ -13,16 +13,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/lidar/search"
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	compasslidar "github.com/viamrobotics/robotcore/sensor/compass/lidar"
-	"github.com/viamrobotics/robotcore/slam"
-	"github.com/viamrobotics/robotcore/utils"
 	"github.com/viamrobotics/rplidar"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/lidar/search"
+	"go.viam.com/robotcore/sensor/compass"
+	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
+	"go.viam.com/robotcore/slam"
+	"go.viam.com/robotcore/utils"
 
 	// register fake
-	"github.com/viamrobotics/robotcore/robots/fake"
+	"go.viam.com/robotcore/robots/fake"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

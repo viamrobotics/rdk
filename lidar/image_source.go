@@ -5,7 +5,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/fogleman/gg"
 	"gonum.org/v1/gonum/mat"

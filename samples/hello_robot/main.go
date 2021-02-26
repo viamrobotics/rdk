@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/robot"
-	"github.com/viamrobotics/robotcore/robot/web"
-	"github.com/viamrobotics/robotcore/robots/hellorobot"
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/web"
+	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	rplidarws "github.com/viamrobotics/rplidar/ws"

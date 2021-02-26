@@ -3,7 +3,7 @@ package fake
 import (
 	"fmt"
 
-	"github.com/viamrobotics/robotcore/arm"
+	"go.viam.com/robotcore/arm"
 )
 
 type Arm struct {

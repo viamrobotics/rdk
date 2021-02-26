@@ -7,17 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/viamrobotics/robotcore/arm"
-	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/board"
-	"github.com/viamrobotics/robotcore/gripper"
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/robots/fake"
-	"github.com/viamrobotics/robotcore/robots/hellorobot"
-	"github.com/viamrobotics/robotcore/robots/minirover2"
-	"github.com/viamrobotics/robotcore/serial"
-	"github.com/viamrobotics/robotcore/vision"
 	"github.com/viamrobotics/rplidar"
+	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/robots/fake"
+	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/robots/minirover2"
+	"go.viam.com/robotcore/serial"
+	"go.viam.com/robotcore/vision"
 
 	_ "github.com/viamrobotics/rplidar/ws" // registration
 

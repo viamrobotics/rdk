@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/viamrobotics/robotcore/lidar"
+	"go.viam.com/robotcore/lidar"
 )
 
 const LidarDeviceType = "fake"

@@ -860,6 +860,7 @@ github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997 h1:p4DWV9qA
 github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997/go.mod h1:cnviaku/Hs1rKlwToSzGmxx86kRl9z8rQGiOxNJhaT8=
 github.com/viamrobotics/mti v0.0.0-20210225182555-b978de4208e5 h1:8ImVFqj4uAhH5itnSKTDW8c/5jtbneDNAOCvhJkBhCA=
 github.com/viamrobotics/mti v0.0.0-20210225182555-b978de4208e5/go.mod h1:awE0q7RBld5GGCk53wF+MaLjZAdJRBqBBkt0b4vuzgo=
+github.com/viamrobotics/robotcore v0.0.0-20210225182453-9d49ebb49221 h1:W3BNfrjtU0CcvutXTKCePWpPKCpqkRKBd5VJNIifR2Y=
 github.com/viamrobotics/robotcore v0.0.0-20210225182453-9d49ebb49221/go.mod h1:99FwhqPN8FRx9YZJ1PQI7BQGwTW/Z2zHn9/VmWO5byA=
 github.com/viamrobotics/rplidar v0.0.0-20210225182551-f9ad856893d3 h1:JYSNBb8SvD8M2MLWmAMxB5d8Mfbmnxyu0mrjC0ieVz4=
 github.com/viamrobotics/rplidar v0.0.0-20210225182551-f9ad856893d3/go.mod h1:qRi+mvh6GDBmbILKDonE+DGCSzTh2ehuzsu1Cv2IkYQ=

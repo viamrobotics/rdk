@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )

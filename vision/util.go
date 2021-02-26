@@ -3,7 +3,7 @@ package vision
 import (
 	"image"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 var (

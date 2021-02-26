@@ -8,11 +8,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/pc"
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	"github.com/viamrobotics/robotcore/testutils"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/pc"
+	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/test"
 	"gonum.org/v1/gonum/mat"

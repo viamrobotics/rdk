@@ -3,7 +3,7 @@ package arm
 import (
 	"fmt"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 type Position struct {

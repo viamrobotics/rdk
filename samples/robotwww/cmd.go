@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 
-	"github.com/viamrobotics/robotcore/robot"
-	"github.com/viamrobotics/robotcore/robot/web"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/web"
 )
 
 func main() {

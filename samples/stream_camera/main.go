@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

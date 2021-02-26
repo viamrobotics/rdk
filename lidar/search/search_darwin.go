@@ -3,8 +3,8 @@
 package search
 
 import (
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/usb"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/usb"
 )
 
 func Devices() ([]lidar.DeviceDescription, error) {

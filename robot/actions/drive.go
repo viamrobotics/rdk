@@ -7,9 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"github.com/viamrobotics/robotcore/robot"
-	"github.com/viamrobotics/robotcore/utils"
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/vision"
 )
 
 func randomWalkIncrement(theRobot *robot.Robot) error {

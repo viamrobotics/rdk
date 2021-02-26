@@ -3,8 +3,8 @@ package compass
 import (
 	"context"
 
-	"github.com/viamrobotics/robotcore/sensor"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/utils"
 )
 
 type Device interface {

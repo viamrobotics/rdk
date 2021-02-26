@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	//~ "github.com/viamrobotics/robotcore/utils"
+	//~ "go.viam.com/robotcore/utils"
 )
 
 type evaData struct {

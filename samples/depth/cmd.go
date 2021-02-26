@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/vision"
 )
 
 func main() {

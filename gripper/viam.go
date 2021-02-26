@@ -6,8 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"github.com/viamrobotics/robotcore/board"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/utils"
 )
 
 type ViamGripper struct {
