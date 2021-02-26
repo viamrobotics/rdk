@@ -80,6 +80,8 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
+              "model" : "intel515",
+              "rotate" : "true"
           }
         }
 
