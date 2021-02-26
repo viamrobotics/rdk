@@ -1,6 +1,7 @@
 package minirover2
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )
@@ -151,6 +153,30 @@ func (r *Rover) neckPosition(pan, tilt uint8) error {
 
 func (r *Rover) Ready(theRobot api.Robot) error {
 	golog.Global.Debugf("minirover2 Ready called")
+	cam := theRobot.CameraByName("front")
+	if cam == nil {
+		return fmt.Errorf("no camera named front")
+	}
+
+	// doing this in a goroutine so i can see camera and servo data in web ui, but probably not right long term
+	if false {
+		go func() {
+			for {
+				time.Sleep(time.Second)
+				img, depth, err := cam.NextImageDepthPair(context.TODO())
+				if err != nil {
+					golog.Global.Debugf("error from camera %s", err)
+					continue
+				}
+				pc := vision.PointCloud{depth, vision.NewImage(img)}
+				err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
+				if err != nil {
+					golog.Global.Debugf("error writing %s", err)
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 

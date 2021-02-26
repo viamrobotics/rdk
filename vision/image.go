@@ -2,13 +2,11 @@ package vision
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
 	"image/png"
-	"io/ioutil"
 	"math"
 	"os"
 	"strings"
@@ -37,32 +35,11 @@ func IsImageFile(fn string) bool {
 
 func NewImageFromFile(fn string) (Image, error) {
 	if strings.HasSuffix(fn, ".both.gz") {
-
-		f, err := os.Open(fn)
+		pc, err := NewPointCloudFromBoth(fn)
 		if err != nil {
 			return Image{}, err
 		}
-		defer f.Close()
-
-		in, err := gzip.NewReader(f)
-		if err != nil {
-			return Image{}, err
-		}
-
-		defer in.Close()
-
-		allData, err := ioutil.ReadAll(in)
-
-		if err != nil {
-			return Image{}, err
-		}
-
-		img, _, err := readNextImageDepthPairFromBoth(allData)
-		if err != nil {
-			return Image{}, err
-		}
-
-		return NewImage(img), nil
+		return pc.Color, nil
 	}
 
 	img, err := utils.ReadImageFromFile(fn)

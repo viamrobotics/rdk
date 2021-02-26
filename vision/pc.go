@@ -1,10 +1,15 @@
 package vision
 
 import (
+	"compress/gzip"
 	"fmt"
 	"image"
 	"image/color"
+	"image/png"
 	"io"
+	"io/ioutil"
+	"os"
+	"strings"
 
 	"github.com/edaniels/golog"
 
@@ -109,6 +114,67 @@ func (pc *PointCloud) CropToDepthData() (PointCloud, error) {
 
 func (pc *PointCloud) Close() {
 
+}
+
+func (pc *PointCloud) WriteTo(fn string) error {
+	if !strings.HasSuffix(fn, ".both.gz") {
+		return fmt.Errorf("vision.PointCloud WriteTo only supports both.gz")
+	}
+
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	out := gzip.NewWriter(f)
+	defer out.Close()
+
+	err = pc.Depth.WriteTo(out)
+	if err != nil {
+		return err
+	}
+
+	err = png.Encode(out, pc.Color.img)
+	if err != nil {
+		return err
+	}
+
+	out.Flush()
+	return f.Sync()
+
+}
+
+func NewPointCloudFromBoth(fn string) (*PointCloud, error) {
+	if !strings.HasSuffix(fn, ".both.gz") {
+		return nil, fmt.Errorf("bad extension")
+	}
+
+	f, err := os.Open(fn)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	in, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, err
+	}
+
+	defer in.Close()
+
+	allData, err := ioutil.ReadAll(in)
+
+	if err != nil {
+		return nil, err
+	}
+
+	img, dm, err := readNextImageDepthPairFromBoth(allData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PointCloud{dm, NewImage(img)}, nil
 }
 
 func NewPointCloud(colorFN, depthFN string) (*PointCloud, error) {

@@ -8,7 +8,6 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/utils"
 	"go.viam.com/robotcore/vision"
 )
 
@@ -41,14 +40,8 @@ func randomWalkIncrement(theRobot *robot.Robot) error {
 		return theRobot.Bases[0].MoveStraight(200, 50, true)
 	}
 
-	base := fmt.Sprintf("data/rover-cannot-walk-%d", time.Now().Unix())
-	fn := base + ".png"
-	err = utils.WriteImageToFile(fn, img)
-	if err != nil {
-		return err
-	}
-
-	err = dm.WriteToFile(base + ".dat.gz")
+	fn := fmt.Sprintf("data/rover-cannot-walk-%d.both.gz", time.Now().Unix())
+	err = pc.WriteTo(fn)
 	if err != nil {
 		return err
 	}
