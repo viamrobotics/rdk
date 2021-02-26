@@ -86,7 +86,7 @@ func (ik *JacobianIK) Solve() bool {
 
 			q = ik.Mdl.Step(q, dq)
 			qNorm = ik.Mdl.Normalize(q)
-			
+
 			ik.Mdl.SetPosition(qNorm)
 
 			ik.Mdl.SetPosition(q)
