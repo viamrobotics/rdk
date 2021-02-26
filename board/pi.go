@@ -386,6 +386,10 @@ func NewPiBoard(cfg Config) (Board, error) {
 	}
 
 	for _, sc := range cfg.Servos {
+		_, err := b.r.DigitalPin(sc.Pin, "out")
+		if err != nil {
+			return nil, err
+		}
 		b.servos = append(b.servos, &gobotServo{gpio.NewServoDriver(b.r, sc.Pin), 0})
 	}
 
