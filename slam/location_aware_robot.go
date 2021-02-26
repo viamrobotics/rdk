@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/robots/fake"
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/robots/fake"
+	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )

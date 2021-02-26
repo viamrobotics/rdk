@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/sensor/compass"
+	"go.viam.com/robotcore/sensor/compass"
 
 	"github.com/edaniels/test"
 )

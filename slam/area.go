@@ -6,7 +6,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/viamrobotics/robotcore/pc"
+	"go.viam.com/robotcore/pc"
 )
 
 // TODO(erd): adapt to use float64 on points, if it makes sense.

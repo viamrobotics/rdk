@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/vision"
 )
 
 type chunkImageDebug struct {

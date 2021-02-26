@@ -6,8 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/viamrobotics/robotcore/usb"
 	"go.uber.org/multierr"
+	"go.viam.com/robotcore/usb"
 )
 
 var registrations = map[DeviceType]DeviceTypeRegistration{}

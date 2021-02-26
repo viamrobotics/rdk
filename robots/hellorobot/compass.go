@@ -1,7 +1,7 @@
 package hellorobot
 
 import (
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/sbinet/go-python"
 )
