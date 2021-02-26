@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/viamrobotics/robotcore/ml"
+	"go.viam.com/robotcore/ml"
 )
 
 const (

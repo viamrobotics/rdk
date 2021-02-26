@@ -5,7 +5,7 @@ import (
 	"image"
 	"sort"
 
-	"github.com/viamrobotics/robotcore/ml"
+	"go.viam.com/robotcore/ml"
 )
 
 type Game struct {

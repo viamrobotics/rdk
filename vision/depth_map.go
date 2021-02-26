@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 type DepthMap struct {

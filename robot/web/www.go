@@ -21,11 +21,11 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
 
-	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/board"
-	"github.com/viamrobotics/robotcore/lidar"
-	"github.com/viamrobotics/robotcore/robot"
-	"github.com/viamrobotics/robotcore/robot/actions"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/actions"
 )
 
 type robotWebApp struct {

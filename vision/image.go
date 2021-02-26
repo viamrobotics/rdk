@@ -13,7 +13,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/fogleman/gg"
 )

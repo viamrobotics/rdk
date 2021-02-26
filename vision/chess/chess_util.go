@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"github.com/viamrobotics/robotcore/vision"
+	"go.viam.com/robotcore/vision"
 )
 
 var (

@@ -9,8 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/viamrobotics/robotcore/sensor/compass"
-	"github.com/viamrobotics/robotcore/serial"
+	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/serial"
 
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"

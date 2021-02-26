@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/test"
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/viamrobotics/robotcore/testutils"
+	"go.viam.com/robotcore/testutils"
 )
 
 // Tests orientation setting

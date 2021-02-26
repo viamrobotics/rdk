@@ -3,7 +3,7 @@
 package search
 
 import (
-	"github.com/viamrobotics/robotcore/lidar"
+	"go.viam.com/robotcore/lidar"
 )
 
 func Devices() ([]lidar.DeviceDescription, error) {
