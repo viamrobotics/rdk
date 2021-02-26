@@ -29,10 +29,6 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
-    - name: Build
-      run: |
-        make -j$(nproc) build
-
     - name: Lint
       run: |
         make lint
