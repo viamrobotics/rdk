@@ -5,10 +5,10 @@ import (
 	"math"
 	"time"
 
-	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/board"
-	"github.com/viamrobotics/robotcore/utils"
 	"go.uber.org/multierr"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )

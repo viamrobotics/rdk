@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/viamrobotics/robotcore/arm"
+	"go.viam.com/robotcore/arm"
 
 	"github.com/sbinet/go-python"
 )

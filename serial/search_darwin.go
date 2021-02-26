@@ -3,7 +3,7 @@
 package serial
 
 import (
-	"github.com/viamrobotics/robotcore/usb"
+	"go.viam.com/robotcore/usb"
 )
 
 func SearchDevices(filter SearchFilter) ([]DeviceDescription, error) {

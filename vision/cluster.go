@@ -8,7 +8,7 @@ import (
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
 
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/utils"
 )
 
 func hsvfrom(point clusters.Coordinates) utils.HSV {

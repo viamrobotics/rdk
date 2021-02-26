@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/viamrobotics/robotcore/base"
-	"github.com/viamrobotics/robotcore/robots/fake"
-	"github.com/viamrobotics/robotcore/utils"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/robots/fake"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

@@ -3,7 +3,7 @@ package kinematics
 import (
 	//~ "math"
 
-	"github.com/viamrobotics/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/kinematics/kinmath"
 	//~ "github.com/go-nlopt/nlopt"
 )
 

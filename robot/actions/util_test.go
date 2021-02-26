@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/viamrobotics/robotcore/vision"
-	"github.com/viamrobotics/robotcore/vision/segmentation"
+	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/disintegration/imaging"
 )
