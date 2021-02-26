@@ -16,8 +16,10 @@ lint: goformat
 test:
 	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
-docker:
+dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
+
+docker: dockerlocal
 	docker push 'echolabs/robotcoretest:latest'
 
 minirover2: 
