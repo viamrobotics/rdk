@@ -54,15 +54,15 @@
                 "mode" : "falling"
               },
               { "name" : "br-e",
-                "pin" : "16",
+                "pin" : "10",
                 "mode" : "falling"
               }
           ],
           "servos" : [
               { "name" : "pan",
-                "pin" : "19" },
+                "pin" : "16" },
               { "name" : "tilt",
-                "pin" : "21" }
+                "pin" : "12" }
           ]
         }
     ],
