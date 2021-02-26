@@ -252,7 +252,12 @@
       <tr><th>{{$i.Name}}</th><td id="board_s_{{$b.Name}}_{{$i.Name}}"></td></tr>
       <tr>
         <td></td>
-        <td>a</td>
+        <td>
+          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=-10')">-10</button>
+          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=-1')">-1</button>
+          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=1')">+1</button>
+          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=10')">+10</button>
+        </td>
       </tr>
       {{ end }}      
       {{end}}
