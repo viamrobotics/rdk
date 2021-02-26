@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/viamrobotics/rplidar"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/base"
@@ -19,8 +18,6 @@ import (
 	"go.viam.com/robotcore/robots/minirover2"
 	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/vision"
-
-	_ "github.com/viamrobotics/rplidar/ws" // registration
 
 	"github.com/edaniels/golog"
 )
@@ -425,9 +422,9 @@ func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
 // TODO(erd): prefer registration pattern
 func (r *Robot) newLidar(ctx context.Context, config Component) (lidar.Device, error) {
 	switch config.Model {
-	case rplidar.ModelName:
+	case lidar.ModelNameWS:
 		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
-			Type: rplidar.DeviceType,
+			Type: lidar.DeviceTypeWS,
 			Host: config.Host,
 			Port: config.Port,
 		})

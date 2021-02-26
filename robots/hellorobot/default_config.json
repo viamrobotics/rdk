@@ -17,14 +17,14 @@
     {
       "host": "127.0.0.1",
       "port": 4444,
-      "model": "rplidar",
+      "model": "lidarws",
       "name": "lidarBase",
       "type": "lidar"
     },
     {
       "host": "127.0.0.1",
       "port": 4445,
-      "model": "rplidar",
+      "model": "lidarws",
       "name": "lidarTop",
       "type": "lidar"
     },

@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/viamrobotics/rplidar"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	"go.viam.com/robotcore/sensor/compass"
@@ -27,7 +26,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/vpx"
-	rplidarws "github.com/viamrobotics/rplidar/ws"
 )
 
 const fakeDev = "fake"
@@ -79,7 +77,7 @@ func main() {
 					lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: fmt.Sprintf("%d", i)})
 			default:
 				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{Type: rplidar.DeviceType, Host: addressParts[0], Port: int(port)})
+					lidar.DeviceDescription{Type: lidar.DeviceTypeWS, Host: addressParts[0], Port: int(port)})
 			}
 		}
 	}
@@ -94,17 +92,11 @@ func main() {
 		golog.Global.Fatal(err)
 	}
 	for _, lidarDev := range lidarDevices {
-		if rpl, ok := lidarDev.(*rplidarws.Device); ok {
-			info, err := rpl.Info(context.Background())
-			if err != nil {
-				golog.Global.Fatal(err)
-			}
-			golog.Global.Infow("rplidar",
-				"model", info.Model,
-				"serial", info.SerialNumber,
-				"firmware_ver", info.FirmwareVersion,
-				"hardware_rev", info.HardwareRevision)
+		info, err := lidarDev.Info(context.Background())
+		if err != nil {
+			golog.Global.Fatal(err)
 		}
+		golog.Global.Infow("device", "info", info)
 		defer lidarDev.Stop(context.Background())
 	}
 

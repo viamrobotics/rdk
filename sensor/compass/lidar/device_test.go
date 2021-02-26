@@ -223,6 +223,7 @@ func TestHeading(t *testing.T) {
 
 type injectDevice struct {
 	lidar.Device
+	InfoFunc              func(ctx context.Context) (map[string]interface{}, error)
 	StartFunc             func(ctx context.Context) error
 	StopFunc              func(ctx context.Context) error
 	CloseFunc             func(ctx context.Context) error
@@ -230,6 +231,13 @@ type injectDevice struct {
 	RangeFunc             func(ctx context.Context) (int, error)
 	BoundsFunc            func(ctx context.Context) (image.Point, error)
 	AngularResolutionFunc func(ctx context.Context) (float64, error)
+}
+
+func (ij *injectDevice) Info(ctx context.Context) (map[string]interface{}, error) {
+	if ij.InfoFunc == nil {
+		return ij.Device.Info(ctx)
+	}
+	return ij.InfoFunc(ctx)
 }
 
 func (ij *injectDevice) Start(ctx context.Context) error {

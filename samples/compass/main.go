@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"time"
 
-	mtiws "github.com/viamrobotics/mti/ws"
+	"go.viam.com/robotcore/sensor/compass"
 
 	"github.com/edaniels/golog"
 )
@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sensor, err := mtiws.NewDevice(context.Background(), address)
+	sensor, err := compass.NewWSDevice(context.Background(), address)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}

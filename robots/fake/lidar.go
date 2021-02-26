@@ -57,6 +57,10 @@ func (l *Lidar) SetSeed(seed int64) {
 	l.seed = seed
 }
 
+func (l *Lidar) Info(ctx context.Context) (map[string]interface{}, error) {
+	return nil, nil
+}
+
 func (l *Lidar) Start(ctx context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()

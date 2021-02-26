@@ -99,10 +99,9 @@
           "model" : "minirover2"
         },
         {
-            "attributes": {
-                "file_path": "/dev/ttyUSB0"
-            },
-            "model": "rplidar",
+            "host": "127.0.0.1",
+            "port": 4444,
+            "model": "lidarws",
             "name": "lidarBase",
             "type": "lidar"
         }

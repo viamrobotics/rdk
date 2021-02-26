@@ -9,13 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
-	rplidarws "github.com/viamrobotics/rplidar/ws"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
-	lidarDev, err := rplidarws.NewDevice(context.Background(), lidarDevAddr)
+	lidarDev, err := lidar.NewWSDevice(context.Background(), lidarDevAddr)
 	if err != nil {
 		panic(err)
 	}
