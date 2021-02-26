@@ -27,8 +27,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997
-	github.com/viamrobotics/mti v0.0.0-20210225182555-b978de4208e5
-	github.com/viamrobotics/rplidar v0.0.0-20210225182551-f9ad856893d3
+	github.com/viamrobotics/mti v0.0.0-20210226012753-e5b4c4b193a7
+	github.com/viamrobotics/rplidar v0.0.0-20210226012453-3f7e588df509
 	go.mongodb.org/mongo-driver v1.4.4
 	go.uber.org/multierr v1.6.0
 	gobot.io/x/gobot v1.15.0
