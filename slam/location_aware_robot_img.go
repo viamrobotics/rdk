@@ -23,7 +23,9 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 	}
 }
 
-func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea, orientations []float64) (image.Image, error) {
+var areaPointColor = color.NRGBA{255, 0, 0, 255}
+
+func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea, orientations []float64) image.Image {
 	// all areas are the same size
 	_, scaleDown := areas[0].Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
@@ -57,27 +59,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	viewTranslateP := image.Point{-basePosX + centerX, -basePosY + centerY}
 	relBaseRect := lar.baseRect().Add(viewTranslateP)
 
-	utils.DrawRectangleEmpty(dc, relBaseRect, color.RGBA{0, 0, 255, 255}, 1)
-
-	// TODO(erd): any way to get a submatrix? may need to segment each one
-	// if this starts going slower. fast as long as there are not many points
-	for _, area := range areas {
-		area.Mutate(func(area MutableArea) {
-			area.Iterate(func(x, y int, _ float64) bool {
-				if x < minX || x > maxX || y < minY || y > maxY {
-					return true
-				}
-				distX := basePosX - x
-				distY := basePosY - y
-				relX := centerX - distX
-				relY := centerY - distY
-
-				dc.SetColor(color.RGBA{255, 0, 0, 255})
-				dc.SetPixel(relX, relY)
-				return true
-			})
-		})
-	}
+	utils.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
@@ -87,13 +69,13 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 			var c color.Color
 			switch orientation {
 			case 0:
-				c = color.RGBA{29, 131, 72, 255}
+				c = color.NRGBA{29, 131, 72, 255}
 			case 90:
-				c = color.RGBA{23, 165, 137, 255}
+				c = color.NRGBA{23, 165, 137, 255}
 			case 180:
-				c = color.RGBA{218, 247, 166, 255}
+				c = color.NRGBA{218, 247, 166, 255}
 			case 270:
-				c = color.RGBA{255, 195, 0, 255}
+				c = color.NRGBA{255, 195, 0, 255}
 			}
 			utils.DrawRectangleEmpty(dc, moveRect, c, 1)
 		}
@@ -110,7 +92,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 		relX := float64(centerX) + x
 		relY := float64(centerY) + y
 
-		dc.SetColor(color.RGBA{0, 255, 0, 255})
+		dc.SetColor(color.NRGBA{0, 255, 0, 255})
 		dc.SetPixel(int(relX), int(relY))
 	}
 
@@ -132,32 +114,44 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 
 		dc.DrawLine(float64(centerX), float64(centerY), relX, relY)
 		if i == 0 {
-			dc.SetColor(color.RGBA{0, 255, 0, 255})
+			dc.SetColor(color.NRGBA{0, 255, 0, 255})
 		} else {
-			dc.SetColor(color.RGBA{0, 0, 255, 255})
+			dc.SetColor(color.NRGBA{0, 0, 255, 255})
 		}
 		dc.SetLineWidth(3)
 		dc.Stroke()
 	}
 
-	return dc.Image(), nil
+	// TODO(erd): any way to get a submatrix? may need to segment each one
+	// if this starts going slower. fast as long as there are not many points
+	for _, area := range areas {
+		area.Mutate(func(area MutableArea) {
+			area.Iterate(func(x, y int, _ float64) bool {
+				if x < minX || x > maxX || y < minY || y > maxY {
+					return true
+				}
+				distX := basePosX - x
+				distY := basePosY - y
+				relX := centerX - distX
+				relY := centerY - distY
+
+				dc.SetColor(areaPointColor)
+				dc.SetPixel(relX, relY)
+				return true
+			})
+		})
+	}
+
+	return dc.Image()
 }
 
 func (lar *LocationAwareRobot) renderStoredView() (image.Image, error) {
-	_, bounds, areas, err := lar.areasToView()
-	if err != nil {
-		return nil, err
-	}
-
-	return lar.renderAreas(bounds, areas, lar.orientations)
+	_, bounds, areas := lar.areasToView()
+	return lar.renderAreas(bounds, areas, lar.orientations), nil
 }
 
 func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
-	devices, bounds, areas, err := lar.areasToView()
-	if err != nil {
-		return nil, err
-	}
-
+	devices, bounds, areas := lar.areasToView()
 	meters, scaleTo := areas[0].Size()
 	blankArea := NewSquareArea(meters, scaleTo)
 
@@ -166,5 +160,5 @@ func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
 		return nil, err
 	}
 
-	return lar.renderAreas(bounds, []*SquareArea{blankArea}, orientations)
+	return lar.renderAreas(bounds, []*SquareArea{blankArea}, orientations), nil
 }

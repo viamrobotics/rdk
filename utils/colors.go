@@ -212,6 +212,14 @@ func _ratioOffFrom135Finish(a float64) float64 {
 	return a
 }
 
+func ConvertToRGBA(c color.Color) color.RGBA {
+	return color.RGBAModel.Convert(c).(color.RGBA)
+}
+
+func ConvertToNRGBA(c color.Color) color.NRGBA {
+	return color.NRGBAModel.Convert(c).(color.NRGBA)
+}
+
 func NewHSV(h, s, v float64) HSV {
 	return HSV{h, s, v}
 }

@@ -54,7 +54,6 @@ func main() {
 	areaScale := 100 // cm
 	area := slam.NewSquareArea(areaSizeMeters, areaScale)
 	areaCenter := area.Center()
-	areaX, areaY := area.Dims()
 
 	var baseDevice base.Device
 	switch baseType {
@@ -203,10 +202,9 @@ func main() {
 	lar, err := slam.NewLocationAwareRobot(
 		baseDevice,
 		image.Point{areaCenter.X, areaCenter.Y},
+		area,
 		lidarDevices,
 		deviceOffests,
-		area,
-		image.Point{areaX, areaY},
 		compassSensor,
 	)
 	if err != nil {

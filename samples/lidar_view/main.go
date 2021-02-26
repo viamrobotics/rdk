@@ -107,16 +107,14 @@ func main() {
 		areaScale := 100 // cm
 		area = slam.NewSquareArea(areaSizeMeters, areaScale)
 		areaCenter := area.Center()
-		areaX, areaY := area.Dims()
 
 		var err error
 		lar, err = slam.NewLocationAwareRobot(
 			&fake.Base{},
 			image.Point{areaCenter.X, areaCenter.Y},
+			area,
 			lidarDevices,
 			nil,
-			area,
-			image.Point{areaX, areaY},
 			nil,
 		)
 		if err != nil {

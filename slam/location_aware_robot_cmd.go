@@ -300,10 +300,7 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
 	case clientClickModeInfo:
 		// TODO(erd): refactor to viewCoordToReal
-		_, bounds, areas, err := lar.areasToView()
-		if err != nil {
-			return "", err
-		}
+		_, bounds, areas := lar.areasToView()
 
 		_, scaleDown := areas[0].Size()
 		bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
