@@ -29,6 +29,7 @@ Also run `git config --global url.ssh://git@github.com/.insteadOf https://github
 
 * go1.15.*
 * libvpx
+** ../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic
 * python2.7-dev
 
 ### Setup
