@@ -14,7 +14,7 @@ require (
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210225194545-b2d6bf85806c
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
-	github.com/edaniels/wsapi v0.0.1
+	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/go-gl/mathgl v1.0.0
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
