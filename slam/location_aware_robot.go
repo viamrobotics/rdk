@@ -28,6 +28,7 @@ type LocationAwareRobot struct {
 	baseOrientation float64 // relative to map
 	basePosX        int
 	basePosY        int
+	devBounds       []image.Point
 	maxBounds       image.Point
 
 	devices       []lidar.Device
@@ -36,7 +37,6 @@ type LocationAwareRobot struct {
 
 	rootArea        *SquareArea
 	presentViewArea *SquareArea
-	areaBounds      image.Point
 	distinctAreas   []*SquareArea // TODO(erd): this probably isn't that useful
 
 	compassSensor compass.Device
@@ -56,10 +56,9 @@ type LocationAwareRobot struct {
 func NewLocationAwareRobot(
 	baseDevice base.Device,
 	baseStart image.Point,
+	area *SquareArea,
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
-	area *SquareArea,
-	areaBounds image.Point,
 	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
 	distinctAreas := make([]*SquareArea, 0, len(devices))
@@ -68,6 +67,7 @@ func NewLocationAwareRobot(
 	}
 
 	var maxBoundsX, maxBoundsY int
+	devBounds := make([]image.Point, 0, len(devices))
 	for _, dev := range devices {
 		bounds, err := dev.Bounds(context.TODO())
 		if err != nil {
@@ -79,6 +79,7 @@ func NewLocationAwareRobot(
 		if bounds.Y > maxBoundsY {
 			maxBoundsY = bounds.Y
 		}
+		devBounds = append(devBounds, bounds)
 	}
 
 	robot := &LocationAwareRobot{
@@ -86,6 +87,7 @@ func NewLocationAwareRobot(
 		basePosX:   baseStart.X,
 		basePosY:   baseStart.Y,
 		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
+		devBounds:  devBounds,
 
 		devices:       devices,
 		deviceOffsets: deviceOffsets,
@@ -93,7 +95,6 @@ func NewLocationAwareRobot(
 
 		rootArea:        area,
 		presentViewArea: area.BlankCopy(),
-		areaBounds:      areaBounds,
 		distinctAreas:   distinctAreas,
 
 		compassSensor: compassSensor,
@@ -188,6 +189,7 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (i
 	newY := lar.basePosY
 
 	errMsg := fmt.Errorf("cannot move at orientation %f; stuck", orientation)
+	boundsX, boundsY := lar.rootArea.Dims()
 	switch orientation {
 	case 0:
 		if lar.basePosY-amount < 0 {
@@ -195,12 +197,12 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (i
 		}
 		newY = lar.basePosY - amount
 	case 90:
-		if lar.basePosX+amount >= lar.areaBounds.X {
+		if lar.basePosX+amount >= boundsX {
 			return image.Point{}, 0, errMsg
 		}
 		newX = lar.basePosX + amount
 	case 180:
-		if lar.basePosY+amount >= lar.areaBounds.Y {
+		if lar.basePosY+amount >= boundsY {
 			return image.Point{}, 0, errMsg
 		}
 		newY = lar.basePosY + amount
@@ -528,19 +530,16 @@ func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 	)
 }
 
-func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea, error) {
+func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 	devNum := lar.getClientDeviceNum()
 	if devNum == -1 {
-		return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}, nil
+		return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
 	}
 	dev := lar.devices[devNum : devNum+1]
-	bounds, err := dev[0].Bounds(context.TODO())
-	if err != nil {
-		return nil, image.Point{}, nil, err
-	}
-	return dev, bounds, []*SquareArea{lar.distinctAreas[devNum]}, nil
+	bounds := lar.devBounds[devNum]
+	return dev, bounds, []*SquareArea{lar.distinctAreas[devNum]}
 }
 
 func (lar *LocationAwareRobot) getClientDeviceNum() int {

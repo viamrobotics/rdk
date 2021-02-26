@@ -34,3 +34,13 @@ func RandomAlphaString(size int) string {
 	}
 	return string(chars)
 }
+
+type StringSet map[string]struct{}
+
+func NewStringSet(values ...string) StringSet {
+	set := make(StringSet, len(values))
+	for _, val := range values {
+		set[val] = struct{}{}
+	}
+	return set
+}
