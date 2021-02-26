@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"math"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/robotcore/pc"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/test"
@@ -41,7 +41,7 @@ func TestNew(t *testing.T) {
 	_, err = New(context.Background(), desc)
 	test.That(t, err, test.ShouldEqual, newErr)
 
-	injectDev := &injectDevice{}
+	injectDev := &inject.LidarDevice{}
 	newFunc = func(innerDesc lidar.DeviceDescription) (lidar.Device, error) {
 		return injectDev, nil
 	}
@@ -52,14 +52,14 @@ func TestNew(t *testing.T) {
 }
 
 func TestFrom(t *testing.T) {
-	dev := &injectDevice{}
+	dev := &inject.LidarDevice{}
 	compassDev := From(dev)
 	var relDev *compass.RelativeDevice = nil
 	test.That(t, compassDev, test.ShouldImplement, relDev)
 }
 
-func getInjected() (*Device, *injectDevice) {
-	dev := &injectDevice{}
+func getInjected() (*Device, *inject.LidarDevice) {
+	dev := &inject.LidarDevice{}
 	return From(dev).(*Device), dev
 }
 
@@ -180,7 +180,7 @@ func TestHeading(t *testing.T) {
 		scannedM, err := compassDev.scanToVec2Matrix()
 		test.That(t, err, test.ShouldBeNil)
 
-		setup := func(t *testing.T) (*Device, *injectDevice) {
+		setup := func(t *testing.T) (*Device, *inject.LidarDevice) {
 			t.Helper()
 			_, injectDev := getInjected()
 			injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
@@ -219,72 +219,4 @@ func TestHeading(t *testing.T) {
 			})
 		}
 	})
-}
-
-type injectDevice struct {
-	lidar.Device
-	InfoFunc              func(ctx context.Context) (map[string]interface{}, error)
-	StartFunc             func(ctx context.Context) error
-	StopFunc              func(ctx context.Context) error
-	CloseFunc             func(ctx context.Context) error
-	ScanFunc              func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error)
-	RangeFunc             func(ctx context.Context) (int, error)
-	BoundsFunc            func(ctx context.Context) (image.Point, error)
-	AngularResolutionFunc func(ctx context.Context) (float64, error)
-}
-
-func (ij *injectDevice) Info(ctx context.Context) (map[string]interface{}, error) {
-	if ij.InfoFunc == nil {
-		return ij.Device.Info(ctx)
-	}
-	return ij.InfoFunc(ctx)
-}
-
-func (ij *injectDevice) Start(ctx context.Context) error {
-	if ij.StartFunc == nil {
-		return ij.Device.Start(ctx)
-	}
-	return ij.StartFunc(ctx)
-}
-
-func (ij *injectDevice) Stop(ctx context.Context) error {
-	if ij.StopFunc == nil {
-		return ij.Device.Stop(ctx)
-	}
-	return ij.StopFunc(ctx)
-}
-
-func (ij *injectDevice) Close(ctx context.Context) error {
-	if ij.CloseFunc == nil {
-		return ij.Device.Close(ctx)
-	}
-	return ij.CloseFunc(ctx)
-}
-
-func (ij *injectDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	if ij.ScanFunc == nil {
-		return ij.Device.Scan(ctx, options)
-	}
-	return ij.ScanFunc(ctx, options)
-}
-
-func (ij *injectDevice) Range(ctx context.Context) (int, error) {
-	if ij.RangeFunc == nil {
-		return ij.Device.Range(ctx)
-	}
-	return ij.RangeFunc(ctx)
-}
-
-func (ij *injectDevice) Bounds(ctx context.Context) (image.Point, error) {
-	if ij.BoundsFunc == nil {
-		return ij.Device.Bounds(ctx)
-	}
-	return ij.BoundsFunc(ctx)
-}
-
-func (ij *injectDevice) AngularResolution(ctx context.Context) (float64, error) {
-	if ij.AngularResolutionFunc == nil {
-		return ij.Device.AngularResolution(ctx)
-	}
-	return ij.AngularResolutionFunc(ctx)
 }
