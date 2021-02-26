@@ -78,19 +78,20 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 
 func readFrame(cam *webcam.Webcam, first bool) ([]byte, error) {
 	var err error
+	var frame []byte
 
 	for tries := 0; tries == 0 || (first && tries < 5); tries++ {
 		if tries > 0 {
 			time.Sleep(50 * time.Millisecond)
 		}
 
-		err := cam.WaitForFrame(1)
+		err = cam.WaitForFrame(1)
 		if err != nil {
 			err = fmt.Errorf("couldn't get webcam frame: %s", err)
 			continue
 		}
 
-		frame, err := cam.ReadFrame()
+		frame, err = cam.ReadFrame()
 		if err != nil {
 			err = fmt.Errorf("couldn't read webcam frame: %s", err)
 			continue
@@ -215,7 +216,7 @@ func openWebcamDepth(path string, debug bool) (*webcamDepthSource, error) {
 		return nil, fmt.Errorf("depth not supported on %s", path)
 	}
 
-	format, w, h, err := pickSizeAndStart(cam, format, nil)
+	_, w, h, err := pickSizeAndStart(cam, format, nil)
 	if err != nil {
 		return nil, err
 	}
