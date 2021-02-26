@@ -24,6 +24,10 @@
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+# Test data
+slam/data/*new*
+slam/data/*diff*
+
 *~
 *#
 *.#*
