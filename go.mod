@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
-	github.com/biotinker/nlopt v0.0.0-20210227001646-bdd6ad387a31 // indirect
+	github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489 // indirect
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
