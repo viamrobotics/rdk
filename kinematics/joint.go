@@ -131,6 +131,14 @@ func (j *Joint) GetPosition() []float64 {
 	return j.position
 }
 
+func (j *Joint) GetMinimum() []float64 {
+	return j.min
+}
+
+func (j *Joint) GetMaximum() []float64 {
+	return j.max
+}
+
 func (j *Joint) SetName(name string) {
 	j.transform.name = name
 }
@@ -213,7 +221,7 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 	for i := range posvec {
 		posvec2[i] = posvec[i] + dpos[i]
 	}
-	posvec2 = j.Clamp(posvec2)
+	//~ posvec2 = j.Clamp(posvec2)
 	return posvec2
 }
 
