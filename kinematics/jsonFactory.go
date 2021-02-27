@@ -137,8 +137,8 @@ func ParseJSONFile(filename string) (*Model, error) {
 			rev.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 			model.Edges[rev.GetEdgeDescriptor()] = rev
 
-			rev.max = append(rev.max, joint.Max*180/math.Pi)
-			rev.min = append(rev.min, joint.Min*180/math.Pi)
+			rev.max = append(rev.max, joint.Max*math.Pi/180)
+			rev.min = append(rev.min, joint.Min*math.Pi/180)
 
 			// TODO: Add default on z
 			// TODO: Enforce between 0 and 1

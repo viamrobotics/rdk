@@ -8,8 +8,8 @@ import (
 	"go.viam.com/robotcore/testutils"
 )
 
-// This should test all of the kinematics functions
-func TestAllKinematics(t *testing.T) {
+// This should test forward kinematics functions
+func TestForwardKinematics(t *testing.T) {
 	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
