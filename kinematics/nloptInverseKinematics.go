@@ -3,25 +3,25 @@ package kinematics
 import (
 	//~ "math"
 
+	"github.com/biotinker/nlopt"
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
-	"github.com/biotinker/nlopt"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
 type NloptIK struct {
-	Mdl *Model
-	lowerBound []float64
-	upperBound []float64
-	iterations int
+	Mdl           *Model
+	lowerBound    []float64
+	upperBound    []float64
+	iterations    int
 	maxIterations int
-	epsilon    float64
-	Goals      []Goal
-	opt        *nlopt.NLopt
+	epsilon       float64
+	Goals         []Goal
+	opt           *nlopt.NLopt
 }
 
-func errCheck(err error){
-	if err != nil{
+func errCheck(err error) {
+	if err != nil {
 		golog.Global.Error("nlopt init error: ", err)
 	}
 }
@@ -34,19 +34,19 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
-	
+
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
 	if err != nil {
 		return &NloptIK{}
 	}
-	
+
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
 		ik.iterations++
-		
+
 		// TODO: Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
@@ -60,8 +60,8 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 				dx[dxIdx+i] = delta
 			}
 		}
-		
-		if len(gradient) > 0{
+
+		if len(gradient) > 0 {
 			// mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
 			// out into a bunch of variables instead of being nicely composed.
 			ik.Mdl.CalculateJacobian()
@@ -69,17 +69,17 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 			grad2 := mgl64.NewVecN(len(dx))
 			j2 := j.Transpose(j)
 			j2 = j2.Mul(j2, -2)
-			
+
 			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic
 			gradient = j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
 		}
 		// We need to use gradient to make the linter happy
-		if len(gradient) > 0{
+		if len(gradient) > 0 {
 			return SquaredNorm(dx)
 		}
 		return SquaredNorm(dx)
 	}
-	
+
 	errCheck(opt.SetFtolAbs(ik.epsilon))
 	errCheck(opt.SetFtolRel(ik.epsilon))
 	errCheck(opt.SetLowerBounds(ik.lowerBound))
@@ -88,11 +88,9 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	errCheck(opt.SetUpperBounds(ik.upperBound))
 	errCheck(opt.SetXtolAbs1(ik.epsilon))
 	errCheck(opt.SetXtolRel(ik.epsilon))
-	
+
 	return ik
 }
-
-
 
 func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int) {
 	newtrans := &kinmath.Transform{}
@@ -110,17 +108,17 @@ func (ik *NloptIK) GetGoals() []Goal {
 
 func (ik *NloptIK) Solve() bool {
 	origJointPos := ik.Mdl.GetPosition()
-	for ik.iterations < ik.maxIterations{
+	for ik.iterations < ik.maxIterations {
 		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
-		if err != nil{
+		if err != nil {
 			golog.Global.Error("nlopt optimization error: ", err)
 		}
-		
-		if result < ik.epsilon*ik.epsilon{
+
+		if result < ik.epsilon*ik.epsilon {
 			ik.Mdl.SetPosition(angles)
 			return true
 		}
-		
+
 		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 	}
 	ik.Mdl.SetPosition(origJointPos)
