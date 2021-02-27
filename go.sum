@@ -92,8 +92,8 @@ github.com/aws/aws-sdk-go v1.36.2/go.mod h1:hcU610XS61/+aQV88ixoOzUoG7v3b31pl2zK
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
-github.com/biotinker/nlopt v0.0.0-20210227001646-bdd6ad387a31 h1:rU/tK3RiSWa8a7s6sQo5w+Uq8ADLe04AMCWVfLhhkuE=
-github.com/biotinker/nlopt v0.0.0-20210227001646-bdd6ad387a31/go.mod h1:d359XI92VLDI6wierI6rGuZtdJ+4k6VjHGkrnE0PrZA=
+github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489 h1:1HP5QM2fsJoNw7HN10MjlxPp/rx9HBSWAsvb2dJG4e0=
+github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489/go.mod h1:d359XI92VLDI6wierI6rGuZtdJ+4k6VjHGkrnE0PrZA=
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/bkielbasa/cyclop v1.2.0 h1:7Jmnh0yL2DjKfw28p86YTd/B4lRGcNuu12sKE35sM7A=
 github.com/bkielbasa/cyclop v1.2.0/go.mod h1:qOI0yy6A7dYC4Zgsa72Ppm9kONl0RoIlPbzot9mhmeI=
