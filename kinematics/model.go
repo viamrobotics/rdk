@@ -131,6 +131,24 @@ func (m *Model) GetPosition() []float64 {
 	return jointPos
 }
 
+// GetMinimum returns the array of GetPosition from all joints
+func (m *Model) GetMinimum() []float64 {
+	var jointMin []float64
+	for _, joint := range m.Joints {
+		jointMin = append(jointMin, joint.GetMinimum()...)
+	}
+	return jointMin
+}
+
+// GetMinimum returns the array of GetPosition from all joints
+func (m *Model) GetMaximum() []float64 {
+	var jointMax []float64
+	for _, joint := range m.Joints {
+		jointMax = append(jointMax, joint.GetMaximum()...)
+	}
+	return jointMax
+}
+
 // SetVelocity sets joint velocities
 func (m *Model) SetVelocity(newVel []float64) {
 	newPosVec := mgl64.NewVecNFromData(newVel)
