@@ -166,7 +166,7 @@ func CompareImages(img1, img2 image.Image) (int, image.Image, error) {
 	bounds1 := img1.Bounds()
 	bounds2 := img2.Bounds()
 	if bounds1 != bounds2 {
-		return int(math.MaxInt64), nil, fmt.Errorf("image bounds not equal: %+v, %+v", img1.Bounds(), img2.Bounds())
+		return int(math.MaxInt32), nil, fmt.Errorf("image bounds not equal: %+v, %+v", img1.Bounds(), img2.Bounds())
 	}
 
 	accumError := int(0)
