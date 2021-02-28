@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
+	fyne.io/fyne v1.4.3 // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
@@ -13,7 +14,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210225194545-b2d6bf85806c
+	github.com/edaniels/gostream v0.0.0-20210228005322-887ca3420016
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
