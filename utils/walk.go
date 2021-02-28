@@ -1,4 +1,4 @@
-package vision
+package utils
 
 type WalkCallback func(x, y int) error
 

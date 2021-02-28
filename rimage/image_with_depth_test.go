@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"os"
@@ -8,17 +8,10 @@ import (
 )
 
 func TestPC1(t *testing.T) {
-	m, err := ParseDepthMap("chess/data/board2.dat.gz")
+	pc, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	i, err := NewImageFromFile("chess/data/board2.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pc := PointCloud{m, i}
 
 	file, err := os.OpenFile("/tmp/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
 	if err != nil {
@@ -30,7 +23,7 @@ func TestPC1(t *testing.T) {
 }
 
 func TestPCRoundTrip(t *testing.T) {
-	pc, err := NewPointCloud("chess/data/board1.png", "chess/data/board1.dat.gz")
+	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +36,7 @@ func TestPCRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pc2, err := NewPointCloudFromBoth(fn)
+	pc2, err := BothReadFromFile(fn)
 	if err != nil {
 		t.Fatal(err)
 	}

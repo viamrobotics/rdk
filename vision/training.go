@@ -1,12 +1,17 @@
 package vision
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/png"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"go.viam.com/robotcore/rimage"
 )
 
 type TrainingImage struct {
@@ -51,7 +56,7 @@ func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
 }
 
 func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string, labels []string) (primitive.ObjectID, error) {
-	img, err := NewImageFromFile(fn)
+	img, err := rimage.NewImageFromFile(fn)
 	if err != nil {
 		return primitive.ObjectID{}, err
 	}
@@ -59,15 +64,17 @@ func (its *ImageTrainingStore) StoreImageFromDisk(ctx context.Context, fn string
 	return its.StoreImage(ctx, img, md, labels)
 }
 
-func (its *ImageTrainingStore) StoreImage(ctx context.Context, img Image, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
-	var err error
+func (its *ImageTrainingStore) StoreImage(ctx context.Context, img image.Image, metaData map[string]interface{}, labels []string) (primitive.ObjectID, error) {
 
 	ti := TrainingImage{}
 	ti.ID = primitive.NewObjectID()
-	ti.Data, err = img.ToBytes()
+
+	bb := bytes.Buffer{}
+	err := png.Encode(&bb, img)
 	if err != nil {
 		return ti.ID, err
 	}
+	ti.Data = bb.Bytes()
 	ti.Labels = labels
 	ti.MetaData = metaData
 

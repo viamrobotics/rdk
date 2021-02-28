@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 
 	"github.com/lucasb-eyer/go-colorful"
 )
@@ -16,7 +16,7 @@ type SegmentedImage struct {
 	height  int
 }
 
-func newSegmentedImage(img vision.Image) *SegmentedImage {
+func newSegmentedImage(img *rimage.Image) *SegmentedImage {
 	si := &SegmentedImage{
 		width:  img.Width(),
 		height: img.Height(),
