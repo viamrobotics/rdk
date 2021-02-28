@@ -1,7 +1,8 @@
-package vision
+package rimage
 
 import (
 	"image"
+	"math"
 
 	"go.viam.com/robotcore/utils"
 )
@@ -59,4 +60,10 @@ func Center(contour []image.Point, maxDiff int) image.Point {
 	avgMiddle := image.Point{(box.Min.X + box.Max.X) / 2, (box.Min.Y + box.Max.Y) / 2}
 	//fmt.Printf("%v -> %v  box: %v\n", weightedMiddle, avgMiddle, box)
 	return avgMiddle
+}
+
+func PointDistance(a, b image.Point) float64 {
+	x := utils.SquareInt(b.X - a.X)
+	x += utils.SquareInt(b.Y - a.Y)
+	return math.Sqrt(float64(x))
 }

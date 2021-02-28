@@ -9,8 +9,8 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )
@@ -163,12 +163,16 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 		go func() {
 			for {
 				time.Sleep(time.Second)
-				img, depth, err := cam.NextImageDepthPair(context.TODO())
+				img, err := cam.Next(context.TODO())
 				if err != nil {
 					golog.Global.Debugf("error from camera %s", err)
 					continue
 				}
-				pc := vision.PointCloud{depth, vision.NewImage(img)}
+				pc := rimage.ConvertToImageWithDepth(img)
+				if pc.Depth == nil {
+					golog.Global.Warnf("no depth data")
+					return
+				}
 				err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
 				if err != nil {
 					golog.Global.Debugf("error writing %s", err)

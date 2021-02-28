@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"bytes"
@@ -33,18 +33,6 @@ func (s *WebcamSource) Close() error {
 	return s.cam.Close()
 }
 
-func (s *WebcamSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
-	i, err := s.Next(ctx)
-	var dm *DepthMap
-	if s.depth != nil {
-		dm, err = s.depth.Next()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	return i, dm, err
-}
-
 func (s *WebcamSource) decode(frame []byte) (image.Image, error) {
 
 	switch s.format {
@@ -73,7 +61,21 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 	}
 
 	s.numFrames++
-	return s.decode(f)
+	img, err := s.decode(f)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.depth == nil {
+		return img, nil
+	}
+
+	dm, err := s.depth.Next()
+	if err != nil {
+		return nil, err
+	}
+	return &ImageWithDepth{ConvertImage(img), dm}, nil
+
 }
 
 func readFrame(cam *webcam.Webcam, first bool) ([]byte, error) {
@@ -273,7 +275,7 @@ func tryWebcamOpen(path string, debug bool, desiredSize *image.Point) (*WebcamSo
 	return &WebcamSource{cam, format, w, h, 0, nil}, nil
 }
 
-func NewWebcamSource(attrs map[string]string) (ImageDepthSource, error) {
+func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 
 	debug := attrs["debug"] == "true"
 	var desiredSize *image.Point = nil

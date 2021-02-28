@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"encoding/json"
@@ -11,8 +11,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -55,7 +53,7 @@ func (d *MultipleImageTestDebugger) GotDebugImage(img image.Image, name string) 
 	}
 	atomic.AddInt32(&d.pendingImages, 1)
 	go func() {
-		err := utils.WriteImageToFile(outFile, img)
+		err := WriteImageToFile(outFile, img)
 		atomic.AddInt32(&d.pendingImages, -1)
 		if err != nil {
 			panic(err)
@@ -69,7 +67,7 @@ func (d *MultipleImageTestDebugger) addImageCell(f string) {
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(d *MultipleImageTestDebugger, fn string, img Image) error
+	Process(d *MultipleImageTestDebugger, fn string, img image.Image) error
 }
 
 func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
@@ -120,7 +118,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		}
 		d.currentFile = f
 		golog.Global.Debug(f)
-		img, err := NewImageFromFile(f)
+		img, err := ReadImageFromFile(f)
 		if err != nil {
 			return err
 		}
@@ -128,7 +126,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))
 
 		d.html.WriteString("<tr>")
-		d.GotDebugImage(img.Image(), "raw")
+		d.GotDebugImage(img, "raw")
 
 		err = x.Process(d, f, img)
 		if err != nil {
