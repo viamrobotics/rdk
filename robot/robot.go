@@ -13,13 +13,14 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/robots/minirover2"
 	"go.viam.com/robotcore/serial"
-	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 )
 
 type Robot struct {
@@ -27,7 +28,7 @@ type Robot struct {
 
 	Arms         []arm.Arm
 	Grippers     []gripper.Gripper
-	Cameras      []vision.ImageDepthSource
+	Cameras      []gostream.ImageSource
 	LidarDevices []lidar.Device
 	Bases        []base.Device
 	providers    []api.Provider
@@ -104,7 +105,7 @@ func (r *Robot) GripperByName(name string) gripper.Gripper {
 	return nil
 }
 
-func (r *Robot) CameraByName(name string) vision.ImageDepthSource {
+func (r *Robot) CameraByName(name string) gostream.ImageSource {
 	for i, c := range r.cameraComponents {
 		if c.Name == name {
 			return r.Cameras[i]
@@ -145,7 +146,7 @@ func (r *Robot) AddGripper(g gripper.Gripper, c Component) {
 	r.Grippers = append(r.Grippers, g)
 	r.gripperComponents = append(r.gripperComponents, c)
 }
-func (r *Robot) AddCamera(camera vision.ImageDepthSource, c Component) {
+func (r *Robot) AddCamera(camera gostream.ImageSource, c Component) {
 	r.Cameras = append(r.Cameras, camera)
 	r.cameraComponents = append(r.cameraComponents, c)
 }
@@ -381,38 +382,38 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newCamera(config Component) (vision.ImageDepthSource, error) {
+func (r *Robot) newCamera(config Component) (gostream.ImageSource, error) {
 	src, err := r.newCameraLL(config)
 	if err != nil {
 		return nil, err
 	}
 
 	if config.Attributes["rotate"] == "true" {
-		src = &vision.RotateImageDepthSource{src}
+		src = &rimage.RotateImageDepthSource{src}
 	}
 
 	return src, nil
 }
 
-func (r *Robot) newCameraLL(config Component) (vision.ImageDepthSource, error) {
+func (r *Robot) newCameraLL(config Component) (gostream.ImageSource, error) {
 	switch config.Model {
 	case "eliot":
 		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
-		return vision.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
+		return rimage.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
 	case "intel":
-		return vision.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
+		return rimage.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
 
 	case "url":
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		return &vision.HTTPSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+		return &rimage.HTTPSource{config.Attributes["color"], config.Attributes["depth"]}, nil
 
 	case "file":
-		return &vision.FileSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+		return &rimage.FileSource{config.Attributes["color"], config.Attributes["depth"]}, nil
 
 	case "webcam":
-		return vision.NewWebcamSource(config.Attributes)
+		return rimage.NewWebcamSource(config.Attributes)
 
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)

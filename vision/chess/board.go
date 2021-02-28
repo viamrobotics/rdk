@@ -6,8 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
@@ -19,8 +18,7 @@ const (
 )
 
 type Board struct {
-	color  vision.Image // TODO(erh): should we get rid of
-	depth  *vision.DepthMap
+	img    *rimage.ImageWithDepth
 	edges  *image.Gray
 	logger golog.Logger
 }
@@ -30,22 +28,18 @@ func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
 }
 
 func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
-	img, err := vision.NewImageFromFile(colorFN)
+	img, err := rimage.NewImageWithDepth(colorFN, depthFN)
 	if err != nil {
 		return nil, err
 	}
 
-	dm, err := vision.ParseDepthMap(depthFN)
-	if err != nil {
-		return nil, err
-	}
-	dm.Smooth()
+	img.Depth.Smooth()
 
-	return FindAndWarpBoard(img, dm)
+	return FindAndWarpBoard(img)
 }
 
-func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error) {
-	_, corners, err := findChessCorners(color)
+func FindAndWarpBoard(img *rimage.ImageWithDepth) (*Board, error) {
+	_, corners, err := findChessCorners(img)
 	if err != nil {
 		return nil, err
 	}
@@ -54,16 +48,16 @@ func FindAndWarpBoard(color vision.Image, depth *vision.DepthMap) (*Board, error
 		return nil, fmt.Errorf("couldnt find 4 corners, only got %d", len(corners))
 	}
 
-	a, b, err := warpColorAndDepthToChess(color, depth, corners)
+	a, err := warpColorAndDepthToChess(img, corners)
 	if err != nil {
 		return nil, err
 	}
 
-	edges, err := utils.SimpleEdgeDetection(a.Image(), .01, 3.0)
+	edges, err := rimage.SimpleEdgeDetection(a.Color, .01, 3.0)
 	if err != nil {
 		return nil, err
 	}
-	return &Board{a, b, edges, golog.Global}, nil
+	return &Board{a, edges, golog.Global}, nil
 }
 
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
@@ -86,16 +80,16 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 	data := []float64{}
 
 	corner := getMinChessCorner(square)
-	centerColor := b.color.ColorHSV(image.Point{corner.X + 50, corner.Y + 50})
+	centerColor := b.img.Color.Get(image.Point{corner.X + 50, corner.Y + 50})
 
 	for x := corner.X + 50 - radius; x < corner.X+50+radius; x++ {
 		for y := corner.Y + 50 - radius; y < corner.Y+50+radius; y++ {
-			d := b.depth.GetDepth(x, y)
+			d := b.img.Depth.GetDepth(x, y)
 			if d == 0 {
 				continue
 			}
 			if matchColor {
-				c := b.color.ColorHSV(image.Point{x, y})
+				c := b.img.Color.Get(image.Point{x, y})
 				if c.Distance(centerColor) > 1 {
 					continue
 				}
@@ -156,24 +150,24 @@ func (b *Board) SquareCenterEdges(square string) int {
 	corner := getMinChessCorner(square)
 	center := image.Point{corner.X + 50, corner.Y + 50}
 
-	return utils.CountBrightSpots(b.edges, center, 25, 255)
+	return rimage.CountBrightSpots(b.edges, center, 25, 255)
 }
 
 type SquareFunc func(b *Board, square string) error
 
 func (b *Board) WriteDebugImages(prefix string) error {
-	err := utils.WriteImageToFile(prefix+"-color.png", b.color.Image())
+	err := b.img.Color.WriteTo(prefix + "-color.png")
 	if err != nil {
 		return err
 	}
 
-	err = utils.WriteImageToFile(prefix+"-edges.png", b.edges)
+	err = rimage.WriteImageToFile(prefix+"-edges.png", b.edges)
 	if err != nil {
 		return err
 	}
 
 	i := b.Annotate()
-	err = utils.WriteImageToFile(prefix+"-annotations.png", i)
+	err = rimage.WriteImageToFile(prefix+"-annotations.png", i)
 	if err != nil {
 		return err
 	}
@@ -182,7 +176,7 @@ func (b *Board) WriteDebugImages(prefix string) error {
 }
 
 func (b *Board) Annotate() image.Image {
-	dc := gg.NewContextForImage(b.color.Image())
+	dc := gg.NewContextForImage(b.img.Color)
 
 	for x := 'a'; x <= 'h'; x++ {
 		for y := '1'; y <= '8'; y++ {
@@ -195,7 +189,7 @@ func (b *Board) Annotate() image.Image {
 			c2 := image.Point{p.X + DepthCheckSizeRadius, p.Y - DepthCheckSizeRadius}
 			c3 := image.Point{p.X + DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
 			c4 := image.Point{p.X - DepthCheckSizeRadius, p.Y + DepthCheckSizeRadius}
-			dc.SetColor(utils.Green.C)
+			dc.SetColor(rimage.Green)
 			dc.DrawLine(float64(c1.X), float64(c1.Y), float64(c2.X), float64(c2.Y))
 			dc.SetLineWidth(1)
 			dc.Stroke()
@@ -212,14 +206,14 @@ func (b *Board) Annotate() image.Image {
 			height := b.SquareCenterHeight(s, DepthCheckSizeRadius)
 			if height > MinPieceDepth {
 				dc.DrawCircle(float64(p.X), float64(p.Y), 10)
-				dc.SetColor(utils.Red.C)
+				dc.SetColor(rimage.Red)
 				dc.Fill()
 			}
 
 			edges := b.SquareCenterEdges(s)
 
 			p.Y -= 20
-			utils.DrawString(dc, fmt.Sprintf("%d,%d", int(height), edges), p, utils.Green.C, 12)
+			rimage.DrawString(dc, fmt.Sprintf("%d,%d", int(height), edges), p, rimage.Green, 12)
 
 		}
 	}

@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"image"
@@ -7,27 +7,29 @@ import (
 
 	"github.com/muesli/clusters"
 	"github.com/muesli/kmeans"
-
-	"go.viam.com/robotcore/utils"
 )
 
-func hsvfrom(point clusters.Coordinates) utils.HSV {
-	return utils.HSV{point[0], point[1], point[2]}
+func colorFrom(point clusters.Coordinates) Color {
+	return Color{uint8(point[0]), uint8(point[1]), uint8(point[2]), point[3], point[4], point[5]}
 }
 
 type HSVObservation struct {
-	hsv utils.HSV
+	c Color
 }
 
 func (o HSVObservation) Coordinates() clusters.Coordinates {
-	return clusters.Coordinates{o.hsv.H, o.hsv.S, o.hsv.V}
+	return clusters.Coordinates{float64(o.c.R), float64(o.c.G), float64(o.c.B), o.c.H, o.c.S, o.c.V}
 }
 
 func (o HSVObservation) Distance(point clusters.Coordinates) float64 {
-	return o.hsv.Distance(hsvfrom(point))
+	return o.c.Distance(colorFrom(point))
 }
 
-func ClusterHSV(data []utils.HSV, numClusters int) ([]utils.HSV, error) {
+func ClusterFromImage(img *Image, numClusters int) ([]Color, error) {
+	return ClusterHSV(img.data, numClusters)
+}
+
+func ClusterHSV(data []Color, numClusters int) ([]Color, error) {
 	all := []clusters.Observation{}
 	for _, c := range data {
 		all = append(all, HSVObservation{c})
@@ -40,23 +42,23 @@ func ClusterHSV(data []utils.HSV, numClusters int) ([]utils.HSV, error) {
 		return nil, err
 	}
 
-	res := []utils.HSV{}
+	res := []Color{}
 	for _, c := range clusters {
-		res = append(res, hsvfrom(c.Center))
+		res = append(res, colorFrom(c.Center))
 	}
 
 	return res, nil
 }
 
-func ClusterImage(clusters []utils.HSV, img Image) *image.RGBA {
-	palette := colorful.FastWarmPalette(4)
+func ClusterImage(clusters []Color, img *Image) *image.RGBA {
+	palette := colorful.FastWarmPalette(len(clusters))
 
 	clustered := image.NewRGBA(img.Bounds())
 
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
 			p := image.Point{x, y}
-			idx, _, _ := img.ColorHSV(p).Closest(clusters)
+			idx, _, _ := img.Get(p).Closest(clusters)
 			clustered.Set(x, y, palette[idx])
 		}
 	}
