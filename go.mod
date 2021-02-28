@@ -4,17 +4,16 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
-	fyne.io/fyne v1.4.3 // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
-	github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489 // indirect
+	github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210228005322-887ca3420016
+	github.com/edaniels/gostream v0.0.0-20210228200110-e654d0762d34
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
@@ -47,7 +46,6 @@ require (
 	go.mongodb.org/mongo-driver v1.4.4
 	go.uber.org/multierr v1.6.0
 	gobot.io/x/gobot v1.15.0
-	golang.org/x/crypto v0.0.0-20201203163018-be400aefbc4c // indirect
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
 	gonum.org/v1/gonum v0.8.2
