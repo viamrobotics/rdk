@@ -577,13 +577,13 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 			autoCameraTiler.AddSource(cam)
 		}
 		waitCh := make(chan struct{})
-		go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(waitCh) }, autoCameraTiler, "Cameras", remoteView, 33*time.Millisecond)
+		go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(waitCh) }, autoCameraTiler, "Cameras", remoteView)
 		<-waitCh
 	}
 
 	for idx := range theRobot.LidarDevices {
 		name := fmt.Sprintf("LIDAR %d", idx+1)
-		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, remoteView, 33*time.Millisecond)
+		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, remoteView)
 	}
 
 	return func() {

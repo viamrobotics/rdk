@@ -210,7 +210,7 @@ func main() {
 		}
 	}()
 
-	gostream.StreamSource(cancelCtx, autoTiler, remoteView, 1*time.Second)
+	gostream.StreamSource(cancelCtx, autoTiler, remoteView)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

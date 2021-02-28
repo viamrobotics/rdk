@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"go.viam.com/robotcore/vision"
 
@@ -51,7 +50,7 @@ func main() {
 		cancelFunc()
 	}()
 
-	gostream.StreamSource(cancelCtx, webcam, remoteView, 33*time.Millisecond)
+	gostream.StreamSource(cancelCtx, webcam, remoteView)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)

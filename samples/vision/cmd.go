@@ -173,8 +173,7 @@ func view(img vision.Image) error {
 		cancelCtx,
 		func() { time.Sleep(2 * time.Second) },
 		func(ctx context.Context) (image.Image, error) { return imgs[0], nil },
-		remoteView,
-		250*time.Millisecond)
+		remoteView)
 
 	<-c
 	cancelFunc()

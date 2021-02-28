@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/lidar"
@@ -253,14 +252,12 @@ func main() {
 		cancelFunc()
 	}()
 
-	frameSpeed := 33 * time.Millisecond
-
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
 	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}
 	started := make(chan struct{})
-	go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(started) }, robotViewMatSource, "robot perspective", remoteView, frameSpeed)
+	go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(started) }, robotViewMatSource, "robot perspective", remoteView)
 	<-started
-	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView, frameSpeed)
+	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView)
 
 	if err := server.Stop(context.Background()); err != nil {
 		golog.Global.Error(err)
