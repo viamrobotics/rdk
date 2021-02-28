@@ -1,4 +1,4 @@
-package utils
+package rimage
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ func TestCanny2(t *testing.T) {
 }
 
 func doCannyTest(t *testing.T, root string) {
-	img, err := ReadImageFromFile(fmt.Sprintf("data/%s.png", root))
+	img, err := NewImageFromFile(fmt.Sprintf("data/%s.png", root))
 	if err != nil {
 		t.Fatal(err)
 	}

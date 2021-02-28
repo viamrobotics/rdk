@@ -1,49 +1,46 @@
-package vision
+package rimage
 
 import (
 	"context"
 	"image"
 	"testing"
-
-	"go.viam.com/robotcore/utils"
 )
 
 func TestRotateSource(t *testing.T) {
-	pc, err := NewPointCloud("chess/data/board1.png", "chess/data/board1.dat.gz")
+	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	source := &StaticSource{pc}
-
 	rs := &RotateImageDepthSource{source}
 
-	rawImage, dm, err := rs.NextImageDepthPair(context.Background())
+	rawImage, err := rs.Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = utils.WriteImageToFile("out/test_rotate_source.png", rawImage)
+	err = WriteImageToFile("out/test_rotate_source.png", rawImage)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	img := NewImage(rawImage)
+	img := ConvertImage(rawImage)
 
 	for x := 0; x < pc.Color.Width(); x++ {
 		p1 := image.Point{x, 0}
 		p2 := image.Point{pc.Color.Width() - x - 1, pc.Color.Height() - 1}
 
-		a := pc.Color.Color(p1)
-		b := img.Color(p2)
+		a := pc.Color.Get(p1)
+		b := img.Get(p2)
 
-		d := utils.ColorDistance(a, b)
+		d := a.Distance(b)
 		if d != 0 {
 			t.Errorf("colors don't match %v %v", a, b)
 		}
 
 		d1 := pc.Depth.Get(p1)
-		d2 := dm.Get(p2)
+		d2 := rawImage.(*ImageWithDepth).Depth.Get(p2)
 
 		if d1 != d2 {
 			t.Errorf("depth doesn't match %v %v", d1, d2)

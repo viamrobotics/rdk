@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"bufio"
@@ -75,7 +75,7 @@ func (dm *DepthMap) Smooth() {
 	centerY := dm.height / 2
 	dm.max = 0
 	dm.min = 100000
-	if err := Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
+	if err := utils.Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
 		temp := dm._getDepthOrEstimate(x, y)
 		if temp > 0 && temp < dm.min {
 			dm.min = temp
@@ -339,7 +339,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (image.Image, error) {
 	min := 100000
 	max := 0
 
@@ -366,7 +366,6 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, dm.Width(), dm.Height()))
-	vImg := NewImage(img)
 
 	span := float64(max) - float64(min)
 
@@ -388,11 +387,11 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (Image, error) {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			vImg.SetHSV(p, utils.HSV{hue, 1.0, 1.0})
+			img.Set(x, y, NewColorFromHSV(hue, 1.0, 1.0))
 		}
 	}
 
-	return vImg, nil
+	return img, nil
 }
 
 func (dm *DepthMap) Rotate(amount int) *DepthMap {
@@ -457,8 +456,8 @@ func (w *dmWarpConnector) NumFields() int {
 	return 1
 }
 
-func (dm *DepthMap) Warp(m utils.TransformationMatrix, newSize image.Point) DepthMap {
+func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) DepthMap {
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
-	utils.Warp(conn, m)
+	Warp(conn, m)
 	return conn.Out
 }
