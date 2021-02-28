@@ -14,7 +14,7 @@ type RotateImageDepthSource struct {
 }
 
 func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, error) {
-	rotateSrc := gostream.RotateImageSource{rids.Original}
+	rotateSrc := gostream.RotateImageSource{rids.Original, 180}
 	return rotateSrc.Next(ctx)
 }
 

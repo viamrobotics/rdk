@@ -127,7 +127,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 }
 
 func view(img vision.Image) error {
-	remoteView, err := gostream.NewRemoteView(vpx.DefaultRemoteViewConfig)
+	remoteView, err := gostream.NewView(vpx.DefaultViewConfig)
 	if err != nil {
 		return err
 	}
@@ -162,18 +162,22 @@ func view(img vision.Image) error {
 		imgs[0] = dc.Image()
 	})
 
-	server := gostream.NewRemoteViewServer(5555, remoteView, golog.Global)
-	server.Run()
+	server := gostream.NewViewServer(5555, remoteView, golog.Global)
+	if err := server.Start(); err != nil {
+		golog.Global.Fatal(err)
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	go gostream.StreamFuncOnce(
-		cancelCtx,
-		func() { time.Sleep(2 * time.Second) },
-		func(ctx context.Context) (image.Image, error) { return imgs[0], nil },
-		remoteView)
+	go func() {
+		time.Sleep(2 * time.Second)
+		gostream.StreamSource(
+			cancelCtx,
+			gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, error) { return imgs[0], nil }),
+			remoteView)
+	}()
 
 	<-c
 	cancelFunc()
