@@ -4,19 +4,18 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/segmentation"
 )
 
-type P func(vision.Image) (image.Image, []image.Point, error)
+type P func(*rimage.ImageWithDepth) (image.Image, []image.Point, error)
 
 type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
-	out, corners, err := dd.p(img)
+func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
+	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img))
 	if err != nil {
 		return err
 	}
@@ -27,12 +26,12 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 	d.GotDebugImage(out, "corners")
 
 	if corners != nil {
-		warped, _, err := warpColorAndDepthToChess(img, &vision.DepthMap{}, corners)
+		warped, err := warpColorAndDepthToChess(rimage.ConvertToImageWithDepth(img), corners)
 		if err != nil {
 			return err
 		}
 
-		d.GotDebugImage(warped.Image(), "warped")
+		d.GotDebugImage(warped.Color, "warped")
 
 		starts := []image.Point{}
 		for x := 50; x <= 750; x += 100 {
@@ -41,7 +40,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 			}
 		}
 
-		res, err := segmentation.ShapeWalkMultiple(warped, starts, swOptions)
+		res, err := segmentation.ShapeWalkMultiple(warped.Color, starts, swOptions)
 		if err != nil {
 			return err
 		}
@@ -49,29 +48,29 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 		d.GotDebugImage(res, "shapes")
 
 		if true {
-			out := vision.NewImage(image.NewRGBA(res.Bounds()))
+			out := rimage.NewImageFromBounds(res.Bounds())
 			for idx, p := range starts {
 				count := res.PixelsInSegmemnt(idx + 1)
-				clr := utils.Red
+				clr := rimage.Red
 
 				if count > 7000 {
-					clr = utils.Green
+					clr = rimage.Green
 				}
 
 				out.Circle(p, 20, clr)
 
 			}
 
-			d.GotDebugImage(&out, "marked")
+			d.GotDebugImage(out, "marked")
 		}
 
 		if false {
-			clusters, err := warped.ClusterHSV(4)
+			clusters, err := rimage.ClusterFromImage(warped.Color, 4)
 			if err != nil {
 				return err
 			}
 
-			clustered := vision.ClusterImage(clusters, warped)
+			clustered := rimage.ClusterImage(clusters, warped.Color)
 
 			d.GotDebugImage(clustered, "kmeans")
 		}
@@ -81,7 +80,7 @@ func (dd ChessImageProcessDebug) Process(d *vision.MultipleImageTestDebugger, fn
 }
 
 func TestChessCheatRed1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*.png")
+	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*.png")
 	err := d.Process(&ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)

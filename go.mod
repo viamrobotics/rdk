@@ -4,12 +4,11 @@ go 1.16
 
 require (
 	cloud.google.com/go v0.73.0 // indirect
-	fyne.io/fyne v1.4.3 // indirect
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
-	github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489 // indirect
+	github.com/biotinker/nlopt v0.0.0-20210227005757-47958b5be489
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4

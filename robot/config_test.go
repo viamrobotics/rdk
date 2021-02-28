@@ -32,7 +32,7 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pic, _, err := r.Cameras[0].NextImageDepthPair(context.Background())
+	pic, err := r.Cameras[0].Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

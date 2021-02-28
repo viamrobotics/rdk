@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 )
 
 var (
@@ -12,7 +12,7 @@ var (
 	MinPieceDepth        = 9.9999
 )
 
-func warpColorAndDepthToChess(color vision.Image, depth *vision.DepthMap, corners []image.Point) (vision.Image, *vision.DepthMap, error) {
+func warpColorAndDepthToChess(img *rimage.ImageWithDepth, corners []image.Point) (*rimage.ImageWithDepth, error) {
 	dst := []image.Point{
 		image.Pt(0, 800),
 		image.Pt(0, 0),
@@ -21,15 +21,13 @@ func warpColorAndDepthToChess(color vision.Image, depth *vision.DepthMap, corner
 	}
 
 	if len(corners) != 4 {
-		return color, depth, fmt.Errorf("need 4 corners, got %d", len(corners))
+		return nil, fmt.Errorf("need 4 corners, got %d", len(corners))
 	}
-	pc := vision.PointCloud{depth, color}
-	pc2 := pc.Warp(corners, dst, image.Point{800, 800})
-	return pc2.Color, pc2.Depth, nil
+	return img.Warp(corners, dst, image.Point{800, 800}), nil
 }
 
 // returns point in a1, a8, h1, h8 order
-func findChessCorners(img vision.Image) (image.Image, []image.Point, error) {
+func findChessCorners(img *rimage.ImageWithDepth) (image.Image, []image.Point, error) {
 	return FindChessCornersPinkCheat(img)
 }
 
