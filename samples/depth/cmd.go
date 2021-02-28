@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 )
 
 func main() {
@@ -19,18 +19,18 @@ func main() {
 		panic("need two args <in> <out>")
 	}
 
-	var dm *vision.DepthMap
-	var pc *vision.PointCloud
+	var dm *rimage.DepthMap
+	var pc *rimage.ImageWithDepth
 	var err error
 
 	fn := flag.Arg(0)
 	if strings.HasSuffix(fn, ".both.gz") {
-		pc, err = vision.NewPointCloudFromBoth(fn)
+		pc, err = rimage.BothReadFromFile(fn)
 		if pc != nil {
 			dm = pc.Depth
 		}
 	} else {
-		dm, err = vision.ParseDepthMap(flag.Arg(0))
+		dm, err = rimage.ParseDepthMap(flag.Arg(0))
 	}
 
 	if err != nil {
@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 
-	if err := img.WriteTo(flag.Arg(1)); err != nil {
+	if err := rimage.WriteImageToFile(flag.Arg(1), img); err != nil {
 		panic(err)
 	}
 

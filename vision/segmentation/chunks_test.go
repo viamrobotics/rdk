@@ -4,13 +4,15 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 )
 
 type chunkImageDebug struct {
 }
 
-func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn string, img vision.Image) error {
+func (cid *chunkImageDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, imgraw image.Image) error {
+
+	img := rimage.ConvertImage(imgraw)
 
 	type AShape struct {
 		Start      image.Point
@@ -82,7 +84,7 @@ func (cid *chunkImageDebug) Process(d *vision.MultipleImageTestDebugger, fn stri
 }
 
 func TestChunk1(t *testing.T) {
-	d := vision.NewMultipleImageTestDebugger(t, "segmentation/test1", "*")
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*")
 	err := d.Process(&chunkImageDebug{})
 	if err != nil {
 		t.Fatal(err)

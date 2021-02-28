@@ -7,8 +7,8 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/vision"
 )
 
 func randomWalkIncrement(theRobot *robot.Robot) error {
@@ -21,12 +21,15 @@ func randomWalkIncrement(theRobot *robot.Robot) error {
 		return fmt.Errorf("no cameras, can't drive")
 	}
 
-	img, dm, err := theRobot.Cameras[0].NextImageDepthPair(context.TODO())
+	raw, err := theRobot.Cameras[0].Next(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	pc := vision.PointCloud{dm, vision.NewImage(img)}
+	pc := rimage.ConvertToImageWithDepth(raw)
+	if pc.Depth == nil {
+		return fmt.Errorf("no depth data")
+	}
 	pc, err = pc.CropToDepthData()
 
 	if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
@@ -34,7 +37,7 @@ func randomWalkIncrement(theRobot *robot.Robot) error {
 		return theRobot.Bases[0].MoveStraight(-200, 60, true)
 	}
 
-	_, points := roverWalk(&pc, false)
+	_, points := roverWalk(pc, false)
 	if points < 200 {
 		golog.Global.Debugf("safe to move forward")
 		return theRobot.Bases[0].MoveStraight(200, 50, true)

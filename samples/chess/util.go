@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/utils"
 	"go.viam.com/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
@@ -144,12 +145,12 @@ func (state *boardStateGuesser) GetPrevMove(prev *position.Position) (*moves.Mov
 	return m, nil
 }
 
-func findDepthPeaks(dm *vision.DepthMap, center image.Point, radius int) (image.Point, int, image.Point, int) {
+func findDepthPeaks(dm *rimage.DepthMap, center image.Point, radius int) (image.Point, int, image.Point, int) {
 	var lowest, highest image.Point
 	lowestValue := 100000
 	highestValue := 0
 
-	err := vision.Walk(center.X, center.Y, radius,
+	err := utils.Walk(center.X, center.Y, radius,
 		func(x, y int) error {
 			p := image.Point{x, y}
 

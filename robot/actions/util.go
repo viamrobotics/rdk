@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"image"
 
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 )
 
-func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
+func roverWalk(pc *rimage.ImageWithDepth, debug bool) (image.Image, int) {
 
 	var dc *gg.Context
 	if debug {
@@ -32,7 +32,7 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 
 	radius := pc.Width() / 4
 
-	err := vision.Walk(middleX, pc.Height()-1, radius,
+	err := utils.Walk(middleX, pc.Height()-1, radius,
 		func(x, y int) error {
 			if x < 0 || x >= pc.Width() || y < 0 || y >= pc.Height() {
 				return nil
@@ -53,22 +53,22 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 			d := pc.Depth.Get(p)
 			d2 := pc.Depth.Get(other)
 
-			c := pc.Color.ColorHSV(p)
-			c2 := pc.Color.ColorHSV(other)
+			c := pc.Color.Get(p)
+			c2 := pc.Color.Get(other)
 
 			colorDiff := c.Distance(c2)
 
 			if d > 0 && d2 > 0 && utils.AbsInt(d-d2) > 20 && colorDiff > .3 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-					dc.SetColor(utils.Red.C)
+					dc.SetColor(rimage.Red)
 					dc.Fill()
 				}
 				points++
 			} else if colorDiff > 2 {
 				if dc != nil {
 					dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-					dc.SetColor(utils.Green.C)
+					dc.SetColor(rimage.Green)
 					dc.Fill()
 				}
 				points++
@@ -82,16 +82,16 @@ func roverWalk(pc *vision.PointCloud, debug bool) (image.Image, int) {
 	}
 
 	if dc != nil {
-		utils.DrawRectangleEmpty(dc,
+		rimage.DrawRectangleEmpty(dc,
 			image.Rect(
 				middleX-radius, pc.Height()-radius,
 				middleX+radius, pc.Height()-1),
-			utils.Red.C, 2)
+			rimage.Red, 2)
 
-		dc.SetColor(utils.Red.C)
+		dc.SetColor(rimage.Red)
 		dc.Fill()
 
-		utils.DrawString(dc, fmt.Sprintf("%d", points), image.Point{20, 80}, utils.Green.C, 64)
+		rimage.DrawString(dc, fmt.Sprintf("%d", points), image.Point{20, 80}, rimage.Green, 64)
 	}
 
 	golog.Global.Debugf("\t %d", points)

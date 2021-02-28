@@ -4,8 +4,8 @@ import (
 	"image"
 	"math"
 
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )
@@ -27,12 +27,12 @@ type ShapeWalkOptions struct {
 }
 
 type walkState struct {
-	img       vision.Image
+	img       *rimage.Image
 	dots      *SegmentedImage
 	options   ShapeWalkOptions
 	threshold float64
 
-	originalColor                   utils.HSV
+	originalColor                   rimage.Color
 	originalPoint                   image.Point
 	originalInterestingPixelDensity float64
 
@@ -49,7 +49,7 @@ func (ws *walkState) interestingPixelDensity(p image.Point) float64 {
 	total := 0.0
 	interesting := 0.0
 
-	err := vision.Walk(p.X, p.Y, DefaultInterestingRange,
+	err := utils.Walk(p.X, p.Y, DefaultInterestingRange,
 		func(x, y int) error {
 			if x < 0 || x >= ws.img.Width() || y < 0 || y >= ws.img.Height() {
 				return nil
@@ -133,7 +133,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 		}
 	}
 
-	myColor := ws.img.ColorHSV(p)
+	myColor := ws.img.Get(p)
 
 	myInterestingPixelDensity := ws.interestingPixelDensity(p)
 
@@ -150,7 +150,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 
 	lookback := DefaultLookback
 	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
-		prevColor := ws.img.ColorHSV(prev)
+		prevColor := ws.img.Get(prev)
 		d := prevColor.Distance(myColor)
 
 		threshold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * DefaultLookbackScaling))
@@ -345,12 +345,12 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 	return total
 }
 
-func ShapeWalk(img vision.Image, start image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
+func ShapeWalk(img *rimage.Image, start image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
 
 	return ShapeWalkMultiple(img, []image.Point{start}, options)
 }
 
-func ShapeWalkMultiple(img vision.Image, starts []image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
+func ShapeWalkMultiple(img *rimage.Image, starts []image.Point, options ShapeWalkOptions) (*SegmentedImage, error) {
 
 	ws := walkState{
 		img:       img,
@@ -376,7 +376,7 @@ func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
-func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*SegmentedImage, error) {
+func ShapeWalkEntireDebug(img *rimage.Image, options ShapeWalkOptions) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error
 
@@ -399,7 +399,7 @@ func ShapeWalkEntireDebug(img vision.Image, options ShapeWalkOptions) (*Segmente
 	return si, err
 }
 
-func shapeWalkEntireDebugOnePass(img vision.Image, options ShapeWalkOptions, extraThreshold float64) (*SegmentedImage, error) {
+func shapeWalkEntireDebugOnePass(img *rimage.Image, options ShapeWalkOptions, extraThreshold float64) (*SegmentedImage, error) {
 	ws := walkState{
 		img:       img,
 		dots:      newSegmentedImage(img),
@@ -418,7 +418,7 @@ func shapeWalkEntireDebugOnePass(img vision.Image, options ShapeWalkOptions, ext
 			startX := (x + 1) * (img.Width() / (xSegments + 2))
 			startY := (y + 1) * (img.Height() / (ySegments + 2))
 
-			found := vision.Walk(startX, startY, img.Width(),
+			found := utils.Walk(startX, startY, img.Width(),
 				func(x, y int) error {
 					if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
 						return nil

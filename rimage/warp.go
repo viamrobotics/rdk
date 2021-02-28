@@ -1,13 +1,10 @@
-package utils
+package rimage
 
 import (
-	"fmt"
 	"image"
 	"math"
 
 	"gonum.org/v1/gonum/mat"
-
-	"github.com/lucasb-eyer/go-colorful"
 )
 
 type TransformationMatrix mat.Matrix
@@ -46,24 +43,19 @@ func (c *WarpMatrixConnector) NumFields() int {
 
 type WarpImageConnector struct {
 	Input  image.Image
-	Output *image.RGBA
+	Output *Image
 }
 
 func (c *WarpImageConnector) Get(x, y int, buf []float64) {
-	temp, b := colorful.MakeColor(c.Input.At(x, y))
-	if !b {
-		panic(fmt.Errorf("colorful.MakeColor failed! why: %v,%v %v %v", x, y, c.Input.Bounds().Max, c.Input.At(x, y)))
-	}
+	cc := NewColorFromColor(c.Input.At(x, y))
 
-	buf[0], buf[1], buf[2] = temp.Hsv()
-	//h, s, v :=
-
-	//return []float64{h, s, v}
+	buf[0] = cc.H
+	buf[1] = cc.S
+	buf[2] = cc.V
 }
 
 func (c *WarpImageConnector) Set(x, y int, data []float64) {
-	clr := colorful.Hsv(data[0], data[1], data[2])
-	c.Output.Set(x, y, clr)
+	c.Output.SetXY(x, y, NewColorFromHSV(data[0], data[1], data[2]))
 }
 
 func (c *WarpImageConnector) OutputDims() (int, int) {
@@ -178,8 +170,8 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 
 }
 
-func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *image.RGBA {
-	out := image.NewRGBA(image.Rectangle{image.Point{0, 0}, newSize})
+func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *Image {
+	out := NewImage(newSize.X, newSize.Y)
 	conn := &WarpImageConnector{img, out}
 	Warp(conn, m)
 	return conn.Output

@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/media"
 	"go.uber.org/multierr"
 )
@@ -16,7 +17,7 @@ type WebcamSource struct {
 	depth  *webcamDepthSource
 }
 
-func NewWebcamSource(attrs map[string]string) (ImageDepthSource, error) {
+func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 	debug := attrs["debug"] == "true"
 	var desiredSize *image.Point = nil
 
@@ -62,19 +63,20 @@ func NewWebcamSource(attrs map[string]string) (ImageDepthSource, error) {
 }
 
 func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
-	return media.VideoReadReleaser{s.reader}.Read()
-}
-
-func (s *WebcamSource) NextImageDepthPair(ctx context.Context) (image.Image, *DepthMap, error) {
-	i, err := s.Next(ctx)
-	var dm *DepthMap
-	if s.depth != nil {
-		dm, err = s.depth.Next()
-		if err != nil {
-			return nil, nil, err
-		}
+	img, err := media.VideoReadReleaser{s.reader}.Read()
+	if err != nil {
+		return nil, err
 	}
-	return i, dm, err
+
+	if s.depth == nil {
+		return img, nil
+	}
+
+	dm, err := s.depth.Next()
+	if err != nil {
+		return nil, err
+	}
+	return &ImageWithDepth{ConvertImage(img), dm}, nil
 }
 
 func (s *WebcamSource) Close() error {

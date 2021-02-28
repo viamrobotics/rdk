@@ -1,10 +1,8 @@
-package vision
+package rimage
 
 import (
 	"os"
 	"testing"
-
-	"go.viam.com/robotcore/utils"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {
@@ -13,7 +11,7 @@ func doTest(t *testing.T, fn string, numClusters int) {
 		t.Fatal(err)
 	}
 
-	clusters, err := img.ClusterHSV(numClusters)
+	clusters, err := ClusterFromImage(img, numClusters)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +19,7 @@ func doTest(t *testing.T, fn string, numClusters int) {
 	os.Mkdir("out", 0755)
 
 	res := ClusterImage(clusters, img)
-	err = utils.WriteImageToFile("out/"+fn, res)
+	err = WriteImageToFile("out/"+fn, res)
 	if err != nil {
 		t.Fatal(err)
 	}
