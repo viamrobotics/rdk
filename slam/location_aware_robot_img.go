@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"math"
 
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/fogleman/gg"
@@ -37,17 +38,17 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 
 	// also serves as a font taking up 5% of space
 	textScaleYStart := float64(bounds.Y) * .05
-	utils.DrawString(
+	rimage.DrawString(
 		dc,
 		fmt.Sprintf("zoom: %.02f", lar.clientZoom),
 		image.Point{0, int(textScaleYStart)},
-		utils.Green.C,
+		rimage.Green,
 		textScaleYStart/2)
-	utils.DrawString(
+	rimage.DrawString(
 		dc,
 		fmt.Sprintf("orientation: %.02f", lar.orientation()),
 		image.Point{0, int(textScaleYStart * 1.5)},
-		utils.Green.C,
+		rimage.Green,
 		textScaleYStart/2)
 
 	basePosX, basePosY := lar.basePos()
@@ -59,7 +60,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	viewTranslateP := image.Point{-basePosX + centerX, -basePosY + centerY}
 	relBaseRect := lar.baseRect().Add(viewTranslateP)
 
-	utils.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
+	rimage.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
@@ -77,7 +78,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 			case 270:
 				c = color.NRGBA{255, 195, 0, 255}
 			}
-			utils.DrawRectangleEmpty(dc, moveRect, c, 1)
+			rimage.DrawRectangleEmpty(dc, moveRect, c, 1)
 		}
 
 		distance := 20.0

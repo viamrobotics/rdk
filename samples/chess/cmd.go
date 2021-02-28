@@ -14,10 +14,10 @@ import (
 
 	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
 	"go.viam.com/robotcore/vision/chess"
 
 	"github.com/edaniels/golog"
@@ -271,16 +271,16 @@ func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image
 	}
 
 	// got picture finally
-	out, corners, err := chess.FindChessCornersPinkCheat(vision.NewImage(img))
+	out, corners, err := chess.FindChessCornersPinkCheat(rimage.ConvertToImageWithDepth(img))
 	if err != nil {
 		return nil, imageSize, err
 	}
 
 	if debugNumber >= 0 {
-		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), img); err != nil {
+		if err := rimage.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-in.png", debugNumber), img); err != nil {
 			panic(err)
 		}
-		if err := utils.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out); err != nil {
+		if err := rimage.WriteImageToFile(fmt.Sprintf("/tmp/foo-%d-out.png", debugNumber), out); err != nil {
 			panic(err)
 		}
 	}
@@ -297,7 +297,7 @@ func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []
 		if err != nil {
 			return err
 		}
-		center := vision.Center(corners, 10000)
+		center := rimage.Center(corners, 10000)
 
 		xRatio := float64(center.X) / float64(imageSize.X)
 		yRatio := float64(center.Y) / float64(imageSize.Y)
@@ -401,9 +401,13 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		_, dm, err := cam.NextImageDepthPair(context.TODO())
+		raw, err := cam.Next(context.TODO())
 		if err != nil {
 			return err
+		}
+		dm := rimage.ConvertToImageWithDepth(raw).Depth
+		if dm == nil {
+			return fmt.Errorf("no depthj on gripperCam")
 		}
 		//defer img.Close() // TODO(erh): fix the leak
 		fmt.Printf("\t got image\n")
@@ -522,20 +526,19 @@ func main() {
 
 	initialPositionOk := false
 
-	annotatedImageHolder := &vision.SettableSource{}
+	annotatedImageHolder := &rimage.StaticSource{}
 	myRobot.AddCamera(annotatedImageHolder, robot.Component{})
 
 	go func() {
 		for {
-			img, depth, err := webcam.NextImageDepthPair(context.TODO())
+			img, err := webcam.Next(context.TODO())
 			func() {
 				if err != nil {
 					golog.Global.Debugf("error reading device: %s", err)
 					return
 				}
 
-				i2 := vision.NewImage(img)
-				theBoard, err := chess.FindAndWarpBoard(i2, depth)
+				theBoard, err := chess.FindAndWarpBoard(rimage.ConvertToImageWithDepth(img))
 				if err != nil {
 					golog.Global.Debug(err)
 					return
@@ -606,19 +609,13 @@ func main() {
 					}
 				}
 
-				annotatedImageHolder.TheImage = annotated
+				annotatedImageHolder.Img = rimage.ConvertToImageWithDepth(annotated)
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					tm := time.Now().Unix()
 
-					fn := fmt.Sprintf("data/board-%d.png", tm)
+					fn := fmt.Sprintf("data/board-%d.both.gz", tm)
 					golog.Global.Debugf("saving image %s", fn)
-					if err := utils.WriteImageToFile(fn, img); err != nil {
-						panic(err)
-					}
-
-					fn = fmt.Sprintf("data/board-%d.dat.gz", tm)
-					err = depth.WriteToFile(fn)
-					if err != nil {
+					if err := annotatedImageHolder.Img.WriteTo(fn); err != nil {
 						panic(err)
 					}
 

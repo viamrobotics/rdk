@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"bufio"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestDepthMap1(t *testing.T) {
-	m, err := ParseDepthMap("chess/data/board2.dat.gz")
+	m, err := ParseDepthMap("data/board2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

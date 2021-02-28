@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -27,7 +27,7 @@ func main() {
 		port = int(portParsed)
 	}
 
-	webcam, err := vision.NewWebcamSource(nil)
+	webcam, err := rimage.NewWebcamSource(nil)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}

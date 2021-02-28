@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/rimage"
 )
 
 func TestGetMinChessCorner(t *testing.T) {
@@ -63,7 +63,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board1")  // bishop
 
 	annotated := theBoard.Annotate()
-	utils.WriteImageToFile("out/board1_annotated.png", annotated)
+	rimage.WriteImageToFile("out/board1_annotated.png", annotated)
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
@@ -88,14 +88,14 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board2")  // bishop
 
 	annotated := theBoard.Annotate()
-	utils.WriteImageToFile("out/board2_annotated.png", annotated)
+	rimage.WriteImageToFile("out/board2_annotated.png", annotated)
 
 	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	utils.WriteImageToFile("out/board3_annotated.png", nextBoard.Annotate())
+	rimage.WriteImageToFile("out/board3_annotated.png", nextBoard.Annotate())
 
 	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
 	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
@@ -109,7 +109,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	utils.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
+	rimage.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
 
 	game, err := NewGame(theBoard)
 	if err != nil {
@@ -130,7 +130,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
 	_testBoardHeight(t, game, nextBoard, "c1", 45, 74, "board-1605543783")  // bishop
 
-	utils.WriteImageToFile("out/board-1605543783.png", nextBoard.Annotate())
+	rimage.WriteImageToFile("out/board-1605543783.png", nextBoard.Annotate())
 
 	//crapPlayWithKmeans(nextBoard)
 }
@@ -146,7 +146,7 @@ func TestArmBlock1(t *testing.T) {
 	}
 
 	annotated := board.Annotate()
-	utils.WriteImageToFile("out/armblock1_annotated.png", annotated)
+	rimage.WriteImageToFile("out/armblock1_annotated.png", annotated)
 
 }
 
@@ -158,7 +158,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	utils.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
+	rimage.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
 
 	e := theBoard.SquareCenterEdges("a1")
 	if e < EdgeThreshold {

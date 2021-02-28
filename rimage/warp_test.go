@@ -1,4 +1,4 @@
-package utils
+package rimage
 
 import (
 	"image"
@@ -50,7 +50,7 @@ func TestWarp1(t *testing.T) {
 }
 
 func TestWarp2(t *testing.T) {
-	img, err := ReadImageFromFile("data/canny1.png")
+	img, err := NewImageFromFile("data/canny1.png")
 	if err != nil {
 		t.Fatal(err)
 	}

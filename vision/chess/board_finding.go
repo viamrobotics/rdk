@@ -2,26 +2,23 @@ package chess
 
 import (
 	"image"
-	"image/color"
 
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func isPink(data color.RGBA) bool {
-	temp := utils.ConvertToHSV(data)
+func isPink(c rimage.Color) bool {
 
-	if temp.H < 286 {
+	if c.H < 286 {
 		return false
 	}
-	if temp.S < .2 {
+	if c.S < .2 {
 		return false
 	}
-	if temp.V < .5 {
+	if c.V < .5 {
 		return false
 	}
 	return true
@@ -37,7 +34,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
-func FindChessCornersPinkCheatInQuadrant(img vision.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int) image.Point {
+func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
@@ -45,12 +42,12 @@ func FindChessCornersPinkCheatInQuadrant(img vision.Image, dc *gg.Context, cnts 
 		return image.Point{-1, -1}
 	}
 	// walk up into the corner ---------
-	myCenter := vision.Center(best, img.Rows()/10)
+	myCenter := rimage.Center(best, img.Height()/10)
 
 	xWalk := ((xQ * 2) - 1)
 	yWalk := ((yQ * 2) - 1)
 
-	maxCheckForGreen := img.Rows() / 25
+	maxCheckForGreen := img.Height() / 25
 
 	if debug {
 		golog.Global.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
@@ -79,30 +76,31 @@ func FindChessCornersPinkCheatInQuadrant(img vision.Image, dc *gg.Context, cnts 
 	}
 
 	dc.DrawCircle(float64(myCenter.X), float64(myCenter.Y), 5)
-	dc.SetColor(utils.Red.C)
+	dc.SetColor(rimage.Red)
 	dc.Fill()
 
 	return myCenter
 }
 
-func FindChessCornersPinkCheat(img vision.Image) (image.Image, []image.Point, error) {
-	dc := gg.NewContext(img.Cols(), img.Rows())
+func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth) (image.Image, []image.Point, error) {
+	img := ii.Color
+	dc := gg.NewContext(img.Width(), img.Height())
 	redLittleCircles := []image.Point{}
 
 	cnts := make([][]image.Point, 4)
 
-	for x := 1; x < img.Cols(); x++ {
-		for y := 1; y < img.Rows(); y++ {
+	for x := 1; x < img.Width(); x++ {
+		for y := 1; y < img.Height(); y++ {
 			p := image.Point{x, y}
-			data := img.Color(p)
+			data := img.Get(p)
 
 			if isPink(data) {
-				X := 2 * x / img.Cols()
-				Y := 2 * y / img.Rows()
+				X := 2 * x / img.Width()
+				Y := 2 * y / img.Height()
 				Q := X + (Y * 2)
 				cnts[Q] = append(cnts[Q], p)
 				dc.DrawCircle(float64(x), float64(y), 1)
-				dc.SetColor(utils.Green.C)
+				dc.SetColor(rimage.Green)
 				dc.Fill()
 			}
 
@@ -145,7 +143,7 @@ func FindChessCornersPinkCheat(img vision.Image) (image.Image, []image.Point, er
 
 	for _, p := range redLittleCircles {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(utils.Red.C)
+		dc.SetColor(rimage.Red)
 		dc.Fill()
 	}
 

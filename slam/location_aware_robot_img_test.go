@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
@@ -24,7 +25,7 @@ func TestNext(t *testing.T) {
 		larBot := harness.bot
 		img, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		utils.IterateImage(img, func(x, y int, c color.Color) bool {
+		rimage.IterateImage(img, func(x, y int, c color.Color) bool {
 			r, g, b, a := c.RGBA()
 			cC := color.RGBA{uint8(r / 256), uint8(g / 256), uint8(b / 256), uint8(a / 256)}
 			test.That(t, cC, test.ShouldNotResemble, areaPointColor)
@@ -44,8 +45,8 @@ func TestNext(t *testing.T) {
 		img, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		points := utils.NewStringSet("1,1", "5,20", "80,4")
-		utils.IterateImage(img, func(x, y int, c color.Color) bool {
-			cC := utils.ConvertToNRGBA(c)
+		rimage.IterateImage(img, func(x, y int, c color.Color) bool {
+			cC := rimage.ConvertToNRGBA(c)
 			if cC == areaPointColor {
 				delete(points, fmt.Sprintf("%d,%d", x, y))
 			}
@@ -77,8 +78,8 @@ func TestNext(t *testing.T) {
 			img, err := larBot.Next(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			count := 0
-			utils.IterateImage(img, func(x, y int, c color.Color) bool {
-				cC := utils.ConvertToNRGBA(c)
+			rimage.IterateImage(img, func(x, y int, c color.Color) bool {
+				cC := rimage.ConvertToNRGBA(c)
 				if cC == areaPointColor {
 					count++
 				}
@@ -142,23 +143,23 @@ func TestNext(t *testing.T) {
 					newFileName := getNewDataFileName(i)
 					t.Logf("no file for case %d, will output new image to %s", i, newFileName)
 					t.Log("if it looks good, remove _new")
-					test.That(t, utils.WriteImageToFile(newFileName, img), test.ShouldBeNil)
+					test.That(t, rimage.WriteImageToFile(newFileName, img), test.ShouldBeNil)
 				}
 				test.That(t, err, test.ShouldBeNil)
 
 				expectedImg, _, err := image.Decode(expectedFile)
 				test.That(t, err, test.ShouldBeNil)
-				cmp, cmpImg, err := utils.CompareImages(img, expectedImg)
+				cmp, cmpImg, err := rimage.CompareImages(img, expectedImg)
 				test.That(t, err, test.ShouldBeNil)
 				if cmp > tc.Diff {
 					newFileName := getNewDataFileName(i)
 					t.Logf("image for case %d does not match, will output new image to %s", i, newFileName)
 					t.Log("if it looks good, replace old file")
-					test.That(t, utils.WriteImageToFile(newFileName, img), test.ShouldBeNil)
+					test.That(t, rimage.WriteImageToFile(newFileName, img), test.ShouldBeNil)
 					diffFileName := getDiffDataFileName(i)
 					thinkFileName := testutils.ResolveFile(fmt.Sprintf("slam/data/%d_think.png", i))
-					test.That(t, utils.WriteImageToFile(diffFileName, cmpImg), test.ShouldBeNil)
-					test.That(t, utils.WriteImageToFile(thinkFileName, expectedImg), test.ShouldBeNil)
+					test.That(t, rimage.WriteImageToFile(diffFileName, cmpImg), test.ShouldBeNil)
+					test.That(t, rimage.WriteImageToFile(thinkFileName, expectedImg), test.ShouldBeNil)
 				}
 				test.That(t, cmp, test.ShouldBeLessThanOrEqualTo, tc.Diff)
 			})

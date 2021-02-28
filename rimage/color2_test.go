@@ -1,11 +1,9 @@
-package vision
+package rimage
 
 import (
 	"image"
 	"os"
 	"testing"
-
-	"go.viam.com/robotcore/utils"
 )
 
 func TestColorSegment1(t *testing.T) {
@@ -14,11 +12,11 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all := []utils.HSV{}
+	all := []Color{}
 
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
-			c := img.ColorHSV(image.Point{x, y})
+			c := img.Get(image.Point{x, y})
 			all = append(all, c)
 		}
 	}
@@ -28,7 +26,7 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	diffs := utils.ColorDiffs{}
+	diffs := ColorDiffs{}
 
 	for x, a := range clusters {
 		for y := x + 1; y < len(clusters); y++ {
@@ -38,7 +36,7 @@ func TestColorSegment1(t *testing.T) {
 			b := clusters[y]
 
 			diff := a.Distance(b)
-			diffs = append(diffs, utils.ColorDiff{a, b, diff})
+			diffs = append(diffs, ColorDiff{a, b, diff})
 		}
 	}
 
@@ -49,12 +47,12 @@ func TestColorSegment1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out := NewImage(img.Image())
+	out := NewImage(img.Width(), img.Height())
 	for x := 0; x < img.Width(); x++ {
 		for y := 0; y < img.Height(); y++ {
-			c := img.ColorHSV(image.Point{x, y})
+			c := img.Get(image.Point{x, y})
 			_, cc, _ := c.Closest(clusters)
-			out.SetHSV(image.Point{x, y}, cc)
+			out.Set(image.Point{x, y}, cc)
 		}
 	}
 

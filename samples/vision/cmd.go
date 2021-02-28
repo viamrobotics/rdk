@@ -11,8 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/disintegration/imaging"
@@ -42,7 +41,7 @@ func _hsvHistogramHelp(name string, data []float64) {
 	golog.Global.Debugf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
 }
 
-func hsvHistogram(img vision.Image) {
+func hsvHistogram(img *rimage.Image) {
 
 	H := []float64{}
 	S := []float64{}
@@ -56,10 +55,10 @@ func hsvHistogram(img vision.Image) {
 	for x := 0; x < img.Width(); x = x + 1 {
 		for y := 0; y < img.Height(); y = y + 1 {
 			p := image.Point{x, y}
-			if center.X >= 0 && vision.PointDistance(center, p) > *radius {
+			if center.X >= 0 && rimage.PointDistance(center, p) > *radius {
 				continue
 			}
-			hsv := img.ColorHSV(p)
+			hsv := img.Get(p)
 			H = append(H, hsv.H)
 			S = append(S, hsv.S)
 			V = append(V, hsv.V)
@@ -67,11 +66,11 @@ func hsvHistogram(img vision.Image) {
 	}
 
 	if center.X > 0 {
-		dc := gg.NewContextForImage(img.Image())
+		dc := gg.NewContextForImage(img)
 		dc.DrawCircle(float64(center.X), float64(center.Y), *radius)
-		dc.SetColor(utils.Red.C)
+		dc.SetColor(rimage.Red)
 		dc.Fill()
-		utils.WriteImageToFile(_getOutputfile(), dc.Image())
+		rimage.WriteImageToFile(_getOutputfile(), dc.Image())
 	}
 
 	_hsvHistogramHelp("h", H)
@@ -79,8 +78,8 @@ func hsvHistogram(img vision.Image) {
 	_hsvHistogramHelp("v", V)
 }
 
-func shapeWalkLine(img vision.Image, startX, startY int) error {
-	init := img.ColorHSV(image.Point{startX, startY})
+func shapeWalkLine(img *rimage.Image, startX, startY int) error {
+	init := img.Get(image.Point{startX, startY})
 
 	mod := 0
 	as := []image.Point{}
@@ -91,7 +90,7 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		if p.X >= img.Width() {
 			break
 		}
-		hsv := img.ColorHSV(p)
+		hsv := img.Get(p)
 
 		diff := init.Distance(hsv)
 		golog.Global.Debugf("%v %v %v\n", p, hsv, diff)
@@ -108,25 +107,25 @@ func shapeWalkLine(img vision.Image, startX, startY int) error {
 		}
 	}
 
-	dc := gg.NewContextForImage(img.Image())
+	dc := gg.NewContextForImage(img)
 	for _, p := range as {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(utils.Red.C)
+		dc.SetColor(rimage.Red)
 		dc.Fill()
 	}
 
 	for _, p := range bs {
 		dc.DrawCircle(float64(p.X), float64(p.Y), 1)
-		dc.SetColor(utils.Green.C)
+		dc.SetColor(rimage.Green)
 		dc.Fill()
 	}
 
-	utils.WriteImageToFile(_getOutputfile(), dc.Image())
+	rimage.WriteImageToFile(_getOutputfile(), dc.Image())
 
 	return nil
 }
 
-func view(img vision.Image) error {
+func view(img *rimage.Image) error {
 	remoteView, err := gostream.NewRemoteView(vpx.DefaultRemoteViewConfig)
 	if err != nil {
 		return err
@@ -134,7 +133,7 @@ func view(img vision.Image) error {
 
 	var last image.Point
 
-	imgs := []image.Image{img.Image()}
+	imgs := []image.Image{img}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
 		if x < 0 || y < 0 {
@@ -145,12 +144,10 @@ func view(img vision.Image) error {
 			return
 		}
 		last = p
-		color := img.Color(p)
-		colorHSV := img.ColorHSV(p)
-		text := fmt.Sprintf("(x, y): (%d, %d); HSV: (%f, %f, %f); RGBA: (%d, %d, %d, %d)",
+		color := img.Get(p)
+		text := fmt.Sprintf("(x, y): (%d, %d); %s",
 			x, y,
-			colorHSV.H, colorHSV.S, colorHSV.V,
-			color.R, color.G, color.B, color.A)
+			color.String())
 
 		walked, err := segmentation.ShapeWalk(img, p, segmentation.ShapeWalkOptions{Debug: *debug})
 		if err != nil {
@@ -158,7 +155,7 @@ func view(img vision.Image) error {
 		}
 
 		dc := gg.NewContextForImage(walked)
-		utils.DrawString(dc, text, image.Point{0, 20}, utils.White.C, 16)
+		rimage.DrawString(dc, text, image.Point{0, 20}, rimage.White, 16)
 		imgs[0] = dc.Image()
 	})
 
@@ -200,14 +197,14 @@ func main() {
 	prog := flag.Arg(0)
 	fn := flag.Arg(1)
 
-	img, err := vision.NewImageFromFile(fn)
+	img, err := rimage.NewImageFromFile(fn)
 	if err != nil {
 		panic(fmt.Errorf("error reading image from file (%s) %w", fn, err))
 	}
 
 	if *blur {
-		newImg := imaging.Blur(img.Image(), float64(*blurSize))
-		img = vision.NewImage(newImg)
+		newImg := imaging.Blur(img, float64(*blurSize))
+		img = rimage.ConvertImage(newImg)
 	}
 
 	switch prog {
@@ -216,7 +213,7 @@ func main() {
 	case "shapeWalkEntire":
 		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug})
 		if err == nil {
-			err = utils.WriteImageToFile(_getOutputfile(), out)
+			err = rimage.WriteImageToFile(_getOutputfile(), out)
 			if err != nil {
 				panic(err)
 			}

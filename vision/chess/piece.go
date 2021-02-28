@@ -2,9 +2,9 @@ package chess
 
 import (
 	"fmt"
-	"image/color"
 
 	"go.viam.com/robotcore/ml"
+	"go.viam.com/robotcore/rimage"
 )
 
 const (
@@ -13,12 +13,12 @@ const (
 	SquareBlack = 2
 )
 
-func makeArray(edges int, c color.RGBA) []float64 {
+func makeArray(edges int, c rimage.Color) []float64 {
 	return []float64{float64(edges), float64(c.R), float64(c.G), float64(c.B)}
 
 }
 
-func pieceFromColor(theClassifier ml.Classifier, edges int, data color.RGBA) string {
+func pieceFromColor(theClassifier ml.Classifier, edges int, data rimage.Color) string {
 	res, err := theClassifier.Classify(makeArray(edges, data))
 	if err != nil {
 		panic(err)
@@ -60,7 +60,7 @@ func buildPieceColorModel(theBoard *Board) (ml.Classifier, error) {
 
 			for x := middle.X - radius; x < middle.X+radius; x++ {
 				for y := middle.Y - radius; y < middle.Y+radius; y++ {
-					clr := theBoard.color.ColorRowCol(y, x)
+					clr := theBoard.img.Color.GetXY(x, y)
 
 					data = append(data, makeArray(edges, clr))
 					correct = append(correct, squareType)

@@ -8,8 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/vision"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/chess"
 
 	"github.com/tonyOreglia/glee/pkg/position"
@@ -137,25 +136,26 @@ func TestOneMove(t *testing.T) {
 }
 
 func TestWristDepth1(t *testing.T) {
-	dm, err := vision.ParseDepthMap("data/wristdepth1.dat.gz")
+	dm, err := rimage.ParseDepthMap("data/wristdepth1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pp, err := dm.ToPrettyPicture(0, 1000)
+	ppr, err := dm.ToPrettyPicture(0, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
+	pp := rimage.ConvertImage(ppr)
 
 	center := image.Point{dm.Width() / 2, dm.Height() / 2}
-	pp.Circle(center, 30, utils.Red)
+	pp.Circle(center, 30, rimage.Red)
 
 	lowest, lowestValue, highest, highestValue := findDepthPeaks(dm, center, 30)
 	fmt.Printf("lowest: %v highest: %v\n", lowest, highest)
 	fmt.Printf("lowestValue: %v highestValue: %v\n", lowestValue, highestValue)
 
-	pp.Circle(lowest, 5, utils.Blue)
-	pp.Circle(highest, 5, utils.Red)
+	pp.Circle(lowest, 5, rimage.Blue)
+	pp.Circle(highest, 5, rimage.Red)
 
 	err = pp.WriteTo("/tmp/x.png")
 	if err != nil {

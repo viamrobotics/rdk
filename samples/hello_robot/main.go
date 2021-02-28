@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/robots/hellorobot"
-	"go.viam.com/robotcore/vision"
 
 	"github.com/edaniels/golog"
 )
@@ -45,7 +45,7 @@ func main() {
 
 	theRobot := robot.NewBlankRobot()
 	theRobot.AddBase(helloRobot.Base(), robot.Component{})
-	theRobot.AddCamera(vision.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
+	theRobot.AddCamera(rimage.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
 	theRobot.AddLidar(lidarDev, robot.Component{})
 
 	defer func() {
