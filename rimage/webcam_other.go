@@ -1,6 +1,6 @@
 // +build !linux
 
-package vision
+package rimage
 
 import (
 	"errors"
