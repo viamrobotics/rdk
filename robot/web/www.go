@@ -29,9 +29,9 @@ import (
 )
 
 type robotWebApp struct {
-	template    *template.Template
-	remoteViews []gostream.RemoteView
-	theRobot    *robot.Robot
+	template *template.Template
+	views    []gostream.View
+	theRobot *robot.Robot
 }
 
 func (app *robotWebApp) Init() error {
@@ -64,17 +64,17 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type RemoteView struct {
+	type View struct {
 		JavaScript string
 		Body       string
 	}
 
 	type Temp struct {
-		RemoteViews []RemoteView
-		Bases       []string
-		Arms        []string
-		Grippers    []string
-		Boards      []board.Config
+		Views    []View
+		Bases    []string
+		Arms     []string
+		Grippers []string
+		Boards   []board.Config
 	}
 
 	temp := Temp{}
@@ -95,9 +95,9 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		temp.Boards = append(temp.Boards, b.GetConfig())
 	}
 
-	for _, remoteView := range app.remoteViews {
-		htmlData := remoteView.HTML()
-		temp.RemoteViews = append(temp.RemoteViews, RemoteView{
+	for _, view := range app.views {
+		htmlData := view.HTML()
+		temp.Views = append(temp.Views, View{
 			htmlData.JavaScript,
 			htmlData.Body,
 		})
@@ -522,24 +522,24 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
 
-	var remoteView gostream.RemoteView
+	var view gostream.View
 	if len(theRobot.Cameras) != 0 || len(theRobot.LidarDevices) != 0 {
-		config := vpx.DefaultRemoteViewConfig
+		config := vpx.DefaultViewConfig
 		var err error
-		remoteView, err = gostream.NewRemoteView(config)
+		view, err = gostream.NewView(config)
 		if err != nil {
 			return nil, err
 		}
-		remoteView.SetOnClickHandler(func(x, y int) {
+		view.SetOnClickHandler(func(x, y int) {
 			golog.Global.Debugw("click", "x", x, "y", y)
 		})
 	}
 
-	var remoteViews []gostream.RemoteView
-	if remoteView != nil {
-		remoteViews = append(remoteViews, remoteView)
+	var views []gostream.View
+	if view != nil {
+		views = append(views, view)
 	}
-	app := &robotWebApp{remoteViews: remoteViews, theRobot: theRobot}
+	app := &robotWebApp{views: views, theRobot: theRobot}
 	err := app.Init()
 	if err != nil {
 		return nil, err
@@ -562,8 +562,8 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 
 	mux.Handle("/", app)
 
-	if remoteView != nil {
-		handler := remoteView.Handler()
+	if view != nil {
+		handler := view.Handler()
 		mux.Handle("/"+handler.Name, handler.Func)
 	}
 
@@ -577,19 +577,22 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 			autoCameraTiler.AddSource(cam)
 		}
 		waitCh := make(chan struct{})
-		go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(waitCh) }, autoCameraTiler, "Cameras", remoteView)
+		go func() {
+			close(waitCh)
+			gostream.StreamNamedSource(cancelCtx, autoCameraTiler, "Cameras", view)
+		}()
 		<-waitCh
 	}
 
 	for idx := range theRobot.LidarDevices {
 		name := fmt.Sprintf("LIDAR %d", idx+1)
-		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, remoteView)
+		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, view)
 	}
 
 	return func() {
 		cancelFunc()
-		if remoteView != nil {
-			remoteView.Stop()
+		if view != nil {
+			view.Stop()
 		}
 	}, nil
 

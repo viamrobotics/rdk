@@ -215,12 +215,9 @@ func main() {
 	defer lar.Stop()
 	areaViewer := &slam.AreaViewer{area}
 
-	config := vpx.DefaultRemoteViewConfig
-	config.Debug = false
-
-	// setup robot view
+	config := vpx.DefaultViewConfig
 	config.StreamName = "robot view"
-	remoteView, err := gostream.NewRemoteView(config)
+	remoteView, err := gostream.NewView(config)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
@@ -233,16 +230,18 @@ func main() {
 		golog.Global.Debugw("click", "x", x, "y", y)
 		resp, err := lar.HandleClick(x, y, clientWidth, clientHeight)
 		if err != nil {
-			remoteView.SendText(err.Error())
+			remoteView.SendTextToAll(err.Error())
 			return
 		}
 		if resp != "" {
-			remoteView.SendText(resp)
+			remoteView.SendTextToAll(resp)
 		}
 	})
 
-	server := gostream.NewRemoteViewServer(port, remoteView, golog.Global)
-	server.Run()
+	server := gostream.NewViewServer(port, remoteView, golog.Global)
+	if err := server.Start(); err != nil {
+		golog.Global.Fatal(err)
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
@@ -255,7 +254,10 @@ func main() {
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
 	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}
 	started := make(chan struct{})
-	go gostream.StreamNamedSourceOnce(cancelCtx, func() { close(started) }, robotViewMatSource, "robot perspective", remoteView)
+	go func() {
+		close(started)
+		gostream.StreamNamedSource(cancelCtx, robotViewMatSource, "robot perspective", remoteView)
+	}()
 	<-started
 	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView)
 

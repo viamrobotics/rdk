@@ -125,9 +125,7 @@ func main() {
 		}
 	}
 
-	config := vpx.DefaultRemoteViewConfig
-	config.Debug = false
-	remoteView, err := gostream.NewRemoteView(config)
+	remoteView, err := gostream.NewView(vpx.DefaultViewConfig)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
@@ -136,8 +134,10 @@ func main() {
 		golog.Global.Debugw("click", "x", x, "y", y)
 	})
 
-	server := gostream.NewRemoteViewServer(port, remoteView, golog.Global)
-	server.Run()
+	server := gostream.NewViewServer(port, remoteView, golog.Global)
+	if err := server.Start(); err != nil {
+		golog.Global.Fatal(err)
+	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	c := make(chan os.Signal, 2)
