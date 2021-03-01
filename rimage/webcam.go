@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"path/filepath"
+	"regexp"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -38,13 +39,22 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 		return tryWebcamOpen(path, debug, desiredSize)
 	}
 
-	for i := 0; i <= 20; i++ {
-		path := fmt.Sprintf("/dev/video%d", i)
+	pathPattern := attrs["path_pattern"]
+	if pathPattern != "" {
+		pattern, err := regexp.Compile(pathPattern)
+		if err != nil {
+			return nil, err
+		}
+		return tryWebcamOpenPattern(pattern, debug, desiredSize)
+	}
+
+	labels := media.QueryVideoDeviceLabels()
+	for _, label := range labels {
 		if debug {
-			golog.Global.Debugf("%s", path)
+			golog.Global.Debugf("%s", label)
 		}
 
-		s, err := tryWebcamOpen(path, debug, desiredSize)
+		s, err := tryWebcamOpen(label, debug, desiredSize)
 		if err == nil {
 			if debug {
 				golog.Global.Debugf("\t USING")
@@ -100,6 +110,15 @@ func (s *WebcamSource) Close() error {
 
 func tryWebcamOpen(path string, debug bool, desiredSize *image.Point) (*WebcamSource, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), media.DefaultConstraints)
+	if err != nil {
+		return nil, err
+	}
+
+	return &WebcamSource{reader, nil, nil}, nil
+}
+
+func tryWebcamOpenPattern(pattern *regexp.Regexp, debug bool, desiredSize *image.Point) (*WebcamSource, error) {
+	reader, err := media.GetPatternedVideoReader(pattern, media.DefaultConstraints)
 	if err != nil {
 		return nil, err
 	}
