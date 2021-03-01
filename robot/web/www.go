@@ -444,6 +444,10 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			}
 		}
 
+		if r == 0 {
+			return map[string]interface{}{}, theMotor.Go(board.DirectionFromString(req.FormValue("d")), byte(speed))
+		}
+
 		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), speed, r, false)
 	}})
 
