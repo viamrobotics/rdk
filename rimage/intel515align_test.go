@@ -22,6 +22,7 @@ func (h *intelTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 	d.GotDebugImage(fixed.Color, "color-fixed")
 	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, 1000000), "depth-fixed")
 
+	d.GotDebugImage(fixed.Overlay(), "overlay")
 	return nil
 }
 

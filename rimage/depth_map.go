@@ -19,9 +19,6 @@ type DepthMap struct {
 	width  int
 	height int
 
-	min int
-	max int
-
 	data [][]int
 }
 
@@ -54,12 +51,6 @@ func (dm *DepthMap) GetDepth(x, y int) int {
 }
 
 func (dm *DepthMap) Set(x, y, val int) {
-	if val > dm.max {
-		dm.max = val
-	}
-	if val < dm.min {
-		dm.min = val
-	}
 	dm.data[x][y] = val
 }
 
@@ -73,16 +64,8 @@ func myMax(a, b int) int {
 func (dm *DepthMap) Smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
-	dm.max = 0
-	dm.min = 100000
-	if err := utils.Walk(centerX, centerY, myMax(dm.width, dm.height), func(x, y int) error {
-		temp := dm._getDepthOrEstimate(x, y)
-		if temp > 0 && temp < dm.min {
-			dm.min = temp
-		}
-		if temp > dm.max {
-			dm.max = temp
-		}
+	if err := utils.Walk(centerX, centerY, 1+(myMax(dm.width, dm.height)/2), func(x, y int) error {
+		dm._getDepthOrEstimate(x, y)
 		return nil
 	}); err != nil {
 		// shouldn't happen
@@ -339,7 +322,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
+func (dm *DepthMap) MinMax() (int, int) {
 	min := 100000
 	max := 0
 
@@ -357,6 +340,12 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
 			}
 		}
 	}
+
+	return min, max
+}
+
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
+	min, max := dm.MinMax()
 
 	if min < hardMin {
 		min = hardMin
@@ -403,8 +392,6 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	dm2 := &DepthMap{
 		width:  dm.width,
 		height: dm.height,
-		min:    dm.min,
-		max:    dm.max,
 		data:   make([][]int, dm.width),
 	}
 
@@ -423,8 +410,6 @@ func NewEmptyDepthMap(width, height int) DepthMap {
 	dm := DepthMap{
 		width:  width,
 		height: height,
-		min:    10000000,
-		max:    0,
 		data:   make([][]int, width),
 	}
 
