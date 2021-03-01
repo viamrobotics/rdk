@@ -141,10 +141,7 @@ func TestWristDepth1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ppr, err := dm.ToPrettyPicture(0, 1000)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ppr := dm.ToPrettyPicture(0, 1000)
 	pp := rimage.ConvertImage(ppr)
 
 	center := image.Point{dm.Width() / 2, dm.Height() / 2}

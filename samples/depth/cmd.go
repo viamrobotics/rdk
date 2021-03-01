@@ -37,11 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	img, err := dm.ToPrettyPicture(*hardMin, *hardMax)
-	if err != nil {
-		panic(err)
-	}
-
+	img := dm.ToPrettyPicture(*hardMin, *hardMax)
 	if err := rimage.WriteImageToFile(flag.Arg(1), img); err != nil {
 		panic(err)
 	}

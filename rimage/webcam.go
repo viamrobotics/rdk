@@ -12,9 +12,14 @@ import (
 	"go.uber.org/multierr"
 )
 
+type Aligner interface {
+	Align(img *ImageWithDepth) (*ImageWithDepth, error)
+}
+
 type WebcamSource struct {
 	reader media.VideoReadCloser
 	depth  *webcamDepthSource
+	align  Aligner
 }
 
 func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
@@ -50,6 +55,7 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 				if err != nil {
 					return nil, fmt.Errorf("found intel camera point no matching depth")
 				}
+				s.align = &Intel515Align{}
 			}
 
 			return s, nil
@@ -76,7 +82,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ImageWithDepth{ConvertImage(img), dm}, nil
+	return s.align.Align(&ImageWithDepth{ConvertImage(img), dm})
 }
 
 func (s *WebcamSource) Close() error {
@@ -98,5 +104,5 @@ func tryWebcamOpen(path string, debug bool, desiredSize *image.Point) (*WebcamSo
 		return nil, err
 	}
 
-	return &WebcamSource{reader, nil}, nil
+	return &WebcamSource{reader, nil, nil}, nil
 }
