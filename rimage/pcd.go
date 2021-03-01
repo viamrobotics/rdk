@@ -46,12 +46,13 @@ func (pc *ImageWithDepth) ToPCD(out io.Writer) error {
 		return err
 	}
 
-	scale := float32(pc.Depth.max - pc.Depth.min)
+	min, max := pc.Depth.MinMax()
+	scale := float32(max - min)
 
 	for x := 0; x < pc.Depth.Width(); x++ {
 		for y := 0; y < pc.Depth.Height(); y++ {
 			height := pc.Depth.GetDepth(x, y)
-			diff := float32(height - pc.Depth.min)
+			diff := float32(height - min)
 			scaledHeight := diff / scale
 
 			_, err = fmt.Fprintf(out, "%f %f %f %d\n",
