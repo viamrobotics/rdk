@@ -54,7 +54,7 @@
           makeApiCall(path);
       }
       
-      {{ range $view := .RemoteViews }}
+      {{ range $view := .Views }}
         {{ jsSafe $view.JavaScript }}
       {{ end }}
 
@@ -190,7 +190,7 @@
       <tr>
         <td><img id="i0" src=""/></td>
         <td><img id="i1" src=""/></td>
-        {{ range $view := .RemoteViews }}
+        {{ range $view := .Views }}
           <td>
           {{ htmlSafe $view.Body }}
           </td>
