@@ -3,7 +3,7 @@ package kinematics
 import (
 	//~ "math"
 
-	"github.com/biotinker/nlopt"
+	"github.com/go-nlopt/nlopt"
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
