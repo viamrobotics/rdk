@@ -118,6 +118,32 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	), nil
 }
 
+func (i *ImageWithDepth) Overlay() *image.NRGBA {
+	const minAlpha = 32.0
+
+	min, max := i.Depth.MinMax()
+
+	img := image.NewNRGBA(i.Bounds())
+	for x := 0; x < i.Width(); x++ {
+		for y := 0; y < i.Height(); y++ {
+			c := i.Color.GetXY(x, y)
+
+			a := uint8(0)
+
+			d := i.Depth.GetDepth(x, y)
+			if d > 0 {
+				diff := d - min
+				scale := 1.0 - (float64(diff) / float64(max-min))
+				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
+			}
+
+			img.SetNRGBA(x, y, color.NRGBA{c.R, c.G, c.B, a})
+
+		}
+	}
+	return img
+}
+
 func (i *ImageWithDepth) WriteTo(fn string) error {
 	return BothWriteToFile(i, fn)
 }
