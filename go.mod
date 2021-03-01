@@ -8,7 +8,6 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/aws/aws-sdk-go v1.36.2 // indirect
-	github.com/biotinker/nlopt v0.0.0-20210301191617-328231b2e5b3 // indirect
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
@@ -18,6 +17,7 @@ require (
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/go-gl/mathgl v1.0.0
+	github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.37.1
