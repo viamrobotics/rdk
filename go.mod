@@ -13,7 +13,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210301022037-6db86df90144
+	github.com/edaniels/gostream v0.0.0-20210301143214-1216f59e2279
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
@@ -58,4 +58,4 @@ replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210
 
 replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210225151211-f55d7247ce47
 
-replace github.com/pion/mediadevices => github.com/edaniels/mediadevices v0.1.20
+replace github.com/pion/mediadevices => github.com/edaniels/mediadevices v0.1.21
