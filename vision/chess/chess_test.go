@@ -64,6 +64,11 @@ func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn
 			d.GotDebugImage(out, "marked")
 		}
 
+		if warped.Depth != nil {
+			d.GotDebugImage(warped.Depth.ToPrettyPicture(0, 10000), "depth1")
+			d.GotDebugImage(warped.Overlay(), "depth2")
+		}
+
 		if false {
 			clusters, err := rimage.ClusterFromImage(warped.Color, 4)
 			if err != nil {
@@ -80,7 +85,7 @@ func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn
 }
 
 func TestChessCheatRed1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*.png")
+	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*")
 	err := d.Process(&ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)
