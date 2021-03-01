@@ -339,7 +339,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (image.Image, error) {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
 	min := 100000
 	max := 0
 
@@ -391,7 +391,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) (image.Image, error) {
 		}
 	}
 
-	return img, nil
+	return img
 }
 
 func (dm *DepthMap) Rotate(amount int) *DepthMap {
