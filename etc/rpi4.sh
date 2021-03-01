@@ -1,5 +1,5 @@
 sudo systemctl enable ssh
-sudo apt install cheese streamer wiringpi git autoconf swig yasm libpython2.7-dev cmake
+sudo apt install cheese streamer wiringpi git autoconf swig yasm libpython2.7-dev cmake libxext-dev
 
 cd /usr/local
 sudo wget https://golang.org/dl/go1.16.linux-armv6l.tar.gz
