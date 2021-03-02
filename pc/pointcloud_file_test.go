@@ -34,7 +34,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	cloud.Set(WithPointValue(NewColoredPoint(1, 2, 5, &color.RGBA{255, 1, 2, 0}), 5))
 	cloud.Set(WithPointValue(NewColoredPoint(582, 12, 0, &color.RGBA{255, 1, 2, 0}), -1))
 	cloud.Set(WithPointValue(NewColoredPoint(7, 6, 1, &color.RGBA{255, 1, 2, 0}), 1))
-	cloud.Set(WithPointValue(NewColoredPoint(1.3, 2, 9, &color.RGBA{255, 1, 2, 0}), 0))
+	cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0))
 
 	bytes := make([]byte, 8)
 	v := 1.4

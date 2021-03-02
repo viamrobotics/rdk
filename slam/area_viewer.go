@@ -21,7 +21,7 @@ func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
 	dc := gg.NewContext(areaX, areaY)
 
 	av.Area.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y int, _ float64) bool {
+		area.Iterate(func(x, y, _ int) bool {
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
 			dc.SetPixel(x, y)
 			return true
