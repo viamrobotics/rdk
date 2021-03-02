@@ -162,7 +162,7 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pc/data/test.las"))
+		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2 := pointCloud.ToVec2Matrix()
