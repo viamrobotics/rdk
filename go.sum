@@ -147,12 +147,12 @@ github.com/edaniels/golinters v0.0.4 h1:bOhAr1acA66+bRjAB9XVfA55VtME1MOqFnfpIjWw
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwaiZECzZla8apET/s97xhquWyluOA=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
-github.com/edaniels/gostream v0.0.0-20210301213225-2ad1466dac03 h1:4bWdGzaN/8XLKIF6DVNSUXZ8OumkEFscqehhPs2HWBs=
-github.com/edaniels/gostream v0.0.0-20210301213225-2ad1466dac03/go.mod h1:TM3NACg3qhh2QlLsJChQ7Sjc6EdLmobIratly/46Gdg=
+github.com/edaniels/gostream v0.0.0-20210302015043-d781cef2887e h1:1hExAsViIWkcgvirYMnEaiCatFZqpyjIEvqaB6tu9to=
+github.com/edaniels/gostream v0.0.0-20210302015043-d781cef2887e/go.mod h1:emq3s68R43/NFJNONjy6awd7QutAgP3Yhg4PExs3jEc=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
-github.com/edaniels/mediadevices v0.1.21 h1:Olutt+AQelXt258fWQdNSnBiwX6ZY2dPORE+L8Q4rbk=
-github.com/edaniels/mediadevices v0.1.21/go.mod h1:2eVwoWjBIlii5R5xTeV2BUECqX2hftbrHwt3Exy4/oM=
+github.com/edaniels/mediadevices v0.1.22 h1:YfyBo+bB6xJhi228p7iwFzi6A3kWR7OtAiDyBZdMzHU=
+github.com/edaniels/mediadevices v0.1.22/go.mod h1:2eVwoWjBIlii5R5xTeV2BUECqX2hftbrHwt3Exy4/oM=
 github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0 h1:hnK+cHF0aYBvT6osQLGV/WxRDV7/rxk8OI3iALTV+qI=
 github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0/go.mod h1:/LAnCjNg+OR38AJKwnVDxxZt7dn4C+a3FjKXJvJn158=
 github.com/edaniels/wsapi v0.0.2 h1:Il5V9bzx2cOWQGlNKdRbtL11dLORVzrpfNX/CL+Idus=
