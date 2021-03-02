@@ -384,10 +384,50 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
 }
 
 func (dm *DepthMap) Rotate(amount int) *DepthMap {
-	if amount != 180 {
-		// made this a panic
-		panic(fmt.Errorf("vision.DepthMap can only rotate 180 degrees right now"))
+	if amount == 180 {
+		return dm.Rotate180()
 	}
+
+	if amount == 90 {
+		return dm.Rotate90(true)
+	}
+
+	if amount == -90 {
+		return dm.Rotate90(false)
+	}
+
+	// made this a panic
+	panic(fmt.Errorf("vision.DepthMap can only rotate 180 degrees right now"))
+}
+
+func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
+
+	newWidth := dm.height
+	newHeight := dm.width
+
+	dm2 := &DepthMap{
+		width:  newWidth,
+		height: newHeight,
+		data:   make([][]int, newWidth),
+	}
+
+	// these are new coordinates
+	for x := 0; x < newWidth; x++ {
+		dm2.data[x] = make([]int, newHeight)
+		for y := 0; y < newHeight; y++ {
+			var val int
+			if clockwise {
+				val = dm.data[y][x]
+			} else {
+				val = dm.data[dm.width-y-1][dm.height-x-1]
+			}
+			dm2.data[x][y] = val
+		}
+	}
+	return dm2
+}
+
+func (dm *DepthMap) Rotate180() *DepthMap {
 
 	dm2 := &DepthMap{
 		width:  dm.width,
