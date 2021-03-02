@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
+	"go.viam.com/robotcore/kinematics"
+	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/testutils"
 )
 
@@ -39,4 +41,21 @@ func TestJacIKinematics(t *testing.T) {
 		err = evaArm.SetForwardPosition(rPos)
 		test.That(t, err, test.ShouldBeNil)
 	}
+}
+
+func TestNloptIKinematics(t *testing.T) {
+	wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	test.That(t, err, test.ShouldBeNil)
+	ik := kinematics.CreateNloptIKSolver(wxArm.Model)
+	//~ wxArm.ik = ik
+	
+	pos := Position{1, -368, 355, 0, 0, 0}
+	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	transform.SetX(pos.X)
+	transform.SetY(pos.Y)
+	transform.SetZ(pos.Z)
+
+	ik.AddGoal(transform, 0)
+	solved := ik.Solve()
+	test.That(t, solved, test.ShouldBeTrue)
 }
