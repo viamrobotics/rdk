@@ -99,29 +99,54 @@ func TestNext(t *testing.T) {
 	})
 
 	t.Run("precomputed", func(t *testing.T) {
-		getDataFileName := func(num int) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%d.png", num))
+		getDataFileName := func(testName string) string {
+			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s.png", testName))
 		}
-		getNewDataFileName := func(num int) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%d_new.png", num))
+		getNewDataFileName := func(testName string) string {
+			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
 		}
-		getDiffDataFileName := func(num int) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%d_diff.png", num))
+		getDiffDataFileName := func(testName string) string {
+			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
 		}
 
-		for i, tc := range []struct {
+		for _, tc := range []struct {
 			Seed        int64
 			BasePosX    int
 			BasePosY    int
-			Zoom        float64
-			Orientation float64
+			Zoom        int
+			Orientation int
 			Diff        int
 		}{
 			{0, 0, 0, 1, 0, 1924},
+			{0, 0, 0, 1, 15, 1937},
+			{0, 0, 0, 1, 30, 1924},
+			{0, 0, 0, 1, 45, 1924},
+			{0, 0, 0, 1, 60, 1879},
+			{0, 0, 0, 1, 75, 1869},
+			{0, 0, 0, 1, 90, 1924},
+			{0, 0, 0, 1, 105, 1873},
+			{0, 0, 0, 1, 120, 1874},
+			{0, 0, 0, 1, 135, 1924},
+			{0, 0, 0, 1, 150, 1924},
+			{0, 0, 0, 1, 165, 1968},
+			{0, 0, 0, 1, 180, 1918},
+			{0, 0, 0, 1, 195, 1960},
+			{0, 0, 0, 1, 210, 1948},
+			{0, 0, 0, 1, 225, 1957},
+			{0, 0, 0, 1, 240, 1946},
+			{0, 0, 0, 1, 255, 1935},
+			{0, 0, 0, 1, 270, 1936},
+			{0, 0, 0, 1, 285, 1924},
+			{0, 0, 0, 1, 300, 1924},
+			{0, 0, 0, 1, 315, 1954},
+			{0, 0, 0, 1, 330, 1924},
+			{0, 0, 0, 1, 345, 1935},
 			{0, 0, 0, 2, 0, 1925},
 			{0, 0, 0, 2, 90, 1928},
+			{5, 5, 0, 2, 90, 1923},
 		} {
-			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			testName := fmt.Sprintf("%d_%d_%d_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
+			t.Run(testName, func(t *testing.T) {
 				fakeLidar := fake.NewLidar()
 				fakeLidar.SetSeed(tc.Seed)
 				test.That(t, fakeLidar.Start(context.Background()), test.ShouldBeNil)
@@ -131,17 +156,17 @@ func TestNext(t *testing.T) {
 				larBot.basePosX = tc.BasePosX
 				larBot.basePosY = tc.BasePosY
 				test.That(t, tc.Zoom, test.ShouldBeGreaterThanOrEqualTo, 1)
-				larBot.clientZoom = tc.Zoom
-				larBot.setOrientation(tc.Orientation)
+				larBot.clientZoom = float64(tc.Zoom)
+				larBot.setOrientation(float64(tc.Orientation))
 
 				img, err := larBot.Next(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
-				fn := getDataFileName(i)
+				fn := getDataFileName(testName)
 				expectedFile, err := os.Open(fn)
 				if os.IsNotExist(err) {
-					newFileName := getNewDataFileName(i)
-					t.Logf("no file for case %d, will output new image to %s", i, newFileName)
+					newFileName := getNewDataFileName(testName)
+					t.Logf("no file for test %s, will output new image to %s", testName, newFileName)
 					t.Log("if it looks good, remove _new")
 					test.That(t, rimage.WriteImageToFile(newFileName, img), test.ShouldBeNil)
 				}
@@ -152,16 +177,14 @@ func TestNext(t *testing.T) {
 				cmp, cmpImg, err := rimage.CompareImages(img, expectedImg)
 				test.That(t, err, test.ShouldBeNil)
 				if cmp > tc.Diff {
-					newFileName := getNewDataFileName(i)
-					t.Logf("image for case %d does not match, will output new image to %s", i, newFileName)
+					newFileName := getNewDataFileName(testName)
+					t.Logf("image for test %s does not match, will output new image to %s", testName, newFileName)
 					t.Log("if it looks good, replace old file")
 					test.That(t, rimage.WriteImageToFile(newFileName, img), test.ShouldBeNil)
-					diffFileName := getDiffDataFileName(i)
-					thinkFileName := testutils.ResolveFile(fmt.Sprintf("slam/data/%d_think.png", i))
+					diffFileName := getDiffDataFileName(testName)
 					test.That(t, rimage.WriteImageToFile(diffFileName, cmpImg), test.ShouldBeNil)
-					test.That(t, rimage.WriteImageToFile(thinkFileName, expectedImg), test.ShouldBeNil)
 				}
-				test.That(t, cmp, test.ShouldBeLessThanOrEqualTo, tc.Diff)
+				test.That(t, cmp, test.ShouldAlmostEqual, tc.Diff, 10)
 			})
 		}
 	})
