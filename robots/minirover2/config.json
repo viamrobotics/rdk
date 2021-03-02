@@ -81,7 +81,9 @@
           "model" : "webcam",
           "attributes" : {
               "model" : "intel515",
-              "rotate" : "true"
+              "path_pattern" : ".*usb.*",
+              "rotate" : "true",
+              "debug" : "true"
           }
         }
 

@@ -56,6 +56,6 @@ require (
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
-replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210225151211-f55d7247ce47
+replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210302143937-e15079af0c35
 
 replace github.com/pion/mediadevices => github.com/edaniels/mediadevices v0.1.22

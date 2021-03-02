@@ -1,7 +1,7 @@
 sudo systemctl enable ssh
 sudo apt -y update
 sudo apt -y upgrade
-sudo apt -y install cheese  wiringpi git autoconf swig yasm libpython2.7-dev cmake libxext-dev git v4l-utils apt-file
+sudo apt -y install cheese  wiringpi git autoconf swig yasm libpython2.7-dev cmake libxext-dev git v4l-utils apt-file pigpio-tools
 sudo apt-file update
 
 # optinal and only sometimes works
@@ -16,13 +16,6 @@ sudo ln -s /usr/local/go/bin/* /usr/local/bin/
 cd ~
 mkdir stuff
 cd stuff
-
-git clone https://github.com/sarfata/pi-blaster
-cd pi-blaster
-./autogen.sh
-./configure
-make -j 4
-sudo make install
 
 cd ~/stuff
 wget -q --no-check-certificate https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0
