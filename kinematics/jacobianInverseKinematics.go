@@ -72,8 +72,9 @@ func (ik *JacobianIK) Solve() bool {
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
 
 				ik.Mdl.SetPosition(qNorm)
-
+				qNorm = ik.Mdl.ZeroInlineRotation(qNorm)
 				if ik.Mdl.IsValid(qNorm) {
+
 					return true
 				}
 			}

@@ -160,6 +160,45 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 	}
 }
 
+// This function will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
+// are inline by seeing if moving both closer to zero changes the 6d position. If they appear to be inline it will set
+// both to zero if they are not. This should avoid needless twists of inline joints.
+// TODO: Support additional end effectors
+func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
+	epsilon := 0.0001
+
+	newAngles := make([]float64, len(angles))
+	copy(newAngles, angles)
+
+	for i, angle1 := range angles {
+		for j := i; j < len(angles); j++ {
+			angle2 := angles[j]
+			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
+				// These angles are complementary
+
+				origAngles := m.GetPosition()
+				origAnglesBak := m.GetPosition()
+				origTransform := m.GetOperationalPosition(0)
+				origAngles[i] = 0
+				origAngles[j] = 0
+				m.SetPosition(origAngles)
+				m.ForwardPosition()
+				distance := SquaredNorm(m.GetOperationalPosition(0).ToDelta(origTransform))
+
+				// Check we did not move the end effector too much
+				if distance < epsilon*epsilon {
+					newAngles[i] = 0
+					newAngles[j] = 0
+				} else {
+					m.SetPosition(origAnglesBak)
+					m.ForwardPosition()
+				}
+			}
+		}
+	}
+	return newAngles
+}
+
 func (m *Model) Step(posvec, dpos []float64) []float64 {
 
 	var posvec2 []float64
