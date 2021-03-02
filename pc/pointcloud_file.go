@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/color"
-	"math"
 	"path/filepath"
 
 	"github.com/edaniels/golog"
@@ -49,7 +48,8 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		data := p.PointData()
 
 		x, y, z := data.X, data.Y, data.Z
-		pToSet := NewPoint(x, y, z)
+		// TODO(erd): potentially losing floating point data and lossiness
+		pToSet := NewPoint(int(x), int(y), int(z))
 
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
@@ -58,11 +58,9 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 			pToSet = WithPointColor(pToSet, &color.RGBA{r, g, b, 0})
 		}
 
-		var v float64
 		if hasValue {
-			bits := binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8])
-			v = math.Float64frombits(bits)
-			pToSet = WithPointValue(pToSet, v)
+			value := int(binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8]))
+			pToSet = WithPointValue(pToSet, value)
 		}
 
 		pc.Set(pToSet)
@@ -94,18 +92,18 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		return err
 	}
 
-	var pVals []float64
+	var pVals []int
 	if pc.hasValue {
-		pVals = make([]float64, 0, pc.Size())
+		pVals = make([]int, 0, pc.Size())
 	}
 	var lastErr error
 	pc.Iterate(func(p Point) bool {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
-			X:         pos.X,
-			Y:         pos.Y,
-			Z:         pos.Z,
+			X:         float64(pos.X), // TODO(erd): may be lossy
+			Y:         float64(pos.Y), // TODO(erd): may be lossy
+			Z:         float64(pos.Z), // TODO(erd): may be lossy
 			Intensity: 0,
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
@@ -134,10 +132,10 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 			}
 		}
 		if pc.hasValue {
-			if ok, fp := IsFloat(p); ok {
+			if ok, fp := IsValue(p); ok {
 				pVals = append(pVals, fp.Value())
 			} else {
-				pVals = append(pVals, math.NaN())
+				pVals = append(pVals, 0)
 			}
 		}
 		if err := lf.AddLasPoint(lp); err != nil {
@@ -149,9 +147,8 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 	if pc.hasValue {
 		var buf bytes.Buffer
 		for _, v := range pVals {
-			bits := math.Float64bits(v)
 			bytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(bytes, bits)
+			binary.LittleEndian.PutUint64(bytes, uint64(v))
 			buf.Write(bytes)
 		}
 		if err := lf.AddVLR(lidario.VLR{
