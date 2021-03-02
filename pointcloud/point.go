@@ -1,4 +1,4 @@
-package pc
+package pointcloud
 
 import (
 	"image/color"

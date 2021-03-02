@@ -1,4 +1,4 @@
-package pc
+package pointcloud
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	pc := NewPointCloud()
+	pc := New()
 	p0 := NewPoint(0, 0, 0)
 	pc.Set(p0)
 	pAt := pc.At(0, 0, 0)

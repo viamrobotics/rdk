@@ -1,4 +1,4 @@
-package pc
+package pointcloud
 
 import (
 	"encoding/binary"
@@ -11,8 +11,8 @@ import (
 	"github.com/edaniels/test"
 )
 
-func TestNewPointCloudFromFile(t *testing.T) {
-	cloud, err := NewPointCloudFromFile("data/test.las")
+func TestNewFromFile(t *testing.T) {
+	cloud, err := NewFromFile("data/test.las")
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 8413)
@@ -24,13 +24,13 @@ func TestNewPointCloudFromFile(t *testing.T) {
 	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewPointCloudFromFile(temp.Name())
+	nextCloud, err := NewFromFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
-	cloud := NewPointCloud()
+	cloud := New()
 	cloud.Set(WithPointValue(NewColoredPoint(1, 2, 5, &color.RGBA{255, 1, 2, 0}), 5))
 	cloud.Set(WithPointValue(NewColoredPoint(582, 12, 0, &color.RGBA{255, 1, 2, 0}), -1))
 	cloud.Set(WithPointValue(NewColoredPoint(7, 6, 1, &color.RGBA{255, 1, 2, 0}), 1))
@@ -51,7 +51,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewPointCloudFromFile(temp.Name())
+	nextCloud, err := NewFromFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }

@@ -1,4 +1,4 @@
-package pc
+package pointcloud
 
 import (
 	"bytes"
@@ -11,10 +11,10 @@ import (
 	"github.com/jblindsay/lidario"
 )
 
-func NewPointCloudFromFile(fn string) (*PointCloud, error) {
+func NewFromFile(fn string) (*PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":
-		return newPointCloudFromLASFile(fn)
+		return NewFromLASFile(fn)
 	default:
 		return nil, fmt.Errorf("do not know how to read file %q", fn)
 	}
@@ -22,7 +22,7 @@ func NewPointCloudFromFile(fn string) (*PointCloud, error) {
 
 const pointValueDataTag = "rc|pv"
 
-func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
+func NewFromLASFile(fn string) (*PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func newPointCloudFromLASFile(fn string) (*PointCloud, error) {
 		}
 	}
 
-	pc := NewPointCloud()
+	pc := New()
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
 		if err != nil {

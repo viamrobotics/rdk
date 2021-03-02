@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/pc"
+	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
@@ -162,7 +162,7 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
-		pointCloud, err := pc.NewPointCloudFromFile(testutils.ResolveFile("pc/data/test.las"))
+		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pc/data/test.las"))
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2 := pointCloud.ToVec2Matrix()

@@ -1,4 +1,4 @@
-package pc
+package pointcloud
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type PointCloud struct {
 	minZ, maxZ int
 }
 
-func NewPointCloud() *PointCloud {
+func New() *PointCloud {
 	return &PointCloud{
 		points: map[key]Point{},
 		minX:   math.MaxInt64,
