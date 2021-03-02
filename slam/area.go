@@ -5,26 +5,26 @@ import (
 	"image"
 	"sync"
 
-	"go.viam.com/robotcore/pc"
+	"go.viam.com/robotcore/pointcloud"
 )
 
 // TODO(erd): adapt to use float64 on points, if it makes sense.
 // If it does not make sense, then reason how to resolve duplicate
 // points in the cloud at the same X or Y.
 func NewSquareArea(sizeMeters int, scaleTo int) *SquareArea {
-	cloud := pc.NewPointCloud()
+	cloud := pointcloud.New()
 	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo)
 }
 
 func NewSquareAreaFromFile(fn string, sizeMeters int, scaleTo int) (*SquareArea, error) {
-	cloud, err := pc.NewPointCloudFromFile(fn)
+	cloud, err := pointcloud.NewFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
 	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo), nil
 }
 
-func SquareAreaFromPointCloud(cloud *pc.PointCloud, sizeMeters int, scaleTo int) *SquareArea {
+func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters int, scaleTo int) *SquareArea {
 	measurementScaled := sizeMeters * scaleTo
 	centerX := measurementScaled / 2
 	centerY := centerX
@@ -44,7 +44,7 @@ type SquareArea struct {
 	sizeMeters int
 	scaleTo    int
 	dim        int
-	cloud      *pc.PointCloud
+	cloud      *pointcloud.PointCloud
 	centerX    int
 	centerY    int
 }
@@ -85,9 +85,9 @@ func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 type mutableSquareArea SquareArea
 
 func (msa *mutableSquareArea) Iterate(visit func(x, y, v int) bool) {
-	msa.cloud.Iterate(func(p pc.Point) bool {
+	msa.cloud.Iterate(func(p pointcloud.Point) bool {
 		pos := p.Position()
-		return visit(pos.X, pos.Y, p.(pc.ValuePoint).Value())
+		return visit(pos.X, pos.Y, p.(pointcloud.ValuePoint).Value())
 	})
 }
 
@@ -96,7 +96,7 @@ func (msa *mutableSquareArea) At(x, y int) int {
 	if p == nil {
 		return 0
 	}
-	return p.(pc.ValuePoint).Value()
+	return p.(pointcloud.ValuePoint).Value()
 }
 
 func (msa *mutableSquareArea) Set(x, y, v int) {
@@ -106,7 +106,7 @@ func (msa *mutableSquareArea) Set(x, y, v int) {
 	if y < 0 || y >= msa.dim {
 		panic(fmt.Errorf("y must be between [0,%d)", msa.dim))
 	}
-	msa.cloud.Set(pc.NewValuePoint(x, y, 0, v))
+	msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
