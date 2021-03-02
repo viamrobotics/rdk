@@ -35,6 +35,24 @@ var cameraConstraints = mediadevices.MediaStreamConstraints{
 	},
 }
 
+var intelConstraints = mediadevices.MediaStreamConstraints{
+	Video: func(constraint *mediadevices.MediaTrackConstraints) {
+		constraint.Width = prop.IntRanged{1280, 1280, 1280}
+		constraint.Height = prop.IntRanged{720, 720, 720}
+		constraint.FrameRate = prop.FloatRanged{0, 200, 60}
+		constraint.FrameFormat = prop.FrameFormatOneOf{
+			frame.FormatI420,
+			frame.FormatI444,
+			frame.FormatYUY2,
+			frame.FormatUYVY,
+			frame.FormatRGBA,
+			frame.FormatMJPEG,
+			frame.FormatNV12,
+			frame.FormatNV21, // gives blue tinted image?
+		}
+	},
+}
+
 var depthConstraints = mediadevices.MediaStreamConstraints{
 	Video: func(constraint *mediadevices.MediaTrackConstraints) {
 		constraint.Width = prop.IntRanged{640, 4096, 1920}
@@ -54,20 +72,33 @@ type WebcamSource struct {
 	align  Aligner
 }
 
+func maybeAddDepth(s *WebcamSource, debug, isIntel515 bool, attrs map[string]string) (*WebcamSource, error) {
+	var err error
+	s.depth, err = findWebcamDepth(debug)
+	if isIntel515 {
+		if err != nil {
+			return nil, fmt.Errorf("found intel camera point no matching depth: %w", err)
+		}
+		s.align = &Intel515Align{}
+	}
+
+	return s, nil
+}
+
 func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 	debug := attrs["debug"] == "true"
-	var desiredSize *image.Point = nil
-
 	// TODO(erh): this is gross, but not sure what right config options are yet
 	isIntel515 := attrs["model"] == "intel515"
 
+	constraints := cameraConstraints
+
 	if isIntel515 {
-		desiredSize = &image.Point{1280, 720}
+		constraints = intelConstraints
 	}
 
 	path := attrs["path"]
 	if path != "" {
-		return tryWebcamOpen(path, debug, desiredSize)
+		return tryWebcamOpen(path, debug, constraints)
 	}
 
 	pathPattern := attrs["path_pattern"]
@@ -76,7 +107,11 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 		if err != nil {
 			return nil, err
 		}
-		return tryWebcamOpenPattern(pattern, debug, desiredSize)
+		s, err := tryWebcamOpenPattern(pattern, debug, constraints)
+		if err != nil {
+			return nil, err
+		}
+		return maybeAddDepth(s, debug, isIntel515, attrs)
 	}
 
 	labels := media.QueryVideoDeviceLabels()
@@ -85,21 +120,13 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 			golog.Global.Debugf("%s", label)
 		}
 
-		s, err := tryWebcamOpen(label, debug, desiredSize)
+		s, err := tryWebcamOpen(label, debug, constraints)
 		if err == nil {
 			if debug {
 				golog.Global.Debugf("\t USING")
 			}
 
-			s.depth, err = findWebcamDepth(debug)
-			if isIntel515 {
-				if err != nil {
-					return nil, fmt.Errorf("found intel camera point no matching depth: %w", err)
-				}
-				s.align = &Intel515Align{}
-			}
-
-			return s, nil
+			return maybeAddDepth(s, debug, isIntel515, attrs)
 		}
 		if debug {
 			golog.Global.Debugf("\t %s", err)
@@ -123,7 +150,13 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.align.Align(&ImageWithDepth{ConvertImage(img), dm})
+
+	iwd, err := s.align.Align(&ImageWithDepth{ConvertImage(img), dm})
+	if err != nil {
+		return nil, err
+	}
+
+	return iwd.Overlay(), nil
 }
 
 func (s *WebcamSource) Close() error {
@@ -139,8 +172,8 @@ func (s *WebcamSource) Close() error {
 	return multierr.Combine(errs...)
 }
 
-func tryWebcamOpen(path string, debug bool, desiredSize *image.Point) (*WebcamSource, error) {
-	reader, err := media.GetNamedVideoReader(filepath.Base(path), cameraConstraints)
+func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (*WebcamSource, error) {
+	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -148,8 +181,8 @@ func tryWebcamOpen(path string, debug bool, desiredSize *image.Point) (*WebcamSo
 	return &WebcamSource{reader, nil, nil}, nil
 }
 
-func tryWebcamOpenPattern(pattern *regexp.Regexp, debug bool, desiredSize *image.Point) (*WebcamSource, error) {
-	reader, err := media.GetPatternedVideoReader(pattern, cameraConstraints)
+func tryWebcamOpenPattern(pattern *regexp.Regexp, debug bool, constraints mediadevices.MediaStreamConstraints) (*WebcamSource, error) {
+	reader, err := media.GetPatternedVideoReader(pattern, constraints)
 	if err != nil {
 		return nil, err
 	}
@@ -163,6 +196,9 @@ type webcamDepthSource struct {
 
 func findWebcamDepth(debug bool) (*webcamDepthSource, error) {
 	reader, err := media.GetAnyVideoReader(depthConstraints)
+	if debug {
+		golog.Global.Debugf("depth cam: %v", reader)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("no depth camera found: %w", err)
 	}
@@ -186,18 +222,18 @@ func (w *webcamDepthSource) Close() error {
 func imageToDepthMap(img image.Image) *DepthMap {
 	bounds := img.Bounds()
 
-	height, width := bounds.Dx(), bounds.Dy()
+	width, height := bounds.Dx(), bounds.Dy()
 
 	// TODO: handle non realsense Z16 devices better
 	// realsense seems to rotate
-	dm := NewEmptyDepthMap(bounds.Dy(), bounds.Dx())
+	dm := NewEmptyDepthMap(width, height)
 
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			z := color.Gray16Model.Convert(img.At(x, y)).(color.Gray16).Y
-			dm.Set(width-x-1, height-y-1, int(z))
+			dm.Set(x, y, int(z))
 		}
 	}
 
-	return &dm
+	return dm.Rotate90(false)
 }
