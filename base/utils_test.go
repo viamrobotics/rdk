@@ -1,4 +1,4 @@
-package base
+package base_test
 
 import (
 	"context"
@@ -6,51 +6,15 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/test"
 )
 
-type injectDevice struct {
-	Device
-	MoveStraightFunc func(distanceMM int, speed float64, block bool) error
-	SpinFunc         func(angleDeg float64, speed int, block bool) error
-	StopFunc         func() error
-	CloseFunc        func()
-}
-
-func (id *injectDevice) MoveStraight(distanceMM int, speed float64, block bool) error {
-	if id.MoveStraightFunc == nil {
-		return id.Device.MoveStraight(distanceMM, speed, block)
-	}
-	return id.MoveStraightFunc(distanceMM, speed, block)
-}
-
-func (id *injectDevice) Spin(angleDeg float64, speed int, block bool) error {
-	if id.SpinFunc == nil {
-		return id.Device.Spin(angleDeg, speed, block)
-	}
-	return id.SpinFunc(angleDeg, speed, block)
-}
-
-func (id *injectDevice) Stop() error {
-	if id.StopFunc == nil {
-		return id.Device.Stop()
-	}
-	return id.StopFunc()
-}
-
-func (id *injectDevice) Close() {
-	if id.CloseFunc == nil {
-		id.Device.Close()
-		return
-	}
-	id.CloseFunc()
-}
-
 func TestDoMove(t *testing.T) {
-	dev := &injectDevice{}
-	ang, dist, err := DoMove(Move{}, dev)
+	dev := &inject.Base{}
+	ang, dist, err := base.DoMove(base.Move{}, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -60,8 +24,8 @@ func TestDoMove(t *testing.T) {
 		return err1
 	}
 
-	m := Move{DistanceMM: 1}
-	ang, dist, err = DoMove(m, dev)
+	m := base.Move{DistanceMM: 1}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -72,13 +36,13 @@ func TestDoMove(t *testing.T) {
 		test.That(t, block, test.ShouldEqual, m.Block)
 		return nil
 	}
-	ang, dist, err = DoMove(m, dev)
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMM)
 
-	m = Move{DistanceMM: 1, Block: true, Speed: 5}
-	ang, dist, err = DoMove(m, dev)
+	m = base.Move{DistanceMM: 1, Block: true, Speed: 5}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMM)
@@ -87,8 +51,8 @@ func TestDoMove(t *testing.T) {
 		return err1
 	}
 
-	m = Move{AngleDeg: 10}
-	ang, dist, err = DoMove(m, dev)
+	m = base.Move{AngleDeg: 10}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -100,20 +64,20 @@ func TestDoMove(t *testing.T) {
 		return nil
 	}
 
-	m = Move{AngleDeg: 10}
-	ang, dist, err = DoMove(m, dev)
+	m = base.Move{AngleDeg: 10}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = Move{AngleDeg: 10, Block: true, Speed: 5}
-	ang, dist, err = DoMove(m, dev)
+	m = base.Move{AngleDeg: 10, Block: true, Speed: 5}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = Move{DistanceMM: 2, AngleDeg: 10, Block: true, Speed: 5}
-	ang, dist, err = DoMove(m, dev)
+	m = base.Move{DistanceMM: 2, AngleDeg: 10, Block: true, Speed: 5}
+	ang, dist, err = base.DoMove(m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMM)
@@ -123,75 +87,31 @@ func TestDoMove(t *testing.T) {
 			return err1
 		}
 
-		m = Move{DistanceMM: 2, AngleDeg: 10, Block: true, Speed: 5}
-		ang, dist, err = DoMove(m, dev)
+		m = base.Move{DistanceMM: 2, AngleDeg: 10, Block: true, Speed: 5}
+		ang, dist, err = base.DoMove(m, dev)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 		test.That(t, dist, test.ShouldEqual, 0)
 	})
 }
 
-type injectCompass struct {
-	compass.Device
-	ReadingsFunc         func(ctx context.Context) ([]interface{}, error)
-	HeadingFunc          func(ctx context.Context) (float64, error)
-	StartCalibrationFunc func(ctx context.Context) error
-	StopCalibrationFunc  func(ctx context.Context) error
-	CloseFunc            func(ctx context.Context) error
-}
-
-func (ic *injectCompass) Readings(ctx context.Context) ([]interface{}, error) {
-	if ic.ReadingsFunc == nil {
-		return ic.Device.Readings(ctx)
-	}
-	return ic.ReadingsFunc(ctx)
-}
-
-func (ic *injectCompass) Heading(ctx context.Context) (float64, error) {
-	if ic.HeadingFunc == nil {
-		return ic.Device.Heading(ctx)
-	}
-	return ic.HeadingFunc(ctx)
-}
-
-func (ic *injectCompass) StartCalibration(ctx context.Context) error {
-	if ic.StartCalibrationFunc == nil {
-		return ic.Device.StartCalibration(ctx)
-	}
-	return ic.StartCalibrationFunc(ctx)
-}
-
-func (ic *injectCompass) StopCalibration(ctx context.Context) error {
-	if ic.StopCalibrationFunc == nil {
-		return ic.Device.StopCalibration(ctx)
-	}
-	return ic.StopCalibrationFunc(ctx)
-}
-
-func (ic *injectCompass) Close(ctx context.Context) error {
-	if ic.CloseFunc == nil {
-		return ic.Device.Close(ctx)
-	}
-	return ic.CloseFunc(ctx)
-}
-
 func TestAugmentReduce(t *testing.T) {
-	dev := &injectDevice{}
-	test.That(t, Augment(dev, nil), test.ShouldEqual, dev)
+	dev := &inject.Base{}
+	test.That(t, base.Augment(dev, nil), test.ShouldEqual, dev)
 
-	comp := &injectCompass{}
-	aug := Augment(dev, comp)
+	comp := &inject.Compass{}
+	aug := base.Augment(dev, comp)
 	test.That(t, aug, test.ShouldNotEqual, dev)
-	var baseDev *Device = nil
+	var baseDev *base.Device = nil
 	test.That(t, aug, test.ShouldImplement, baseDev)
 
-	test.That(t, Reduce(aug), test.ShouldEqual, dev)
+	test.That(t, base.Reduce(aug), test.ShouldEqual, dev)
 }
 
 func TestDeviceWithCompass(t *testing.T) {
-	dev := &injectDevice{}
-	comp := &injectCompass{}
-	aug := Augment(dev, comp)
+	dev := &inject.Base{}
+	comp := &inject.Compass{}
+	aug := base.Augment(dev, comp)
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0
@@ -205,7 +125,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10, nil
 		}
-		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
+		ang, _, err := base.DoMove(base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -222,7 +142,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 * (float64(i) / 3), nil
 		}
-		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
+		ang, _, err := base.DoMove(base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -239,7 +159,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 + 10*(float64(i)/3), nil
 		}
-		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
+		ang, _, err := base.DoMove(base.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -252,7 +172,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, err1
 		}
-		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
+		ang, _, err := base.DoMove(base.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	})
@@ -265,7 +185,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
-		ang, _, err := DoMove(Move{AngleDeg: 10}, aug)
+		ang, _, err := base.DoMove(base.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	})
