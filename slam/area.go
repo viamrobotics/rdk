@@ -3,7 +3,6 @@ package slam
 import (
 	"fmt"
 	"image"
-	"math"
 	"sync"
 
 	"go.viam.com/robotcore/pc"
@@ -71,9 +70,9 @@ func (sa *SquareArea) WriteToFile(fn string) error {
 }
 
 type MutableArea interface {
-	Iterate(visit func(x, y int, v float64) bool)
-	At(x, y int) float64
-	Set(x, y int, v float64)
+	Iterate(visit func(x, y, v int) bool)
+	At(x, y int) int
+	Set(x, y int, v int)
 	Unset(x, y int)
 }
 
@@ -85,31 +84,31 @@ func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 
 type mutableSquareArea SquareArea
 
-func (msa *mutableSquareArea) Iterate(visit func(x, y int, v float64) bool) {
+func (msa *mutableSquareArea) Iterate(visit func(x, y, v int) bool) {
 	msa.cloud.Iterate(func(p pc.Point) bool {
 		pos := p.Position()
-		return visit(int(pos.X), int(pos.Y), p.(pc.FloatPoint).Value())
+		return visit(pos.X, pos.Y, p.(pc.ValuePoint).Value())
 	})
 }
 
-func (msa *mutableSquareArea) At(x, y int) float64 {
-	p := msa.cloud.At(float64(x), float64(y), 0)
+func (msa *mutableSquareArea) At(x, y int) int {
+	p := msa.cloud.At(x, y, 0)
 	if p == nil {
-		return math.NaN()
+		return 0
 	}
-	return p.(pc.FloatPoint).Value()
+	return p.(pc.ValuePoint).Value()
 }
 
-func (msa *mutableSquareArea) Set(x, y int, v float64) {
+func (msa *mutableSquareArea) Set(x, y, v int) {
 	if x < 0 || x >= msa.dim {
 		panic(fmt.Errorf("x must be between [0,%d)", msa.dim))
 	}
 	if y < 0 || y >= msa.dim {
 		panic(fmt.Errorf("y must be between [0,%d)", msa.dim))
 	}
-	msa.cloud.Set(pc.NewFloatPoint(float64(x), float64(y), 0, v))
+	msa.cloud.Set(pc.NewValuePoint(x, y, 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
-	msa.cloud.Unset(float64(x), float64(y), 0)
+	msa.cloud.Unset(x, y, 0)
 }

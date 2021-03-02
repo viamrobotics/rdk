@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"io/ioutil"
-	"math"
 	"os"
 	"testing"
 
@@ -49,7 +48,7 @@ func TestSquareArea(t *testing.T) {
 	sa.Mutate(func(area MutableArea) {
 		area.Set(1, 2, 5)
 		area.Set(582, 12, -1)
-		area.Set(7, 6, 1.1)
+		area.Set(7, 6, 1)
 		area.Set(1, 1, 0)
 		area.Set(0, 0, 1)
 		area.Set(999, 999, 2)
@@ -62,30 +61,30 @@ func TestSquareArea(t *testing.T) {
 	sa.Mutate(func(area MutableArea) {
 		test.That(t, area.At(1, 2), test.ShouldEqual, 5)
 		test.That(t, area.At(582, 12), test.ShouldEqual, -1)
-		test.That(t, area.At(7, 6), test.ShouldEqual, 1.1)
+		test.That(t, area.At(7, 6), test.ShouldEqual, 1)
 		test.That(t, area.At(1, 1), test.ShouldEqual, 0)
-		test.That(t, math.IsNaN(area.At(1, 0)), test.ShouldBeTrue)
+		test.That(t, area.At(1, 0), test.ShouldEqual, 0)
 	})
 
 	sa.Mutate(func(area MutableArea) {
 		called := 0
-		area.Iterate(func(x, y int, v float64) bool {
+		area.Iterate(func(x, y, v int) bool {
 			called++
 			return false
 		})
 		test.That(t, called, test.ShouldEqual, 1)
 
 		expected := map[string]struct{}{
-			"1,2,5.00":     {},
-			"582,12,-1.00": {},
-			"7,6,1.10":     {},
-			"1,1,0.00":     {},
-			"0,0,1.00":     {},
-			"999,999,2.00": {},
+			"1,2,5":     {},
+			"582,12,-1": {},
+			"7,6,1":     {},
+			"1,1,0":     {},
+			"0,0,1":     {},
+			"999,999,2": {},
 		}
-		area.Iterate(func(x, y int, v float64) bool {
+		area.Iterate(func(x, y, v int) bool {
 			called++
-			delete(expected, fmt.Sprintf("%d,%d,%.02f", x, y, v))
+			delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
 			return true
 		})
 		test.That(t, called, test.ShouldEqual, 7)

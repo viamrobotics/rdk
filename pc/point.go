@@ -8,18 +8,18 @@ type Point interface {
 	Position() Vec3
 }
 
-func NewPoint(x, y, z float64) Point {
+func NewPoint(x, y, z int) Point {
 	return basicPoint{x, y, z}
 }
 
-func IsFloat(p Point) (bool, FloatPoint) {
+func IsValue(p Point) (bool, ValuePoint) {
 	switch v := p.(type) {
 	case basicPoint:
 		return false, nil
-	case basicFloatPoint:
+	case basicValuePoint:
 		return true, v
 	case basicColoredPoint:
-		return IsFloat(v.Point)
+		return IsValue(v.Point)
 	default:
 		return false, nil
 	}
@@ -29,7 +29,7 @@ func IsColored(p Point) (bool, ColoredPoint) {
 	switch v := p.(type) {
 	case basicPoint:
 		return false, nil
-	case basicFloatPoint:
+	case basicValuePoint:
 		return IsColored(v.Point)
 	case basicColoredPoint:
 		return true, v
@@ -44,30 +44,30 @@ func (bp basicPoint) Position() Vec3 {
 	return Vec3(bp)
 }
 
-type FloatPoint interface {
+type ValuePoint interface {
 	Point
-	Value() float64
+	Value() int
 }
 
-func NewFloatPoint(x, y, z float64, v float64) FloatPoint {
-	return basicFloatPoint{basicPoint{x, y, z}, v}
+func NewValuePoint(x, y, z int, v int) ValuePoint {
+	return basicValuePoint{basicPoint{x, y, z}, v}
 }
 
-func WithPointValue(p Point, v float64) FloatPoint {
-	return basicFloatPoint{p, v}
+func WithPointValue(p Point, v int) ValuePoint {
+	return basicValuePoint{p, v}
 }
 
 func WithPointColor(p Point, c *color.RGBA) ColoredPoint {
 	return basicColoredPoint{p, c}
 }
 
-type basicFloatPoint struct {
+type basicValuePoint struct {
 	Point
-	value float64
+	value int
 }
 
-func (bfp basicFloatPoint) Value() float64 {
-	return bfp.value
+func (bvp basicValuePoint) Value() int {
+	return bvp.value
 }
 
 type ColoredPoint interface {
@@ -75,7 +75,7 @@ type ColoredPoint interface {
 	Color() *color.RGBA
 }
 
-func NewColoredPoint(x, y, z float64, c *color.RGBA) ColoredPoint {
+func NewColoredPoint(x, y, z int, c *color.RGBA) ColoredPoint {
 	return basicColoredPoint{basicPoint{x, y, z}, c}
 }
 
