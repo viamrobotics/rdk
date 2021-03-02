@@ -1,7 +1,8 @@
 package kinematics
 
 import (
-	//~ "math"
+	//~ "fmt"
+	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
@@ -29,8 +30,9 @@ func errCheck(err error) {
 func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	ik := &NloptIK{}
 	ik.Mdl = mdl
-	ik.epsilon = 0.001
-	ik.maxIterations = 1000
+	ik.epsilon = 0.0001
+	floatEpsilon := math.Nextafter(1, 2) - 1
+	ik.maxIterations = 1
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -39,12 +41,15 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
 	if err != nil {
+		golog.Global.Error("nlopt creation error: ", err)
 		return &NloptIK{}
 	}
+	ik.opt = opt
 
 	// x is our joint positions
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	nloptMinFunc := func(x, gradient []float64) float64 {
+
 		ik.iterations++
 
 		// TODO: Might need to check if any of x is +/- Inf
@@ -62,16 +67,26 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 		}
 
 		if len(gradient) > 0 {
-			// mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
-			// out into a bunch of variables instead of being nicely composed.
+			//~ // mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
+			//~ // out into a bunch of variables instead of being nicely composed.
 			ik.Mdl.CalculateJacobian()
 			j := ik.Mdl.GetJacobian()
 			grad2 := mgl64.NewVecN(len(dx))
-			j2 := j.Transpose(j)
+			j2 := j.Transpose(mgl64.NewMatrix(j.NumRowCols()))
 			j2 = j2.Mul(j2, -2)
 
-			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic
-			gradient = j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
+			//~ // Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
+			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
+			for i, v := range(gradient2){
+				gradient[i] = v
+				// Do some rounding on large (>2^16) numbers because of floating point inprecision
+				// Shouldn't matter since these values should converge to zero
+				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
+				// Then this might be your culprit
+				if math.Abs(v) > 65535{
+					gradient[i] = math.Round(v)
+				}
+			}
 		}
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
@@ -79,16 +94,18 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 		}
 		return SquaredNorm(dx)
 	}
+	//~ nloptMinFunc := func(x, gradient []float64) float64 {
 
-	errCheck(opt.SetFtolAbs(ik.epsilon))
-	errCheck(opt.SetFtolRel(ik.epsilon))
+	errCheck(opt.SetFtolAbs(floatEpsilon))
+	errCheck(opt.SetFtolRel(floatEpsilon))
 	errCheck(opt.SetLowerBounds(ik.lowerBound))
 	errCheck(opt.SetMinObjective(nloptMinFunc))
 	errCheck(opt.SetStopVal(ik.epsilon * ik.epsilon))
 	errCheck(opt.SetUpperBounds(ik.upperBound))
-	errCheck(opt.SetXtolAbs1(ik.epsilon))
-	errCheck(opt.SetXtolRel(ik.epsilon))
-
+	errCheck(opt.SetXtolAbs1(floatEpsilon))
+	errCheck(opt.SetXtolRel(floatEpsilon))
+	errCheck(opt.SetMaxEval(8001))
+	
 	return ik
 }
 
