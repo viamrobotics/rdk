@@ -77,13 +77,13 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 
 			//~ // Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
 			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
-			for i, v := range(gradient2){
+			for i, v := range gradient2 {
 				gradient[i] = v
 				// Do some rounding on large (>2^16) numbers because of floating point inprecision
 				// Shouldn't matter since these values should converge to zero
 				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
 				// Then this might be your culprit
-				if math.Abs(v) > 65535{
+				if math.Abs(v) > 65535 {
 					gradient[i] = math.Round(v)
 				}
 			}
@@ -105,7 +105,7 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	errCheck(opt.SetXtolAbs1(floatEpsilon))
 	errCheck(opt.SetXtolRel(floatEpsilon))
 	errCheck(opt.SetMaxEval(8001))
-	
+
 	return ik
 }
 
