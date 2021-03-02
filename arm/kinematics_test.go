@@ -48,7 +48,7 @@ func TestNloptIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := kinematics.CreateNloptIKSolver(wxArm.Model)
 	//~ wxArm.ik = ik
-	
+
 	pos := Position{1, -368, 355, 0, 0, 0}
 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	transform.SetX(pos.X)
