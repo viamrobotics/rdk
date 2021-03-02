@@ -13,8 +13,10 @@ type ServoConfig struct {
 }
 
 type AnalogConfig struct {
-	Name string
-	Pin  string
+	Name              string
+	Pin               string
+	AverageOverMillis int
+	SamplesPerSecond  int
 }
 
 type DigitalInterruptConfig struct {
