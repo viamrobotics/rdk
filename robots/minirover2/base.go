@@ -18,8 +18,8 @@ import (
 const ModelName = "minirover2"
 
 const (
-	PanCenter  = 83
-	TiltCenter = 100
+	PanCenter  = 94
+	TiltCenter = 113
 
 	WheelCircumferenceMM = math.Pi * 150
 )
