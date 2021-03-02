@@ -56,4 +56,35 @@ func TestHandleClick(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("info mode", func(t *testing.T) {
+		harness := newTestHarness(t)
+		larBot := harness.bot
+		larBot.clientClickMode = clientClickModeInfo
+		larBot.rootArea.Mutate(func(area MutableArea) {
+			area.Set(30, 20, 3)
+		})
+
+		for i, tc := range []struct {
+			x, y                  int
+			viewWidth, viewHeight int
+			object                bool
+			angleCenter           float64
+			distanceCenter        int
+			distanceFront         int
+		}{
+			{0, 0, 10, 10, false, 315, 70, 68},
+			{5, 0, 10, 10, false, 0, 50, 47},
+			{3, 2, 10, 10, true, 326.309932, 36, 33},
+		} {
+			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+				ret, err := larBot.HandleClick(tc.x, tc.y, tc.viewWidth, tc.viewHeight)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("object=%t", tc.object))
+				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("angleCenter=%f", tc.angleCenter))
+				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("distanceCenter=%dcm", tc.distanceCenter))
+				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("distanceFront=%dcm", tc.distanceFront))
+			})
+		}
+	})
 }
