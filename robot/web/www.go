@@ -576,6 +576,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
 	autoCameraTiler := gostream.NewAutoTiler(1280, 720)
+	autoCameraTiler.SetLogger(golog.Global)
 	if len(theRobot.Cameras) > 0 {
 		for _, cam := range theRobot.Cameras {
 			autoCameraTiler.AddSource(cam)
