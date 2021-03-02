@@ -247,11 +247,12 @@ func (s *gobotServo) Current() uint8 {
 }
 
 type piBoard struct {
-	cfg    Config
-	r      *raspi.Adaptor
-	motors []*gobotMotor
-	ar     aio.AnalogReader
-	servos []*gobotServo
+	cfg     Config
+	r       *raspi.Adaptor
+	motors  []*gobotMotor
+	ar      aio.AnalogReader
+	servos  []*gobotServo
+	analogs map[string]AnalogReader
 
 	sysfsListner *sysfs.InterruptListener
 	interrupts   []*DigitalInterrupt
@@ -291,11 +292,29 @@ func (pi *piBoard) Servo(name string) Servo {
 }
 
 func (pi *piBoard) AnalogReader(name string) AnalogReader {
+	a, ok := pi.analogs[name]
+	if ok && a != nil {
+		return a
+	}
+
 	for _, ac := range pi.cfg.Analogs {
 		if name == ac.Name {
-			return &gobotAnalogReader{pi.ar, ac.Pin}
+			a = &gobotAnalogReader{pi.ar, ac.Pin}
+			if ac.AverageOverMillis > 0 {
+				as := &AnalogSmoother{a, ac.AverageOverMillis, ac.SamplesPerSecond, nil, 0}
+				as.Start()
+				a = as
+			}
+
+			if pi.analogs == nil {
+				pi.analogs = map[string]AnalogReader{}
+			}
+
+			pi.analogs[name] = a
+			return a
 		}
 	}
+
 	return nil
 }
 
