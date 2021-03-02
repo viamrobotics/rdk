@@ -132,6 +132,7 @@ func (ik *NloptIK) Solve() bool {
 		}
 
 		if result < ik.epsilon*ik.epsilon {
+			angles = ik.Mdl.ZeroInlineRotation(angles)
 			ik.Mdl.SetPosition(angles)
 			return true
 		}
