@@ -491,7 +491,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 
 		digitalInterrupts := map[string]int{}
 		for _, di := range cfg.DigitalInterrupts {
-			res := b.DigitalInterrupt(di.Name).Count()
+			res := b.DigitalInterrupt(di.Name).Value()
 			digitalInterrupts[di.Name] = int(res)
 		}
 

@@ -1,0 +1,40 @@
+{
+    "boards" : [
+        { "name": "local",
+          "model" : "pi",
+          "digitalInterrupts" : [
+              { "name" : "rc1",
+                "pin" : "33",
+                "type" : "servo",
+                "mode" : "both"
+              },
+              { "name" : "rc2",
+                "pin" : "35",
+                "type" : "servo",
+                "mode" : "both"
+              },
+              { "name" : "rc3",
+                "pin" : "37",
+                "type" : "servo",
+                "mode" : "both"
+              },
+              { "name" : "rc4",
+                "pin" : "36",
+                "type" : "servo",
+                "mode" : "both"
+              },
+              { "name" : "rc5",
+                "pin" : "38",
+                "type" : "servo",
+                "mode" : "both"
+              },
+              { "name" : "rc6",
+                "pin" : "40",
+                "type" : "servo",
+                "mode" : "both"
+              }
+          ]
+        }
+    ]
+}
+
