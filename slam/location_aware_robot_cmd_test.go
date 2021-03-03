@@ -19,17 +19,17 @@ import (
 
 func TestCommands(t *testing.T) {
 	t.Run(commandSave, func(t *testing.T) {
-		harness := newTestHarness(t)
-		harness.bot.rootArea.Mutate(func(area MutableArea) {
+		th := newTestHarness(t)
+		th.bot.rootArea.Mutate(func(area MutableArea) {
 			area.Set(30, 20, 3)
 		})
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandSave,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandSave,
 			Args: []string{"/"},
 		})
@@ -39,27 +39,27 @@ func TestCommands(t *testing.T) {
 		temp, err := ioutil.TempFile("", "*.las")
 		test.That(t, err, test.ShouldBeNil)
 		defer os.Remove(temp.Name())
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandSave,
 			Args: []string{temp.Name()},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		sizeMeters, scaleTo := harness.bot.rootArea.Size()
+		sizeMeters, scaleTo := th.bot.rootArea.Size()
 		sq, err := NewSquareAreaFromFile(temp.Name(), sizeMeters, scaleTo)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, sq, test.ShouldResemble, harness.bot.rootArea)
+		test.That(t, sq, test.ShouldResemble, th.bot.rootArea)
 	})
 
 	t.Run(commandCalibrate, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandCalibrate,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
 		compass := &inject.Compass{}
-		harness.bot.compassSensor = compass
+		th.bot.compassSensor = compass
 
 		startCount := 0
 		compass.StartCalibrationFunc = func(ctx context.Context) error {
@@ -72,7 +72,7 @@ func TestCommands(t *testing.T) {
 			return nil
 		}
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandCalibrate,
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -81,7 +81,7 @@ func TestCommands(t *testing.T) {
 
 		// 3rd spin fails
 		injectBase := &inject.Base{}
-		harness.bot.baseDevice = injectBase
+		th.bot.baseDevice = injectBase
 		spinCount := 0
 		spinErr := errors.New("nospin")
 		injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
@@ -92,7 +92,7 @@ func TestCommands(t *testing.T) {
 			return nil
 		}
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandCalibrate,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -107,11 +107,11 @@ func TestCommands(t *testing.T) {
 			return math.NaN(), nil
 		}
 		baseWithCompass := base.Augment(injectBase, compass)
-		harness.bot.baseDevice = baseWithCompass
+		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
 			return nil
 		}
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandCalibrate,
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -121,282 +121,282 @@ func TestCommands(t *testing.T) {
 	})
 
 	t.Run(commandLidarViewMode, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandLidarViewMode,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandLidarViewMode,
 			Args: []string{"/"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandLidarViewMode,
 			Args: []string{clientLidarViewModeStored},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.clientLidarViewMode, test.ShouldEqual, clientLidarViewModeStored)
+		test.That(t, th.bot.clientLidarViewMode, test.ShouldEqual, clientLidarViewModeStored)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandLidarViewMode,
 			Args: []string{clientLidarViewModeLive},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.clientLidarViewMode, test.ShouldEqual, clientLidarViewModeLive)
+		test.That(t, th.bot.clientLidarViewMode, test.ShouldEqual, clientLidarViewModeLive)
 	})
 
 	t.Run(commandClientClickMode, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandClientClickMode,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandClientClickMode,
 			Args: []string{"/"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandClientClickMode,
 			Args: []string{clientClickModeMove},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.clientClickMode, test.ShouldEqual, clientClickModeMove)
+		test.That(t, th.bot.clientClickMode, test.ShouldEqual, clientClickModeMove)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandClientClickMode,
 			Args: []string{clientClickModeInfo},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.clientClickMode, test.ShouldEqual, clientClickModeInfo)
+		test.That(t, th.bot.clientClickMode, test.ShouldEqual, clientClickModeInfo)
 	})
 
 	t.Run(commandRobotMove, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 			Args: []string{"westward"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 
-		origPosX, origPosY := harness.bot.basePosX, harness.bot.basePosY
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		origPosX, origPosY := th.bot.basePosX, th.bot.basePosY
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 			Args: []string{DirectionRight},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 90)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 			Args: []string{DirectionRight},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 90)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount*2)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount*2)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 			Args: []string{DirectionRight},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount*2)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+defaultClientMoveAmount*2)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 
-		harness.ResetPos()
-		harness.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(harness.bot.basePosX+5, harness.bot.basePosY, 3)
+		th.ResetPos()
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Set(th.bot.basePosX+5, th.bot.basePosY, 3)
 		})
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
 			Args: []string{DirectionRight},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "collide")
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 	})
 
 	t.Run(commandRobotMoveForward, func(t *testing.T) {
-		harness := newTestHarness(t)
-		orgOrientation := harness.bot.orientation()
-		origPosX, origPosY := harness.bot.basePosX, harness.bot.basePosY
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		orgOrientation := th.bot.orientation()
+		origPosX, origPosY := th.bot.basePosX, th.bot.basePosY
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forwards")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forward")
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forwards")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount*2)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forward")
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount*2)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount*2)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-defaultClientMoveAmount*2)
 
-		harness.ResetPos()
-		harness.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(harness.bot.basePosX, harness.bot.basePosY-5, 3)
+		th.ResetPos()
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Set(th.bot.basePosX, th.bot.basePosY-5, 3)
 		})
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "collide")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 	})
 
 	t.Run(commandRobotMoveBackward, func(t *testing.T) {
-		harness := newTestHarness(t)
-		orgOrientation := harness.bot.orientation()
-		origPosX, origPosY := harness.bot.basePosX, harness.bot.basePosY
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		orgOrientation := th.bot.orientation()
+		origPosX, origPosY := th.bot.basePosX, th.bot.basePosY
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backwards")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backward")
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backwards")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount*2)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backward")
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount*2)
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount*2)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+defaultClientMoveAmount*2)
 
-		harness.ResetPos()
-		harness.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(harness.bot.basePosX, harness.bot.basePosY+5, 3)
+		th.ResetPos()
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Set(th.bot.basePosX, th.bot.basePosY+5, 3)
 		})
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "collide")
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, orgOrientation)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, origPosY)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 	})
 
 	t.Run(commandRobotTurnTo, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 			Args: []string{"upwards"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 
-		x, y := harness.bot.basePosX, harness.bot.basePosY
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		x, y := th.bot.basePosX, th.bot.basePosY
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 			Args: []string{DirectionUp},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionUp)
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 0)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, x)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, y)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 0)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 			Args: []string{DirectionDown},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionDown)
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 180)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, x)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, y)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 180)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 			Args: []string{DirectionLeft},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionLeft)
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 270)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, x)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, y)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 270)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
 			Args: []string{DirectionRight},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionRight)
-		test.That(t, harness.bot.orientation(), test.ShouldEqual, 90)
-		test.That(t, harness.bot.basePosX, test.ShouldEqual, x)
-		test.That(t, harness.bot.basePosY, test.ShouldEqual, y)
+		test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 	})
 
 	t.Run(commandRobotStats, func(t *testing.T) {
-		harness := newTestHarness(t)
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotStats,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "pos")
 
-		harness.bot.basePosX = 1
-		harness.bot.basePosY = 2
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		th.bot.basePosX = 1
+		th.bot.basePosY = 2
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotStats,
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -405,106 +405,106 @@ func TestCommands(t *testing.T) {
 	})
 
 	t.Run(commandRobotDeviceOffset, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "parameters required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "parameters required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "0,0,0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "bad offset")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"1", "0,0,0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "bad offset")
 
-		harness.bot.deviceOffsets = append(harness.bot.deviceOffsets, DeviceOffset{})
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		th.bot.deviceOffsets = append(th.bot.deviceOffsets, DeviceOffset{})
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "000"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "a,0,0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "0,a,0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "0,0,a"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"0", "2,3,4"},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.deviceOffsets[0], test.ShouldResemble, DeviceOffset{2, 3, 4})
+		test.That(t, th.bot.deviceOffsets[0], test.ShouldResemble, DeviceOffset{2, 3, 4})
 
-		harness.bot.deviceOffsets = append(harness.bot.deviceOffsets, DeviceOffset{})
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		th.bot.deviceOffsets = append(th.bot.deviceOffsets, DeviceOffset{})
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotDeviceOffset,
 			Args: []string{"1", "4,5,6"},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, harness.bot.deviceOffsets[0], test.ShouldResemble, DeviceOffset{2, 3, 4})
-		test.That(t, harness.bot.deviceOffsets[1], test.ShouldResemble, DeviceOffset{4, 5, 6})
+		test.That(t, th.bot.deviceOffsets[0], test.ShouldResemble, DeviceOffset{2, 3, 4})
+		test.That(t, th.bot.deviceOffsets[1], test.ShouldResemble, DeviceOffset{4, 5, 6})
 	})
 
 	t.Run(commandRobotLidarStart, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "device number required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 			Args: []string{"one"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		harness.lidarDev.StartFunc = func(ctx context.Context) error {
+		th.lidarDev.StartFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 			Args: []string{"0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 			Args: []string{"1"},
 		})
@@ -512,12 +512,12 @@ func TestCommands(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
 
 		var started bool
-		harness.lidarDev.StartFunc = func(ctx context.Context) error {
+		th.lidarDev.StartFunc = func(ctx context.Context) error {
 			test.That(t, started, test.ShouldBeFalse)
 			started = true
 			return nil
 		}
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 			Args: []string{"0"},
 		})
@@ -525,14 +525,14 @@ func TestCommands(t *testing.T) {
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "0")
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "started")
 
-		harness.bot.devices = append(harness.bot.devices, &inject.LidarDevice{})
+		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
 		var started2 bool
-		harness.bot.devices[1].(*inject.LidarDevice).StartFunc = func(ctx context.Context) error {
+		th.bot.devices[1].(*inject.LidarDevice).StartFunc = func(ctx context.Context) error {
 			test.That(t, started2, test.ShouldBeFalse)
 			started2 = true
 			return nil
 		}
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStart,
 			Args: []string{"1"},
 		})
@@ -542,31 +542,31 @@ func TestCommands(t *testing.T) {
 	})
 
 	t.Run(commandRobotLidarStop, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "device number required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 			Args: []string{"one"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		harness.lidarDev.StopFunc = func(ctx context.Context) error {
+		th.lidarDev.StopFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 			Args: []string{"0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 			Args: []string{"1"},
 		})
@@ -574,12 +574,12 @@ func TestCommands(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
 
 		var stopped bool
-		harness.lidarDev.StopFunc = func(ctx context.Context) error {
+		th.lidarDev.StopFunc = func(ctx context.Context) error {
 			test.That(t, stopped, test.ShouldBeFalse)
 			stopped = true
 			return nil
 		}
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 			Args: []string{"0"},
 		})
@@ -587,14 +587,14 @@ func TestCommands(t *testing.T) {
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "0")
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "stopped")
 
-		harness.bot.devices = append(harness.bot.devices, &inject.LidarDevice{})
+		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
 		var stopped2 bool
-		harness.bot.devices[1].(*inject.LidarDevice).StopFunc = func(ctx context.Context) error {
+		th.bot.devices[1].(*inject.LidarDevice).StopFunc = func(ctx context.Context) error {
 			test.That(t, stopped2, test.ShouldBeFalse)
 			stopped2 = true
 			return nil
 		}
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarStop,
 			Args: []string{"1"},
 		})
@@ -604,103 +604,103 @@ func TestCommands(t *testing.T) {
 	})
 
 	t.Run(commandRobotLidarSeed, func(t *testing.T) {
-		harness := newTestHarness(t)
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldEqual, "real-device")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"0"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "device number and seed required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"0", "1"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot set seed")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"5", "1"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"0", "foo"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		harness.bot.devices[0] = &fake.Lidar{}
-		harness.bot.devices = append(harness.bot.devices, &fake.Lidar{})
-		harness.bot.devices = append(harness.bot.devices, &inject.LidarDevice{})
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		th.bot.devices[0] = &fake.Lidar{}
+		th.bot.devices = append(th.bot.devices, &fake.Lidar{})
+		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldEqual, "0,0,real-device")
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"0", "1"},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldEqual, "1")
-		test.That(t, harness.bot.devices[0].(*fake.Lidar).Seed(), test.ShouldEqual, 1)
+		test.That(t, th.bot.devices[0].(*fake.Lidar).Seed(), test.ShouldEqual, 1)
 
-		resp, err = harness.cmdReg.Process(&gostream.Command{
+		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotLidarSeed,
 			Args: []string{"1", "2"},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldEqual, "2")
-		test.That(t, harness.bot.devices[1].(*fake.Lidar).Seed(), test.ShouldEqual, 2)
+		test.That(t, th.bot.devices[1].(*fake.Lidar).Seed(), test.ShouldEqual, 2)
 	})
 
 	t.Run(commandClientZoom, func(t *testing.T) {
-		harness := newTestHarness(t)
-		_, err := harness.cmdReg.Process(&gostream.Command{
+		th := newTestHarness(t)
+		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandClientZoom,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "zoom level required")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandClientZoom,
 			Args: []string{"pointnine"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		_, err = harness.cmdReg.Process(&gostream.Command{
+		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandClientZoom,
 			Args: []string{".9"},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, ">= 1")
 
-		resp, err := harness.cmdReg.Process(&gostream.Command{
+		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandClientZoom,
 			Args: []string{"2"},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldEqual, "2")
-		test.That(t, harness.bot.clientZoom, test.ShouldEqual, 2.0)
+		test.That(t, th.bot.clientZoom, test.ShouldEqual, 2.0)
 	})
 }
 
 func TestHandleClick(t *testing.T) {
 	t.Run("unknown click mode", func(t *testing.T) {
-		harness := newTestHarness(t)
-		larBot := harness.bot
+		th := newTestHarness(t)
+		larBot := th.bot
 		larBot.clientClickMode = "who"
 		_, err := larBot.HandleClick(0, 0, 10, 10)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -708,8 +708,8 @@ func TestHandleClick(t *testing.T) {
 	})
 
 	t.Run("move mode", func(t *testing.T) {
-		harness := newTestHarness(t)
-		larBot := harness.bot
+		th := newTestHarness(t)
+		larBot := th.bot
 		larBot.clientClickMode = clientClickModeMove
 		injectBase := &inject.Base{Device: larBot.baseDevice}
 		larBot.baseDevice = injectBase
@@ -733,8 +733,8 @@ func TestHandleClick(t *testing.T) {
 			{0, 1, 2, 2, DirectionLeft, 30, 50},
 		} {
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-				harness := newTestHarness(t)
-				larBot := harness.bot
+				th := newTestHarness(t)
+				larBot := th.bot
 				larBot.clientClickMode = clientClickModeMove
 				ret, err := larBot.HandleClick(tc.x, tc.y, tc.viewWidth, tc.viewHeight)
 				test.That(t, err, test.ShouldBeNil)
@@ -745,8 +745,8 @@ func TestHandleClick(t *testing.T) {
 	})
 
 	t.Run("info mode", func(t *testing.T) {
-		harness := newTestHarness(t)
-		larBot := harness.bot
+		th := newTestHarness(t)
+		larBot := th.bot
 		larBot.clientClickMode = clientClickModeInfo
 		larBot.rootArea.Mutate(func(area MutableArea) {
 			area.Set(30, 20, 3)

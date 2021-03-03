@@ -63,7 +63,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	rimage.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
-		calcP, _, err := lar.calculateMove(orientation, defaultClientMoveAmount)
+		calcP, err := lar.calculateMove(orientation, defaultClientMoveAmount)
 		if err == nil {
 			moveRect := lar.moveRect(calcP.X, calcP.Y, orientation)
 			moveRect = moveRect.Add(viewTranslateP)

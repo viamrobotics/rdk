@@ -119,14 +119,14 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err := lar.Move(&amount, nil); err != nil {
 			return nil, err
 		}
-		return gostream.NewCommandResponseText(fmt.Sprintf("moved forwards\n%s", lar)), nil
+		return gostream.NewCommandResponseText(fmt.Sprintf("moved forward\n%s", lar)), nil
 	})
 	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		amount := -defaultClientMoveAmount
 		if err := lar.Move(&amount, nil); err != nil {
 			return nil, err
 		}
-		return gostream.NewCommandResponseText(fmt.Sprintf("moved backwards\n%s", lar)), nil
+		return gostream.NewCommandResponseText(fmt.Sprintf("moved backward\n%s", lar)), nil
 	})
 	registry.Add(commandRobotTurnTo, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
