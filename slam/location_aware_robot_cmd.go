@@ -29,7 +29,6 @@ const (
 	commandRobotLidarSeed    = "robot_lidar_seed"
 	commandClientClickMode   = "cl_click_mode"
 	commandClientZoom        = "cl_zoom"
-	commandLidarView         = "cl_lidar_view"
 	commandLidarViewMode     = "cl_lidar_view_mode"
 	commandCalibrate         = "calibrate"
 	commandSave              = "save"
@@ -247,36 +246,6 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		lar.clientZoom = zoom
 		return gostream.NewCommandResponseText(cmd.Args[0]), nil
-	})
-	registry.Add(commandLidarView, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		if len(cmd.Args) == 0 {
-			var devicesStr string
-			deviceNum := lar.getClientDeviceNum()
-			if deviceNum == -1 {
-				devicesStr = "[combined]"
-			} else {
-				devicesStr = "combined"
-			}
-			for i := range lar.devices {
-				if deviceNum == i {
-					devicesStr += fmt.Sprintf("\n[%d]", i)
-				} else {
-					devicesStr += fmt.Sprintf("\n%d", i)
-				}
-			}
-			return gostream.NewCommandResponseText(devicesStr), nil
-		}
-
-		if cmd.Args[0] == "combined" {
-			lar.setClientDeviceNumber(-1)
-			return nil, nil
-		}
-		lidarDeviceNum, err := lar.parseDeviceNumber(cmd.Args[0])
-		if err != nil {
-			return nil, err
-		}
-		lar.setClientDeviceNumber(int(lidarDeviceNum))
-		return nil, nil
 	})
 }
 
