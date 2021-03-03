@@ -42,7 +42,7 @@ func dirToGobot(d Direction) string {
 type gobotMotor struct {
 	cfg     MotorConfig
 	motor   *gpio.MotorDriver
-	encoder *DigitalInterrupt
+	encoder DigitalInterrupt
 
 	regulated int32 // use atomic operations when access
 
@@ -100,14 +100,14 @@ func (m *gobotMotor) rpmMonitor() {
 
 	m.startedRPMMonitor = true
 
-	lastCount := m.encoder.Count()
+	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()
 
 	for {
 
 		time.Sleep(50 * time.Millisecond)
 
-		count := m.encoder.Count()
+		count := m.encoder.Value()
 		now := time.Now().UnixNano()
 
 		if m.desiredRPM > 0 {
@@ -255,16 +255,16 @@ type piBoard struct {
 	analogs map[string]AnalogReader
 
 	sysfsListner *sysfs.InterruptListener
-	interrupts   []*DigitalInterrupt
+	interrupts   []DigitalInterrupt
 }
 
 func (pi *piBoard) GetConfig() Config {
 	return pi.cfg
 }
 
-func (pi *piBoard) DigitalInterrupt(name string) *DigitalInterrupt {
+func (pi *piBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	for _, i := range pi.interrupts {
-		if i.cfg.Name == name {
+		if i.Config().Name == name {
 			return i
 
 		}
@@ -356,7 +356,7 @@ func NewPiBoard(cfg Config) (Board, error) {
 		}
 
 		for _, di := range cfg.DigitalInterrupts {
-			t := &DigitalInterrupt{cfg: di, count: 0}
+			t := createDigitalInterrupt(di)
 			b.interrupts = append(b.interrupts, t)
 
 			err = b.r.DigitalPinSetPullUpDown(di.Pin, true) // TODO(erh): make this configurable, but for most things we want up
@@ -370,7 +370,7 @@ func NewPiBoard(cfg Config) (Board, error) {
 			}
 
 			err = pin.Listen(di.Mode, b.sysfsListner, func(b byte) {
-				t.tick()
+				t.Tick()
 			})
 			if err != nil {
 				return nil, err

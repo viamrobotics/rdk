@@ -22,6 +22,7 @@ type AnalogConfig struct {
 type DigitalInterruptConfig struct {
 	Name string
 	Pin  string
+	Type string // e.g. basic, servo
 	Mode string // falling, rising
 }
 

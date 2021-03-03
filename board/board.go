@@ -55,7 +55,7 @@ type Board interface {
 	Servo(name string) Servo
 
 	AnalogReader(name string) AnalogReader
-	DigitalInterrupt(name string) *DigitalInterrupt
+	DigitalInterrupt(name string) DigitalInterrupt
 
 	Close() error
 
@@ -76,40 +76,9 @@ type diCallback struct {
 	c         chan int64
 }
 
-// should this be an interface
-type DigitalInterrupt struct {
-	cfg   DigitalInterruptConfig
-	count int64
-
-	callbacks []diCallback
-}
-
-func (i *DigitalInterrupt) Count() int64 {
-	return i.count
-}
-
-func (i *DigitalInterrupt) tick() {
-	i.count++
-
-	for {
-		got := false
-
-		for idx, c := range i.callbacks {
-			if i.count < c.threshold {
-				continue
-			}
-
-			c.c <- i.count
-			i.callbacks = append(i.callbacks[0:idx], i.callbacks[idx+1:]...)
-			got = true
-			break
-		}
-		if !got {
-			break
-		}
-	}
-}
-
-func (i *DigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
-	i.callbacks = append(i.callbacks, diCallback{i.count + delta, c})
+type DigitalInterrupt interface {
+	Config() DigitalInterruptConfig
+	Value() int64
+	Tick()
+	AddCallbackDelta(delta int64, c chan int64)
 }
