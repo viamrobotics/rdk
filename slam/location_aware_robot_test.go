@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils/inject"
 
+	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
 )
 
@@ -17,6 +18,13 @@ type testHarness struct {
 	baseDevice *fake.Base
 	area       *SquareArea
 	lidarDev   *inject.LidarDevice
+	cmdReg     gostream.CommandRegistry
+}
+
+func (th *testHarness) ResetPos() {
+	center := th.bot.rootArea.Center()
+	th.bot.basePosX = center.X
+	th.bot.basePosY = center.Y
 }
 
 func newTestHarness(t *testing.T) *testHarness {
@@ -43,10 +51,15 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
+
+	cmdReg := gostream.NewCommandRegistry()
+	larBot.RegisterCommands(cmdReg)
+
 	return &testHarness{
 		larBot,
 		baseDevice,
 		area,
 		injectLidarDev,
+		cmdReg,
 	}
 }
