@@ -2,6 +2,7 @@ package slam
 
 import (
 	"context"
+	"errors"
 	"image"
 	"testing"
 
@@ -62,4 +63,39 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 		injectLidarDev,
 		cmdReg,
 	}
+}
+
+func TestNewLocationAwareRobot(t *testing.T) {
+	baseDevice := &fake.Base{}
+	area := NewSquareArea(10, 10)
+	baseStart := area.Center()
+	injectLidarDev := &inject.LidarDevice{}
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+		return image.Point{10, 10}, nil
+	}
+
+	_, err := NewLocationAwareRobot(
+		baseDevice,
+		baseStart,
+		area,
+		[]lidar.Device{injectLidarDev},
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	err1 := errors.New("whoops")
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+		return image.Point{}, err1
+	}
+
+	_, err = NewLocationAwareRobot(
+		baseDevice,
+		baseStart,
+		area,
+		[]lidar.Device{injectLidarDev},
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldWrap, err1)
 }
