@@ -37,18 +37,14 @@ type LocationAwareRobot struct {
 
 	rootArea        *SquareArea
 	presentViewArea *SquareArea
-	distinctAreas   []*SquareArea // TODO(erd): this probably isn't that useful
 
 	compassSensor compass.Device
 
-	clientDeviceNum     int
 	clientZoom          float64
 	clientClickMode     string
 	clientLidarViewMode string
 
-	// TODO(erd): possibly complexify. this used to be more locks but it got hairy
 	serverMu  sync.Mutex
-	clientMu  sync.Mutex
 	closeCh   chan struct{}
 	closeOnce sync.Once
 }
@@ -61,11 +57,6 @@ func NewLocationAwareRobot(
 	deviceOffsets []DeviceOffset,
 	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
-	distinctAreas := make([]*SquareArea, 0, len(devices))
-	for range devices {
-		distinctAreas = append(distinctAreas, area.BlankCopy())
-	}
-
 	var maxBoundsX, maxBoundsY int
 	devBounds := make([]image.Point, 0, len(devices))
 	for _, dev := range devices {
@@ -95,11 +86,9 @@ func NewLocationAwareRobot(
 
 		rootArea:        area,
 		presentViewArea: area.BlankCopy(),
-		distinctAreas:   distinctAreas,
 
 		compassSensor: compassSensor,
 
-		clientDeviceNum:     -1,
 		clientZoom:          1,
 		clientClickMode:     clientClickModeInfo,
 		clientLidarViewMode: clientLidarViewModeStored,
@@ -367,22 +356,6 @@ func (lar *LocationAwareRobot) cullLoop() {
 		}
 
 		cullArea(lar.presentViewArea, areaMinX, areaMaxX, areaMinY, areaMaxY)
-
-		for i, area := range lar.distinctAreas {
-			bounds, err := lar.devices[i].Bounds(context.TODO())
-			if err != nil {
-				panic(err)
-			}
-			bounds.X *= scaleDown
-			bounds.Y *= scaleDown
-
-			areaMinX := basePosX - bounds.X/2
-			areaMaxX := basePosX + bounds.X/2
-			areaMinY := basePosY - bounds.Y/2
-			areaMaxY := basePosY + bounds.Y/2
-
-			cullArea(area, areaMinX, areaMaxX, areaMinY, areaMaxY)
-		}
 	}
 
 	ticker := time.NewTicker(time.Second)
@@ -406,7 +379,7 @@ func (lar *LocationAwareRobot) cullLoop() {
 
 const cullTTL = 3
 
-func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *SquareArea, distinctAreas ...*SquareArea) ([]float64, error) {
+func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *SquareArea) ([]float64, error) {
 	basePosX, basePosY := lar.basePos()
 	baseRect := lar.baseRect()
 
@@ -469,11 +442,6 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 			area.Mutate(func(area MutableArea) {
 				area.Set(detectedX, detectedY, cullTTL)
 			})
-			if len(distinctAreas) > i {
-				lar.distinctAreas[i].Mutate(func(area MutableArea) {
-					area.Set(detectedX, detectedY, cullTTL)
-				})
-			}
 		}
 		orientations = append(orientations, minAngle)
 	}
@@ -491,7 +459,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 				fake.SetPosition(image.Point{basePosX, basePosY})
 			}
 		}
-		orientations, err := lar.scanAndStore(lar.devices, lar.presentViewArea, lar.distinctAreas...)
+		orientations, err := lar.scanAndStore(lar.devices, lar.presentViewArea)
 		if err != nil {
 			golog.Global.Debugw("error scanning and storing", "error", err)
 			return
@@ -537,25 +505,7 @@ func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
-	devNum := lar.getClientDeviceNum()
-	if devNum == -1 {
-		return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
-	}
-	dev := lar.devices[devNum : devNum+1]
-	bounds := lar.devBounds[devNum]
-	return dev, bounds, []*SquareArea{lar.distinctAreas[devNum]}
-}
-
-func (lar *LocationAwareRobot) getClientDeviceNum() int {
-	lar.clientMu.Lock()
-	defer lar.clientMu.Unlock()
-	return lar.clientDeviceNum
-}
-
-func (lar *LocationAwareRobot) setClientDeviceNumber(num int) {
-	lar.clientMu.Lock()
-	defer lar.clientMu.Unlock()
-	lar.clientDeviceNum = num
+	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
 }
 
 func (lar *LocationAwareRobot) rotateTo(dir Direction) error {
