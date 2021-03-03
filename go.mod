@@ -11,7 +11,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210302015043-d781cef2887e
+	github.com/edaniels/gostream v0.0.0-20210303173612-eff8ca05bc59
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90

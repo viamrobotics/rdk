@@ -192,25 +192,29 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (i
 	boundsX, boundsY := lar.rootArea.Dims()
 	switch orientation {
 	case 0:
-		if lar.basePosY-amount < 0 {
+		posY := lar.basePosY - amount
+		if posY < 0 || posY >= boundsY {
 			return image.Point{}, 0, errMsg
 		}
-		newY = lar.basePosY - amount
+		newY = posY
 	case 90:
-		if lar.basePosX+amount >= boundsX {
+		posX := lar.basePosX + amount
+		if posX < 0 || posX >= boundsX {
 			return image.Point{}, 0, errMsg
 		}
-		newX = lar.basePosX + amount
+		newX = posX
 	case 180:
-		if lar.basePosY+amount >= boundsY {
+		posY := lar.basePosY + amount
+		if posY < 0 || posY >= boundsY {
 			return image.Point{}, 0, errMsg
 		}
-		newY = lar.basePosY + amount
+		newY = posY
 	case 270:
-		if lar.basePosX-amount < 0 {
+		posX := lar.basePosX - amount
+		if posX < 0 || posX >= boundsX {
 			return image.Point{}, 0, errMsg
 		}
-		newX = lar.basePosX - amount
+		newX = posX
 	default:
 		return image.Point{}, 0, fmt.Errorf("cannot move at orientation %f", orientation)
 	}

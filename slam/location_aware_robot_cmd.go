@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/utils"
@@ -55,23 +56,24 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		return nil, lar.rootArea.WriteToFile(cmd.Args[0])
 	})
-	registry.Add(commandCalibrate, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
+	registry.Add(commandCalibrate, func(cmd *gostream.Command) (resp *gostream.CommandResponse, err error) {
 		lar.serverMu.Lock()
 		defer lar.serverMu.Unlock()
-		if lar.compassSensor != nil {
-			golog.Global.Info("calibrating compass")
-			if err := lar.compassSensor.StartCalibration(context.TODO()); err != nil {
-				return nil, err
-			}
+		if lar.compassSensor == nil {
+			return nil, nil
 		}
+		golog.Global.Info("calibrating compass")
+		if err := lar.compassSensor.StartCalibration(context.TODO()); err != nil {
+			return nil, err
+		}
+		defer func() {
+			if stopErr := lar.compassSensor.StopCalibration(context.TODO()); stopErr != nil {
+				err = multierr.Combine(err, stopErr)
+			}
+		}()
 		step := 10.0
 		for i := 0.0; i < 360; i += step {
 			if err := base.Reduce(lar.baseDevice).Spin(step, 0, true); err != nil {
-				return nil, err
-			}
-		}
-		if lar.compassSensor != nil {
-			if err := lar.compassSensor.StopCalibration(context.TODO()); err != nil {
 				return nil, err
 			}
 		}
@@ -150,8 +152,8 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err != nil {
 			return nil, err
 		}
-		if offsetNum < 0 || int(offsetNum) > len(lar.deviceOffsets) {
-			return nil, errors.New("bad offset nil, number")
+		if offsetNum < 0 || int(offsetNum) >= len(lar.deviceOffsets) {
+			return nil, errors.New("bad offset")
 		}
 		split := strings.Split(cmd.Args[1], ",")
 		if len(split) != 3 {
@@ -184,7 +186,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err := lar.devices[lidarDeviceNum].Start(context.TODO()); err != nil {
 			return nil, err
 		}
-		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d stopped", lidarDeviceNum)), nil
+		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d started", lidarDeviceNum)), nil
 	})
 	registry.Add(commandRobotLidarStop, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		if len(cmd.Args) == 0 {
