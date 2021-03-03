@@ -156,7 +156,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 		return nil, err
 	}
 
-	return iwd.Overlay(), nil
+	return iwd, nil
 }
 
 func (s *WebcamSource) Close() error {
