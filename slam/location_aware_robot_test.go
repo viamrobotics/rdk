@@ -24,9 +24,8 @@ type testHarness struct {
 }
 
 func (th *testHarness) ResetPos() {
-	center := th.bot.rootArea.Center()
-	th.bot.basePosX = center.X
-	th.bot.basePosY = center.Y
+	th.bot.basePosX = 0
+	th.bot.basePosY = 0
 }
 
 func newTestHarness(t *testing.T) *testHarness {
@@ -35,8 +34,8 @@ func newTestHarness(t *testing.T) *testHarness {
 
 func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 	baseDevice := &fake.Base{}
-	area := NewSquareArea(10, 10)
-	baseStart := area.Center()
+	area, err := NewSquareArea(10, 10)
+	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
 		injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
@@ -46,7 +45,6 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 
 	larBot, err := NewLocationAwareRobot(
 		baseDevice,
-		baseStart,
 		area,
 		[]lidar.Device{injectLidarDev},
 		nil,
@@ -68,16 +66,15 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 
 func TestNewLocationAwareRobot(t *testing.T) {
 	baseDevice := &fake.Base{}
-	area := NewSquareArea(10, 10)
-	baseStart := area.Center()
+	area, err := NewSquareArea(10, 10)
+	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{}
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
 		return image.Point{10, 10}, nil
 	}
 
-	_, err := NewLocationAwareRobot(
+	_, err = NewLocationAwareRobot(
 		baseDevice,
-		baseStart,
 		area,
 		[]lidar.Device{injectLidarDev},
 		nil,
@@ -92,7 +89,6 @@ func TestNewLocationAwareRobot(t *testing.T) {
 
 	_, err = NewLocationAwareRobot(
 		baseDevice,
-		baseStart,
 		area,
 		[]lidar.Device{injectLidarDev},
 		nil,
@@ -103,8 +99,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 
 func TestRobotString(t *testing.T) {
 	th := newTestHarness(t)
-	center := th.area.Center()
-	test.That(t, th.bot.String(), test.ShouldContainSubstring, fmt.Sprintf("(%d, %d)", center.X, center.Y))
+	test.That(t, th.bot.String(), test.ShouldContainSubstring, fmt.Sprintf("(%d, %d)", 0, 0))
 	th.bot.basePosX = 20
 	th.bot.basePosY = 40
 	test.That(t, th.bot.String(), test.ShouldContainSubstring, fmt.Sprintf("(%d, %d)", 20, 40))
@@ -148,14 +143,14 @@ func TestMove(t *testing.T) {
 		{"rotate down", nil, dirPtr(DirectionDown), "", 0, 0, 180, nil},
 		{"rotate left", nil, dirPtr(DirectionLeft), "", 0, 0, 270, nil},
 		{"rotate right", nil, dirPtr(DirectionRight), "", 0, 0, 90, nil},
-		{"move forward", intPtr(10), nil, "", 0, -10, 0, nil},
-		{"move backward", intPtr(-10), nil, "", 0, 10, 0, nil},
+		{"move forward", intPtr(10), nil, "", 0, 10, 0, nil},
+		{"move backward", intPtr(-10), nil, "", 0, -10, 0, nil},
 		{"move forward too far", intPtr(100), nil, "stuck", 0, 0, 0, nil},
 		{"move backward too far", intPtr(-100), nil, "stuck", 0, 0, 0, nil},
-		{"rotate down and move forward", intPtr(20), dirPtr(DirectionDown), "", 0, 20, 180, nil},
+		{"rotate down and move forward", intPtr(20), dirPtr(DirectionDown), "", 0, -20, 180, nil},
 		{"rotate right and move forward", intPtr(20), dirPtr(DirectionRight), "", 20, 0, 90, nil},
 		{"rotate left and move forward", intPtr(20), dirPtr(DirectionLeft), "", -20, 0, 270, nil},
-		{"rotate down and move backward", intPtr(-20), dirPtr(DirectionDown), "", 0, -20, 180, nil},
+		{"rotate down and move backward", intPtr(-20), dirPtr(DirectionDown), "", 0, 20, 180, nil},
 		{"rotate right and move backward", intPtr(-20), dirPtr(DirectionRight), "", -20, 0, 90, nil},
 		{"rotate left and move backward", intPtr(-20), dirPtr(DirectionLeft), "", 20, 0, 270, nil},
 		{"rotate down and move forward too far", intPtr(200), dirPtr(DirectionDown), "stuck", 0, 0, 0, nil},
@@ -224,10 +219,9 @@ func TestRobotOrientation(t *testing.T) {
 
 func TestRobotBasePos(t *testing.T) {
 	th := newTestHarness(t)
-	center := th.area.Center()
 	x, y := th.bot.basePos()
-	test.That(t, x, test.ShouldEqual, center.X)
-	test.That(t, y, test.ShouldEqual, center.Y)
+	test.That(t, x, test.ShouldEqual, 0)
+	test.That(t, y, test.ShouldEqual, 0)
 
 	th.bot.basePosX = 20
 	th.bot.basePosY = -1555
@@ -260,21 +254,21 @@ func TestRobotCalculateMove(t *testing.T) {
 		err         string
 		newCoords   image.Point
 	}{
-		{0, 0, 0, 0, "", image.Point{}},
-		{0, 0, 0, 1, "stuck", image.Point{}},
-		{0, 0, 45, 1, "orientation", image.Point{}},
+		{-50, -50, 0, 0, "", image.Point{-50, -50}},
+		{-50, -50, 0, 1, "", image.Point{-50, -49}},
+		{-50, -50, 45, 1, "orientation", image.Point{}},
+		{-50, -50, 90, 1, "", image.Point{-49, -50}},
+		{-50, -50, 180, 1, "stuck", image.Point{}},
+		{-50, -50, 270, 1, "stuck", image.Point{}},
+		{0, 0, 0, 1, "", image.Point{0, 1}},
 		{0, 0, 90, 1, "", image.Point{1, 0}},
-		{0, 0, 180, 1, "", image.Point{0, 1}},
-		{0, 0, 270, 1, "stuck", image.Point{}},
-		{50, 50, 0, 1, "", image.Point{50, 49}},
-		{50, 50, 90, 1, "", image.Point{51, 50}},
-		{50, 50, 180, 1, "", image.Point{50, 51}},
-		{50, 50, 270, 1, "", image.Point{49, 50}},
-		{100, 100, 0, 1, "", image.Point{100, 99}},
-		{100, 100, 45, 1, "orientation", image.Point{}},
-		{100, 100, 90, 1, "stuck", image.Point{}},
-		{100, 100, 180, 1, "stuck", image.Point{}},
-		{100, 100, 270, 1, "", image.Point{99, 100}},
+		{0, 0, 180, 1, "", image.Point{0, -1}},
+		{0, 0, 270, 1, "", image.Point{-1, 0}},
+		{49, 49, 0, 1, "stuck", image.Point{}},
+		{49, 49, 45, 1, "orientation", image.Point{}},
+		{49, 49, 90, 1, "stuck", image.Point{}},
+		{49, 49, 180, 1, "", image.Point{49, 48}},
+		{49, 49, 270, 1, "", image.Point{48, 49}},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
@@ -299,9 +293,9 @@ func TestBaseRect(t *testing.T) {
 		rect     image.Rectangle
 	}{
 		{0, 0, image.Rect(-3, -3, 3, 3)},
-		{50, 50, image.Rect(47, 47, 53, 53)},
+		{-50, -50, image.Rect(-53, -53, -47, -47)},
 		{40, 13, image.Rect(37, 10, 43, 16)},
-		{100, 100, image.Rect(97, 97, 103, 103)},
+		{49, 49, image.Rect(46, 46, 52, 52)},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
@@ -326,10 +320,10 @@ func TestMoveRect(t *testing.T) {
 		orientation float64
 		rect        image.Rectangle
 	}{
-		{0, 0, 0, 0, 0, image.Rect(-3, -3, 3, 0)},
+		{0, 0, 0, 0, 0, image.Rect(-3, -18, 3, -3)},
 		{0, 0, 0, 0, 90, image.Rect(3, -3, 18, 3)},
 		{0, 0, 0, 0, 180, image.Rect(-3, 3, 3, 18)},
-		{0, 0, 0, 0, 270, image.Rect(-3, -3, 0, 3)},
+		{0, 0, 0, 0, 270, image.Rect(-18, -3, -3, 3)},
 		{23, 54, 23, 54, 0, image.Rect(20, 36, 26, 51)},
 		{23, 54, 23, 54, 90, image.Rect(26, 51, 41, 57)},
 		{23, 54, 23, 54, 180, image.Rect(20, 57, 26, 72)},
@@ -392,7 +386,7 @@ func TestNewPresentView(t *testing.T) {
 		area.Set(7, 6, 1)
 		area.Set(1, 1, 0)
 		area.Set(0, 0, 1)
-		area.Set(32, 50, 2)
+		area.Set(32, 49, 2)
 	})
 	th.bot.newPresentView()
 
@@ -417,7 +411,7 @@ func TestNewPresentView(t *testing.T) {
 		"7,6,1":   {},
 		"1,1,0":   {},
 		"0,0,1":   {},
-		"32,50,2": {},
+		"32,49,2": {},
 	}
 	th.bot.rootArea.Mutate(func(area MutableArea) {
 		area.Iterate(func(x, y, v int) bool {
@@ -426,4 +420,373 @@ func TestNewPresentView(t *testing.T) {
 		})
 	})
 	test.That(t, expected, test.ShouldBeEmpty)
+}
+
+func TestScanAndStore(t *testing.T) {
+	th := newTestHarness(t)
+	area := th.area.BlankCopy()
+	device := &inject.LidarDevice{}
+	err1 := errors.New("whoops")
+	device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+		return nil, err1
+	}
+	err := th.bot.scanAndStore([]lidar.Device{device}, area)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "bad scan")
+	test.That(t, err, test.ShouldWrap, err1)
+
+	for _, tc := range []struct {
+		desc            string
+		basePosX        int
+		basePosY        int
+		orientation     float64
+		deviceOffsets   []DeviceOffset
+		allMeasurements []lidar.Measurements
+		err             string
+		validateArea    func(t *testing.T, area *SquareArea)
+	}{
+		{"base case", 0, 0, 0, nil, nil, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 0)
+		}},
+		{"same measurement at orientation 0", 0, 0, 0, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(0, 1),
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,10,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 1)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"same measurement at orientation 90", 0, 0, 90, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(270, 1),
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,10,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 1)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"same measurement at orientation 180", 0, 0, 180, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(180, 1),
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,10,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 1)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"same measurement at orientation 270", 0, 0, 270, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(90, 1),
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,10,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 1)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"one device with some measurements at center", 0, 0, 0, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(0, 3),
+				lidar.NewMeasurement(21, 4),
+				lidar.NewMeasurement(64, 1),
+				lidar.NewMeasurement(90, .2), // within base
+				lidar.NewMeasurement(132, 2),
+				lidar.NewMeasurement(290, 4),
+				lidar.NewMeasurement(180, 10), // out of range
+				lidar.NewMeasurement(90, 10),  // out of range
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,30,3":   {},
+				"14,37,3":  {},
+				"8,4,3":    {},
+				"14,-13,3": {},
+				"-37,13,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 5)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"one device with some measurements near bounds", -50, -50, 0, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(0, 3),
+				lidar.NewMeasurement(21, 4),
+				lidar.NewMeasurement(64, 1),
+				lidar.NewMeasurement(90, .2),  // within base
+				lidar.NewMeasurement(132, 2),  // out of range
+				lidar.NewMeasurement(290, 4),  // out of range
+				lidar.NewMeasurement(180, 10), // out of range
+				lidar.NewMeasurement(90, 10),  // out of range
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"-50,-20,3": {},
+				"-35,-12,3": {},
+				"-41,-45,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 3)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"multiple devices with some measurements at center", 0, 0, 0, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(0, 3),
+				lidar.NewMeasurement(21, 4),
+				lidar.NewMeasurement(64, 1),
+				lidar.NewMeasurement(90, .2), // within base
+				lidar.NewMeasurement(132, 2),
+				lidar.NewMeasurement(290, 4),
+				lidar.NewMeasurement(180, 10), // out of range
+				lidar.NewMeasurement(90, 10),  // out of range
+			},
+			{
+				lidar.NewMeasurement(2, 3),
+				lidar.NewMeasurement(23, 4),
+				lidar.NewMeasurement(66, 1),
+				lidar.NewMeasurement(92, .2), // within base
+				lidar.NewMeasurement(135, 2),
+				lidar.NewMeasurement(292, 4),
+				lidar.NewMeasurement(182, 10), // out of range
+				lidar.NewMeasurement(92, 10),  // out of range
+			},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,30,3":   {},
+				"14,37,3":  {},
+				"8,4,3":    {},
+				"14,-13,3": {},
+				"-37,13,3": {},
+				"1,29,3":   {},
+				"15,36,3":  {},
+				"9,4,3":    {},
+				"14,-14,3": {},
+				"-37,14,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 10)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"multiple devices with missing measurements at center", 0, 0, 0, nil, []lidar.Measurements{
+			{
+				lidar.NewMeasurement(0, 3),
+				lidar.NewMeasurement(21, 4),
+				lidar.NewMeasurement(64, 1),
+				lidar.NewMeasurement(90, .2), // within base
+				lidar.NewMeasurement(132, 2),
+				lidar.NewMeasurement(290, 4),
+				lidar.NewMeasurement(180, 10), // out of range
+				lidar.NewMeasurement(90, 10),  // out of range
+			},
+			{},
+		}, "", func(t *testing.T, area *SquareArea) {
+			count := 0
+			expected := map[string]struct{}{
+				"0,30,3":   {},
+				"14,37,3":  {},
+				"8,4,3":    {},
+				"14,-13,3": {},
+				"-37,13,3": {},
+			}
+			area.Mutate(func(area MutableArea) {
+				area.Iterate(func(x, y, v int) bool {
+					count++
+					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					return true
+				})
+			})
+			test.That(t, count, test.ShouldEqual, 5)
+			test.That(t, expected, test.ShouldBeEmpty)
+		}},
+		{"multiple devices with some measurements at center and offsets", 0, 0, 0,
+			[]DeviceOffset{
+				{45, 0, 0},
+			},
+			[]lidar.Measurements{
+				{
+					lidar.NewMeasurement(0, 3),
+					lidar.NewMeasurement(21, 4),
+					lidar.NewMeasurement(64, 1),
+					lidar.NewMeasurement(90, .2), // within base
+					lidar.NewMeasurement(132, 2),
+					lidar.NewMeasurement(290, 4),
+					lidar.NewMeasurement(180, 10), // out of range
+					lidar.NewMeasurement(90, 10),  // out of range
+				},
+				{
+					lidar.NewMeasurement(315, 3),
+					lidar.NewMeasurement(336, 4),
+					lidar.NewMeasurement(379, 1),
+					lidar.NewMeasurement(45, .2), // within base
+					lidar.NewMeasurement(87, 2),
+					lidar.NewMeasurement(245, 4),
+					lidar.NewMeasurement(135, 10), // out of range
+					lidar.NewMeasurement(45, 10),  // out of range
+				},
+			}, "", func(t *testing.T, area *SquareArea) {
+				count := 0
+				expected := map[string]struct{}{
+					"0,30,3":   {},
+					"14,37,3":  {},
+					"8,4,3":    {},
+					"14,-13,3": {},
+					"-37,13,3": {},
+				}
+				area.Mutate(func(area MutableArea) {
+					area.Iterate(func(x, y, v int) bool {
+						count++
+						delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+						return true
+					})
+				})
+				test.That(t, count, test.ShouldEqual, 5)
+				test.That(t, expected, test.ShouldBeEmpty)
+			}},
+		{"multiple devices with some measurements at center and shifted offsets", 0, 0, 0,
+			[]DeviceOffset{
+				{45, 1, 2},
+			},
+			[]lidar.Measurements{
+				{
+					lidar.NewMeasurement(0, 3),
+					lidar.NewMeasurement(21, 4),
+					lidar.NewMeasurement(64, 1),
+					lidar.NewMeasurement(90, .2), // within base
+					lidar.NewMeasurement(132, 2),
+					lidar.NewMeasurement(290, 4),
+					lidar.NewMeasurement(180, 10), // out of range
+					lidar.NewMeasurement(90, 10),  // out of range
+				},
+				{
+					lidar.NewMeasurement(315, 3),
+					lidar.NewMeasurement(336, 4),
+					lidar.NewMeasurement(379, 1),
+					lidar.NewMeasurement(45, .2), // not within base now
+					lidar.NewMeasurement(87, 2),
+					lidar.NewMeasurement(245, 4),
+					lidar.NewMeasurement(135, 10), // out of range
+					lidar.NewMeasurement(45, 10),  // out of range
+				},
+			}, "", func(t *testing.T, area *SquareArea) {
+				count := 0
+				expected := map[string]struct{}{
+					"0,30,3":   {},
+					"14,37,3":  {},
+					"8,4,3":    {},
+					"14,-13,3": {},
+					"-37,13,3": {},
+					"0,32,3":   {},
+					"15,39,3":  {},
+					"9,6,3":    {},
+					"3,2,3":    {},
+					"15,-11,3": {},
+					"-36,15,3": {},
+				}
+				area.Mutate(func(area MutableArea) {
+					area.Iterate(func(x, y, v int) bool {
+						count++
+						delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+						return true
+					})
+				})
+				test.That(t, count, test.ShouldEqual, 11)
+				test.That(t, expected, test.ShouldBeEmpty)
+			}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			th := newTestHarness(t)
+			th.bot.basePosX = tc.basePosX
+			th.bot.basePosY = tc.basePosY
+			th.bot.setOrientation(tc.orientation)
+			th.bot.deviceOffsets = tc.deviceOffsets
+			area := th.area.BlankCopy()
+			devices := make([]lidar.Device, 0, len(tc.allMeasurements))
+			for _, measurements := range tc.allMeasurements {
+				mCopy := measurements
+				device := &inject.LidarDevice{}
+				device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+					return mCopy, nil
+				}
+				devices = append(devices, device)
+			}
+			err := th.bot.scanAndStore(devices, area)
+			if tc.err != "" {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
+				return
+			}
+			test.That(t, err, test.ShouldBeNil)
+			if tc.validateArea == nil {
+				return
+			}
+			tc.validateArea(t, area)
+		})
+	}
 }

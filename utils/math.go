@@ -23,6 +23,10 @@ func AntiCWDeg(deg float64) float64 {
 	return math.Mod(float64(360)-deg, 360)
 }
 
+func ModAngDeg(ang float64) float64 {
+	return math.Mod(math.Mod((ang), 360)+360, 360)
+}
+
 func Median(values ...float64) float64 {
 	if len(values) == 0 {
 		return math.NaN()
@@ -61,4 +65,19 @@ func Square(n float64) float64 {
 // Math.pow( x, 2 ) is slow, this is faster
 func SquareInt(n int) int {
 	return n * n
+}
+
+// RayToUpwardCWCartesian returns coordinates based off of
+// a coordinate system where the center is x,y=0,0 and
+// zero degrees is pointing up. This is helpful for visualzing
+// measurement devices that scan clockwise.
+// 0°   -  (0,increasing) // Up
+// 90°  -  (increasing, 0) // Right
+// 180° -  (0, decreasing) // Down
+// 270° -  (decreasing,0) // Left
+func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
+	angleRad := DegToRad(angle)
+	x := distance * math.Sin(angleRad)
+	y := distance * math.Cos(angleRad)
+	return x, y
 }
