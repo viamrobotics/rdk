@@ -3,21 +3,58 @@ package board
 import (
 	"fmt"
 	"time"
+
+	"github.com/erh/scheme"
+
+	"go.viam.com/robotcore/utils"
 )
 
-func createDigitalInterrupt(cfg DigitalInterruptConfig) DigitalInterrupt {
+func createDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error) {
 	if cfg.Type == "" {
 		cfg.Type = "basic"
 	}
 
+	var i DigitalInterrupt
 	switch cfg.Type {
 	case "basic":
-		return &BasicDigitalInterrupt{cfg: cfg}
+		i = &BasicDigitalInterrupt{cfg: cfg}
 	case "servo":
-		return &ServoDigitalInterrupt{cfg: cfg}
+		i = &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(15)}
 	default:
 		panic(fmt.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
+
+	if cfg.Formula != "" {
+		x, err := scheme.Parse(cfg.Formula)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't parse formula for %s %s", cfg.Name, err)
+		}
+
+		testScope := scheme.Scope{}
+		num := 1.0
+		testScope["raw"] = &scheme.Value{Float: &num}
+		_, err = scheme.Eval(x, testScope)
+		if err != nil {
+			return nil, fmt.Errorf("test exec failed for %s %s", cfg.Name, err)
+		}
+
+		i.AddPostProcess(func(raw int64) int64 {
+			scope := scheme.Scope{}
+			rr := float64(raw) // TODO(erh): fix
+			scope["raw"] = &scheme.Value{Float: &rr}
+			res, err := scheme.Eval(x, scope)
+			if err != nil {
+				panic(err)
+			}
+			f, err := res.ToFloat()
+			if err != nil {
+				panic(err)
+			}
+			return int64(f)
+		})
+	}
+
+	return i, nil
 }
 
 type BasicDigitalInterrupt struct {
@@ -25,6 +62,8 @@ type BasicDigitalInterrupt struct {
 	count int64
 
 	callbacks []diCallback
+
+	pp PostProcess
 }
 
 func (i *BasicDigitalInterrupt) Config() DigitalInterruptConfig {
@@ -32,6 +71,9 @@ func (i *BasicDigitalInterrupt) Config() DigitalInterruptConfig {
 }
 
 func (i *BasicDigitalInterrupt) Value() int64 {
+	if i.pp != nil {
+		return i.pp(i.count)
+	}
 	return i.count
 }
 
@@ -61,12 +103,17 @@ func (i *BasicDigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
 	i.callbacks = append(i.callbacks, diCallback{i.count + delta, c})
 }
 
+func (i *BasicDigitalInterrupt) AddPostProcess(pp PostProcess) {
+	i.pp = pp
+}
+
 // ----
 
 type ServoDigitalInterrupt struct {
-	cfg   DigitalInterruptConfig
-	last  int64
-	value int64
+	cfg  DigitalInterruptConfig
+	last int64
+	ra   *utils.RollingAverage
+	pp   PostProcess
 }
 
 func (i *ServoDigitalInterrupt) Config() DigitalInterruptConfig {
@@ -74,7 +121,12 @@ func (i *ServoDigitalInterrupt) Config() DigitalInterruptConfig {
 }
 
 func (i *ServoDigitalInterrupt) Value() int64 {
-	return i.value
+	v := int64(i.ra.Average())
+	if i.pp != nil {
+		return i.pp(v)
+	}
+
+	return v
 }
 
 func (i *ServoDigitalInterrupt) Tick() {
@@ -87,9 +139,13 @@ func (i *ServoDigitalInterrupt) Tick() {
 		return
 	}
 
-	i.value = diff / 1000
+	i.ra.Add(int(diff / 1000))
 }
 
 func (i *ServoDigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
 	panic(fmt.Errorf("servos can't have callback deltas"))
+}
+
+func (i *ServoDigitalInterrupt) AddPostProcess(pp PostProcess) {
+	i.pp = pp
 }

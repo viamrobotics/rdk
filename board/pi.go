@@ -301,7 +301,7 @@ func (pi *piBoard) AnalogReader(name string) AnalogReader {
 		if name == ac.Name {
 			a = &gobotAnalogReader{pi.ar, ac.Pin}
 			if ac.AverageOverMillis > 0 {
-				as := &AnalogSmoother{a, ac.AverageOverMillis, ac.SamplesPerSecond, nil, 0}
+				as := &AnalogSmoother{a, ac.AverageOverMillis, ac.SamplesPerSecond, nil}
 				as.Start()
 				a = as
 			}
@@ -356,7 +356,10 @@ func NewPiBoard(cfg Config) (Board, error) {
 		}
 
 		for _, di := range cfg.DigitalInterrupts {
-			t := createDigitalInterrupt(di)
+			t, err := createDigitalInterrupt(di)
+			if err != nil {
+				return nil, err
+			}
 			b.interrupts = append(b.interrupts, t)
 
 			err = b.r.DigitalPinSetPullUpDown(di.Pin, true) // TODO(erh): make this configurable, but for most things we want up
