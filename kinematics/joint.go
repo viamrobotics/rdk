@@ -22,29 +22,17 @@ import (
 type Joint struct {
 	dofPosition int
 	dofVelocity int
-	//~ a           spatial.MotionVector
-	//~ c           spatial.MotionVector
-	//~ D           *mgl64.MatMxN
-	max      []float64
-	min      []float64
-	offset   []float64
-	position []float64
-	//~ qUnits     []float64
-	positionD []float64
-	//~ qdUnits    []float64
-	positionDD []float64
-	//~ qddUnits   []float64
-	SpatialMat *mgl64.MatMxN
-	//~ speed       []float64
-	//~ speedUnits  []float64
-	//~ tau         []float64
-	//~ tauUnits    []float64
-	//~ u           []float64
-	//~ U           *mgl64.MatMxN
-	v          *spatial.MotionVector
-	wraparound []bool
-	descriptor graph.Edge
-	transform  *Transform
+	max         []float64
+	min         []float64
+	offset      []float64
+	position    []float64
+	positionD   []float64
+	positionDD  []float64
+	SpatialMat  *mgl64.MatMxN
+	v           *spatial.MotionVector
+	wraparound  []bool
+	descriptor  graph.Edge
+	transform   *Transform
 }
 
 func NewJoint(dPos, dVel int) *Joint {
@@ -53,10 +41,6 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.dofVelocity = dVel
 	j.SpatialMat = mgl64.NewMatrix(6, dPos)
 	j.SpatialMat.Zero(6, dPos)
-	//~ j.U = mgl64.NewMatrix(6, dVel)
-	//~ j.U.Zero(6, dVel)
-	//~ j.a.SetZero()
-	//~ j.c.SetZero()
 	j.wraparound = make([]bool, dPos)
 	j.offset = make([]float64, dPos)
 	j.position = make([]float64, dPos)
@@ -87,13 +71,13 @@ func (j *Joint) Clip(q []float64) {
 	}
 }
 
-func (j *Joint) RandomJointPositions() []float64 {
+func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 	var positions []float64
 	for i := 0; i < j.GetDofPosition(); i++ {
 		jRange := math.Abs(j.max[i] - j.min[i])
 		// Note that rand is unseeded and so will produce the same sequence of floats every time
 		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
-		newPos := rand.Float64()*jRange + j.min[i]
+		newPos := rnd.Float64()*jRange + j.min[i]
 		positions = append(positions, newPos)
 	}
 	return positions

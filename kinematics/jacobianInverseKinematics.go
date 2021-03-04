@@ -12,6 +12,8 @@ type JacobianIK struct {
 	iterations int
 	svd        bool
 	Goals      []Goal
+	ID         int
+	halt       bool
 }
 
 func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
@@ -29,6 +31,18 @@ func (ik *JacobianIK) AddGoal(trans *kinmath.Transform, effectorID int) {
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
 
+func (ik *JacobianIK) SetID(id int) {
+	ik.ID = id
+}
+
+func (ik *JacobianIK) GetID() int {
+	return ik.ID
+}
+
+func (ik *JacobianIK) GetMdl() *Model {
+	return ik.Mdl
+}
+
 func (ik *JacobianIK) ClearGoals() {
 	ik.Goals = []Goal{}
 }
@@ -37,7 +51,12 @@ func (ik *JacobianIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
+func (ik *JacobianIK) Halt() {
+	ik.halt = true
+}
+
 func (ik *JacobianIK) Solve() bool {
+	ik.halt = false
 	// q is the position over which we will iterate
 	q := ik.Mdl.GetPosition()
 
@@ -53,8 +72,8 @@ func (ik *JacobianIK) Solve() bool {
 	jointAmt := 0.05
 	var dxDelta []float64
 
-	for iteration < ik.iterations {
-		for iteration < ik.iterations {
+	for iteration < ik.iterations && !ik.halt {
+		for iteration < ik.iterations && !ik.halt {
 			iteration++
 			ik.Mdl.ForwardPosition()
 			dx := make([]float64, ik.Mdl.GetOperationalDof()*6)

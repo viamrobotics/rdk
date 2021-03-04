@@ -2,7 +2,8 @@ package kinematics
 
 import (
 	//~ "fmt"
-	//~ "reflect"
+	"math/rand"
+
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -33,6 +34,7 @@ type Model struct {
 	Home             []float64
 	Jacobian         *mgl64.MatMxN
 	InvJacobian      *mgl64.MatMxN
+	RandSeed         *rand.Rand
 }
 
 // Constructor for a model
@@ -41,6 +43,7 @@ func NewModel() *Model {
 	m.tree = simple.NewDirectedGraph()
 	m.Nodes = make(map[int64]*Frame)
 	m.Edges = make(map[graph.Edge]Link)
+	m.RandSeed = rand.New(rand.NewSource(1))
 	return &m
 }
 
@@ -51,6 +54,10 @@ func (m *Model) NextID() int64 {
 	id := int64(m.nextID)
 	m.nextID++
 	return id
+}
+
+func (m *Model) SetSeed(seed int64) {
+	m.RandSeed = rand.New(rand.NewSource(seed))
 }
 
 func (m *Model) Add(frame *Frame) {
@@ -75,7 +82,7 @@ func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 func (m *Model) RandomJointPositions() []float64 {
 	var jointPos []float64
 	for _, joint := range m.Joints {
-		jointPos = append(jointPos, joint.RandomJointPositions()...)
+		jointPos = append(jointPos, joint.RandomJointPositions(m.RandSeed)...)
 	}
 	return jointPos
 }

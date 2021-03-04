@@ -19,6 +19,8 @@ type NloptIK struct {
 	epsilon       float64
 	Goals         []Goal
 	opt           *nlopt.NLopt
+	ID            int
+	halt          bool
 }
 
 func errCheck(err error) {
@@ -32,7 +34,7 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	ik.Mdl = mdl
 	ik.epsilon = 0.0001
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 1
+	ik.maxIterations = 500000
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -88,6 +90,7 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 				}
 			}
 		}
+		//~ fmt.Println(SquaredNorm(dx))
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
 			return SquaredNorm(dx)
@@ -115,6 +118,18 @@ func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int) {
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
 
+func (ik *NloptIK) SetID(id int) {
+	ik.ID = id
+}
+
+func (ik *NloptIK) GetID() int {
+	return ik.ID
+}
+
+func (ik *NloptIK) GetMdl() *Model {
+	return ik.Mdl
+}
+
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 }
@@ -123,12 +138,25 @@ func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
+func (ik *NloptIK) Halt() {
+	ik.halt = true
+	err := ik.opt.ForceStop()
+	if err != nil{
+		golog.Global.Info("nlopt halt error: ", err)
+	}
+}
+
 func (ik *NloptIK) Solve() bool {
+	ik.halt = false
 	origJointPos := ik.Mdl.GetPosition()
-	for ik.iterations < ik.maxIterations {
+	for ik.iterations < ik.maxIterations && !ik.halt {
 		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
 		if err != nil {
-			golog.Global.Error("nlopt optimization error: ", err)
+			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
+			// Ignore it, something else will find a solution
+			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP"{
+				golog.Global.Info("nlopt optimization error: ", err)
+			}
 		}
 
 		if result < ik.epsilon*ik.epsilon {

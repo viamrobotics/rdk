@@ -365,7 +365,7 @@ func (e *eva) apiUnlock() {
 }
 
 func NewEva(host string, attrs map[string]string) (Arm, error) {
-	kin, err := NewRobot(attrs["modelJSON"])
+	kin, err := NewRobot(attrs["modelJSON"], 4)
 	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
 	}

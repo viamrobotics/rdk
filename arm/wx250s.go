@@ -44,7 +44,7 @@ func degreeToServoPos(pos float64) int {
 
 func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error) {
 	servos := findServos(attributes["usbPort"], attributes["baudRate"], attributes["armServoCount"])
-	kin, err := NewRobot(attributes["modelJSON"])
+	kin, err := NewRobot(attributes["modelJSON"], 4)
 	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
 	}

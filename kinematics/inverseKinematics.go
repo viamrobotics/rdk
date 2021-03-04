@@ -15,6 +15,10 @@ type InverseKinematics interface {
 	ClearGoals()
 	GetGoals() []Goal
 	Solve() bool
+	SetID(int)
+	GetID() int
+	GetMdl() *Model
+	Halt()
 }
 
 // Returns the dot product of a vector with itself
