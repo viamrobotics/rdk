@@ -365,7 +365,7 @@ func (lar *LocationAwareRobot) basePos() (int, int) {
 	return lar.basePosX, lar.basePosY
 }
 
-func (lar *LocationAwareRobot) update() {
+func (lar *LocationAwareRobot) update() error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -375,10 +375,7 @@ func (lar *LocationAwareRobot) update() {
 			fake.SetPosition(image.Point{basePosX, basePosY})
 		}
 	}
-	if err := lar.scanAndStore(lar.devices, lar.presentViewArea); err != nil {
-		golog.Global.Debugw("error scanning and storing", "error", err)
-		return
-	}
+	return lar.scanAndStore(lar.devices, lar.presentViewArea)
 }
 
 func (lar *LocationAwareRobot) cull() {
@@ -444,7 +441,9 @@ func (lar *LocationAwareRobot) updateLoop() {
 						lar.updateHook(culled)
 					}()
 				}
-				lar.update()
+				if err := lar.update(); err != nil {
+					golog.Global.Debugw("error scanning and storing", "error", err)
+				}
 				if (count+1)%cullEvery == 0 {
 					lar.cull()
 					culled = true
