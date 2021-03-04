@@ -88,6 +88,52 @@
           setTimeout(updateGridView, 500, arm);
       }
 
+      function jointCopy(arm) {
+          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
+              var j = response["joints"];
+              for ( var i=0; i<j.length; i++) {
+                  var id = "arm_ji_" + arm + "_" + i;
+                  document.getElementById(id).value = Number(j[i]).toFixed(2);
+              }
+          });
+      }
+
+      function jointSet(arm) {
+          var path = "/api/arm?mode=joint&num=" + arm + "&action=abs";
+          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
+              var j = response["joints"];
+              for ( var i=0; i<j.length; i++) {
+                  var id = "arm_ji_" + arm + "_" + i;
+                  path = path + "&j" + i + "=" + document.getElementById(id).value;
+              }
+              makeApiCall(path);
+          });
+      }
+
+      function gridCopy(arm) {
+          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
+              for ( var i in response) {
+                  var id = "arm_ci_" + arm + "_" + i;
+                  var e = document.getElementById(id);
+                  if (e) {
+                      e.value = Number(response[i]).toFixed(1);
+                  }
+              }
+          });
+      }
+
+      function gridSet(arm) {
+          var path = "/api/arm?mode=grid&num=" + arm + "&action=abs";
+          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
+              for ( var i in response) {
+                  var id = "arm_ci_" + arm + "_" + i;
+                  var e = document.getElementById(id);
+                  path = path + "&" + i + "=" + document.getElementById(id).value;
+              }
+              makeApiCall(path);
+          });
+      }
+
       function boardAction(type, boardName, typeName, action) {
           var path = "/api/board/" + boardName + "/" + type + "?name=" + typeName + "&" + action;
           console.log(path);
@@ -153,6 +199,8 @@
               {{ template "C" list $idx "rx" 1}}
               {{ template "C" list $idx "ry" 1}}
               {{ template "C" list $idx "rz" 1}}
+              <button onclick="gridCopy({{ $idx }})">Copy values</a>
+              <button onclick="gridSet({{ $idx }})">Set values</a>
             </ul>
           </td>
           <td>
@@ -163,6 +211,8 @@
               {{template "J" list $idx 3}}
               {{template "J" list $idx 4}}
               {{template "J" list $idx 5}}
+              <button onclick="jointCopy({{ $idx }})">Copy values</a>
+              <button onclick="jointSet({{ $idx }})">Set values</a>
             </ul>
           </td>
           <td>
@@ -280,6 +330,7 @@
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{mul 10 (index . 2)}}')">--</button>
   <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
+  <input id='arm_ci_{{index . 0}}_{{index . 1}}'>
 </li>
 {{end}}
 
@@ -291,5 +342,6 @@
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-1', 'joint' )">-</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-10', 'joint' )">--</button>
   <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
+  <input id='arm_ji_{{index . 0}}_{{index . 1}}'>
 </li>
 {{end}}
