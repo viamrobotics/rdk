@@ -26,7 +26,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
 
 var areaPointColor = color.NRGBA{255, 0, 0, 255}
 
-func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea, orientations []float64) image.Image {
+func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) image.Image {
 	// all areas are the same size
 	_, scaleDown := areas[0].Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
@@ -80,48 +80,17 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 			}
 			rimage.DrawRectangleEmpty(dc, moveRect, c, 1)
 		}
-
-		distance := 20.0
-		// Remember, our view is from x,y=0,0 at top left of matrix
-		// 0°   -  (0,-1) // Up
-		// 90°  -  (1, 0) // Right
-		// 180° -  (0, 1) // Down
-		// 270° -  (-1,0) // Left
-		orientationRads := utils.DegToRad(orientation)
-		x := distance * math.Sin(orientationRads)
-		y := distance * -math.Cos(orientationRads)
-		relX := float64(centerX) + x
-		relY := float64(centerY) + y
-
-		dc.SetColor(color.NRGBA{0, 255, 0, 255})
-		dc.SetPixel(int(relX), int(relY))
 	}
 
-	for i, orientation := range orientations {
-		if math.IsInf(orientation, 1) {
-			continue
-		}
-		distance := 15.0
-		// Remember, our view is from x,y=0,0 at top left of matrix
-		// 0°   -  (0,-1) // Up
-		// 90°  -  (1, 0) // Right
-		// 180° -  (0, 1) // Down
-		// 270° -  (-1,0) // Left
-		orientationRads := utils.DegToRad(orientation)
-		x := distance * math.Sin(orientationRads)
-		y := distance * -math.Cos(orientationRads)
-		relX := float64(centerX) + x
-		relY := float64(centerY) + y
+	distance := 15.0
+	x, y := utils.RayToUpwardCWCartesian(lar.orientation(), distance)
+	relX := float64(centerX) + x
+	relY := float64(centerY) - y // Y is decreasing in an image
 
-		dc.DrawLine(float64(centerX), float64(centerY), relX, relY)
-		if i == 0 {
-			dc.SetColor(color.NRGBA{0, 255, 0, 255})
-		} else {
-			dc.SetColor(color.NRGBA{0, 0, 255, 255})
-		}
-		dc.SetLineWidth(3)
-		dc.Stroke()
-	}
+	dc.DrawLine(float64(centerX), float64(centerY), relX, relY)
+	dc.SetColor(color.NRGBA{0, 255, 0, 255})
+	dc.SetLineWidth(3)
+	dc.Stroke()
 
 	// TODO(erd): any way to get a submatrix? may need to segment each one
 	// if this starts going slower. fast as long as there are not many points
@@ -134,7 +103,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 				distX := basePosX - x
 				distY := basePosY - y
 				relX := centerX - distX
-				relY := centerY - distY
+				relY := centerY + distY // Y is decreasing in an image
 
 				dc.SetColor(areaPointColor)
 				dc.SetPixel(relX, relY)
@@ -148,18 +117,16 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 
 func (lar *LocationAwareRobot) renderStoredView() (image.Image, error) {
 	_, bounds, areas := lar.areasToView()
-	return lar.renderAreas(bounds, areas, lar.orientations), nil
+	return lar.renderAreas(bounds, areas), nil
 }
 
 func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
 	devices, bounds, areas := lar.areasToView()
-	meters, scaleTo := areas[0].Size()
-	blankArea := NewSquareArea(meters, scaleTo)
+	blankArea := areas[0].BlankCopy()
 
-	orientations, err := lar.scanAndStore(devices, blankArea)
-	if err != nil {
+	if err := lar.scanAndStore(devices, blankArea); err != nil {
 		return nil, err
 	}
 
-	return lar.renderAreas(bounds, []*SquareArea{blankArea}, orientations), nil
+	return lar.renderAreas(bounds, []*SquareArea{blankArea}), nil
 }

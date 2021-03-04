@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"image"
 	"math"
 	"os"
 	"os/signal"
@@ -51,8 +50,10 @@ func main() {
 
 	areaSizeMeters := 50
 	areaScale := 100 // cm
-	area := slam.NewSquareArea(areaSizeMeters, areaScale)
-	areaCenter := area.Center()
+	area, err := slam.NewSquareArea(areaSizeMeters, areaScale)
+	if err != nil {
+		golog.Global.Fatal(err)
+	}
 
 	var baseDevice base.Device
 	switch baseType {
@@ -62,7 +63,7 @@ func main() {
 		robot := hellorobot.New()
 		baseDevice = robot.Base()
 	default:
-		panic(fmt.Errorf("do not know how to make a %q base", baseType))
+		golog.Global.Fatal(fmt.Errorf("do not know how to make a %q base", baseType))
 	}
 
 	// TODO(erd): this will find too many
@@ -87,23 +88,23 @@ func main() {
 	var deviceOffests []slam.DeviceOffset
 	for _, flags := range deviceOffsetFlags {
 		if flags == "" {
-			panic("offset format is angle,x,y")
+			golog.Global.Fatal("offset format is angle,x,y")
 		}
 		split := strings.Split(flags, ",")
 		if len(split) != 3 {
-			panic("offset format is angle,x,y")
+			golog.Global.Fatal("offset format is angle,x,y")
 		}
 		angle, err := strconv.ParseFloat(split[0], 64)
 		if err != nil {
-			panic(err)
+			golog.Global.Fatal(err)
 		}
 		distX, err := strconv.ParseFloat(split[1], 64)
 		if err != nil {
-			panic(err)
+			golog.Global.Fatal(err)
 		}
 		distY, err := strconv.ParseFloat(split[2], 64)
 		if err != nil {
-			panic(err)
+			golog.Global.Fatal(err)
 		}
 		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
 	}
@@ -150,7 +151,7 @@ func main() {
 	}
 
 	if len(deviceOffests) != 0 && len(deviceOffests) >= len(deviceDescs) {
-		panic(fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1))
+		golog.Global.Fatal(fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1))
 	}
 
 	port := 5555
@@ -200,17 +201,16 @@ func main() {
 
 	lar, err := slam.NewLocationAwareRobot(
 		baseDevice,
-		image.Point{areaCenter.X, areaCenter.Y},
 		area,
 		lidarDevices,
 		deviceOffests,
 		compassSensor,
 	)
 	if err != nil {
-		panic(err)
+		golog.Global.Fatal(err)
 	}
 	if err := lar.Start(); err != nil {
-		panic(err)
+		golog.Global.Fatal(err)
 	}
 	defer lar.Stop()
 	areaViewer := &slam.AreaViewer{area}

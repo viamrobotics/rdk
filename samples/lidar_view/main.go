@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"image"
 	"math"
 	"os"
 	"os/signal"
@@ -105,13 +104,14 @@ func main() {
 	if saveToDisk != "" {
 		areaSizeMeters := 50
 		areaScale := 100 // cm
-		area = slam.NewSquareArea(areaSizeMeters, areaScale)
-		areaCenter := area.Center()
+		area, err = slam.NewSquareArea(areaSizeMeters, areaScale)
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
 
 		var err error
 		lar, err = slam.NewLocationAwareRobot(
 			&fake.Base{},
-			image.Point{areaCenter.X, areaCenter.Y},
 			area,
 			lidarDevices,
 			nil,

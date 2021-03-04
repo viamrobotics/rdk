@@ -123,11 +123,7 @@ func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
 		return &utils.Vec2Matrix{}, nil
 	}
 	measureMat := mat.NewDense(3, len(measurements), nil)
-	var angSum float64
-	var distSum float64
 	for i, next := range measurements {
-		angSum += next.Angle()
-		distSum += next.Distance()
 		x, y := next.Coords()
 		measureMat.Set(0, i, x)
 		measureMat.Set(1, i, y)

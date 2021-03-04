@@ -1,17 +1,14 @@
 package slam
 
 import (
+	"errors"
 	"fmt"
-	"image"
 	"sync"
 
 	"go.viam.com/robotcore/pointcloud"
 )
 
-// TODO(erd): adapt to use float64 on points, if it makes sense.
-// If it does not make sense, then reason how to resolve duplicate
-// points in the cloud at the same X or Y.
-func NewSquareArea(sizeMeters int, scaleTo int) *SquareArea {
+func NewSquareArea(sizeMeters int, scaleTo int) (*SquareArea, error) {
 	cloud := pointcloud.New()
 	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo)
 }
@@ -21,22 +18,22 @@ func NewSquareAreaFromFile(fn string, sizeMeters int, scaleTo int) (*SquareArea,
 	if err != nil {
 		return nil, err
 	}
-	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo), nil
+	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo)
 }
 
-func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters int, scaleTo int) *SquareArea {
-	measurementScaled := sizeMeters * scaleTo
-	centerX := measurementScaled / 2
-	centerY := centerX
+func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters int, scaleTo int) (*SquareArea, error) {
+	sizeScaled := sizeMeters * scaleTo
+	if sizeScaled%2 != 0 {
+		return nil, errors.New("sizeMeters * scaleTo must be divisible by 2")
+	}
 
 	return &SquareArea{
 		sizeMeters: sizeMeters,
 		scaleTo:    scaleTo,
-		dim:        sizeMeters * scaleTo,
+		dim:        sizeScaled,
+		quadLength: sizeScaled / 2,
 		cloud:      cloud,
-		centerX:    centerX,
-		centerY:    centerY,
-	}
+	}, nil
 }
 
 type SquareArea struct {
@@ -44,25 +41,28 @@ type SquareArea struct {
 	sizeMeters int
 	scaleTo    int
 	dim        int
+	quadLength int
 	cloud      *pointcloud.PointCloud
-	centerX    int
-	centerY    int
 }
 
 func (sa *SquareArea) BlankCopy() *SquareArea {
-	return NewSquareArea(sa.sizeMeters, sa.scaleTo)
+	area, err := NewSquareArea(sa.sizeMeters, sa.scaleTo)
+	if err != nil {
+		panic(err) // cannot fail
+	}
+	return area
 }
 
 func (sa *SquareArea) Size() (int, int) {
 	return sa.sizeMeters, sa.scaleTo
 }
 
-func (sa *SquareArea) Dims() (int, int) {
-	return sa.dim, sa.dim
+func (sa *SquareArea) Dim() int {
+	return sa.dim
 }
 
-func (sa *SquareArea) Center() image.Point {
-	return image.Point{sa.centerX, sa.centerY}
+func (sa *SquareArea) QuadrantLength() int {
+	return sa.quadLength
 }
 
 func (sa *SquareArea) WriteToFile(fn string) error {
@@ -100,11 +100,11 @@ func (msa *mutableSquareArea) At(x, y int) int {
 }
 
 func (msa *mutableSquareArea) Set(x, y, v int) {
-	if x < 0 || x >= msa.dim {
-		panic(fmt.Errorf("x must be between [0,%d)", msa.dim))
+	if x < -msa.quadLength || x >= msa.quadLength {
+		panic(fmt.Errorf("x must be between [%d,%d)", -msa.quadLength, msa.quadLength))
 	}
-	if y < 0 || y >= msa.dim {
-		panic(fmt.Errorf("y must be between [0,%d)", msa.dim))
+	if y < -msa.quadLength || y >= msa.quadLength {
+		panic(fmt.Errorf("y must be between [%d,%d)", -msa.quadLength, msa.quadLength))
 	}
 	msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
 }

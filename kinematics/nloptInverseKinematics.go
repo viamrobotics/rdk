@@ -141,7 +141,7 @@ func (ik *NloptIK) GetGoals() []Goal {
 func (ik *NloptIK) Halt() {
 	ik.halt = true
 	err := ik.opt.ForceStop()
-	if err != nil{
+	if err != nil {
 		golog.Global.Info("nlopt halt error: ", err)
 	}
 }
@@ -154,7 +154,7 @@ func (ik *NloptIK) Solve() bool {
 		if err != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
-			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP"{
+			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP" {
 				golog.Global.Info("nlopt optimization error: ", err)
 			}
 		}

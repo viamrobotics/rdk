@@ -18,7 +18,7 @@ import (
 	"github.com/edaniels/test"
 )
 
-func TestNext(t *testing.T) {
+func TestRobotNext(t *testing.T) {
 	// empty means no detected points
 	t.Run("initially image should be empty", func(t *testing.T) {
 		harness := newTestHarness(t)
@@ -37,14 +37,14 @@ func TestNext(t *testing.T) {
 		harness := newTestHarness(t)
 		larBot := harness.bot
 		harness.area.Mutate(func(area MutableArea) {
-			area.Set(1, 1, 1)
-			area.Set(5, 20, 1)
-			area.Set(80, 4, 1)
+			area.Set(-10, 1, 1)
+			area.Set(5, -20, 1)
+			area.Set(40, 4, 1)
 		})
 
 		img, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		points := utils.NewStringSet("1,1", "5,20", "80,4")
+		points := utils.NewStringSet("40,49", "55,70", "90,46")
 		rimage.IterateImage(img, func(x, y int, c color.Color) bool {
 			cC := rimage.ConvertToNRGBA(c)
 			if cC == areaPointColor {
@@ -117,33 +117,33 @@ func TestNext(t *testing.T) {
 			Orientation int
 			Diff        int
 		}{
-			{0, 0, 0, 1, 0, 1924},
-			{0, 0, 0, 1, 15, 1937},
-			{0, 0, 0, 1, 30, 1924},
-			{0, 0, 0, 1, 45, 1924},
-			{0, 0, 0, 1, 60, 1879},
-			{0, 0, 0, 1, 75, 1869},
-			{0, 0, 0, 1, 90, 1924},
-			{0, 0, 0, 1, 105, 1873},
-			{0, 0, 0, 1, 120, 1874},
-			{0, 0, 0, 1, 135, 1924},
-			{0, 0, 0, 1, 150, 1924},
-			{0, 0, 0, 1, 165, 1968},
-			{0, 0, 0, 1, 180, 1918},
-			{0, 0, 0, 1, 195, 1960},
-			{0, 0, 0, 1, 210, 1948},
-			{0, 0, 0, 1, 225, 1957},
-			{0, 0, 0, 1, 240, 1946},
-			{0, 0, 0, 1, 255, 1935},
-			{0, 0, 0, 1, 270, 1936},
-			{0, 0, 0, 1, 285, 1924},
-			{0, 0, 0, 1, 300, 1924},
-			{0, 0, 0, 1, 315, 1954},
-			{0, 0, 0, 1, 330, 1924},
-			{0, 0, 0, 1, 345, 1935},
-			{0, 0, 0, 2, 0, 1925},
-			{0, 0, 0, 2, 90, 1928},
-			{5, 5, 0, 2, 90, 1923},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 0, Diff: 2823},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 15, Diff: 2725},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 30, Diff: 2771},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 45, Diff: 2758},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 60, Diff: 2787},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 75, Diff: 2754},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 90, Diff: 2821},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 105, Diff: 2777},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 120, Diff: 2782},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 135, Diff: 2793},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 150, Diff: 2810},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 165, Diff: 2823},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 180, Diff: 2829},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 195, Diff: 2840},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 210, Diff: 2820},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 225, Diff: 2798},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 240, Diff: 2799},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 255, Diff: 2818},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 270, Diff: 2826},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 285, Diff: 2832},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 300, Diff: 2834},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 315, Diff: 2830},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 330, Diff: 2768},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 345, Diff: 2740},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 0, Diff: 2824},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 2822},
+			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 2819},
 		} {
 			testName := fmt.Sprintf("%d_%d_%d_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
 			t.Run(testName, func(t *testing.T) {
@@ -184,6 +184,9 @@ func TestNext(t *testing.T) {
 					diffFileName := getDiffDataFileName(testName)
 					test.That(t, rimage.WriteImageToFile(diffFileName, cmpImg), test.ShouldBeNil)
 				}
+				tcCopy := tc
+				tcCopy.Diff = cmp
+				t.Logf("possibly new case %#v\n", tcCopy)
 				test.That(t, cmp, test.ShouldAlmostEqual, tc.Diff, 10)
 			})
 		}

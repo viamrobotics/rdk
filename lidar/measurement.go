@@ -50,15 +50,8 @@ func (m *Measurement) UnmarshalJSON(data []byte) error {
 }
 
 func NewMeasurement(angle, distance float64) *Measurement {
-	// Remember, our view is from x,y=0,0 at top left
-	// of a containing matrix
-	// 0°   -  (0,-1) // Up
-	// 90°  -  (1, 0) // Right
-	// 180° -  (0, 1) // Down
-	// 270° -  (-1,0) // Left
 	rad := utils.DegToRad(angle)
-	x := distance * math.Sin(rad)
-	y := distance * -math.Cos(rad)
+	x, y := utils.RayToUpwardCWCartesian(angle, distance)
 	return &Measurement{
 		data: measurementData{
 			Angle:    rad,
@@ -70,9 +63,12 @@ func NewMeasurement(angle, distance float64) *Measurement {
 	}
 }
 
-// in radians
-func (m *Measurement) Angle() float64 {
+func (m *Measurement) AngleRad() float64 {
 	return m.data.Angle
+}
+
+func (m *Measurement) AngleDeg() float64 {
+	return m.data.AngleDeg
 }
 
 func (m *Measurement) Distance() float64 {
