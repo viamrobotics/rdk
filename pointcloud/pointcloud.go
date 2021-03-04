@@ -51,15 +51,6 @@ func (cloud *PointCloud) Set(p Point) {
 		cloud.hasValue = true
 	}
 	v := p.Position()
-	if v.X < 0 {
-		panic(v.X)
-	}
-	if v.Y < 0 {
-		panic(v.X)
-	}
-	if v.Z < 0 {
-		panic(v.X)
-	}
 	if v.X > cloud.maxX {
 		cloud.maxX = v.X
 	}
