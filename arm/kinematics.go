@@ -1,6 +1,7 @@
 package arm
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -14,16 +15,26 @@ type Kinematics struct {
 	effectorID int
 }
 
-// Returns a new kinematics.Model from a correctly formatted XML file
-// Note that ParseFile is currently very fragile
-func NewRobot(jsonFile string) (*Kinematics, error) {
-	m, err := kinematics.ParseJSONFile(jsonFile)
-	if err != nil {
-		return nil, err
+// Returns a new kinematics.Model from a correctly formatted JSON file
+func NewRobot(jsonFile string, cores int) (*Kinematics, error) {
+	// We want to make (cores + 1) copies of our model
+	// Our master copy, plus one for each of the IK engines to work with
+	// We create them all now because deep copies of sufficiently complicated structs is a pain
+
+	if cores < 1 {
+		return nil, errors.New("need to have at least one CPU core")
 	}
-	// TODO: configurable IK method once more than one is supported
-	ik := kinematics.CreateJacobianIKSolver(m)
-	return &Kinematics{m, ik, 0}, nil
+	models := make([]*kinematics.Model, cores+1)
+	for i := 0; i <= cores; i++ {
+		model, err := kinematics.ParseJSONFile(jsonFile)
+		if err != nil {
+			return nil, err
+		}
+		models[i] = model
+	}
+
+	ik := kinematics.CreateCombinedIKSolver(models)
+	return &Kinematics{models[0], ik, 0}, nil
 }
 
 // Returns the end effector's current Position
