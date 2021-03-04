@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+type PostProcess func(raw int64) int64
+
 type Direction int
 
 const (
@@ -81,4 +83,5 @@ type DigitalInterrupt interface {
 	Value() int64
 	Tick()
 	AddCallbackDelta(delta int64, c chan int64)
+	AddPostProcess(pp PostProcess)
 }

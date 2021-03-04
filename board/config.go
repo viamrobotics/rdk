@@ -20,10 +20,11 @@ type AnalogConfig struct {
 }
 
 type DigitalInterruptConfig struct {
-	Name string
-	Pin  string
-	Type string // e.g. basic, servo
-	Mode string // falling, rising
+	Name    string
+	Pin     string
+	Type    string // e.g. basic, servo
+	Mode    string // falling, rising
+	Formula string
 }
 
 type Config struct {
