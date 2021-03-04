@@ -138,7 +138,8 @@ func (m *gobotMotor) rpmMonitor() {
 			}
 
 			if newForce != m.lastForce {
-				golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v", currentRPM, m.lastForce, newForce)
+				golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
+					currentRPM, m.lastForce, newForce, m.desiredRPM)
 				err := m.setForce(newForce)
 				if err != nil {
 					golog.Global.Warnf("rpm regulator cannot set force %s", err)
@@ -160,7 +161,7 @@ func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block 
 		return fmt.Errorf("rotations has to be >= 0")
 	}
 
-	golog.Global.Debugf("m: %s d: %v speed: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
+	//golog.Global.Debugf("m: %s d: %v speed: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
 
 	if m.encoder == nil {
 		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
@@ -171,9 +172,12 @@ func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block 
 	}
 
 	start := func() error {
-		err := m.Go(d, 8)
-		if err != nil {
-			return err
+		if !m.IsOn() {
+			// if we're off we start slow, otherwise we just set the desired rpm
+			err := m.Go(d, 8)
+			if err != nil {
+				return err
+			}
 		}
 		m.desiredRPM = speed
 		return nil
