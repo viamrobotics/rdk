@@ -90,11 +90,15 @@ func MeasurementsFromVec2Matrix(m *utils.Vec2Matrix) Measurements {
 		x := mD.At(0, i)
 		y := mD.At(1, i)
 
-		ang := utils.RadToDeg(math.Atan2(x, y))
-		if ang < 0 {
-			ang = 360 + ang
-		}
-		ms = append(ms, NewMeasurement(ang, math.Sqrt(x*x+y*y)))
+		ms = append(ms, MeasurementFromCoord(x, y))
 	}
 	return ms
+}
+
+func MeasurementFromCoord(x, y float64) *Measurement {
+	ang := utils.RadToDeg(math.Atan2(x, y))
+	if ang < 0 {
+		ang = 360 + ang
+	}
+	return NewMeasurement(ang, math.Sqrt(x*x+y*y))
 }

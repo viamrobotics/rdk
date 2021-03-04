@@ -45,9 +45,14 @@ type LocationAwareRobot struct {
 	clientClickMode     string
 	clientLidarViewMode string
 
-	serverMu  sync.Mutex
-	closeCh   chan struct{}
-	closeOnce sync.Once
+	activeWorkers   sync.WaitGroup
+	serverMu        sync.Mutex
+	closeCh         chan struct{}
+	signalCloseOnce sync.Once
+
+	updateInterval time.Duration
+	cullInterval   time.Duration
+	updateHook     func(culled bool)
 }
 
 func NewLocationAwareRobot(
@@ -90,6 +95,9 @@ func NewLocationAwareRobot(
 		clientClickMode:     clientClickModeInfo,
 		clientLidarViewMode: clientLidarViewModeStored,
 		closeCh:             make(chan struct{}),
+
+		updateInterval: defaultUpdateInterval,
+		cullInterval:   defaultCullInterval,
 	}
 	robot.newPresentView()
 	return robot, nil
@@ -113,16 +121,20 @@ func (lar *LocationAwareRobot) Start() error {
 	}
 	lar.started = true
 	lar.serverMu.Unlock()
-	lar.cullLoop()
+	lar.activeWorkers.Add(1)
 	lar.updateLoop()
 	return nil
 }
 
-func (lar *LocationAwareRobot) Stop() {
-	lar.closeOnce.Do(func() {
+func (lar *LocationAwareRobot) SignalStop() {
+	lar.signalCloseOnce.Do(func() {
 		close(lar.closeCh)
-		lar.newPresentView()
 	})
+}
+
+func (lar *LocationAwareRobot) Stop() {
+	lar.SignalStop()
+	lar.activeWorkers.Wait()
 }
 
 func (lar *LocationAwareRobot) Close() error {
@@ -353,82 +365,66 @@ func (lar *LocationAwareRobot) basePos() (int, int) {
 	return lar.basePosX, lar.basePosY
 }
 
-func (lar *LocationAwareRobot) cullLoop() {
+func (lar *LocationAwareRobot) update() {
+	lar.serverMu.Lock()
+	defer lar.serverMu.Unlock()
+
+	basePosX, basePosY := lar.basePos()
+	for _, dev := range lar.devices {
+		if fake, ok := dev.(*fake.Lidar); ok {
+			fake.SetPosition(image.Point{basePosX, basePosY})
+		}
+	}
+	if err := lar.scanAndStore(lar.devices, lar.presentViewArea); err != nil {
+		golog.Global.Debugw("error scanning and storing", "error", err)
+		return
+	}
+}
+
+func (lar *LocationAwareRobot) cull() {
+	lar.serverMu.Lock()
+	defer lar.serverMu.Unlock()
+
 	_, scaleDown := lar.rootArea.Size()
 	maxBoundsX := lar.maxBounds.X * scaleDown
 	maxBoundsY := lar.maxBounds.Y * scaleDown
 
-	cull := func() {
-		lar.serverMu.Lock()
-		defer lar.serverMu.Unlock()
+	basePosX, basePosY := lar.basePos()
 
-		// TODO(erd): not thread safe
-		basePosX, basePosY := lar.basePos()
+	// calculate ideal visibility bounds
+	areaMinX := basePosX - maxBoundsX/2
+	areaMaxX := basePosX + maxBoundsX/2
+	areaMinY := basePosY - maxBoundsY/2
+	areaMaxY := basePosY + maxBoundsY/2
 
-		// calculate ideal visibility bounds
-		areaMinX := basePosX - maxBoundsX/2
-		areaMaxX := basePosX + maxBoundsX/2
-		areaMinY := basePosY - maxBoundsY/2
-		areaMaxY := basePosY + maxBoundsY/2
-
-		// decrement observable area which will be refreshed by scans
-		// within the area (assuming the lidar is active)
-		cullArea := func(area *SquareArea, minX, maxX, minY, maxY int) {
-			area.Mutate(func(mutArea MutableArea) {
-				mutArea.Iterate(func(x, y, v int) bool {
-					if x < minX || x > maxX || y < minY || y > maxY {
-						return true
-					}
-					if v-1 == 0 {
-						mutArea.Unset(x, y)
-					} else {
-						mutArea.Set(x, y, v-1)
-					}
-					return true
-				})
-			})
-		}
-
-		cullArea(lar.presentViewArea, areaMinX, areaMaxX, areaMinY, areaMaxY)
-	}
-
-	ticker := time.NewTicker(time.Second)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-lar.closeCh:
-				return
-			default:
+	// decrement observable area which will be refreshed by scans
+	// within the area (assuming the lidar is active)
+	lar.presentViewArea.Mutate(func(mutArea MutableArea) {
+		mutArea.Iterate(func(x, y, v int) bool {
+			if x < areaMinX || x > areaMaxX || y < areaMinY || y > areaMaxY {
+				return true
 			}
-			select {
-			case <-lar.closeCh:
-				return
-			case <-ticker.C:
+			if v-1 == 0 {
+				mutArea.Unset(x, y)
+			} else {
+				mutArea.Set(x, y, v-1)
 			}
-			cull()
-		}
-	}()
+			return true
+		})
+	})
 }
 
-func (lar *LocationAwareRobot) updateLoop() {
-	update := func() {
-		lar.serverMu.Lock()
-		defer lar.serverMu.Unlock()
+var (
+	defaultUpdateInterval = 33 * time.Millisecond
+	defaultCullInterval   = time.Second
+)
 
-		basePosX, basePosY := lar.basePos()
-		for _, dev := range lar.devices {
-			if fake, ok := dev.(*fake.Lidar); ok {
-				fake.SetPosition(image.Point{basePosX, basePosY})
-			}
-		}
-		if err := lar.scanAndStore(lar.devices, lar.presentViewArea); err != nil {
-			golog.Global.Debugw("error scanning and storing", "error", err)
-			return
-		}
-	}
-	ticker := time.NewTicker(33 * time.Millisecond)
+func (lar *LocationAwareRobot) updateLoop() {
+	var cullEvery = int(lar.cullInterval / lar.updateInterval)
+	ticker := time.NewTicker(lar.updateInterval)
+	count := 0
 	go func() {
+		defer lar.activeWorkers.Done()
 		defer ticker.Stop()
 		for {
 			select {
@@ -441,7 +437,22 @@ func (lar *LocationAwareRobot) updateLoop() {
 				return
 			case <-ticker.C:
 			}
-			update()
+			func() {
+				var culled bool
+				if lar.updateHook != nil {
+					defer func() {
+						lar.updateHook(culled)
+					}()
+				}
+				lar.update()
+				if (count+1)%cullEvery == 0 {
+					lar.cull()
+					culled = true
+					count = 0
+				} else {
+					count++
+				}
+			}()
 		}
 	}()
 }

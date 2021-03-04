@@ -45,6 +45,12 @@ type SquareArea struct {
 	cloud      *pointcloud.PointCloud
 }
 
+// PointCloud returns the mutable PointCloud this area uses
+// to store its points.
+func (sa *SquareArea) PointCloud() *pointcloud.PointCloud {
+	return sa.cloud
+}
+
 func (sa *SquareArea) BlankCopy() *SquareArea {
 	area, err := NewSquareArea(sa.sizeMeters, sa.scaleTo)
 	if err != nil {

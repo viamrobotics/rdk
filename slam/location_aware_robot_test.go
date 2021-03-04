@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"testing"
+	"time"
 
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
@@ -16,11 +17,12 @@ import (
 )
 
 type testHarness struct {
-	bot        *LocationAwareRobot
-	baseDevice *fake.Base
-	area       *SquareArea
-	lidarDev   *inject.LidarDevice
-	cmdReg     gostream.CommandRegistry
+	bot          *LocationAwareRobot
+	baseDevice   *fake.Base
+	area         *SquareArea
+	lidarDev     *inject.LidarDevice
+	cmdReg       gostream.CommandRegistry
+	scansPerCull int
 }
 
 func (th *testHarness) ResetPos() {
@@ -52,6 +54,11 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
+	// changing this will modify test output
+	larBot.updateInterval = time.Millisecond
+	larBot.cullInterval = 3 * time.Millisecond
+	scansPerCull := int(larBot.cullInterval / larBot.updateInterval)
+
 	cmdReg := gostream.NewCommandRegistry()
 	larBot.RegisterCommands(cmdReg)
 
@@ -61,6 +68,7 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 		area,
 		injectLidarDev,
 		cmdReg,
+		scansPerCull,
 	}
 }
 
@@ -115,6 +123,13 @@ func TestRobotStartStopClose(t *testing.T) {
 	th = newTestHarness(t)
 	test.That(t, th.bot.Start(), test.ShouldBeNil)
 	th.bot.Close()
+	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
+	th.bot.Stop()
+	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
+
+	th = newTestHarness(t)
+	test.That(t, th.bot.Start(), test.ShouldBeNil)
+	th.bot.SignalStop()
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
 	th.bot.Stop()
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
@@ -789,4 +804,82 @@ func TestScanAndStore(t *testing.T) {
 			tc.validateArea(t, area)
 		})
 	}
+}
+
+func TestRobotUpdate(t *testing.T) {
+	t.Skip("TODO(erd)")
+}
+
+func TestRobotCull(t *testing.T) {
+	t.Skip("TODO(erd)")
+}
+
+func TestRobotActive(t *testing.T) {
+	waitForCulls := func(th *testHarness, num int) <-chan struct{} {
+		ch := make(chan struct{})
+		count := 0
+		th.bot.updateHook = func(culled bool) {
+			if !culled {
+				return
+			}
+			if count+1 == num {
+				th.bot.SignalStop()
+				close(ch)
+				return
+			}
+			count++
+		}
+		return ch
+	}
+
+	t.Run("still base should continue to update and cull the present view", func(t *testing.T) {
+		th := newTestHarness(t)
+		waitFor := 3
+		ch := waitForCulls(th, waitFor)
+
+		test.That(t, th.bot.Start(), test.ShouldBeNil)
+
+		expectedNumMeasurements := waitFor * th.scansPerCull
+		measurments := []*lidar.Measurement{
+			lidar.NewMeasurement(0, .1),
+			lidar.NewMeasurement(10, .2),
+			lidar.NewMeasurement(20, .3),
+			lidar.NewMeasurement(30, .4),
+			lidar.NewMeasurement(40, .5),
+			lidar.NewMeasurement(50, .6),
+			lidar.NewMeasurement(60, .7),
+			lidar.NewMeasurement(70, .8),
+			lidar.NewMeasurement(80, .9),
+		}
+		test.That(t, measurments, test.ShouldHaveLength, expectedNumMeasurements)
+		count := 0
+		th.lidarDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			m := measurments[count]
+			count++
+			return lidar.Measurements{m}, nil
+		}
+		<-ch
+		th.bot.Stop()
+
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)
+		expected := map[string]struct{}{
+			"1,3,1": {},
+			"3,3,1": {},
+			"4,3,1": {},
+			"6,3,2": {},
+			"7,2,2": {},
+			"8,1,2": {},
+		}
+		actual := map[string]struct{}{}
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Iterate(func(x, y, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+				return true
+			})
+		})
+		test.That(t, actual, test.ShouldHaveLength, (cullTTL-1)*th.scansPerCull)
+		test.That(t, actual, test.ShouldResemble, expected)
+	})
+
+	t.Skip("TODO(erd): moving base should update root view over time")
 }
