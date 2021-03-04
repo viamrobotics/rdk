@@ -438,6 +438,10 @@ func TestNewPresentView(t *testing.T) {
 }
 
 func TestScanAndStore(t *testing.T) {
+	testUpdate(t, true)
+}
+
+func testUpdate(t *testing.T, internal bool) {
 	th := newTestHarness(t)
 	area := th.area.BlankCopy()
 	device := &inject.LidarDevice{}
@@ -781,7 +785,6 @@ func TestScanAndStore(t *testing.T) {
 			th.bot.basePosY = tc.basePosY
 			th.bot.setOrientation(tc.orientation)
 			th.bot.deviceOffsets = tc.deviceOffsets
-			area := th.area.BlankCopy()
 			devices := make([]lidar.Device, 0, len(tc.allMeasurements))
 			for _, measurements := range tc.allMeasurements {
 				mCopy := measurements
@@ -791,7 +794,14 @@ func TestScanAndStore(t *testing.T) {
 				}
 				devices = append(devices, device)
 			}
-			err := th.bot.scanAndStore(devices, area)
+			area := th.area.BlankCopy()
+			var err error
+			if internal {
+				err = th.bot.scanAndStore(devices, area)
+			} else {
+				th.bot.devices = devices
+				err = th.bot.update()
+			}
 			if tc.err != "" {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
@@ -801,13 +811,17 @@ func TestScanAndStore(t *testing.T) {
 			if tc.validateArea == nil {
 				return
 			}
-			tc.validateArea(t, area)
+			if internal {
+				tc.validateArea(t, area)
+			} else {
+				tc.validateArea(t, th.bot.presentViewArea)
+			}
 		})
 	}
 }
 
 func TestRobotUpdate(t *testing.T) {
-	t.Skip("TODO(erd)")
+	testUpdate(t, false)
 }
 
 func TestRobotCull(t *testing.T) {
