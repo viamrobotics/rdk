@@ -2,6 +2,26 @@
     "boards" : [
         { "name": "local",
           "model" : "pi",
+          "motors" : [
+              { "name" : "port",
+                "pins" : {
+                    "a" : "11",
+                    "b" : "13",
+                    "pwm" : "15"
+                },
+                "encoder" : "port-encoder",
+                "ticksPerRotation" : 250
+              },
+              { "name" : "starboard",
+                "pins" : {
+                    "a" : "16",
+                    "b" : "18",
+                    "pwm" : "22"
+                },
+                "encoder" : "starboard-encoder",
+                "ticksPerRotation" : 250
+              }
+          ],
           "digitalInterrupts" : [
               { "name" : "throttle",
                 "note" : "rc1",
@@ -42,6 +62,14 @@
                 "type" : "servo",
                 "mode" : "both",
                 "formula" : "(/ (- raw 1100) 390)"
+              },
+              { "name" : "port-encoder",
+                "pin" : "29",
+                "mode" : "falling"
+              },
+              { "name" : "starboard-encoder",
+                "pin" : "31",
+                "mode" : "falling"
               }
           ]
         }
