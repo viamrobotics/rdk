@@ -166,7 +166,10 @@ func (a *Wx250s) Close() {
 	if err != nil {
 		golog.Global.Errorf("Sleep pos error: %s", err)
 	}
-	golog.Global.Errorf("Torque off error: %s", a.TorqueOff())
+	err = a.TorqueOff()
+	if err != nil{
+		golog.Global.Errorf("Torque off error: %s", err)
+	}
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position
