@@ -167,7 +167,7 @@ func (a *Wx250s) Close() {
 		golog.Global.Errorf("Sleep pos error: %s", err)
 	}
 	err = a.TorqueOff()
-	if err != nil{
+	if err != nil {
 		golog.Global.Errorf("Torque off error: %s", err)
 	}
 }

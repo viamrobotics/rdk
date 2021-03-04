@@ -25,6 +25,7 @@
 vendor/
 
 # Test data
+coverage.txt
 slam/data/*new*
 slam/data/*diff*
 
