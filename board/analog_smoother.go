@@ -4,22 +4,19 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/utils"
 )
 
 type AnalogSmoother struct {
 	Raw               AnalogReader
 	AverageOverMillis int
 	SamplesPerSecond  int
-	data              []int
-	pos               int
+	data              *utils.RollingAverage
 }
 
 func (as *AnalogSmoother) Read() (int, error) {
-	total := 0
-	for _, d := range as.data {
-		total += d
-	}
-	return total / len(as.data), nil
+	return as.data.Average(), nil
 }
 
 func (as *AnalogSmoother) Start() {
@@ -40,7 +37,7 @@ func (as *AnalogSmoother) Start() {
 	//    numSamples        4
 
 	numSamples := (as.SamplesPerSecond * as.AverageOverMillis) / 1000
-	as.data = make([]int, numSamples)
+	as.data = utils.NewRollingAverage(numSamples)
 	nanosBetween := 1e9 / as.SamplesPerSecond
 
 	go func() {
@@ -53,12 +50,7 @@ func (as *AnalogSmoother) Start() {
 			}
 
 			//golog.Global.Debugf("reading: %d", reading)
-
-			as.data[as.pos] = reading
-			as.pos++
-			if as.pos >= len(as.data) {
-				as.pos = 0
-			}
+			as.data.Add(reading)
 
 			end := time.Now()
 

@@ -3,35 +3,45 @@
         { "name": "local",
           "model" : "pi",
           "digitalInterrupts" : [
-              { "name" : "rc1",
+              { "name" : "throttle",
+                "note" : "rc1",
                 "pin" : "33",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(max 0 (/ (- raw 1150) 8))"
               },
-              { "name" : "rc2",
+              { "name" : "right-horizontal",
                 "pin" : "35",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(/ (- raw 1500) -4)"
               },
-              { "name" : "rc3",
+              { "name" : "right-vertical",
                 "pin" : "37",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(/ (- raw 1500) 4)"
               },
-              { "name" : "rc4",
+              { "name" : "direction",
+                "note" : "rc4",
                 "pin" : "36",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(/ (- raw 1500) -4)"
               },
-              { "name" : "rc5",
+              { "name" : "a",
+                "note" : "rc5",
                 "pin" : "38",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(/ (- raw 1100) 700)"
               },
-              { "name" : "rc6",
+              { "name" : "mode",
+                "note" : "rc6",
                 "pin" : "40",
                 "type" : "servo",
-                "mode" : "both"
+                "mode" : "both",
+                "formula" : "(/ (- raw 1100) 390)"
               }
           ]
         }
