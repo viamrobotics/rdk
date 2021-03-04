@@ -17,6 +17,10 @@ func TestPointCloudBasic(t *testing.T) {
 	pAt = pc.At(1, 0, 1)
 	test.That(t, pAt, test.ShouldResemble, p1)
 	test.That(t, pAt, test.ShouldNotResemble, p0)
+	p2 := NewPoint(-1, -2, 1)
+	pc.Set(p2)
+	pAt = pc.At(-1, -2, 1)
+	test.That(t, pAt, test.ShouldResemble, p2)
 
 	count := 0
 	pc.Iterate(func(p Point) bool {
@@ -25,11 +29,13 @@ func TestPointCloudBasic(t *testing.T) {
 			test.That(t, p, test.ShouldResemble, p0)
 		case 1:
 			test.That(t, p, test.ShouldResemble, p1)
+		case -1:
+			test.That(t, p, test.ShouldResemble, p2)
 		}
 		count++
 		return true
 	})
-	test.That(t, count, test.ShouldEqual, 2)
+	test.That(t, count, test.ShouldEqual, 3)
 
 	test.That(t, pc.At(1, 1, 1), test.ShouldBeNil)
 }
