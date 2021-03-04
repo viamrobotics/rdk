@@ -825,7 +825,88 @@ func TestRobotUpdate(t *testing.T) {
 }
 
 func TestRobotCull(t *testing.T) {
-	t.Skip("TODO(erd)")
+	t.Run("should only cull anything within range in the present view", func(t *testing.T) {
+		th := newTestHarness(t)
+		th.bot.rootArea.Mutate(func(area MutableArea) {
+			area.Set(1, 2, 3)
+			area.Set(0, 4, 3)
+			area.Set(7, 6, 4)
+		})
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Set(1, 2, 3)
+			area.Set(0, 4, 3)
+			area.Set(7, 6, 4)
+			area.Set(1, 1, 3)
+			area.Set(0, 0, 3)
+			area.Set(2, 49, 3)
+			area.Set(-35, -4, 3)
+		})
+
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 7)
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(1, 2), test.ShouldEqual, 2)
+			test.That(t, area.At(0, 4), test.ShouldEqual, 2)
+			test.That(t, area.At(7, 6), test.ShouldEqual, 3)
+			test.That(t, area.At(1, 1), test.ShouldEqual, 2)
+			test.That(t, area.At(0, 0), test.ShouldEqual, 2)
+			test.That(t, area.At(2, 49), test.ShouldEqual, 2)
+			test.That(t, area.At(-35, -4), test.ShouldEqual, 2)
+		})
+
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 7)
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(1, 2), test.ShouldEqual, 1)
+			test.That(t, area.At(0, 4), test.ShouldEqual, 1)
+			test.That(t, area.At(7, 6), test.ShouldEqual, 2)
+			test.That(t, area.At(1, 1), test.ShouldEqual, 1)
+			test.That(t, area.At(0, 0), test.ShouldEqual, 1)
+			test.That(t, area.At(2, 49), test.ShouldEqual, 1)
+			test.That(t, area.At(-35, -4), test.ShouldEqual, 1)
+		})
+
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 1)
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(7, 6), test.ShouldEqual, 1)
+		})
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
+
+		th.bot.maxBounds = image.Point{5, 5}
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			area.Set(1, 2, 3)
+			area.Set(0, 4, 3)
+			area.Set(7, 6, 4)
+			area.Set(1, 1, 3)
+			area.Set(0, 0, 3)
+			area.Set(2, 49, 3)
+			area.Set(-35, -4, 3)
+		})
+		th.bot.cull()
+		th.bot.cull()
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 3)
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(7, 6), test.ShouldEqual, 1)
+			test.That(t, area.At(2, 49), test.ShouldEqual, 3)
+			test.That(t, area.At(-35, -4), test.ShouldEqual, 3)
+		})
+		th.bot.cull()
+		th.bot.cull()
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 2)
+		th.bot.presentViewArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(2, 49), test.ShouldEqual, 3)
+			test.That(t, area.At(-35, -4), test.ShouldEqual, 3)
+		})
+
+		th.bot.rootArea.Mutate(func(area MutableArea) {
+			test.That(t, area.At(1, 2), test.ShouldEqual, 3)
+			test.That(t, area.At(0, 4), test.ShouldEqual, 3)
+			test.That(t, area.At(7, 6), test.ShouldEqual, 4)
+		})
+	})
 }
 
 func TestRobotActive(t *testing.T) {
