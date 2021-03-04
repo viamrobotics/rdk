@@ -19,7 +19,7 @@ func TestCreateIKSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(m)
 
-	pos := Position{0, -365, 360.25, 0, 0, 0}
+	pos := Position{90, -165, 360.25, 0, 45, 45}
 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
