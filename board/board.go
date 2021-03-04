@@ -9,9 +9,9 @@ type PostProcess func(raw int64) int64
 type Direction int
 
 const (
-	DirNone     = 0
-	DirForward  = 1
-	DirBackward = 2
+	DirNone     = Direction(0)
+	DirForward  = Direction(1)
+	DirBackward = Direction(2)
 )
 
 func DirectionFromString(s string) Direction {
