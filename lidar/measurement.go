@@ -90,7 +90,7 @@ func MeasurementsFromVec2Matrix(m *utils.Vec2Matrix) Measurements {
 		x := mD.At(0, i)
 		y := mD.At(1, i)
 
-		ang := utils.RadToDeg(math.Atan2(x, -y))
+		ang := utils.RadToDeg(math.Atan2(x, y))
 		if ang < 0 {
 			ang = 360 + ang
 		}

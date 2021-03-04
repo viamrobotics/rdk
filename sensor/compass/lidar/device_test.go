@@ -162,7 +162,6 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
-		t.Skip() // TODO(erd): fix this...
 		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
 		test.That(t, err, test.ShouldBeNil)
 
