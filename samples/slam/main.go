@@ -26,7 +26,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/edaniels/gostream/codec/x264"
 )
 
 const fakeDev = "fake"
@@ -215,7 +215,7 @@ func main() {
 	defer lar.Stop()
 	areaViewer := &slam.AreaViewer{area}
 
-	config := vpx.DefaultViewConfig
+	config := x264.DefaultViewConfig
 	config.StreamName = "robot view"
 	remoteView, err := gostream.NewView(config)
 	if err != nil {

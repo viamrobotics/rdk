@@ -24,7 +24,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/edaniels/gostream/codec/x264"
 )
 
 const fakeDev = "fake"
@@ -125,7 +125,7 @@ func main() {
 		}
 	}
 
-	remoteView, err := gostream.NewView(vpx.DefaultViewConfig)
+	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/edaniels/gostream/codec/x264"
 	"github.com/fogleman/gg"
 	"github.com/gonum/stat"
 )
@@ -126,7 +126,7 @@ func shapeWalkLine(img *rimage.Image, startX, startY int) error {
 }
 
 func view(img *rimage.Image) error {
-	remoteView, err := gostream.NewView(vpx.DefaultViewConfig)
+	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
 		return err
 	}

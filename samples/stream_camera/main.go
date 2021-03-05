@@ -12,7 +12,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/edaniels/gostream/codec/x264"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		golog.Global.Fatal(err)
 	}
 
-	remoteView, err := gostream.NewView(vpx.DefaultViewConfig)
+	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
