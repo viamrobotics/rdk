@@ -82,7 +82,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 		}
 	}
 
-	distance := 15.0
+	distance := 30.0
 	x, y := utils.RayToUpwardCWCartesian(lar.orientation(), distance)
 	relX := float64(centerX) + x
 	relY := float64(centerY) - y // Y is decreasing in an image

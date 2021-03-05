@@ -153,7 +153,7 @@ func main() {
 		}
 	}()
 
-	autoTiler := gostream.NewAutoTiler(1280, 720)
+	autoTiler := gostream.NewAutoTiler(800, 600)
 	for _, dev := range lidarDevices {
 		autoTiler.AddSource(lidar.NewImageSource(dev))
 		break

@@ -1,6 +1,8 @@
 package hellorobot
 
 import (
+	"errors"
+
 	"github.com/sbinet/go-python"
 
 	"go.viam.com/robotcore/api"
@@ -19,45 +21,69 @@ type Robot struct {
 	robotObj *python.PyObject
 }
 
-func New() *Robot {
+func checkPythonErr() error {
+	exc, val, _ := python.PyErr_Fetch()
+	if exc == nil || exc.GetCPointer() == nil {
+		return nil
+	}
+	if val != nil {
+		return errors.New(val.String())
+	}
+	return errors.New(exc.String())
+}
+
+func New() (*Robot, error) {
 	transportMod := python.PyImport_ImportModule("stretch_body.transport")
+	if err := checkPythonErr(); err != nil {
+		return nil, err
+	}
 	transportMod.SetAttr(python.PyString_FromString("dbg_on"), python.PyInt_FromLong(0))
 	robotMod := python.PyImport_ImportModule("stretch_body.robot")
+	if err := checkPythonErr(); err != nil {
+		return nil, err
+	}
 	robot := robotMod.CallMethod("Robot")
-	return &Robot{robotObj: robot}
+	if err := checkPythonErr(); err != nil {
+		return nil, err
+	}
+	return &Robot{robotObj: robot}, nil
 }
 
 func (r *Robot) Ready(theRobot api.Robot) error {
 	return nil
 }
 
-func (r *Robot) Startup() {
+func (r *Robot) Startup() error {
 	r.robotObj.CallMethod("startup")
+	return checkPythonErr()
 }
 
-func (r *Robot) Stop() {
+func (r *Robot) Stop() error {
 	r.robotObj.CallMethod("stop")
+	return checkPythonErr()
 }
 
-func (r *Robot) Home() {
+func (r *Robot) Home() error {
 	r.robotObj.CallMethod("home")
+	return checkPythonErr()
 }
 
-func (r *Robot) pushCommand() {
+func (r *Robot) pushCommand() error {
 	r.robotObj.CallMethod("push_command")
+	return checkPythonErr()
 }
 
-func (r *Robot) Base() *Base {
+func (r *Robot) Base() (*Base, error) {
 	base := r.robotObj.GetAttrString("base")
-	return &Base{robot: r, baseObj: base}
+	return &Base{robot: r, baseObj: base}, checkPythonErr()
 }
 
-func (r *Robot) Arm() *Arm {
+func (r *Robot) Arm() (*Arm, error) {
 	arm := r.robotObj.GetAttrString("arm")
-	return &Arm{robot: r, armObj: arm}
+	return &Arm{robot: r, armObj: arm}, checkPythonErr()
 }
 
-func (r *Robot) Compass() *Compass {
+func (r *Robot) Compass() (*Compass, error) {
 	pimu := r.robotObj.GetAttrString("pimu")
-	return &Compass{robot: r, pimuObj: pimu}
+	return &Compass{robot: r, pimuObj: pimu}, checkPythonErr()
 }

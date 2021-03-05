@@ -31,7 +31,10 @@ func main() {
 		lidarDevAddr = flag.Arg(1)
 	}
 
-	helloRobot := hellorobot.New()
+	helloRobot, err := hellorobot.New()
+	if err != nil {
+		panic(err)
+	}
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
@@ -44,7 +47,11 @@ func main() {
 	}
 
 	theRobot := robot.NewBlankRobot()
-	theRobot.AddBase(helloRobot.Base(), robot.Component{})
+	robotBase, err := helloRobot.Base()
+	if err != nil {
+		panic(err)
+	}
+	theRobot.AddBase(robotBase, robot.Component{})
 	theRobot.AddCamera(rimage.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
 	theRobot.AddLidar(lidarDev, robot.Component{})
 

@@ -60,8 +60,14 @@ func main() {
 	case fakeDev:
 		baseDevice = &fake.Base{}
 	case "hello":
-		robot := hellorobot.New()
-		baseDevice = robot.Base()
+		robot, err := hellorobot.New()
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		baseDevice, err = robot.Base()
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
 	default:
 		golog.Global.Fatal(fmt.Errorf("do not know how to make a %q base", baseType))
 	}

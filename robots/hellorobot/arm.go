@@ -17,10 +17,16 @@ type Arm struct {
 
 const armMoveSpeed = 1.0 / 4 // m/sec
 
-func (a *Arm) MoveBy(meters float64) {
+func (a *Arm) MoveBy(meters float64) error {
 	a.armObj.CallMethod("move_by", python.PyFloat_FromDouble(meters))
-	a.robot.pushCommand()
+	if err := checkPythonErr(); err != nil {
+		return err
+	}
+	if err := a.robot.pushCommand(); err != nil {
+		return err
+	}
 	time.Sleep(time.Duration(math.Ceil(math.Abs(meters)/armMoveSpeed)) * time.Second)
+	return nil
 }
 
 func (a *Arm) CurrentPosition() (arm.Position, error) {
