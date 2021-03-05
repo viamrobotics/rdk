@@ -163,19 +163,27 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 		go func() {
 			for {
 				time.Sleep(time.Second)
-				img, err := cam.Next(context.TODO())
-				if err != nil {
-					golog.Global.Debugf("error from camera %s", err)
-					continue
-				}
-				pc := rimage.ConvertToImageWithDepth(img)
-				if pc.Depth == nil {
-					golog.Global.Warnf("no depth data")
+				var depthErr bool
+				func() {
+					img, release, err := cam.Next(context.TODO())
+					if err != nil {
+						golog.Global.Debugf("error from camera %s", err)
+						return
+					}
+					defer release()
+					pc := rimage.ConvertToImageWithDepth(img)
+					if pc.Depth == nil {
+						golog.Global.Warnf("no depth data")
+						depthErr = true
+						return
+					}
+					err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
+					if err != nil {
+						golog.Global.Debugf("error writing %s", err)
+					}
+				}()
+				if depthErr {
 					return
-				}
-				err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
-				if err != nil {
-					golog.Global.Debugf("error writing %s", err)
 				}
 			}
 		}()
