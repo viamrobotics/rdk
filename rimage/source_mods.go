@@ -22,10 +22,10 @@ func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 
 	iwd, ok := orig.(*ImageWithDepth)
 	if !ok {
-		return imaging.Rotate(orig, 180, color.Black), nil, nil
+		return imaging.Rotate(orig, 180, color.Black), func() {}, nil
 	}
 
-	return iwd.Rotate(180), nil, nil
+	return iwd.Rotate(180), func() {}, nil
 }
 
 func (rids *RotateImageDepthSource) Close() error {
