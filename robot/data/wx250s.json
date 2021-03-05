@@ -6,9 +6,7 @@
             "type": "gripper",
             "attributes" : {
               "usbPort"       : "/dev/ttyUSB0",
-              "baudRate"      : "1000000",
-              "modelJSON"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.json",
-              "armServoCount" : "8"
+              "baudRate"      : "1000000"
            }
         },
         {
@@ -21,14 +19,6 @@
               "modelJSON"      : "/home/peter/Documents/echo/robotcore/kinematics/models/mdl/wx250s.json",
               "armServoCount" : "8"
            }
-        },
-      {
-      "model": "webcam",
-      "name": "cameraOver",
-      "type": "camera",
-      "attributes" : {
-          "path": "/dev/video0"
-      }
-    }
+        }
     ]
 }

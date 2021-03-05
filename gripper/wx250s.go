@@ -3,9 +3,9 @@ package gripper
 import (
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/viamrobotics/dynamixel/network"
-	"github.com/viamrobotics/dynamixel/servo"
-	"github.com/viamrobotics/dynamixel/servo/s_model"
+	"go.viam.com/dynamixel/network"
+	"go.viam.com/dynamixel/servo"
+	"go.viam.com/dynamixel/servo/s_model"
 
 	"strconv"
 	"sync"
