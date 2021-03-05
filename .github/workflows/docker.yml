@@ -3,7 +3,8 @@ name: Docker
 on:
   push:
     paths:
-    - 'Dockerfile.fortest'
+      - '.github/workflows/docker.yml'
+      - 'Dockerfile.fortest'
 
 jobs:
   build:
@@ -20,3 +21,8 @@ jobs:
     - name: Build and push
       run: |
         make docker
+    - name: Invoke test workflow
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: Go
+        token: ${{ secrets.GIT_ACCESS_TOKEN }}
