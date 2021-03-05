@@ -185,41 +185,51 @@
         updateJointView({{$idx}})
         updateGridView({{$idx}})
       </script>
-      <table>
+      <table border="1">
         <tr>
-          <th><h5>GRID</h5></th>
-          <th><h5>JOINTS</h5></th>
+          <th colspan="4"><h5>GRID</h5></th>
+          <th colspan="4"><h5>JOINTS</h5></th>
         </tr>
         <tr>
-          <td>
-            <ul>
-              {{ template "C" list $idx "x" 2}}
-              {{ template "C" list $idx "y" 2}}
-              {{ template "C" list $idx "z" 2}}
-              {{ template "C" list $idx "rx" 1}}
-              {{ template "C" list $idx "ry" 1}}
-              {{ template "C" list $idx "rz" 1}}
-              <button onclick="gridCopy({{ $idx }})">Copy values</a>
-              <button onclick="gridSet({{ $idx }})">Set values</a>
-            </ul>
+          {{ template "C" list $idx "x" 2}}
+          {{ template "J" list $idx 0}}
+        </tr>
+        <tr>
+          {{ template "C" list $idx "y" 2}}
+          {{template "J" list $idx 1}}
+        </tr>
+        <tr>
+          {{ template "C" list $idx "z" 2}}
+          {{template "J" list $idx 2}}
+        </tr>
+        <tr>
+          {{ template "C" list $idx "rx" 1}}
+          {{template "J" list $idx 3}}
+        </tr>
+        <tr>
+          {{ template "C" list $idx "ry" 1}}
+          {{template "J" list $idx 4}}
+        </tr>
+        <tr>
+          {{ template "C" list $idx "rz" 1}}
+          {{template "J" list $idx 5}}
+        </tr>
+        <tr>
+          <td/>
+          <td colspan="3">
+            <button onclick="gridCopy({{ $idx }})">Copy values</button>
+            <button onclick="gridSet({{ $idx }})">Apply values</button>
           </td>
-          <td>
-            <ul>
-              {{template "J" list $idx 0}}
-              {{template "J" list $idx 1}}
-              {{template "J" list $idx 2}}
-              {{template "J" list $idx 3}}
-              {{template "J" list $idx 4}}
-              {{template "J" list $idx 5}}
-              <button onclick="jointCopy({{ $idx }})">Copy values</a>
-              <button onclick="jointSet({{ $idx }})">Set values</a>
-            </ul>
+          <td/>
+          <td colspan="3">
+            <button onclick="jointCopy({{ $idx }})">Copy values</button>
+            <button onclick="jointSet({{ $idx }})">Apply values</button>
           </td>
-          <td>
-            <ul>
-              <li><button onclick="makeApiCall('/api/arm?num={{$idx}}&mode=joint&action=abs&j0=0&j1=0&j2=0&j3=0&j4=0&j5=0')">Home</a></li>
-            </ul>
-          </td>
+        </tr>
+        <tr>
+          <th colspan="8"> 
+            <button onclick="makeApiCall('/api/arm?num={{$idx}}&mode=joint&action=abs&j0=0&j1=0&j2=0&j3=0&j4=0&j5=0')">Home</button>
+          </th>
         </tr>
       </table>
     </div>
@@ -323,25 +333,33 @@
 </html>
 
 {{define "C"}}
-<li>
+<th>
   {{ index . 1 }}
+</th>
+<td>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{mul 10 (index . 2)}}')">++</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{index . 2}}')">+</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
   <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{mul 10 (index . 2)}}')">--</button>
-  <span id='arm_c_{{index . 0}}_{{index . 1}}'></span>
-  <input id='arm_ci_{{index . 0}}_{{index . 1}}'>
-</li>
+</td>
+<td id='arm_c_{{index . 0}}_{{index . 1}}'></td>
+<td>
+  <input id='arm_ci_{{index . 0}}_{{index . 1}}' size=7>
+</td>
 {{end}}
 
 {{define "J"}}
-<li>
+<th>
   Joint {{index . 1}}
+</th>
+<td>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=10', 'joint' )">++</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=1', 'joint' )">+</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-1', 'joint' )">-</button>
   <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-10', 'joint' )">--</button>
-  <span id='arm_j_{{index . 0}}_{{index . 1}}'></span>
-  <input id='arm_ji_{{index . 0}}_{{index . 1}}'>
-</li>
+</td>
+<td id='arm_j_{{index . 0}}_{{index . 1}}'></td>
+<td>
+  <input id='arm_ji_{{index . 0}}_{{index . 1}}' size=7>
+</td>
 {{end}}
