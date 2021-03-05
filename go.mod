@@ -3,23 +3,22 @@ module go.viam.com/robotcore
 go 1.16
 
 require (
-	cloud.google.com/go v0.73.0 // indirect
+	contrib.go.opencensus.io/exporter/stackdriver v0.13.5
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
-	github.com/aws/aws-sdk-go v1.36.2 // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
 	github.com/edaniels/gostream v0.0.0-20210305001515-4e4e5c85e3bb
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
+	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/golang/snappy v0.0.2 // indirect
 	github.com/golangci/golangci-lint v1.37.1
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
@@ -30,7 +29,6 @@ require (
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
-	github.com/klauspost/compress v1.11.3 // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
@@ -44,8 +42,9 @@ require (
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	go.mongodb.org/mongo-driver v1.4.4
+	go.opencensus.io v0.22.5
 	go.uber.org/multierr v1.6.0
-	go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03 // indirect
+	go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6

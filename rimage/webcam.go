@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"go.opencensus.io/trace"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/media"
@@ -137,6 +139,9 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 }
 
 func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
+	ctx, span := trace.StartSpan(ctx, "WebcamSource.Next")
+	defer span.End()
+
 	img, err := media.VideoReadReleaser{s.reader}.Read()
 	if err != nil {
 		return nil, err
@@ -146,7 +151,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
 		return img, nil
 	}
 
-	dm, err := s.depth.Next()
+	dm, err := s.depth.Next(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +211,10 @@ func findWebcamDepth(debug bool) (*webcamDepthSource, error) {
 	return &webcamDepthSource{reader}, nil
 }
 
-func (w *webcamDepthSource) Next() (*DepthMap, error) {
+func (w *webcamDepthSource) Next(ctx context.Context) (*DepthMap, error) {
+	_, span := trace.StartSpan(ctx, "webcamDepthSource.Next")
+	defer span.End()
+
 	img, err := media.VideoReadReleaser{w.reader}.Read()
 	if err != nil {
 		return nil, err
@@ -231,7 +239,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			z := color.Gray16Model.Convert(img.At(x, y)).(color.Gray16).Y
-			dm.Set(x, y, int(z))
+			dm.Set(x, y, int32(z))
 		}
 	}
 
