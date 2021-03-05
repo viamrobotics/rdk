@@ -2,6 +2,10 @@ FROM golang:1.16
 
 RUN apt-get update
 RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
     pkg-config \
     gcc \
     g++ \
@@ -35,7 +39,21 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     tesseract-ocr-por \
     libtesseract-dev \
     swig \
-    python2.7-dev
+    python2.7-dev \
+    lsb-release
+
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+RUN echo \
+  "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+RUN curl -fsSL https://deb.nodesource.com/setup_15.x | bash -
+
+RUN apt-get update
+RUN apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    nodejs
 
 WORKDIR /opt/build
 
