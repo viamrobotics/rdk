@@ -6,7 +6,7 @@ on:
   push:
     branches: [ master ]
     paths-ignore:
-      - 'Dockerfile.fortest'
+      - '**Dockerfile.fortest'
   pull_request:
     branches: [ master ]
 

@@ -3,8 +3,8 @@ name: Docker
 on:
   push:
     paths:
-      - '.github/workflows/docker.yml'
-      - 'Dockerfile.fortest'
+      - '**.github/workflows/docker.yml'
+      - '**Dockerfile.fortest'
 
 jobs:
   build:
