@@ -43,7 +43,7 @@ require (
 	go.mongodb.org/mongo-driver v1.4.4
 	go.opencensus.io v0.22.5
 	go.uber.org/multierr v1.6.0
-	go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03
+	go.viam.com/dynamixel v0.0.0-20210305184936-179838cd6ca9 // indirect
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
