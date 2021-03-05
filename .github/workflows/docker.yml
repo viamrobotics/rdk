@@ -1,0 +1,22 @@
+name: Docker
+
+on:
+  push:
+    paths:
+    - 'Dockerfile.fortest'
+
+jobs:
+  build:
+    name: Build
+    runs-on: self-hosted
+    container:
+      image: golang:1.16
+    steps:
+    - name: Login to DockerHub
+      uses: docker/login-action@v1 
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Build and push
+      run: |
+        make docker
