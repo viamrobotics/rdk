@@ -56,8 +56,8 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 
 	// changing this will modify test output
 	larBot.updateInterval = time.Millisecond
-	larBot.cullInterval = 3 * time.Millisecond
-	scansPerCull := int(larBot.cullInterval / larBot.updateInterval)
+	larBot.cullInterval = 3
+	scansPerCull := larBot.cullInterval / int(larBot.updateInterval/time.Millisecond)
 
 	cmdReg := gostream.NewCommandRegistry()
 	larBot.RegisterCommands(cmdReg)
@@ -335,17 +335,17 @@ func TestMoveRect(t *testing.T) {
 		orientation float64
 		rect        image.Rectangle
 	}{
-		{0, 0, 0, 0, 0, image.Rect(-3, -18, 3, -3)},
+		{0, 0, 0, 0, 0, image.Rect(-3, 3, 3, 18)},
 		{0, 0, 0, 0, 90, image.Rect(3, -3, 18, 3)},
-		{0, 0, 0, 0, 180, image.Rect(-3, 3, 3, 18)},
+		{0, 0, 0, 0, 180, image.Rect(-3, -18, 3, -3)},
 		{0, 0, 0, 0, 270, image.Rect(-18, -3, -3, 3)},
-		{23, 54, 23, 54, 0, image.Rect(20, 36, 26, 51)},
+		{23, 54, 23, 54, 0, image.Rect(20, 57, 26, 72)},
 		{23, 54, 23, 54, 90, image.Rect(26, 51, 41, 57)},
-		{23, 54, 23, 54, 180, image.Rect(20, 57, 26, 72)},
+		{23, 54, 23, 54, 180, image.Rect(20, 36, 26, 51)},
 		{23, 54, 23, 54, 270, image.Rect(5, 51, 20, 57)},
-		{49, 48, 50, 32, 0, image.Rect(46, 14, 52, 45)},
+		{49, 48, 50, 32, 0, image.Rect(46, 51, 52, 82)},
 		{49, 48, 64, 50, 90, image.Rect(52, 45, 82, 51)},
-		{49, 48, 50, 64, 180, image.Rect(46, 51, 52, 82)},
+		{49, 48, 50, 64, 180, image.Rect(46, 14, 52, 45)},
 		{49, 48, 32, 50, 270, image.Rect(14, 45, 46, 51)},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {

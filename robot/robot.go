@@ -272,7 +272,7 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 func (r *Robot) newProvider(config Component) (api.Provider, error) {
 	switch config.Model {
 	case hellorobot.ModelName:
-		return hellorobot.New(), nil
+		return hellorobot.New()
 	case minirover2.ModelName:
 		if len(r.Boards) != 1 {
 			return nil, fmt.Errorf("minirover2 needs exactly 1 baord right now")
@@ -297,7 +297,7 @@ func (r *Robot) newBase(config Component) (base.Device, error) {
 		if err != nil {
 			return nil, err
 		}
-		return t.(*hellorobot.Robot).Base(), nil
+		return t.(*hellorobot.Robot).Base()
 	case minirover2.ModelName:
 		t, err := r.providerByModel(minirover2.ModelName)
 		if err != nil {
@@ -332,7 +332,7 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 		if err != nil {
 			return nil, err
 		}
-		return t.(*hellorobot.Robot).Arm(), nil
+		return t.(*hellorobot.Robot).Arm()
 	default:
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
