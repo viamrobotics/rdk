@@ -1,0 +1,14 @@
+{
+    "components" : [
+        { "name" : "front",
+          "type" : "camera",
+          "model" : "webcam",
+          "attributes" : {
+              "model" : "intel515",
+              "path_pattern" : ".*usb.*",
+              "rotate" : "true",
+              "debug" : "true"
+          }
+        }
+    ]
+}
