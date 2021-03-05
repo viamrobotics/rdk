@@ -148,7 +148,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	if s.depth == nil {
-		return img, nil, nil
+		return img, func() {}, nil
 	}
 	defer release()
 
@@ -162,7 +162,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	return iwd, nil, nil
+	return iwd, func() {}, nil
 }
 
 func (s *WebcamSource) Close() error {
