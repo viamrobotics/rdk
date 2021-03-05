@@ -51,7 +51,7 @@ type LocationAwareRobot struct {
 	signalCloseOnce sync.Once
 
 	updateInterval time.Duration
-	cullInterval   time.Duration
+	cullInterval   int
 	updateHook     func(culled bool)
 }
 
@@ -292,9 +292,9 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) image
 	switch orientation {
 	case 0:
 		// top-left of base extended up
-		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
+		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY+baseRect.Dy()/2
 		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 - distY - detectionBuffer))
+		pathY1 = int(float64(pathY0 + distY + detectionBuffer))
 	case 90:
 		// top-right of base extended right
 		pathX0, pathY0 = lar.basePosX+baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
@@ -302,9 +302,9 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) image
 		pathY1 = pathY0 + baseRect.Dy()
 	case 180:
 		// bottom-left of base extended down
-		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY+baseRect.Dy()/2
+		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
 		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 + distY + detectionBuffer))
+		pathY1 = int(float64(pathY0 - distY - detectionBuffer))
 	case 270:
 		// top-left of base extended left
 		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
@@ -414,11 +414,10 @@ func (lar *LocationAwareRobot) cull() {
 
 var (
 	defaultUpdateInterval = 33 * time.Millisecond
-	defaultCullInterval   = time.Second
+	defaultCullInterval   = 5
 )
 
 func (lar *LocationAwareRobot) updateLoop() {
-	var cullEvery = int(lar.cullInterval / lar.updateInterval)
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
 	go func() {
@@ -445,7 +444,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 				if err := lar.update(); err != nil {
 					golog.Global.Debugw("error scanning and storing", "error", err)
 				}
-				if (count+1)%cullEvery == 0 {
+				if (count+1)%lar.cullInterval == 0 {
 					lar.cull()
 					culled = true
 					count = 0
