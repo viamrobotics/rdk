@@ -198,7 +198,7 @@ func TestCommands(t *testing.T) {
 		origPosX, origPosY := th.bot.basePosX, th.bot.basePosY
 		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
-			Args: []string{DirectionRight},
+			Args: []string{string(DirectionRight)},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
@@ -208,7 +208,7 @@ func TestCommands(t *testing.T) {
 
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
-			Args: []string{DirectionRight},
+			Args: []string{string(DirectionRight)},
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
@@ -218,7 +218,7 @@ func TestCommands(t *testing.T) {
 
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
-			Args: []string{DirectionRight},
+			Args: []string{string(DirectionRight)},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
@@ -231,7 +231,7 @@ func TestCommands(t *testing.T) {
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
-			Args: []string{DirectionRight},
+			Args: []string{string(DirectionRight)},
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "collide")
@@ -347,40 +347,40 @@ func TestCommands(t *testing.T) {
 		x, y := th.bot.basePosX, th.bot.basePosY
 		resp, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
-			Args: []string{DirectionUp},
+			Args: []string{string(DirectionUp)},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionUp)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, string(DirectionUp))
 		test.That(t, th.bot.orientation(), test.ShouldEqual, 0)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
 		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
 		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
-			Args: []string{DirectionDown},
+			Args: []string{string(DirectionDown)},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionDown)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, string(DirectionDown))
 		test.That(t, th.bot.orientation(), test.ShouldEqual, 180)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
 		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
 		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
-			Args: []string{DirectionLeft},
+			Args: []string{string(DirectionLeft)},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionLeft)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, string(DirectionLeft))
 		test.That(t, th.bot.orientation(), test.ShouldEqual, 270)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
 		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
 
 		resp, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotTurnTo,
-			Args: []string{DirectionRight},
+			Args: []string{string(DirectionRight)},
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(resp.Data()), test.ShouldContainSubstring, DirectionRight)
+		test.That(t, string(resp.Data()), test.ShouldContainSubstring, string(DirectionRight))
 		test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, x)
 		test.That(t, th.bot.basePosY, test.ShouldEqual, y)
