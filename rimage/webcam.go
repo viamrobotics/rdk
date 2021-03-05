@@ -138,30 +138,31 @@ func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
 	return nil, fmt.Errorf("could find no webcams")
 }
 
-func (s *WebcamSource) Next(ctx context.Context) (image.Image, error) {
+func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "WebcamSource.Next")
 	defer span.End()
 
-	img, err := media.VideoReadReleaser{s.reader}.Read()
+	img, release, err := s.reader.Next(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if s.depth == nil {
-		return img, nil
+		return img, nil, nil
 	}
+	defer release()
 
 	dm, err := s.depth.Next(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	iwd, err := s.align.Align(&ImageWithDepth{ConvertImage(img), dm})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return iwd, nil
+	return iwd, nil, nil
 }
 
 func (s *WebcamSource) Close() error {
@@ -215,10 +216,11 @@ func (w *webcamDepthSource) Next(ctx context.Context) (*DepthMap, error) {
 	_, span := trace.StartSpan(ctx, "webcamDepthSource.Next")
 	defer span.End()
 
-	img, err := media.VideoReadReleaser{w.reader}.Read()
+	img, release, err := w.reader.Next(ctx)
 	if err != nil {
 		return nil, err
 	}
+	defer release()
 
 	return imageToDepthMap(img), nil
 }

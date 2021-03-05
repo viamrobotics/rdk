@@ -13,14 +13,14 @@ import (
 	"github.com/fogleman/gg"
 )
 
-func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, error) {
+func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), error) {
 	switch lar.clientLidarViewMode {
 	case clientLidarViewModeStored:
 		return lar.renderStoredView()
 	case clientLidarViewModeLive:
 		return lar.renderLiveView()
 	default:
-		return nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
+		return nil, nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
 	}
 }
 
@@ -115,18 +115,18 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	return dc.Image()
 }
 
-func (lar *LocationAwareRobot) renderStoredView() (image.Image, error) {
+func (lar *LocationAwareRobot) renderStoredView() (image.Image, func(), error) {
 	_, bounds, areas := lar.areasToView()
-	return lar.renderAreas(bounds, areas), nil
+	return lar.renderAreas(bounds, areas), func() {}, nil
 }
 
-func (lar *LocationAwareRobot) renderLiveView() (image.Image, error) {
+func (lar *LocationAwareRobot) renderLiveView() (image.Image, func(), error) {
 	devices, bounds, areas := lar.areasToView()
 	blankArea := areas[0].BlankCopy()
 
 	if err := lar.scanAndStore(devices, blankArea); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return lar.renderAreas(bounds, []*SquareArea{blankArea}), nil
+	return lar.renderAreas(bounds, []*SquareArea{blankArea}), func() {}, nil
 }
