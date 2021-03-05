@@ -11,7 +11,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
-	github.com/edaniels/gostream v0.0.0-20210303173612-eff8ca05bc59
+	github.com/edaniels/gostream v0.0.0-20210305001515-4e4e5c85e3bb
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
@@ -37,7 +37,7 @@ require (
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/pion/mediadevices v0.1.17
+	github.com/pion/mediadevices v0.1.18-0.20210305000905-3d3830f7ffa2
 	github.com/sbinet/go-python v0.1.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/stretchr/testify v1.7.0
@@ -58,5 +58,3 @@ require (
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
 
 replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210302143937-e15079af0c35
-
-replace github.com/pion/mediadevices => github.com/edaniels/mediadevices v0.1.22
