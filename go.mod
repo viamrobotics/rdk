@@ -43,9 +43,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
-	github.com/viamrobotics/dynamixel v0.0.0-20210218153524-e52f765b9997
 	go.mongodb.org/mongo-driver v1.4.4
 	go.uber.org/multierr v1.6.0
+	go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03 // indirect
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20201208152932-35266b937fa6

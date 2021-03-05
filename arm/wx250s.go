@@ -5,9 +5,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-	"github.com/viamrobotics/dynamixel/network"
-	"github.com/viamrobotics/dynamixel/servo"
-	"github.com/viamrobotics/dynamixel/servo/s_model"
+	"go.viam.com/dynamixel/network"
+	"go.viam.com/dynamixel/servo"
+	"go.viam.com/dynamixel/servo/s_model"
 
 	"strconv"
 	"sync"
@@ -88,10 +88,6 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	}
 	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
-	// HACK my joint angles are reversed for these joints. Fix.
-	setJointTelNums[1] *= -1
-	setJointTelNums[2] *= -1
-
 	a.kin.SetJointPositions(setJointTelNums)
 	ci = a.kin.GetForwardPosition()
 	ci.X /= 1000
@@ -112,9 +108,6 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	}
 
 	servoPosList := a.kin.GetJointPositions()
-	// HACK my joint angles are reversed for these joints. Fix.
-	servoPosList[1] *= -1
-	servoPosList[2] *= -1
 	return a.MoveToJointPositions(JointPositions{servoPosList})
 }
 
@@ -324,7 +317,6 @@ func (a *Wx250s) TorqueOff() error {
 
 // Set a joint to a position
 func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
-
 	if pos > 4095 {
 		pos = 4095
 	} else if pos < 0 {
@@ -333,7 +325,7 @@ func (a *Wx250s) JointTo(jointName string, pos int, block bool) {
 
 	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
-		golog.Global.Errorf("jointTo error: %s", err)
+		golog.Global.Errorf("%s jointTo error: %s", jointName, err)
 	}
 }
 
