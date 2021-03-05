@@ -19,7 +19,11 @@ type DepthMap struct {
 	width  int
 	height int
 
-	data [][]int
+	data []int32
+}
+
+func (dm *DepthMap) kxy(x, y int) int {
+	return (y * dm.width) + x
 }
 
 func (dm *DepthMap) HasData() bool {
@@ -42,16 +46,16 @@ func (dm *DepthMap) Rows() int {
 	return dm.height
 }
 
-func (dm *DepthMap) Get(p image.Point) int {
-	return dm.data[p.X][p.Y]
+func (dm *DepthMap) Get(p image.Point) int32 {
+	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
-func (dm *DepthMap) GetDepth(x, y int) int {
-	return dm.data[x][y]
+func (dm *DepthMap) GetDepth(x, y int) int32 {
+	return dm.data[dm.kxy(x, y)]
 }
 
-func (dm *DepthMap) Set(x, y, val int) {
-	dm.data[x][y] = val
+func (dm *DepthMap) Set(x, y int, val int32) {
+	dm.data[dm.kxy(x, y)] = val
 }
 
 func myMax(a, b int) int {
@@ -73,11 +77,11 @@ func (dm *DepthMap) Smooth() {
 	}
 }
 
-func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
+func (dm *DepthMap) _getDepthOrEstimate(x, y int) int32 {
 	if x < 0 || y < 0 || x >= dm.width || y >= dm.height {
 		return 0
 	}
-	z := dm.data[x][y]
+	z := dm.GetDepth(x, y)
 	if z > 0 {
 		return z
 	}
@@ -92,7 +96,7 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
 
 		for a := startX; a < x+offset && a < dm.width; a++ {
 			for b := startY; b < y+offset && b < dm.height; b++ {
-				temp := dm.data[a][b]
+				temp := dm.GetDepth(a, b)
 				if temp == 0 {
 					continue
 				}
@@ -106,8 +110,8 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int {
 		return 0
 	}
 
-	dm.data[x][y] = int(total / num)
-	return dm.data[x][y]
+	dm.Set(x, y, int32(total/num))
+	return dm.GetDepth(x, y)
 }
 
 func _readNext(r io.Reader) (int64, error) {
@@ -162,16 +166,15 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
-	dm.data = make([][]int, dm.width)
+	dm.data = make([]int32, dm.width*dm.height)
 
 	for x := 0; x < dm.width; x++ {
-		dm.data[x] = make([]int, dm.height)
 		for y := 0; y < dm.height; y++ {
 			temp, err := _readNext(f)
 			if err != nil {
 				return nil, err
 			}
-			dm.data[x][y] = int(temp)
+			dm.Set(x, y, int32(temp))
 		}
 	}
 
@@ -235,11 +238,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	}
 
 	temp := make([]byte, 2)
-	dm.data = make([][]int, dm.width)
-
-	for x := 0; x < dm.width; x++ {
-		dm.data[x] = make([]int, dm.height)
-	}
+	dm.data = make([]int32, dm.width*dm.height)
 
 	for y := 0; y < dm.height; y++ {
 		for x := 0; x < dm.width; x++ {
@@ -258,7 +257,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
 			}
 
-			dm.data[x][y] = int(units * float64(binary.LittleEndian.Uint16(temp)))
+			dm.Set(x, y, int32(units*float64(binary.LittleEndian.Uint16(temp))))
 
 		}
 	}
@@ -311,7 +310,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
-			binary.LittleEndian.PutUint64(buf, uint64(dm.data[x][y]))
+			binary.LittleEndian.PutUint64(buf, uint64(dm.GetDepth(x, y)))
 			_, err = out.Write(buf)
 			if err != nil {
 				return err
@@ -322,9 +321,9 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
-func (dm *DepthMap) MinMax() (int, int) {
-	min := 100000
-	max := 0
+func (dm *DepthMap) MinMax() (int32, int32) {
+	min := int32(100000)
+	max := int32(0)
 
 	for x := 0; x < dm.Width(); x++ {
 		for y := 0; y < dm.Height(); y++ {
@@ -344,13 +343,13 @@ func (dm *DepthMap) MinMax() (int, int) {
 	return min, max
 }
 
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int) image.Image {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int32) image.Image {
 	min, max := dm.MinMax()
 
-	if min < hardMin {
+	if hardMin >= 0 && min < hardMin {
 		min = hardMin
 	}
-	if max > hardMax {
+	if hardMax >= 0 && max > hardMax {
 		max = hardMax
 	}
 
@@ -408,20 +407,19 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 	dm2 := &DepthMap{
 		width:  newWidth,
 		height: newHeight,
-		data:   make([][]int, newWidth),
+		data:   make([]int32, newWidth*newHeight),
 	}
 
 	// these are new coordinates
 	for x := 0; x < newWidth; x++ {
-		dm2.data[x] = make([]int, newHeight)
 		for y := 0; y < newHeight; y++ {
-			var val int
+			var val int32
 			if clockwise {
-				val = dm.data[y][x]
+				val = dm.GetDepth(y, x)
 			} else {
-				val = dm.data[dm.width-y-1][dm.height-x-1]
+				val = dm.GetDepth(dm.width-y-1, dm.height-x-1)
 			}
-			dm2.data[x][y] = val
+			dm2.Set(x, y, val)
 		}
 	}
 	return dm2
@@ -432,15 +430,14 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 	dm2 := &DepthMap{
 		width:  dm.width,
 		height: dm.height,
-		data:   make([][]int, dm.width),
+		data:   make([]int32, dm.width*dm.height),
 	}
 
 	// these are new coordinates
 	for x := 0; x < dm.width; x++ {
-		dm2.data[x] = make([]int, dm.height)
 		for y := 0; y < dm.height; y++ {
-			val := dm.data[dm.width-1-x][dm.height-1-y]
-			dm2.data[x][y] = val
+			val := dm.GetDepth(dm.width-1-x, dm.height-1-y)
+			dm2.Set(x, y, val)
 		}
 	}
 	return dm2
@@ -450,11 +447,7 @@ func NewEmptyDepthMap(width, height int) DepthMap {
 	dm := DepthMap{
 		width:  width,
 		height: height,
-		data:   make([][]int, width),
-	}
-
-	for x := 0; x < dm.width; x++ {
-		dm.data[x] = make([]int, dm.height)
+		data:   make([]int32, width*height),
 	}
 
 	return dm
@@ -470,7 +463,7 @@ func (w *dmWarpConnector) Get(x, y int, buf []float64) {
 }
 
 func (w *dmWarpConnector) Set(x, y int, data []float64) {
-	w.Out.Set(x, y, int(data[0]))
+	w.Out.Set(x, y, int32(data[0]))
 }
 
 func (w *dmWarpConnector) OutputDims() (int, int) {
