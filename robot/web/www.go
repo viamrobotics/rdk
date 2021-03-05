@@ -19,7 +19,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/gostream/codec/vpx"
+	"github.com/edaniels/gostream/codec/x264"
 
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/board"
@@ -528,7 +528,7 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 
 	var view gostream.View
 	if len(theRobot.Cameras) != 0 || len(theRobot.LidarDevices) != 0 {
-		config := vpx.DefaultViewConfig
+		config := x264.DefaultViewConfig
 		var err error
 		view, err = gostream.NewView(config)
 		if err != nil {
