@@ -15,7 +15,7 @@ func TestRotateSource(t *testing.T) {
 	source := &StaticSource{pc}
 	rs := &RotateImageDepthSource{source}
 
-	rawImage, err := rs.Next(context.Background())
+	rawImage, _, err := rs.Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

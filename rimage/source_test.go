@@ -11,14 +11,14 @@ import (
 
 func TestHTTPSourceNoDepth(t *testing.T) {
 	s := HTTPSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
-	_, err := s.Next(context.Background())
+	_, _, err := s.Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
-	a, err := s.Next(context.Background())
+	a, _, err := s.Next(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
 			t.Skip()

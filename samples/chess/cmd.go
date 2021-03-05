@@ -255,20 +255,22 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
 	ctx := context.TODO()
 	imageSize := image.Point{}
-	img, err := wristCam.Next(ctx)
+	img, release, err := wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
+	defer release()
 	imgBounds := img.Bounds()
 	imageSize.X = imgBounds.Max.X
 	imageSize.Y = imgBounds.Max.Y
 
 	// wait, cause this camera sucks
 	time.Sleep(500 * time.Millisecond)
-	img, err = wristCam.Next(ctx)
+	img, release, err = wristCam.Next(ctx)
 	if err != nil {
 		return nil, imageSize, err
 	}
+	defer release()
 
 	// got picture finally
 	out, corners, err := chess.FindChessCornersPinkCheat(rimage.ConvertToImageWithDepth(img))
@@ -401,11 +403,15 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		raw, err := cam.Next(context.TODO())
+		raw, release, err := cam.Next(context.TODO())
 		if err != nil {
 			return err
 		}
-		dm := rimage.ConvertToImageWithDepth(raw).Depth
+		var dm *rimage.DepthMap
+		func() {
+			defer release()
+			dm = rimage.ConvertToImageWithDepth(raw).Depth
+		}()
 		if dm == nil {
 			return fmt.Errorf("no depthj on gripperCam")
 		}
@@ -531,8 +537,9 @@ func main() {
 
 	go func() {
 		for {
-			img, err := webcam.Next(context.TODO())
+			img, release, err := webcam.Next(context.TODO())
 			func() {
+				defer release()
 				if err != nil {
 					golog.Global.Debugf("error reading device: %s", err)
 					return

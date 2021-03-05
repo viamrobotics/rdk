@@ -172,7 +172,7 @@ func view(img *rimage.Image) error {
 		time.Sleep(2 * time.Second)
 		gostream.StreamSource(
 			cancelCtx,
-			gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, error) { return imgs[0], nil }),
+			gostream.ImageSourceFunc(func(ctx context.Context) (image.Image, func(), error) { return imgs[0], func() {}, nil }),
 			remoteView)
 	}()
 

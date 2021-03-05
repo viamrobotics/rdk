@@ -16,8 +16,8 @@ type StaticSource struct {
 	Img *ImageWithDepth
 }
 
-func (ss *StaticSource) Next(ctx context.Context) (image.Image, error) {
-	return ss.Img, nil
+func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
+	return ss.Img, func() {}, nil
 }
 
 func (ss *StaticSource) Close() error {
@@ -31,8 +31,9 @@ type FileSource struct {
 	DepthFN string
 }
 
-func (fs *FileSource) Next(ctx context.Context) (image.Image, error) {
-	return NewImageWithDepth(fs.ColorFN, fs.DepthFN)
+func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img, err := NewImageWithDepth(fs.ColorFN, fs.DepthFN)
+	return img, func() {}, err
 }
 
 func (fs *FileSource) Close() error {
@@ -56,33 +57,33 @@ func readyBytesFromURL(url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-func (hs *HTTPSource) Next(ctx context.Context) (image.Image, error) {
+func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.ColorURL)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't ready color url: %s", err)
+		return nil, nil, fmt.Errorf("couldn't ready color url: %s", err)
 	}
 
 	img, _, err := image.Decode(bytes.NewBuffer(colorData))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if hs.DepthURL == "" {
-		return img, nil
+		return img, func() {}, nil
 	}
 
 	depthData, err := readyBytesFromURL(hs.DepthURL)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't ready depth url: %s", err)
+		return nil, nil, fmt.Errorf("couldn't ready depth url: %s", err)
 	}
 
 	// do this first and make sure ok before creating any mats
 	depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &ImageWithDepth{ConvertImage(img), depth}, nil
+	return &ImageWithDepth{ConvertImage(img), depth}, func() {}, nil
 }
 
 func (hs *HTTPSource) Close() error {
@@ -109,11 +110,12 @@ func (s *IntelServerSource) Close() error {
 	return nil
 }
 
-func (s *IntelServerSource) Next(ctx context.Context) (image.Image, error) {
+func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	allData, err := readyBytesFromURL(s.BothURL)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
+		return nil, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
 	}
 
-	return BothReadFromBytes(allData)
+	img, err := BothReadFromBytes(allData)
+	return img, func() {}, err
 }

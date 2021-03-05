@@ -21,10 +21,11 @@ func randomWalkIncrement(theRobot *robot.Robot) error {
 		return fmt.Errorf("no cameras, can't drive")
 	}
 
-	raw, err := theRobot.Cameras[0].Next(context.TODO())
+	raw, release, err := theRobot.Cameras[0].Next(context.TODO())
 	if err != nil {
 		return err
 	}
+	defer release()
 
 	pc := rimage.ConvertToImageWithDepth(raw)
 	if pc.Depth == nil {

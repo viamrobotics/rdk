@@ -18,7 +18,7 @@ func TestAreaViewer(t *testing.T) {
 		area.Set(222, 420, 1)
 	})
 
-	img, err := viewer.Next(context.Background())
+	img, _, err := viewer.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	bounds := img.Bounds()
 	test.That(t, bounds.Dx(), test.ShouldEqual, 1000)

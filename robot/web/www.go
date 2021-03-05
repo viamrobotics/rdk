@@ -402,11 +402,12 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 			return
 		}
 
-		img, err := theRobot.Cameras[num].Next(context.TODO())
+		img, release, err := theRobot.Cameras[num].Next(context.TODO())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		defer release()
 
 		//TODO(erh): choice of encoding
 

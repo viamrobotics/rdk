@@ -12,7 +12,7 @@ type AreaViewer struct {
 	Area *SquareArea
 }
 
-func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
+func (av *AreaViewer) Next(ctx context.Context) (image.Image, func(), error) {
 	areaSize := av.Area.Dim()
 
 	// TODO(erd): any way to make this really fast? Allocate these in advance in
@@ -29,7 +29,7 @@ func (av *AreaViewer) Next(ctx context.Context) (image.Image, error) {
 		})
 	})
 
-	return dc.Image(), nil
+	return dc.Image(), func() {}, nil
 }
 
 func (av *AreaViewer) Close() error {
