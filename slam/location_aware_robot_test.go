@@ -910,7 +910,7 @@ func TestRobotCull(t *testing.T) {
 }
 
 func TestRobotActive(t *testing.T) {
-	waitForCulls := func(th *testHarness, num int) <-chan struct{} {
+	waitForCulls := func(th *testHarness, num int, onDone func()) <-chan struct{} {
 		ch := make(chan struct{})
 		count := 0
 		th.bot.updateHook = func(culled bool) {
@@ -918,7 +918,7 @@ func TestRobotActive(t *testing.T) {
 				return
 			}
 			if count+1 == num {
-				th.bot.SignalStop()
+				onDone()
 				close(ch)
 				return
 			}
@@ -930,7 +930,9 @@ func TestRobotActive(t *testing.T) {
 	t.Run("still base should continue to update and cull the present view", func(t *testing.T) {
 		th := newTestHarness(t)
 		waitFor := 3
-		ch := waitForCulls(th, waitFor)
+		waitCh := waitForCulls(th, waitFor, func() {
+			th.bot.SignalStop()
+		})
 
 		test.That(t, th.bot.Start(), test.ShouldBeNil)
 
@@ -953,9 +955,63 @@ func TestRobotActive(t *testing.T) {
 			count++
 			return lidar.Measurements{m}, nil
 		}
-		<-ch
+		<-waitCh
 		th.bot.Stop()
 
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 6)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
+		expected := map[string]struct{}{
+			"1,3,1": {},
+			"3,3,1": {},
+			"4,3,1": {},
+			"6,3,2": {},
+			"7,2,2": {},
+			"8,1,2": {},
+		}
+		actual := map[string]struct{}{}
+		th.bot.rootArea.Mutate(func(area MutableArea) {
+			area.Iterate(func(x, y, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+				return true
+			})
+		})
+		test.That(t, actual, test.ShouldHaveLength, (cullTTL-1)*th.scansPerCull)
+		test.That(t, actual, test.ShouldResemble, expected)
+	})
+
+	t.Run("moving base should update root view over time", func(t *testing.T) {
+		th := newTestHarness(t)
+		waitFor := 3
+		count := 0
+		swap := make(chan struct{})
+		waitForCulls(th, waitFor, func() {
+			count = 0
+			swap <- struct{}{}
+			<-swap
+		})
+
+		test.That(t, th.bot.Start(), test.ShouldBeNil)
+
+		expectedNumMeasurements := waitFor * th.scansPerCull
+		measurments := []*lidar.Measurement{
+			lidar.NewMeasurement(0, .1),
+			lidar.NewMeasurement(10, .2),
+			lidar.NewMeasurement(20, .3),
+			lidar.NewMeasurement(30, .4),
+			lidar.NewMeasurement(40, .5),
+			lidar.NewMeasurement(50, .6),
+			lidar.NewMeasurement(60, .7),
+			lidar.NewMeasurement(70, .8),
+			lidar.NewMeasurement(80, .9),
+		}
+		test.That(t, measurments, test.ShouldHaveLength, expectedNumMeasurements)
+		th.lidarDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			m := measurments[count]
+			count++
+			return lidar.Measurements{m}, nil
+		}
+
+		<-swap
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
 			"1,3,1": {},
@@ -974,7 +1030,60 @@ func TestRobotActive(t *testing.T) {
 		})
 		test.That(t, actual, test.ShouldHaveLength, (cullTTL-1)*th.scansPerCull)
 		test.That(t, actual, test.ShouldResemble, expected)
-	})
 
-	t.Skip("TODO(erd): moving base should update root view over time")
+		count = 0
+		// Next set
+		measurments = []*lidar.Measurement{
+			lidar.NewMeasurement(0, .2),
+			lidar.NewMeasurement(10, .3),
+			lidar.NewMeasurement(20, .4),
+			lidar.NewMeasurement(30, .5),
+			lidar.NewMeasurement(40, .6),
+			lidar.NewMeasurement(50, .7),
+			lidar.NewMeasurement(60, .8),
+			lidar.NewMeasurement(70, .9),
+			lidar.NewMeasurement(80, 1),
+		}
+
+		moveAmount := 20
+		moveDir := DirectionLeft
+		test.That(t, th.bot.Move(&moveAmount, &moveDir), test.ShouldBeNil)
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, (cullTTL-1)*th.scansPerCull)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
+
+		waitCh := waitForCulls(th, waitFor, func() {
+			th.bot.SignalStop()
+		})
+		swap <- struct{}{}
+
+		<-waitCh
+		th.bot.Stop()
+
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
+		expected = map[string]struct{}{
+			"1,3,1": {},
+			"3,3,1": {},
+			"4,3,1": {},
+			"6,3,2": {},
+			"7,2,2": {},
+			"8,1,2": {},
+
+			"-21,9,2": {},
+			"-23,8,2": {},
+			"-24,2,1": {},
+			"-24,3,1": {},
+			"-24,5,1": {},
+			"-24,6,2": {},
+		}
+		actual = map[string]struct{}{}
+		th.bot.rootArea.Mutate(func(area MutableArea) {
+			area.Iterate(func(x, y, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+				return true
+			})
+		})
+		test.That(t, actual, test.ShouldHaveLength, 2*(cullTTL-1)*th.scansPerCull)
+		test.That(t, actual, test.ShouldResemble, expected)
+	})
 }

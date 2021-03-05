@@ -135,6 +135,7 @@ func (lar *LocationAwareRobot) SignalStop() {
 func (lar *LocationAwareRobot) Stop() {
 	lar.SignalStop()
 	lar.activeWorkers.Wait()
+	lar.newPresentView()
 }
 
 func (lar *LocationAwareRobot) Close() error {
