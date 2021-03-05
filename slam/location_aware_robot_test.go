@@ -173,12 +173,12 @@ func TestMove(t *testing.T) {
 		{"rotate left and move forward too far", intPtr(200), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
 		{"cannot collide up", intPtr(20), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX, th.bot.basePosY-15, 3)
+				area.Set(th.bot.basePosX, th.bot.basePosY+15, 3)
 			})
 		}},
 		{"cannot collide down", intPtr(20), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX, th.bot.basePosY+15, 3)
+				area.Set(th.bot.basePosX, th.bot.basePosY-15, 3)
 			})
 		}},
 		{"cannot collide left", intPtr(20), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {

@@ -272,7 +272,7 @@ func TestCommands(t *testing.T) {
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(th.bot.basePosX, th.bot.basePosY-5, 3)
+			area.Set(th.bot.basePosX, th.bot.basePosY+5, 3)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
@@ -317,7 +317,7 @@ func TestCommands(t *testing.T) {
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(th.bot.basePosX, th.bot.basePosY+5, 3)
+			area.Set(th.bot.basePosX, th.bot.basePosY-5, 3)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
