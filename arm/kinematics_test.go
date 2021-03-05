@@ -5,19 +5,17 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
-	//~ "go.viam.com/robotcore/kinematics"
-	//~ "go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/kinematics"
+	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/testutils"
 )
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
-	//~ wxArm, err := arm.NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
-	//~ test.That(t, err, test.ShouldBeNil)
-	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/eva.json"), 8)
+	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
 	test.That(t, err, test.ShouldBeNil)
-	//~ ik := evaArm.ik.GetSolvers()[1]
-	//~ evaArm.ik = ik
+	//~ 	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/eva.json"), 1)
+	//~ 	test.That(t, err, test.ShouldBeNil)
 
 	evaArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
 
@@ -38,44 +36,49 @@ func TestCombinedIKinematics(t *testing.T) {
 		jPos := evaArm.Model.RandomJointPositions()
 		evaArm.Model.SetPosition(jPos)
 		rPos := evaArm.GetForwardPosition()
-		evaArm.Model.SetPosition(evaArm.Model.RandomJointPositions())
+		startPos := evaArm.Model.RandomJointPositions()
+		evaArm.Model.SetPosition(startPos)
 		err = evaArm.SetForwardPosition(rPos)
 		if err == nil {
 			solved++
+		} else {
+			fmt.Println("from: ", startPos)
+			fmt.Println("to: ", jPos)
+			fmt.Println(err)
 		}
 	}
 	fmt.Println("solved: ", solved)
 }
 
-//~ func TestNloptIKinematics(t *testing.T) {
-//~ wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
-//~ test.That(t, err, test.ShouldBeNil)
-//~ ik := kinematics.CreateNloptIKSolver(wxArm.Model)
-//~ wxArm.ik = ik
+func TestNloptIKinematics(t *testing.T) {
+	wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+	test.That(t, err, test.ShouldBeNil)
+	ik := kinematics.CreateNloptIKSolver(wxArm.Model)
+	wxArm.ik = ik
 
-//~ pos := Position{1, -368, 355, 0, 0, 0}
-//~ transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
-//~ transform.SetX(pos.X)
-//~ transform.SetY(pos.Y)
-//~ transform.SetZ(pos.Z)
+	pos := Position{1, -368, 355, 0, 0, 0}
+	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	transform.SetX(pos.X)
+	transform.SetY(pos.Y)
+	transform.SetZ(pos.Z)
 
-//~ ik.AddGoal(transform, 0)
-//~ solved := ik.Solve()
-//~ test.That(t, solved, test.ShouldBeTrue)
-//~ }
+	ik.AddGoal(transform, 0)
+	solved := ik.Solve()
+	test.That(t, solved, test.ShouldBeTrue)
+}
 
 //~ func TestJacobianIKinematics(t *testing.T) {
-//~ wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
-//~ test.That(t, err, test.ShouldBeNil)
-//~ ik := kinematics.CreateJacobianIKSolver(wxArm.Model)
+//~ 	wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+//~ 	test.That(t, err, test.ShouldBeNil)
+//~ 	ik := kinematics.CreateJacobianIKSolver(wxArm.Model)
 
-//~ pos := Position{1, -370, 355, 0, 0, 0}
-//~ transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
-//~ transform.SetX(pos.X)
-//~ transform.SetY(pos.Y)
-//~ transform.SetZ(pos.Z)
+//~ 	pos := Position{1, -370, 355, 0, 0, 0}
+//~ 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+//~ 	transform.SetX(pos.X)
+//~ 	transform.SetY(pos.Y)
+//~ 	transform.SetZ(pos.Z)
 
-//~ ik.AddGoal(transform, 0)
-//~ solved := ik.Solve()
-//~ test.That(t, solved, test.ShouldBeTrue)
+//~ 	ik.AddGoal(transform, 0)
+//~ 	solved := ik.Solve()
+//~ 	test.That(t, solved, test.ShouldBeTrue)
 //~ }
