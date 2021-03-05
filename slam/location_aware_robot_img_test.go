@@ -23,7 +23,7 @@ func TestRobotNext(t *testing.T) {
 	t.Run("initially image should be empty", func(t *testing.T) {
 		harness := newTestHarness(t)
 		larBot := harness.bot
-		img, err := larBot.Next(context.Background())
+		img, _, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		rimage.IterateImage(img, func(x, y int, c color.Color) bool {
 			r, g, b, a := c.RGBA()
@@ -42,7 +42,7 @@ func TestRobotNext(t *testing.T) {
 			area.Set(40, 4, 1)
 		})
 
-		img, err := larBot.Next(context.Background())
+		img, _, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		points := utils.NewStringSet("40,49", "55,70", "90,46")
 		rimage.IterateImage(img, func(x, y int, c color.Color) bool {
@@ -62,7 +62,7 @@ func TestRobotNext(t *testing.T) {
 				return nil, err1
 			}
 
-			_, err := larBot.Next(context.Background())
+			_, _, err := larBot.Next(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 
@@ -75,7 +75,7 @@ func TestRobotNext(t *testing.T) {
 				}, nil
 			}
 
-			img, err := larBot.Next(context.Background())
+			img, _, err := larBot.Next(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			count := 0
 			rimage.IterateImage(img, func(x, y int, c color.Color) bool {
@@ -93,7 +93,7 @@ func TestRobotNext(t *testing.T) {
 		harness := newTestHarness(t)
 		larBot := harness.bot
 		larBot.clientLidarViewMode = "idk"
-		_, err := larBot.Next(context.Background())
+		_, _, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown view mode")
 	})
@@ -157,7 +157,7 @@ func TestRobotNext(t *testing.T) {
 				larBot.clientZoom = float64(tc.Zoom)
 				larBot.setOrientation(float64(tc.Orientation))
 
-				img, err := larBot.Next(context.Background())
+				img, _, err := larBot.Next(context.Background())
 				test.That(t, err, test.ShouldBeNil)
 
 				fn := getDataFileName(testName)

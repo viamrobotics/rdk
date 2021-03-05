@@ -13,18 +13,19 @@ type RotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
-func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, error) {
-	orig, err := rids.Original.Next(ctx)
+func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	defer release()
 
 	iwd, ok := orig.(*ImageWithDepth)
 	if !ok {
-		return imaging.Rotate(orig, 180, color.Black), nil
+		return imaging.Rotate(orig, 180, color.Black), nil, nil
 	}
 
-	return iwd.Rotate(180), nil
+	return iwd.Rotate(180), nil, nil
 }
 
 func (rids *RotateImageDepthSource) Close() error {

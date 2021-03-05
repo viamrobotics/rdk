@@ -30,10 +30,10 @@ func NewImageSourceNoFiltering(device Device) *ImageSource {
 
 var first *mat.Dense
 
-func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
+func (is *ImageSource) Next(ctx context.Context) (image.Image, func(), error) {
 	bounds, err := is.device.Bounds(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	scaleDown := is.scaleDown
 	bounds.X *= scaleDown
@@ -45,7 +45,7 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
 
 	measurements, err := is.device.Scan(ctx, ScanOptions{NoFilter: is.noFilter})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if first == nil {
@@ -78,7 +78,7 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, error) {
 		dc.SetPixel(int(x), int(y))
 	}
 
-	return dc.Image(), nil
+	return dc.Image(), func() {}, nil
 }
 
 func (is *ImageSource) Close() error {
