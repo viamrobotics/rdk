@@ -7,6 +7,7 @@ on:
     branches: [ master ]
     paths-ignore:
       - '**/Dockerfile.fortest'
+      - '**/docker.yml'
   pull_request:
     branches: [ master ]
 
