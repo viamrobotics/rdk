@@ -3,10 +3,10 @@ package slam
 type Direction string
 
 const (
-	DirectionUp    = "up"
-	DirectionRight = "right"
-	DirectionDown  = "down"
-	DirectionLeft  = "left"
+	DirectionUp    = Direction("up")
+	DirectionRight = Direction("right")
+	DirectionDown  = Direction("down")
+	DirectionLeft  = Direction("left")
 )
 
 func DirectionFromXY(x, y, viewWidth, viewHeight int) Direction {
