@@ -80,3 +80,32 @@ func TestWarp2(t *testing.T) {
 	}
 
 }
+
+func BenchmarkWarp(b *testing.B) {
+	img, err := NewImageFromFile("data/canny1.png")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	size := 800
+
+	m := GetPerspectiveTransform(
+		[]image.Point{
+			{100, 100},
+			{700, 100},
+			{100, 700},
+			{700, 700},
+		},
+		[]image.Point{
+			{0, 0},
+			{size, 0},
+			{0, size},
+			{size, size},
+		})
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		WarpImage(img, m, image.Point{size, size})
+	}
+}
