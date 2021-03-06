@@ -156,7 +156,11 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	iwd := &ImageWithDepth{ConvertImage(img), dm}
+	iwd := func() *ImageWithDepth {
+		_, span := trace.StartSpan(ctx, "convert")
+		defer span.End()
+		return &ImageWithDepth{ConvertImage(img), dm}
+	}()
 	if s.align == nil {
 		return iwd, func() {}, nil
 	}
