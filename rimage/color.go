@@ -83,7 +83,8 @@ func _loopedDiff(a, b float64) float64 {
 func (c Color) toColorful() colorful.Color {
 	cc, ok := colorful.MakeColor(c)
 	if !ok {
-		panic(fmt.Errorf("bad color %v", c))
+		// assume full black
+		return NewColor(0, 0, 0).toColorful()
 	}
 	return cc
 }
@@ -282,7 +283,8 @@ func NewColorFromColor(c color.Color) Color {
 	}
 	cc, ok := colorful.MakeColor(c)
 	if !ok {
-		panic(fmt.Errorf("bad color %v", c))
+		// assume full black
+		return NewColor(0, 0, 0)
 	}
 	r, g, b := cc.RGB255()
 	h, s, v := cc.Hsv()
