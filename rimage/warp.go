@@ -42,7 +42,7 @@ func (c *WarpMatrixConnector) NumFields() int {
 // -----
 
 type WarpImageConnector struct {
-	Input  image.Image
+	Input  *Image
 	Output *Image
 }
 
@@ -172,7 +172,7 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 
 func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *Image {
 	out := NewImage(newSize.X, newSize.Y)
-	conn := &WarpImageConnector{img, out}
+	conn := &WarpImageConnector{ConvertImage(img), out}
 	Warp(conn, m)
 	return conn.Output
 }
