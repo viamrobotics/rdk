@@ -64,7 +64,7 @@ var depthConstraints = mediadevices.MediaStreamConstraints{
 }
 
 type Aligner interface {
-	Align(img *ImageWithDepth) (*ImageWithDepth, error)
+	Align(ctx context.Context, img *ImageWithDepth) (*ImageWithDepth, error)
 }
 
 type WebcamSource struct {
@@ -161,7 +161,7 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return iwd, func() {}, nil
 	}
 
-	aligned, err := s.align.Align(iwd)
+	aligned, err := s.align.Align(ctx, iwd)
 	if err != nil {
 		return nil, nil, err
 	}
