@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
 	"path/filepath"
 	"regexp"
 
@@ -243,9 +242,10 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	// realsense seems to rotate
 	dm := NewEmptyDepthMap(width, height)
 
+	grayImg := img.(*image.Gray16)
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			z := img.At(x, y).(color.Gray16).Y
+			z := grayImg.Gray16At(x, y).Y
 			dm.Set(x, y, int32(z))
 		}
 	}
