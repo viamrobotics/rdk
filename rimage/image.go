@@ -3,13 +3,16 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"sync"
 
 	"go.viam.com/robotcore/utils"
 )
 
 type Image struct {
+	immutable     image.Image
 	data          []Color
 	width, height int
+	mu            sync.Mutex
 }
 
 func (i *Image) ColorModel() color.Model {
@@ -41,22 +44,42 @@ func (i *Image) Height() int {
 }
 
 func (i *Image) At(x, y int) color.Color {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.immutable != nil {
+		return i.immutable.At(x, y)
+	}
 	return i.data[i.kxy(x, y)]
 }
 
 func (i *Image) Get(p image.Point) Color {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.immutable != nil {
+		return NewColorFromColor(i.immutable.At(p.X, p.Y))
+	}
 	return i.data[i.k(p)]
 }
 
 func (i *Image) GetXY(x, y int) Color {
-	return i.data[i.kxy(x, y)]
+	return i.Get(image.Point{x, y})
 }
 
-func (i *Image) SetXY(x, y int, c Color) {
+func (i *Image) setXY(x, y int, c Color) {
 	i.data[i.kxy(x, y)] = c
 }
 
+func (i *Image) SetXY(x, y int, c Color) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.makeMutable()
+	i.setXY(x, y, c)
+}
+
 func (i *Image) Set(p image.Point, c Color) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.makeMutable()
 	i.data[i.k(p)] = c
 }
 
@@ -85,10 +108,36 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 
 }
 
+func (i *Image) makeMutable() {
+	if i.immutable == nil {
+		return
+	}
+	i.data = make([]Color, i.width*i.height)
+	for x := 0; x < i.width; x++ {
+		for y := 0; y < i.height; y++ {
+			i.setXY(x, y, NewColorFromColor(i.immutable.At(x, y)))
+		}
+	}
+	i.immutable = nil
+}
+
 func NewImage(width, height int) *Image {
-	return &Image{make([]Color, width*height), width, height}
+	return &Image{
+		data:   make([]Color, width*height),
+		width:  width,
+		height: height,
+	}
 }
 
 func NewImageFromBounds(bounds image.Rectangle) *Image {
 	return NewImage(bounds.Max.X, bounds.Max.Y)
+}
+
+func NewImageFromStdImage(img image.Image) *Image {
+	bounds := img.Bounds()
+	return &Image{
+		immutable: img,
+		width:     bounds.Max.X,
+		height:    bounds.Max.Y,
+	}
 }
