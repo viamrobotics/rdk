@@ -67,14 +67,7 @@ func ConvertImage(img image.Image) *Image {
 		return iwd.Color
 	}
 
-	b := img.Bounds()
-	ii = NewImage(b.Max.X, b.Max.Y)
-	for x := 0; x < ii.width; x++ {
-		for y := 0; y < ii.height; y++ {
-			ii.SetXY(x, y, NewColorFromColor(img.At(x, y)))
-		}
-	}
-	return ii
+	return NewImageFromStdImage(img)
 }
 
 func IsImageFile(fn string) bool {
