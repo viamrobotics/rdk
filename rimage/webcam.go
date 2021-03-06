@@ -157,12 +157,17 @@ func (s *WebcamSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	iwd, err := s.align.Align(&ImageWithDepth{ConvertImage(img), dm})
+	iwd := &ImageWithDepth{ConvertImage(img), dm}
+	if s.align == nil {
+		return iwd, func() {}, nil
+	}
+
+	aligned, err := s.align.Align(iwd)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return iwd, func() {}, nil
+	return aligned, func() {}, nil
 }
 
 func (s *WebcamSource) Close() error {
@@ -240,7 +245,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
-			z := color.Gray16Model.Convert(img.At(x, y)).(color.Gray16).Y
+			z := img.At(x, y).(color.Gray16).Y
 			dm.Set(x, y, int32(z))
 		}
 	}

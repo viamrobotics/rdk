@@ -14,6 +14,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Perf output
+*.pprog
+
 # output for pprof
 *.prof
 *.pprof
