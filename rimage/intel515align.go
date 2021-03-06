@@ -12,8 +12,8 @@ import (
 type Intel515Align struct {
 }
 
-func (i *Intel515Align) Align(ii *ImageWithDepth) (*ImageWithDepth, error) {
-	_, span := trace.StartSpan(context.Background(), "Intel515Align")
+func (i *Intel515Align) Align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
+	_, span := trace.StartSpan(ctx, "Intel515Align")
 	defer span.End()
 
 	if false {
