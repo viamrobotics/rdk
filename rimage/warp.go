@@ -47,7 +47,7 @@ type WarpImageConnector struct {
 }
 
 func (c *WarpImageConnector) Get(x, y int, buf []float64) {
-	cc := NewColorFromColor(c.Input.At(x, y))
+	cc := c.Input.GetXY(x, y)
 
 	buf[0] = cc.H
 	buf[1] = cc.S
@@ -118,32 +118,25 @@ func invert(m mat.Matrix) *mat.Dense {
 	return d
 }
 
-func getRoundedValueHelp(input WarpConnector, r, c float64, rp, cp int, out, buf []float64) {
-	dx := 1 - math.Abs(float64(rp)-r)
-	dy := 1 - math.Abs(float64(cp)-c)
-
+func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) {
 	area := dx * dy
-	input.Get(rp, cp, buf)
+	input.Get(int(rp), int(cp), buf)
 
 	for idx, vv := range buf {
 		out[idx] += vv * area
 	}
 }
 
-func getRoundedValue(input WarpConnector, rows, cols int, r, c float64, total, buf []float64) []float64 {
-	r0 := int(r)
+func getRoundedValue(input WarpConnector, r, c float64, total, buf []float64) []float64 {
+	r0 := math.Floor(r)
 	r1 := r0 + 1
-	c0 := int(c)
+	c0 := math.Floor(c)
 	c1 := c0 + 1
 
-	for idx := 0; idx < input.NumFields(); idx++ {
-		total[idx] = 0
-	}
-
-	getRoundedValueHelp(input, r, c, r0, c0, total, buf)
-	getRoundedValueHelp(input, r, c, r1, c0, total, buf)
-	getRoundedValueHelp(input, r, c, r1, c1, total, buf)
-	getRoundedValueHelp(input, r, c, r0, c1, total, buf)
+	getRoundedValueHelp(input, r1-r, c1-c, r0, c0, total, buf)
+	getRoundedValueHelp(input, r-r0, c1-c, r1, c0, total, buf)
+	getRoundedValueHelp(input, r-r0, c-c0, r1, c1, total, buf)
+	getRoundedValueHelp(input, r1-r, c-c0, r0, c1, total, buf)
 
 	return total
 }
@@ -152,8 +145,10 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 	m = invert(m)
 	rows, cols := input.OutputDims()
 
-	total := make([]float64, input.NumFields())
-	buf := make([]float64, input.NumFields())
+	numFields := input.NumFields()
+
+	total := make([]float64, numFields)
+	buf := make([]float64, numFields)
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
@@ -163,8 +158,11 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 			C := (m.At(1, 0)*float64(r) + m.At(1, 1)*float64(c) + m.At(1, 2)) /
 				(m.At(2, 0)*float64(r) + m.At(2, 1)*float64(c) + m.At(2, 2))
 
-			//fmt.Printf("%d %d -> %v %v\n", r, c, R, C)
-			input.Set(r, c, getRoundedValue(input, rows, cols, R, C, total, buf))
+			for idx := 0; idx < numFields; idx++ {
+				total[idx] = 0
+			}
+
+			input.Set(r, c, getRoundedValue(input, R, C, total, buf))
 		}
 	}
 
