@@ -29,14 +29,19 @@ func (c Color) Hex() string {
 }
 
 func (c Color) RGBA() (r, g, b, a uint32) {
-	// TODO(erh): check roundtrip
+	a = uint32(255)
 	r = uint32(c.R)
 	r |= r << 8
+	r *= a
+	r /= 0xff
 	g = uint32(c.G)
 	g |= g << 8
+	g *= a
+	g /= 0xff
 	b = uint32(c.B)
 	b |= b << 8
-	a = uint32(255)
+	b *= a
+	b /= 0xff
 	a |= a << 8
 	return
 }
@@ -76,11 +81,11 @@ func _loopedDiff(a, b float64) float64 {
 }
 
 func (c Color) toColorful() colorful.Color {
-	return colorful.Color{
-		R: float64(c.R) / 255.0,
-		G: float64(c.G) / 255.0,
-		B: float64(c.B) / 255.0,
+	cc, ok := colorful.MakeColor(c)
+	if !ok {
+		panic(fmt.Errorf("bad color %v", c))
 	}
+	return cc
 }
 
 func (c Color) DistanceLab(b Color) float64 {
@@ -272,16 +277,24 @@ func NewColorFromHSV(h, s, v float64) Color {
 }
 
 func NewColorFromColor(c color.Color) Color {
-	cc, ok := c.(Color)
-	if ok {
+	if cc, ok := c.(Color); ok {
 		return cc
 	}
-	r, g, b, _ := c.RGBA()
-	return NewColor(
-		uint8(r),
-		uint8(g),
-		uint8(b),
-	)
+	cc, ok := colorful.MakeColor(c)
+	if !ok {
+		panic(fmt.Errorf("bad color %v", c))
+	}
+	r, g, b := cc.RGB255()
+	h, s, v := cc.Hsv()
+
+	return Color{
+		R: r,
+		G: g,
+		B: b,
+		H: h,
+		S: s,
+		V: v,
+	}
 }
 
 var (
