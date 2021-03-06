@@ -1,15 +1,20 @@
 package rimage
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"time"
+
+	"go.opencensus.io/trace"
 )
 
 type Intel515Align struct {
 }
 
 func (i *Intel515Align) Align(ii *ImageWithDepth) (*ImageWithDepth, error) {
+	_, span := trace.StartSpan(context.Background(), "Intel515Align")
+	defer span.End()
 
 	if false {
 		err := ii.WriteTo(fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix()))
