@@ -11,26 +11,10 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-func tobytehsv(c colorful.Color) (uint16, uint8, uint8) {
-	h, s, v := c.Hsv()
-	return tobytehsvfloat(h, s, v)
-}
-
 func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
 }
 
-/*
-type Color struct {
-
-	R, G, B uint8
-
-	// H : MaxUint16 * degrees / 360. So a Hue of of 180 is 128
-	h uint16
-
-	s, v uint8
-}
-*/
 /*
    0: r
    1: g
@@ -114,16 +98,16 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 	a = uint32(255)
 	r = uint32(R)
 	r |= r << 8
-	r *= a
-	r /= 0xff
+	//r *= a
+	//r /= 0xff
 	g = uint32(G)
 	g |= g << 8
-	g *= a
-	g /= 0xff
+	//g *= a
+	//g /= 0xff
 	b = uint32(B)
 	b |= b << 8
-	b *= a
-	b /= 0xff
+	//b *= a
+	//b /= 0xff
 	a |= a << 8
 	return
 }
@@ -163,12 +147,12 @@ func _loopedDiff(a, b float64) float64 {
 }
 
 func (c Color) toColorful() colorful.Color {
-	cc, ok := colorful.MakeColor(c)
-	if !ok {
-		// assume full black
-		return NewColor(0, 0, 0).toColorful()
+	r, g, b := c.RGB255()
+	return colorful.Color{
+		R: float64(r) / 255.0,
+		G: float64(g) / 255.0,
+		B: float64(b) / 255.0,
 	}
-	return cc
 }
 
 func (c Color) DistanceLab(b Color) float64 {
@@ -312,13 +296,7 @@ func _ratioOffFrom135Finish(a float64) float64 {
 }
 
 func NewColor(r, g, b uint8) Color {
-	cc := colorful.Color{
-		R: float64(r) / 255.0,
-		G: float64(g) / 255.0,
-		B: float64(b) / 255.0,
-	}
-	h, s, v := tobytehsv(cc)
-
+	h, s, v := rgbToHsv(r, g, b)
 	return newcolor(r, g, b, h, s, v)
 }
 
@@ -347,18 +325,60 @@ func NewColorFromHSV(h, s, v float64) Color {
 }
 
 func NewColorFromColor(c color.Color) Color {
-	if cc, ok := c.(Color); ok {
+	switch cc := c.(type) {
+	case Color:
 		return cc
+	case color.NRGBA:
+		return NewColor(cc.R, cc.G, cc.B)
+	case color.RGBA:
+		if cc.A == 255 {
+			return NewColor(cc.R, cc.G, cc.B)
+		}
+	case color.YCbCr:
+		r, g, b := color.YCbCrToRGB(cc.Y, cc.Cb, cc.Cr)
+		return NewColor(r, g, b)
 	}
+
 	cc, ok := colorful.MakeColor(c)
 	if !ok {
 		// assume full black
 		return NewColor(0, 0, 0)
 	}
 	r, g, b := cc.RGB255()
-	h, s, v := tobytehsv(cc)
+	return NewColor(r, g, b)
+}
 
-	return newcolor(r, g, b, h, s, v)
+func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
+	min := utils.MinUint8(utils.MinUint8(r, g), b)
+	v = utils.MaxUint8(utils.MaxUint8(r, g), b)
+	C := float64(v - min)
+
+	s = 0
+	if v > 0 {
+		// TODO: can make even faster
+		s = uint8(255.0 * C / float64(v))
+	}
+
+	h = 0 // We use 0 instead of undefined as in wp.
+	if min != v {
+
+		var h2 float64
+		if v == b {
+			h2 = (float64(r)-float64(g))/C + 4.0
+		} else if v == g {
+			h2 = (float64(b)-float64(r))/C + 2.0
+		} else if v == r {
+			h2 = math.Mod((float64(g)-float64(b))/C, 6.0)
+		}
+
+		h2 *= 60.0
+		if h2 < 0.0 {
+			h2 += 360.0
+		}
+		h = uint16(math.MaxUint16 * h2 / 360.0)
+	}
+	return
+
 }
 
 var (
