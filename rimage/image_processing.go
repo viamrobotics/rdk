@@ -148,10 +148,15 @@ func (i *Image) Rotate(amount int) *Image {
 
 	i2 := NewImage(i.width, i.height)
 
-	for x := 0; x < i.width; x++ {
-		for y := 0; y < i.height; y++ {
+	k := 0
+	for y := 0; y < i.height; y++ {
+		for x := 0; x < i.width; x++ {
 			val := i.GetXY(i.width-1-x, i.height-1-y)
-			i2.SetXY(x, y, val)
+			i2.data[k] = val
+
+			//if k != i2.kxy(x,y) { panic("oops") }
+
+			k++
 		}
 	}
 
