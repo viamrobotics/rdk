@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"math"
 
 	"github.com/disintegration/imaging"
 )
@@ -53,9 +52,10 @@ func (i *Image) AverageColorXY(x, y int, radius int) Color {
 			}
 
 			data := i.Get(image.Point{X, Y})
-			h += 360 * float64(data.h) / float64(math.MaxUint16)
-			s += float64(data.s) / 255.0
-			v += float64(data.v) / 255.0
+			H, S, V := data.HsvNormal()
+			h += H
+			s += S
+			v += V
 
 			num++
 		}
