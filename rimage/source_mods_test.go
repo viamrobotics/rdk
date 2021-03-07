@@ -48,3 +48,19 @@ func TestRotateSource(t *testing.T) {
 	}
 
 }
+
+func BenchmarkRotate(b *testing.B) {
+	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	source := &StaticSource{pc}
+	rs := &RotateImageDepthSource{source}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		rs.Next(context.Background())
+	}
+}

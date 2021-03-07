@@ -90,7 +90,7 @@ func TestDepthRotate90(t *testing.T) {
 	assert.Equal(t, Depth(1), dm2.GetDepth(0, 0))
 }
 
-func BenchmarkDepthMapRotate(b *testing.B) {
+func BenchmarkDepthMapRotate90(b *testing.B) {
 	dm, err := ParseDepthMap("data/depthformat2.dat.gz")
 	if err != nil {
 		b.Fatal(err)
@@ -100,6 +100,20 @@ func BenchmarkDepthMapRotate(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		dm.Rotate90(true)
+	}
+
+}
+
+func BenchmarkDepthMapRotate180(b *testing.B) {
+	dm, err := ParseDepthMap("data/depthformat2.dat.gz")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		dm.Rotate180()
 	}
 
 }

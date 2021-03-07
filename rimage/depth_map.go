@@ -440,11 +440,13 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 		data:   make([]Depth, dm.width*dm.height),
 	}
 
-	// these are new coordinates
-	for x := 0; x < dm.width; x++ {
-		for y := 0; y < dm.height; y++ {
+	k := 0 // optimization
+	for y := 0; y < dm.height; y++ {
+		for x := 0; x < dm.width; x++ {
 			val := dm.GetDepth(dm.width-1-x, dm.height-1-y)
-			dm2.Set(x, y, val)
+			dm2.data[k] = val
+			//if k != dm2.kxy(x,y) { panic("oops") }
+			k++
 		}
 	}
 	return dm2

@@ -81,3 +81,16 @@ func doCannyTest(t *testing.T, root string) {
 		t.Errorf("no good ones found for root %s", root)
 	}
 }
+
+func BenchmarkConvertImage(b *testing.B) {
+	img, err := ReadImageFromFile("data/canny1.png")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		ConvertImage(img)
+	}
+}
