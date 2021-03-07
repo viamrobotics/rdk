@@ -10,7 +10,7 @@ import (
 )
 
 func colorFrom(point clusters.Coordinates) Color {
-	return Color{uint8(point[0]), uint8(point[1]), uint8(point[2]), point[3], point[4], point[5]}
+	return NewColorFromArray(point)
 }
 
 type HSVObservation struct {
@@ -18,7 +18,7 @@ type HSVObservation struct {
 }
 
 func (o HSVObservation) Coordinates() clusters.Coordinates {
-	return clusters.Coordinates{float64(o.c.R), float64(o.c.G), float64(o.c.B), o.c.H, o.c.S, o.c.V}
+	return o.c.RawFloatArray()
 }
 
 func (o HSVObservation) Distance(point clusters.Coordinates) float64 {
