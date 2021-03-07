@@ -57,6 +57,20 @@ func MinInt(a, b int) int {
 	return b
 }
 
+func MaxUint8(a, b uint8) uint8 {
+	if a < b {
+		return b
+	}
+	return a
+}
+
+func MinUint8(a, b uint8) uint8 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // Math.pow( x, 2 ) is slow, this is faster
 func Square(n float64) float64 {
 	return n * n
