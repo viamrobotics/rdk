@@ -7,7 +7,15 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type TransformationMatrix mat.Matrix
+type TransformationMatrix [][]float64
+
+func (m TransformationMatrix) At(x, y int) float64 {
+	return m[x][y]
+}
+
+func (m TransformationMatrix) Dims() (int, int) {
+	return len(m), len(m[0])
+}
 
 type WarpConnector interface {
 	Get(x, y int, buf []float64)
@@ -102,7 +110,21 @@ func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 	raw = append(raw, 1.0)
 	m := mat.NewDense(3, 3, raw)
 
-	return m
+	m = invert(m)
+
+	tm := [][]float64{
+		make([]float64, 3),
+		make([]float64, 3),
+		make([]float64, 3),
+	}
+
+	for x := 0; x < 3; x++ {
+		for y := 0; y < 3; y++ {
+			tm[x][y] = m.At(x, y)
+		}
+	}
+
+	return tm
 }
 
 func invert(m mat.Matrix) *mat.Dense {
@@ -139,7 +161,6 @@ func getRoundedValue(input WarpConnector, r, c float64, total, buf []float64) []
 }
 
 func Warp(input WarpConnector, m TransformationMatrix) {
-	m = invert(m)
 	rows, cols := input.OutputDims()
 
 	numFields := input.NumFields()
