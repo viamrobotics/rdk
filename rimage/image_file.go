@@ -69,8 +69,8 @@ func ConvertImage(img image.Image) *Image {
 
 	b := img.Bounds()
 	ii = NewImage(b.Max.X, b.Max.Y)
-	for x := 0; x < ii.width; x++ {
-		for y := 0; y < ii.height; y++ {
+	for y := 0; y < ii.height; y++ {
+		for x := 0; x < ii.width; x++ {
 			ii.SetXY(x, y, NewColorFromColor(img.At(x, y)))
 		}
 	}

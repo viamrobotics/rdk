@@ -55,6 +55,8 @@ type WarpImageConnector struct {
 }
 
 func (c *WarpImageConnector) Get(x, y int, buf []float64) {
+	// Note: this isn't quite correct, as we're going to averge rgb, and hsv differently.
+	// I'm not sure if it matters or not, but it might
 	cc := c.Input.GetXY(x, y)
 	cc.RawFloatArrayFill(buf)
 }
