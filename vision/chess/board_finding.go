@@ -11,14 +11,15 @@ import (
 )
 
 func isPink(c rimage.Color) bool {
+	h, s, v := c.HsvNormal()
 
-	if c.H < 286 {
+	if h < 286 {
 		return false
 	}
-	if c.S < .2 {
+	if s < .2 {
 		return false
 	}
-	if c.V < .5 {
+	if v < .5 {
 		return false
 	}
 	return true

@@ -48,14 +48,11 @@ type WarpImageConnector struct {
 
 func (c *WarpImageConnector) Get(x, y int, buf []float64) {
 	cc := c.Input.GetXY(x, y)
-
-	buf[0] = cc.H
-	buf[1] = cc.S
-	buf[2] = cc.V
+	cc.RawFloatArrayFill(buf)
 }
 
 func (c *WarpImageConnector) Set(x, y int, data []float64) {
-	c.Output.SetXY(x, y, NewColorFromHSV(data[0], data[1], data[2]))
+	c.Output.SetXY(x, y, NewColorFromArray(data))
 }
 
 func (c *WarpImageConnector) OutputDims() (int, int) {
@@ -64,7 +61,7 @@ func (c *WarpImageConnector) OutputDims() (int, int) {
 }
 
 func (c *WarpImageConnector) NumFields() int {
-	return 3
+	return 6
 }
 
 // -----

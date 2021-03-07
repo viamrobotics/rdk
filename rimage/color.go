@@ -11,17 +11,61 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+func tobytehsv(c colorful.Color) (uint16, uint8, uint8) {
+	h, s, v := c.Hsv()
+	return tobytehsvfloat(h, s, v)
+}
+
+func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
+	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
+}
+
 type Color struct {
 	R, G, B uint8
-	H, S, V float64
+
+	// H : MaxUint16 * degrees / 360. So a Hue of of 180 is 128
+	h uint16
+
+	s, v uint8
+}
+
+func (c Color) RawFloatArray() []float64 {
+	return c.RawFloatArrayFill(make([]float64, 6))
+}
+
+func NewColorFromArray(buf []float64) Color {
+	c := Color{}
+	c.R = uint8(buf[0])
+	c.G = uint8(buf[1])
+	c.B = uint8(buf[2])
+	c.h = uint16(buf[3])
+	c.s = uint8(buf[4])
+	c.v = uint8(buf[5])
+	return c
+}
+
+func (c Color) RawFloatArrayFill(buf []float64) []float64 {
+	buf[0] = float64(c.R)
+	buf[1] = float64(c.G)
+	buf[2] = float64(c.B)
+	buf[3] = float64(c.h)
+	buf[4] = float64(c.s)
+	buf[5] = float64(c.v)
+	return buf
 }
 
 func (c Color) String() string {
-	return fmt.Sprintf("%s (%3d,%4.2f,%4.2f", c.Hex(), int(c.H), c.S, c.V)
+	h, s, v := c.ScaleHSV()
+	return fmt.Sprintf("%s (%3d,%4.2f,%4.2f)", c.Hex(), int(h*360), s, v)
+}
+
+// h : 0 -> 360, s,v : 0 -> 1.0
+func (c Color) HsvNormal() (float64, float64, float64) {
+	return 360.0 * float64(c.h) / float64(math.MaxUint16), float64(c.s) / 255.0, float64(c.v) / 255.0
 }
 
 func (c Color) ScaleHSV() (float64, float64, float64) {
-	return c.H / 360, c.S, c.V
+	return float64(c.h) / float64(math.MaxUint16), float64(c.s) / 255.0, float64(c.v) / 255.0
 }
 
 func (c Color) Hex() string {
@@ -235,15 +279,15 @@ func NewColor(r, g, b uint8) Color {
 		G: float64(g) / 255.0,
 		B: float64(b) / 255.0,
 	}
-	h, s, v := cc.Hsv()
+	h, s, v := tobytehsv(cc)
 
 	return Color{
 		R: r,
 		G: g,
 		B: b,
-		H: h,
-		S: s,
-		V: v,
+		h: h,
+		s: s,
+		v: v,
 	}
 }
 
@@ -267,13 +311,14 @@ func NewColorFromHex(hex string) (Color, error) {
 func NewColorFromHSV(h, s, v float64) Color {
 	cc := colorful.Hsv(h, s, v)
 	r, g, b := cc.RGB255()
+	h2, s2, v2 := tobytehsvfloat(h, s, v)
 	return Color{
 		R: r,
 		G: g,
 		B: b,
-		H: h,
-		S: s,
-		V: v,
+		h: h2,
+		s: s2,
+		v: v2,
 	}
 }
 
@@ -287,15 +332,15 @@ func NewColorFromColor(c color.Color) Color {
 		return NewColor(0, 0, 0)
 	}
 	r, g, b := cc.RGB255()
-	h, s, v := cc.Hsv()
+	h, s, v := tobytehsv(cc)
 
 	return Color{
 		R: r,
 		G: g,
 		B: b,
-		H: h,
-		S: s,
-		V: v,
+		h: h,
+		s: s,
+		v: v,
 	}
 }
 

@@ -7,7 +7,6 @@ import (
 	"image"
 	"os"
 	"os/signal"
-	"sort"
 	"syscall"
 	"time"
 
@@ -19,12 +18,10 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/fogleman/gg"
-	"github.com/gonum/stat"
 )
 
 var (
 	xFlag, yFlag *int
-	radius       *float64
 	debug        *bool
 )
 
@@ -33,49 +30,6 @@ func _getOutputfile() string {
 		panic("need to specify output file")
 	}
 	return flag.Arg(2)
-}
-
-func _hsvHistogramHelp(name string, data []float64) {
-	sort.Float64s(data)
-	mean, stdDev := stat.MeanStdDev(data, nil)
-	golog.Global.Debugf("%s: mean: %f stdDev: %f min: %f max: %f\n", name, mean, stdDev, data[0], data[len(data)-1])
-}
-
-func hsvHistogram(img *rimage.Image) {
-
-	H := []float64{}
-	S := []float64{}
-	V := []float64{}
-
-	center := image.Point{-1, -1}
-	if *xFlag >= 0 && *yFlag >= 0 && *radius > 0 {
-		center = image.Point{*xFlag, *yFlag}
-	}
-
-	for x := 0; x < img.Width(); x = x + 1 {
-		for y := 0; y < img.Height(); y = y + 1 {
-			p := image.Point{x, y}
-			if center.X >= 0 && rimage.PointDistance(center, p) > *radius {
-				continue
-			}
-			hsv := img.Get(p)
-			H = append(H, hsv.H)
-			S = append(S, hsv.S)
-			V = append(V, hsv.V)
-		}
-	}
-
-	if center.X > 0 {
-		dc := gg.NewContextForImage(img)
-		dc.DrawCircle(float64(center.X), float64(center.Y), *radius)
-		dc.SetColor(rimage.Red)
-		dc.Fill()
-		rimage.WriteImageToFile(_getOutputfile(), dc.Image())
-	}
-
-	_hsvHistogramHelp("h", H)
-	_hsvHistogramHelp("s", S)
-	_hsvHistogramHelp("v", V)
 }
 
 func shapeWalkLine(img *rimage.Image, startX, startY int) error {
@@ -186,7 +140,6 @@ func main() {
 
 	xFlag = flag.Int("x", -1, "")
 	yFlag = flag.Int("y", -1, "")
-	radius = flag.Float64("radius", -1, "")
 	debug = flag.Bool("debug", false, "")
 
 	blur := flag.Bool("blur", false, "")
@@ -212,8 +165,6 @@ func main() {
 	}
 
 	switch prog {
-	case "hsvHisto":
-		hsvHistogram(img)
 	case "shapeWalkEntire":
 		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug})
 		if err == nil {
