@@ -144,6 +144,19 @@ func TestColorHSVColorConversion(t *testing.T) {
 	}
 }
 
+func TestColorBits(t *testing.T) {
+	c := newcolor(1, 2, 3, 10001, 5, 6)
+	r, g, b := c.RGB255()
+	h, s, v := c.hsv()
+	assert.Equal(t, 1, int(r))
+	assert.Equal(t, 2, int(g))
+	assert.Equal(t, 3, int(b))
+	assert.Equal(t, 10001, int(h))
+	assert.Equal(t, 5, int(s))
+	assert.Equal(t, 6, int(v))
+
+}
+
 func TestColorRoundTrip(t *testing.T) {
 	c := NewColor(17, 83, 133)
 	c2 := NewColorFromColor(c)
@@ -176,21 +189,24 @@ func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
 }
 
 func TestColorHSVDistanceSanityCheck(t *testing.T) {
+	_, s, v := Red.hsv()
+	if s != 255 {
+		t.Errorf("%v %v", Red, s)
+	}
+	if v != 255 {
+		t.Errorf("%v %v", Red, v)
+	}
+	h, _, _ := Green.hsv()
+	if h != 21845 {
+		t.Errorf("%v %v", Green, h)
+	}
+
 	d := White.Distance(Gray)
 	if d < 1 {
 		t.Fatalf("Wtf %v", d)
 	}
 
 	_checkAllDifferent(t, Colors)
-	if Red.s != 255 {
-		t.Errorf("%v", Red)
-	}
-	if Red.v != 255 {
-		t.Errorf("%v", Red)
-	}
-	if Green.h != 21845 {
-		t.Errorf("%v %v", Green, Green.h)
-	}
 
 }
 
