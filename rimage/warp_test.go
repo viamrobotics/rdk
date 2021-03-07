@@ -38,7 +38,7 @@ func TestWarp1(t *testing.T) {
 	r, c := m2.Dims()
 	assert.Equal(t, 3, r, c)
 	assert.Equal(t, 3, r, c)
-	assert.InEpsilon(t, 1.666666666666666, m2.At(0, 0), .01)
+	assert.InEpsilon(t, 0.5999999999999999, m2.At(0, 0), .01)
 
 	input := mat.NewDense(size, size, increasingArray(0, 1, size*size))
 
