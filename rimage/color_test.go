@@ -505,3 +505,53 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#899d96", "#adc3c5", 1.125) // shiny
 
 }
+
+func TestColorConvert(t *testing.T) {
+	// estimate of max error we're ok with based on conversion lossyness
+	okError := float64(math.MaxUint16) * (1 - math.Pow(255.0/256.0, 4))
+
+	testRoundTrip := func(c color.Color) {
+		cc := NewColorFromColor(c)
+
+		r1, g1, b1, a1 := c.RGBA()
+		r2, g2, b2, a2 := cc.RGBA()
+
+		assert.InDelta(t, r1, r2, okError)
+		assert.InDelta(t, g1, g2, okError)
+		assert.InDelta(t, b1, b2, okError)
+		assert.InDelta(t, a1, a2, okError)
+	}
+
+	testRoundTrip(Red)
+
+	testRoundTrip(color.NRGBA{17, 50, 124, 255})
+
+	testRoundTrip(color.RGBA{17, 50, 124, 255})
+
+	testRoundTrip(color.YCbCr{17, 50, 124})
+	testRoundTrip(color.YCbCr{17, 50, 1})
+	testRoundTrip(color.YCbCr{17, 50, 255})
+	testRoundTrip(color.YCbCr{112, 50, 124})
+}
+
+func TestHSVConvert(t *testing.T) {
+	tt := func(c color.Color) {
+		me := NewColorFromColor(c)
+		them, ok := colorful.MakeColor(c)
+		if !ok {
+			t.Fatalf("what? %v", c)
+		}
+
+		h1, s1, v1 := me.HsvNormal()
+		h2, s2, v2 := them.Hsv()
+
+		assert.InDelta(t, h2, h1, .1)
+		assert.InDelta(t, s2, s1, .01)
+		assert.InDelta(t, v2, v1, .01)
+	}
+
+	tt(color.NRGBA{128, 128, 128, 255})
+	tt(color.NRGBA{128, 200, 225, 255})
+	tt(color.NRGBA{200, 128, 32, 255})
+	tt(color.NRGBA{31, 213, 200, 255})
+}
