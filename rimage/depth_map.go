@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,11 +16,17 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+type Depth uint16
+
+const (
+	MaxDepth = Depth(math.MaxUint16)
+)
+
 type DepthMap struct {
 	width  int
 	height int
 
-	data []int32
+	data []Depth
 }
 
 func (dm *DepthMap) kxy(x, y int) int {
@@ -46,15 +53,15 @@ func (dm *DepthMap) Rows() int {
 	return dm.height
 }
 
-func (dm *DepthMap) Get(p image.Point) int32 {
+func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
-func (dm *DepthMap) GetDepth(x, y int) int32 {
+func (dm *DepthMap) GetDepth(x, y int) Depth {
 	return dm.data[dm.kxy(x, y)]
 }
 
-func (dm *DepthMap) Set(x, y int, val int32) {
+func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
@@ -77,7 +84,7 @@ func (dm *DepthMap) Smooth() {
 	}
 }
 
-func (dm *DepthMap) _getDepthOrEstimate(x, y int) int32 {
+func (dm *DepthMap) _getDepthOrEstimate(x, y int) Depth {
 	if x < 0 || y < 0 || x >= dm.width || y >= dm.height {
 		return 0
 	}
@@ -110,7 +117,7 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) int32 {
 		return 0
 	}
 
-	dm.Set(x, y, int32(total/num))
+	dm.Set(x, y, Depth(total/num))
 	return dm.GetDepth(x, y)
 }
 
@@ -166,7 +173,7 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
-	dm.data = make([]int32, dm.width*dm.height)
+	dm.data = make([]Depth, dm.width*dm.height)
 
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
@@ -174,7 +181,7 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 			if err != nil {
 				return nil, err
 			}
-			dm.Set(x, y, int32(temp))
+			dm.Set(x, y, Depth(temp))
 		}
 	}
 
@@ -238,7 +245,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	}
 
 	temp := make([]byte, 2)
-	dm.data = make([]int32, dm.width*dm.height)
+	dm.data = make([]Depth, dm.width*dm.height)
 
 	for y := 0; y < dm.height; y++ {
 		for x := 0; x < dm.width; x++ {
@@ -257,7 +264,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
 			}
 
-			dm.Set(x, y, int32(units*float64(binary.LittleEndian.Uint16(temp))))
+			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
 
 		}
 	}
@@ -321,9 +328,9 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
-func (dm *DepthMap) MinMax() (int32, int32) {
-	min := int32(100000)
-	max := int32(0)
+func (dm *DepthMap) MinMax() (Depth, Depth) {
+	min := MaxDepth
+	max := Depth(0)
 
 	for x := 0; x < dm.Width(); x++ {
 		for y := 0; y < dm.Height(); y++ {
@@ -343,13 +350,13 @@ func (dm *DepthMap) MinMax() (int32, int32) {
 	return min, max
 }
 
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax int32) image.Image {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 	min, max := dm.MinMax()
 
-	if hardMin >= 0 && min < hardMin {
+	if hardMin > 0 && min < hardMin {
 		min = hardMin
 	}
-	if hardMax >= 0 && max > hardMax {
+	if hardMax > 0 && max > hardMax {
 		max = hardMax
 	}
 
@@ -407,13 +414,13 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 	dm2 := &DepthMap{
 		width:  newWidth,
 		height: newHeight,
-		data:   make([]int32, newWidth*newHeight),
+		data:   make([]Depth, newWidth*newHeight),
 	}
 
 	// these are new coordinates
 	for x := 0; x < newWidth; x++ {
 		for y := 0; y < newHeight; y++ {
-			var val int32
+			var val Depth
 			if clockwise {
 				val = dm.GetDepth(y, x)
 			} else {
@@ -430,7 +437,7 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 	dm2 := &DepthMap{
 		width:  dm.width,
 		height: dm.height,
-		data:   make([]int32, dm.width*dm.height),
+		data:   make([]Depth, dm.width*dm.height),
 	}
 
 	// these are new coordinates
@@ -447,7 +454,7 @@ func NewEmptyDepthMap(width, height int) DepthMap {
 	dm := DepthMap{
 		width:  width,
 		height: height,
-		data:   make([]int32, width*height),
+		data:   make([]Depth, width*height),
 	}
 
 	return dm
@@ -463,7 +470,7 @@ func (w *dmWarpConnector) Get(x, y int, buf []float64) {
 }
 
 func (w *dmWarpConnector) Set(x, y int, data []float64) {
-	w.Out.Set(x, y, int32(data[0]))
+	w.Out.Set(x, y, Depth(data[0]))
 }
 
 func (w *dmWarpConnector) OutputDims() (int, int) {
