@@ -20,7 +20,9 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
 }
 
+/*
 type Color struct {
+
 	R, G, B uint8
 
 	// H : MaxUint16 * degrees / 360. So a Hue of of 180 is 128
@@ -28,29 +30,61 @@ type Color struct {
 
 	s, v uint8
 }
+*/
+/*
+   0: r
+   1: g
+   2: b
+   3&4: h
+   5: s
+   6: v
+   7: unused
+*/
+type Color uint64
+
+func newcolor(r, g, b uint8, h uint16, s, v uint8) Color {
+	x := uint64(r)
+	x |= uint64(g) << 8
+	x |= uint64(b) << 16
+	x |= uint64(h) << 24
+	x |= uint64(s) << 40
+	x |= uint64(v) << 48
+	return Color(x)
+}
+
+func (c Color) RGB255() (uint8, uint8, uint8) {
+	return uint8(c & 0xFF), uint8((c >> 8) & 0xFF), uint8((c >> 16) & 0xFF)
+}
+
+func (c Color) hsv() (uint16, uint8, uint8) {
+	return uint16((c >> 24) & 0xFFFF), uint8((c >> 40) & 0xFF), uint8((c >> 48) & 0xFF)
+}
 
 func (c Color) RawFloatArray() []float64 {
 	return c.RawFloatArrayFill(make([]float64, 6))
 }
 
 func NewColorFromArray(buf []float64) Color {
-	c := Color{}
-	c.R = uint8(buf[0])
-	c.G = uint8(buf[1])
-	c.B = uint8(buf[2])
-	c.h = uint16(buf[3])
-	c.s = uint8(buf[4])
-	c.v = uint8(buf[5])
-	return c
+	return newcolor(
+		uint8(buf[0]),
+		uint8(buf[1]),
+		uint8(buf[2]),
+		uint16(buf[3]),
+		uint8(buf[4]),
+		uint8(buf[5]),
+	)
 }
 
 func (c Color) RawFloatArrayFill(buf []float64) []float64 {
-	buf[0] = float64(c.R)
-	buf[1] = float64(c.G)
-	buf[2] = float64(c.B)
-	buf[3] = float64(c.h)
-	buf[4] = float64(c.s)
-	buf[5] = float64(c.v)
+	r, g, b := c.RGB255()
+	h, s, v := c.hsv()
+
+	buf[0] = float64(r)
+	buf[1] = float64(g)
+	buf[2] = float64(b)
+	buf[3] = float64(h)
+	buf[4] = float64(s)
+	buf[5] = float64(v)
 	return buf
 }
 
@@ -61,28 +95,32 @@ func (c Color) String() string {
 
 // h : 0 -> 360, s,v : 0 -> 1.0
 func (c Color) HsvNormal() (float64, float64, float64) {
-	return 360.0 * float64(c.h) / float64(math.MaxUint16), float64(c.s) / 255.0, float64(c.v) / 255.0
+	h, s, v := c.hsv()
+	return 360.0 * float64(h) / float64(math.MaxUint16), float64(s) / 255.0, float64(v) / 255.0
 }
 
 func (c Color) ScaleHSV() (float64, float64, float64) {
-	return float64(c.h) / float64(math.MaxUint16), float64(c.s) / 255.0, float64(c.v) / 255.0
+	h, s, v := c.hsv()
+	return float64(h) / float64(math.MaxUint16), float64(s) / 255.0, float64(v) / 255.0
 }
 
 func (c Color) Hex() string {
-	return fmt.Sprintf("#%.2x%.2x%.2x", c.R, c.G, c.B)
+	r, g, b := c.RGB255()
+	return fmt.Sprintf("#%.2x%.2x%.2x", r, g, b)
 }
 
 func (c Color) RGBA() (r, g, b, a uint32) {
+	R, G, B := c.RGB255()
 	a = uint32(255)
-	r = uint32(c.R)
+	r = uint32(R)
 	r |= r << 8
 	r *= a
 	r /= 0xff
-	g = uint32(c.G)
+	g = uint32(G)
 	g |= g << 8
 	g *= a
 	g /= 0xff
-	b = uint32(c.B)
+	b = uint32(B)
 	b |= b << 8
 	b *= a
 	b /= 0xff
@@ -281,14 +319,7 @@ func NewColor(r, g, b uint8) Color {
 	}
 	h, s, v := tobytehsv(cc)
 
-	return Color{
-		R: r,
-		G: g,
-		B: b,
-		h: h,
-		s: s,
-		v: v,
-	}
+	return newcolor(r, g, b, h, s, v)
 }
 
 func NewColorFromHexOrPanic(hex string) Color {
@@ -303,7 +334,7 @@ func NewColorFromHex(hex string) (Color, error) {
 	var r, g, b uint8
 	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
 	if n != 3 || err != nil {
-		return Color{}, fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
+		return Color(0), fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
 	}
 	return NewColor(r, g, b), nil
 }
@@ -312,14 +343,7 @@ func NewColorFromHSV(h, s, v float64) Color {
 	cc := colorful.Hsv(h, s, v)
 	r, g, b := cc.RGB255()
 	h2, s2, v2 := tobytehsvfloat(h, s, v)
-	return Color{
-		R: r,
-		G: g,
-		B: b,
-		h: h2,
-		s: s2,
-		v: v2,
-	}
+	return newcolor(r, g, b, h2, s2, v2)
 }
 
 func NewColorFromColor(c color.Color) Color {
@@ -334,14 +358,7 @@ func NewColorFromColor(c color.Color) Color {
 	r, g, b := cc.RGB255()
 	h, s, v := tobytehsv(cc)
 
-	return Color{
-		R: r,
-		G: g,
-		B: b,
-		h: h,
-		s: s,
-		v: v,
-	}
+	return newcolor(r, g, b, h, s, v)
 }
 
 var (

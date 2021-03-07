@@ -14,7 +14,8 @@ const (
 )
 
 func makeArray(edges int, c rimage.Color) []float64 {
-	return []float64{float64(edges), float64(c.R), float64(c.G), float64(c.B)}
+	x, y, z := c.RGB255()
+	return []float64{float64(edges), float64(x), float64(y), float64(z)}
 
 }
 

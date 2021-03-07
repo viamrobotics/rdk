@@ -137,7 +137,8 @@ func (i *ImageWithDepth) Overlay() *image.NRGBA {
 				a = uint8(minAlpha + ((255.0 - minAlpha) * scale))
 			}
 
-			img.SetNRGBA(x, y, color.NRGBA{c.R, c.G, c.B, a})
+			r, g, b := c.RGB255()
+			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
 
 		}
 	}

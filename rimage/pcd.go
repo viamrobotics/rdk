@@ -6,11 +6,12 @@ import (
 )
 
 func _colorToInt(c Color) int {
+	r, g, b := c.RGB255()
 	x := 0
 
-	x = x | (int(c.R) << 16)
-	x = x | (int(c.G) << 8)
-	x = x | (int(c.B) << 0)
+	x = x | (int(r) << 16)
+	x = x | (int(g) << 8)
+	x = x | (int(b) << 0)
 	//x = x | ( int(c.A) << 0 )
 
 	return x
