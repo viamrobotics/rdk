@@ -250,7 +250,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			z := grayImg.Gray16At(x, y).Y
-			dm.Set(x, y, int32(z))
+			dm.Set(x, y, Depth(z))
 		}
 	}
 
