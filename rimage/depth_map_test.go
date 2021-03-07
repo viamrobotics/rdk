@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDepthMap1(t *testing.T) {
@@ -74,4 +76,30 @@ func TestDepthMapNewFormat(t *testing.T) {
 	if numZero == 0 || numZero >= m.width {
 		t.Errorf("numZero wrong %v", numZero)
 	}
+}
+
+func TestDepthRotate90(t *testing.T) {
+	dm := NewEmptyDepthMap(2, 2)
+	dm.Set(0, 0, 1)
+	dm.Set(1, 0, 2)
+	dm.Set(0, 1, 3)
+	dm.Set(1, 1, 4)
+
+	dm2 := dm.Rotate90(true)
+
+	assert.Equal(t, Depth(1), dm2.GetDepth(0, 0))
+}
+
+func BenchmarkDepthMapRotate(b *testing.B) {
+	dm, err := ParseDepthMap("data/depthformat2.dat.gz")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		dm.Rotate90(true)
+	}
+
 }
