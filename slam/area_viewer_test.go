@@ -13,9 +13,9 @@ func TestAreaViewer(t *testing.T) {
 	viewer := AreaViewer{sa}
 
 	sa.Mutate(func(area MutableArea) {
-		area.Set(-250, 50, 1)
-		area.Set(499, 90, 1)
-		area.Set(222, 420, 1)
+		test.That(t, area.Set(-250, 50, 1), test.ShouldBeNil)
+		test.That(t, area.Set(499, 90, 1), test.ShouldBeNil)
+		test.That(t, area.Set(222, 420, 1), test.ShouldBeNil)
 	})
 
 	img, _, err := viewer.Next(context.Background())

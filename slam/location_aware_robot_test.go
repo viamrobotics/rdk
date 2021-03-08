@@ -117,21 +117,21 @@ func TestRobotStartStopClose(t *testing.T) {
 	th := newTestHarness(t)
 	test.That(t, th.bot.Start(), test.ShouldBeNil)
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrAlreadyStarted)
-	th.bot.Stop()
+	test.That(t, th.bot.Stop(), test.ShouldBeNil)
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
 
 	th = newTestHarness(t)
 	test.That(t, th.bot.Start(), test.ShouldBeNil)
-	th.bot.Close()
+	test.That(t, th.bot.Close(), test.ShouldBeNil)
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
-	th.bot.Stop()
+	test.That(t, th.bot.Stop(), test.ShouldBeNil)
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
 
 	th = newTestHarness(t)
 	test.That(t, th.bot.Start(), test.ShouldBeNil)
 	th.bot.SignalStop()
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
-	th.bot.Stop()
+	test.That(t, th.bot.Stop(), test.ShouldBeNil)
 	test.That(t, th.bot.Start(), test.ShouldEqual, ErrStopped)
 }
 
@@ -173,22 +173,22 @@ func TestMove(t *testing.T) {
 		{"rotate left and move forward too far", intPtr(200), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
 		{"cannot collide up", intPtr(20), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX, th.bot.basePosY+15, 3)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+15, 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide down", intPtr(20), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX, th.bot.basePosY-15, 3)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-15, 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide left", intPtr(20), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX-15, th.bot.basePosY, 3)
+				test.That(t, area.Set(th.bot.basePosX-15, th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide right", intPtr(20), dirPtr(DirectionRight), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				area.Set(th.bot.basePosX+15, th.bot.basePosY, 3)
+				test.That(t, area.Set(th.bot.basePosX+15, th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
 		{"unknown direction", intPtr(20), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
@@ -377,7 +377,7 @@ func TestNewPresentView(t *testing.T) {
 	})
 	test.That(t, rootCount, test.ShouldEqual, 0)
 	test.That(t, presentCount, test.ShouldEqual, 0)
-	th.bot.newPresentView()
+	test.That(t, th.bot.newPresentView(), test.ShouldBeNil)
 
 	th.bot.rootArea.Mutate(func(area MutableArea) {
 		area.Iterate(func(x, y, v int) bool {
@@ -396,14 +396,14 @@ func TestNewPresentView(t *testing.T) {
 
 	// add some points
 	th.bot.presentViewArea.Mutate(func(area MutableArea) {
-		area.Set(1, 2, 5)
-		area.Set(0, 4, 1)
-		area.Set(7, 6, 1)
-		area.Set(1, 1, 0)
-		area.Set(0, 0, 1)
-		area.Set(32, 49, 2)
+		test.That(t, area.Set(1, 2, 5), test.ShouldBeNil)
+		test.That(t, area.Set(0, 4, 1), test.ShouldBeNil)
+		test.That(t, area.Set(7, 6, 1), test.ShouldBeNil)
+		test.That(t, area.Set(1, 1, 0), test.ShouldBeNil)
+		test.That(t, area.Set(0, 0, 1), test.ShouldBeNil)
+		test.That(t, area.Set(32, 49, 2), test.ShouldBeNil)
 	})
-	th.bot.newPresentView()
+	test.That(t, th.bot.newPresentView(), test.ShouldBeNil)
 
 	th.bot.rootArea.Mutate(func(area MutableArea) {
 		area.Iterate(func(x, y, v int) bool {
@@ -828,18 +828,18 @@ func TestRobotCull(t *testing.T) {
 	t.Run("should only cull anything within range in the present view", func(t *testing.T) {
 		th := newTestHarness(t)
 		th.bot.rootArea.Mutate(func(area MutableArea) {
-			area.Set(1, 2, 3)
-			area.Set(0, 4, 3)
-			area.Set(7, 6, 4)
+			test.That(t, area.Set(1, 2, 3), test.ShouldBeNil)
+			test.That(t, area.Set(0, 4, 3), test.ShouldBeNil)
+			test.That(t, area.Set(7, 6, 4), test.ShouldBeNil)
 		})
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(1, 2, 3)
-			area.Set(0, 4, 3)
-			area.Set(7, 6, 4)
-			area.Set(1, 1, 3)
-			area.Set(0, 0, 3)
-			area.Set(2, 49, 3)
-			area.Set(-35, -4, 3)
+			test.That(t, area.Set(1, 2, 3), test.ShouldBeNil)
+			test.That(t, area.Set(0, 4, 3), test.ShouldBeNil)
+			test.That(t, area.Set(7, 6, 4), test.ShouldBeNil)
+			test.That(t, area.Set(1, 1, 3), test.ShouldBeNil)
+			test.That(t, area.Set(0, 0, 3), test.ShouldBeNil)
+			test.That(t, area.Set(2, 49, 3), test.ShouldBeNil)
+			test.That(t, area.Set(-35, -4, 3), test.ShouldBeNil)
 		})
 
 		th.bot.cull()
@@ -876,13 +876,13 @@ func TestRobotCull(t *testing.T) {
 
 		th.bot.maxBounds = image.Point{5, 5}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(1, 2, 3)
-			area.Set(0, 4, 3)
-			area.Set(7, 6, 4)
-			area.Set(1, 1, 3)
-			area.Set(0, 0, 3)
-			area.Set(2, 49, 3)
-			area.Set(-35, -4, 3)
+			test.That(t, area.Set(1, 2, 3), test.ShouldBeNil)
+			test.That(t, area.Set(0, 4, 3), test.ShouldBeNil)
+			test.That(t, area.Set(7, 6, 4), test.ShouldBeNil)
+			test.That(t, area.Set(1, 1, 3), test.ShouldBeNil)
+			test.That(t, area.Set(0, 0, 3), test.ShouldBeNil)
+			test.That(t, area.Set(2, 49, 3), test.ShouldBeNil)
+			test.That(t, area.Set(-35, -4, 3), test.ShouldBeNil)
 		})
 		th.bot.cull()
 		th.bot.cull()
@@ -956,7 +956,7 @@ func TestRobotActive(t *testing.T) {
 			return lidar.Measurements{m}, nil
 		}
 		<-waitCh
-		th.bot.Stop()
+		test.That(t, th.bot.Stop(), test.ShouldBeNil)
 
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 6)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
@@ -1057,7 +1057,7 @@ func TestRobotActive(t *testing.T) {
 		swap <- struct{}{}
 
 		<-waitCh
-		th.bot.Stop()
+		test.That(t, th.bot.Stop(), test.ShouldBeNil)
 
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
