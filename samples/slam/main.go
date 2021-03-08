@@ -18,9 +18,7 @@ import (
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/sensor/compass/gy511"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
-	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/slam"
 	"go.viam.com/robotcore/utils"
 
@@ -33,8 +31,9 @@ const fakeDev = "fake"
 
 func main() {
 	var baseType string
-	var addressFlags utils.StringFlags
-	var deviceOffsetFlags utils.StringFlags
+	var lidarAddressFlags utils.StringFlags
+	var compassAddressFlag string
+	var lidarOffsetFlags utils.StringFlags
 	hostname, err := os.Hostname()
 	if err != nil {
 		golog.Global.Fatal(err)
@@ -44,8 +43,9 @@ func main() {
 	} else {
 		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
 	}
-	flag.Var(&addressFlags, "device", "lidar devices")
-	flag.Var(&deviceOffsetFlags, "device-offset", "lidar device offets relative to first")
+	flag.Var(&lidarAddressFlags, "lidar", "lidar devices")
+	flag.StringVar(&compassAddressFlag, "compass", "", "compass devices")
+	flag.Var(&lidarOffsetFlags, "lidar-offset", "lidar device offets relative to first")
 	flag.Parse()
 
 	areaSizeMeters := 50
@@ -72,27 +72,17 @@ func main() {
 		golog.Global.Fatal(fmt.Errorf("do not know how to make a %q base", baseType))
 	}
 
-	// TODO(erd): this will find too many
-	sensorDevices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
-	if err != nil {
-		golog.Global.Fatal(err)
-	}
 	var compassSensor compass.Device
-	if len(sensorDevices) != 0 {
-		var err error
-		compassSensor, err = gy511.New(context.Background(), sensorDevices[0].Path)
+	if compassAddressFlag != "" {
+		sensor, err := compass.NewWSDevice(context.Background(), compassAddressFlag)
 		if err != nil {
 			golog.Global.Fatal(err)
 		}
-		defer func() {
-			if err := compassSensor.Close(context.Background()); err != nil {
-				golog.Global.Error(err)
-			}
-		}()
+		compassSensor = sensor
 	}
 
 	var deviceOffests []slam.DeviceOffset
-	for _, flags := range deviceOffsetFlags {
+	for _, flags := range lidarOffsetFlags {
 		if flags == "" {
 			golog.Global.Fatal("offset format is angle,x,y")
 		}
@@ -125,13 +115,13 @@ func main() {
 			golog.Global.Debugf("%s (%s)", desc.Type, desc.Path)
 		}
 	}
-	if len(deviceOffsetFlags) == 0 && len(deviceDescs) == 0 {
+	if len(lidarOffsetFlags) == 0 && len(deviceDescs) == 0 {
 		deviceDescs = append(deviceDescs,
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
-	if len(addressFlags) != 0 {
+	if len(lidarAddressFlags) != 0 {
 		deviceDescs = nil
-		for i, address := range addressFlags {
+		for i, address := range lidarAddressFlags {
 			addressParts := strings.Split(address, ":")
 			if len(addressParts) != 2 {
 				continue

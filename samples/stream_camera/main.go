@@ -23,10 +23,7 @@ func main() {
 	flag.Parse()
 
 	if *dump {
-		all, err := media.QueryVideoDevices()
-		if err != nil {
-			golog.Global.Fatal(err)
-		}
+		all := media.QueryVideoDevices()
 		for _, info := range all {
 			golog.Global.Debugw("info", "labels", info.Labels, "data", info)
 		}
