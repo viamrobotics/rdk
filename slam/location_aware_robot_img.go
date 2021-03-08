@@ -18,7 +18,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), e
 	case clientLidarViewModeStored:
 		return lar.renderStoredView()
 	case clientLidarViewModeLive:
-		return lar.renderLiveView()
+		return lar.renderLiveView(ctx)
 	default:
 		return nil, nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
 	}
@@ -124,14 +124,14 @@ func (lar *LocationAwareRobot) renderStoredView() (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-func (lar *LocationAwareRobot) renderLiveView() (image.Image, func(), error) {
+func (lar *LocationAwareRobot) renderLiveView(ctx context.Context) (image.Image, func(), error) {
 	devices, bounds, areas := lar.areasToView()
 	blankArea, err := areas[0].BlankCopy()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if err := lar.scanAndStore(devices, blankArea); err != nil {
+	if err := lar.scanAndStore(ctx, devices, blankArea); err != nil {
 		return nil, nil, err
 	}
 
