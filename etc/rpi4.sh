@@ -11,9 +11,9 @@ sudo systemctl start pigpiod
 sudo apt -y install streamer
 
 cd /usr/local
-sudo wget https://golang.org/dl/go1.16.linux-armv6l.tar.gz
-sudo tar zxvf go1.16.linux-armv6l.tar.gz
-sudo rm go1.16.linux-armv6l.tar.gz
+sudo wget https://golang.org/dl/go1.16.linux-arm64.tar.gz
+sudo tar zxvf go1.16.linux-arm64.tar.gz
+sudo rm go1.16.linux-arm64.tar.gz
 sudo ln -s /usr/local/go/bin/* /usr/local/bin/
 
 cd ~
