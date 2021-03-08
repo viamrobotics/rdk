@@ -151,7 +151,7 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			colV.MulMxN(colV, colU)
 			colV = colV.Transpose(mgl64.NewMatrix(r, r))
 			m.InvJacobian.Add(m.InvJacobian, colV)
-			// TODO: Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
+			// TODO(pl): Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}
 
 		//~ } else {
@@ -163,7 +163,7 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 // This function will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
 // are inline by seeing if moving both closer to zero changes the 6d position. If they appear to be inline it will set
 // both to zero if they are not. This should avoid needless twists of inline joints.
-// TODO: Support additional end effectors
+// TODO(pl): Support additional end effectors
 func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
 	epsilon := 0.0001
 

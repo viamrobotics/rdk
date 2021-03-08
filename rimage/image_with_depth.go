@@ -20,7 +20,7 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 }
 
 func (i *ImageWithDepth) At(x, y int) color.Color {
-	return i.Color.At(x, y) // TODO: alpha encode with depth
+	return i.Color.At(x, y) // TODO(erh): alpha encode with depth
 }
 
 func (i *ImageWithDepth) Width() int {

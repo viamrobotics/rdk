@@ -242,7 +242,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 
 	width, height := bounds.Dx(), bounds.Dy()
 
-	// TODO: handle non realsense Z16 devices better
+	// TODO(erd): handle non realsense Z16 devices better
 	// realsense seems to rotate
 	dm := NewEmptyDepthMap(height, width)
 

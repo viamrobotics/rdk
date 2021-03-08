@@ -135,7 +135,7 @@ func imageToYCbCr(dst *image.YCbCr, src image.Image) {
 	i := 0
 	for yi := 0; yi < dy; yi++ {
 		for xi := 0; xi < dx; xi++ {
-			// TODO: probably try to get the alpha value with something like
+			// TODO(erh): probably try to get the alpha value with something like
 			// https://en.wikipedia.org/wiki/Alpha_compositing
 			r, g, b, _ := src.At(xi, yi).RGBA()
 			yy, cb, cr := color.RGBToYCbCr(uint8(r/256), uint8(g/256), uint8(b/256))

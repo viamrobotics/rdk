@@ -127,9 +127,9 @@ func ParseJSONFile(filename string) (*Model, error) {
 	// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 	for _, joint := range m.Model.Joints {
 
-		// TODO: Make this a switch once we support more than one joint type
+		// TODO(pl): Make this a switch once we support more than one joint type
 		if joint.Type == "revolute" {
-			// TODO: Add speed, wraparound, etc
+			// TODO(pl): Add speed, wraparound, etc
 			frameA := id2frame[joint.Frame.A]
 			frameB := id2frame[joint.Frame.B]
 
@@ -140,8 +140,8 @@ func ParseJSONFile(filename string) (*Model, error) {
 			rev.max = append(rev.max, joint.Max*math.Pi/180)
 			rev.min = append(rev.min, joint.Min*math.Pi/180)
 
-			// TODO: Add default on z
-			// TODO: Enforce between 0 and 1
+			// TODO(pl): Add default on z
+			// TODO(pl): Enforce between 0 and 1
 			rev.SpatialMat.Set(0, 0, joint.Axis.X)
 			rev.SpatialMat.Set(1, 0, joint.Axis.Y)
 			rev.SpatialMat.Set(2, 0, joint.Axis.Z)
