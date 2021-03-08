@@ -108,9 +108,10 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
-			X:         float64(pos.X), // TODO(erd): may be lossy
-			Y:         float64(pos.Y), // TODO(erd): may be lossy
-			Z:         float64(pos.Z), // TODO(erd): may be lossy
+			// floating point losiness validated/warned from set/load
+			X:         float64(pos.X),
+			Y:         float64(pos.Y),
+			Z:         float64(pos.Z),
 			Intensity: 0,
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),

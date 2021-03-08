@@ -270,7 +270,6 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 		}
 		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
 	case clientClickModeInfo:
-		// TODO(erd): refactor to viewCoordToReal
 		_, bounds, areas := lar.areasToView()
 
 		_, scaleDown := areas[0].Size()
@@ -286,7 +285,7 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 
 		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
 		distanceCenter := int(distanceCenterF)
-		baseWidthScaled := baseWidthMeters * float64(scaleDown)
+		baseWidthScaled := lar.baseDevice.Width() * float64(scaleDown)
 		frontY := basePosY - int(baseWidthScaled/2)
 		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
 

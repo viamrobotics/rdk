@@ -6,6 +6,7 @@ type Base struct {
 	base.Device
 	MoveStraightFunc func(distanceMM int, speed float64, block bool) error
 	SpinFunc         func(angleDeg float64, speed int, block bool) error
+	WidthFunc        func() float64
 	StopFunc         func() error
 	CloseFunc        func()
 }
@@ -22,6 +23,13 @@ func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
 		return b.Device.Spin(angleDeg, speed, block)
 	}
 	return b.SpinFunc(angleDeg, speed, block)
+}
+
+func (b *Base) Width() float64 {
+	if b.WidthFunc == nil {
+		return b.Device.Width()
+	}
+	return b.WidthFunc()
 }
 
 func (b *Base) Stop() error {

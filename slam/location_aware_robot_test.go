@@ -194,6 +194,9 @@ func TestMove(t *testing.T) {
 		{"unknown direction", intPtr(20), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
 		{"moving fails", intPtr(20), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
+			injectBase.WidthFunc = func() float64 {
+				return 0.6
+			}
 			th.bot.baseDevice = injectBase
 			injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
 				return errors.New("whoops")

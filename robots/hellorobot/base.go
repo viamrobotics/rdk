@@ -29,6 +29,10 @@ func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
 	return b.RotateBy(angleDeg, block)
 }
 
+func (b *Base) Width() float64 {
+	return 0.60
+}
+
 func (b *Base) Stop() error {
 	b.baseObj.CallMethod("stop")
 	return nil
