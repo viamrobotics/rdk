@@ -230,8 +230,8 @@ func (m *Model) UpdateOnFrame(frameID int64) {
 		m.Leaves = append(m.Leaves, frameID)
 	}
 
-	// TODO: Determine whether this needs to be run on every single call- should be able to eschew in recursion
-	// TODO: GammaVelocity may need to be added
+	// TODO(pl): Determine whether this needs to be run on every single call- should be able to eschew in recursion
+	// TODO(pl): GammaVelocity may need to be added
 	m.GammaPosition = mgl64.NewMatrix(m.GetDofPosition(), m.GetDofPosition())
 	mgl64.IdentN(m.GammaPosition, m.GetDofPosition())
 
