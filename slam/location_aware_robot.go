@@ -79,6 +79,10 @@ func NewLocationAwareRobot(
 		devBounds = append(devBounds, bounds)
 	}
 
+	presentViewArea, err := area.BlankCopy()
+	if err != nil {
+		return nil, err
+	}
 	robot := &LocationAwareRobot{
 		baseDevice: baseDevice,
 		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
@@ -88,7 +92,7 @@ func NewLocationAwareRobot(
 		deviceOffsets: deviceOffsets,
 
 		rootArea:        area,
-		presentViewArea: area.BlankCopy(),
+		presentViewArea: presentViewArea,
 
 		compassSensor: compassSensor,
 
@@ -213,7 +217,10 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error
 		if amount != nil && *amount < 0 {
 			moveOrientation = math.Mod(newOrientation+180, 360)
 		}
-		moveRect := lar.moveRect(newX, newY, moveOrientation)
+		moveRect, err := lar.moveRect(newX, newY, moveOrientation)
+		if err != nil {
+			return err
+		}
 
 		var collides bool
 		lar.presentViewArea.Mutate(func(mutArea MutableArea) {
@@ -290,7 +297,7 @@ const detectionBuffer = 15
 
 // the move rect will always be ahead of the base itself even though the
 // toX, toY are within the base rect since we move relative to the center.
-func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) image.Rectangle {
+func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (image.Rectangle, error) {
 	baseRect := lar.baseRect()
 	distX, distY := int(math.Abs(float64(lar.basePosX-toX))), int(math.Abs(float64(lar.basePosY-toY)))
 	var pathX0, pathY0, pathX1, pathY1 int
@@ -316,9 +323,9 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) image
 		pathX1 = int(float64(pathX0 - distX - detectionBuffer))
 		pathY1 = pathY0 + baseRect.Dy()
 	default:
-		panic(fmt.Errorf("bad orientation %f", orientation))
+		return image.Rectangle{}, fmt.Errorf("bad orientation %f", orientation)
 	}
-	return image.Rect(pathX0, pathY0, pathX1, pathY1)
+	return image.Rect(pathX0, pathY0, pathX1, pathY1), nil
 }
 
 // TODO(erd): config param

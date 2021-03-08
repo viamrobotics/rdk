@@ -26,7 +26,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), e
 
 var areaPointColor = color.NRGBA{255, 0, 0, 255}
 
-func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) image.Image {
+func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) (image.Image, error) {
 	// all areas are the same size
 	_, scaleDown := areas[0].Size()
 	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
@@ -65,7 +65,10 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, err := lar.calculateMove(orientation, defaultClientMoveAmount)
 		if err == nil {
-			moveRect := lar.moveRect(calcP.X, calcP.Y, orientation)
+			moveRect, err := lar.moveRect(calcP.X, calcP.Y, orientation)
+			if err != nil {
+				return nil, err
+			}
 			moveRect = moveRect.Add(viewTranslateP)
 			var c color.Color
 			switch orientation {
@@ -112,21 +115,26 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 		})
 	}
 
-	return dc.Image()
+	return dc.Image(), nil
 }
 
 func (lar *LocationAwareRobot) renderStoredView() (image.Image, func(), error) {
 	_, bounds, areas := lar.areasToView()
-	return lar.renderAreas(bounds, areas), func() {}, nil
+	img, err := lar.renderAreas(bounds, areas)
+	return img, func() {}, err
 }
 
 func (lar *LocationAwareRobot) renderLiveView() (image.Image, func(), error) {
 	devices, bounds, areas := lar.areasToView()
-	blankArea := areas[0].BlankCopy()
+	blankArea, err := areas[0].BlankCopy()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if err := lar.scanAndStore(devices, blankArea); err != nil {
 		return nil, nil, err
 	}
 
-	return lar.renderAreas(bounds, []*SquareArea{blankArea}), func() {}, nil
+	img, err := lar.renderAreas(bounds, []*SquareArea{blankArea})
+	return img, func() {}, err
 }

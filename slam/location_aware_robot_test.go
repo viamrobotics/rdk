@@ -322,11 +322,6 @@ func TestBaseRect(t *testing.T) {
 }
 
 func TestMoveRect(t *testing.T) {
-	th := newTestHarness(t)
-	test.That(t, func() {
-		th.bot.moveRect(0, 0, -23)
-	}, test.ShouldPanic)
-
 	for i, tc := range []struct {
 		basePosX    int
 		basePosY    int
@@ -334,25 +329,34 @@ func TestMoveRect(t *testing.T) {
 		toY         int
 		orientation float64
 		rect        image.Rectangle
+		err         string
 	}{
-		{0, 0, 0, 0, 0, image.Rect(-3, 3, 3, 18)},
-		{0, 0, 0, 0, 90, image.Rect(3, -3, 18, 3)},
-		{0, 0, 0, 0, 180, image.Rect(-3, -18, 3, -3)},
-		{0, 0, 0, 0, 270, image.Rect(-18, -3, -3, 3)},
-		{23, 54, 23, 54, 0, image.Rect(20, 57, 26, 72)},
-		{23, 54, 23, 54, 90, image.Rect(26, 51, 41, 57)},
-		{23, 54, 23, 54, 180, image.Rect(20, 36, 26, 51)},
-		{23, 54, 23, 54, 270, image.Rect(5, 51, 20, 57)},
-		{49, 48, 50, 32, 0, image.Rect(46, 51, 52, 82)},
-		{49, 48, 64, 50, 90, image.Rect(52, 45, 82, 51)},
-		{49, 48, 50, 64, 180, image.Rect(46, 14, 52, 45)},
-		{49, 48, 32, 50, 270, image.Rect(14, 45, 46, 51)},
+		{0, 0, 0, 0, 0, image.Rect(-3, 3, 3, 18), ""},
+		{0, 0, 0, 0, 90, image.Rect(3, -3, 18, 3), ""},
+		{0, 0, 0, 0, 180, image.Rect(-3, -18, 3, -3), ""},
+		{0, 0, 0, 0, 270, image.Rect(-18, -3, -3, 3), ""},
+		{23, 54, 23, 54, 0, image.Rect(20, 57, 26, 72), ""},
+		{23, 54, 23, 54, 90, image.Rect(26, 51, 41, 57), ""},
+		{23, 54, 23, 54, 180, image.Rect(20, 36, 26, 51), ""},
+		{23, 54, 23, 54, 270, image.Rect(5, 51, 20, 57), ""},
+		{49, 48, 50, 32, 0, image.Rect(46, 51, 52, 82), ""},
+		{49, 48, 64, 50, 90, image.Rect(52, 45, 82, 51), ""},
+		{49, 48, 50, 64, 180, image.Rect(46, 14, 52, 45), ""},
+		{49, 48, 32, 50, 270, image.Rect(14, 45, 46, 51), ""},
+		{49, 48, 32, 50, 271, image.Rect(14, 45, 46, 51), "bad orientation"},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
 			th.bot.basePosX = tc.basePosX
 			th.bot.basePosY = tc.basePosY
-			test.That(t, th.bot.moveRect(tc.toX, tc.toY, tc.orientation), test.ShouldResemble, tc.rect)
+			rect, err := th.bot.moveRect(tc.toX, tc.toY, tc.orientation)
+			if tc.err == "" {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, rect, test.ShouldResemble, tc.rect)
+				return
+			}
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
 		})
 	}
 }
@@ -443,13 +447,14 @@ func TestScanAndStore(t *testing.T) {
 
 func testUpdate(t *testing.T, internal bool) {
 	th := newTestHarness(t)
-	area := th.area.BlankCopy()
+	area, err := th.area.BlankCopy()
+	test.That(t, err, test.ShouldBeNil)
 	device := &inject.LidarDevice{}
 	err1 := errors.New("whoops")
 	device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err1
 	}
-	err := th.bot.scanAndStore([]lidar.Device{device}, area)
+	err = th.bot.scanAndStore([]lidar.Device{device}, area)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad scan")
 	test.That(t, err, test.ShouldWrap, err1)
@@ -794,8 +799,8 @@ func testUpdate(t *testing.T, internal bool) {
 				}
 				devices = append(devices, device)
 			}
-			area := th.area.BlankCopy()
-			var err error
+			area, err := th.area.BlankCopy()
+			test.That(t, err, test.ShouldBeNil)
 			if internal {
 				err = th.bot.scanAndStore(devices, area)
 			} else {
