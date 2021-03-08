@@ -201,46 +201,20 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error
 			return err
 		}
 		newX, newY = calcP.X, calcP.Y
-		move.DistanceMM = *amount * 10 // TODO(erd): remove 10 in favor of scale
+		_, scale := lar.rootArea.Size()
+		move.DistanceMM = *amount * scale
 	}
 
 	if newX != lar.basePosX || newY != lar.basePosY {
-		// TODO(erd): refactor out to func
-		// detect obstacle START
-
-		// TODO(erd): use area of entity to determine collision
-		// the lidar will give out around this distance so
-		// we must make sure to not approach an area like this so as
-		// to avoid the collision disappearing.
-
-		moveOrientation := newOrientation
-		if amount != nil && *amount < 0 {
-			moveOrientation = math.Mod(newOrientation+180, 360)
-		}
-		moveRect, err := lar.moveRect(newX, newY, moveOrientation)
-		if err != nil {
+		if err := lar.detectObstacle(newX, newY, newOrientation, amount); err != nil {
 			return err
 		}
-
-		var collides bool
-		lar.presentViewArea.Mutate(func(mutArea MutableArea) {
-			mutArea.Iterate(func(x, y, v int) bool {
-				if (image.Point{x, y}.In(moveRect)) {
-					collides = true
-					return false
-				}
-				return true
-			})
-		})
-		if collides {
-			return fmt.Errorf("cannot move to (%d,%d) via %f; would collide", newX, newY, moveOrientation)
-		}
-
-		// detect obstacle END
 	}
 
 	defer func() {
 		// TODO(erd): how to handle new view if moving errors?
+		// Need to know if we spun or moved at all but that's not fully
+		// supported yet in core.
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
 	if _, _, err := base.DoMove(move, lar.baseDevice); err != nil {
@@ -249,6 +223,32 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error
 	lar.basePosX = newX
 	lar.basePosY = newY
 	lar.setOrientation(newOrientation)
+	return nil
+}
+
+func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64, moveAmount *int) error {
+	moveOrientation := orientation
+	if moveAmount != nil && *moveAmount < 0 {
+		moveOrientation = math.Mod(orientation+180, 360)
+	}
+	moveRect, err := lar.moveRect(toX, toY, moveOrientation)
+	if err != nil {
+		return err
+	}
+
+	var collides bool
+	lar.presentViewArea.Mutate(func(mutArea MutableArea) {
+		mutArea.Iterate(func(x, y, v int) bool {
+			if (image.Point{x, y}.In(moveRect)) {
+				collides = true
+				return false
+			}
+			return true
+		})
+	})
+	if collides {
+		return fmt.Errorf("cannot move to (%d,%d) via %f; would collide", toX, toY, moveOrientation)
+	}
 	return nil
 }
 
@@ -328,15 +328,12 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (imag
 	return image.Rect(pathX0, pathY0, pathX1, pathY1), nil
 }
 
-// TODO(erd): config param
-const baseWidthMeters = 0.60
-
 // the rectangle is centered at the position of the base
 func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 	_, scaleDown := lar.rootArea.Size()
 	basePosX, basePosY := lar.basePos()
 
-	baseWidthScaled := int(math.Ceil(baseWidthMeters * float64(scaleDown)))
+	baseWidthScaled := int(math.Ceil(lar.baseDevice.Width() * float64(scaleDown)))
 	return image.Rect(
 		basePosX-baseWidthScaled/2,
 		basePosY-baseWidthScaled/2,
@@ -504,7 +501,6 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 			offsets = lar.deviceOffsets[i-1]
 			adjust = true
 		}
-		// TODO(erd): better to just adjust in advance?
 		for _, next := range measurements {
 			x, y := next.Coords()
 			currentOrientation := lar.orientation()
@@ -528,13 +524,6 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 			if (image.Point{detectedX, detectedY}).In(baseRect) {
 				continue
 			}
-			// TODO(erd): should we also add here as a sense of permanency
-			// Want to also combine this with occlusion, right. So if there's
-			// a wall detected, and we're pretty confident it's staying there,
-			// it being occluded should give it a low chance of it being removed.
-			// Realistically once the bounds of a location are determined, most
-			// environments would only have it deform over very long periods of time.
-			// Probably longer than the lifetime of the application itself.
 			var err error
 			area.Mutate(func(area MutableArea) {
 				err = area.Set(detectedX, detectedY, cullTTL)

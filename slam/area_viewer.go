@@ -15,9 +15,6 @@ type AreaViewer struct {
 func (av *AreaViewer) Next(ctx context.Context) (image.Image, func(), error) {
 	areaSize := av.Area.Dim()
 
-	// TODO(erd): any way to make this really fast? Allocate these in advance in
-	// a goroutine? Pool?
-
 	dc := gg.NewContext(areaSize, areaSize)
 
 	av.Area.Mutate(func(area MutableArea) {

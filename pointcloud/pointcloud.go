@@ -132,7 +132,7 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, er
 		if k != idx {
 			return true
 		}
-		// floating point losiness validated from set/load
+		// floating point losiness validated/warned from set/load
 		m.Set(0, c, float64(i))
 		m.Set(1, c, float64(j))
 		data = append(data, i, j)

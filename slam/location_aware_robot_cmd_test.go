@@ -81,6 +81,9 @@ func TestCommands(t *testing.T) {
 
 		// 3rd spin fails
 		injectBase := &inject.Base{}
+		injectBase.WidthFunc = func() float64 {
+			return 0.6
+		}
 		th.bot.baseDevice = injectBase
 		spinCount := 0
 		spinErr := errors.New("nospin")
@@ -712,6 +715,9 @@ func TestHandleClick(t *testing.T) {
 		larBot := th.bot
 		larBot.clientClickMode = clientClickModeMove
 		injectBase := &inject.Base{Device: larBot.baseDevice}
+		injectBase.WidthFunc = func() float64 {
+			return 0.6
+		}
 		larBot.baseDevice = injectBase
 		err1 := errors.New("whoops")
 		injectBase.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {

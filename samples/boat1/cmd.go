@@ -50,6 +50,10 @@ func (b *Boat) Spin(angleDeg float64, speed int, block bool) error {
 	return fmt.Errorf("boat can't spin yet")
 }
 
+func (b *Boat) Width() float64 {
+	return 1
+}
+
 func (b *Boat) Stop() error {
 	return multierr.Combine(b.starboard.Off(), b.port.Off())
 }

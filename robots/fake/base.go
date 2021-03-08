@@ -12,6 +12,10 @@ func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
 	return nil
 }
 
+func (b *Base) Width() float64 {
+	return 0.6
+}
+
 func (b *Base) Stop() error {
 	return nil
 }

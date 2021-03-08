@@ -13,6 +13,9 @@ import (
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
+	dev.WidthFunc = func() float64 {
+		return 0.6
+	}
 	ang, dist, err := base.DoMove(base.Move{}, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
