@@ -10,13 +10,29 @@ import (
 
 	"go.viam.com/robotcore/rimage"
 
+	"github.com/pion/mediadevices/pkg/driver"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 )
 
 func main() {
+
+	dump := flag.Bool("dump", false, "dump all camera info")
+
 	flag.Parse()
+
+	if *dump {
+		all := driver.GetManager().Query(driver.FilterVideoRecorder())
+		for _, d := range all {
+			golog.Global.Debugf("%T %s", d, d.ID())
+			golog.Global.Debugf("\t label: %s", d.Info().Label)
+			golog.Global.Debugf("\t props: %s", d.Properties())
+
+		}
+		return
+	}
 
 	port := 5555
 	if flag.NArg() >= 1 {
