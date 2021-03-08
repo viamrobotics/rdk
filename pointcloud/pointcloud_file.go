@@ -63,7 +63,9 @@ func NewFromLASFile(fn string) (*PointCloud, error) {
 			pToSet = WithPointValue(pToSet, value)
 		}
 
-		pc.Set(pToSet)
+		if err := pc.Set(pToSet); err != nil {
+			return nil, err
+		}
 	}
 	return pc, nil
 }
