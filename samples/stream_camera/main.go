@@ -25,7 +25,12 @@ func main() {
 	if *dump {
 		all := media.QueryVideoDevices()
 		for _, info := range all {
-			golog.Global.Debugw("info", "labels", info.Labels, "data", info)
+			golog.Global.Debugf("%s", info.ID)
+			golog.Global.Debugf("\t labels: %v", info.Labels)
+			for _, p := range info.Properties {
+				golog.Global.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
+			}
+
 		}
 		return
 	}
