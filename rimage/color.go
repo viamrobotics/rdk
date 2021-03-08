@@ -355,7 +355,7 @@ func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 
 	s = 0
 	if v > 0 {
-		// TODO: can make even faster
+		// TODO(erh): can make even faster
 		s = uint8(255.0 * C / float64(v))
 	}
 

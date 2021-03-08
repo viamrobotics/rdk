@@ -54,7 +54,7 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 
 		ik.iterations++
 
-		// TODO: Might need to check if any of x is +/- Inf
+		// TODO(pl): Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
 		dx := make([]float64, ik.Mdl.GetOperationalDof()*6)

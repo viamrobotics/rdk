@@ -51,7 +51,7 @@ func (its *ImageTrainingStore) reset(ctx context.Context) error {
 }
 
 func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
-	// TODO build indexes
+	// TODO(erh): build indexes
 	return nil
 }
 
