@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"math"
@@ -31,13 +32,33 @@ import (
 const fakeDev = "fake"
 
 func main() {
+	params, err := parseFlags()
+	if err != nil {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if err := runSlam(params); err != nil {
+		golog.Global.Fatal(err)
+	}
+}
+
+type runParams struct {
+	port           int
+	baseType       string
+	deviceDescs    []lidar.DeviceDescription
+	deviceOffests  []slam.DeviceOffset
+	compassAddress string
+}
+
+func parseFlags() (runParams, error) {
 	var baseType string
 	var lidarAddressFlags utils.StringFlags
 	var compassAddressFlag string
 	var lidarOffsetFlags utils.StringFlags
 	hostname, err := os.Hostname()
 	if err != nil {
-		golog.Global.Fatal(err)
+		return runParams{}, err
 	}
 	if runtime.GOOS == "linux" && strings.Contains(hostname, "stretch") {
 		flag.StringVar(&baseType, "base-type", "hello", "type of mobile base")
@@ -49,59 +70,26 @@ func main() {
 	flag.Var(&lidarOffsetFlags, "lidar-offset", "lidar device offets relative to first")
 	flag.Parse()
 
-	areaSizeMeters := 50
-	areaScale := 100 // cm
-	area, err := slam.NewSquareArea(areaSizeMeters, areaScale)
-	if err != nil {
-		golog.Global.Fatal(err)
-	}
-
-	var baseDevice base.Device
-	switch baseType {
-	case fakeDev:
-		baseDevice = &fake.Base{}
-	case "hello":
-		robot, err := hellorobot.New()
-		if err != nil {
-			golog.Global.Fatal(err)
-		}
-		baseDevice, err = robot.Base()
-		if err != nil {
-			golog.Global.Fatal(err)
-		}
-	default:
-		golog.Global.Fatal(fmt.Errorf("do not know how to make a %q base", baseType))
-	}
-
-	var compassSensor compass.Device
-	if compassAddressFlag != "" {
-		sensor, err := compass.NewWSDevice(context.Background(), compassAddressFlag)
-		if err != nil {
-			golog.Global.Fatal(err)
-		}
-		compassSensor = sensor
-	}
-
 	var deviceOffests []slam.DeviceOffset
 	for _, flags := range lidarOffsetFlags {
 		if flags == "" {
-			golog.Global.Fatal("offset format is angle,x,y")
+			return runParams{}, errors.New("offset format is angle,x,y")
 		}
 		split := strings.Split(flags, ",")
 		if len(split) != 3 {
-			golog.Global.Fatal("offset format is angle,x,y")
+			return runParams{}, errors.New("offset format is angle,x,y")
 		}
 		angle, err := strconv.ParseFloat(split[0], 64)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return runParams{}, err
 		}
 		distX, err := strconv.ParseFloat(split[1], 64)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return runParams{}, err
 		}
 		distY, err := strconv.ParseFloat(split[2], 64)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return runParams{}, err
 		}
 		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
 	}
@@ -143,31 +131,73 @@ func main() {
 	}
 
 	if len(deviceDescs) == 0 {
-		flag.Usage()
-		os.Exit(1)
+		return runParams{}, errors.New("no device descriptions parsed")
 	}
 
 	if len(deviceOffests) != 0 && len(deviceOffests) >= len(deviceDescs) {
-		golog.Global.Fatal(fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1))
+		return runParams{}, fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1)
 	}
 
 	port := 5555
 	if flag.NArg() >= 1 {
 		portParsed, err := strconv.ParseInt(flag.Arg(1), 10, 32)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return runParams{}, err
 		}
 		port = int(portParsed)
 	}
 
-	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
+	return runParams{
+		port:           port,
+		baseType:       baseType,
+		deviceDescs:    deviceDescs,
+		deviceOffests:  deviceOffests,
+		compassAddress: compassAddressFlag,
+	}, nil
+}
+
+func runSlam(params runParams) error {
+	areaSizeMeters := 50
+	areaScale := 100 // cm
+	area, err := slam.NewSquareArea(areaSizeMeters, areaScale)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
+	}
+
+	var baseDevice base.Device
+	switch params.baseType {
+	case fakeDev:
+		baseDevice = &fake.Base{}
+	case "hello":
+		robot, err := hellorobot.New()
+		if err != nil {
+			return err
+		}
+		baseDevice, err = robot.Base()
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("do not know how to make a %q base", params.baseType)
+	}
+
+	var compassSensor compass.Device
+	if params.compassAddress != "" {
+		sensor, err := compass.NewWSDevice(context.Background(), params.compassAddress)
+		if err != nil {
+			return err
+		}
+		compassSensor = sensor
+	}
+
+	lidarDevices, err := lidar.CreateDevices(context.Background(), params.deviceDescs)
+	if err != nil {
+		return err
 	}
 	for _, lidarDev := range lidarDevices {
 		info, err := lidarDev.Info(context.Background())
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		golog.Global.Infow("device", "info", info)
 		defer lidarDev.Stop(context.Background())
@@ -179,7 +209,7 @@ func main() {
 		for i, lidarDev := range lidarDevices {
 			angRes, err := lidarDev.AngularResolution(context.Background())
 			if err != nil {
-				golog.Global.Fatal(err)
+				return err
 			}
 			if angRes < bestResolution {
 				bestResolution = angRes
@@ -187,7 +217,7 @@ func main() {
 			}
 		}
 		bestResolutionDevice := lidarDevices[bestResolutionDeviceNum]
-		desc := deviceDescs[bestResolutionDeviceNum]
+		desc := params.deviceDescs[bestResolutionDeviceNum]
 		golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
 		compassSensor = compasslidar.From(bestResolutionDevice)
 	}
@@ -200,14 +230,14 @@ func main() {
 		baseDevice,
 		area,
 		lidarDevices,
-		deviceOffests,
+		params.deviceOffests,
 		compassSensor,
 	)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	if err := lar.Start(); err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	defer lar.Stop()
 	areaViewer := &slam.AreaViewer{area}
@@ -216,7 +246,7 @@ func main() {
 	config.StreamName = "robot view"
 	remoteView, err := gostream.NewView(config)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	lar.RegisterCommands(remoteView.CommandRegistry())
 
@@ -235,9 +265,9 @@ func main() {
 		}
 	})
 
-	server := gostream.NewViewServer(port, remoteView, golog.Global)
+	server := gostream.NewViewServer(params.port, remoteView, golog.Global)
 	if err := server.Start(); err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -258,7 +288,5 @@ func main() {
 	<-started
 	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView)
 
-	if err := server.Stop(context.Background()); err != nil {
-		golog.Global.Error(err)
-	}
+	return server.Stop(context.Background())
 }
