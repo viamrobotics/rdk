@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
@@ -26,47 +27,46 @@ func main() {
 		srcURL = flag.Arg(0)
 	}
 
-	lidarDevAddr := "127.0.0.1:4444"
+	lidarDevAddr := "ws://127.0.0.1:4444"
 	if flag.NArg() >= 2 {
 		lidarDevAddr = flag.Arg(1)
 	}
 
+	if err := runRobot(srcURL, lidarDevAddr); err != nil {
+		golog.Global.Fatal(err)
+	}
+}
+
+func runRobot(srcURL, lidarDevAddr string) (err error) {
 	helloRobot, err := hellorobot.New()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	helloRobot.Startup()
 	defer helloRobot.Stop()
 
 	lidarDev, err := lidar.NewWSDevice(context.Background(), lidarDevAddr)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if err := lidarDev.Start(context.Background()); err != nil {
-		panic(err)
+		return err
 	}
 
 	theRobot := robot.NewBlankRobot()
 	robotBase, err := helloRobot.Base()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	theRobot.AddBase(robotBase, robot.Component{})
 	theRobot.AddCamera(rimage.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
 	theRobot.AddLidar(lidarDev, robot.Component{})
 
 	defer func() {
-		if err := theRobot.Close(context.Background()); err != nil {
-			panic(err)
-		}
+		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
 	mux := http.NewServeMux()
-
-	webCloser, err := web.InstallWeb(mux, theRobot)
-	if err != nil {
-		panic(err)
-	}
 
 	httpServer := &http.Server{
 		Addr:           ":8080",
@@ -76,14 +76,27 @@ func main() {
 		Handler:        mux,
 	}
 
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	webCloser, err := web.InstallWeb(cancelCtx, mux, theRobot)
+	if err != nil {
+		return err
+	}
+
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
+		// TODO(erd): for some reason, the signal is never received and
+		// seems related to python. come back to this later, maybe.
 		<-c
+		cancelFunc()
 		webCloser()
 		httpServer.Shutdown(context.Background())
 	}()
 
 	golog.Global.Debug("going to listen")
-	golog.Global.Fatal(httpServer.ListenAndServe())
+	if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		return err
+	}
+	return nil
 }

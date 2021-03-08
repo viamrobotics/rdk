@@ -86,14 +86,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := viewLidar(port, deviceDescs, saveToDisk); err != nil {
+		golog.Global.Fatal(err)
+	}
+}
+
+func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) error {
 	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	for _, lidarDev := range lidarDevices {
 		info, err := lidarDev.Info(context.Background())
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		golog.Global.Infow("device", "info", info)
 		defer lidarDev.Stop(context.Background())
@@ -106,7 +112,7 @@ func main() {
 		areaScale := 100 // cm
 		area, err = slam.NewSquareArea(areaSizeMeters, areaScale)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 
 		var err error
@@ -118,16 +124,16 @@ func main() {
 			nil,
 		)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		if err := lar.Start(); err != nil {
-			panic(err)
+			return err
 		}
 	}
 
 	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 
 	remoteView.SetOnClickHandler(func(x, y int) {
@@ -136,7 +142,7 @@ func main() {
 
 	server := gostream.NewViewServer(port, remoteView, golog.Global)
 	if err := server.Start(); err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -148,7 +154,7 @@ func main() {
 		if saveToDisk != "" {
 			lar.Stop()
 			if err := area.WriteToFile(saveToDisk); err != nil {
-				golog.Global.Fatal(err)
+				golog.Global.Error(err)
 			}
 		}
 	}()
@@ -164,7 +170,7 @@ func main() {
 	for i, lidarDev := range lidarDevices {
 		angRes, err := lidarDev.AngularResolution(context.Background())
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		if angRes < bestResolution {
 			bestResolution = angRes
@@ -212,9 +218,8 @@ func main() {
 
 	gostream.StreamSource(cancelCtx, autoTiler, remoteView)
 
-	if err := server.Stop(context.Background()); err != nil {
-		golog.Global.Error(err)
-	}
+	err = server.Stop(context.Background())
 	<-compassDone
 	<-markDone
+	return err
 }

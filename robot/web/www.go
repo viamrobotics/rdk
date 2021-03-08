@@ -522,7 +522,7 @@ func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot) {
 
 // ---------------
 
-func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
+func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	if len(theRobot.Bases) > 1 {
 		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
@@ -573,9 +573,6 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 	}
 
 	// start background threads
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-
 	autoCameraTiler := gostream.NewAutoTiler(1280, 720)
 	autoCameraTiler.SetLogger(golog.Global)
 	if len(theRobot.Cameras) > 0 {
@@ -585,18 +582,17 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 		waitCh := make(chan struct{})
 		go func() {
 			close(waitCh)
-			gostream.StreamNamedSource(cancelCtx, autoCameraTiler, "Cameras", view)
+			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", view)
 		}()
 		<-waitCh
 	}
 
 	for idx := range theRobot.LidarDevices {
 		name := fmt.Sprintf("LIDAR %d", idx+1)
-		go gostream.StreamNamedSource(cancelCtx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, view)
+		go gostream.StreamNamedSource(ctx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, view)
 	}
 
 	return func() {
-		cancelFunc()
 		if view != nil {
 			view.Stop()
 		}
@@ -610,10 +606,12 @@ func InstallWeb(mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
 helper if you don't need to customize at all
 */
 func RunWeb(theRobot *robot.Robot) error {
-	defer theRobot.Close(context.TODO())
+	defer theRobot.Close(context.Background())
 	mux := http.NewServeMux()
 
-	webCloser, err := InstallWeb(mux, theRobot)
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	webCloser, err := InstallWeb(cancelCtx, mux, theRobot)
 	if err != nil {
 		return err
 	}
@@ -631,6 +629,7 @@ func RunWeb(theRobot *robot.Robot) error {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
+		cancelFunc()
 		webCloser()
 		httpServer.Shutdown(context.Background()) //nolint
 	}()

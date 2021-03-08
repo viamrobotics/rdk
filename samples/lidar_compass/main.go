@@ -61,14 +61,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := readCompass(deviceDescs); err != nil {
+		golog.Global.Fatal(err)
+	}
+}
+
+func readCompass(deviceDescs []lidar.DeviceDescription) error {
 	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	for _, lidarDev := range lidarDevices {
 		info, err := lidarDev.Info(context.Background())
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		golog.Global.Infow("device", "info", info)
 		defer lidarDev.Stop(context.Background())
@@ -79,7 +85,7 @@ func main() {
 	for i, lidarDev := range lidarDevices {
 		angRes, err := lidarDev.AngularResolution(context.Background())
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		if angRes < bestResolution {
 			bestResolution = angRes
@@ -116,7 +122,10 @@ func main() {
 	for {
 		select {
 		case <-cancelCtx.Done():
-			return
+			if cancelCtx.Err() != context.Canceled {
+				return cancelCtx.Err()
+			}
+			return nil
 		default:
 		}
 		time.Sleep(100 * time.Millisecond)
