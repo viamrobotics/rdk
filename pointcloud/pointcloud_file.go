@@ -48,7 +48,12 @@ func NewFromLASFile(fn string) (*PointCloud, error) {
 		data := p.PointData()
 
 		x, y, z := data.X, data.Y, data.Z
-		// TODO(erd): potentially losing floating point data and lossiness
+		if x < minExactFloat64Integer || x > maxExactFloat64Integer ||
+			y < minExactFloat64Integer || y > maxExactFloat64Integer ||
+			z < minExactFloat64Integer || z > maxExactFloat64Integer {
+			golog.Global.Warnf("potential floating point lossiness for LAS point",
+				"point", data, "range", fmt.Sprintf("[%d,%d]", minExactFloat64Integer, maxExactFloat64Integer))
+		}
 		pToSet := NewPoint(int(x), int(y), int(z))
 
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
