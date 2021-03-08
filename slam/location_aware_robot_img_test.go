@@ -37,9 +37,9 @@ func TestRobotNext(t *testing.T) {
 		harness := newTestHarness(t)
 		larBot := harness.bot
 		harness.area.Mutate(func(area MutableArea) {
-			area.Set(-10, 1, 1)
-			area.Set(5, -20, 1)
-			area.Set(40, 4, 1)
+			test.That(t, area.Set(-10, 1, 1), test.ShouldBeNil)
+			test.That(t, area.Set(5, -20, 1), test.ShouldBeNil)
+			test.That(t, area.Set(40, 4, 1), test.ShouldBeNil)
 		})
 
 		img, _, err := larBot.Next(context.Background())

@@ -78,7 +78,7 @@ func (sa *SquareArea) WriteToFile(fn string) error {
 type MutableArea interface {
 	Iterate(visit func(x, y, v int) bool)
 	At(x, y int) int
-	Set(x, y int, v int)
+	Set(x, y int, v int) error
 	Unset(x, y int)
 }
 
@@ -105,16 +105,14 @@ func (msa *mutableSquareArea) At(x, y int) int {
 	return p.(pointcloud.ValuePoint).Value()
 }
 
-func (msa *mutableSquareArea) Set(x, y, v int) {
+func (msa *mutableSquareArea) Set(x, y, v int) error {
 	if x < -msa.quadLength || x >= msa.quadLength {
-		panic(fmt.Errorf("x must be between [%d,%d)", -msa.quadLength, msa.quadLength))
+		return fmt.Errorf("x must be between [%d,%d)", -msa.quadLength, msa.quadLength)
 	}
 	if y < -msa.quadLength || y >= msa.quadLength {
-		panic(fmt.Errorf("y must be between [%d,%d)", -msa.quadLength, msa.quadLength))
+		return fmt.Errorf("y must be between [%d,%d)", -msa.quadLength, msa.quadLength)
 	}
-	if err := msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v)); err != nil {
-		panic(err)
-	}
+	return msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {

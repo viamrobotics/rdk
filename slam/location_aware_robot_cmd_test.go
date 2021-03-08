@@ -21,7 +21,7 @@ func TestCommands(t *testing.T) {
 	t.Run(commandSave, func(t *testing.T) {
 		th := newTestHarness(t)
 		th.bot.rootArea.Mutate(func(area MutableArea) {
-			area.Set(30, 20, 3)
+			test.That(t, area.Set(30, 20, 3), test.ShouldBeNil)
 		})
 		_, err := th.cmdReg.Process(&gostream.Command{
 			Name: commandSave,
@@ -227,7 +227,7 @@ func TestCommands(t *testing.T) {
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(th.bot.basePosX+5, th.bot.basePosY, 3)
+			test.That(t, area.Set(th.bot.basePosX+5, th.bot.basePosY, 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
@@ -272,7 +272,7 @@ func TestCommands(t *testing.T) {
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(th.bot.basePosX, th.bot.basePosY+5, 3)
+			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+5, 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
@@ -317,7 +317,7 @@ func TestCommands(t *testing.T) {
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Set(th.bot.basePosX, th.bot.basePosY-5, 3)
+			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-5, 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
@@ -749,7 +749,7 @@ func TestHandleClick(t *testing.T) {
 		larBot := th.bot
 		larBot.clientClickMode = clientClickModeInfo
 		larBot.rootArea.Mutate(func(area MutableArea) {
-			area.Set(-20, -30, 3)
+			test.That(t, area.Set(-20, -30, 3), test.ShouldBeNil)
 		})
 
 		for i, tc := range []struct {
