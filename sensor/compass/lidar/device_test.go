@@ -161,11 +161,41 @@ func TestHeading(t *testing.T) {
 		test.That(t, math.IsNaN(h), test.ShouldBeTrue)
 	})
 
+	t.Run("with angular resolution failing", func(t *testing.T) {
+		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
+		test.That(t, err, test.ShouldBeNil)
+
+		mat2, err := pointCloud.ToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
+		firstMs := lidar.MeasurementsFromVec2Matrix(mat2)
+		compassDev, injectDev := getInjected()
+		err1 := errors.New("ouch")
+		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), err1
+		}
+		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			return firstMs, nil
+		}
+		test.That(t, compassDev.Mark(), test.ShouldEqual, err1)
+
+		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return .3375, nil
+		}
+		test.That(t, compassDev.Mark(), test.ShouldBeNil)
+
+		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), err1
+		}
+		_, err = compassDev.Heading(context.Background())
+		test.That(t, err, test.ShouldEqual, err1)
+	})
+
 	t.Run("with mark", func(t *testing.T) {
 		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
 		test.That(t, err, test.ShouldBeNil)
 
-		mat2 := pointCloud.ToVec2Matrix()
+		mat2, err := pointCloud.ToVec2Matrix()
+		test.That(t, err, test.ShouldBeNil)
 		firstMs := lidar.MeasurementsFromVec2Matrix(mat2)
 		compassDev, injectDev := getInjected()
 		angularRes := .3375
