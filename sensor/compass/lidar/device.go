@@ -82,7 +82,7 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 	}
 
 	var results utils.Vec2Fs
-	d.groupWorkParallel(
+	if err := d.groupWorkParallel(
 		func(numGroups int) {
 			results = make(utils.Vec2Fs, numGroups)
 		},
@@ -101,7 +101,9 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 					results[groupNum] = []float64{minDist, minTheta}
 				}
 		},
-	)
+	); err != nil {
+		return math.NaN(), err
+	}
 	sort.Sort(results)
 	return results[0][1], nil
 }
@@ -143,7 +145,7 @@ func (d *Device) Mark() error {
 		return err
 	}
 	var markedRotatedMats [][]rotatedMat
-	d.groupWorkParallel(
+	if err := d.groupWorkParallel(
 		func(numGroups int) {
 			markedRotatedMats = make([][]rotatedMat, numGroups)
 		},
@@ -156,7 +158,9 @@ func (d *Device) Mark() error {
 					markedRotatedMats[groupNum] = rotatedMats
 				}
 		},
-	)
+	); err != nil {
+		return err
+	}
 	d.markedRotatedMats.Store(markedRotatedMats)
 	return nil
 }
@@ -182,11 +186,11 @@ type memberWorkFunc func(memberNum int, theta float64)
 type groupWorkDoneFunc func()
 type groupWorkFunc func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc)
 
-func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) {
+func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) error {
 	thetaParts := maxTheta / float64(parallelFactor)
 	rotRes, err := d.rotationResolution()
 	if err != nil {
-		panic(err)
+		return err
 	}
 	numRotations := int(math.Ceil(maxTheta / rotRes))
 	groupSize := int(math.Ceil(float64(numRotations) / float64(parallelFactor)))
@@ -214,4 +218,5 @@ func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork
 		}()
 	}
 	wait.Wait()
+	return nil
 }

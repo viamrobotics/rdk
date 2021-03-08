@@ -51,12 +51,12 @@ func (sa *SquareArea) PointCloud() *pointcloud.PointCloud {
 	return sa.cloud
 }
 
-func (sa *SquareArea) BlankCopy() *SquareArea {
+func (sa *SquareArea) BlankCopy() (*SquareArea, error) {
 	area, err := NewSquareArea(sa.sizeMeters, sa.scaleTo)
 	if err != nil {
-		panic(err) // cannot fail
+		return nil, err
 	}
-	return area
+	return area, nil
 }
 
 func (sa *SquareArea) Size() (int, int) {

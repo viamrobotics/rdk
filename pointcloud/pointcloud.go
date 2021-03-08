@@ -103,11 +103,12 @@ func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
 	}
 }
 
-func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) *mat.Dense {
+func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, error) {
 	size := cloud.Size()
 	m := mat.NewDense(2, size, nil)
 	var data []int
 	c := 0
+	var err error
 	cloud.Iterate(func(p Point) bool {
 		v := p.Position()
 		var i, j, k int
@@ -125,7 +126,8 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) *mat.Dense {
 			j = v.Y
 			k = v.Z
 		default:
-			panic(fmt.Errorf("unknown dim %d", dim))
+			err = fmt.Errorf("unknown dim %d", dim)
+			return false
 		}
 		if k != idx {
 			return true
@@ -137,10 +139,10 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) *mat.Dense {
 		c++
 		return true
 	})
-	return m
+	return m, err
 }
 
 // TODO(erd): intermediate, lazy structure that is not dense floats?
-func (cloud *PointCloud) DenseZ(zIdx int) *mat.Dense {
+func (cloud *PointCloud) DenseZ(zIdx int) (*mat.Dense, error) {
 	return newDensePivotFromCloud(cloud, 2, zIdx)
 }

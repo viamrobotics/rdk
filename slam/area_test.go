@@ -105,7 +105,8 @@ func TestSquareArea(t *testing.T) {
 		test.That(t, expected, test.ShouldBeEmpty)
 	})
 
-	newSA := sa.BlankCopy()
+	newSA, err := sa.BlankCopy()
+	test.That(t, err, test.ShouldBeNil)
 
 	sizeMeters, scale := sa.Size()
 	areaDim := sa.Dim()
