@@ -18,7 +18,10 @@ import (
 
 func main() {
 
+	debug := flag.Bool("debug", false, "")
 	dump := flag.Bool("dump", false, "dump all camera info")
+	path := flag.String("path", "", "")
+	pathPattern := flag.String("pathPattern", "", "")
 
 	flag.Parse()
 
@@ -44,7 +47,16 @@ func main() {
 		port = int(portParsed)
 	}
 
-	webcam, err := rimage.NewWebcamSource(nil)
+	attrs := map[string]string{
+		"path":         *path,
+		"path_pattern": *pathPattern,
+	}
+
+	if *debug {
+		attrs["debug"] = "true"
+	}
+
+	webcam, err := rimage.NewWebcamSource(attrs)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
