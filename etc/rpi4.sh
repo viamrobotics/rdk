@@ -1,7 +1,7 @@
 sudo systemctl enable ssh
 sudo apt -y update
 sudo apt -y upgrade
-sudo apt -y install cheese  wiringpi git autoconf swig yasm libpython2.7-dev cmake libxext-dev git v4l-utils apt-file pigpio-tools pigpiod
+sudo apt -y install cheese  wiringpi git autoconf swig yasm libpython2.7-dev cmake libxext-dev git v4l-utils apt-file pigpio-tools pigpiod libx264-dev
 sudo apt-file update
 
 sudo systemctl enable pigpiod
