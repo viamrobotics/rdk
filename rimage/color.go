@@ -368,7 +368,10 @@ func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 		} else if v == g {
 			h2 = (float64(b)-float64(r))/C + 2.0
 		} else if v == r {
-			h2 = math.Mod((float64(g)-float64(b))/C, 6.0)
+			h2 = (float64(g) - float64(b)) / C
+			if h2 >= 6 || h2 <= -6 {
+				panic("i thought this was impossible")
+			}
 		}
 
 		h2 *= 60.0
