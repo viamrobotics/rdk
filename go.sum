@@ -157,6 +157,8 @@ github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwa
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
 github.com/edaniels/gostream v0.0.0-20210305215815-edc4cf213a8e h1:5p1vwlI2E05KZbi2k0UgwSO78xStiSbY3LiygY8LHI8=
 github.com/edaniels/gostream v0.0.0-20210305215815-edc4cf213a8e/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
+github.com/edaniels/gostream v0.0.0-20210308151959-880644dea921 h1:yVBfTcFC/6JPw3WeVy7Mj6km/VyukkRgVJ23yLQgEX8=
+github.com/edaniels/gostream v0.0.0-20210308151959-880644dea921/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0 h1:hnK+cHF0aYBvT6osQLGV/WxRDV7/rxk8OI3iALTV+qI=
