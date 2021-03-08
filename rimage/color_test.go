@@ -554,4 +554,12 @@ func TestHSVConvert(t *testing.T) {
 	tt(color.NRGBA{128, 200, 225, 255})
 	tt(color.NRGBA{200, 128, 32, 255})
 	tt(color.NRGBA{31, 213, 200, 255})
+
+	for r := 0; r <= 255; r += 32 {
+		for g := 0; g <= 255; g += 32 {
+			for b := 0; b <= 255; b += 32 {
+				tt(color.NRGBA{uint8(r), uint8(g), uint8(b), 255})
+			}
+		}
+	}
 }
