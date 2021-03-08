@@ -31,10 +31,11 @@ func TestNewFromFile(t *testing.T) {
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
 	cloud := New()
-	cloud.Set(WithPointValue(NewColoredPoint(-1, -2, 5, &color.RGBA{255, 1, 2, 0}), 5))
-	cloud.Set(WithPointValue(NewColoredPoint(582, 12, 0, &color.RGBA{255, 1, 2, 0}), -1))
-	cloud.Set(WithPointValue(NewColoredPoint(7, 6, 1, &color.RGBA{255, 1, 2, 0}), 1))
-	cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0))
+	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(-1, -2, 5, &color.RGBA{255, 1, 2, 0}), 5)), test.ShouldBeNil)
+	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(582, 12, 0, &color.RGBA{255, 1, 2, 0}), -1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(7, 6, 1, &color.RGBA{255, 1, 2, 0}), 1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0)), test.ShouldBeNil)
+	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0)), test.ShouldBeNil)
 
 	bytes := make([]byte, 8)
 	v := 1.4
