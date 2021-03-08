@@ -10,11 +10,10 @@ import (
 
 	"go.viam.com/robotcore/rimage"
 
-	"github.com/pion/mediadevices/pkg/driver"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	"github.com/edaniels/gostream/media"
 )
 
 func main() {
@@ -24,12 +23,12 @@ func main() {
 	flag.Parse()
 
 	if *dump {
-		all := driver.GetManager().Query(driver.FilterVideoRecorder())
-		for _, d := range all {
-			golog.Global.Debugf("%T %s", d, d.ID())
-			golog.Global.Debugf("\t label: %s", d.Info().Label)
-			golog.Global.Debugf("\t props: %s", d.Properties())
-
+		all, err := media.QueryVideoDevices()
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		for _, info := range all {
+			golog.Global.Debugw("info", "labels", info.Labels, "data", info)
 		}
 		return
 	}
