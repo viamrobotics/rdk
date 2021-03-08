@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"context"
 	"image"
 	"testing"
 )
@@ -14,8 +13,7 @@ func (h *intelTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 
 	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, MaxDepth), "depth")
 
-	a := Intel515Align{}
-	fixed, err := a.Align(context.Background(), ii)
+	fixed, err := intel515align(ii)
 	if err != nil {
 		d.T.Fatal(err)
 	}
