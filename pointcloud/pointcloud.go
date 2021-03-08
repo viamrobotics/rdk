@@ -42,7 +42,16 @@ func (cloud *PointCloud) At(x, y, z int) Point {
 	return cloud.points[key{x, y, z}]
 }
 
-func (cloud *PointCloud) Set(p Point) {
+const (
+	maxExactFloat64Integer = 1 << 53
+	minExactFloat64Integer = -maxExactFloat64Integer
+)
+
+func newOutOfRangeErr(dim string, val int) error {
+	return fmt.Errorf("%s component (%d) is out of range [%d,%d]", dim, val, minExactFloat64Integer, maxExactFloat64Integer)
+}
+
+func (cloud *PointCloud) Set(p Point) error {
 	cloud.points[key(p.Position())] = p
 	if ok, _ := IsColored(p); ok {
 		cloud.hasColor = true
@@ -51,6 +60,15 @@ func (cloud *PointCloud) Set(p Point) {
 		cloud.hasValue = true
 	}
 	v := p.Position()
+	if v.X > maxExactFloat64Integer || v.X < minExactFloat64Integer {
+		return newOutOfRangeErr("x", v.X)
+	}
+	if v.Y > maxExactFloat64Integer || v.Y < minExactFloat64Integer {
+		return newOutOfRangeErr("y", v.Y)
+	}
+	if v.Z > maxExactFloat64Integer || v.Z < minExactFloat64Integer {
+		return newOutOfRangeErr("z", v.Z)
+	}
 	if v.X > cloud.maxX {
 		cloud.maxX = v.X
 	}
@@ -70,6 +88,7 @@ func (cloud *PointCloud) Set(p Point) {
 	if v.Z < cloud.minZ {
 		cloud.minZ = v.Z
 	}
+	return nil
 }
 
 func (cloud *PointCloud) Unset(x, y, z int) {
@@ -111,8 +130,9 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) *mat.Dense {
 		if k != idx {
 			return true
 		}
-		m.Set(0, c, float64(i)) // TODO(erd): may be lossy if large
-		m.Set(1, c, float64(j)) // TODO(erd): may be lossy if large
+		// floating point losiness validated from set/load
+		m.Set(0, c, float64(i))
+		m.Set(1, c, float64(j))
 		data = append(data, i, j)
 		c++
 		return true
