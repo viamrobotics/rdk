@@ -227,6 +227,7 @@ func runSlam(params runParams) error {
 	}
 
 	lar, err := slam.NewLocationAwareRobot(
+		context.Background(),
 		baseDevice,
 		area,
 		lidarDevices,
@@ -253,9 +254,18 @@ func runSlam(params runParams) error {
 	clientWidth := 800
 	clientHeight := 600
 
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		cancelFunc()
+	}()
+
 	remoteView.SetOnClickHandler(func(x, y int) {
 		golog.Global.Debugw("click", "x", x, "y", y)
-		resp, err := lar.HandleClick(x, y, clientWidth, clientHeight)
+		resp, err := lar.HandleClick(cancelCtx, x, y, clientWidth, clientHeight)
 		if err != nil {
 			remoteView.SendTextToAll(err.Error())
 			return
@@ -269,14 +279,6 @@ func runSlam(params runParams) error {
 	if err := server.Start(); err != nil {
 		return err
 	}
-
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		cancelFunc()
-	}()
 
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
 	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}

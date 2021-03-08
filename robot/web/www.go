@@ -113,31 +113,31 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 
-	mux.Handle("/api/base", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+	mux.Handle("/api/base", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		mmPerSec := 500.0 // TODO(erh): this is proably the wrong default
-		if req.FormValue("speed") != "" {
-			speed2, err := strconv.ParseFloat(req.FormValue("speed"), 64)
+		if r.FormValue("speed") != "" {
+			speed2, err := strconv.ParseFloat(r.FormValue("speed"), 64)
 			if err != nil {
 				return nil, err
 			}
 			mmPerSec = speed2
 		}
 
-		s := req.FormValue("stop")
-		d := req.FormValue("distanceMM")
-		a := req.FormValue("angle")
+		s := r.FormValue("stop")
+		d := r.FormValue("distanceMM")
+		a := r.FormValue("angle")
 
 		var err error
 
 		if s == "t" || s == "true" {
-			err = theBase.Stop()
+			err = theBase.Stop(r.Context())
 		} else if d != "" {
 			d2, err2 := strconv.ParseInt(d, 10, 64)
 			if err2 != nil {
 				return nil, err2
 			}
 
-			err = theBase.MoveStraight(int(d2), mmPerSec, false)
+			err = theBase.MoveStraight(r.Context(), int(d2), mmPerSec, false)
 		} else if a != "" {
 			a2, err2 := strconv.ParseInt(a, 10, 64)
 			if err2 != nil {
@@ -145,7 +145,7 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 			}
 
 			// TODO(erh): fix speed
-			err = theBase.Spin(float64(a2), 64, false)
+			err = theBase.Spin(r.Context(), float64(a2), 64, false)
 		} else {
 			return nil, fmt.Errorf("no stop, distanceMM, angle given")
 		}
@@ -159,14 +159,14 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 	}})
 }
 
-type apiMethod func(req *http.Request) (map[string]interface{}, error)
+type apiMethod func(r *http.Request) (map[string]interface{}, error)
 
 type apiCall struct {
 	theMethod apiMethod
 }
 
-func (ac *apiCall) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	res, err := ac.theMethod(req)
+func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	res, err := ac.theMethod(r)
 	if err != nil {
 		golog.Global.Warnf("error in api call: %s", err)
 		res = map[string]interface{}{"err": err.Error()}
@@ -188,8 +188,8 @@ func (ac *apiCall) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
-	mux.Handle("/api/action", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-		name := req.FormValue("name")
+	mux.Handle("/api/action", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		name := r.FormValue("name")
 		switch name {
 		case "RandomWalk":
 			go actions.RandomWalk(theRobot, 60)
@@ -201,16 +201,16 @@ func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
 }
 
 func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
-	mux.Handle("/api/arm", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-		mode := req.FormValue("mode")
+	mux.Handle("/api/arm", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		mode := r.FormValue("mode")
 		if mode == "" {
 			mode = "grid"
 		}
-		action := req.FormValue("action")
+		action := r.FormValue("action")
 		armNumber := 0
 
-		if req.FormValue("num") != "" {
-			arm2, err2 := strconv.ParseInt(req.FormValue("num"), 10, 64)
+		if r.FormValue("num") != "" {
+			arm2, err2 := strconv.ParseInt(r.FormValue("num"), 10, 64)
 			if err2 != nil {
 				return nil, fmt.Errorf("bad value for arm")
 			}
@@ -232,13 +232,13 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 
 			changed := false
 			for _, n := range []string{"x", "y", "z", "rx", "ry", "rz"} {
-				if req.FormValue(n) == "" {
+				if r.FormValue(n) == "" {
 					continue
 				}
 
-				val, err := strconv.ParseFloat(req.FormValue(n), 64)
+				val, err := strconv.ParseFloat(r.FormValue(n), 64)
 				if err != nil {
-					return nil, fmt.Errorf("bad value for:%s [%s]", n, req.FormValue(n))
+					return nil, fmt.Errorf("bad value for:%s [%s]", n, r.FormValue(n))
 				}
 
 				if action == "abs" {
@@ -300,7 +300,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 			changes := false
 			if action == "inc" {
 				for i := 0; i < len(current.Degrees); i++ {
-					temp := req.FormValue(fmt.Sprintf("j%d", i))
+					temp := r.FormValue(fmt.Sprintf("j%d", i))
 					if temp == "" {
 						continue
 					}
@@ -313,7 +313,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 				}
 			} else if action == "abs" {
 				for i := 0; i < len(current.Degrees); i++ {
-					temp := req.FormValue(fmt.Sprintf("j%d", i))
+					temp := r.FormValue(fmt.Sprintf("j%d", i))
 					if temp == "" {
 						continue
 					}
@@ -343,11 +343,11 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 }
 
 func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
-	mux.HandleFunc("/api/gripper", func(w http.ResponseWriter, req *http.Request) {
+	mux.HandleFunc("/api/gripper", func(w http.ResponseWriter, r *http.Request) {
 		gripper := 0
 
-		if req.FormValue("num") != "" {
-			g2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
+		if r.FormValue("num") != "" {
+			g2, err := strconv.ParseInt(r.FormValue("num"), 10, 64)
 			if err != nil {
 				http.Error(w, "bad value for num", http.StatusBadRequest)
 				return
@@ -362,7 +362,7 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
 
 		var err error
 
-		action := req.FormValue("action")
+		action := r.FormValue("action")
 		switch action {
 		case "open":
 			err = theRobot.Grippers[gripper].Open()
@@ -384,10 +384,10 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
 }
 
 func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
-	theFunc := func(w http.ResponseWriter, req *http.Request) {
+	theFunc := func(w http.ResponseWriter, r *http.Request) {
 		num := 0
-		if req.FormValue("num") != "" {
-			num2, err := strconv.ParseInt(req.FormValue("num"), 10, 64)
+		if r.FormValue("num") != "" {
+			num2, err := strconv.ParseInt(r.FormValue("num"), 10, 64)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -402,7 +402,7 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 			return
 		}
 
-		img, release, err := theRobot.Cameras[num].Next(context.TODO())
+		img, release, err := theRobot.Cameras[num].Next(r.Context())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -425,48 +425,48 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 func installBoard(mux *http.ServeMux, b board.Board) {
 	cfg := b.GetConfig()
 
-	mux.Handle("/api/board/"+cfg.Name+"/motor", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-		name := req.FormValue("name")
+	mux.Handle("/api/board/"+cfg.Name+"/motor", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		name := r.FormValue("name")
 		theMotor := b.Motor(name)
 		if theMotor == nil {
-			return nil, fmt.Errorf("unknown motor: %s", req.FormValue("name"))
+			return nil, fmt.Errorf("unknown motor: %s", r.FormValue("name"))
 		}
 
-		speed, err := strconv.ParseFloat(req.FormValue("s"), 64)
+		speed, err := strconv.ParseFloat(r.FormValue("s"), 64)
 		if err != nil {
 			return nil, err
 		}
 
-		r := 0.0
-		if req.FormValue("r") != "" {
-			r, err = strconv.ParseFloat(req.FormValue("r"), 64)
+		rVal := 0.0
+		if r.FormValue("r") != "" {
+			rVal, err = strconv.ParseFloat(r.FormValue("r"), 64)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		if r == 0 {
-			return map[string]interface{}{}, theMotor.Go(board.DirectionFromString(req.FormValue("d")), byte(speed))
+		if rVal == 0 {
+			return map[string]interface{}{}, theMotor.Go(board.DirectionFromString(r.FormValue("d")), byte(speed))
 		}
 
-		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(req.FormValue("d")), speed, r, false)
+		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(r.FormValue("d")), speed, rVal, false)
 	}})
 
-	mux.Handle("/api/board/"+cfg.Name+"/servo", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
-		name := req.FormValue("name")
+	mux.Handle("/api/board/"+cfg.Name+"/servo", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		name := r.FormValue("name")
 		theServo := b.Servo(name)
 		if theServo == nil {
-			return nil, fmt.Errorf("unknown servo: %s", req.FormValue("name"))
+			return nil, fmt.Errorf("unknown servo: %s", r.FormValue("name"))
 		}
 
 		var angle int64
 		var err error
 
-		if req.FormValue("angle") != "" {
-			angle, err = strconv.ParseInt(req.FormValue("angle"), 10, 64)
-		} else if req.FormValue("delta") != "" {
+		if r.FormValue("angle") != "" {
+			angle, err = strconv.ParseInt(r.FormValue("angle"), 10, 64)
+		} else if r.FormValue("delta") != "" {
 			var d int64
-			d, err = strconv.ParseInt(req.FormValue("delta"), 10, 64)
+			d, err = strconv.ParseInt(r.FormValue("delta"), 10, 64)
 			angle = int64(theServo.Current()) + d
 		} else {
 			err = fmt.Errorf("need to specify angle or delta")
@@ -480,7 +480,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 
 	}})
 
-	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		analogs := map[string]int{}
 		for _, a := range cfg.Analogs {
 			res, err := b.AnalogReader(a.Name).Read()
@@ -509,7 +509,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 		}, nil
 	}})
 
-	mux.Handle("/api/board", &apiCall{func(req *http.Request) (map[string]interface{}, error) {
+	mux.Handle("/api/board", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("unknown")
 	}})
 }

@@ -97,18 +97,20 @@ func readCompass(deviceDescs []lidar.DeviceDescription) error {
 	golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
 	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResolutionDevice)
 
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
 	quitC := make(chan os.Signal, 2)
 	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
 	go func() {
 		for {
 			<-quitC
 			golog.Global.Debug("marking")
-			lidarCompass.Mark()
+			lidarCompass.Mark(cancelCtx)
 			golog.Global.Debug("marked")
 		}
 	}()
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	termC := make(chan os.Signal, 2)
 	signal.Notify(termC, os.Interrupt, syscall.SIGTERM)
 	go func() {

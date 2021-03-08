@@ -81,7 +81,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return nil, nil
 		}
-		m, err := compassDev.scanToVec2Matrix()
+		m, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, (*mat.Dense)(m).IsEmpty(), test.ShouldBeTrue)
 	})
@@ -93,7 +93,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 			test.That(t, options.NoFilter, test.ShouldBeTrue)
 			return nil, nil
 		}
-		m, err := compassDev.scanToVec2Matrix()
+		m, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, (*mat.Dense)(m).IsEmpty(), test.ShouldBeTrue)
 	})
@@ -105,7 +105,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 			count++
 			return nil, errors.New("oops")
 		}
-		_, err := compassDev.scanToVec2Matrix()
+		_, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeError, "oops")
 		test.That(t, count, test.ShouldBeGreaterThan, 1)
 	})
@@ -119,7 +119,7 @@ func TestScanToVec2Matrix(t *testing.T) {
 				lidar.NewMeasurement(30, 5),
 			}, nil
 		}
-		m, err := compassDev.scanToVec2Matrix()
+		m, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		mD := (*mat.Dense)(m)
 		test.That(t, mD.IsEmpty(), test.ShouldBeFalse)
@@ -176,12 +176,12 @@ func TestHeading(t *testing.T) {
 		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return firstMs, nil
 		}
-		test.That(t, compassDev.Mark(), test.ShouldEqual, err1)
+		test.That(t, compassDev.Mark(context.Background()), test.ShouldEqual, err1)
 
 		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return .3375, nil
 		}
-		test.That(t, compassDev.Mark(), test.ShouldBeNil)
+		test.That(t, compassDev.Mark(context.Background()), test.ShouldBeNil)
 
 		injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), err1
@@ -205,9 +205,9 @@ func TestHeading(t *testing.T) {
 		injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			return firstMs, nil
 		}
-		test.That(t, compassDev.Mark(), test.ShouldBeNil)
+		test.That(t, compassDev.Mark(context.Background()), test.ShouldBeNil)
 
-		scannedM, err := compassDev.scanToVec2Matrix()
+		scannedM, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
 		setup := func(t *testing.T) (*Device, *inject.LidarDevice) {

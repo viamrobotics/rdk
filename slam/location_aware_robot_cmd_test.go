@@ -81,13 +81,13 @@ func TestCommands(t *testing.T) {
 
 		// 3rd spin fails
 		injectBase := &inject.Base{}
-		injectBase.WidthFunc = func() float64 {
-			return 0.6
+		injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
+			return 0.6, nil
 		}
 		th.bot.baseDevice = injectBase
 		spinCount := 0
 		spinErr := errors.New("nospin")
-		injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 			if spinCount == 2 {
 				return spinErr
 			}
@@ -111,7 +111,7 @@ func TestCommands(t *testing.T) {
 		}
 		baseWithCompass := augment.Device(injectBase, compass)
 		th.bot.baseDevice = baseWithCompass
-		injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 			return nil
 		}
 		_, err = th.cmdReg.Process(&gostream.Command{
@@ -705,7 +705,7 @@ func TestHandleClick(t *testing.T) {
 		th := newTestHarness(t)
 		larBot := th.bot
 		larBot.clientClickMode = "who"
-		_, err := larBot.HandleClick(0, 0, 10, 10)
+		_, err := larBot.HandleClick(context.Background(), 0, 0, 10, 10)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 	})
@@ -715,15 +715,15 @@ func TestHandleClick(t *testing.T) {
 		larBot := th.bot
 		larBot.clientClickMode = clientClickModeMove
 		injectBase := &inject.Base{Device: larBot.baseDevice}
-		injectBase.WidthFunc = func() float64 {
-			return 0.6
+		injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
+			return 0.6, nil
 		}
 		larBot.baseDevice = injectBase
 		err1 := errors.New("whoops")
-		injectBase.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMM int, speed float64, block bool) error {
 			return err1
 		}
-		_, err := larBot.HandleClick(1, 2, 3, 4)
+		_, err := larBot.HandleClick(context.Background(), 1, 2, 3, 4)
 		test.That(t, err, test.ShouldWrap, err1)
 
 		for i, tc := range []struct {
@@ -742,7 +742,7 @@ func TestHandleClick(t *testing.T) {
 				th := newTestHarness(t)
 				larBot := th.bot
 				larBot.clientClickMode = clientClickModeMove
-				ret, err := larBot.HandleClick(tc.x, tc.y, tc.viewWidth, tc.viewHeight)
+				ret, err := larBot.HandleClick(context.Background(), tc.x, tc.y, tc.viewWidth, tc.viewHeight)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("(%d, %d)", tc.expectedX, tc.expectedY))
 				test.That(t, ret, test.ShouldContainSubstring, string(tc.expectedDir))
@@ -771,7 +771,7 @@ func TestHandleClick(t *testing.T) {
 			{3, 2, 10, 10, true, 326.309932, 36, 33},
 		} {
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-				ret, err := larBot.HandleClick(tc.x, tc.y, tc.viewWidth, tc.viewHeight)
+				ret, err := larBot.HandleClick(context.Background(), tc.x, tc.y, tc.viewWidth, tc.viewHeight)
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("object=%t", tc.object))
 				test.That(t, ret, test.ShouldContainSubstring, fmt.Sprintf("angleCenter=%f", tc.angleCenter))

@@ -117,6 +117,7 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 
 		var err error
 		lar, err = slam.NewLocationAwareRobot(
+			context.Background(),
 			&fake.Base{},
 			area,
 			lidarDevices,
@@ -211,7 +212,7 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 			case <-quitC:
 			}
 			golog.Global.Debug("marking")
-			lidarCompass.Mark()
+			lidarCompass.Mark(cancelCtx)
 			golog.Global.Debug("marked")
 		}
 	}()

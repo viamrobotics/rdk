@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"testing"
 	"time"
 
@@ -46,6 +47,7 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 	}
 
 	larBot, err := NewLocationAwareRobot(
+		context.Background(),
 		baseDevice,
 		area,
 		[]lidar.Device{injectLidarDev},
@@ -82,6 +84,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	}
 
 	_, err = NewLocationAwareRobot(
+		context.Background(),
 		baseDevice,
 		area,
 		[]lidar.Device{injectLidarDev},
@@ -96,7 +99,26 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	}
 
 	_, err = NewLocationAwareRobot(
+		context.Background(),
 		baseDevice,
+		area,
+		[]lidar.Device{injectLidarDev},
+		nil,
+		nil,
+	)
+	test.That(t, err, test.ShouldWrap, err1)
+
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+		return image.Point{5, 5}, nil
+	}
+	injectBase := &inject.Base{Device: baseDevice}
+	injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
+		return math.NaN(), err1
+	}
+
+	_, err = NewLocationAwareRobot(
+		context.Background(),
+		injectBase,
 		area,
 		[]lidar.Device{injectLidarDev},
 		nil,
@@ -194,14 +216,14 @@ func TestMove(t *testing.T) {
 		{"unknown direction", intPtr(20), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
 		{"moving fails", intPtr(20), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
-			injectBase.WidthFunc = func() float64 {
-				return 0.6
+			injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
+				return 0.6, nil
 			}
 			th.bot.baseDevice = injectBase
-			injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
+			injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 				return errors.New("whoops")
 			}
-			injectBase.MoveStraightFunc = func(distanceMM int, speed float64, block bool) error {
+			injectBase.MoveStraightFunc = func(ctx context.Context, distanceMM int, speed float64, block bool) error {
 				return errors.New("whoops")
 			}
 		}},
@@ -214,7 +236,7 @@ func TestMove(t *testing.T) {
 			origX := th.bot.basePosX
 			origY := th.bot.basePosX
 			origOrientation := th.bot.orientation()
-			err := th.bot.Move(tc.amount, tc.rotateTo)
+			err := th.bot.Move(context.Background(), tc.amount, tc.rotateTo)
 			if tc.err != "" {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
@@ -457,7 +479,7 @@ func testUpdate(t *testing.T, internal bool) {
 	device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err1
 	}
-	err = th.bot.scanAndStore([]lidar.Device{device}, area)
+	err = th.bot.scanAndStore(context.Background(), []lidar.Device{device}, area)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad scan")
 	test.That(t, err, test.ShouldWrap, err1)
@@ -805,10 +827,10 @@ func testUpdate(t *testing.T, internal bool) {
 			area, err := th.area.BlankCopy()
 			test.That(t, err, test.ShouldBeNil)
 			if internal {
-				err = th.bot.scanAndStore(devices, area)
+				err = th.bot.scanAndStore(context.Background(), devices, area)
 			} else {
 				th.bot.devices = devices
-				err = th.bot.update()
+				err = th.bot.update(context.Background())
 			}
 			if tc.err != "" {
 				test.That(t, err, test.ShouldNotBeNil)
@@ -1055,7 +1077,7 @@ func TestRobotActive(t *testing.T) {
 
 		moveAmount := 20
 		moveDir := DirectionLeft
-		test.That(t, th.bot.Move(&moveAmount, &moveDir), test.ShouldBeNil)
+		test.That(t, th.bot.Move(context.Background(), &moveAmount, &moveDir), test.ShouldBeNil)
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, (cullTTL-1)*th.scansPerCull)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 

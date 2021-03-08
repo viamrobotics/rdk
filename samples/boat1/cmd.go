@@ -25,7 +25,7 @@ type Boat struct {
 	throttle, direction board.DigitalInterrupt
 }
 
-func (b *Boat) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
+func (b *Boat) MoveStraight(ctx context.Context, distanceMM int, mmPerSec float64, block bool) error {
 	dir := board.DirForward
 	if distanceMM < 0 {
 		dir = board.DirBackward
@@ -46,23 +46,20 @@ func (b *Boat) MoveStraight(distanceMM int, mmPerSec float64, block bool) error 
 
 }
 
-func (b *Boat) Spin(angleDeg float64, speed int, block bool) error {
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
 	return fmt.Errorf("boat can't spin yet")
 }
 
-func (b *Boat) Width() float64 {
-	return 1
+func (b *Boat) Width(ctx context.Context) (float64, error) {
+	return 1, nil
 }
 
-func (b *Boat) Stop() error {
+func (b *Boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Off(), b.port.Off())
 }
 
-func (b *Boat) Close() {
-	err := b.Stop()
-	if err != nil {
-		log.Print(err)
-	}
+func (b *Boat) Close(ctx context.Context) error {
+	return b.Stop(ctx)
 }
 
 func (b *Boat) StartRC() {
@@ -85,7 +82,7 @@ func (b *Boat) StartRC() {
 			var err error
 
 			if port < 5 && starboard < 5 {
-				err = b.Stop()
+				err = b.Stop(context.Background())
 			} else {
 				err = multierr.Combine(
 					b.starboard.GoFor(board.DirForward, starboard, 0, false),

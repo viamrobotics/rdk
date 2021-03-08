@@ -16,7 +16,7 @@ type Device interface {
 
 type RelativeDevice interface {
 	Device
-	Mark() error
+	Mark(ctx context.Context) error
 }
 
 type DeviceType string

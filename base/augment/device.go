@@ -33,24 +33,24 @@ type baseDeviceWithCompass struct {
 	compass compass.Device
 }
 
-func (wc baseDeviceWithCompass) Spin(angleDeg float64, speed int, block bool) error {
+func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
 	rel, _ := wc.compass.(compass.RelativeDevice)
 	if rel != nil {
-		if err := rel.Mark(); err != nil {
+		if err := rel.Mark(ctx); err != nil {
 			return err
 		}
 	}
 	for {
-		startHeading, err := compass.MedianHeading(context.TODO(), wc.compass)
+		startHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}
 		golog.Global.Debugf("start heading %f", startHeading)
-		if err := wc.Device.Spin(angleDeg, speed, block); err != nil {
+		if err := wc.Device.Spin(ctx, angleDeg, speed, block); err != nil {
 			return err
 		}
 		time.Sleep(1 * time.Second)
-		endHeading, err := compass.MedianHeading(context.TODO(), wc.compass)
+		endHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}

@@ -165,7 +165,7 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 				time.Sleep(time.Second)
 				var depthErr bool
 				func() {
-					img, release, err := cam.Next(context.TODO())
+					img, release, err := cam.Next(context.Background())
 					if err != nil {
 						golog.Global.Debugf("error from camera %s", err)
 						return

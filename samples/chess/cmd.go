@@ -110,7 +110,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 		return err
 	}
 
-	err = adjustArmInsideSquare(robot)
+	err = adjustArmInsideSquare(context.Background(), robot)
 	if err != nil {
 		return err
 	}
@@ -252,8 +252,7 @@ func searchForNextMove(p *position.Position) (*position.Position, *moves.Move) {
 	return p, params.EngineMove
 }
 
-func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
-	ctx := context.TODO()
+func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debugNumber int) ([]image.Point, image.Point, error) {
 	imageSize := image.Point{}
 	img, release, err := wristCam.Next(ctx)
 	if err != nil {
@@ -292,7 +291,7 @@ func getWristPicCorners(wristCam gostream.ImageSource, debugNumber int) ([]image
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition()
@@ -329,7 +328,7 @@ func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []
 			return err
 		}
 
-		corners, _, err = getWristPicCorners(wristCam, debugNumber)
+		corners, _, err = getWristPicCorners(ctx, wristCam, debugNumber)
 		debugNumber = debugNumber + 1
 		if err != nil {
 			return err
@@ -338,7 +337,7 @@ func lookForBoardAdjust(myArm arm.Arm, wristCam gostream.ImageSource, corners []
 
 }
 
-func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
+func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot *robot.Robot) error {
 	debugNumber := 0
 
 	wristCam := myRobot.CameraByName("wristCam")
@@ -370,14 +369,14 @@ func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 				return err
 			}
 
-			corners, imageSize, err := getWristPicCorners(wristCam, debugNumber)
+			corners, imageSize, err := getWristPicCorners(ctx, wristCam, debugNumber)
 			debugNumber = debugNumber + 1
 			if err != nil {
 				return err
 			}
 
 			if len(corners) == 4 {
-				return lookForBoardAdjust(myArm, wristCam, corners, imageSize)
+				return lookForBoardAdjust(ctx, myArm, wristCam, corners, imageSize)
 			}
 		}
 	}
@@ -386,7 +385,7 @@ func lookForBoard(myArm arm.Arm, myRobot *robot.Robot) error {
 
 }
 
-func adjustArmInsideSquare(robot *robot.Robot) error {
+func adjustArmInsideSquare(ctx context.Context, robot *robot.Robot) error {
 	time.Sleep(500 * time.Millisecond) // wait for camera to focus
 
 	cam := robot.CameraByName("gripperCam")
@@ -403,7 +402,7 @@ func adjustArmInsideSquare(robot *robot.Robot) error {
 		}
 		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
 
-		raw, release, err := cam.Next(context.TODO())
+		raw, release, err := cam.Next(ctx)
 		if err != nil {
 			return err
 		}
@@ -499,7 +498,7 @@ func main() {
 	}
 
 	if false { // TODO(erh): put this back once we have a wrist camera again
-		err = lookForBoard(myArm, myRobot)
+		err = lookForBoard(context.Background(), myArm, myRobot)
 		if err != nil {
 			panic(err)
 		}
@@ -516,7 +515,7 @@ func main() {
 		err := moveTo(myArm, "c3", 0)
 		if err == nil {
 			time.Sleep(500 * time.Millisecond) // wait for camera to focus
-			err = adjustArmInsideSquare(myRobot)
+			err = adjustArmInsideSquare(context.Background(), myRobot)
 		}
 
 		if err != nil {
@@ -537,7 +536,7 @@ func main() {
 
 	go func() {
 		for {
-			img, release, err := webcam.Next(context.TODO())
+			img, release, err := webcam.Next(context.Background())
 			func() {
 				defer release()
 				if err != nil {

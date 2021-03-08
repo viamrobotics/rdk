@@ -59,8 +59,8 @@ func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{heading}, nil
 }
 
-func (d *Device) rotationResolution() (float64, error) {
-	angularRes, err := d.Device.AngularResolution(context.TODO())
+func (d *Device) rotationResolution(ctx context.Context) (float64, error) {
+	angularRes, err := d.Device.AngularResolution(ctx)
 	if err != nil {
 		return math.NaN(), err
 	}
@@ -76,13 +76,14 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 		return math.NaN(), nil
 	}
 	markedRotatedMats := markedRotatedMatsIfc.([][]rotatedMat)
-	measureMat, err := d.scanToVec2Matrix()
+	measureMat, err := d.scanToVec2Matrix(ctx)
 	if err != nil {
 		return math.NaN(), err
 	}
 
 	var results utils.Vec2Fs
 	if err := d.groupWorkParallel(
+		ctx,
 		func(numGroups int) {
 			results = make(utils.Vec2Fs, numGroups)
 		},
@@ -108,12 +109,12 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 	return results[0][1], nil
 }
 
-func (d *Device) scanToVec2Matrix() (*utils.Vec2Matrix, error) {
+func (d *Device) scanToVec2Matrix(ctx context.Context) (*utils.Vec2Matrix, error) {
 	var measurements lidar.Measurements
 	attempts := 5
 	for i := 0; i < attempts; i++ {
 		var err error
-		measurements, err = d.Device.Scan(context.TODO(), lidar.ScanOptions{Count: 5, NoFilter: true})
+		measurements, err = d.Device.Scan(ctx, lidar.ScanOptions{Count: 5, NoFilter: true})
 		if err != nil && i+1 >= attempts {
 			return nil, err
 		}
@@ -139,13 +140,14 @@ type rotatedMat struct {
 	theta float64
 }
 
-func (d *Device) Mark() error {
-	measureMat, err := d.scanToVec2Matrix()
+func (d *Device) Mark(ctx context.Context) error {
+	measureMat, err := d.scanToVec2Matrix(ctx)
 	if err != nil {
 		return err
 	}
 	var markedRotatedMats [][]rotatedMat
 	if err := d.groupWorkParallel(
+		ctx,
 		func(numGroups int) {
 			markedRotatedMats = make([][]rotatedMat, numGroups)
 		},
@@ -186,9 +188,9 @@ type memberWorkFunc func(memberNum int, theta float64)
 type groupWorkDoneFunc func()
 type groupWorkFunc func(groupNum, size int) (memberWorkFunc, groupWorkDoneFunc)
 
-func (d *Device) groupWorkParallel(before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) error {
+func (d *Device) groupWorkParallel(ctx context.Context, before beforeParallelGroupWorkFunc, groupWork groupWorkFunc) error {
 	thetaParts := maxTheta / float64(parallelFactor)
-	rotRes, err := d.rotationResolution()
+	rotRes, err := d.rotationResolution(ctx)
 	if err != nil {
 		return err
 	}
