@@ -46,6 +46,7 @@ const (
 
 const defaultClientMoveAmount = 20
 
+// TODO(erd): context.TODOs here must be satisfied by updating gostream.Command
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
 	registry.Add(commandSave, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		lar.serverMu.Lock()
@@ -72,7 +73,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}()
 		step := 10.0
 		for i := 0.0; i < 360; i += step {
-			if err := augment.ReduceDevice(lar.baseDevice).Spin(step, 0, true); err != nil {
+			if err := augment.ReduceDevice(lar.baseDevice).Spin(context.TODO(), step, 0, true); err != nil {
 				return nil, err
 			}
 		}
@@ -109,21 +110,21 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		dir := Direction(cmd.Args[0])
 		amount := defaultClientMoveAmount
-		if err := lar.Move(&amount, &dir); err != nil {
+		if err := lar.Move(context.TODO(), &amount, &dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved %q\n%s", dir, lar)), nil
 	})
 	registry.Add(commandRobotMoveForward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		amount := defaultClientMoveAmount
-		if err := lar.Move(&amount, nil); err != nil {
+		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved forward\n%s", lar)), nil
 	})
 	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		amount := -defaultClientMoveAmount
-		if err := lar.Move(&amount, nil); err != nil {
+		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved backward\n%s", lar)), nil
@@ -134,7 +135,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
 		}
 		dir := Direction(cmd.Args[0])
-		if err := lar.rotateTo(dir); err != nil {
+		if err := lar.rotateTo(context.TODO(), dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("rotate to %q", dir)), nil
@@ -260,12 +261,12 @@ func (lar *LocationAwareRobot) parseDeviceNumber(text string) (int64, error) {
 	return lidarDeviceNum, nil
 }
 
-func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (string, error) {
+func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth, viewHeight int) (string, error) {
 	switch lar.clientClickMode {
 	case clientClickModeMove:
 		dir := DirectionFromXY(x, y, viewWidth, viewHeight)
 		amount := 20
-		if err := lar.Move(&amount, &dir); err != nil {
+		if err := lar.Move(ctx, &amount, &dir); err != nil {
 			return "", err
 		}
 		return fmt.Sprintf("moved %q\n%s", dir, lar), nil
@@ -285,7 +286,7 @@ func (lar *LocationAwareRobot) HandleClick(x, y, viewWidth, viewHeight int) (str
 
 		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
 		distanceCenter := int(distanceCenterF)
-		baseWidthScaled := lar.baseDevice.Width() * float64(scaleDown)
+		baseWidthScaled := lar.baseDeviceWidth * float64(scaleDown)
 		frontY := basePosY - int(baseWidthScaled/2)
 		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
 

@@ -1,6 +1,7 @@
 package hellorobot
 
 import (
+	"context"
 	"math"
 	"time"
 
@@ -15,33 +16,31 @@ type Base struct {
 	baseObj *python.PyObject
 }
 
-func (b *Base) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMM int, mmPerSec float64, block bool) error {
 	if mmPerSec != 0 {
 		golog.Global.Info("Base.MoveStraight does not support speed")
 	}
 	return b.TranslateBy(float64(distanceMM)/1000, block)
 }
 
-func (b *Base) Spin(angleDeg float64, speed int, block bool) error {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
 	if speed != 0 {
 		golog.Global.Info("Base.Spin does not support speed")
 	}
 	return b.RotateBy(angleDeg, block)
 }
 
-func (b *Base) Width() float64 {
-	return 0.60
+func (b *Base) Width(ctx context.Context) (float64, error) {
+	return 0.6, nil
 }
 
-func (b *Base) Stop() error {
+func (b *Base) Stop(ctx context.Context) error {
 	b.baseObj.CallMethod("stop")
-	return nil
+	return checkPythonErr()
 }
 
-func (b *Base) Close() {
-	if err := b.Stop(); err != nil {
-		golog.Global.Errorw("error stopping base", "error", err)
-	}
+func (b *Base) Close(ctx context.Context) error {
+	return b.Stop(ctx)
 }
 
 const baseTranslateSpeed = 1.0 / 6 // m/sec

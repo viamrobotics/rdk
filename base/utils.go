@@ -1,6 +1,7 @@
 package base
 
 import (
+	"context"
 	"math"
 )
 
@@ -11,17 +12,17 @@ type Move struct {
 	Block      bool
 }
 
-func DoMove(move Move, device Device) (float64, int, error) {
+func DoMove(ctx context.Context, move Move, device Device) (float64, int, error) {
 	if move.AngleDeg != 0 {
 		// TODO(erh): speed is wrong
-		if err := device.Spin(move.AngleDeg, int(move.Speed), move.Block); err != nil {
+		if err := device.Spin(ctx, move.AngleDeg, int(move.Speed), move.Block); err != nil {
 			// TODO(erd): Spin should report amount spun if errored
 			return math.NaN(), 0, err
 		}
 	}
 
 	if move.DistanceMM != 0 {
-		if err := device.MoveStraight(move.DistanceMM, move.Speed, move.Block); err != nil {
+		if err := device.MoveStraight(ctx, move.DistanceMM, move.Speed, move.Block); err != nil {
 			// TODO(erd): MoveStraight should report amount moved if errored
 			return move.AngleDeg, 0, err
 		}

@@ -28,6 +28,7 @@ type DeviceOffset struct {
 type LocationAwareRobot struct {
 	started         bool
 	baseDevice      base.Device
+	baseDeviceWidth float64
 	baseOrientation float64 // relative to map
 	basePosX        int
 	basePosY        int
@@ -57,16 +58,22 @@ type LocationAwareRobot struct {
 }
 
 func NewLocationAwareRobot(
+	ctx context.Context,
 	baseDevice base.Device,
 	area *SquareArea,
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
 	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
+	baseDeviceWidth, err := baseDevice.Width(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var maxBoundsX, maxBoundsY int
 	devBounds := make([]image.Point, 0, len(devices))
 	for _, dev := range devices {
-		bounds, err := dev.Bounds(context.TODO())
+		bounds, err := dev.Bounds(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -84,9 +91,10 @@ func NewLocationAwareRobot(
 		return nil, err
 	}
 	robot := &LocationAwareRobot{
-		baseDevice: baseDevice,
-		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
-		devBounds:  devBounds,
+		baseDevice:      baseDevice,
+		baseDeviceWidth: baseDeviceWidth,
+		maxBounds:       image.Point{maxBoundsX, maxBoundsY},
+		devBounds:       devBounds,
 
 		devices:       devices,
 		deviceOffsets: deviceOffsets,
@@ -153,7 +161,7 @@ func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
 }
 
-func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error) {
+func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -217,7 +225,7 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error
 		// supported yet in core.
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
-	if _, _, err := base.DoMove(move, lar.baseDevice); err != nil {
+	if _, _, err := base.DoMove(ctx, move, lar.baseDevice); err != nil {
 		return err
 	}
 	lar.basePosX = newX
@@ -252,8 +260,8 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64,
 	return nil
 }
 
-func (lar *LocationAwareRobot) rotateTo(dir Direction) error {
-	return lar.Move(nil, &dir)
+func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir Direction) error {
+	return lar.Move(ctx, nil, &dir)
 }
 
 func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (image.Point, error) {
@@ -333,7 +341,7 @@ func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 	_, scaleDown := lar.rootArea.Size()
 	basePosX, basePosY := lar.basePos()
 
-	baseWidthScaled := int(math.Ceil(lar.baseDevice.Width() * float64(scaleDown)))
+	baseWidthScaled := int(math.Ceil(lar.baseDeviceWidth * float64(scaleDown)))
 	return image.Rect(
 		basePosX-baseWidthScaled/2,
 		basePosY-baseWidthScaled/2,
@@ -380,7 +388,7 @@ func (lar *LocationAwareRobot) basePos() (int, int) {
 	return lar.basePosX, lar.basePosY
 }
 
-func (lar *LocationAwareRobot) update() error {
+func (lar *LocationAwareRobot) update(ctx context.Context) error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -390,7 +398,7 @@ func (lar *LocationAwareRobot) update() error {
 			fake.SetPosition(image.Point{basePosX, basePosY})
 		}
 	}
-	return lar.scanAndStore(lar.devices, lar.presentViewArea)
+	return lar.scanAndStore(ctx, lar.devices, lar.presentViewArea)
 }
 
 func (lar *LocationAwareRobot) cull() error {
@@ -439,17 +447,29 @@ var (
 func (lar *LocationAwareRobot) updateLoop() {
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+	go func() {
+		select {
+		case <-cancelCtx.Done():
+			return
+		case <-lar.closeCh:
+		}
+		cancelFunc()
+	}()
 	go func() {
 		defer lar.activeWorkers.Done()
 		defer ticker.Stop()
 		for {
 			select {
 			case <-lar.closeCh:
+				cancelFunc()
 				return
 			default:
 			}
 			select {
 			case <-lar.closeCh:
+				cancelFunc()
 				return
 			case <-ticker.C:
 			}
@@ -460,7 +480,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 						lar.updateHook(culled)
 					}()
 				}
-				if err := lar.update(); err != nil {
+				if err := lar.update(cancelCtx); err != nil {
 					golog.Global.Debugw("error updating", "error", err)
 				}
 				if (count+1)%lar.cullInterval == 0 {
@@ -479,13 +499,13 @@ func (lar *LocationAwareRobot) updateLoop() {
 
 const cullTTL = 3
 
-func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *SquareArea) error {
+func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar.Device, area *SquareArea) error {
 	basePosX, basePosY := lar.basePos()
 	baseRect := lar.baseRect()
 
 	allMeasurements := make([]lidar.Measurements, len(devices))
 	for i, dev := range devices {
-		measurements, err := dev.Scan(context.TODO(), lidar.ScanOptions{})
+		measurements, err := dev.Scan(ctx, lidar.ScanOptions{})
 		if err != nil {
 			return fmt.Errorf("bad scan on device %d: %w", i, err)
 		}

@@ -183,7 +183,9 @@ func (r *Robot) Close(ctx context.Context) error {
 	}
 
 	for _, x := range r.Bases {
-		x.Close()
+		if err := x.Close(ctx); err != nil {
+			golog.Global.Error("error closing base device", "error", err)
+		}
 	}
 
 	return nil
