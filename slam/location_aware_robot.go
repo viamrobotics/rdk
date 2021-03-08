@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
@@ -99,7 +100,9 @@ func NewLocationAwareRobot(
 		updateInterval: defaultUpdateInterval,
 		cullInterval:   defaultCullInterval,
 	}
-	robot.newPresentView()
+	if err := robot.newPresentView(); err != nil {
+		return nil, err
+	}
 	return robot, nil
 }
 
@@ -132,22 +135,21 @@ func (lar *LocationAwareRobot) SignalStop() {
 	})
 }
 
-func (lar *LocationAwareRobot) Stop() {
+func (lar *LocationAwareRobot) Stop() error {
 	lar.SignalStop()
 	lar.activeWorkers.Wait()
-	lar.newPresentView()
+	return lar.newPresentView()
 }
 
 func (lar *LocationAwareRobot) Close() error {
-	lar.Stop()
-	return nil
+	return lar.Stop()
 }
 
 func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
 }
 
-func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
+func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -230,7 +232,10 @@ func (lar *LocationAwareRobot) Move(amount *int, rotateTo *Direction) error {
 		// detect obstacle END
 	}
 
-	defer lar.newPresentView() // TODO(erd): what about errors?
+	defer func() {
+		// TODO(erd): how to handle new view if moving errors?
+		err = multierr.Combine(err, lar.newPresentView())
+	}()
 	if _, _, err := base.DoMove(move, lar.baseDevice); err != nil {
 		return err
 	}
@@ -334,24 +339,29 @@ func (lar *LocationAwareRobot) baseRect() image.Rectangle {
 }
 
 // assumes appropriate locks are held
-func (lar *LocationAwareRobot) newPresentView() {
+func (lar *LocationAwareRobot) newPresentView() error {
 	// overlay presentView onto rootArea
+	var err error
 	lar.rootArea.Mutate(func(mutRoot MutableArea) {
 		lar.presentViewArea.Mutate(func(mutPresent MutableArea) {
 			mutPresent.Iterate(func(x, y, v int) bool {
-				mutRoot.Set(x, y, v)
-				return true
+				err = mutRoot.Set(x, y, v)
+				return err == nil
 			})
 		})
 	})
+	if err != nil {
+		return err
+	}
 
 	// allocate new presentView
 	areaSize, scaleTo := lar.presentViewArea.Size()
 	newArea, err := NewSquareArea(areaSize, scaleTo)
 	if err != nil {
-		panic(err) // should not happen
+		return err
 	}
 	lar.presentViewArea = newArea
+	return nil
 }
 
 func (lar *LocationAwareRobot) orientation() float64 {
@@ -379,7 +389,7 @@ func (lar *LocationAwareRobot) update() error {
 	return lar.scanAndStore(lar.devices, lar.presentViewArea)
 }
 
-func (lar *LocationAwareRobot) cull() {
+func (lar *LocationAwareRobot) cull() error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -397,6 +407,7 @@ func (lar *LocationAwareRobot) cull() {
 
 	// decrement observable area which will be refreshed by scans
 	// within the area (assuming the lidar is active)
+	var err error
 	lar.presentViewArea.Mutate(func(mutArea MutableArea) {
 		mutArea.Iterate(func(x, y, v int) bool {
 			if x < areaMinX || x > areaMaxX || y < areaMinY || y > areaMaxY {
@@ -405,11 +416,15 @@ func (lar *LocationAwareRobot) cull() {
 			if v-1 == 0 {
 				mutArea.Unset(x, y)
 			} else {
-				mutArea.Set(x, y, v-1)
+				err = mutArea.Set(x, y, v-1)
+				if err != nil {
+					return false
+				}
 			}
 			return true
 		})
 	})
+	return err
 }
 
 var (
@@ -442,10 +457,12 @@ func (lar *LocationAwareRobot) updateLoop() {
 					}()
 				}
 				if err := lar.update(); err != nil {
-					golog.Global.Debugw("error scanning and storing", "error", err)
+					golog.Global.Debugw("error updating", "error", err)
 				}
 				if (count+1)%lar.cullInterval == 0 {
-					lar.cull()
+					if err := lar.cull(); err != nil {
+						golog.Global.Debugw("error culling", "error", err)
+					}
 					culled = true
 					count = 0
 				} else {
@@ -511,9 +528,13 @@ func (lar *LocationAwareRobot) scanAndStore(devices []lidar.Device, area *Square
 			// Realistically once the bounds of a location are determined, most
 			// environments would only have it deform over very long periods of time.
 			// Probably longer than the lifetime of the application itself.
+			var err error
 			area.Mutate(func(area MutableArea) {
-				area.Set(detectedX, detectedY, cullTTL)
+				err = area.Set(detectedX, detectedY, cullTTL)
 			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
