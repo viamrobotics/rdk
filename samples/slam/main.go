@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	"go.viam.com/robotcore/robots/fake"
@@ -192,7 +193,7 @@ func main() {
 	}
 
 	if compassSensor != nil {
-		baseDevice = base.Augment(baseDevice, compassSensor)
+		baseDevice = augment.Device(baseDevice, compassSensor)
 	}
 
 	lar, err := slam.NewLocationAwareRobot(

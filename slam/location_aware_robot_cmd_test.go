@@ -9,7 +9,7 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils/inject"
 
@@ -106,7 +106,7 @@ func TestCommands(t *testing.T) {
 			headingCount++
 			return math.NaN(), nil
 		}
-		baseWithCompass := base.Augment(injectBase, compass)
+		baseWithCompass := augment.Device(injectBase, compass)
 		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(angleDeg float64, speed int, block bool) error {
 			return nil
