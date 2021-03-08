@@ -112,7 +112,9 @@ func (msa *mutableSquareArea) Set(x, y, v int) {
 	if y < -msa.quadLength || y >= msa.quadLength {
 		panic(fmt.Errorf("y must be between [%d,%d)", -msa.quadLength, msa.quadLength))
 	}
-	msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
+	if err := msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v)); err != nil {
+		panic(err)
+	}
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
