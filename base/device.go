@@ -5,4 +5,5 @@ type Device interface {
 	Spin(angleDeg float64, speed int, block bool) error
 	Stop() error
 	Close()
+	Width() float64
 }
