@@ -3,6 +3,7 @@ package rimage
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -69,12 +70,74 @@ func ConvertImage(img image.Image) *Image {
 
 	b := img.Bounds()
 	ii = NewImage(b.Max.X, b.Max.Y)
-	for y := 0; y < ii.height; y++ {
-		for x := 0; x < ii.width; x++ {
-			ii.SetXY(x, y, NewColorFromColor(img.At(x, y)))
+
+	switch orig := img.(type) {
+	case *image.YCbCr:
+		fastConvertYcbcr(ii, orig)
+	case *image.RGBA:
+		fastConvertRGBA(ii, orig)
+	case *image.NRGBA:
+		fastConvertNRGBA(ii, orig)
+	default:
+		for y := 0; y < ii.height; y++ {
+			for x := 0; x < ii.width; x++ {
+				ii.SetXY(x, y, NewColorFromColor(img.At(x, y)))
+			}
 		}
 	}
 	return ii
+}
+
+func fastConvertNRGBA(dst *Image, src *image.NRGBA) {
+	for y := 0; y < dst.height; y++ {
+		for x := 0; x < dst.width; x++ {
+
+			i := src.PixOffset(x, y)
+			s := src.Pix[i : i+3 : i+3] // Small cap improves performance, see https://golang.org/issue/27857
+			r, g, b := s[0], s[1], s[2]
+			dst.SetXY(x, y, NewColor(r, g, b))
+		}
+	}
+
+}
+
+func fastConvertRGBA(dst *Image, src *image.RGBA) {
+	for y := 0; y < dst.height; y++ {
+		for x := 0; x < dst.width; x++ {
+
+			i := src.PixOffset(x, y)
+			s := src.Pix[i : i+4 : i+4]
+			r, g, b, a := s[0], s[1], s[2], s[3]
+
+			if a == 255 {
+				dst.SetXY(x, y, NewColor(r, g, b))
+			} else {
+				dst.SetXY(x, y, NewColorFromColor(color.RGBA{r, g, b, a}))
+			}
+		}
+	}
+
+}
+
+func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
+	c := color.YCbCr{}
+
+	for y := 0; y < dst.height; y++ {
+		for x := 0; x < dst.width; x++ {
+
+			yi := src.YOffset(x, y)
+			ci := src.COffset(x, y)
+
+			c.Y = src.Y[yi]
+			c.Cb = src.Cb[ci]
+			c.Cr = src.Cr[ci]
+
+			r, g, b := color.YCbCrToRGB(c.Y, c.Cb, c.Cr)
+
+			dst.SetXY(x, y, NewColor(r, g, b))
+		}
+	}
+
 }
 
 func IsImageFile(fn string) bool {
