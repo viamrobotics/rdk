@@ -96,7 +96,7 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 	return ci, nil
 }
 
-//TODO: Motion planning rather than just setting the position
+//TODO(pl): Motion planning rather than just setting the position
 func (a *Wx250s) MoveToPosition(c Position) error {
 	c.X *= 1000
 	c.Y *= 1000
@@ -120,7 +120,7 @@ func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
 		return fmt.Errorf("passed in too many positions")
 	}
 
-	// TODO: make block configurable
+	// TODO(pl): make block configurable
 	block := false
 	for i, pos := range jp.Degrees {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
@@ -139,7 +139,7 @@ func (a *Wx250s) CurrentJointPositions() (JointPositions, error) {
 	var positions []float64
 	for _, jointName := range a.JointOrder() {
 		//2048 is the halfway position for Dynamixel servos
-		// TODO: Function for servo pos/degree/radian conversion
+		// TODO(pl): Function for servo pos/degree/radian conversion
 		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
 	}
 	return JointPositions{positions}, nil
@@ -192,13 +192,13 @@ func (a *Wx250s) JointOrder() []string {
 // Note: there are a million and a half different ways to move servos
 // GoalPosition, GoalCurrent, GoalPWM, etc
 // To start with I'll just use GoalPosition
-// TODO: Support other movement types
-// TODO: Configurable waiting for movement to complete or not
-// TODO: write more TODOS for nice-to-have features
+// TODO(pl): Support other movement types
+// TODO(pl): Configurable waiting for movement to complete or not
+// TODO(pl): write more TODOS for nice-to-have features
 
 // Grippers are special because they use PWM by default rather than position control
 // Note that goal PWM values not in [-350:350] may cause the servo to overload, necessitating an arm reboot
-// TODO: Track position or something rather than just have a timer
+// TODO(pl): Track position or something rather than just have a timer
 //~ func (a *Wx250s) CloseGripper(block bool) error {
 //~ err := a.Joints["Gripper"][0].SetGoalPWM(-350)
 //~ if block {
@@ -222,7 +222,7 @@ func (a *Wx250s) JointOrder() []string {
 //~ if err != nil {
 //~ return err
 //~ }
-//~ // TODO: Don't harcode
+//~ // TODO(pl): Don't harcode
 //~ if pos < 3000 {
 //~ time.Sleep(50 * time.Millisecond)
 //~ } else {
@@ -233,7 +233,7 @@ func (a *Wx250s) JointOrder() []string {
 //~ }
 
 // Print positions of all servos
-// TODO: Print joint names, not just servo numbers
+// TODO(pl): Print joint names, not just servo numbers
 func (a *Wx250s) PrintPositions() error {
 	posString := ""
 	for i, s := range a.GetAllServos() {
@@ -373,7 +373,7 @@ func (a *Wx250s) WaitForMovement() error {
 			if err != nil {
 				return err
 			}
-			// TODO: Make this configurable
+			// TODO(pl): Make this configurable
 			if isMoving != 0 {
 				allAtPos = false
 			}

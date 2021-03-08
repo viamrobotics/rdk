@@ -6,7 +6,7 @@ import (
 	//~ "gonum.org/v1/gonum/graph/simple"
 )
 
-// TODO: add more descriptive field names once I work out what they ought to be
+// TODO(pl): add more descriptive field names once I work out what they ought to be
 type Frame struct {
 	//~ Element
 	a spatial.MotionVector

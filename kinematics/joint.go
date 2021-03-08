@@ -14,11 +14,11 @@ import (
 	"go.viam.com/robotcore/kinematics/kinmath/spatial"
 )
 
-// TODO: initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
+// TODO(pl): initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
 // with non-revolute joints.
 
-// TODO: Maybe we want to make this an interface which different joint types implement
-// TODO: Give all these variables better names once I know what they all do. Or at least a detailed description
+// TODO(pl): Maybe we want to make this an interface which different joint types implement
+// TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
 type Joint struct {
 	dofPosition int
 	dofVelocity int
@@ -83,7 +83,7 @@ func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 	return positions
 }
 
-// TODO: Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()
+// TODO(pl): Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()
 // Distance returns the L2 normalized difference between two equal length arrays
 func Distance(q1, q2 []float64) float64 {
 	for i := 0; i < len(q1); i++ {
@@ -184,7 +184,7 @@ func (j *Joint) SetVelocity(vel []float64) {
 func (j *Joint) Clamp(posvec []float64) []float64 {
 	for i, v := range posvec {
 		if j.wraparound[i] {
-			// TODO: Implement
+			// TODO(pl): Implement
 		} else {
 			if v < j.min[i] {
 				// Not sure if mutating the list as I iterate over it is bad form
@@ -198,7 +198,7 @@ func (j *Joint) Clamp(posvec []float64) []float64 {
 	return posvec
 }
 
-// TODO: This only will work when posvec and dpos are the same length
+// TODO(pl): This only will work when posvec and dpos are the same length
 // Other joint types e.g. spherical will need to reimplement
 func (j *Joint) Step(posvec, dpos []float64) []float64 {
 	posvec2 := make([]float64, len(posvec))
