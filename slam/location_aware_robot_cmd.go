@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"go.uber.org/multierr"
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/utils"
 
@@ -72,7 +72,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}()
 		step := 10.0
 		for i := 0.0; i < 360; i += step {
-			if err := base.Reduce(lar.baseDevice).Spin(step, 0, true); err != nil {
+			if err := augment.ReduceDevice(lar.baseDevice).Spin(step, 0, true); err != nil {
 				return nil, err
 			}
 		}
