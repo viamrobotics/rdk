@@ -41,7 +41,10 @@ jobs:
 
     - name: Test
       run: |
-       make test
+        if [ -d "/opt/test_data" ]; then
+          ln -s /opt/test_data ./data
+        fi
+        make test
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
