@@ -72,6 +72,8 @@ export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
 4. Write tests!
 5. Delete any non-release branches ASAP when done, or use a personal fork
 6. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+7. If you add a new package, please add it to this README.
+8. If you add a new sample or command, please add it to this README.
 
 ### Linting
 
