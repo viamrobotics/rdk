@@ -33,7 +33,7 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 					frame.FormatRGBA,
 					frame.FormatMJPEG,
 					frame.FormatNV12,
-					frame.FormatNV21, // gives blue tinted image?
+					frame.FormatNV21,
 				}
 			} else {
 				constraint.FrameFormat = prop.FrameFormatExact(format)
