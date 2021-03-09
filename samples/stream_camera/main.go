@@ -20,6 +20,7 @@ func main() {
 
 	debug := flag.Bool("debug", false, "")
 	dump := flag.Bool("dump", false, "dump all camera info")
+	format := flag.String("format", "", "")
 	path := flag.String("path", "", "")
 	pathPattern := flag.String("pathPattern", "", "")
 
@@ -48,6 +49,7 @@ func main() {
 	}
 
 	attrs := map[string]string{
+		"format":       *format,
 		"path":         *path,
 		"path_pattern": *pathPattern,
 	}
@@ -60,6 +62,15 @@ func main() {
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
+
+	func() {
+		img, closer, err := webcam.Next(context.TODO())
+		if err != nil {
+			golog.Global.Fatal(err)
+		}
+		defer closer()
+		golog.Global.Debugf("image type: %T dimensions: %v", img, img.Bounds())
+	}()
 
 	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
