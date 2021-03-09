@@ -2,6 +2,11 @@
 
 [![codecov](https://codecov.io/gh/viamrobotics/robotcore/branch/master/graph/badge.svg?token=99YH0M8YOA)](https://codecov.io/gh/viamrobotics/robotcore)
 
+* [Packages](#packages)
+* [Programs](#programs)
+* [Dependencies](#programs)
+* [Development](#development)
+
 ## Packages
 
 * [api](./api) - Robot API - that combines all the pieces of a robot (arms, grippers, cameras, etc...)
@@ -61,7 +66,7 @@ If libvpx is not available on your distro, run the following:
 * `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
 * `sudo make install`
 
-## Developing
+## Development
 
 ### Conventions
 1. Always run `make lint` and test before pushing.
