@@ -32,7 +32,7 @@
 ## Dependencies
 
 * [go1.16](https://golang.org/dl/)
-* `make setup`
+* Run `make setup`
 
 ### libvpx linux source build
 If libvpx is not available on your distro, run the following:
@@ -46,7 +46,7 @@ If libvpx is not available on your distro, run the following:
 ## Developing
 
 ### Conventions
-1. Always `make lint` and test before pushing.
+1. Always run `make lint` and test before pushing.
 2. Write tests!
 3. If you add a new package, please add it to this README.
 4. If you add a new sample or command, please add it to this README.
