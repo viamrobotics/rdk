@@ -155,10 +155,6 @@ github.com/edaniels/golinters v0.0.4 h1:bOhAr1acA66+bRjAB9XVfA55VtME1MOqFnfpIjWw
 github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHHzPaWxD3lgk=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129 h1:5aUMHuQvy2Ia/cwaiZECzZla8apET/s97xhquWyluOA=
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
-github.com/edaniels/gostream v0.0.0-20210305215815-edc4cf213a8e h1:5p1vwlI2E05KZbi2k0UgwSO78xStiSbY3LiygY8LHI8=
-github.com/edaniels/gostream v0.0.0-20210305215815-edc4cf213a8e/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
-github.com/edaniels/gostream v0.0.0-20210308151959-880644dea921 h1:yVBfTcFC/6JPw3WeVy7Mj6km/VyukkRgVJ23yLQgEX8=
-github.com/edaniels/gostream v0.0.0-20210308151959-880644dea921/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
 github.com/edaniels/gostream v0.0.0-20210308160056-16944181a1f0 h1:9Eg2d6jb4uO2PsKz+X89h4hDKt7nS7ln+eTE70jJ7/Q=
 github.com/edaniels/gostream v0.0.0-20210308160056-16944181a1f0/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
@@ -915,8 +911,6 @@ go.uber.org/tools v0.0.0-20190618225709-2cfd321de3ee/go.mod h1:vJERXedbb3MVM5f9E
 go.uber.org/zap v1.10.0/go.mod h1:vwi/ZaCAaUcBkycHslxD9B2zi4UTXhF60s6SWpuDF0Q=
 go.uber.org/zap v1.16.0 h1:uFRZXykJGK9lLY4HtgSw44DnIcAM+kRBP7x5m+NpAOM=
 go.uber.org/zap v1.16.0/go.mod h1:MA8QOfq0BHJwdXa996Y4dYkAqRKB8/1K1QMMZVaNZjQ=
-go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03 h1:TszzFtqK2OljoA7cjoDX5bRqvlSKBLwwR8t9rKqB1VE=
-go.viam.com/dynamixel v0.0.0-20210304213906-5a1e8cdbee03/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go.viam.com/dynamixel v0.0.0-20210305184936-179838cd6ca9 h1:mA4u/piX20bxavI3R0pYIP3rqGlavskMAqB1H1AiwA0=
 go.viam.com/dynamixel v0.0.0-20210305184936-179838cd6ca9/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=

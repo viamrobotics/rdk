@@ -417,6 +417,8 @@ func (r *Robot) newCameraLL(config Component) (gostream.ImageSource, error) {
 	case "webcam":
 		return rimage.NewWebcamSource(config.Attributes)
 
+	case "depthComposed":
+		return newDepthComposed(r, config)
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
