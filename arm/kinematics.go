@@ -83,8 +83,9 @@ func (k *Kinematics) GetJointPositions() []float64 {
 
 // Sets new joint angles. Takes degrees, passes radians to Model
 func (k *Kinematics) SetJointPositions(angles []float64) {
+	radAngles := make([]float64, len(angles))
 	for i, angle := range angles {
-		angles[i] = angle * math.Pi / 180
+		radAngles[i] = angle * math.Pi / 180
 	}
-	k.Model.SetPosition(angles)
+	k.Model.SetPosition(radAngles)
 }
