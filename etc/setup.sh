@@ -15,15 +15,16 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-	brew install libvpx x264
+	brew install libvpx x264 pkgconfig
 	make python-macos
 fi
 
 ENV_OK=1
-echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
-echo $PKG_CONFIG_PATH | grep -q /usr/lib/pkgconfig || ENV_OK=0
-echo $LD_LIBRARY_PATH | grep -q /usr/local/lib || ENV_OK=0
-echo $LD_LIBRARY_PATH | grep -q /usr/lib || ENV_OK=0
+if [ "$(uname)" = "Linux" ]; then
+  echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
+  echo $PKG_CONFIG_PATH | grep -q /usr/lib/pkgconfig || ENV_OK=0
+fi
+echo $GOPRIVATE | grep -Fq "github.com/viamrobotics/*,go.viam.com/*" || ENV_OK=0
 
 if ((ENV_OK)) ; then
 	exit 0
@@ -32,14 +33,18 @@ fi
 case $(basename $SHELL) in
   bash)
     echo "You need some exports in your .bashrc"
-    echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
-	echo 'echo export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH  >> ~/.bashrc'
+    if [ "$(uname)" = "Linux" ]; then
+      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
+    fi
+    echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.bashrc'
     ;;
 
   zsh)
     echo "You need some exports in your .zshrc"
-    echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
-	echo 'echo export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH  >> ~/.zshrc'
+    if [ "$(uname)" = "Linux" ]; then
+      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
+    fi
+    echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.zshrc'
     ;;
   *)
     ;;

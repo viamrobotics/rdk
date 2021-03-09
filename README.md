@@ -31,15 +31,11 @@
 
 ## Dependencies
 
-Make sure the following is in your shell configuration:
-```
-export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
-```
+Most dependenciy setup can be performed with `make setup`.
 
-Also run `git config --global url.ssh://git@github.com/.insteadOf https://github.com/`
+Also run `git config --global url.ssh://git@github.com/.insteadOf https://github.com/` in order to `go get` private modules properly.
 
-
-* go1.16.*
+* [go1.16](https://golang.org/dl/)
 * libx264-dev (macOS: x264)
 * libvpx-dev (macOS: libvpx)
 	* `git clone git@github.com:webmproject/libvpx.git`
@@ -49,35 +45,17 @@ Also run `git config --global url.ssh://git@github.com/.insteadOf https://github
 	* `sudo make install`
 * python2.7-dev (macOS: not needed)
 
-### Setup
-
-Some setup can be performed with `make setup`
-
-### Third Party Libraries
-
-Make sure the following is in your shell rc/profile. This will ensure any installed third party libraries will be properly found
-```
-export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
-export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
-```
-
 ## Developing
 
 ### Conventions
-1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real directory.
-2. Always run `make format`, `make lint`, and test before pushing.
-3. Try to avoid large merges unless you're really doing a big merge. Try to rebase.
-4. Write tests!
-5. Delete any non-release branches ASAP when done, or use a personal fork
-6. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
-7. If you add a new package, please add it to this README.
-8. If you add a new sample or command, please add it to this README.
-
-### Linting
-
-```
-make lint
-```
+1. Always `make lint` and test before pushing.
+2. Write tests!
+3. If you add a new package, please add it to this README.
+4. If you add a new sample or command, please add it to this README.
+5. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
+6. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
+7. Delete any non-release branches ASAP when done, or use a personal fork
+8. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
 ### Testing from Github Actions
 
