@@ -65,18 +65,6 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 		},
 		moveLock: mutex,
 	}
-	err = newArm.SetVelocity(50)
-	if err != nil {
-		golog.Global.Errorf("Could not set arm velocity: %s", err)
-	}
-	err = newArm.SetAcceleration(10)
-	if err != nil {
-		golog.Global.Errorf("Could not set arm acceleration: %s", err)
-	}
-	err = newArm.TorqueOn()
-	if err != nil {
-		golog.Global.Errorf("Could not set arm torque: %s", err)
-	}
 	return &newArm, err
 }
 
@@ -386,6 +374,34 @@ func (a *Wx250s) WaitForMovement() error {
 	return nil
 }
 
+func setServoDefaults(newServo *servo.Servo){
+	// Set some nice-to-have settings
+	err := newServo.SetMovingThreshold(0)
+	if err != nil {
+		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+	}
+	err = newServo.SetPGain(2800)
+	if err != nil {
+		golog.Global.Fatalf("error SetPGain servo %d: %v\n", newServo.ID, err)
+	}
+	err = newServo.SetIGain(50)
+	if err != nil {
+		golog.Global.Fatalf("error SetIGain servo %d: %v\n", newServo.ID, err)
+	}
+	err = newServo.SetTorqueEnable(true)
+	if err != nil {
+		golog.Global.Fatalf("error SetTorqueEnable servo %d: %v\n", newServo.ID, err)
+	}
+	err = newServo.SetProfileVelocity(50)
+	if err != nil {
+		golog.Global.Fatalf("error SetProfileVelocity servo %d: %v\n", newServo.ID, err)
+	}
+	err = newServo.SetProfileAcceleration(10)
+	if err != nil {
+		golog.Global.Fatalf("error SetProfileAcceleration servo %d: %v\n", newServo.ID, err)
+	}
+}
+
 // Find the specified number of Dynamixel servos on the specified USB port
 // We're going to hardcode some USB parameters that we will literally never want to change
 func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
@@ -423,19 +439,9 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 		if err != nil {
 			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
 		}
-		// Set some nice-to-have settings
-		err = newServo.SetMovingThreshold(0)
-		if err != nil {
-			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
-		}
-		err = newServo.SetPGain(2800)
-		if err != nil {
-			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
-		}
-		err = newServo.SetIGain(50)
-		if err != nil {
-			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
-		}
+		
+		setServoDefaults(newServo)
+
 		servos = append(servos, newServo)
 	}
 
