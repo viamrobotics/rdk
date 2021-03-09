@@ -1,5 +1,7 @@
 # robotcore
 
+[![codecov](https://codecov.io/gh/viamrobotics/robotcore/branch/master/graph/badge.svg?token=99YH0M8YOA)](https://codecov.io/gh/viamrobotics/robotcore)
+
 ## Packages
 
 * [api](./api) - Robot API - that combines all the pieces of a robot (arms, grippers, cameras, etc...)
