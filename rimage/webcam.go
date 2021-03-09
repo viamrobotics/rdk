@@ -6,6 +6,7 @@ import (
 	"image"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -16,10 +17,26 @@ import (
 )
 
 func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraints {
+
+	minWidth := 680
+	maxWidth := 4096
+	idealWitdh := 1920
+
+	if attrs["width"] != "" {
+		w, err := strconv.Atoi(attrs["width"])
+		if err != nil {
+			golog.Global.Warnf("bad width %s", err)
+		} else {
+			minWidth = w
+			maxWidth = w
+			idealWitdh = w
+		}
+	}
+
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
 
-			constraint.Width = prop.IntRanged{640, 4096, 1920}
+			constraint.Width = prop.IntRanged{minWidth, maxWidth, idealWitdh}
 			constraint.Height = prop.IntRanged{400, 2160, 1080}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
