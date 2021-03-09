@@ -5,6 +5,7 @@
           "model" : "webcam",
           "attributes" : {
               "path_pattern" : "usb",
+	      "width" : "1280",
               "rotate" : "true",
               "debug" : "true"
           }
@@ -14,6 +15,7 @@
           "model" : "webcam",
           "attributes" : {
               "format" : "Z16",
+	      "width" : "768",
               "debug" : "true"
           }
         },
