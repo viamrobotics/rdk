@@ -26,6 +26,8 @@ jobs:
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
+      with:
+        fetch-depth: 2
 
     - name: Configure git for private modules
       env:
@@ -42,8 +44,6 @@ jobs:
        make test
 
     - name: Upload coverage to Codecov
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      run: |
-        curl -s https://codecov.io/bash > codecov.sh
-        bash codecov.sh -t $CODECOV_TOKEN
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
