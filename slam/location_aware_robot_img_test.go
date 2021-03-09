@@ -19,6 +19,8 @@ import (
 )
 
 func TestRobotNext(t *testing.T) {
+	test.That(t, true, test.ShouldBeTrue)
+
 	// empty means no detected points
 	t.Run("initially image should be empty", func(t *testing.T) {
 		harness := newTestHarness(t)
