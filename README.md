@@ -7,13 +7,13 @@
 * [arm](./arm) - Robot Arm API and implementations
 * [base](./base) - Robot Base API (things that move) and implementations
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
-* [gripper](./gripper) - API and implementations of various grippers			
+* [gripper](./gripper) - API and implementations of various grippers
 * [kinematics](./kinematics) - Kinematics library
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
-* [pointcloud](./pointcloud)		
-* [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data			
-* [robot](./robot) - Implementation of (./api) 			
+* [pointcloud](./pointcloud)
+* [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data
+* [robot](./robot) - Implementation of ([api](./api))
   * [web](./robot/web) - Web server for using robots
 * [robots](./robots) - Implementations of specific robots
 * [sensor](./sensor) - Various sensor APIs
@@ -75,5 +75,5 @@ If libvpx is not available on your distro, run the following:
 
 1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
 2. Install `act` with `brew install act`
-4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration) 
+4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration)
 5. Then just run `act`
