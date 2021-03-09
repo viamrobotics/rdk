@@ -29,8 +29,6 @@
 * [gripper1](./samples/gripper1) - gripper1 work in progress
 * [vision](./samples/vision) - Utilities for working with images to test out vision library code
 
-* robotwww - runs the web console for any robot with a config file
-
 ## Dependencies
 
 Make sure the following is in your shell configuration:
