@@ -85,7 +85,7 @@ func (m *gobotMotor) Go(d Direction, force byte) error {
 	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
 	m.lastForce = force
 	dd := dirToGobot(d)
-	//golog.Global.Debugf("gobotMotor d: %s speed: %v", dd, speed)
+	//golog.Global.Debugf("gobotMotor d: %s MillisPerSec: %v", dd, speed)
 	return multierr.Combine(m.motor.Speed(force), m.motor.Direction(dd))
 }
 
@@ -152,7 +152,7 @@ func (m *gobotMotor) rpmMonitor() {
 	}
 }
 
-func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block bool) error {
+func (m *gobotMotor) GoFor(d Direction, millisPerSec float64, rotations float64, block bool) error {
 	if m.isRegulated() {
 		return fmt.Errorf("already running a GoFor directive, have to stop that first before can do another")
 	}
@@ -161,7 +161,7 @@ func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block 
 		return fmt.Errorf("rotations has to be >= 0")
 	}
 
-	//golog.Global.Debugf("m: %s d: %v speed: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
+	//golog.Global.Debugf("m: %s d: %v MillisPerSec: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
 
 	if m.encoder == nil {
 		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
@@ -179,7 +179,7 @@ func (m *gobotMotor) GoFor(d Direction, speed float64, rotations float64, block 
 				return err
 			}
 		}
-		m.desiredRPM = speed
+		m.desiredRPM = millisPerSec
 		return nil
 	}
 

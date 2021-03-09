@@ -8,18 +8,18 @@ import (
 
 type Base struct {
 	base.Device
-	MoveStraightFunc func(ctx context.Context, distanceMM int, speed float64, block bool) error
+	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
 	SpinFunc         func(ctx context.Context, angleDeg float64, speed int, block bool) error
-	WidthFunc        func(ctx context.Context) (float64, error)
+	WidthMillisFunc  func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
 	CloseFunc        func(ctx context.Context) error
 }
 
-func (b *Base) MoveStraight(ctx context.Context, distanceMM int, speed float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if b.MoveStraightFunc == nil {
-		return b.Device.MoveStraight(ctx, distanceMM, speed, block)
+		return b.Device.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 	}
-	return b.MoveStraightFunc(ctx, distanceMM, speed, block)
+	return b.MoveStraightFunc(ctx, distanceMillis, millisPerSec, block)
 }
 
 func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
@@ -29,11 +29,11 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool
 	return b.SpinFunc(ctx, angleDeg, speed, block)
 }
 
-func (b *Base) Width(ctx context.Context) (float64, error) {
-	if b.WidthFunc == nil {
-		return b.Device.Width(ctx)
+func (b *Base) WidthMillis(ctx context.Context) (int, error) {
+	if b.WidthMillisFunc == nil {
+		return b.Device.WidthMillis(ctx)
 	}
-	return b.WidthFunc(ctx)
+	return b.WidthMillisFunc(ctx)
 }
 
 func (b *Base) Stop(ctx context.Context) error {
