@@ -15,7 +15,7 @@ type Arm struct {
 	armObj *python.PyObject
 }
 
-const armMoveSpeed = 1.0 / 4 // m/sec
+const armMoveSpeed = 1.0 / 4 // meters/sec
 
 func (a *Arm) MoveBy(meters float64) error {
 	a.armObj.CallMethod("move_by", python.PyFloat_FromDouble(meters))
