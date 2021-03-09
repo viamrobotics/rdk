@@ -11,14 +11,11 @@ if [ ! -f $GO_PATH ]; then
 fi
 
 if [ "$(uname)" = "Linux" ]; then
-	sudo apt install python2.7-dev swig yasm	
-	if [ ! -f "/usr/local/lib/libvpx.a" ]; then
-		echo "You may need to set up libvpx (see README)"
-	fi
+	sudo apt install python2.7-dev libvpx-dev libx264-dev
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-	brew install swig yasm libvpx
+	brew install libvpx x264
 	make python-macos
 fi
 

@@ -14,8 +14,8 @@ import (
 
 func TestAugmentReduce(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthFunc = func(ctx context.Context) (float64, error) {
-		return 0.6, nil
+	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		return 600, nil
 	}
 	test.That(t, augment.Device(dev, nil), test.ShouldEqual, dev)
 
@@ -30,8 +30,8 @@ func TestAugmentReduce(t *testing.T) {
 
 func TestDeviceWithCompass(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthFunc = func(ctx context.Context) (float64, error) {
-		return 0.6, nil
+	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		return 600, nil
 	}
 	comp := &inject.Compass{}
 	aug := augment.Device(dev, comp)

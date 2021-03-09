@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"math"
 	"testing"
 	"time"
 
@@ -112,8 +111,8 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		return image.Point{5, 5}, nil
 	}
 	injectBase := &inject.Base{Device: baseDevice}
-	injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
-		return math.NaN(), err1
+	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		return 0, err1
 	}
 
 	_, err = NewLocationAwareRobot(
@@ -216,14 +215,14 @@ func TestMove(t *testing.T) {
 		{"unknown direction", intPtr(20), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
 		{"moving fails", intPtr(20), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
-			injectBase.WidthFunc = func(ctx context.Context) (float64, error) {
-				return 0.6, nil
+			injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+				return 600, nil
 			}
 			th.bot.baseDevice = injectBase
 			injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 				return errors.New("whoops")
 			}
-			injectBase.MoveStraightFunc = func(ctx context.Context, distanceMM int, speed float64, block bool) error {
+			injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 				return errors.New("whoops")
 			}
 		}},

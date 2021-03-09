@@ -21,7 +21,7 @@ const (
 	PanCenter  = 94
 	TiltCenter = 113
 
-	WheelCircumferenceMM = math.Pi * 150
+	WheelCircumferenceMillis = math.Pi * 150
 )
 
 // ------
@@ -40,26 +40,26 @@ func (r *Rover) Close() {
 	}
 }
 
-func (r *Rover) MoveStraight(distanceMM int, mmPerSec float64, block bool) error {
-	if distanceMM == 0 && block {
+func (r *Rover) MoveStraight(distanceMillis int, millisPerSec float64, block bool) error {
+	if distanceMillis == 0 && block {
 		return fmt.Errorf("cannot block unless you have a distance")
 	}
 
-	if distanceMM != 0 && mmPerSec <= 0 {
-		return fmt.Errorf("if distanceMM is set, speed has to be positive")
+	if distanceMillis != 0 && millisPerSec <= 0 {
+		return fmt.Errorf("if distanceMillis is set, millisPerSec has to be positive")
 	}
 
 	var d board.Direction = board.DirForward
-	if distanceMM < 0 || mmPerSec < 0 {
+	if distanceMillis < 0 || millisPerSec < 0 {
 		d = board.DirBackward
-		distanceMM = utils.AbsInt(distanceMM)
-		mmPerSec = math.Abs(mmPerSec)
+		distanceMillis = utils.AbsInt(distanceMillis)
+		millisPerSec = math.Abs(millisPerSec)
 	}
 
 	var err error
-	rotations := float64(distanceMM) / WheelCircumferenceMM
+	rotations := float64(distanceMillis) / WheelCircumferenceMillis
 
-	rotationsPerSec := mmPerSec / WheelCircumferenceMM
+	rotationsPerSec := millisPerSec / WheelCircumferenceMillis
 	rpm := 60 * rotationsPerSec
 
 	err = multierr.Combine(

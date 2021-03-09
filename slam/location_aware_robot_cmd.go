@@ -286,8 +286,7 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 
 		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
 		distanceCenter := int(distanceCenterF)
-		baseWidthScaled := lar.baseDeviceWidth * float64(scaleDown)
-		frontY := basePosY - int(baseWidthScaled/2)
+		frontY := basePosY - lar.baseDeviceWidthScaled/2
 		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
 
 		xForAngle := (areaX - basePosX)

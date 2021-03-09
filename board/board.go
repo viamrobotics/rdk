@@ -35,7 +35,7 @@ type Motor interface {
 
 	Go(d Direction, force byte) error
 
-	GoFor(d Direction, speed float64, rotations float64, block bool) error
+	GoFor(d Direction, millisPerSec float64, rotations float64, block bool) error
 
 	Off() error
 	IsOn() bool

@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	mmPerRotation = 200
+	millisPerRotation = 200
 )
 
 type Boat struct {
@@ -25,19 +25,19 @@ type Boat struct {
 	throttle, direction board.DigitalInterrupt
 }
 
-func (b *Boat) MoveStraight(ctx context.Context, distanceMM int, mmPerSec float64, block bool) error {
+func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	dir := board.DirForward
-	if distanceMM < 0 {
+	if distanceMillis < 0 {
 		dir = board.DirBackward
-		distanceMM *= -1
+		distanceMillis *= -1
 	}
 
 	if block {
 		return fmt.Errorf("boat can't block for move straight yet")
 	}
 
-	speed := (mmPerSec * 60.0) / float64(mmPerRotation)
-	rotations := float64(distanceMM) / mmPerRotation
+	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
+	rotations := float64(distanceMillis) / millisPerRotation
 
 	return multierr.Combine(
 		b.starboard.GoFor(dir, speed, rotations, false),
@@ -50,7 +50,7 @@ func (b *Boat) Spin(ctx context.Context, angleDeg float64, speed int, block bool
 	return fmt.Errorf("boat can't spin yet")
 }
 
-func (b *Boat) Width(ctx context.Context) (float64, error) {
+func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
 	return 1, nil
 }
 

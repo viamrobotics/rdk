@@ -27,10 +27,15 @@ export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 Also run `git config --global url.ssh://git@github.com/.insteadOf https://github.com/`
 
 
-* go1.15.*
-* libvpx
-** ../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic
-* python2.7-dev
+* go1.16.*
+* libx264-dev (macOS: x264)
+* libvpx-dev (macOS: libvpx)
+	* `git clone git@github.com:webmproject/libvpx.git`
+	* `cd libvpx`
+	* `mkdir build; cd build`
+	* `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
+	* `sudo make install`
+* python2.7-dev (macOS: not needed)
 
 ### Setup
 
@@ -44,34 +49,25 @@ export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_P
 export LD_LIBRARY_PATH=/usr/local/lib:/usr/lib:$LD_LIBRARY_PATH
 ```
 
-### Python (macos)
+## Developing
 
-```
-make python-macos
-```
-
-## Building
-
-```
-make -j$(nproc) build
-```
-
-## Linting
-
-```
-make lint
-```
-
-## Testing from Github Actions
-
-1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
-2. Install `act` with `brew install act`
-4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration) 
-5. Then just run `act`
-
-## Some Rules
+### Conventions
 1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real directory.
 2. Always run `make format`, `make lint`, and test before pushing.
 3. Try to avoid large merges unless you're really doing a big merge. Try to rebase.
 4. Write tests!
 5. Delete any non-release branches ASAP when done, or use a personal fork
+6. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+
+### Linting
+
+```
+make lint
+```
+
+### Testing from Github Actions
+
+1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
+2. Install `act` with `brew install act`
+4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration) 
+5. Then just run `act`

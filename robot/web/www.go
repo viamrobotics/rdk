@@ -114,17 +114,17 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 
 	mux.Handle("/api/base", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		mmPerSec := 500.0 // TODO(erh): this is proably the wrong default
+		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
 		if r.FormValue("speed") != "" {
 			speed2, err := strconv.ParseFloat(r.FormValue("speed"), 64)
 			if err != nil {
 				return nil, err
 			}
-			mmPerSec = speed2
+			millisPerSec = speed2
 		}
 
 		s := r.FormValue("stop")
-		d := r.FormValue("distanceMM")
+		d := r.FormValue("distanceMillis")
 		a := r.FormValue("angle")
 
 		var err error
@@ -137,7 +137,7 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 				return nil, err2
 			}
 
-			err = theBase.MoveStraight(r.Context(), int(d2), mmPerSec, false)
+			err = theBase.MoveStraight(r.Context(), int(d2), millisPerSec, false)
 		} else if a != "" {
 			a2, err2 := strconv.ParseInt(a, 10, 64)
 			if err2 != nil {
@@ -147,7 +147,7 @@ func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
 			// TODO(erh): fix speed
 			err = theBase.Spin(r.Context(), float64(a2), 64, false)
 		} else {
-			return nil, fmt.Errorf("no stop, distanceMM, angle given")
+			return nil, fmt.Errorf("no stop, distanceMillis, angle given")
 		}
 
 		if err != nil {

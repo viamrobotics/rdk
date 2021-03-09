@@ -26,14 +26,14 @@ type DeviceOffset struct {
 }
 
 type LocationAwareRobot struct {
-	started         bool
-	baseDevice      base.Device
-	baseDeviceWidth float64
-	baseOrientation float64 // relative to map
-	basePosX        int
-	basePosY        int
-	devBounds       []image.Point
-	maxBounds       image.Point
+	started               bool
+	baseDevice            base.Device
+	baseDeviceWidthScaled int
+	baseOrientation       float64 // relative to map
+	basePosX              int
+	basePosY              int
+	devBounds             []image.Point
+	maxBounds             image.Point
 
 	devices       []lidar.Device
 	deviceOffsets []DeviceOffset
@@ -65,10 +65,12 @@ func NewLocationAwareRobot(
 	deviceOffsets []DeviceOffset,
 	compassSensor compass.Device,
 ) (*LocationAwareRobot, error) {
-	baseDeviceWidth, err := baseDevice.Width(ctx)
+	baseDeviceWidth, err := baseDevice.WidthMillis(ctx)
 	if err != nil {
 		return nil, err
 	}
+	_, scaleTo := area.Size()
+	baseDeviceWidthScaled := baseDeviceWidth * scaleTo / 1000
 
 	var maxBoundsX, maxBoundsY int
 	devBounds := make([]image.Point, 0, len(devices))
@@ -91,10 +93,10 @@ func NewLocationAwareRobot(
 		return nil, err
 	}
 	robot := &LocationAwareRobot{
-		baseDevice:      baseDevice,
-		baseDeviceWidth: baseDeviceWidth,
-		maxBounds:       image.Point{maxBoundsX, maxBoundsY},
-		devBounds:       devBounds,
+		baseDevice:            baseDevice,
+		baseDeviceWidthScaled: baseDeviceWidthScaled,
+		maxBounds:             image.Point{maxBoundsX, maxBoundsY},
+		devBounds:             devBounds,
 
 		devices:       devices,
 		deviceOffsets: deviceOffsets,
@@ -165,7 +167,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
-	move := base.Move{Speed: 0, Block: true}
+	move := base.Move{MillisPerSec: 0, Block: true}
 
 	currentOrientation := lar.orientation()
 	if rotateTo != nil {
@@ -210,7 +212,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *
 		}
 		newX, newY = calcP.X, calcP.Y
 		_, scale := lar.rootArea.Size()
-		move.DistanceMM = *amount * scale
+		move.DistanceMillis = *amount * scale
 	}
 
 	if newX != lar.basePosX || newY != lar.basePosY {
@@ -338,15 +340,13 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (imag
 
 // the rectangle is centered at the position of the base
 func (lar *LocationAwareRobot) baseRect() image.Rectangle {
-	_, scaleDown := lar.rootArea.Size()
 	basePosX, basePosY := lar.basePos()
 
-	baseWidthScaled := int(math.Ceil(lar.baseDeviceWidth * float64(scaleDown)))
 	return image.Rect(
-		basePosX-baseWidthScaled/2,
-		basePosY-baseWidthScaled/2,
-		basePosX+baseWidthScaled/2,
-		basePosY+baseWidthScaled/2,
+		basePosX-lar.baseDeviceWidthScaled/2,
+		basePosY-lar.baseDeviceWidthScaled/2,
+		basePosX+lar.baseDeviceWidthScaled/2,
+		basePosY+lar.baseDeviceWidthScaled/2,
 	)
 }
 

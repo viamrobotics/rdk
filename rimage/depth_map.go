@@ -216,7 +216,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	units = units * 1000 // m to mm
+	units = units * 1000 // meters to millis
 
 	widthString, err := r.ReadString('\n')
 	if err != nil {
