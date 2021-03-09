@@ -18,6 +18,7 @@ require (
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
+	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/golangci/golangci-lint v1.38.0
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
@@ -28,6 +29,7 @@ require (
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/jacobsa/go-serial v0.0.0-20180131005756-15cf729a72d4
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
+	github.com/kshedden/gonpy v0.0.0-20190510000443-66c21fac4672 // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
@@ -42,7 +44,7 @@ require (
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	go.mongodb.org/mongo-driver v1.4.4
-	go.opencensus.io v0.22.5
+	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
