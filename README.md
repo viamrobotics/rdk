@@ -24,10 +24,10 @@
 * [slam/server](./slam/cmd/server) - Run a SLAM implementation
 
 ### Bespoke
-* [boat1](./samples/boat1) - boat1 work in progress
-* [chess](./samples/chess) - Play chess!
-* [gripper1](./samples/gripper1) - gripper1 work in progress
-* [vision](./samples/vision) - Utilities for working with images to test out vision library code
+* [samples/boat1](./samples/boat1) - boat1 work in progress
+* [samples/chess](./samples/chess) - Play chess!
+* [samples/gripper1](./samples/gripper1) - gripper1 work in progress
+* [samples/vision](./samples/vision) - Utilities for working with images to test out vision library code
 
 ## Dependencies
 
