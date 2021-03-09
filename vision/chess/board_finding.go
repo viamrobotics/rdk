@@ -128,8 +128,8 @@ func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth) (image.Image, []image.
 			xd := (h8Corner.X - h1Corner.X) / 8
 			yd := (h8Corner.Y - h1Corner.Y) / 8
 
-			clipMin := image.Point{h1Corner.X + xd*2, h1Corner.Y + yd*2 + xd/20} // the 20 is to move past the black border
-			clipMax := image.Point{h1Corner.X + xd*3, h1Corner.Y + yd*3 + xd/2}
+			clipMin := image.PointFloat{h1Corner.X + xd*2, h1Corner.Y + yd*2 + xd/20} // the 20 is to move past the black border
+			clipMax := image.PointFloat{h1Corner.X + xd*3, h1Corner.Y + yd*3 + xd/2}
 
 			clipBox := image.Rectangle{clipMin, clipMax}
 			fmt.Println(clipBox)
