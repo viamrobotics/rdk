@@ -65,9 +65,13 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 		},
 		moveLock: mutex,
 	}
-	err = newArm.SetVelocity(1500)
+	err = newArm.SetVelocity(50)
 	if err != nil {
 		golog.Global.Errorf("Could not set arm velocity: %s", err)
+	}
+	err = newArm.SetAcceleration(10)
+	if err != nil {
+		golog.Global.Errorf("Could not set arm acceleration: %s", err)
 	}
 	err = newArm.TorqueOn()
 	if err != nil {
