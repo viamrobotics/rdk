@@ -131,7 +131,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 		for y := 0; y < height; y++ {
 			i := grayImg.PixOffset(x, y)
 			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
-			dm.Set(height-y-1, width-x-1, Depth(z))
+			dm.Set(y, x, Depth(z))
 		}
 	}
 

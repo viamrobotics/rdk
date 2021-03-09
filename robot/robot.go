@@ -419,6 +419,10 @@ func (r *Robot) newCameraLL(config Component) (gostream.ImageSource, error) {
 
 	case "depthComposed":
 		return newDepthComposed(r, config)
+
+	case "overlay":
+		return newOverlay(r, config)
+
 	default:
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
