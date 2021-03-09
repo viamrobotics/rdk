@@ -2,14 +2,29 @@
 
 ## Packages
 
-* arm - robot arms
-* gripper - robot grippers
-* vision - random vision utilities
-  * chess - chess specific vision tools
-* ml - assorted machine learning utility code
-* utils - random math functions and likely other small things that don't belong elsewhere
-  * intel_real_server/intelrealserver.cpp - webserver for capturing data from intel real sense cameras, then server via http, both depth and rgb
-* robot - robot configuration and initalization
+* [api](./api) - Robot API - that combines all the pieces of a robot (arms, grippers, cameras, etc...)
+* [arduino](./arduino) - Custom Arduino libraries
+* [arm](./arm) - Robot Arm API and implementations
+* [base](./base) - Robot Base API (things that move) and implementations
+* [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
+* [gripper](./gripper) - API and implementations of various grippers			
+* [kinematics](./kinematics) - Kinematics library
+* [lidar](./lidar) - API and implementations
+* [ml](./ml) - assorted machine learning utility code
+* [pointcloud](./pointcloud)		
+* [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data			
+* [robot](./robot) - Implementation of (./api) 			
+  * [web](./web) - Web server for using robots
+* [robots](./robots) - implementations of specific robots			
+* [sensor](./sensor) - sensor api
+* [serial](./serial) - serial connection tools
+* [slam](./slam) - SLAM!
+* [testutils](./testutils)
+* [usb](./usb) - usb connection tools
+* [utils](./utils) random math functions and likely other small things that don't belong elsewhere - keep small
+* [vision](./vision) - General computer vision code
+  * [chess](./vision/chess) - Chess specific image code
+  * [segmentations](./vision/segmentation) - Segmenting images into objects
 
 ## Programs
 * [lidar/view](./lidar/cmd/view) - Visualize a LIDAR device
