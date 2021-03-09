@@ -19,6 +19,11 @@ if [ "$(uname)" = "Darwin" ]; then
 	make python-macos
 fi
 
+GIT_SSH_REWRITE_OK=$(git config --get url.ssh://git@github.com/.insteadOf)
+if [ "$GIT_SSH_REWRITE_OK" != "https://github.com/" ]; then
+  git config url.ssh://git@github.com/.insteadOf https://github.com/
+fi
+
 ENV_OK=1
 if [ "$(uname)" = "Linux" ]; then
   echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
