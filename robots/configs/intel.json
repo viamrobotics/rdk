@@ -4,6 +4,7 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
+	      "hide" : "true",
               "path_pattern" : "usb",
 	      "width" : "1280",
               "rotate" : "true",
@@ -14,6 +15,7 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
+	      "hide" : "true",
               "format" : "Z16",
 	      "width" : "768",
               "debug" : "true"
@@ -23,9 +25,17 @@
           "type" : "camera",
           "model" : "depthComposed",
           "attributes" : {
+	      "hide" : "true",
               "color" : "front-color",
               "depth" : "front-depth",
               "make" : "intel515"
+          }
+        },
+	{ "name" : "front-overlay",
+          "type" : "camera",
+          "model" : "overlay",
+          "attributes" : {
+              "source" : "front"
           }
         }
 
