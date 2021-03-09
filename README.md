@@ -60,27 +60,27 @@
 ### libvpx linux source build
 If libvpx is not available on your distro, run the following:
 
-* `git clone git@github.com:webmproject/libvpx.git`
-* `cd libvpx`
-* `mkdir build; cd build`
-* `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
-* `sudo make install`
+1. `git clone git@github.com:webmproject/libvpx.git`
+1. `cd libvpx`
+1. `mkdir build; cd build`
+1. `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
+1. `sudo make install`
 
 ## Development
 
 ### Conventions
 1. Always run `make lint` and test before pushing.
-2. Write tests!
-3. If you add a new package, please add it to this README.
-4. If you add a new sample or command, please add it to this README.
-5. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
-6. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
-7. Delete any non-release branches ASAP when done, or use a personal fork
-8. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+1. Write tests!
+1. If you add a new package, please add it to this README.
+1. If you add a new sample or command, please add it to this README.
+1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
+1. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
+1. Delete any non-release branches ASAP when done, or use a personal fork
+1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
 ### Testing from Github Actions
 
 1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
-2. Install `act` with `brew install act`
-4. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration)
-5. Then just run `act`
+1. Install `act` with `brew install act`
+1. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration)
+1. Then just run `act`
