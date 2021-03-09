@@ -42,8 +42,12 @@ func runRobot(srcURL, lidarDevAddr string) (err error) {
 	if err != nil {
 		return err
 	}
-	helloRobot.Startup()
-	defer helloRobot.Stop()
+	if err := helloRobot.Startup(); err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, helloRobot.Stop())
+	}()
 
 	lidarDev, err := lidar.NewWSDevice(context.Background(), lidarDevAddr)
 	if err != nil {
@@ -91,7 +95,9 @@ func runRobot(srcURL, lidarDevAddr string) (err error) {
 		<-c
 		cancelFunc()
 		webCloser()
-		httpServer.Shutdown(context.Background())
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			golog.Global.Errorw("error shutting down", "error", err)
+		}
 	}()
 
 	golog.Global.Debug("going to listen")

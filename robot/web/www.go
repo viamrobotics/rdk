@@ -634,7 +634,9 @@ func RunWeb(theRobot *robot.Robot) error {
 		<-c
 		cancelFunc()
 		webCloser()
-		httpServer.Shutdown(context.Background()) //nolint
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			golog.Global.Errorw("error shutting down", "error", err)
+		}
 	}()
 
 	golog.Global.Debugw("going to listen", "addr", fmt.Sprintf("http://localhost:%d", port), "port", port)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/lidar"
@@ -156,7 +157,7 @@ func parseFlags() (runParams, error) {
 	}, nil
 }
 
-func runSlam(params runParams) error {
+func runSlam(params runParams) (err error) {
 	areaSizeMeters := 50
 	areaScale := 100 // cm
 	area, err := slam.NewSquareArea(areaSizeMeters, areaScale)
@@ -195,12 +196,15 @@ func runSlam(params runParams) error {
 		return err
 	}
 	for _, lidarDev := range lidarDevices {
-		info, err := lidarDev.Info(context.Background())
-		if err != nil {
-			return err
+		info, infoErr := lidarDev.Info(context.Background())
+		if infoErr != nil {
+			return infoErr
 		}
 		golog.Global.Infow("device", "info", info)
-		defer lidarDev.Stop(context.Background())
+		dev := lidarDev
+		defer func() {
+			err = multierr.Combine(err, dev.Stop(context.Background()))
+		}()
 	}
 
 	if compassSensor == nil {
@@ -240,7 +244,9 @@ func runSlam(params runParams) error {
 	if err := lar.Start(); err != nil {
 		return err
 	}
-	defer lar.Stop()
+	defer func() {
+		err = multierr.Combine(lar.Stop())
+	}()
 	areaViewer := &slam.AreaViewer{area}
 
 	config := x264.DefaultViewConfig

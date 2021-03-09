@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	"go.viam.com/robotcore/sensor/compass"
@@ -91,18 +92,21 @@ func main() {
 	}
 }
 
-func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) error {
+func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) (err error) {
 	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
 		return err
 	}
 	for _, lidarDev := range lidarDevices {
-		info, err := lidarDev.Info(context.Background())
-		if err != nil {
-			return err
+		info, infoErr := lidarDev.Info(context.Background())
+		if infoErr != nil {
+			return infoErr
 		}
 		golog.Global.Infow("device", "info", info)
-		defer lidarDev.Stop(context.Background())
+		dev := lidarDev
+		defer func() {
+			err = multierr.Combine(err, dev.Stop(context.Background()))
+		}()
 	}
 
 	var lar *slam.LocationAwareRobot
@@ -153,9 +157,11 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 		<-c
 		cancelFunc()
 		if saveToDisk != "" {
-			lar.Stop()
+			if err := lar.Stop(); err != nil {
+				golog.Global.Errorw("error stopping location aware robot", "error", err)
+			}
 			if err := area.WriteToFile(saveToDisk); err != nil {
-				golog.Global.Error(err)
+				golog.Global.Errorw("error saving to disk", err)
 			}
 		}
 	}()
@@ -212,7 +218,10 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 			case <-quitC:
 			}
 			golog.Global.Debug("marking")
-			lidarCompass.Mark(cancelCtx)
+			if err := lidarCompass.Mark(cancelCtx); err != nil {
+				golog.Global.Errorw("error marking", "error", err)
+				continue
+			}
 			golog.Global.Debug("marked")
 		}
 	}()
