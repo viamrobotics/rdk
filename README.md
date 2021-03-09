@@ -31,19 +31,17 @@
 
 ## Dependencies
 
-Most dependenciy setup can be performed with `make setup`.
-
-Also run `git config --global url.ssh://git@github.com/.insteadOf https://github.com/` in order to `go get` private modules properly.
-
 * [go1.16](https://golang.org/dl/)
-* libx264-dev (macOS: x264)
-* libvpx-dev (macOS: libvpx)
-	* `git clone git@github.com:webmproject/libvpx.git`
-	* `cd libvpx`
-	* `mkdir build; cd build`
-	* `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
-	* `sudo make install`
-* python2.7-dev (macOS: not needed)
+* `make setup`
+
+### libvpx linux source build
+If libvpx is not available on your distro, run the following:
+
+* `git clone git@github.com:webmproject/libvpx.git`
+* `cd libvpx`
+* `mkdir build; cd build`
+* `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
+* `sudo make install`
 
 ## Developing
 
