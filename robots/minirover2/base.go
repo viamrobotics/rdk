@@ -33,14 +33,11 @@ type Rover struct {
 	pan, tilt      board.Servo
 }
 
-func (r *Rover) Close() {
-	err := r.Stop()
-	if err != nil {
-		golog.Global.Warnf("error stopping minirover2 in Close: %s", err)
-	}
+func (r *Rover) Close(ctx context.Context) error {
+	return r.Stop(ctx)
 }
 
-func (r *Rover) MoveStraight(distanceMillis int, millisPerSec float64, block bool) error {
+func (r *Rover) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if distanceMillis == 0 && block {
 		return fmt.Errorf("cannot block unless you have a distance")
 	}
@@ -70,7 +67,7 @@ func (r *Rover) MoveStraight(distanceMillis int, millisPerSec float64, block boo
 	)
 
 	if err != nil {
-		return multierr.Combine(err, r.Stop())
+		return multierr.Combine(err, r.Stop(ctx))
 	}
 
 	if !block {
@@ -80,7 +77,7 @@ func (r *Rover) MoveStraight(distanceMillis int, millisPerSec float64, block boo
 	return r.waitForMotorsToStop()
 }
 
-func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
+func (r *Rover) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
 
 	if speed < 120 {
 		speed = 120
@@ -102,7 +99,7 @@ func (r *Rover) Spin(angleDeg float64, speed int, block bool) error {
 	)
 
 	if err != nil {
-		return multierr.Combine(err, r.Stop())
+		return multierr.Combine(err, r.Stop(ctx))
 	}
 
 	if !block {
@@ -129,13 +126,17 @@ func (r *Rover) waitForMotorsToStop() error {
 	return nil
 }
 
-func (r *Rover) Stop() error {
+func (r *Rover) Stop(ctx context.Context) error {
 	return multierr.Combine(
 		r.fl.Off(),
 		r.fr.Off(),
 		r.bl.Off(),
 		r.br.Off(),
 	)
+}
+
+func (r *Rover) Width(ctx context.Context) (float64, error) {
+	return .6, nil
 }
 
 func (r *Rover) neckCenter() error {
