@@ -14,14 +14,15 @@
 * [pointcloud](./pointcloud)		
 * [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data			
 * [robot](./robot) - Implementation of (./api) 			
-  * [web](./web) - Web server for using robots
-* [robots](./robots) - implementations of specific robots			
-* [sensor](./sensor) - sensor api
-* [serial](./serial) - serial connection tools
+  * [web](./robot/web) - Web server for using robots
+* [robots](./robots) - Implementations of specific robots
+* [sensor](./sensor) - Various sensor APIs
+* [serial](./serial) - Serial connection tools
 * [slam](./slam) - SLAM!
 * [testutils](./testutils)
-* [usb](./usb) - usb connection tools
-* [utils](./utils) random math functions and likely other small things that don't belong elsewhere - keep small
+	* [inject](./testutils/inject) Dependency injected structures
+* [usb](./usb) - USB connection tools
+* [utils](./utils) Random math functions and likely other small things that don't belong elsewhere - *keep small*
 * [vision](./vision) - General computer vision code
   * [chess](./vision/chess) - Chess specific image code
   * [segmentations](./vision/segmentation) - Segmenting images into objects
