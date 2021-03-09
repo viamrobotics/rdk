@@ -9,7 +9,49 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.opencensus.io/trace"
+
+	"github.com/edaniels/gostream"
 )
+
+type depthComposed struct {
+	color gostream.ImageSource
+	depth gostream.ImageSource
+}
+
+func NewDepthComposed(color, depth gostream.ImageSource) (gostream.ImageSource, error) {
+	if color == nil {
+		return nil, fmt.Errorf("need color")
+	}
+	if depth == nil {
+		return nil, fmt.Errorf("need depth")
+	}
+	return &depthComposed{color, depth}, nil
+}
+
+func (dc *depthComposed) Close() error {
+	// TODO(erh): who owns these?
+	return nil
+}
+
+func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) {
+	c, cCloser, err := dc.color.Next(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer cCloser()
+
+	d, dCloser, err := dc.depth.Next(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer dCloser()
+
+	aligned, err := intel515align(&ImageWithDepth{ConvertImage(c), imageToDepthMap(d)})
+
+	return aligned, func() {}, err
+
+}
 
 type Intel515Align struct {
 	currentlyWriting bool
