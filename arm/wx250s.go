@@ -65,22 +65,34 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 		},
 		moveLock: mutex,
 	}
+
+	angleMap, err := newArm.GetAllAngles()
+	if err != nil {
+		return nil, err
+	}
+
+	var positions []float64
+	for _, jointName := range newArm.JointOrder() {
+		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
+	}
+	
+	newArm.kin.SetJointPositions(positions)
 	return &newArm, err
 }
 
 func (a *Wx250s) CurrentPosition() (Position, error) {
 
 	ci := Position{}
-	setJointTelNums := []float64{}
+//~ 	setJointTelNums := []float64{}
 
 	// Update kinematics model with current robot location
-	curPos, err := a.CurrentJointPositions()
-	if err != nil {
-		return ci, err
-	}
-	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
+//~ 	curPos, err := a.CurrentJointPositions()
+//~ 	if err != nil {
+//~ 		return ci, err
+//~ 	}
+//~ 	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
-	a.kin.SetJointPositions(setJointTelNums)
+//~ 	a.kin.SetJointPositions(setJointTelNums)
 	ci = a.kin.GetForwardPosition()
 	ci.X /= 1000
 	ci.Y /= 1000
@@ -107,6 +119,7 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
+	a.kin.SetJointPositions(jp.Degrees)
 
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
@@ -122,19 +135,7 @@ func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
 
 // CurrentJointPositions returns a sorted (from base outwards) slice of joint angles in degrees
 func (a *Wx250s) CurrentJointPositions() (JointPositions, error) {
-
-	angleMap, err := a.GetAllAngles()
-	if err != nil {
-		return JointPositions{}, err
-	}
-
-	var positions []float64
-	for _, jointName := range a.JointOrder() {
-		//2048 is the halfway position for Dynamixel servos
-		// TODO(pl): Function for servo pos/degree/radian conversion
-		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
-	}
-	return JointPositions{positions}, nil
+	return JointPositions{a.kin.GetJointPositions()}, nil
 }
 
 func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {
@@ -180,49 +181,6 @@ func (a *Wx250s) GetAllAngles() (map[string]float64, error) {
 func (a *Wx250s) JointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
-
-// Note: there are a million and a half different ways to move servos
-// GoalPosition, GoalCurrent, GoalPWM, etc
-// To start with I'll just use GoalPosition
-// TODO(pl): Support other movement types
-// TODO(pl): Configurable waiting for movement to complete or not
-// TODO(pl): write more TODOS for nice-to-have features
-
-// Grippers are special because they use PWM by default rather than position control
-// Note that goal PWM values not in [-350:350] may cause the servo to overload, necessitating an arm reboot
-// TODO(pl): Track position or something rather than just have a timer
-//~ func (a *Wx250s) CloseGripper(block bool) error {
-//~ err := a.Joints["Gripper"][0].SetGoalPWM(-350)
-//~ if block {
-//~ err = servo.WaitForMovementVar(a.Joints["Gripper"][0])
-//~ }
-//~ return err
-//~ }
-
-//~ // See CloseGripper()
-//~ func (a *Wx250s) OpenGripper() error {
-//~ err := a.Joints["Gripper"][0].SetGoalPWM(250)
-//~ if err != nil {
-//~ return err
-//~ }
-
-//~ // We don't want to over-open
-//~ atPos := false
-//~ for !atPos {
-//~ var pos int
-//~ pos, err = a.Joints["Gripper"][0].PresentPosition()
-//~ if err != nil {
-//~ return err
-//~ }
-//~ // TODO(pl): Don't harcode
-//~ if pos < 3000 {
-//~ time.Sleep(50 * time.Millisecond)
-//~ } else {
-//~ atPos = true
-//~ }
-//~ }
-//~ return err
-//~ }
 
 // Print positions of all servos
 // TODO(pl): Print joint names, not just servo numbers
@@ -376,11 +334,11 @@ func (a *Wx250s) WaitForMovement() error {
 
 func setServoDefaults(newServo *servo.Servo){
 	// Set some nice-to-have settings
-	err := newServo.SetMovingThreshold(0)
-	if err != nil {
-		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
-	}
-	err = newServo.SetPGain(2800)
+//~ 	err := newServo.SetMovingThreshold(0)
+//~ 	if err != nil {
+//~ 		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+//~ 	}
+	err := newServo.SetPGain(2800)
 	if err != nil {
 		golog.Global.Fatalf("error SetPGain servo %d: %v\n", newServo.ID, err)
 	}
