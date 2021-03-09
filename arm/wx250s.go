@@ -75,7 +75,7 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 	for _, jointName := range newArm.JointOrder() {
 		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
 	}
-	
+
 	newArm.kin.SetJointPositions(positions)
 	return &newArm, err
 }
@@ -83,16 +83,16 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 func (a *Wx250s) CurrentPosition() (Position, error) {
 
 	ci := Position{}
-//~ 	setJointTelNums := []float64{}
+	//~ 	setJointTelNums := []float64{}
 
 	// Update kinematics model with current robot location
-//~ 	curPos, err := a.CurrentJointPositions()
-//~ 	if err != nil {
-//~ 		return ci, err
-//~ 	}
-//~ 	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
+	//~ 	curPos, err := a.CurrentJointPositions()
+	//~ 	if err != nil {
+	//~ 		return ci, err
+	//~ 	}
+	//~ 	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
-//~ 	a.kin.SetJointPositions(setJointTelNums)
+	//~ 	a.kin.SetJointPositions(setJointTelNums)
 	ci = a.kin.GetForwardPosition()
 	ci.X /= 1000
 	ci.Y /= 1000
@@ -332,12 +332,12 @@ func (a *Wx250s) WaitForMovement() error {
 	return nil
 }
 
-func setServoDefaults(newServo *servo.Servo){
+func setServoDefaults(newServo *servo.Servo) {
 	// Set some nice-to-have settings
-//~ 	err := newServo.SetMovingThreshold(0)
-//~ 	if err != nil {
-//~ 		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
-//~ 	}
+	//~ 	err := newServo.SetMovingThreshold(0)
+	//~ 	if err != nil {
+	//~ 		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+	//~ 	}
 	err := newServo.SetPGain(2800)
 	if err != nil {
 		golog.Global.Fatalf("error SetPGain servo %d: %v\n", newServo.ID, err)
@@ -397,7 +397,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 		if err != nil {
 			golog.Global.Fatalf("error initializing servo %d: %v\n", i, err)
 		}
-		
+
 		setServoDefaults(newServo)
 
 		servos = append(servos, newServo)
