@@ -4,7 +4,7 @@
 
 * [Packages](#packages)
 * [Programs](#programs)
-* [Dependencies](#programs)
+* [Dependencies](#dependencies)
 * [Development](#development)
 
 ## Packages
