@@ -112,28 +112,44 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		}
 	}()
 
+	numFiles := 0
+
 	for _, f := range files {
 		if !IsImageFile(f) {
 			continue
 		}
+
+		numFiles++
+
 		d.currentFile = f
 		golog.Global.Debug(f)
-		img, err := ReadImageFromFile(f)
-		if err != nil {
-			return err
+
+		cont := d.T.Run(f, func(t *testing.T) {
+			img, err := ReadImageFromFile(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))
+			d.html.WriteString("<tr>")
+			d.GotDebugImage(img, "raw")
+
+			err = x.Process(d, f, img)
+			if err != nil {
+				t.Fatalf("error processing file %s : %s", f, err)
+			}
+
+			d.html.WriteString("</tr>")
+		})
+
+		if !cont {
+			return nil
 		}
+	}
 
-		d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))
-
-		d.html.WriteString("<tr>")
-		d.GotDebugImage(img, "raw")
-
-		err = x.Process(d, f, img)
-		if err != nil {
-			return fmt.Errorf("error processing file %s : %w", f, err)
-		}
-
-		d.html.WriteString("</tr>")
+	if numFiles == 0 {
+		d.T.Skip("no input files")
+		return nil
 	}
 
 	d.html.WriteString("</table></body></html>")
