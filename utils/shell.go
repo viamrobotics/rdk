@@ -7,7 +7,7 @@ import (
 
 func ExecuteShellCommand(name string, arg ...string) ([]string, error) {
 	cmd := exec.Command(name, arg...)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
 	}

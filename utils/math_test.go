@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAbs1(t *testing.T) {
@@ -64,6 +66,14 @@ func TestRadToDeg(t *testing.T) {
 	test.That(t, math.Pi, test.ShouldEqual, DegToRad(180))
 	test.That(t, 2*math.Pi, test.ShouldEqual, DegToRad(360))
 	test.That(t, 4*math.Pi, test.ShouldEqual, DegToRad(720))
+}
+
+func TestDegrees(t *testing.T) {
+	assert.Equal(t, 0.0, DegToRad(0))
+	assert.Equal(t, 0.0, RadToDeg(DegToRad(0)))
+
+	assert.Equal(t, math.Pi, DegToRad(180))
+	assert.Equal(t, 180.0, RadToDeg(DegToRad(180)))
 }
 
 func TestAngleDiffDeg(t *testing.T) {
@@ -136,4 +146,41 @@ func TestMedian(t *testing.T) {
 			test.That(t, Median(tc.values...), test.ShouldAlmostEqual, tc.expected)
 		})
 	}
+}
+
+func TestMinMax(t *testing.T) {
+	assert.Equal(t, 5, MaxInt(0, 5))
+	assert.Equal(t, 5, MaxInt(-12, 5))
+	assert.Equal(t, 5, MaxInt(5, 4))
+
+	assert.Equal(t, 0, MinInt(0, 5))
+	assert.Equal(t, -12, MinInt(-12, 5))
+	assert.Equal(t, 4, MinInt(5, 4))
+
+	assert.Equal(t, uint8(5), MaxUint8(0, 5))
+	assert.Equal(t, uint8(5), MaxUint8(1, 5))
+	assert.Equal(t, uint8(5), MaxUint8(5, 4))
+
+	assert.Equal(t, uint8(0), MinUint8(0, 5))
+	assert.Equal(t, uint8(1), MinUint8(1, 5))
+	assert.Equal(t, uint8(4), MinUint8(5, 4))
+}
+
+func TestRayToUpwardCWCartesian(t *testing.T) {
+	tt := func(angle, distance, X, Y float64) {
+		x, y := RayToUpwardCWCartesian(angle, 1)
+		assert.InDelta(t, X, x, 00001)
+		assert.InDelta(t, Y, y, 00001)
+	}
+
+	tt(0, 1, 0, 1)
+	tt(90, 1, 1, 0)
+	tt(180, 1, 0, -1)
+	tt(270, 1, -1, 0)
+
+	tt(360, 1, 0, 1)
+	tt(90+90, 1, 1, 0)
+	tt(360+180, 1, 0, -1)
+	tt(360+270, 1, -1, 0)
+
 }
