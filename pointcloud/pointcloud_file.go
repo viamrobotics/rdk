@@ -54,18 +54,18 @@ func NewFromLASFile(fn string) (*PointCloud, error) {
 			golog.Global.Warnf("potential floating point lossiness for LAS point",
 				"point", data, "range", fmt.Sprintf("[%d,%d]", minExactFloat64Integer, maxExactFloat64Integer))
 		}
-		pToSet := NewPoint(int(x), int(y), int(z))
+		pToSet := NewBasicPoint(int(x), int(y), int(z))
 
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
 			g := uint8(p.RgbData().Green / 256)
 			b := uint8(p.RgbData().Blue / 256)
-			pToSet = WithPointColor(pToSet, &color.RGBA{r, g, b, 0})
+			pToSet.SetColor(color.NRGBA{r, g, b, 255})
 		}
 
 		if hasValue {
 			value := int(binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8]))
-			pToSet = WithPointValue(pToSet, value)
+			pToSet.SetValue(value)
 		}
 
 		if err := pc.Set(pToSet); err != nil {
@@ -126,9 +126,9 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		lp = pr0
 		if pc.hasColor {
 			red, green, blue := 255, 255, 255
-			if ok, cp := IsColored(p); ok {
-				c := cp.Color()
-				red, green, blue = int(c.R), int(c.G), int(c.B)
+			if p.HasColor() {
+				r, g, b := p.RGB255()
+				red, green, blue = int(r), int(g), int(b)
 			}
 			lp = &lidario.PointRecord2{
 				PointRecord0: pr0,
@@ -140,8 +140,8 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 			}
 		}
 		if pc.hasValue {
-			if ok, fp := IsValue(p); ok {
-				pVals = append(pVals, fp.Value())
+			if p.HasValue() {
+				pVals = append(pVals, p.Value())
 			} else {
 				pVals = append(pVals, 0)
 			}
