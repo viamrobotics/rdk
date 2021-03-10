@@ -8,6 +8,7 @@ ROOT_DIR="$DIR/../"
 GO_PATH=$(which go)
 if [ ! -f $GO_PATH ]; then
 	echo "You need to install golang"
+  exit 1
 fi
 
 if [ "$(uname)" = "Linux" ]; then
@@ -15,6 +16,10 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
+  if [ ! -d "/Applications/Xcode.app" ]; then
+    echo "You need to install Xcode"
+    exit 1
+  fi
 	brew install libvpx x264 pkgconfig
 	make python-macos
   NLOPT_OK=1
