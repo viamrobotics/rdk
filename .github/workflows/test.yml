@@ -42,7 +42,7 @@ jobs:
     - name: Test
       run: |
         if [ -d "/opt/test_data" ]; then
-          ln -s /opt/test_data $HOME/Dropbox
+          ln -s /opt/Dropbox $HOME/Dropbox
         fi
         make test
 
