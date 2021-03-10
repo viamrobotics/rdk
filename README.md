@@ -78,6 +78,10 @@ If libvpx is not available on your distro, run the following:
 1. Delete any non-release branches ASAP when done, or use a personal fork
 1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
+### Testing with Dropbox
+
+In order to run all tests, you must have $HOME/Dropbox set up with echolabs_data in it.
+
 ### Testing from Github Actions
 
 1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
