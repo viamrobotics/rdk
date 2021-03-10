@@ -93,7 +93,7 @@ type mutableSquareArea SquareArea
 func (msa *mutableSquareArea) Iterate(visit func(x, y, v int) bool) {
 	msa.cloud.Iterate(func(p pointcloud.Point) bool {
 		pos := p.Position()
-		return visit(pos.X, pos.Y, p.(pointcloud.ValuePoint).Value())
+		return visit(pos.X, pos.Y, p.Value())
 	})
 }
 
@@ -102,7 +102,7 @@ func (msa *mutableSquareArea) At(x, y int) int {
 	if p == nil {
 		return 0
 	}
-	return p.(pointcloud.ValuePoint).Value()
+	return p.Value()
 }
 
 func (msa *mutableSquareArea) Set(x, y, v int) error {
