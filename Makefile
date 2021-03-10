@@ -26,4 +26,5 @@ minirover2:
 	go build -o minirover2 samples/minirover2/control.go samples/minirover2/util.go
 
 python-macos:
-	cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
+	sudo mkdir -p /usr/local/lib/pkgconfig
+	sudo cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
