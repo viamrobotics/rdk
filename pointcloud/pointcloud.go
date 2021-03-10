@@ -7,10 +7,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type Vec3 struct {
-	X, Y, Z int
-}
-
 type key Vec3
 
 type PointCloud struct {
@@ -53,10 +49,10 @@ func newOutOfRangeErr(dim string, val int) error {
 
 func (cloud *PointCloud) Set(p Point) error {
 	cloud.points[key(p.Position())] = p
-	if ok, _ := IsColored(p); ok {
+	if p.HasColor() {
 		cloud.hasColor = true
 	}
-	if ok, _ := IsValue(p); ok {
+	if p.HasValue() {
 		cloud.hasValue = true
 	}
 	v := p.Position()
