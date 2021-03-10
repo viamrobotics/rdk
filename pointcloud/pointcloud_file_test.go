@@ -31,11 +31,11 @@ func TestNewFromFile(t *testing.T) {
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
 	cloud := New()
-	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(-1, -2, 5, &color.RGBA{255, 1, 2, 0}), 5)), test.ShouldBeNil)
-	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(582, 12, 0, &color.RGBA{255, 1, 2, 0}), -1)), test.ShouldBeNil)
-	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(7, 6, 1, &color.RGBA{255, 1, 2, 0}), 1)), test.ShouldBeNil)
-	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0)), test.ShouldBeNil)
-	test.That(t, cloud.Set(WithPointValue(NewColoredPoint(1, 2, 9, &color.RGBA{255, 1, 2, 0}), 0)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 
 	bytes := make([]byte, 8)
 	v := 1.4
