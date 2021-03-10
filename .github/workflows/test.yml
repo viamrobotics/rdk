@@ -15,9 +15,8 @@ env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
-
-  build:
-    name: Build
+  build_and_test:
+    name: Build and Test
     runs-on: self-hosted
     container:
       image: echolabs/robotcoretest:latest
