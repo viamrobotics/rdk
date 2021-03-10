@@ -7,8 +7,8 @@ on:
       - '**/Dockerfile.fortest'
 
 jobs:
-  build:
-    name: Build
+  build_docker_image:
+    name: Build Docker Image
     runs-on: self-hosted
     container:
       image: echolabs/robotcoretest:latest
