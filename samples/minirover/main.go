@@ -1,21 +1,24 @@
-package minirover2
+package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
 	"go.uber.org/multierr"
+
+	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
-
-	"github.com/edaniels/golog"
 )
-
-const ModelName = "minirover2"
 
 const (
 	PanCenter  = 94
@@ -135,8 +138,8 @@ func (r *Rover) Stop(ctx context.Context) error {
 	)
 }
 
-func (r *Rover) Width(ctx context.Context) (float64, error) {
-	return .6, nil
+func (r *Rover) WidthMillis(ctx context.Context) (int, error) {
+	return 600, nil
 }
 
 func (r *Rover) neckCenter() error {
@@ -242,4 +245,40 @@ func NewRover(theBoard board.Board) (*Rover, error) {
 	golog.Global.Debug("rover ready")
 
 	return rover, nil
+}
+
+func main() {
+	err := realMain()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func realMain() error {
+	flag.Parse()
+
+	cfg, err := robot.ReadConfig("samples/minirover/config.json")
+	if err != nil {
+		return err
+	}
+
+	myRobot, err := robot.NewRobot(context.Background(), cfg)
+	if err != nil {
+		return err
+	}
+	defer myRobot.Close(context.Background())
+
+	rover, err := NewRover(myRobot.BoardByName("local"))
+	if err != nil {
+		return err
+	}
+
+	myRobot.AddBase(rover, robot.Component{Name: "minirover"})
+
+	err = rover.Ready(myRobot)
+	if err != nil {
+		return err
+	}
+
+	return web.RunWeb(myRobot)
 }

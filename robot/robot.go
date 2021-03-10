@@ -16,7 +16,6 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
-	"go.viam.com/robotcore/robots/minirover2"
 	"go.viam.com/robotcore/serial"
 
 	"github.com/edaniels/golog"
@@ -275,15 +274,6 @@ func (r *Robot) newProvider(config Component) (api.Provider, error) {
 	switch config.Model {
 	case hellorobot.ModelName:
 		return hellorobot.New()
-	case minirover2.ModelName:
-		if len(r.Boards) != 1 {
-			return nil, fmt.Errorf("minirover2 needs exactly 1 baord right now")
-		}
-		rover, err := minirover2.NewRover(r.Boards[0])
-		if err != nil {
-			return nil, err
-		}
-		return rover, nil
 	default:
 		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
 	}
@@ -300,12 +290,6 @@ func (r *Robot) newBase(config Component) (base.Device, error) {
 			return nil, err
 		}
 		return t.(*hellorobot.Robot).Base()
-	case minirover2.ModelName:
-		t, err := r.providerByModel(minirover2.ModelName)
-		if err != nil {
-			return nil, err
-		}
-		return t.(base.Device), nil
 	default:
 		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}

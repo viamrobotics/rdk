@@ -67,15 +67,6 @@
         }
     ],
     "components" : [
-        { "type": "provider",
-          "model": "minirover2",
-          "attributes": {
-          }
-        },
-        { "name" : "rover",
-          "type" : "base",
-          "model" : "minirover2"
-        },
         { "name" : "front",
           "type" : "camera",
           "model" : "webcam",
