@@ -31,6 +31,24 @@ func merge() error {
 	return img.WriteTo(flag.Arg(3))
 }
 
+func toLas() error {
+	if flag.NArg() < 3 {
+		return fmt.Errorf("to-las needs <both in> <las out>")
+	}
+
+	img, err := rimage.BothReadFromFile(flag.Arg(1))
+	if err != nil {
+		return err
+	}
+
+	pc, err := img.ToPointCloud()
+	if err != nil {
+		return err
+	}
+
+	return pc.WriteToFile(flag.Arg(2))
+}
+
 func realMain() error {
 	flag.Parse()
 
@@ -43,6 +61,8 @@ func realMain() error {
 	switch cmd {
 	case "merge":
 		return merge()
+	case "to-las":
+		return toLas()
 	default:
 		return fmt.Errorf("unknown command: [%s]", cmd)
 	}

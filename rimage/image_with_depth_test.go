@@ -13,7 +13,9 @@ func TestPC1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	file, err := os.OpenFile("/tmp/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
+	os.MkdirAll("out", 0775)
+
+	file, err := os.OpenFile("out/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,4 +47,24 @@ func TestPCRoundTrip(t *testing.T) {
 	assert.Equal(t, pc.Color.Height(), pc2.Color.Height())
 	assert.Equal(t, pc.Depth.Width(), pc2.Depth.Width())
 	assert.Equal(t, pc.Depth.Height(), pc2.Depth.Height())
+}
+
+func TestPC3(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.MkdirAll("out", 0775)
+
+	pc, err := iwd.ToPointCloud()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = pc.WriteToFile("out/board2.las")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 }

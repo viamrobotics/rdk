@@ -4,86 +4,75 @@ import (
 	"image/color"
 )
 
+type Vec3 struct {
+	X, Y, Z int
+}
+
 type Point interface {
 	Position() Vec3
-}
 
-func NewPoint(x, y, z int) Point {
-	return basicPoint{x, y, z}
-}
+	HasColor() bool
+	RGB255() (uint8, uint8, uint8)
+	Color() color.Color
 
-func IsValue(p Point) (bool, ValuePoint) {
-	switch v := p.(type) {
-	case basicPoint:
-		return false, nil
-	case basicValuePoint:
-		return true, v
-	case basicColoredPoint:
-		return IsValue(v.Point)
-	default:
-		return false, nil
-	}
-}
-
-func IsColored(p Point) (bool, ColoredPoint) {
-	switch v := p.(type) {
-	case basicPoint:
-		return false, nil
-	case basicValuePoint:
-		return IsColored(v.Point)
-	case basicColoredPoint:
-		return true, v
-	default:
-		return false, nil
-	}
-}
-
-type basicPoint Vec3
-
-func (bp basicPoint) Position() Vec3 {
-	return Vec3(bp)
-}
-
-type ValuePoint interface {
-	Point
+	HasValue() bool
 	Value() int
 }
 
-func NewValuePoint(x, y, z int, v int) ValuePoint {
-	return basicValuePoint{basicPoint{x, y, z}, v}
+type BasicPoint struct {
+	position Vec3
+
+	hasColor bool
+	c        color.NRGBA
+
+	hasValue bool
+	value    int
 }
 
-func WithPointValue(p Point, v int) ValuePoint {
-	return basicValuePoint{p, v}
+func (bp *BasicPoint) Position() Vec3 {
+	return bp.position
 }
 
-func WithPointColor(p Point, c *color.RGBA) ColoredPoint {
-	return basicColoredPoint{p, c}
+func (bp *BasicPoint) SetColor(c color.NRGBA) *BasicPoint {
+	bp.hasColor = true
+	bp.c = c
+	return bp
 }
 
-type basicValuePoint struct {
-	Point
-	value int
+func (bp *BasicPoint) HasColor() bool {
+	return bp.hasColor
 }
 
-func (bvp basicValuePoint) Value() int {
-	return bvp.value
+func (bp *BasicPoint) RGB255() (uint8, uint8, uint8) {
+	return bp.c.R, bp.c.G, bp.c.B
 }
 
-type ColoredPoint interface {
-	Point
-	Color() *color.RGBA
+func (bp *BasicPoint) Color() color.Color {
+	return &bp.c
 }
 
-func NewColoredPoint(x, y, z int, c *color.RGBA) ColoredPoint {
-	return basicColoredPoint{basicPoint{x, y, z}, c}
+func (bp *BasicPoint) SetValue(v int) *BasicPoint {
+	bp.hasValue = true
+	bp.value = v
+	return bp
 }
 
-type basicColoredPoint struct {
-	Point
-	c *color.RGBA
+func (bp *BasicPoint) HasValue() bool {
+	return bp.hasValue
 }
 
-func (bcp basicColoredPoint) Color() *color.RGBA {
-	return bcp.c
+func (bp *BasicPoint) Value() int {
+	return bp.value
+}
+
+func NewBasicPoint(x, y, z int) *BasicPoint {
+	return &BasicPoint{position: Vec3{x, y, z}}
+}
+
+func NewColoredPoint(x, y, z int, c color.NRGBA) *BasicPoint {
+	return &BasicPoint{position: Vec3{x, y, z}, c: c, hasColor: true}
+}
+
+func NewValuePoint(x, y, z int, v int) *BasicPoint {
+	return &BasicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
 }
