@@ -11,12 +11,23 @@ if [ ! -f $GO_PATH ]; then
 fi
 
 if [ "$(uname)" = "Linux" ]; then
-	sudo apt install python2.7-dev libvpx-dev libx264-dev
+	sudo apt install python2.7-dev libvpx-dev libx264-dev libnlopt-dev
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
 	brew install libvpx x264 pkgconfig
 	make python-macos
+  NLOPT_OK=1
+  pkg-config nlopt || NLOPT_OK=0
+  if [ $NLOPT_OK -eq 0 ] ; then
+    nlopttmp=$(mktemp -d 2>/dev/null || mktemp -d -t 'nlopttmp')
+    cd $nlopttmp
+    curl -O https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0 && tar xzvf v2.7.0 && cd nlopt-2.7.0
+    rm -rf v2.7.0
+    cmake . && make -j$(sysctl -n hw.ncpu) && sudo make install
+    cd $ROOT_DIR
+    rm -rf $nlopttmp
+  fi
 fi
 
 GIT_SSH_REWRITE_OK=$(git config --get url.ssh://git@github.com/.insteadOf)
