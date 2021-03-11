@@ -1,4 +1,4 @@
-package arm
+package kinematics
 
 import (
 	"errors"
@@ -6,18 +6,18 @@ import (
 	"math"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/kinematics"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
-type Kinematics struct {
-	Model      *kinematics.Model
-	ik         kinematics.InverseKinematics
+type Arm struct {
+	real api.Arm
+	Model      *Model
+	ik         InverseKinematics
 	effectorID int
 }
 
 // Returns a new kinematics.Model from a correctly formatted JSON file
-func NewRobot(jsonFile string, cores int) (*Kinematics, error) {
+func NewArm(real api.Arm, jsonFile string, cores int) (api.Arm, error) {
 	// We want to make (cores + 1) copies of our model
 	// Our master copy, plus one for each of the IK engines to work with
 	// We create them all now because deep copies of sufficiently complicated structs is a pain
@@ -25,21 +25,25 @@ func NewRobot(jsonFile string, cores int) (*Kinematics, error) {
 	if cores < 1 {
 		return nil, errors.New("need to have at least one CPU core")
 	}
-	models := make([]*kinematics.Model, cores+1)
+	models := make([]*Model, cores+1)
 	for i := 0; i <= cores; i++ {
-		model, err := kinematics.ParseJSONFile(jsonFile)
+		model, err := ParseJSONFile(jsonFile)
 		if err != nil {
 			return nil, err
 		}
 		models[i] = model
 	}
 
-	ik := kinematics.CreateCombinedIKSolver(models)
-	return &Kinematics{models[0], ik, 0}, nil
+	ik := CreateCombinedIKSolver(models)
+	return &Arm{real, models[0], ik, 0}, nil
+}
+
+func (k *Arm) Close() {
+	k.real.Close() // TODO(erh): who owns this?
 }
 
 // Returns the end effector's current Position
-func (k *Kinematics) GetForwardPosition() api.ArmPosition {
+func (k *Arm) GetForwardPosition() api.ArmPosition {
 	k.Model.ForwardPosition()
 
 	pos6d := k.Model.Get6dPosition(k.effectorID)
@@ -57,7 +61,7 @@ func (k *Kinematics) GetForwardPosition() api.ArmPosition {
 
 // Sets a new goal position
 // Uses ZYX euler rotation order
-func (k *Kinematics) SetForwardPosition(pos api.ArmPosition) error {
+func (k *Arm) SetForwardPosition(pos api.ArmPosition) error {
 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
@@ -74,7 +78,7 @@ func (k *Kinematics) SetForwardPosition(pos api.ArmPosition) error {
 }
 
 // Returns the arm's current joint angles in degrees
-func (k *Kinematics) GetJointPositions() []float64 {
+func (k *Arm) modelJointsPosition() []float64 {
 	angles := k.Model.GetPosition()
 	for i, angle := range angles {
 		angles[i] = angle * 180 / math.Pi
@@ -83,10 +87,53 @@ func (k *Kinematics) GetJointPositions() []float64 {
 }
 
 // Sets new joint angles. Takes degrees, passes radians to Model
-func (k *Kinematics) SetJointPositions(angles []float64) {
+func (k *Arm) SetJointPositions(angles []float64) {
 	radAngles := make([]float64, len(angles))
 	for i, angle := range angles {
 		radAngles[i] = angle * math.Pi / 180
 	}
 	k.Model.SetPosition(radAngles)
+}
+
+func (k *Arm) CurrentJointPositions() (api.JointPositions, error) {
+	return k.real.CurrentJointPositions()
+}
+
+func (k *Arm) CurrentPosition() (api.ArmPosition, error) {
+	curPos, err := k.real.CurrentJointPositions()
+	if err != nil {
+		return api.ArmPosition{}, err
+	}
+	k.SetJointPositions(curPos.Degrees)
+	pos := k.GetForwardPosition()
+
+	pos.X /= 1000
+	pos.Y /= 1000
+	pos.Z /= 1000
+	return pos, nil
+
+}
+
+func (k *Arm) JointMoveDelta(joint int, amount float64) error {
+	return fmt.Errorf("not done yet")
+}
+
+func (k *Arm) MoveToJointPositions(jp api.JointPositions) error {
+	// TODO(erh): do i want to set joint positions on success?
+	return k.real.MoveToJointPositions(jp)
+}
+
+func (k *Arm) MoveToPosition(pos api.ArmPosition) error {
+	pos.X *= 1000
+	pos.Y *= 1000
+	pos.Z *= 1000
+
+	err := k.SetForwardPosition(pos)
+	if err != nil {
+		return err
+	}
+
+	joints := api.JointPositions{k.modelJointsPosition()}
+
+	return k.real.MoveToJointPositions(joints)
 }

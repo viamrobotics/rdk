@@ -140,13 +140,15 @@ func (a *Wx250s) MoveToPosition(c api.ArmPosition) error {
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
 func (a *Wx250s) MoveToJointPositions(jp api.JointPositions) error {
+	if len(jp.Degrees) > len(a.JointOrder()) {
+		return fmt.Errorf("passed in too many positions")
+	}
+
+	
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	a.kin.SetJointPositions(jp.Degrees)
 
-	if len(jp.Degrees) > len(a.JointOrder()) {
-		return fmt.Errorf("passed in too many positions")
-	}
 
 	// TODO(pl): make block configurable
 	block := false
