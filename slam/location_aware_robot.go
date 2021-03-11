@@ -448,14 +448,13 @@ func (lar *LocationAwareRobot) updateLoop() {
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
 	go func() {
 		select {
 		case <-cancelCtx.Done():
 			return
 		case <-lar.closeCh:
+			cancelFunc()
 		}
-		cancelFunc()
 	}()
 	go func() {
 		defer lar.activeWorkers.Done()
