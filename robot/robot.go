@@ -33,16 +33,16 @@ type Robot struct {
 	providers    []api.Provider
 
 	boardComponents    []board.Config
-	armComponents      []Component
-	gripperComponents  []Component
-	cameraComponents   []Component
-	lidarComponents    []Component
-	baseComponents     []Component
-	providerComponents []Component
+	armComponents      []api.Component
+	gripperComponents  []api.Component
+	cameraComponents   []api.Component
+	lidarComponents    []api.Component
+	baseComponents     []api.Component
+	providerComponents []api.Component
 }
 
 // theRobot.ComponentFor( theRobot.Arms[0] )
-func (r *Robot) ComponentFor(theThing interface{}) *Component {
+func (r *Robot) ComponentFor(theThing interface{}) *api.Component {
 
 	for idx, a := range r.Arms {
 		if theThing == a {
@@ -136,28 +136,28 @@ func (r *Robot) AddBoard(b board.Board, c board.Config) {
 	r.boardComponents = append(r.boardComponents, c)
 }
 
-func (r *Robot) AddArm(a arm.Arm, c Component) {
+func (r *Robot) AddArm(a arm.Arm, c api.Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
 }
 
-func (r *Robot) AddGripper(g gripper.Gripper, c Component) {
+func (r *Robot) AddGripper(g gripper.Gripper, c api.Component) {
 	r.Grippers = append(r.Grippers, g)
 	r.gripperComponents = append(r.gripperComponents, c)
 }
-func (r *Robot) AddCamera(camera gostream.ImageSource, c Component) {
+func (r *Robot) AddCamera(camera gostream.ImageSource, c api.Component) {
 	r.Cameras = append(r.Cameras, camera)
 	r.cameraComponents = append(r.cameraComponents, c)
 }
-func (r *Robot) AddLidar(device lidar.Device, c Component) {
+func (r *Robot) AddLidar(device lidar.Device, c api.Component) {
 	r.LidarDevices = append(r.LidarDevices, device)
 	r.lidarComponents = append(r.lidarComponents, c)
 }
-func (r *Robot) AddBase(b base.Device, c Component) {
+func (r *Robot) AddBase(b base.Device, c api.Component) {
 	r.Bases = append(r.Bases, b)
 	r.baseComponents = append(r.baseComponents, c)
 }
-func (r *Robot) AddProvider(p api.Provider, c Component) {
+func (r *Robot) AddProvider(p api.Provider, c api.Component) {
 	r.providers = append(r.providers, p)
 	r.providerComponents = append(r.providerComponents, c)
 }
@@ -194,7 +194,7 @@ func NewBlankRobot() *Robot {
 	return &Robot{}
 }
 
-func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
+func NewRobot(ctx context.Context, cfg api.Config) (*Robot, error) {
 	r := &Robot{}
 	logger := cfg.Logger
 	if logger == nil {
@@ -211,7 +211,7 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 
 	for _, c := range cfg.Components {
 		switch c.Type {
-		case ComponentTypeProvider:
+		case api.ComponentTypeProvider:
 			p, err := r.newProvider(c)
 			if err != nil {
 				return nil, err
@@ -222,33 +222,33 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 
 	for _, c := range cfg.Components {
 		switch c.Type {
-		case ComponentTypeProvider:
+		case api.ComponentTypeProvider:
 			// hanlded above
-		case ComponentTypeBase:
+		case api.ComponentTypeBase:
 			b, err := r.newBase(c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddBase(b, c)
-		case ComponentTypeArm:
+		case api.ComponentTypeArm:
 			a, err := r.newArm(c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddArm(a, c)
-		case ComponentTypeGripper:
+		case api.ComponentTypeGripper:
 			g, err := r.newGripper(c, logger)
 			if err != nil {
 				return nil, err
 			}
 			r.AddGripper(g, c)
-		case ComponentTypeCamera:
+		case api.ComponentTypeCamera:
 			camera, err := r.newCamera(c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddCamera(camera, c)
-		case ComponentTypeLidar:
+		case api.ComponentTypeLidar:
 			lidarDevice, err := r.newLidar(ctx, c)
 			if err != nil {
 				return nil, err
@@ -270,7 +270,7 @@ func NewRobot(ctx context.Context, cfg Config) (*Robot, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newProvider(config Component) (api.Provider, error) {
+func (r *Robot) newProvider(config api.Component) (api.Provider, error) {
 	switch config.Model {
 	case hellorobot.ModelName:
 		return hellorobot.New()
@@ -280,7 +280,7 @@ func (r *Robot) newProvider(config Component) (api.Provider, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newBase(config Component) (base.Device, error) {
+func (r *Robot) newBase(config api.Component) (base.Device, error) {
 	switch config.Model {
 	case fake.ModelName:
 		return &fake.Base{}, nil
@@ -296,7 +296,7 @@ func (r *Robot) newBase(config Component) (base.Device, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newArm(config Component) (arm.Arm, error) {
+func (r *Robot) newArm(config api.Component) (arm.Arm, error) {
 	switch config.Model {
 	case "ur":
 		return arm.URArmConnect(config.Host)
@@ -325,7 +325,7 @@ func (r *Robot) newArm(config Component) (arm.Arm, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripper, error) {
+func (r *Robot) newGripper(config api.Component, logger golog.Logger) (gripper.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
 		return gripper.NewRobotiqGripper(config.Host, logger)
@@ -368,7 +368,7 @@ func (r *Robot) newGripper(config Component, logger golog.Logger) (gripper.Gripp
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newCamera(config Component) (gostream.ImageSource, error) {
+func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
 	src, err := r.newCameraLL(config)
 	if err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (r *Robot) newCamera(config Component) (gostream.ImageSource, error) {
 	return src, nil
 }
 
-func (r *Robot) newCameraLL(config Component) (gostream.ImageSource, error) {
+func (r *Robot) newCameraLL(config api.Component) (gostream.ImageSource, error) {
 	switch config.Model {
 	case "eliot":
 		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
@@ -413,7 +413,7 @@ func (r *Robot) newCameraLL(config Component) (gostream.ImageSource, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newLidar(ctx context.Context, config Component) (lidar.Device, error) {
+func (r *Robot) newLidar(ctx context.Context, config api.Component) (lidar.Device, error) {
 	switch config.Model {
 	case lidar.ModelNameWS:
 		return lidar.CreateDevice(ctx, lidar.DeviceDescription{

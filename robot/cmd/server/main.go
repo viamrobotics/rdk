@@ -10,6 +10,7 @@ import (
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 )
@@ -47,7 +48,7 @@ func mainReal() error {
 	}
 
 	cfgFile := flag.Arg(0)
-	cfg, err := robot.ReadConfig(cfgFile)
+	cfg, err := api.ReadConfig(cfgFile)
 	if err != nil {
 		return err
 	}

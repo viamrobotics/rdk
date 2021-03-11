@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/rimage"
@@ -467,7 +468,7 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := robot.ReadConfig(cfgFile)
+	cfg, err := api.ReadConfig(cfgFile)
 	if err != nil {
 		panic(err)
 	}
@@ -532,7 +533,7 @@ func main() {
 	initialPositionOk := false
 
 	annotatedImageHolder := &rimage.StaticSource{}
-	myRobot.AddCamera(annotatedImageHolder, robot.Component{})
+	myRobot.AddCamera(annotatedImageHolder, api.Component{})
 
 	go func() {
 		for {

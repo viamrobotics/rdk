@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
@@ -62,9 +63,9 @@ func runRobot(srcURL, lidarDevAddr string) (err error) {
 	if err != nil {
 		return err
 	}
-	theRobot.AddBase(robotBase, robot.Component{})
-	theRobot.AddCamera(rimage.NewIntelServerSource(srcURL, 8181, nil), robot.Component{})
-	theRobot.AddLidar(lidarDev, robot.Component{})
+	theRobot.AddBase(robotBase, api.Component{})
+	theRobot.AddCamera(rimage.NewIntelServerSource(srcURL, 8181, nil), api.Component{})
+	theRobot.AddLidar(lidarDev, api.Component{})
 
 	defer func() {
 		err = multierr.Combine(err, theRobot.Close(context.Background()))

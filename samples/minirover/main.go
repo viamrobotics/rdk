@@ -257,7 +257,7 @@ func main() {
 func realMain() error {
 	flag.Parse()
 
-	cfg, err := robot.ReadConfig("samples/minirover/config.json")
+	cfg, err := api.ReadConfig("samples/minirover/config.json")
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func realMain() error {
 		return err
 	}
 
-	myRobot.AddBase(rover, robot.Component{Name: "minirover"})
+	myRobot.AddBase(rover, api.Component{Name: "minirover"})
 
 	err = rover.Ready(myRobot)
 	if err != nil {

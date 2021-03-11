@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
@@ -133,7 +134,7 @@ func main() {
 func realMain() error {
 	flag.Parse()
 
-	cfg, err := robot.ReadConfig("samples/boat1/boat.json")
+	cfg, err := api.ReadConfig("samples/boat1/boat.json")
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func realMain() error {
 	}
 	boat.StartRC()
 
-	myRobot.AddBase(boat, robot.Component{Name: "boatbot"})
+	myRobot.AddBase(boat, api.Component{Name: "boatbot"})
 
 	return web.RunWeb(myRobot)
 }
