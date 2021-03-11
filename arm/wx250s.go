@@ -172,7 +172,6 @@ func (a *Wx250s) Close() {
 	alreadyAtSleep := true
 	for _, joint := range(a.JointOrder()){
 		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15){
-			fmt.Println(joint, "not within", angles[joint], SleepAngles[joint])
 			alreadyAtSleep = false
 		}
 	}
