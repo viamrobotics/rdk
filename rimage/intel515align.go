@@ -47,25 +47,34 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	}
 	defer dCloser()
 
-	aligned, err := intel515align(&ImageWithDepth{ConvertImage(c), imageToDepthMap(d)})
+	aligned, err := intel515align(ctx, &ImageWithDepth{ConvertImage(c), imageToDepthMap(d)})
 
 	return aligned, func() {}, err
 
 }
 
-type Intel515Align struct {
-	currentlyWriting bool
+func rectToPoints(r image.Rectangle) []image.Point {
+	return []image.Point{
+		r.Min,
+		{r.Max.X, r.Min.Y},
+		{r.Min.X, r.Max.Y},
+		r.Max,
+	}
 }
 
-func (i *Intel515Align) Align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
+var (
+	intelCurrentlyWriting = false
+)
+
+func intel515align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
 	_, span := trace.StartSpan(ctx, "Intel515Align")
 	defer span.End()
 
 	if false {
-		if !i.currentlyWriting {
-			i.currentlyWriting = true
+		if !intelCurrentlyWriting {
+			intelCurrentlyWriting = true
 			go func() {
-				defer func() { i.currentlyWriting = false }()
+				defer func() { intelCurrentlyWriting = false }()
 				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
 				err := ii.WriteTo(fn)
 				if err != nil {
@@ -78,19 +87,6 @@ func (i *Intel515Align) Align(ctx context.Context, ii *ImageWithDepth) (*ImageWi
 		return ii, nil
 	}
 
-	return intel515align(ii)
-}
-
-func rectToPoints(r image.Rectangle) []image.Point {
-	return []image.Point{
-		r.Min,
-		{r.Max.X, r.Min.Y},
-		{r.Min.X, r.Max.Y},
-		r.Max,
-	}
-}
-
-func intel515align(ii *ImageWithDepth) (*ImageWithDepth, error) {
 	if ii.Color.Width() != 1280 || ii.Color.Height() != 720 ||
 		ii.Depth.Width() != 1024 || ii.Depth.Height() != 768 {
 		return nil, fmt.Errorf("unexpected intel dimensions c:(%d,%d) d:(%d,%d)",
