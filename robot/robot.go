@@ -8,12 +8,12 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/robots/robotiq"
+	"go.viam.com/robotcore/robots/vgripper"
 	"go.viam.com/robotcore/robots/wx250s"
 
 	"github.com/edaniels/golog"
@@ -340,7 +340,7 @@ func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripp
 		if len(r.Boards) != 1 {
 			return nil, fmt.Errorf("viam gripper requires exactly 1 board")
 		}
-		return gripper.NewViamGripper(r.Boards[0])
+		return vgripper.NewGripperV1(r.Boards[0])
 	case fake.ModelName:
 		return &fake.Gripper{}, nil
 	default:

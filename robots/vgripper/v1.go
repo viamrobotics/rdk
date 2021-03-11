@@ -1,4 +1,4 @@
-package gripper
+package vgripper
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-type ViamGripper struct {
+type GripperV1 struct {
 	motor         board.Motor
 	potentiometer board.AnalogReader
 	pressure      board.AnalogReader
@@ -23,9 +23,9 @@ type ViamGripper struct {
 	closeDirection, openDirection board.Direction
 }
 
-func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
+func NewGripperV1(theBoard board.Board) (*GripperV1, error) {
 
-	vg := &ViamGripper{
+	vg := &GripperV1{
 		motor:         theBoard.Motor("g"),
 		potentiometer: theBoard.AnalogReader("potentiometer"),
 		pressure:      theBoard.AnalogReader("pressure"),
@@ -70,7 +70,7 @@ func NewViamGripper(theBoard board.Board) (*ViamGripper, error) {
 	return vg, vg.Open()
 }
 
-func (vg *ViamGripper) Open() error {
+func (vg *GripperV1) Open() error {
 	err := vg.motor.Go(vg.openDirection, vg.defaultSpeed)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func (vg *ViamGripper) Open() error {
 
 }
 
-func (vg *ViamGripper) Grab() (bool, error) {
+func (vg *GripperV1) Grab() (bool, error) {
 	err := vg.motor.Go(vg.closeDirection, vg.defaultSpeed)
 	if err != nil {
 		return false, err
@@ -143,32 +143,32 @@ func (vg *ViamGripper) Grab() (bool, error) {
 
 }
 
-func (vg *ViamGripper) Close() error {
+func (vg *GripperV1) Close() error {
 	return vg.Stop()
 }
 
-func (vg *ViamGripper) Stop() error {
+func (vg *GripperV1) Stop() error {
 	return vg.motor.Off()
 }
 
-func (vg *ViamGripper) readPotentiometer() (int, error) {
+func (vg *GripperV1) readPotentiometer() (int, error) {
 	return vg.potentiometer.Read()
 }
 
-func (vg *ViamGripper) potentiometerSame(a, b int) bool {
+func (vg *GripperV1) potentiometerSame(a, b int) bool {
 	return utils.AbsInt(b-a) < 5
 }
 
-func (vg *ViamGripper) readPressure() (int, error) {
+func (vg *GripperV1) readPressure() (int, error) {
 	return vg.pressure.Read()
 }
 
-func (vg *ViamGripper) hasPressure() (bool, error) {
+func (vg *GripperV1) hasPressure() (bool, error) {
 	p, err := vg.readPressure()
 	return p < 1000, err
 }
 
-func (vg *ViamGripper) moveInDirectionTillWontMoveMore(dir board.Direction) (int, bool, error) {
+func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir board.Direction) (int, bool, error) {
 	defer func() {
 		err := vg.Stop()
 		if err != nil {
