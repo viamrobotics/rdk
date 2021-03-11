@@ -1,4 +1,4 @@
-package gripper
+package wx250s
 
 import (
 	"strconv"
@@ -15,29 +15,29 @@ import (
 	"go.viam.com/robotcore/api"
 )
 
-type Wx250s struct {
+type Gripper struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
 }
 
-func NewWx250s(attributes api.AttributeMap, mutex *sync.Mutex) (*Wx250s, error) {
+func NewGripper(attributes api.AttributeMap, mutex *sync.Mutex) (*Gripper, error) {
 	jServo := findServo(attributes.GetString("usbPort"), attributes.GetString("baudRate"))
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}
 	err := jServo.SetTorqueEnable(true)
-	newGripper := Wx250s{
+	newGripper := Gripper{
 		jServo:   jServo,
 		moveLock: mutex,
 	}
 	return &newGripper, err
 }
 
-func (g *Wx250s) GetMoveLock() *sync.Mutex {
+func (g *Gripper) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
-func (g *Wx250s) Open() error {
+func (g *Gripper) Open() error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(250)
@@ -63,7 +63,7 @@ func (g *Wx250s) Open() error {
 	return err
 }
 
-func (g *Wx250s) Grab() (bool, error) {
+func (g *Gripper) Grab() (bool, error) {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(-350)
@@ -88,7 +88,7 @@ func (g *Wx250s) Grab() (bool, error) {
 }
 
 // closes the connection, not the gripper
-func (g *Wx250s) Close() error {
+func (g *Gripper) Close() error {
 	err := g.jServo.SetTorqueEnable(false)
 	return err
 }
