@@ -20,7 +20,10 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 
 	minWidth := 680
 	maxWidth := 4096
-	idealWitdh := 1920
+	idealWidth := 1920
+	minHeight := 400
+	maxHeight := 2160
+	idealHeight := 1080
 
 	if attrs["width"] != "" {
 		w, err := strconv.Atoi(attrs["width"])
@@ -29,15 +32,26 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 		} else {
 			minWidth = w
 			maxWidth = w
-			idealWitdh = w
+			idealWidth = w
+		}
+	}
+
+	if attrs["height"] != "" {
+		h, err := strconv.Atoi(attrs["height"])
+		if err != nil {
+			golog.Global.Warnf("bad height %s", err)
+		} else {
+			minHeight = h
+			maxHeight = h
+			idealHeight = h
 		}
 	}
 
 	return mediadevices.MediaStreamConstraints{
 		Video: func(constraint *mediadevices.MediaTrackConstraints) {
 
-			constraint.Width = prop.IntRanged{minWidth, maxWidth, idealWitdh}
-			constraint.Height = prop.IntRanged{400, 2160, 1080}
+			constraint.Width = prop.IntRanged{minWidth, maxWidth, idealWidth}
+			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
 			format := attrs["format"]

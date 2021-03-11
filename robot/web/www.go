@@ -573,7 +573,11 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) 
 	}
 
 	// start background threads
-	autoCameraTiler := gostream.NewAutoTiler(1280, 720)
+	tilerHeight := 720
+	if len(theRobot.Cameras) > 0 {
+		tilerHeight *= len(theRobot.Cameras)
+	}
+	autoCameraTiler := gostream.NewAutoTiler(1280, tilerHeight)
 	autoCameraTiler.SetLogger(golog.Global)
 	if len(theRobot.Cameras) > 0 {
 		for _, cam := range theRobot.Cameras {
