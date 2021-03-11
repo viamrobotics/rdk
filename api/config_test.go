@@ -27,3 +27,27 @@ func TestConfig2(t *testing.T) {
 	assert.Equal(t, 1, len(cfg.Boards))
 	assert.Equal(t, "38", cfg.Boards[0].Motors[0].Pins["b"])
 }
+
+func TestConfig3(t *testing.T) {
+	type temp struct {
+		X int
+		Y string
+	}
+
+	Register("foo", "eliot", "bar", func() interface{} { return &temp{} })
+
+	cfg, err := ReadConfig("data/config3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, 1, len(cfg.Components))
+	assert.Equal(t, 5, cfg.Components[0].Attributes.GetInt("foo", 0))
+	assert.Equal(t, true, cfg.Components[0].Attributes.GetBool("foo2", false))
+	assert.Equal(t, false, cfg.Components[0].Attributes.GetBool("foo3", false))
+
+	bb := cfg.Components[0].Attributes["bar"]
+	b := bb.(*temp)
+	assert.Equal(t, 6, b.X)
+	assert.Equal(t, "eliot", b.Y)
+}

@@ -1,0 +1,18 @@
+{
+  "components": [
+      {
+          "model": "eliot",
+          "type": "foo",
+          "attributes" : {
+              "foo" : 5,
+              "foo2" : true,
+              "foo3" : false,
+              "bar" : {
+                  "x" : 6,
+                  "y" : "eliot"
+              }
+          }
+      }
+  ]
+}
+
