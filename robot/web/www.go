@@ -21,7 +21,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robot"
@@ -111,7 +111,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func InstallWebBase(mux *http.ServeMux, theBase base.Device) {
+func InstallWebBase(mux *http.ServeMux, theBase api.Base) {
 
 	mux.Handle("/api/base", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
