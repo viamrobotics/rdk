@@ -13,6 +13,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/robots/robotiq"
 	"go.viam.com/robotcore/robots/wx250s"
 
 	"github.com/edaniels/golog"
@@ -325,7 +326,7 @@ func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
-		return gripper.NewRobotiqGripper(config.Host, logger)
+		return robotiq.NewGripper(config.Host, logger)
 	case "wx250s":
 		mutex := &sync.Mutex{}
 		for _, thisArm := range r.Arms {
