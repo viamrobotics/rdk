@@ -1,4 +1,4 @@
-package augment
+package compass
 
 import (
 	"context"
@@ -6,42 +6,40 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
-func Device(device api.Base, with interface{}) api.Base {
-	switch v := with.(type) {
-	case compass.Device:
-		return baseDeviceWithCompass{device, v}
+func BaseWithCompass(device api.Base, cmp Device) api.Base {
+	if cmp == nil {
+		return device
 	}
-	return device
+	return baseDeviceWithCompass{device, cmp}
 }
 
-func ReduceDevice(device api.Base) api.Base {
-	switch v := device.(type) {
-	case baseDeviceWithCompass:
-		return v.Base
+func ReduceBase(b api.Base) api.Base {
+	x, ok := b.(baseDeviceWithCompass)
+	if ok {
+		return x.Base
 	}
-	return device
+	return b
 }
 
 type baseDeviceWithCompass struct {
 	api.Base
-	compass compass.Device
+	compass Device
 }
 
 func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-	rel, _ := wc.compass.(compass.RelativeDevice)
+	rel, _ := wc.compass.(RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
 			return err
 		}
 	}
 	for {
-		startHeading, err := compass.MedianHeading(ctx, wc.compass)
+		startHeading, err := MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}
@@ -50,7 +48,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 			return err
 		}
 		time.Sleep(1 * time.Second)
-		endHeading, err := compass.MedianHeading(ctx, wc.compass)
+		endHeading, err := MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}
