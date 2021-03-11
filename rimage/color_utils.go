@@ -5,8 +5,6 @@ import (
 	"image/color"
 	"io/ioutil"
 	"strings"
-
-	"github.com/lucasb-eyer/go-colorful"
 )
 
 func ConvertToNRGBA(c color.Color) color.NRGBA {
