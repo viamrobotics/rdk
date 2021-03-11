@@ -1,4 +1,4 @@
-package robot
+package api
 
 import (
 	"encoding/json"

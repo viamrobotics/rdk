@@ -7,10 +7,11 @@ import (
 
 	"github.com/edaniels/gostream"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 )
 
-func newDepthComposed(r *Robot, config Component) (gostream.ImageSource, error) {
+func newDepthComposed(r *Robot, config api.Component) (gostream.ImageSource, error) {
 	color := r.CameraByName(config.Attributes["color"])
 	if color == nil {
 		return nil, fmt.Errorf("cannot find color camera (%s)", config.Attributes["color"])
@@ -44,7 +45,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r *Robot, config Component) (gostream.ImageSource, error) {
+func newOverlay(r *Robot, config api.Component) (gostream.ImageSource, error) {
 	source := r.CameraByName(config.Attributes["source"])
 	if source == nil {
 		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes["source"])
