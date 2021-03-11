@@ -1,8 +1,6 @@
 package api
 
 import (
-	"fmt"
-
 	"go.viam.com/robotcore/utils"
 )
 
@@ -10,11 +8,6 @@ type ArmPosition struct {
 	X, Y, Z float64 // meters of the end effector from the base
 
 	Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
-}
-
-func (p ArmPosition) NondelimitedString() string {
-	return fmt.Sprintf("%f %f %f %f %f %f",
-		p.X, p.Y, p.Z, p.Rx, p.Ry, p.Rz)
 }
 
 func (p ArmPosition) RxRadians() float64 {
