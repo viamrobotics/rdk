@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// These are the angles we go to to prepare to turn off torque
+// SleepAngles are the angles we go to to prepare to turn off torque
 var SleepAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    840,
@@ -25,7 +25,7 @@ var SleepAngles = map[string]float64{
 	"Wrist_rot":   2048,
 }
 
-// These are the angles the arm falls into after torque is off
+// OffAngles are the angles the arm falls into after torque is off
 var OffAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    795,
@@ -169,13 +169,16 @@ func (a *Wx250s) Close() {
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
 	angles, err := a.GetAllAngles()
+	if err != nil {
+		golog.Global.Errorf("failed to get angles: %s", err)
+	}
 	alreadyAtSleep := true
-	for _, joint := range(a.JointOrder()){
-		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15){
+	for _, joint := range a.JointOrder() {
+		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
 			alreadyAtSleep = false
 		}
 	}
-	if !alreadyAtSleep{
+	if !alreadyAtSleep {
 		err = a.HomePosition()
 		if err != nil {
 			golog.Global.Errorf("Home position error: %s", err)
@@ -439,9 +442,6 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 	return servos
 }
 
-func within(a, b, c float64) bool{
-	if math.Abs(a - b) <= c {
-		return true
-	}
-	return false
+func within(a, b, c float64) bool {
+	return math.Abs(a-b) <= c
 }
