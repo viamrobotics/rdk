@@ -28,9 +28,9 @@ var areaPointColor = color.NRGBA{255, 0, 0, 255}
 
 func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) (image.Image, error) {
 	// all areas are the same size
-	_, scaleDown := areas[0].Size()
-	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
-	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
+	_, scaleTo := areas[0].Size()
+	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleTo) / lar.clientZoom))
+	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleTo) / lar.clientZoom))
 	centerX := bounds.X / 2
 	centerY := bounds.Y / 2
 
@@ -63,7 +63,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	rimage.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
-		calcP, err := lar.calculateMove(orientation, defaultClientMoveAmount)
+		calcP, err := lar.calculateMove(orientation, defaultClientMoveAmountMillis)
 		if err == nil {
 			moveRect, err := lar.moveRect(calcP.X, calcP.Y, orientation)
 			if err != nil {

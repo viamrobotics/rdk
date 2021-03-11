@@ -31,17 +31,21 @@ func (th *testHarness) ResetPos() {
 }
 
 func newTestHarness(t *testing.T) *testHarness {
-	return newTestHarnessWithLidar(t, nil)
+	return newTestHarnessWithLidarAndSize(t, nil, 10, 100)
 }
 
-func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
+func newTestHarnessWithSize(t *testing.T, meters, scale int) *testHarness {
+	return newTestHarnessWithLidarAndSize(t, nil, meters, scale)
+}
+
+func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, scale int) *testHarness {
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(10, 10)
+	area, err := NewSquareArea(meters, scale)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
 		injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-			return image.Point{10, 10}, nil
+			return image.Point{meters, meters}, nil
 		}
 	}
 
@@ -75,7 +79,7 @@ func newTestHarnessWithLidar(t *testing.T, lidarDev lidar.Device) *testHarness {
 
 func TestNewLocationAwareRobot(t *testing.T) {
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(10, 10)
+	area, err := NewSquareArea(10, 100)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{}
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
@@ -166,7 +170,7 @@ func TestMove(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc             string
-		amount           *int
+		amountMillis     *int
 		rotateTo         *Direction
 		err              string
 		deltaX           int
@@ -179,41 +183,41 @@ func TestMove(t *testing.T) {
 		{"rotate down", nil, dirPtr(DirectionDown), "", 0, 0, 180, nil},
 		{"rotate left", nil, dirPtr(DirectionLeft), "", 0, 0, 270, nil},
 		{"rotate right", nil, dirPtr(DirectionRight), "", 0, 0, 90, nil},
-		{"move forward", intPtr(10), nil, "", 0, 10, 0, nil},
-		{"move backward", intPtr(-10), nil, "", 0, -10, 0, nil},
-		{"move forward too far", intPtr(100), nil, "stuck", 0, 0, 0, nil},
-		{"move backward too far", intPtr(-100), nil, "stuck", 0, 0, 0, nil},
-		{"rotate down and move forward", intPtr(20), dirPtr(DirectionDown), "", 0, -20, 180, nil},
-		{"rotate right and move forward", intPtr(20), dirPtr(DirectionRight), "", 20, 0, 90, nil},
-		{"rotate left and move forward", intPtr(20), dirPtr(DirectionLeft), "", -20, 0, 270, nil},
-		{"rotate down and move backward", intPtr(-20), dirPtr(DirectionDown), "", 0, 20, 180, nil},
-		{"rotate right and move backward", intPtr(-20), dirPtr(DirectionRight), "", -20, 0, 90, nil},
-		{"rotate left and move backward", intPtr(-20), dirPtr(DirectionLeft), "", 20, 0, 270, nil},
-		{"rotate down and move forward too far", intPtr(200), dirPtr(DirectionDown), "stuck", 0, 0, 0, nil},
-		{"rotate right and move forward too far", intPtr(200), dirPtr(DirectionRight), "stuck", 0, 0, 0, nil},
-		{"rotate left and move forward too far", intPtr(200), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
-		{"cannot collide up", intPtr(20), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
+		{"move forward", intPtr(100), nil, "", 0, 10, 0, nil},
+		{"move backward", intPtr(-100), nil, "", 0, -10, 0, nil},
+		{"move forward too far", intPtr(10000), nil, "stuck", 0, 0, 0, nil},
+		{"move backward too far", intPtr(-10000), nil, "stuck", 0, 0, 0, nil},
+		{"rotate down and move forward", intPtr(200), dirPtr(DirectionDown), "", 0, -20, 180, nil},
+		{"rotate right and move forward", intPtr(200), dirPtr(DirectionRight), "", 20, 0, 90, nil},
+		{"rotate left and move forward", intPtr(200), dirPtr(DirectionLeft), "", -20, 0, 270, nil},
+		{"rotate down and move backward", intPtr(-200), dirPtr(DirectionDown), "", 0, 20, 180, nil},
+		{"rotate right and move backward", intPtr(-200), dirPtr(DirectionRight), "", -20, 0, 90, nil},
+		{"rotate left and move backward", intPtr(-200), dirPtr(DirectionLeft), "", 20, 0, 270, nil},
+		{"rotate down and move forward too far", intPtr(20000), dirPtr(DirectionDown), "stuck", 0, 0, 0, nil},
+		{"rotate right and move forward too far", intPtr(20000), dirPtr(DirectionRight), "stuck", 0, 0, 0, nil},
+		{"rotate left and move forward too far", intPtr(20000), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
+		{"cannot collide up", intPtr(200), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+15, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+((th.bot.baseDeviceWidthScaled/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide down", intPtr(20), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide down", intPtr(200), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-15, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthScaled/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide left", intPtr(20), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide left", intPtr(200), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX-15, th.bot.basePosY, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX-((th.bot.baseDeviceWidthScaled/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide right", intPtr(20), dirPtr(DirectionRight), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide right", intPtr(200), dirPtr(DirectionRight), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX+15, th.bot.basePosY, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX+((th.bot.baseDeviceWidthScaled/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
-		{"unknown direction", intPtr(20), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
-		{"moving fails", intPtr(20), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
+		{"unknown direction", intPtr(200), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
+		{"moving fails", intPtr(200), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
 			injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 				return 600, nil
@@ -235,7 +239,7 @@ func TestMove(t *testing.T) {
 			origX := th.bot.basePosX
 			origY := th.bot.basePosX
 			origOrientation := th.bot.orientation()
-			err := th.bot.Move(context.Background(), tc.amount, tc.rotateTo)
+			err := th.bot.Move(context.Background(), tc.amountMillis, tc.rotateTo)
 			if tc.err != "" {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
@@ -284,36 +288,64 @@ func TestRobotAreasToView(t *testing.T) {
 	test.That(t, expected, test.ShouldBeEmpty)
 }
 
+func TestRobotMillimetersToScaledUnit(t *testing.T) {
+	for i, tc := range []struct {
+		millis   int
+		expected int
+	}{
+		{0, 0},
+		{1, 1},
+		{5, 1},
+		{10, 1},
+		{11, 2},
+		{20, 2},
+		{-1, -1},
+		{-5, -1},
+		{-10, -1},
+		{-11, -2},
+		{-20, -2},
+	} {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			th := newTestHarness(t)
+			test.That(t, th.bot.millimetersToScaledUnit(tc.millis), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
 func TestRobotCalculateMove(t *testing.T) {
 	for i, tc := range []struct {
-		basePosX    int
-		basePosY    int
-		orientation float64
-		amount      int
-		err         string
-		newCoords   image.Point
+		basePosX     int
+		basePosY     int
+		orientation  float64
+		amountMillis int
+		err          string
+		newCoords    image.Point
 	}{
-		{-50, -50, 0, 0, "", image.Point{-50, -50}},
-		{-50, -50, 0, 1, "", image.Point{-50, -49}},
-		{-50, -50, 45, 1, "orientation", image.Point{}},
-		{-50, -50, 90, 1, "", image.Point{-49, -50}},
-		{-50, -50, 180, 1, "stuck", image.Point{}},
-		{-50, -50, 270, 1, "stuck", image.Point{}},
+		{-500, -500, 0, 0, "", image.Point{-500, -500}},
+		{-500, -500, 0, 1, "", image.Point{-500, -499}},
+		{-500, -500, 45, 1, "orientation", image.Point{}},
+		{-500, -500, 90, 1, "", image.Point{-499, -500}},
+		{-500, -500, 180, 1, "stuck", image.Point{}},
+		{-500, -500, 270, 1, "stuck", image.Point{}},
 		{0, 0, 0, 1, "", image.Point{0, 1}},
 		{0, 0, 90, 1, "", image.Point{1, 0}},
 		{0, 0, 180, 1, "", image.Point{0, -1}},
 		{0, 0, 270, 1, "", image.Point{-1, 0}},
-		{49, 49, 0, 1, "stuck", image.Point{}},
-		{49, 49, 45, 1, "orientation", image.Point{}},
-		{49, 49, 90, 1, "stuck", image.Point{}},
-		{49, 49, 180, 1, "", image.Point{49, 48}},
-		{49, 49, 270, 1, "", image.Point{48, 49}},
+		{0, 0, 0, 100, "", image.Point{0, 10}},
+		{0, 0, 90, 100, "", image.Point{10, 0}},
+		{0, 0, 180, 100, "", image.Point{0, -10}},
+		{0, 0, 270, 100, "", image.Point{-10, 0}},
+		{499, 499, 0, 1, "stuck", image.Point{}},
+		{499, 499, 45, 1, "orientation", image.Point{}},
+		{499, 499, 90, 1, "stuck", image.Point{}},
+		{499, 499, 180, 1, "", image.Point{499, 498}},
+		{499, 499, 270, 1, "", image.Point{498, 499}},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
 			th.bot.basePosX = tc.basePosX
 			th.bot.basePosY = tc.basePosY
-			newCoords, err := th.bot.calculateMove(tc.orientation, tc.amount)
+			newCoords, err := th.bot.calculateMove(tc.orientation, tc.amountMillis)
 			if tc.err != "" {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, tc.err)
@@ -331,10 +363,10 @@ func TestBaseRect(t *testing.T) {
 		basePosY int
 		rect     image.Rectangle
 	}{
-		{0, 0, image.Rect(-3, -3, 3, 3)},
-		{-50, -50, image.Rect(-53, -53, -47, -47)},
-		{40, 13, image.Rect(37, 10, 43, 16)},
-		{49, 49, image.Rect(46, 46, 52, 52)},
+		{0, 0, image.Rect(-30, -30, 30, 30)},
+		{-50, -50, image.Rect(-80, -80, -20, -20)},
+		{40, 13, image.Rect(10, -17, 70, 43)},
+		{49, 49, image.Rect(19, 19, 79, 79)},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
@@ -355,19 +387,19 @@ func TestMoveRect(t *testing.T) {
 		rect        image.Rectangle
 		err         string
 	}{
-		{0, 0, 0, 0, 0, image.Rect(-3, 3, 3, 18), ""},
-		{0, 0, 0, 0, 90, image.Rect(3, -3, 18, 3), ""},
-		{0, 0, 0, 0, 180, image.Rect(-3, -18, 3, -3), ""},
-		{0, 0, 0, 0, 270, image.Rect(-18, -3, -3, 3), ""},
-		{23, 54, 23, 54, 0, image.Rect(20, 57, 26, 72), ""},
-		{23, 54, 23, 54, 90, image.Rect(26, 51, 41, 57), ""},
-		{23, 54, 23, 54, 180, image.Rect(20, 36, 26, 51), ""},
-		{23, 54, 23, 54, 270, image.Rect(5, 51, 20, 57), ""},
-		{49, 48, 50, 32, 0, image.Rect(46, 51, 52, 82), ""},
-		{49, 48, 64, 50, 90, image.Rect(52, 45, 82, 51), ""},
-		{49, 48, 50, 64, 180, image.Rect(46, 14, 52, 45), ""},
-		{49, 48, 32, 50, 270, image.Rect(14, 45, 46, 51), ""},
-		{49, 48, 32, 50, 271, image.Rect(14, 45, 46, 51), "bad orientation"},
+		{0, 0, 0, 0, 0, image.Rect(-30, 30, 30, 45), ""},
+		{0, 0, 0, 0, 90, image.Rect(30, -30, 45, 30), ""},
+		{0, 0, 0, 0, 180, image.Rect(-30, -45, 30, -30), ""},
+		{0, 0, 0, 0, 270, image.Rect(-45, -30, -30, 30), ""},
+		{23, 54, 23, 54, 0, image.Rect(-7, 84, 53, 99), ""},
+		{23, 54, 23, 54, 90, image.Rect(53, 24, 68, 84), ""},
+		{23, 54, 23, 54, 180, image.Rect(-7, 9, 53, 24), ""},
+		{23, 54, 23, 54, 270, image.Rect(-22, 24, -7, 84), ""},
+		{49, 48, 50, 32, 0, image.Rect(19, 78, 79, 109), ""},
+		{49, 48, 64, 50, 90, image.Rect(79, 18, 109, 78), ""},
+		{49, 48, 50, 64, 180, image.Rect(19, -13, 79, 18), ""},
+		{49, 48, 32, 50, 270, image.Rect(-13, 18, 19, 78), ""},
+		{49, 48, 32, 50, 271, image.Rect(-13, 18, 19, 78), "bad orientation"},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
@@ -510,7 +542,7 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,10,3": {},
+				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -529,7 +561,7 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,10,3": {},
+				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -548,7 +580,7 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,10,3": {},
+				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -567,7 +599,7 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,10,3": {},
+				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -593,11 +625,11 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,30,3":   {},
-				"14,37,3":  {},
-				"8,4,3":    {},
-				"14,-13,3": {},
-				"-37,13,3": {},
+				"0,300,3":    {},
+				"143,373,3":  {},
+				"89,43,3":    {},
+				"148,-133,3": {},
+				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -609,7 +641,7 @@ func testUpdate(t *testing.T, internal bool) {
 			test.That(t, count, test.ShouldEqual, 5)
 			test.That(t, expected, test.ShouldBeEmpty)
 		}},
-		{"one device with some measurements near bounds", -50, -50, 0, nil, []lidar.Measurements{
+		{"one device with some measurements near bounds", -500, -500, 0, nil, []lidar.Measurements{
 			{
 				lidar.NewMeasurement(0, 3),
 				lidar.NewMeasurement(21, 4),
@@ -623,9 +655,9 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"-50,-20,3": {},
-				"-35,-12,3": {},
-				"-41,-45,3": {},
+				"-500,-200,3": {},
+				"-356,-126,3": {},
+				"-410,-456,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -661,16 +693,16 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,30,3":   {},
-				"14,37,3":  {},
-				"8,4,3":    {},
-				"14,-13,3": {},
-				"-37,13,3": {},
-				"1,29,3":   {},
-				"15,36,3":  {},
-				"9,4,3":    {},
-				"14,-14,3": {},
-				"-37,14,3": {},
+				"0,300,3":    {},
+				"143,373,3":  {},
+				"89,43,3":    {},
+				"148,-133,3": {},
+				"-370,149,3": {},
+				"10,299,3":   {},
+				"156,368,3":  {},
+				"91,40,3":    {},
+				"141,-141,3": {},
+				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -697,11 +729,11 @@ func testUpdate(t *testing.T, internal bool) {
 		}, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			expected := map[string]struct{}{
-				"0,30,3":   {},
-				"14,37,3":  {},
-				"8,4,3":    {},
-				"14,-13,3": {},
-				"-37,13,3": {},
+				"0,300,3":    {},
+				"143,373,3":  {},
+				"89,43,3":    {},
+				"148,-133,3": {},
+				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y, v int) bool {
@@ -741,11 +773,11 @@ func testUpdate(t *testing.T, internal bool) {
 			}, "", func(t *testing.T, area *SquareArea) {
 				count := 0
 				expected := map[string]struct{}{
-					"0,30,3":   {},
-					"14,37,3":  {},
-					"8,4,3":    {},
-					"14,-13,3": {},
-					"-37,13,3": {},
+					"0,300,3":    {},
+					"143,373,3":  {},
+					"89,43,3":    {},
+					"148,-133,3": {},
+					"-375,136,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
 					area.Iterate(func(x, y, v int) bool {
@@ -759,7 +791,7 @@ func testUpdate(t *testing.T, internal bool) {
 			}},
 		{"multiple devices with some measurements at center and shifted offsets", 0, 0, 0,
 			[]DeviceOffset{
-				{45, 1, 2},
+				{45, 10, 20},
 			},
 			[]lidar.Measurements{
 				{
@@ -785,17 +817,18 @@ func testUpdate(t *testing.T, internal bool) {
 			}, "", func(t *testing.T, area *SquareArea) {
 				count := 0
 				expected := map[string]struct{}{
-					"0,30,3":   {},
-					"14,37,3":  {},
-					"8,4,3":    {},
-					"14,-13,3": {},
-					"-37,13,3": {},
-					"0,32,3":   {},
-					"15,39,3":  {},
-					"9,6,3":    {},
-					"3,2,3":    {},
-					"15,-11,3": {},
-					"-36,15,3": {},
+					"0,300,3":    {},
+					"143,373,3":  {},
+					"89,43,3":    {},
+					"148,-133,3": {},
+					"-375,136,3": {},
+
+					"9,320,3":    {},
+					"153,393,3":  {},
+					"99,63,3":    {},
+					"30,20,3":    {},
+					"158,-113,3": {},
+					"-365,156,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
 					area.Iterate(func(x, y, v int) bool {
@@ -910,8 +943,8 @@ func TestRobotCull(t *testing.T) {
 			test.That(t, area.Set(7, 6, 4), test.ShouldBeNil)
 			test.That(t, area.Set(1, 1, 3), test.ShouldBeNil)
 			test.That(t, area.Set(0, 0, 3), test.ShouldBeNil)
-			test.That(t, area.Set(2, 49, 3), test.ShouldBeNil)
-			test.That(t, area.Set(-35, -4, 3), test.ShouldBeNil)
+			test.That(t, area.Set(20, 499, 3), test.ShouldBeNil)
+			test.That(t, area.Set(-350, -40, 3), test.ShouldBeNil)
 		})
 		th.bot.cull()
 		th.bot.cull()
@@ -919,15 +952,15 @@ func TestRobotCull(t *testing.T) {
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 3)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(7, 6), test.ShouldEqual, 1)
-			test.That(t, area.At(2, 49), test.ShouldEqual, 3)
-			test.That(t, area.At(-35, -4), test.ShouldEqual, 3)
+			test.That(t, area.At(20, 499), test.ShouldEqual, 3)
+			test.That(t, area.At(-350, -40), test.ShouldEqual, 3)
 		})
 		th.bot.cull()
 		th.bot.cull()
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 2)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			test.That(t, area.At(2, 49), test.ShouldEqual, 3)
-			test.That(t, area.At(-35, -4), test.ShouldEqual, 3)
+			test.That(t, area.At(20, 499), test.ShouldEqual, 3)
+			test.That(t, area.At(-350, -40), test.ShouldEqual, 3)
 		})
 
 		th.bot.rootArea.Mutate(func(area MutableArea) {
@@ -990,12 +1023,12 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 6)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
-			"1,3,1": {},
-			"3,3,1": {},
-			"4,3,1": {},
-			"6,3,2": {},
-			"7,2,2": {},
-			"8,1,2": {},
+			"20,34,1": {},
+			"32,38,1": {},
+			"45,38,1": {},
+			"60,35,2": {},
+			"75,27,2": {},
+			"88,15,2": {},
 		}
 		actual := map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {
@@ -1043,12 +1076,12 @@ func TestRobotActive(t *testing.T) {
 		<-swap
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
-			"1,3,1": {},
-			"3,3,1": {},
-			"4,3,1": {},
-			"6,3,2": {},
-			"7,2,2": {},
-			"8,1,2": {},
+			"20,34,1": {},
+			"32,38,1": {},
+			"45,38,1": {},
+			"60,35,2": {},
+			"75,27,2": {},
+			"88,15,2": {},
 		}
 		actual := map[string]struct{}{}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
@@ -1091,19 +1124,19 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected = map[string]struct{}{
-			"1,3,1": {},
-			"3,3,1": {},
-			"4,3,1": {},
-			"6,3,2": {},
-			"7,2,2": {},
-			"8,1,2": {},
+			"20,34,1": {},
+			"32,38,1": {},
+			"45,38,1": {},
+			"60,35,2": {},
+			"75,27,2": {},
+			"88,15,2": {},
 
-			"-21,9,2": {},
-			"-23,8,2": {},
-			"-24,2,1": {},
-			"-24,3,1": {},
-			"-24,5,1": {},
-			"-24,6,2": {},
+			"-19,98,2": {},
+			"-45,24,1": {},
+			"-47,38,1": {},
+			"-46,53,1": {},
+			"-42,69,2": {},
+			"-32,84,2": {},
 		}
 		actual = map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {

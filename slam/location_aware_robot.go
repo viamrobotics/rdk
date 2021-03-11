@@ -69,8 +69,6 @@ func NewLocationAwareRobot(
 	if err != nil {
 		return nil, err
 	}
-	_, scaleTo := area.Size()
-	baseDeviceWidthScaled := baseDeviceWidth * scaleTo / 1000
 
 	var maxBoundsX, maxBoundsY int
 	devBounds := make([]image.Point, 0, len(devices))
@@ -93,10 +91,9 @@ func NewLocationAwareRobot(
 		return nil, err
 	}
 	robot := &LocationAwareRobot{
-		baseDevice:            baseDevice,
-		baseDeviceWidthScaled: baseDeviceWidthScaled,
-		maxBounds:             image.Point{maxBoundsX, maxBoundsY},
-		devBounds:             devBounds,
+		baseDevice: baseDevice,
+		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
+		devBounds:  devBounds,
 
 		devices:       devices,
 		deviceOffsets: deviceOffsets,
@@ -114,6 +111,8 @@ func NewLocationAwareRobot(
 		updateInterval: defaultUpdateInterval,
 		cullInterval:   defaultCullInterval,
 	}
+	robot.baseDeviceWidthScaled = robot.millimetersToScaledUnit(baseDeviceWidth)
+
 	if err := robot.newPresentView(); err != nil {
 		return nil, err
 	}
@@ -163,7 +162,7 @@ func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
 }
 
-func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *Direction) (err error) {
+func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -205,18 +204,17 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *
 	newX := lar.basePosX
 	newY := lar.basePosY
 
-	if amount != nil {
-		calcP, err := lar.calculateMove(newOrientation, *amount)
+	if amountMillis != nil {
+		calcP, err := lar.calculateMove(newOrientation, *amountMillis)
 		if err != nil {
 			return err
 		}
 		newX, newY = calcP.X, calcP.Y
-		_, scale := lar.rootArea.Size()
-		move.DistanceMillis = *amount * scale
+		move.DistanceMillis = *amountMillis
 	}
 
 	if newX != lar.basePosX || newY != lar.basePosY {
-		if err := lar.detectObstacle(newX, newY, newOrientation, amount); err != nil {
+		if err := lar.detectObstacle(newX, newY, newOrientation, amountMillis); err != nil {
 			return err
 		}
 	}
@@ -236,9 +234,9 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amount *int, rotateTo *
 	return nil
 }
 
-func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64, moveAmount *int) error {
+func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64, moveAmountMillis *int) error {
 	moveOrientation := orientation
-	if moveAmount != nil && *moveAmount < 0 {
+	if moveAmountMillis != nil && *moveAmountMillis < 0 {
 		moveOrientation = math.Mod(orientation+180, 360)
 	}
 	moveRect, err := lar.moveRect(toX, toY, moveOrientation)
@@ -266,33 +264,64 @@ func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir Direction) erro
 	return lar.Move(ctx, nil, &dir)
 }
 
-func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (image.Point, error) {
+func (lar *LocationAwareRobot) millimetersToScaledUnit(amount int) int {
+	/*
+		amount millis
+		_____________
+		( millis/meter / (units/meter) )
+		=>
+		amount millis
+		_____________
+		millis*meter/meter*units
+		=>
+		amount millis
+		_____________
+		millis/units
+		=>
+		amount units
+	*/
+
+	_, scale := lar.rootArea.Size()
+	amountNeg := amount < 0
+	if amountNeg {
+		amount *= -1
+	}
+	scaled := int(math.Ceil(float64(amount) / float64((1000 / scale))))
+	if amountNeg {
+		return scaled * -1
+	}
+	return scaled
+}
+
+func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis int) (image.Point, error) {
 	newX := lar.basePosX
 	newY := lar.basePosY
+
+	amountScaled := lar.millimetersToScaledUnit(amountMillis)
 
 	errMsg := fmt.Errorf("cannot move at orientation %f; stuck", orientation)
 	quadLen := lar.rootArea.QuadrantLength()
 	switch orientation {
 	case 0:
-		posY := lar.basePosY + amount
+		posY := lar.basePosY + amountScaled
 		if posY < -quadLen || posY >= quadLen {
 			return image.Point{}, errMsg
 		}
 		newY = posY
 	case 90:
-		posX := lar.basePosX + amount
+		posX := lar.basePosX + amountScaled
 		if posX < -quadLen || posX >= quadLen {
 			return image.Point{}, errMsg
 		}
 		newX = posX
 	case 180:
-		posY := lar.basePosY - amount
+		posY := lar.basePosY - amountScaled
 		if posY < -quadLen || posY >= quadLen {
 			return image.Point{}, errMsg
 		}
 		newY = posY
 	case 270:
-		posX := lar.basePosX - amount
+		posX := lar.basePosX - amountScaled
 		if posX < -quadLen || posX >= quadLen {
 			return image.Point{}, errMsg
 		}
@@ -303,11 +332,12 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amount int) (i
 	return image.Point{newX, newY}, nil
 }
 
-const detectionBuffer = 15
+const detectionBufferMillis = 150
 
 // the move rect will always be ahead of the base itself even though the
 // toX, toY are within the base rect since we move relative to the center.
 func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (image.Rectangle, error) {
+	bufferScaled := lar.millimetersToScaledUnit(detectionBufferMillis)
 	baseRect := lar.baseRect()
 	distX, distY := int(math.Abs(float64(lar.basePosX-toX))), int(math.Abs(float64(lar.basePosY-toY)))
 	var pathX0, pathY0, pathX1, pathY1 int
@@ -316,21 +346,21 @@ func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (imag
 		// top-left of base extended up
 		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY+baseRect.Dy()/2
 		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 + distY + detectionBuffer))
+		pathY1 = int(float64(pathY0 + distY + bufferScaled))
 	case 90:
 		// top-right of base extended right
 		pathX0, pathY0 = lar.basePosX+baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
-		pathX1 = int(float64(pathX0 + distX + detectionBuffer))
+		pathX1 = int(float64(pathX0 + distX + bufferScaled))
 		pathY1 = pathY0 + baseRect.Dy()
 	case 180:
 		// bottom-left of base extended down
 		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
 		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 - distY - detectionBuffer))
+		pathY1 = int(float64(pathY0 - distY - bufferScaled))
 	case 270:
 		// top-left of base extended left
 		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
-		pathX1 = int(float64(pathX0 - distX - detectionBuffer))
+		pathX1 = int(float64(pathX0 - distX - bufferScaled))
 		pathY1 = pathY0 + baseRect.Dy()
 	default:
 		return image.Rectangle{}, fmt.Errorf("bad orientation %f", orientation)
@@ -405,9 +435,9 @@ func (lar *LocationAwareRobot) cull() error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
-	_, scaleDown := lar.rootArea.Size()
-	maxBoundsX := lar.maxBounds.X * scaleDown
-	maxBoundsY := lar.maxBounds.Y * scaleDown
+	_, scaleTo := lar.rootArea.Size()
+	maxBoundsX := lar.maxBounds.X * scaleTo
+	maxBoundsY := lar.maxBounds.Y * scaleTo
 
 	basePosX, basePosY := lar.basePos()
 
@@ -511,7 +541,7 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 		allMeasurements[i] = measurements
 	}
 
-	_, scaleDown := area.Size()
+	_, scaleTo := area.Size()
 	quadLength := area.QuadrantLength()
 	for i, measurements := range allMeasurements {
 		var adjust bool
@@ -532,8 +562,8 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 				x = newX
 				y = newY
 			}
-			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleDown))
-			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleDown))
+			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(scaleTo))
+			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(scaleTo))
 			if detectedX < -quadLength || detectedX >= quadLength {
 				continue
 			}
