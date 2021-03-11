@@ -9,18 +9,6 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func ConvertToColorful(c color.RGBA) colorful.Color {
-	return colorful.Color{
-		R: float64(c.R) / 255.0,
-		G: float64(c.G) / 255.0,
-		B: float64(c.B) / 255.0,
-	}
-}
-
-func ConvertToRGBA(c color.Color) color.RGBA {
-	return color.RGBAModel.Convert(c).(color.RGBA)
-}
-
 func ConvertToNRGBA(c color.Color) color.NRGBA {
 	return color.NRGBAModel.Convert(c).(color.NRGBA)
 }
