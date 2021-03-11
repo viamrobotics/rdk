@@ -15,7 +15,6 @@ import (
 
 	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	"go.viam.com/robotcore/robots/fake"
@@ -227,7 +226,7 @@ func runSlam(params runParams) (err error) {
 	}
 
 	if compassSensor != nil {
-		baseDevice = augment.Device(baseDevice, compassSensor)
+		baseDevice = compass.BaseWithCompass(baseDevice, compassSensor)
 	}
 
 	lar, err := slam.NewLocationAwareRobot(

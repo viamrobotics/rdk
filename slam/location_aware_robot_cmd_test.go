@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/robots/fake"
+	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/gostream"
@@ -58,16 +58,16 @@ func TestCommands(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		compass := &inject.Compass{}
-		th.bot.compassSensor = compass
+		theCompass := &inject.Compass{}
+		th.bot.compassSensor = theCompass
 
 		startCount := 0
-		compass.StartCalibrationFunc = func(ctx context.Context) error {
+		theCompass.StartCalibrationFunc = func(ctx context.Context) error {
 			startCount++
 			return nil
 		}
 		stopCount := 0
-		compass.StopCalibrationFunc = func(ctx context.Context) error {
+		theCompass.StopCalibrationFunc = func(ctx context.Context) error {
 			stopCount++
 			return nil
 		}
@@ -105,11 +105,11 @@ func TestCommands(t *testing.T) {
 
 		// augment
 		headingCount := 0
-		compass.HeadingFunc = func(ctx context.Context) (float64, error) {
+		theCompass.HeadingFunc = func(ctx context.Context) (float64, error) {
 			headingCount++
 			return math.NaN(), nil
 		}
-		baseWithCompass := augment.Device(injectBase, compass)
+		baseWithCompass := compass.BaseWithCompass(injectBase, theCompass)
 		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 			return nil
