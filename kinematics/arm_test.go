@@ -1,4 +1,4 @@
-package arm
+package kinematics
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/kinematics"
 	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/testutils"
 )
