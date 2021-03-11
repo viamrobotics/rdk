@@ -1,4 +1,4 @@
-package arm
+package universalrobots
 
 import (
 	"encoding/binary"
