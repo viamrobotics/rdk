@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/edaniels/golog"
 
@@ -92,31 +90,4 @@ type Config struct {
 	Boards     []board.Config
 	Components []Component
 	Logger     golog.Logger
-}
-
-func ReadConfig(fn string) (Config, error) {
-	cfg := Config{}
-
-	file, err := os.Open(fn)
-	if err != nil {
-		return cfg, err
-	}
-	defer file.Close()
-
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&cfg)
-	if err != nil {
-		return cfg, err
-	}
-
-	for idx, c := range cfg.Components {
-		for k, v := range c.Attributes {
-			s, ok := v.(string)
-			if ok {
-				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
-			}
-		}
-	}
-
-	return cfg, nil
 }
