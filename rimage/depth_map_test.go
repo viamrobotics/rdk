@@ -3,6 +3,7 @@ package rimage
 import (
 	"bufio"
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,50 @@ func TestDepthMap1(t *testing.T) {
 	}
 
 	m, err = ReadDepthMap(bufio.NewReader(&buf))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.width != 1280 {
+		t.Errorf("wrong width")
+	}
+	if m.height != 720 {
+		t.Errorf("wrong height")
+	}
+	if origHeight != 749 {
+		t.Errorf("wrong depth")
+	}
+
+}
+
+func TestDepthMap2(t *testing.T) {
+	m, err := ParseDepthMap("data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Smooth()
+
+	if m.width != 1280 {
+		t.Errorf("wrong width")
+	}
+	if m.height != 720 {
+		t.Errorf("wrong height")
+	}
+
+	origHeight := m.GetDepth(300, 300)
+	if origHeight != 749 {
+		t.Errorf("wrong depth %v", m.GetDepth(300, 300))
+	}
+
+	os.MkdirAll("out", 0775)
+
+	fn := "out/board2-rt.dat.gz"
+
+	err = m.WriteToFile(fn)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, err = ParseDepthMap(fn)
 	if err != nil {
 		t.Fatal(err)
 	}
