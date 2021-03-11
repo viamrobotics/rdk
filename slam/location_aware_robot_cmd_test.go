@@ -720,7 +720,7 @@ func TestHandleClick(t *testing.T) {
 		th := newTestHarness(t)
 		larBot := th.bot
 		larBot.clientClickMode = clientClickModeMove
-		injectBase := &inject.Base{Device: larBot.baseDevice}
+		injectBase := &inject.Base{Base: larBot.baseDevice}
 		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 			return 600, nil
 		}

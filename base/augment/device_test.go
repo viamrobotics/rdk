@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/testutils/inject"
 )
@@ -22,7 +22,7 @@ func TestAugmentReduce(t *testing.T) {
 	comp := &inject.Compass{}
 	aug := augment.Device(dev, comp)
 	test.That(t, aug, test.ShouldNotEqual, dev)
-	var baseDev *base.Device = nil
+	var baseDev *api.Base = nil
 	test.That(t, aug, test.ShouldImplement, baseDev)
 
 	test.That(t, augment.ReduceDevice(aug), test.ShouldEqual, dev)
@@ -48,7 +48,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10, nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -65,7 +65,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 * (float64(i) / 3), nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -82,7 +82,7 @@ func TestDeviceWithCompass(t *testing.T) {
 			}
 			return 10 + 10*(float64(i)/3), nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ang, test.ShouldEqual, 10)
 	})
@@ -95,7 +95,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, err1
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	})
@@ -108,7 +108,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
-		ang, _, err := base.DoMove(context.Background(), base.Move{AngleDeg: 10}, aug)
+		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	})
