@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
@@ -27,7 +27,7 @@ type DeviceOffset struct {
 
 type LocationAwareRobot struct {
 	started               bool
-	baseDevice            base.Device
+	baseDevice            api.Base
 	baseDeviceWidthScaled int
 	baseOrientation       float64 // relative to map
 	basePosX              int
@@ -59,7 +59,7 @@ type LocationAwareRobot struct {
 
 func NewLocationAwareRobot(
 	ctx context.Context,
-	baseDevice base.Device,
+	baseDevice api.Base,
 	area *SquareArea,
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
@@ -166,7 +166,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
-	move := base.Move{MillisPerSec: 0, Block: true}
+	move := api.Move{MillisPerSec: 0, Block: true}
 
 	currentOrientation := lar.orientation()
 	if rotateTo != nil {
@@ -225,7 +225,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 		// supported yet in core.
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
-	if _, _, err := base.DoMove(ctx, move, lar.baseDevice); err != nil {
+	if _, _, err := api.DoMove(ctx, move, lar.baseDevice); err != nil {
 		return err
 	}
 	lar.basePosX = newX

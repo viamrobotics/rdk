@@ -5,14 +5,14 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
-func Device(device base.Device, with interface{}) base.Device {
+func Device(device api.Base, with interface{}) api.Base {
 	switch v := with.(type) {
 	case compass.Device:
 		return baseDeviceWithCompass{device, v}
@@ -20,16 +20,16 @@ func Device(device base.Device, with interface{}) base.Device {
 	return device
 }
 
-func ReduceDevice(device base.Device) base.Device {
+func ReduceDevice(device api.Base) api.Base {
 	switch v := device.(type) {
 	case baseDeviceWithCompass:
-		return v.Device
+		return v.Base
 	}
 	return device
 }
 
 type baseDeviceWithCompass struct {
-	base.Device
+	api.Base
 	compass compass.Device
 }
 
@@ -46,7 +46,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 			return err
 		}
 		golog.Global.Debugf("start heading %f", startHeading)
-		if err := wc.Device.Spin(ctx, angleDeg, speed, block); err != nil {
+		if err := wc.Base.Spin(ctx, angleDeg, speed, block); err != nil {
 			return err
 		}
 		time.Sleep(1 * time.Second)

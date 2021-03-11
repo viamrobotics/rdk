@@ -1,4 +1,4 @@
-package base_test
+package api_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/test"
@@ -17,7 +17,7 @@ func TestDoMove(t *testing.T) {
 	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
-	ang, dist, err := base.DoMove(context.Background(), base.Move{}, dev)
+	ang, dist, err := api.DoMove(context.Background(), api.Move{}, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -27,8 +27,8 @@ func TestDoMove(t *testing.T) {
 		return err1
 	}
 
-	m := base.Move{DistanceMillis: 1}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m := api.Move{DistanceMillis: 1}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -39,13 +39,13 @@ func TestDoMove(t *testing.T) {
 		test.That(t, block, test.ShouldEqual, m.Block)
 		return nil
 	}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMillis)
 
-	m = base.Move{DistanceMillis: 1, Block: true, MillisPerSec: 5}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m = api.Move{DistanceMillis: 1, Block: true, MillisPerSec: 5}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMillis)
@@ -54,8 +54,8 @@ func TestDoMove(t *testing.T) {
 		return err1
 	}
 
-	m = base.Move{AngleDeg: 10}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m = api.Move{AngleDeg: 10}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
 	test.That(t, dist, test.ShouldEqual, 0)
@@ -67,20 +67,20 @@ func TestDoMove(t *testing.T) {
 		return nil
 	}
 
-	m = base.Move{AngleDeg: 10}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m = api.Move{AngleDeg: 10}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = base.Move{AngleDeg: 10, Block: true, MillisPerSec: 5}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m = api.Move{AngleDeg: 10, Block: true, MillisPerSec: 5}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = base.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
-	ang, dist, err = base.DoMove(context.Background(), m, dev)
+	m = api.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
+	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMillis)
@@ -90,8 +90,8 @@ func TestDoMove(t *testing.T) {
 			return err1
 		}
 
-		m = base.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
-		ang, dist, err = base.DoMove(context.Background(), m, dev)
+		m = api.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
+		ang, dist, err = api.DoMove(context.Background(), m, dev)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 		test.That(t, dist, test.ShouldEqual, 0)
