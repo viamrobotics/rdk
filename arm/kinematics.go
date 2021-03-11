@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
@@ -38,12 +39,12 @@ func NewRobot(jsonFile string, cores int) (*Kinematics, error) {
 }
 
 // Returns the end effector's current Position
-func (k *Kinematics) GetForwardPosition() Position {
+func (k *Kinematics) GetForwardPosition() api.ArmPosition {
 	k.Model.ForwardPosition()
 
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
-	pos := Position{}
+	pos := api.ArmPosition{}
 	pos.X = pos6d[0]
 	pos.Y = pos6d[1]
 	pos.Z = pos6d[2]
@@ -56,7 +57,7 @@ func (k *Kinematics) GetForwardPosition() Position {
 
 // Sets a new goal position
 // Uses ZYX euler rotation order
-func (k *Kinematics) SetForwardPosition(pos Position) error {
+func (k *Kinematics) SetForwardPosition(pos api.ArmPosition) error {
 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
