@@ -13,6 +13,7 @@ import (
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/robots/robotiq"
+	"go.viam.com/robotcore/robots/universalrobots"
 	"go.viam.com/robotcore/robots/vgripper"
 	"go.viam.com/robotcore/robots/wx250s"
 
@@ -297,7 +298,7 @@ func (r *Robot) newBase(config api.Component) (api.Base, error) {
 func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 	switch config.Model {
 	case "ur":
-		return arm.URArmConnect(config.Host)
+		return universalrobots.URArmConnect(config.Host)
 	case "eva":
 		return arm.NewEva(config.Host, config.Attributes)
 	case "wx250s":
