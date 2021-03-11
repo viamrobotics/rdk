@@ -3,6 +3,8 @@ package api
 import (
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,7 +36,12 @@ func TestConfig3(t *testing.T) {
 		Y string
 	}
 
-	Register("foo", "eliot", "bar", func() interface{} { return &temp{} })
+	Register("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
+		t := &temp{}
+		err := mapstructure.Decode(sub, t)
+		return t, err
+	},
+	)
 
 	cfg, err := ReadConfig("data/config3.json")
 	if err != nil {
