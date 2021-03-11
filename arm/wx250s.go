@@ -2,17 +2,19 @@ package arm
 
 import (
 	"fmt"
-
-	"github.com/edaniels/golog"
-	"github.com/jacobsa/go-serial/serial"
-	"go.viam.com/dynamixel/network"
-	"go.viam.com/dynamixel/servo"
-	"go.viam.com/dynamixel/servo/s_model"
-
 	"math"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/jacobsa/go-serial/serial"
+
+	"go.viam.com/dynamixel/network"
+	"go.viam.com/dynamixel/servo"
+	"go.viam.com/dynamixel/servo/s_model"
+
+	"go.viam.com/robotcore/api"
 )
 
 // SleepAngles are the angles we go to to prepare to turn off torque
@@ -63,9 +65,9 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error) {
-	servos := findServos(attributes["usbPort"], attributes["baudRate"], attributes["armServoCount"])
-	kin, err := NewRobot(attributes["modelJSON"], 4)
+func NewWx250s(attributes api.AttributeMap, mutex *sync.Mutex) (*Wx250s, error) {
+	servos := findServos(attributes.GetString("usbPort"), attributes.GetString("baudRate"), attributes.GetString("armServoCount"))
+	kin, err := NewRobot(attributes.GetString("modelJSON"), 4)
 	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
 	}
@@ -101,9 +103,9 @@ func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error)
 	return &newArm, err
 }
 
-func (a *Wx250s) CurrentPosition() (Position, error) {
+func (a *Wx250s) CurrentPosition() (api.ArmPosition, error) {
 
-	ci := Position{}
+	ci := api.ArmPosition{}
 	//~ 	setJointTelNums := []float64{}
 
 	// Update kinematics model with current robot location
@@ -122,7 +124,7 @@ func (a *Wx250s) CurrentPosition() (Position, error) {
 }
 
 //TODO(pl): Motion planning rather than just setting the position
-func (a *Wx250s) MoveToPosition(c Position) error {
+func (a *Wx250s) MoveToPosition(c api.ArmPosition) error {
 	c.X *= 1000
 	c.Y *= 1000
 	c.Z *= 1000
@@ -133,11 +135,11 @@ func (a *Wx250s) MoveToPosition(c Position) error {
 	}
 
 	servoPosList := a.kin.GetJointPositions()
-	return a.MoveToJointPositions(JointPositions{servoPosList})
+	return a.MoveToJointPositions(api.JointPositions{servoPosList})
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
-func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
+func (a *Wx250s) MoveToJointPositions(jp api.JointPositions) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	a.kin.SetJointPositions(jp.Degrees)
@@ -155,8 +157,8 @@ func (a *Wx250s) MoveToJointPositions(jp JointPositions) error {
 }
 
 // CurrentJointPositions returns a sorted (from base outwards) slice of joint angles in degrees
-func (a *Wx250s) CurrentJointPositions() (JointPositions, error) {
-	return JointPositions{a.kin.GetJointPositions()}, nil
+func (a *Wx250s) CurrentJointPositions() (api.JointPositions, error) {
+	return api.JointPositions{a.kin.GetJointPositions()}, nil
 }
 
 func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {

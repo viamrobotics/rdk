@@ -1,4 +1,4 @@
-package arm
+package api
 
 import (
 	"fmt"
@@ -6,31 +6,31 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-type Position struct {
+type ArmPosition struct {
 	X, Y, Z float64 // meters of the end effector from the base
 
 	Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
 }
 
-func (p Position) NondelimitedString() string {
+func (p ArmPosition) NondelimitedString() string {
 	return fmt.Sprintf("%f %f %f %f %f %f",
 		p.X, p.Y, p.Z, p.Rx, p.Ry, p.Rz)
 }
 
-func (p Position) RxRadians() float64 {
+func (p ArmPosition) RxRadians() float64 {
 	return utils.DegToRad(p.Rx)
 }
 
-func (p Position) RyRadians() float64 {
+func (p ArmPosition) RyRadians() float64 {
 	return utils.DegToRad(p.Ry)
 }
 
-func (p Position) RzRadians() float64 {
+func (p ArmPosition) RzRadians() float64 {
 	return utils.DegToRad(p.Rz)
 }
 
-func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) Position {
-	return Position{
+func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) ArmPosition {
+	return ArmPosition{
 		X:  x,
 		Y:  y,
 		Z:  z,
@@ -63,8 +63,8 @@ func JointPositionsFromRadians(radians []float64) JointPositions {
 // -----
 
 type Arm interface {
-	CurrentPosition() (Position, error)
-	MoveToPosition(c Position) error
+	CurrentPosition() (ArmPosition, error)
+	MoveToPosition(c ArmPosition) error
 
 	MoveToJointPositions(JointPositions) error
 	CurrentJointPositions() (JointPositions, error)

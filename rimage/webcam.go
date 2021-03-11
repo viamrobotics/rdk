@@ -6,7 +6,6 @@ import (
 	"image"
 	"path/filepath"
 	"regexp"
-	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -14,9 +13,11 @@ import (
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
+
+	"go.viam.com/robotcore/api"
 )
 
-func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs api.AttributeMap) mediadevices.MediaStreamConstraints {
 
 	minWidth := 680
 	maxWidth := 4096
@@ -25,26 +26,18 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 	maxHeight := 2160
 	idealHeight := 1080
 
-	if attrs["width"] != "" {
-		w, err := strconv.Atoi(attrs["width"])
-		if err != nil {
-			golog.Global.Warnf("bad width %s", err)
-		} else {
-			minWidth = w
-			maxWidth = w
-			idealWidth = w
-		}
+	if attrs.Has("width") {
+		w := attrs.GetInt("width", idealWidth)
+		minWidth = w
+		maxWidth = w
+		idealWidth = w
 	}
 
-	if attrs["height"] != "" {
-		h, err := strconv.Atoi(attrs["height"])
-		if err != nil {
-			golog.Global.Warnf("bad height %s", err)
-		} else {
-			minHeight = h
-			maxHeight = h
-			idealHeight = h
-		}
+	if attrs.Has("height") {
+		h := attrs.GetInt("height", idealHeight)
+		minHeight = h
+		maxHeight = h
+		idealHeight = h
 	}
 
 	return mediadevices.MediaStreamConstraints{
@@ -54,8 +47,7 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
-			format := attrs["format"]
-			if format == "" {
+			if !attrs.Has("format") {
 				constraint.FrameFormat = prop.FrameFormatOneOf{
 					frame.FormatI420,
 					frame.FormatI444,
@@ -67,7 +59,7 @@ func makeConstraints(attrs map[string]string) mediadevices.MediaStreamConstraint
 					frame.FormatNV21,
 				}
 			} else {
-				constraint.FrameFormat = prop.FrameFormatExact(format)
+				constraint.FrameFormat = prop.FrameFormatExact(attrs.GetString("format"))
 			}
 		},
 	}
@@ -77,22 +69,20 @@ type Aligner interface {
 	Align(ctx context.Context, img *ImageWithDepth) (*ImageWithDepth, error)
 }
 
-func NewWebcamSource(attrs map[string]string) (gostream.ImageSource, error) {
+func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 	var err error
 
 	debug := attrs["debug"] == "true"
 
 	constraints := makeConstraints(attrs)
 
-	path := attrs["path"]
-	if path != "" {
-		return tryWebcamOpen(path, debug, constraints)
+	if attrs.Has("path") {
+		return tryWebcamOpen(attrs.GetString("path"), debug, constraints)
 	}
 
 	var pattern *regexp.Regexp
-	pathPattern := attrs["path_pattern"]
-	if pathPattern != "" {
-		pattern, err = regexp.Compile(pathPattern)
+	if attrs.Has("path_pattern") {
+		pattern, err = regexp.Compile(attrs.GetString("path_pattern"))
 		if err != nil {
 			return nil, err
 		}

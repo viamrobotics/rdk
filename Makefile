@@ -8,6 +8,9 @@ format: goformat
 setup:
 	bash etc/setup.sh
 
+build:
+	go build -v ./...
+
 lint: goformat
 	go get -u github.com/edaniels/golinters/cmd/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined

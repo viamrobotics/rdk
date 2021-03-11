@@ -581,7 +581,7 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) 
 	autoCameraTiler.SetLogger(golog.Global)
 	if len(theRobot.Cameras) > 0 {
 		for _, cam := range theRobot.Cameras {
-			if theRobot.ComponentFor(cam).Attributes["hide"] == "true" {
+			if theRobot.ComponentFor(cam).Attributes.GetBool("hide", false) {
 				continue
 			}
 			autoCameraTiler.AddSource(cam)

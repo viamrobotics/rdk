@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
@@ -58,7 +56,7 @@ func getCoord(chess string) pos {
 	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)} // HARD CODED
 }
 
-func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
+func moveTo(myArm api.Arm, chess string, heightMod float64) error {
 	// first make sure in safe position
 	where, err := myArm.CurrentPosition()
 	if err != nil {
@@ -84,7 +82,7 @@ func moveTo(myArm arm.Arm, chess string, heightMod float64) error {
 	return myArm.MoveToPosition(where)
 }
 
-func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, myGripper gripper.Gripper, from, to string) error {
+func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, myGripper api.Gripper, from, to string) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -201,7 +199,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm arm.Arm, 
 	return nil
 }
 
-func moveOutOfWay(myArm arm.Arm) error {
+func moveOutOfWay(myArm api.Arm) error {
 	foo := getCoord("a1")
 
 	where, err := myArm.CurrentPosition()
@@ -215,9 +213,9 @@ func moveOutOfWay(myArm arm.Arm) error {
 	return myArm.MoveToPosition(where)
 }
 
-func initArm(myArm arm.Arm) error {
+func initArm(myArm api.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(arm.Position{
+	err := myArm.MoveToPosition(api.ArmPosition{
 		X:  foo.x,
 		Y:  foo.y,
 		Z:  SafeMoveHeight,
@@ -292,7 +290,7 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 	return corners, imageSize, err
 }
 
-func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
+func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	for {
 		where, err := myArm.CurrentPosition()
@@ -338,7 +336,7 @@ func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.Im
 
 }
 
-func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot *robot.Robot) error {
+func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) error {
 	debugNumber := 0
 
 	wristCam := myRobot.CameraByName("wristCam")

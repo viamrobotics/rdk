@@ -1,4 +1,4 @@
-package gripper
+package api
 
 type Gripper interface {
 	Open() error

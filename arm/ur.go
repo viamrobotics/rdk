@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/api"
 )
 
 type URArm struct {
@@ -64,18 +66,18 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
-func (arm *URArm) CurrentJointPositions() (JointPositions, error) {
+func (arm *URArm) CurrentJointPositions() (api.JointPositions, error) {
 	radians := []float64{}
 	state := arm.State()
 	for _, j := range state.Joints {
 		radians = append(radians, j.Qactual)
 	}
-	return JointPositionsFromRadians(radians), nil
+	return api.JointPositionsFromRadians(radians), nil
 }
 
-func (arm *URArm) CurrentPosition() (Position, error) {
+func (arm *URArm) CurrentPosition() (api.ArmPosition, error) {
 	s := arm.State().CartesianInfo
-	return NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
+	return api.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
 func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
@@ -94,7 +96,7 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 	return arm.MoveToJointPositionRadians(radians)
 }
 
-func (arm *URArm) MoveToJointPositions(joints JointPositions) error {
+func (arm *URArm) MoveToJointPositions(joints api.JointPositions) error {
 	return arm.MoveToJointPositionRadians(joints.Radians())
 }
 
@@ -157,7 +159,7 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 
 }
 
-func (arm *URArm) MoveToPosition(pos Position) error {
+func (arm *URArm) MoveToPosition(pos api.ArmPosition) error {
 	x := pos.X
 	y := pos.Y
 	z := pos.Z
