@@ -2,10 +2,8 @@ package robot
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
@@ -15,7 +13,6 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
-	"go.viam.com/robotcore/serial"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -337,23 +334,6 @@ func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripp
 			}
 		}
 		return gripper.NewWx250s(config.Attributes, mutex)
-	case "serial":
-
-		devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
-		if err != nil {
-			return nil, err
-		}
-		if len(devices) == 0 {
-			return nil, errors.New("no applicable serial devices found for gripper")
-		}
-		device, err := serial.OpenDevice(devices[0].Path)
-		if err != nil {
-			return nil, err
-		}
-
-		time.Sleep(1000 * time.Millisecond) // wait for startup?
-
-		return gripper.NewSerialGripper(device)
 	case "viam":
 		if len(r.Boards) != 1 {
 			return nil, fmt.Errorf("viam gripper requires exactly 1 board")
