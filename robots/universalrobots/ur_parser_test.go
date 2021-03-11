@@ -1,4 +1,4 @@
-package arm
+package universalrobots
 
 import (
 	"io/ioutil"
@@ -10,7 +10,7 @@ import (
 
 func Test1(t *testing.T) {
 
-	data, err := ioutil.ReadFile("test1.raw")
+	data, err := ioutil.ReadFile("data/test1.raw")
 	if err != nil {
 		t.Fatal(err)
 	}
