@@ -21,7 +21,7 @@ import (
 func TestRobotNext(t *testing.T) {
 	// empty means no detected points
 	t.Run("initially image should be empty", func(t *testing.T) {
-		harness := newTestHarness(t)
+		harness := newTestHarnessWithSize(t, 10, 10)
 		larBot := harness.bot
 		img, _, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -34,7 +34,7 @@ func TestRobotNext(t *testing.T) {
 	})
 
 	t.Run("with area set to a few points", func(t *testing.T) {
-		harness := newTestHarness(t)
+		harness := newTestHarnessWithSize(t, 10, 10)
 		larBot := harness.bot
 		harness.area.Mutate(func(area MutableArea) {
 			test.That(t, area.Set(-10, 1, 1), test.ShouldBeNil)
@@ -90,7 +90,7 @@ func TestRobotNext(t *testing.T) {
 	})
 
 	t.Run("unknown view mode", func(t *testing.T) {
-		harness := newTestHarness(t)
+		harness := newTestHarnessWithSize(t, 10, 10)
 		larBot := harness.bot
 		larBot.clientLidarViewMode = "idk"
 		_, _, err := larBot.Next(context.Background())
@@ -117,38 +117,38 @@ func TestRobotNext(t *testing.T) {
 			Orientation int
 			Diff        int
 		}{
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 0, Diff: 2861},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 15, Diff: 2885},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 30, Diff: 2846},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 45, Diff: 2825},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 60, Diff: 2809},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 75, Diff: 2775},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 90, Diff: 2853},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 120, Diff: 2805},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 135, Diff: 2806},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 150, Diff: 2798},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 165, Diff: 2726},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 180, Diff: 2854},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 195, Diff: 2758},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 210, Diff: 2787},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 225, Diff: 2831},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 240, Diff: 2818},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 255, Diff: 2832},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 270, Diff: 2862},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 285, Diff: 2884},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 315, Diff: 2853},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 330, Diff: 2858},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 345, Diff: 2870},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 0, Diff: 2856},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 2848},
-			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 2841},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 0, Diff: 1483},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 15, Diff: 1441},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 30, Diff: 1392},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 45, Diff: 1371},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 60, Diff: 1339},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 75, Diff: 1326},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 90, Diff: 1391},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 120, Diff: 1334},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 135, Diff: 1350},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 150, Diff: 1315},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 165, Diff: 1343},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 180, Diff: 1421},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 195, Diff: 1347},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 210, Diff: 1290},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 225, Diff: 1410},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 240, Diff: 1374},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 255, Diff: 1430},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 270, Diff: 1453},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 285, Diff: 1486},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 315, Diff: 1454},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 330, Diff: 1424},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 345, Diff: 1441},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 0, Diff: 1473},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1381},
+			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1395},
 		} {
 			testName := fmt.Sprintf("%d_%d_%d_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
 			t.Run(testName, func(t *testing.T) {
 				fakeLidar := fake.NewLidar()
 				fakeLidar.SetSeed(tc.Seed)
 				test.That(t, fakeLidar.Start(context.Background()), test.ShouldBeNil)
-				harness := newTestHarnessWithLidar(t, fakeLidar)
+				harness := newTestHarnessWithLidarAndSize(t, fakeLidar, 10, 10)
 				larBot := harness.bot
 				larBot.clientLidarViewMode = clientLidarViewModeLive
 				larBot.basePosX = tc.BasePosX

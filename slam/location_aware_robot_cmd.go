@@ -44,7 +44,7 @@ const (
 	clientLidarViewModeLive   = "live"
 )
 
-const defaultClientMoveAmount = 20
+const defaultClientMoveAmountMillis = 200
 
 // TODO(erd): context.TODOs here must be satisfied by updating gostream.Command
 func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
@@ -109,21 +109,21 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
 		}
 		dir := Direction(cmd.Args[0])
-		amount := defaultClientMoveAmount
+		amount := defaultClientMoveAmountMillis
 		if err := lar.Move(context.TODO(), &amount, &dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved %q\n%s", dir, lar)), nil
 	})
 	registry.Add(commandRobotMoveForward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		amount := defaultClientMoveAmount
+		amount := defaultClientMoveAmountMillis
 		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved forward\n%s", lar)), nil
 	})
 	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
-		amount := -defaultClientMoveAmount
+		amount := -defaultClientMoveAmountMillis
 		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
 			return nil, err
 		}
@@ -265,7 +265,7 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 	switch lar.clientClickMode {
 	case clientClickModeMove:
 		dir := DirectionFromXY(x, y, viewWidth, viewHeight)
-		amount := 20
+		amount := defaultClientMoveAmountMillis
 		if err := lar.Move(ctx, &amount, &dir); err != nil {
 			return "", err
 		}
