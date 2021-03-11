@@ -1,4 +1,4 @@
-package gripper
+package robotiq
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 )
 
-type RobotiqGripper struct {
+type Gripper struct {
 	conn net.Conn
 
 	openLimit  string
@@ -17,12 +17,12 @@ type RobotiqGripper struct {
 	logger     golog.Logger
 }
 
-func NewRobotiqGripper(host string, logger golog.Logger) (*RobotiqGripper, error) {
+func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
-	g := &RobotiqGripper{conn, "0", "255", logger}
+	g := &Gripper{conn, "0", "255", logger}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate
@@ -43,7 +43,7 @@ func NewRobotiqGripper(host string, logger golog.Logger) (*RobotiqGripper, error
 	return g, nil
 }
 
-func (g *RobotiqGripper) MultiSet(cmds [][]string) error {
+func (g *Gripper) MultiSet(cmds [][]string) error {
 	for _, i := range cmds {
 		err := g.Set(i[0], i[1])
 		if err != nil {
@@ -61,7 +61,7 @@ func (g *RobotiqGripper) MultiSet(cmds [][]string) error {
 	return nil
 }
 
-func (g *RobotiqGripper) Send(msg string) (string, error) {
+func (g *Gripper) Send(msg string) (string, error) {
 	_, err := g.conn.Write([]byte(msg))
 	if err != nil {
 		return "", err
@@ -75,7 +75,7 @@ func (g *RobotiqGripper) Send(msg string) (string, error) {
 	return res, err
 }
 
-func (g *RobotiqGripper) Set(what string, to string) error {
+func (g *Gripper) Set(what string, to string) error {
 	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
 	if err != nil {
 		return err
@@ -86,11 +86,11 @@ func (g *RobotiqGripper) Set(what string, to string) error {
 	return nil
 }
 
-func (g *RobotiqGripper) Get(what string) (string, error) {
+func (g *Gripper) Get(what string) (string, error) {
 	return g.Send(fmt.Sprintf("GET %s\r\n", what))
 }
 
-func (g *RobotiqGripper) read() (string, error) {
+func (g *Gripper) read() (string, error) {
 	buf := make([]byte, 128)
 	x, err := g.conn.Read(buf)
 	if err != nil {
@@ -108,7 +108,7 @@ func (g *RobotiqGripper) read() (string, error) {
 // --------------
 
 // return true iff reached desired position
-func (g *RobotiqGripper) SetPos(pos string) (bool, error) {
+func (g *Gripper) SetPos(pos string) (bool, error) {
 	err := g.Set("POS", pos)
 	if err != nil {
 		return false, err
@@ -141,18 +141,18 @@ func (g *RobotiqGripper) SetPos(pos string) (bool, error) {
 
 }
 
-func (g *RobotiqGripper) Open() error {
+func (g *Gripper) Open() error {
 	_, err := g.SetPos(g.openLimit)
 	return err
 }
 
-func (g *RobotiqGripper) Close() error {
+func (g *Gripper) Close() error {
 	_, err := g.SetPos(g.closeLimit)
 	return err
 }
 
 // return true iff grabbed something
-func (g *RobotiqGripper) Grab() (bool, error) {
+func (g *Gripper) Grab() (bool, error) {
 	res, err := g.SetPos(g.closeLimit)
 	if err != nil {
 		return false, err
@@ -171,7 +171,7 @@ func (g *RobotiqGripper) Grab() (bool, error) {
 	return val == "OBJ 2", nil
 }
 
-func (g *RobotiqGripper) Calibrate() error {
+func (g *Gripper) Calibrate() error {
 	err := g.Open()
 	if err != nil {
 		return err
