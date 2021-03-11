@@ -4,28 +4,28 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-	      "hide" : "true",
+	          "hide" : true,
               "path_pattern" : "usb",
-	      "width" : "1280",
-              "rotate" : "true",
-              "debug" : "true"
+	          "width" : 1280,
+              "rotate" : true,
+              "debug" : true
           }
         },
         { "name" : "front-depth",
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-	      "hide" : "true",
+	          "hide" : true,
               "format" : "Z16",
-	      "width" : "768",
-              "debug" : "true"
+	          "width" : 768,
+              "debug" : true
           }
         },
         { "name" : "front",
           "type" : "camera",
           "model" : "depthComposed",
           "attributes" : {
-	      "hide" : "true",
+	          "hide" : true,
               "color" : "front-color",
               "depth" : "front-depth",
               "make" : "intel515"

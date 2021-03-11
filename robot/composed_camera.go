@@ -12,13 +12,16 @@ import (
 )
 
 func newDepthComposed(r *Robot, config api.Component) (gostream.ImageSource, error) {
-	color := r.CameraByName(config.Attributes["color"])
+	colorName := config.Attributes.GetString("color")
+	color := r.CameraByName(colorName)
 	if color == nil {
-		return nil, fmt.Errorf("cannot find color camera (%s)", config.Attributes["color"])
+		return nil, fmt.Errorf("cannot find color camera (%s)", colorName)
 	}
-	depth := r.CameraByName(config.Attributes["depth"])
+
+	depthName := config.Attributes.GetString("depth")
+	depth := r.CameraByName(depthName)
 	if depth == nil {
-		return nil, fmt.Errorf("cannot find depth camera (%s)", config.Attributes["depth"])
+		return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
 	}
 
 	return rimage.NewDepthComposed(color, depth)
@@ -46,9 +49,9 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 }
 
 func newOverlay(r *Robot, config api.Component) (gostream.ImageSource, error) {
-	source := r.CameraByName(config.Attributes["source"])
+	source := r.CameraByName(config.Attributes.GetString("source"))
 	if source == nil {
-		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes["source"])
+		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.GetString("source"))
 	}
 	return &overlaySource{source}, nil
 

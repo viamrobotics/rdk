@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/api"
 
 	"github.com/sbinet/go-python"
 )
@@ -29,20 +29,20 @@ func (a *Arm) MoveBy(meters float64) error {
 	return nil
 }
 
-func (a *Arm) CurrentPosition() (arm.Position, error) {
-	return arm.Position{}, fmt.Errorf("arm CurrentPosition doesn't work")
+func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
+	return api.ArmPosition{}, fmt.Errorf("arm CurrentPosition doesn't work")
 }
 
-func (a *Arm) MoveToPosition(c arm.Position) error {
+func (a *Arm) MoveToPosition(c api.ArmPosition) error {
 	return fmt.Errorf("arm MoveToPosition doesn't work")
 }
 
-func (a *Arm) MoveToJointPositions(joints arm.JointPositions) error {
+func (a *Arm) MoveToJointPositions(joints api.JointPositions) error {
 	return fmt.Errorf("arm MoveToJointPositions doesn't work")
 }
 
-func (a *Arm) CurrentJointPositions() (arm.JointPositions, error) {
-	return arm.JointPositions{}, fmt.Errorf("arm CurrentJointPositions doesn't work")
+func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
+	return api.JointPositions{}, fmt.Errorf("arm CurrentJointPositions doesn't work")
 }
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {
