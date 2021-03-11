@@ -13,6 +13,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/robots/wx250s"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -302,7 +303,7 @@ func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 		mutex := &sync.Mutex{}
 		for _, grip := range r.Grippers {
 			switch sGrip := grip.(type) {
-			case *gripper.Wx250s:
+			case *wx250s.Gripper:
 				mutex = sGrip.GetMoveLock()
 			}
 		}
@@ -333,7 +334,7 @@ func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripp
 				mutex = sArm.GetMoveLock()
 			}
 		}
-		return gripper.NewWx250s(config.Attributes, mutex)
+		return wx250s.NewGripper(config.Attributes, mutex)
 	case "viam":
 		if len(r.Boards) != 1 {
 			return nil, fmt.Errorf("viam gripper requires exactly 1 board")
