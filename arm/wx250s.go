@@ -9,10 +9,31 @@ import (
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
 
+	"math"
 	"strconv"
 	"sync"
 	"time"
 )
+
+// These are the angles we go to to prepare to turn off torque
+var SleepAngles = map[string]float64{
+	"Waist":       2048,
+	"Shoulder":    840,
+	"Elbow":       3090,
+	"Forearm_rot": 2048,
+	"Wrist":       2509,
+	"Wrist_rot":   2048,
+}
+
+// These are the angles the arm falls into after torque is off
+var OffAngles = map[string]float64{
+	"Waist":       2048,
+	"Shoulder":    795,
+	"Elbow":       3091,
+	"Forearm_rot": 2048,
+	"Wrist":       2566,
+	"Wrist_rot":   2048,
+}
 
 type Wx250s struct {
 	Joints   map[string][]*servo.Servo
@@ -144,9 +165,22 @@ func (a *Wx250s) JointMoveDelta(joint int, amount float64) error {
 
 // Close will get the arm ready to be turned off
 func (a *Wx250s) Close() {
-	err := a.HomePosition()
-	if err != nil {
-		golog.Global.Errorf("Home position error: %s", err)
+	// First, check if we are approximately in the sleep position
+	// If so, we can just turn off torque
+	// If not, let's move through the home position first
+	angles, err := a.GetAllAngles()
+	alreadyAtSleep := true
+	for _, joint := range(a.JointOrder()){
+		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15){
+			fmt.Println(joint, "not within", angles[joint], SleepAngles[joint])
+			alreadyAtSleep = false
+		}
+	}
+	if !alreadyAtSleep{
+		err = a.HomePosition()
+		if err != nil {
+			golog.Global.Errorf("Home position error: %s", err)
+		}
 	}
 	err = a.SleepPosition()
 	if err != nil {
@@ -404,4 +438,11 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) []*servo.Servo {
 	}
 
 	return servos
+}
+
+func within(a, b, c float64) bool{
+	if math.Abs(a - b) <= c {
+		return true
+	}
+	return false
 }
