@@ -1,15 +1,18 @@
 package gripper
 
 import (
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
+
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
 
-	"strconv"
-	"sync"
-	"time"
+	"go.viam.com/robotcore/api"
 )
 
 type Wx250s struct {
@@ -17,8 +20,8 @@ type Wx250s struct {
 	moveLock *sync.Mutex
 }
 
-func NewWx250s(attributes map[string]string, mutex *sync.Mutex) (*Wx250s, error) {
-	jServo := findServo(attributes["usbPort"], attributes["baudRate"])
+func NewWx250s(attributes api.AttributeMap, mutex *sync.Mutex) (*Wx250s, error) {
+	jServo := findServo(attributes.GetString("usbPort"), attributes.GetString("baudRate"))
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}

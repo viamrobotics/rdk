@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/api"
 )
 
 type SerialGripper struct {
@@ -98,7 +100,7 @@ func (sg *SerialGripper) processLine(line string) {
 	golog.Global.Debugf("gripper got response: %s", line)
 }
 
-func NewSerialGripper(port io.ReadWriteCloser) (Gripper, error) {
+func NewSerialGripper(port io.ReadWriteCloser) (api.Gripper, error) {
 	sg := &SerialGripper{}
 	sg.port = port
 

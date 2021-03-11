@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
@@ -48,7 +49,7 @@ func main() {
 		port = int(portParsed)
 	}
 
-	attrs := map[string]string{
+	attrs := api.AttributeMap{
 		"format":       *format,
 		"path":         *path,
 		"path_pattern": *pathPattern,

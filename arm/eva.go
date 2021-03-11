@@ -13,6 +13,8 @@ import (
 
 	"github.com/edaniels/golog"
 	//~ "go.viam.com/robotcore/utils"
+
+	"go.viam.com/robotcore/api"
 )
 
 type evaData struct {
@@ -69,15 +71,15 @@ type eva struct {
 //~ Orientation evaOrientation
 //~ }
 
-func (e *eva) CurrentJointPositions() (JointPositions, error) {
+func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return JointPositions{}, err
+		return api.JointPositions{}, err
 	}
-	return JointPositionsFromRadians(data.ServosPosition), nil
+	return api.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-func (e *eva) CurrentPosition() (Position, error) {
+func (e *eva) CurrentPosition() (api.ArmPosition, error) {
 	//~ data, err := e.DataSnapshot()
 	//~ if err != nil {
 	//~ return Position{}, err
@@ -90,7 +92,7 @@ func (e *eva) CurrentPosition() (Position, error) {
 	setJointTelNums := []float64{}
 	curPos, err := e.CurrentJointPositions()
 	if err != nil {
-		return Position{}, err
+		return api.ArmPosition{}, err
 	}
 	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
 
@@ -114,7 +116,7 @@ func (e *eva) CurrentPosition() (Position, error) {
 	return pos, nil
 }
 
-func (e *eva) MoveToPosition(pos Position) error {
+func (e *eva) MoveToPosition(pos api.ArmPosition) error {
 	pos.X *= 1000
 	pos.Y *= 1000
 	pos.Z *= 1000
@@ -138,12 +140,12 @@ func (e *eva) MoveToPosition(pos Position) error {
 		return err
 	}
 
-	joints := JointPositions{e.kin.GetJointPositions()}
+	joints := api.JointPositions{e.kin.GetJointPositions()}
 
 	return e.MoveToJointPositions(joints)
 }
 
-func (e *eva) MoveToJointPositions(newPositions JointPositions) error {
+func (e *eva) MoveToJointPositions(newPositions api.JointPositions) error {
 	radians := newPositions.Radians()
 
 	err := e.doMoveJoints(radians)
@@ -364,8 +366,8 @@ func (e *eva) apiUnlock() {
 	}
 }
 
-func NewEva(host string, attrs map[string]string) (Arm, error) {
-	kin, err := NewRobot(attrs["modelJSON"], 4)
+func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
+	kin, err := NewRobot(attrs.GetString("modelJSON"), 4)
 	if err != nil {
 		golog.Global.Errorf("Could not initialize kinematics: %s", err)
 	}
@@ -373,7 +375,7 @@ func NewEva(host string, attrs map[string]string) (Arm, error) {
 	e := &eva{
 		host:    host,
 		version: "v1",
-		token:   attrs["token"],
+		token:   attrs.GetString("token"),
 		kin:     kin,
 	}
 

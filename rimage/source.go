@@ -10,6 +10,8 @@ import (
 	"net/http"
 
 	_ "github.com/lmittmann/ppm" // register ppm
+
+	"go.viam.com/robotcore/api" // TODO(erh): remove
 )
 
 type StaticSource struct {
@@ -97,11 +99,11 @@ type IntelServerSource struct {
 	host    string
 }
 
-func NewIntelServerSource(host string, port int, attrs map[string]string) *IntelServerSource {
+func NewIntelServerSource(host string, port int, attrs api.AttributeMap) *IntelServerSource {
 	num := "0"
 	numString, has := attrs["num"]
 	if has {
-		num = numString
+		num = numString.(string)
 	}
 	return &IntelServerSource{fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num), host}
 }

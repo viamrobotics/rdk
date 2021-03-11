@@ -25,8 +25,8 @@ import (
 type Robot struct {
 	Boards []board.Board
 
-	Arms         []arm.Arm
-	Grippers     []gripper.Gripper
+	Arms         []api.Arm
+	Grippers     []api.Gripper
 	Cameras      []gostream.ImageSource
 	LidarDevices []lidar.Device
 	Bases        []base.Device
@@ -86,7 +86,7 @@ func (r *Robot) BoardByName(name string) board.Board {
 	return nil
 }
 
-func (r *Robot) ArmByName(name string) arm.Arm {
+func (r *Robot) ArmByName(name string) api.Arm {
 	for i, c := range r.armComponents {
 		if c.Name == name {
 			return r.Arms[i]
@@ -95,7 +95,7 @@ func (r *Robot) ArmByName(name string) arm.Arm {
 	return nil
 }
 
-func (r *Robot) GripperByName(name string) gripper.Gripper {
+func (r *Robot) GripperByName(name string) api.Gripper {
 	for i, c := range r.gripperComponents {
 		if c.Name == name {
 			return r.Grippers[i]
@@ -136,12 +136,12 @@ func (r *Robot) AddBoard(b board.Board, c board.Config) {
 	r.boardComponents = append(r.boardComponents, c)
 }
 
-func (r *Robot) AddArm(a arm.Arm, c api.Component) {
+func (r *Robot) AddArm(a api.Arm, c api.Component) {
 	r.Arms = append(r.Arms, a)
 	r.armComponents = append(r.armComponents, c)
 }
 
-func (r *Robot) AddGripper(g gripper.Gripper, c api.Component) {
+func (r *Robot) AddGripper(g api.Gripper, c api.Component) {
 	r.Grippers = append(r.Grippers, g)
 	r.gripperComponents = append(r.gripperComponents, c)
 }
@@ -296,7 +296,7 @@ func (r *Robot) newBase(config api.Component) (base.Device, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newArm(config api.Component) (arm.Arm, error) {
+func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 	switch config.Model {
 	case "ur":
 		return arm.URArmConnect(config.Host)
@@ -325,7 +325,7 @@ func (r *Robot) newArm(config api.Component) (arm.Arm, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newGripper(config api.Component, logger golog.Logger) (gripper.Gripper, error) {
+func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripper, error) {
 	switch config.Model {
 	case "robotiq":
 		return gripper.NewRobotiqGripper(config.Host, logger)
@@ -393,10 +393,10 @@ func (r *Robot) newCameraLL(config api.Component) (gostream.ImageSource, error) 
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		return &rimage.HTTPSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+		return &rimage.HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 
 	case "file":
-		return &rimage.FileSource{config.Attributes["color"], config.Attributes["depth"]}, nil
+		return &rimage.FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 
 	case "webcam":
 		return rimage.NewWebcamSource(config.Attributes)
