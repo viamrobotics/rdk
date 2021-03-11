@@ -14,7 +14,7 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
 test:
-	go test -v -coverpkg=./... -coverprofile=coverage.txt -covermode=count ./...
+	go test -v -coverprofile=coverage.txt -covermode=atomic ./...
 
 dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
