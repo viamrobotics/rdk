@@ -5,19 +5,19 @@ import (
 	"os"
 )
 
-type NewAttributeCreator func() interface{}
+type AttributeConverter func(val interface{}) (interface{}, error)
 
 type registered struct {
 	comptype    ComponentType
 	model, attr string
-	f           NewAttributeCreator
+	f           AttributeConverter
 }
 
 var (
 	special = []registered{}
 )
 
-func Register(comptype ComponentType, model, attr string, f NewAttributeCreator) {
+func Register(comptype ComponentType, model, attr string, f AttributeConverter) {
 	special = append(special, registered{comptype, model, attr, f})
 }
 
@@ -54,12 +54,7 @@ func ReadConfig(fn string) (Config, error) {
 
 			r := findRegisterd(c.Type, c.Model, k)
 			if r != nil {
-				n := r.f()
-				js, err := json.Marshal(v)
-				if err != nil {
-					return cfg, err
-				}
-				err = json.Unmarshal(js, n)
+				n, err := r.f(v)
 				if err != nil {
 					return cfg, err
 				}
