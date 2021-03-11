@@ -1,8 +1,9 @@
 <html>
   <head>
     <script>
-      function roverAction(action) {
+      function baseAction(action) {
           var path = "/api/base?" + action + "&speed=" + document.getElementById("speed").value;
+          path = path.replace("DIS", document.getElementById("distance").value);
           makeApiCall(path);
       }
 
@@ -35,7 +36,7 @@
       window.onkeypress = function(k) {
           switch (k.key) {
           case "s":
-              roverAction("stop=true");
+              baseAction("stop=true");
               break;
           }
 
@@ -168,13 +169,14 @@
     <div class="base">
       {{ $b }}
       <ul>
-        <li><button onclick="roverAction('distanceMM=200')">Forward</button></li>
-        <li><button onclick="roverAction('distanceMM=-200')">Backward</button></li>
-        <li><button onclick="roverAction('angle=15')">Spin Clockwise</button></li>
-        <li><button onclick="roverAction('angle=-15')">Spin Counterclockwise</button></li>
+        <li><button onclick="baseAction('distanceMillis=DIS')">Forward</button></li>
+        <li><button onclick="baseAction('distanceMillis=-DIS')">Backward</button></li>
+        <li><button onclick="baseAction('angle=15')">Spin Clockwise</button></li>
+        <li><button onclick="baseAction('angle=-15')">Spin Counterclockwise</button></li>
       </ul>
 
-      Speed (mm per sec): <input id="speed" name="speed" value="500"/><br>
+      Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
+      Distances (mm): <input id="distance" name="speed" value="500"/><br>
     </div>
     {{ end }}
 
