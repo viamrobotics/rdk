@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/lidar"
@@ -29,7 +28,7 @@ type Robot struct {
 	Grippers     []api.Gripper
 	Cameras      []gostream.ImageSource
 	LidarDevices []lidar.Device
-	Bases        []base.Device
+	Bases        []api.Base
 	providers    []api.Provider
 
 	boardComponents    []board.Config
@@ -153,7 +152,7 @@ func (r *Robot) AddLidar(device lidar.Device, c api.Component) {
 	r.LidarDevices = append(r.LidarDevices, device)
 	r.lidarComponents = append(r.lidarComponents, c)
 }
-func (r *Robot) AddBase(b base.Device, c api.Component) {
+func (r *Robot) AddBase(b api.Base, c api.Component) {
 	r.Bases = append(r.Bases, b)
 	r.baseComponents = append(r.baseComponents, c)
 }
@@ -280,7 +279,7 @@ func (r *Robot) newProvider(config api.Component) (api.Provider, error) {
 }
 
 // TODO(erd): prefer registration pattern
-func (r *Robot) newBase(config api.Component) (base.Device, error) {
+func (r *Robot) newBase(config api.Component) (api.Base, error) {
 	switch config.Model {
 	case fake.ModelName:
 		return &fake.Base{}, nil

@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	"go.uber.org/multierr"
-	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/base/augment"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
@@ -165,7 +165,7 @@ func runSlam(params runParams) (err error) {
 		return err
 	}
 
-	var baseDevice base.Device
+	var baseDevice api.Base
 	switch params.baseType {
 	case fakeDev:
 		baseDevice = &fake.Base{}
