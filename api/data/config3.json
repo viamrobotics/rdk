@@ -7,6 +7,7 @@
               "foo" : 5,
               "foo2" : true,
               "foo3" : false,
+              "foo4" : "no",
               "bar" : {
                   "x" : 6,
                   "y" : "eliot"
