@@ -9,12 +9,9 @@
 
 ## Packages
 
-* [api](./api) - Robot API - that combines all the pieces of a robot (arms, grippers, cameras, etc...)
+* [api](./api) - Robot, Arm, Base, Gripper API and Configuration
 * [arduino](./arduino) - Custom Arduino libraries
-* [arm](./arm) - Robot Arm API and implementations
-* [base](./base) - Robot Base API (things that move) and implementations
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
-* [gripper](./gripper) - API and implementations of various grippers
 * [kinematics](./kinematics) - Kinematics library
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
@@ -22,8 +19,9 @@
 * [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data
 * [robot](./robot) - Implementation of ([api](./api))
   * [web](./robot/web) - Web server for using robots
-* [robots](./robots) - Implementations of specific robots
+* [robots](./robots) - Implementations of specific robots, arms, grippers
 * [sensor](./sensor) - Various sensor APIs
+  * [compass](./sensor/compass) - Compass and ways to use for spinning
 * [serial](./serial) - Serial connection tools
 * [slam](./slam) - SLAM!
 * [testutils](./testutils)
