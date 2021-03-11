@@ -114,7 +114,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
 		return image.Point{5, 5}, nil
 	}
-	injectBase := &inject.Base{Device: baseDevice}
+	injectBase := &inject.Base{Base: baseDevice}
 	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 0, err1
 	}
