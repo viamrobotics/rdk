@@ -26,7 +26,7 @@ func ContextualMain(main func(ctx context.Context, args []string) error, args []
 
 func contextualMain(main func(ctx context.Context, args []string) error, args []string) ContextualMainExecution {
 	ctx, stop := context.WithCancel(context.Background())
-	quitC := make(chan os.Signal, 1)
+	quitC := make(chan os.Signal)
 	ctx = utils.ContextWithQuitSignal(ctx, quitC)
 	readyC := make(chan struct{}, 1)
 	ctx = utils.ContextWithReadyFunc(ctx, readyC)
