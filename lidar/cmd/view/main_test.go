@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/robotcore/testutils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
@@ -17,7 +18,7 @@ func TestMain(t *testing.T) {
 		{"no args", nil, ""},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			logger = testutils.NewLogger(t)
+			logger = golog.NewTestLogger(t)
 			exec := testutils.ContextualMain(mainWithArgs, tc.Args)
 			<-exec.Ready
 			exec.Stop()
