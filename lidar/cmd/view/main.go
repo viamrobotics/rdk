@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"go.uber.org/multierr"
@@ -31,11 +29,19 @@ import (
 const fakeDev = "fake"
 
 func main() {
+	utils.ContextualMain(mainWithArgs)
+}
+
+func mainWithArgs(ctx context.Context, args []string) error {
+	cmdLine := flag.NewFlagSet(args[0], flag.ContinueOnError)
+
 	var addressFlags utils.StringFlags
-	flag.Var(&addressFlags, "device", "lidar devices")
+	cmdLine.Var(&addressFlags, "device", "lidar devices")
 	var saveToDisk string
-	flag.StringVar(&saveToDisk, "save", "", "save data to disk (LAS)")
-	flag.Parse()
+	cmdLine.StringVar(&saveToDisk, "save", "", "save data to disk (LAS)")
+	if err := cmdLine.Parse(args[1:]); err != nil {
+		return err
+	}
 
 	port := 5555
 	if flag.NArg() >= 1 {
@@ -87,12 +93,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := viewLidar(port, deviceDescs, saveToDisk); err != nil {
+	if err := viewLidar(ctx, port, deviceDescs, saveToDisk); err != nil {
 		golog.Global.Fatal(err)
 	}
+	return nil
 }
 
-func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) (err error) {
+func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) (err error) {
 	lidarDevices, err := lidar.CreateDevices(context.Background(), deviceDescs)
 	if err != nil {
 		return err
@@ -150,22 +157,6 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 		return err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		cancelFunc()
-		if saveToDisk != "" {
-			if err := lar.Stop(); err != nil {
-				golog.Global.Errorw("error stopping location aware robot", "error", err)
-			}
-			if err := area.WriteToFile(saveToDisk); err != nil {
-				golog.Global.Errorw("error saving to disk", err)
-			}
-		}
-	}()
-
 	autoTiler := gostream.NewAutoTiler(800, 600)
 	for _, dev := range lidarDevices {
 		autoTiler.AddSource(lidar.NewImageSource(dev))
@@ -193,12 +184,12 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 		defer close(compassDone)
 		for {
 			select {
-			case <-cancelCtx.Done():
+			case <-ctx.Done():
 				return
 			default:
 			}
 			time.Sleep(time.Second)
-			heading, err := lidarCompass.Heading(cancelCtx)
+			heading, err := lidarCompass.Heading(ctx)
 			if err != nil {
 				golog.Global.Errorw("failed to get lidar compass heading", "error", err)
 				continue
@@ -206,30 +197,43 @@ func viewLidar(port int, deviceDescs []lidar.DeviceDescription, saveToDisk strin
 			golog.Global.Infow("heading", "data", heading)
 		}
 	}()
-	quitC := make(chan os.Signal, 2)
-	signal.Notify(quitC, os.Interrupt, syscall.SIGQUIT)
-	markDone := make(chan struct{})
-	go func() {
-		defer close(markDone)
-		for {
-			select {
-			case <-cancelCtx.Done():
-				return
-			case <-quitC:
-			}
-			golog.Global.Debug("marking")
-			if err := lidarCompass.Mark(cancelCtx); err != nil {
-				golog.Global.Errorw("error marking", "error", err)
-				continue
-			}
-			golog.Global.Debug("marked")
-		}
-	}()
 
-	gostream.StreamSource(cancelCtx, autoTiler, remoteView)
+	markDone := make(chan struct{})
+	if signaler := utils.ContextMainQuitSignal(ctx); signaler != nil {
+		go func() {
+			defer close(markDone)
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-signaler:
+				}
+				golog.Global.Debug("marking")
+				if err := lidarCompass.Mark(ctx); err != nil {
+					golog.Global.Errorw("error marking", "error", err)
+					continue
+				}
+				golog.Global.Debug("marked")
+			}
+		}()
+	} else {
+		close(markDone)
+	}
+
+	utils.ContextMainReadyFunc(ctx)()
+
+	gostream.StreamSource(ctx, autoTiler, remoteView)
 
 	err = server.Stop(context.Background())
 	<-compassDone
 	<-markDone
+	if saveToDisk != "" {
+		if err := lar.Stop(); err != nil {
+			golog.Global.Errorw("error stopping location aware robot", "error", err)
+		}
+		if err := area.WriteToFile(saveToDisk); err != nil {
+			golog.Global.Errorw("error saving to disk", err)
+		}
+	}
 	return err
 }
