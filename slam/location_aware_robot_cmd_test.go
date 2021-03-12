@@ -45,8 +45,8 @@ func TestCommands(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		sizeMeters, scaleTo := th.bot.rootArea.Size()
-		sq, err := NewSquareAreaFromFile(temp.Name(), sizeMeters, scaleTo)
+		sizeMeters, unitsPerMeter := th.bot.rootArea.Size()
+		sq, err := NewSquareAreaFromFile(temp.Name(), sizeMeters, unitsPerMeter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sq, test.ShouldResemble, th.bot.rootArea)
 	})
@@ -206,7 +206,7 @@ func TestCommands(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
 		test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
-		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis))
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis))
 		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 
 		for i := 0; i < 23; i++ {
@@ -217,7 +217,7 @@ func TestCommands(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, string(resp.Data()), test.ShouldContainSubstring, "right")
 			test.That(t, th.bot.orientation(), test.ShouldEqual, 90)
-			test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*(2+i))
+			test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i))
 			test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 		}
 
@@ -227,12 +227,12 @@ func TestCommands(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
-		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*24)
+		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*24)
 		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY)
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			test.That(t, area.Set(th.bot.basePosX+(th.bot.baseDeviceWidthScaled/2)+1, th.bot.basePosY, 3), test.ShouldBeNil)
+			test.That(t, area.Set(th.bot.basePosX+(th.bot.baseDeviceWidthUnits/2)+1, th.bot.basePosY, 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMove,
@@ -255,7 +255,7 @@ func TestCommands(t *testing.T) {
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forward")
 		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis))
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis))
 
 		for i := 0; i < 23; i++ {
 			resp, err = th.cmdReg.Process(&gostream.Command{
@@ -265,7 +265,7 @@ func TestCommands(t *testing.T) {
 			test.That(t, string(resp.Data()), test.ShouldContainSubstring, "forward")
 			test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 			test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-			test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*(2+i))
+			test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i))
 		}
 
 		_, err = th.cmdReg.Process(&gostream.Command{
@@ -275,11 +275,11 @@ func TestCommands(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
 		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*24)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY+th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*24)
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+(th.bot.baseDeviceWidthScaled/2)+1, 3), test.ShouldBeNil)
+			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+(th.bot.baseDeviceWidthUnits/2)+1, 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveForward,
@@ -302,7 +302,7 @@ func TestCommands(t *testing.T) {
 		test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backward")
 		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis))
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis))
 
 		for i := 0; i < 24; i++ {
 			resp, err = th.cmdReg.Process(&gostream.Command{
@@ -312,7 +312,7 @@ func TestCommands(t *testing.T) {
 			test.That(t, string(resp.Data()), test.ShouldContainSubstring, "backward")
 			test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 			test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-			test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*(2+i))
+			test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i))
 		}
 
 		_, err = th.cmdReg.Process(&gostream.Command{
@@ -322,11 +322,11 @@ func TestCommands(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "stuck")
 		test.That(t, th.bot.orientation(), test.ShouldEqual, orgOrientation)
 		test.That(t, th.bot.basePosX, test.ShouldEqual, origPosX)
-		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToScaledUnit(defaultClientMoveAmountMillis)*25)
+		test.That(t, th.bot.basePosY, test.ShouldEqual, origPosY-th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*25)
 
 		th.ResetPos()
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthScaled/2)+1), 3), test.ShouldBeNil)
+			test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthUnits/2)+1), 3), test.ShouldBeNil)
 		})
 		_, err = th.cmdReg.Process(&gostream.Command{
 			Name: commandRobotMoveBackward,
