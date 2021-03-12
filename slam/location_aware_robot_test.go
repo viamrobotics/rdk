@@ -34,13 +34,13 @@ func newTestHarness(t *testing.T) *testHarness {
 	return newTestHarnessWithLidarAndSize(t, nil, 10, 100)
 }
 
-func newTestHarnessWithSize(t *testing.T, meters, scale int) *testHarness {
-	return newTestHarnessWithLidarAndSize(t, nil, meters, scale)
+func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter int) *testHarness {
+	return newTestHarnessWithLidarAndSize(t, nil, meters, unitsPerMeter)
 }
 
-func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, scale int) *testHarness {
+func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter int) *testHarness {
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(meters, scale)
+	area, err := NewSquareArea(meters, unitsPerMeter)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
@@ -198,22 +198,22 @@ func TestMove(t *testing.T) {
 		{"rotate left and move forward too far", intPtr(20000), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
 		{"cannot collide up", intPtr(200), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+((th.bot.baseDeviceWidthScaled/2)+1), 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+((th.bot.baseDeviceWidthUnits/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide down", intPtr(200), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthScaled/2)+1), 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthUnits/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide left", intPtr(200), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX-((th.bot.baseDeviceWidthScaled/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX-((th.bot.baseDeviceWidthUnits/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
 		{"cannot collide right", intPtr(200), dirPtr(DirectionRight), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
-				test.That(t, area.Set(th.bot.basePosX+((th.bot.baseDeviceWidthScaled/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
+				test.That(t, area.Set(th.bot.basePosX+((th.bot.baseDeviceWidthUnits/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
 		{"unknown direction", intPtr(200), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
@@ -288,7 +288,7 @@ func TestRobotAreasToView(t *testing.T) {
 	test.That(t, expected, test.ShouldBeEmpty)
 }
 
-func TestRobotMillimetersToScaledUnit(t *testing.T) {
+func TestRobotMillimetersToMeasuredUnit(t *testing.T) {
 	for i, tc := range []struct {
 		millis   int
 		expected int
@@ -307,7 +307,7 @@ func TestRobotMillimetersToScaledUnit(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
-			test.That(t, th.bot.millimetersToScaledUnit(tc.millis), test.ShouldEqual, tc.expected)
+			test.That(t, th.bot.millimetersToMeasuredUnit(tc.millis), test.ShouldEqual, tc.expected)
 		})
 	}
 }

@@ -19,9 +19,9 @@ func TestNewSquareArea(t *testing.T) {
 
 	test.That(t, sa.Dim(), test.ShouldEqual, 1000)
 	test.That(t, sa.QuadrantLength(), test.ShouldEqual, 500)
-	sizeMeters, scale := sa.Size()
+	sizeMeters, unitsPerMeter := sa.Size()
 	test.That(t, sizeMeters, test.ShouldEqual, 100)
-	test.That(t, scale, test.ShouldEqual, 10)
+	test.That(t, unitsPerMeter, test.ShouldEqual, 10)
 }
 
 func TestSquareAreaWriteToFile(t *testing.T) {
@@ -108,16 +108,16 @@ func TestSquareArea(t *testing.T) {
 	newSA, err := sa.BlankCopy()
 	test.That(t, err, test.ShouldBeNil)
 
-	sizeMeters, scale := sa.Size()
+	sizeMeters, unitsPerMeter := sa.Size()
 	areaDim := sa.Dim()
 	quadLen := sa.QuadrantLength()
 
-	newSizeMeters, newScale := newSA.Size()
+	newSizeMeters, newUnitsPerMeter := newSA.Size()
 	newAreaDim := newSA.Dim()
 	newQuadLen := newSA.QuadrantLength()
 
 	test.That(t, sizeMeters, test.ShouldEqual, newSizeMeters)
-	test.That(t, scale, test.ShouldEqual, newScale)
+	test.That(t, newUnitsPerMeter, test.ShouldEqual, unitsPerMeter)
 	test.That(t, areaDim, test.ShouldEqual, newAreaDim)
 	test.That(t, quadLen, test.ShouldResemble, newQuadLen)
 	test.That(t, newSA.cloud.Size(), test.ShouldEqual, 0)

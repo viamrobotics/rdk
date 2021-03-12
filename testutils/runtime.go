@@ -34,7 +34,7 @@ func contextualMain(main func(ctx context.Context, args []string) error, args []
 	doneC := make(chan error, 1)
 
 	go func() {
-		// if main is not a daemon like function, just be "ready"
+		// if main is not a daemon like function or does not error out, just be "ready"
 		// after execution is complete.
 		defer readyF()
 		doneC <- main(ctx, append([]string{"main"}, args...))

@@ -7,6 +7,7 @@ import (
 	"image"
 	"math/rand"
 	"strconv"
+	"strings"
 	"sync"
 
 	"go.viam.com/robotcore/lidar"
@@ -17,7 +18,8 @@ const LidarDeviceType = "fake"
 func init() {
 	lidar.RegisterDeviceType(LidarDeviceType, lidar.DeviceTypeRegistration{
 		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			seed, err := strconv.ParseInt(desc.Path, 10, 64)
+			path := strings.TrimPrefix(desc.Path, "fake-")
+			seed, err := strconv.ParseInt(path, 10, 64)
 			if err != nil {
 				return nil, err
 			}

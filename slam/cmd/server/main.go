@@ -158,8 +158,8 @@ func parseFlags() (runParams, error) {
 
 func runSlam(params runParams) (err error) {
 	areaSizeMeters := 50
-	areaScale := 100 // cm
-	area, err := slam.NewSquareArea(areaSizeMeters, areaScale)
+	unitsPerMeter := 100 // cm
+	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter)
 	if err != nil {
 		return err
 	}

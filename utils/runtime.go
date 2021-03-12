@@ -70,9 +70,8 @@ func ContextWithReadyFunc(ctx context.Context, c chan<- struct{}) context.Contex
 	})
 }
 
-// ContextMainReadyFunc returns a signal channel for indicating readiness. This
-// is intended for main functions that block forever (e.g. daemons). It may
-// be nil if the value was never set.
+// ContextMainReadyFunc returns a function for indicating readiness. This
+// is intended for main functions that block forever (e.g. daemons).
 func ContextMainReadyFunc(ctx context.Context) func() {
 	signaler := ctx.Value(ctxKeyReadyFunc)
 	if signaler == nil {

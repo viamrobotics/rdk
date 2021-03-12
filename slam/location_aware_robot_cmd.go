@@ -273,9 +273,8 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 	case clientClickModeInfo:
 		_, bounds, areas := lar.areasToView()
 
-		_, scaleDown := areas[0].Size()
-		bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleDown) / lar.clientZoom))
-		bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleDown) / lar.clientZoom))
+		bounds.X = int(math.Ceil(float64(bounds.X) * float64(lar.unitsPerMeter) / lar.clientZoom))
+		bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(lar.unitsPerMeter) / lar.clientZoom))
 
 		basePosX, basePosY := lar.basePos()
 		minX := basePosX - bounds.X/2
@@ -286,7 +285,7 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 
 		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
 		distanceCenter := int(distanceCenterF)
-		frontY := basePosY - lar.baseDeviceWidthScaled/2
+		frontY := basePosY - lar.baseDeviceWidthUnits/2
 		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
 
 		xForAngle := (areaX - basePosX)
