@@ -21,10 +21,6 @@ import (
 )
 
 func TestMain(t *testing.T) {
-	randomPort, err := utils.TryReserveRandomPort()
-	test.That(t, err, test.ShouldBeNil)
-	defaultPort = randomPort
-
 	lidar.RegisterDeviceType("fail_info", lidar.DeviceTypeRegistration{
 		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
@@ -63,35 +59,38 @@ func TestMain(t *testing.T) {
 	})
 
 	for _, tc := range []struct {
-		Name         string
-		Args         []string
-		ExpectedPort int
-		Err          string
-		During       func(exec *testutils.ContextualMainExecution)
-		After        func(t *testing.T, logs *observer.ObservedLogs)
+		Name   string
+		Args   []string
+		Err    string
+		During func(exec *testutils.ContextualMainExecution)
+		After  func(t *testing.T, logs *observer.ObservedLogs)
 	}{
 		// parsing
-		// {"no args", nil, defaultPort, "", nil, nil},
-		{"bad port", []string{"ten"}, 0, "invalid syntax", nil, nil},
-		{"too big port", []string{"65536"}, 0, "out of range", nil, nil},
-		{"unknown named arg", []string{"--unknown"}, 0, "not defined", nil, nil},
-		{"bad device", []string{"--device=foo"}, 0, "format", nil, nil},
+		{"no args", nil, "", nil, nil},
+		{"bad port", []string{"ten"}, "invalid syntax", nil, nil},
+		{"too big port", []string{"65536"}, "out of range", nil, nil},
+		{"unknown named arg", []string{"--unknown"}, "not defined", nil, nil},
+		{"bad device", []string{"--device=foo"}, "format", nil, nil},
 
 		// viewing
-		{"bad device", []string{"--device=foo,blah"}, 0, "do not know how", nil, nil},
-		{"bad device info", []string{"--device=fail_info,zero"}, 0, "whoops", nil, nil},
-		{"bad device width", []string{"--device=fail_width,zero", "--save=somewhere"}, 0, "whoops", nil, nil},
-		{"bad device ang res", []string{"--device=fail_ang,zero"}, 0, "whoops", nil, nil},
-		{"bad device stop", []string{"--device=fail_stop,zero"}, 0, "whoops", nil, nil},
-		// {"bad save path", []string{"--save=/"}, 0, "is a directory", nil, nil},
-		// {"heading", nil, defaultPort, "", func(exec *testutils.ContextualMainExecution) {
-		// 	exec.QuitSignal()
-		// 	exec.QuitSignal()
-		// }, func(t *testing.T, logs *observer.ObservedLogs) {
-		// 	fmt.Println(logs.All())
-		// }},
+		{"bad device type", []string{"--device=foo,blah"}, "do not know how", nil, nil},
+		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", nil, nil},
+		{"bad device width", []string{"--device=fail_width,zero", "--save=somewhere"}, "whoops", nil, nil},
+		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", nil, nil},
+		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", nil, nil},
+		{"bad save path", []string{"--save=/"}, "is a directory", nil, nil},
+		{"heading", nil, "", func(exec *testutils.ContextualMainExecution) {
+			exec.QuitSignal()
+			exec.QuitSignal()
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			fmt.Println(logs.All())
+		}},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
+			randomPort, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+			defaultPort = randomPort
+
 			var logs *observer.ObservedLogs
 			logger, logs = golog.NewObservedTestLogger(t)
 			exec := testutils.ContextualMain(mainWithArgs, tc.Args)
@@ -101,7 +100,7 @@ func TestMain(t *testing.T) {
 				tc.During(&exec)
 			}
 			if tc.Err == "" {
-				req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d", tc.ExpectedPort), nil)
+				req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d", defaultPort), nil)
 				test.That(t, err, test.ShouldBeNil)
 				resp, err := http.DefaultClient.Do(req)
 				test.That(t, err, test.ShouldBeNil)
