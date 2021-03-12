@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/robotcore/lidar"
@@ -100,7 +102,9 @@ func TestMain(t *testing.T) {
 				tc.During(&exec)
 			}
 			if tc.Err == "" {
-				req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d", defaultPort), nil)
+				hostPort := fmt.Sprintf("localhost:%d", defaultPort)
+				test.That(t, waitDial(hostPort), test.ShouldBeNil)
+				req, err := http.NewRequest("GET", "http://"+hostPort, nil)
 				test.That(t, err, test.ShouldBeNil)
 				resp, err := http.DefaultClient.Do(req)
 				test.That(t, err, test.ShouldBeNil)
@@ -118,5 +122,24 @@ func TestMain(t *testing.T) {
 				tc.After(t, logs)
 			}
 		})
+	}
+}
+
+func waitDial(address string) error {
+	const waitDur = 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), waitDur)
+	lastErr := errors.New("timed out dialing")
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return lastErr
+		default:
+		}
+		var conn net.Conn
+		conn, lastErr = net.Dial("tcp", address)
+		if lastErr == nil {
+			return conn.Close()
+		}
 	}
 }
