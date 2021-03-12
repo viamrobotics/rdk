@@ -1,4 +1,4 @@
-package arm
+package eva
 
 import (
 	"bytes"
@@ -49,27 +49,8 @@ type eva struct {
 	token        string
 	sessionToken string
 
-	kin      *Kinematics
 	moveLock sync.Mutex
 }
-
-//~ type evaPosition struct {
-//~ X float64 `json:"x"`
-//~ Y float64 `json:"y"`
-//~ Z float64 `json:"z"`
-//~ }
-
-//~ type evaOrientation struct {
-//~ W float64 `json:"w"`
-//~ X float64 `json:"x"`
-//~ Y float64 `json:"y"`
-//~ Z float64 `json:"z"`
-//~ }
-
-//~ type evaKinematics struct {
-//~ Position    evaPosition
-//~ Orientation evaOrientation
-//~ }
 
 func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
 	data, err := e.DataSnapshot()
@@ -80,69 +61,11 @@ func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
 }
 
 func (e *eva) CurrentPosition() (api.ArmPosition, error) {
-	//~ data, err := e.DataSnapshot()
-	//~ if err != nil {
-	//~ return Position{}, err
-	//~ }
-
-	//~ fk, err := e.apiCalcForwardKinematics(data.ServosPosition)
-	//~ if err != nil {
-	//~ return Position{}, err
-	//~ }
-	setJointTelNums := []float64{}
-	curPos, err := e.CurrentJointPositions()
-	if err != nil {
-		return api.ArmPosition{}, err
-	}
-	setJointTelNums = append(setJointTelNums, curPos.Degrees[0:6]...)
-
-	e.kin.SetJointPositions(setJointTelNums)
-	pos := e.kin.GetForwardPosition()
-
-	//~ pos := Position{}
-	//~ pos.X = fk.Position.X
-	//~ pos.Y = fk.Position.Y
-	//~ pos.Z = fk.Position.Z
-
-	// TODO(erh): finish orientation stuff
-	//~ pos.Rx = utils.RadToDeg(fk.Orientation.X)
-	//~ pos.Ry = utils.RadToDeg(fk.Orientation.Y)
-	//~ pos.Rz = utils.RadToDeg(fk.Orientation.Z)
-
-	//~ golog.Global.Debugf("W: %v", fk.Orientation.W)
-	pos.X /= 1000
-	pos.Y /= 1000
-	pos.Z /= 1000
-	return pos, nil
+	return api.ArmPosition{}, fmt.Errorf("eve low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToPosition(pos api.ArmPosition) error {
-	pos.X *= 1000
-	pos.Y *= 1000
-	pos.Z *= 1000
-	//~ k := evaKinematics{}
-	//~ k.Position.X = pos.X
-	//~ k.Position.Y = pos.Y
-	//~ k.Position.Z = pos.Z
-
-	//~ k.Orientation.W = 1
-	//~ k.Orientation.X = utils.DegToRad(pos.Rx)
-	//~ k.Orientation.Y = utils.DegToRad(pos.Ry)
-	//~ k.Orientation.Z = utils.DegToRad(pos.Rz)
-
-	//~ joints, err := e.apiCalcInverseKinematics(k)
-	//~ if err != nil {
-	//~ return err
-	//~ }
-
-	err := e.kin.SetForwardPosition(pos)
-	if err != nil {
-		return err
-	}
-
-	joints := api.JointPositions{e.kin.GetJointPositions()}
-
-	return e.MoveToJointPositions(joints)
+	return fmt.Errorf("eve low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToJointPositions(newPositions api.JointPositions) error {
@@ -301,10 +224,6 @@ func (e *eva) DataSnapshot() (evaData, error) {
 	return res.Snapshot, err
 }
 
-func (e *eva) GetKinematics() *Kinematics {
-	return e.kin
-}
-
 func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	body := map[string]interface{}{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
 	err := e.apiRequest("POST", "controls/go_to", &body, true, nil)
@@ -319,42 +238,6 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	return nil
 }
 
-//~ func (e *eva) apiCalcForwardKinematics(joints []float64) (evaKinematics, error) {
-//~ body := map[string]interface{}{"joints": joints}
-//~ type Temp struct {
-//~ Fk evaKinematics
-//~ }
-//~ res := &Temp{}
-//~ err := e.apiRequest("PUT", "calc/forward_kinematics", body, true, &res)
-//~ return res.Fk, err
-//~ }
-
-//~ func (e *eva) apiCalcInverseKinematics(k evaKinematics) ([]float64, error) {
-//~ body := map[string]interface{}{"guess": []float64{0, 0, 0, 0, 0, 0}, "position": k.Position, "orientation": k.Orientation}
-
-//~ type Temp1 struct {
-//~ Joints []float64
-//~ Result string
-//~ Error  interface{}
-//~ }
-
-//~ type Temp struct {
-//~ Ik Temp1
-//~ }
-//~ res := &Temp{}
-
-//~ err := e.apiRequest("PUT", "calc/inverse_kinematics", &body, true, &res)
-//~ if err != nil {
-//~ return nil, err
-//~ }
-
-//~ if res.Ik.Result != "success" {
-//~ return nil, fmt.Errorf("inverse_kinematics failure %v to %v", res.Ik, k)
-//~ }
-
-//~ return res.Ik.Joints, nil
-//~ }
-
 func (e *eva) apiLock() error {
 	return e.apiRequest("POST", "controls/lock", nil, true, nil)
 }
@@ -367,16 +250,10 @@ func (e *eva) apiUnlock() {
 }
 
 func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
-	kin, err := NewRobot(attrs.GetString("modelJSON"), 4)
-	if err != nil {
-		golog.Global.Errorf("Could not initialize kinematics: %s", err)
-	}
-
 	e := &eva{
 		host:    host,
 		version: "v1",
 		token:   attrs.GetString("token"),
-		kin:     kin,
 	}
 
 	name, err := e.apiName()
