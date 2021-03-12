@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/ioutil"
 	"math"
 	"net/http"
+	"os"
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
@@ -57,6 +61,24 @@ func TestMain(t *testing.T) {
 			return dev, nil
 		},
 	})
+	lidar.RegisterDeviceType("fail_scan", lidar.DeviceTypeRegistration{
+		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+			var once bool
+			dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+				if once {
+					return nil, errors.New("whoops")
+				}
+				once = true
+				return lidar.Measurements{}, nil
+			}
+			return dev, nil
+		},
+	})
+
+	temp, err := ioutil.TempFile("", "*.las")
+	test.That(t, err, test.ShouldBeNil)
+	defer os.Remove(temp.Name())
 
 	for _, tc := range []struct {
 		Name   string
@@ -81,9 +103,26 @@ func TestMain(t *testing.T) {
 		{"bad save path", []string{"--save=/"}, "is a directory", nil, nil},
 		{"heading", nil, "", func(exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal()
+			time.Sleep(2 * time.Second)
 			exec.QuitSignal()
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
-			fmt.Println(logs.All())
+			test.That(t, logs.FilterMessageSnippet("marking").All(), test.ShouldHaveLength, 2)
+			test.That(t, logs.FilterMessageSnippet("marked").All(), test.ShouldHaveLength, 2)
+			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}},
+		{"heading fail", []string{"--device=fail_scan,zero"}, "", func(exec *testutils.ContextualMainExecution) {
+			exec.QuitSignal()
+			time.Sleep(2 * time.Second)
+			exec.QuitSignal()
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			test.That(t, len(logs.FilterMessageSnippet("failed").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			test.That(t, len(logs.FilterMessageSnippet("error marking").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}},
+		{"saving", []string{"--save=" + temp.Name()}, "", func(exec *testutils.ContextualMainExecution) {
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			pc, err := pointcloud.NewFromFile(temp.Name())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pc.Size(), test.ShouldNotBeZeroValue)
 		}},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -112,10 +151,10 @@ func TestMain(t *testing.T) {
 			err = <-exec.Done
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
-				return
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			}
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
 			if tc.After != nil {
 				tc.After(t, logs)
 			}

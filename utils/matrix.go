@@ -11,6 +11,9 @@ import (
 type Vec2Matrix mat.Dense
 
 func (v2m *Vec2Matrix) RotateMatrixAbout(x, y, theta float64) *Vec2Matrix {
+	if (*mat.Dense)(v2m).IsEmpty() {
+		return v2m
+	}
 	thetaRad := DegToRad(AntiCWDeg(theta))
 	rot := vec2RotationMatrixAbout(x, y, thetaRad)
 	var rotated mat.Dense
