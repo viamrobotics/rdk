@@ -194,6 +194,9 @@ func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
 		case "RandomWalk":
 			go actions.RandomWalk(theRobot, 60)
 			return map[string]interface{}{"started": true}, nil
+		case "ResetBox":
+			go actions.ResetBox(theRobot, 4)
+			return map[string]interface{}{"started": true}, nil
 		default:
 			return nil, fmt.Errorf("unknown action name [%s]", name)
 		}
@@ -573,11 +576,11 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) 
 	}
 
 	// start background threads
-	tilerHeight := 720
+	tilerHeight := 480
 	if len(theRobot.Cameras) > 0 {
 		tilerHeight *= len(theRobot.Cameras)
 	}
-	autoCameraTiler := gostream.NewAutoTiler(1280, tilerHeight)
+	autoCameraTiler := gostream.NewAutoTiler(640, tilerHeight)
 	autoCameraTiler.SetLogger(golog.Global)
 	if len(theRobot.Cameras) > 0 {
 		for _, cam := range theRobot.Cameras {
