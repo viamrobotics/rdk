@@ -6,10 +6,10 @@ import (
 	"sync"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/robots/eva"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/robots/robotiq"
@@ -300,7 +300,7 @@ func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 	case "ur":
 		return universalrobots.URArmConnect(config.Host)
 	case "eva":
-		return arm.NewEva(config.Host, config.Attributes)
+		return eva.NewEva(config.Host, config.Attributes)
 	case "wx250s":
 		mutex := &sync.Mutex{}
 		for _, grip := range r.Grippers {
@@ -309,7 +309,7 @@ func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 				mutex = sGrip.GetMoveLock()
 			}
 		}
-		return arm.NewWx250s(config.Attributes, mutex)
+		return wx250s.NewArm(config.Attributes, mutex)
 	case fake.ModelName:
 		return &fake.Arm{}, nil
 	case hellorobot.ModelName:
@@ -332,7 +332,7 @@ func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripp
 		mutex := &sync.Mutex{}
 		for _, thisArm := range r.Arms {
 			switch sArm := thisArm.(type) {
-			case *arm.Wx250s:
+			case *wx250s.Arm:
 				mutex = sArm.GetMoveLock()
 			}
 		}
