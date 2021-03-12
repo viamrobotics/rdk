@@ -1,0 +1,13 @@
+{
+    "components" : [
+        { "name" : "eva-1",
+          "type": "arm",
+          "model": "eva",
+          "host" : "10.237.115.3",
+          "attributes" : {
+              "token" : "${eva_token}",
+              "modelJSON" : "kinematics/models/mdl/eva.json"
+          }
+        }
+    ]
+}
