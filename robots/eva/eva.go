@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	//~ "go.viam.com/robotcore/utils"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/kinematics"
 )
 
 type evaData struct {
@@ -61,11 +61,11 @@ func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
 }
 
 func (e *eva) CurrentPosition() (api.ArmPosition, error) {
-	return api.ArmPosition{}, fmt.Errorf("eve low level doesn't support kinematics")
+	return api.ArmPosition{}, fmt.Errorf("eva low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToPosition(pos api.ArmPosition) error {
-	return fmt.Errorf("eve low level doesn't support kinematics")
+	return fmt.Errorf("eva low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToJointPositions(newPositions api.JointPositions) error {
@@ -263,12 +263,5 @@ func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
 
 	golog.Global.Debugf("connected to eva: %v", name)
 
-	if true {
-		_, err := e.CurrentPosition()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return e, nil
+	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4)
 }
