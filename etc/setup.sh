@@ -16,8 +16,8 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
-  if [ ! -d "/Applications/Xcode.app" ]; then
-    echo "You need to install Xcode"
+  if [ ! -d "/Library/Developer/CommandLineTools" ]; then
+    echo "You need to install Xcode CommandLineTools"
     exit 1
   fi
 	brew install libvpx x264 pkgconfig
