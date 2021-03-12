@@ -51,6 +51,8 @@ type runParams struct {
 	compassAddress string
 }
 
+const lidarFlagName = "lidar"
+
 func parseFlags() (runParams, error) {
 	var baseType string
 	var lidarAddressFlags utils.StringFlags
@@ -109,24 +111,9 @@ func parseFlags() (runParams, error) {
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 	if len(lidarAddressFlags) != 0 {
-		deviceDescs = nil
-		for i, address := range lidarAddressFlags {
-			addressParts := strings.Split(address, ":")
-			if len(addressParts) != 2 {
-				continue
-			}
-			port, err := strconv.ParseInt(addressParts[1], 10, 64)
-			if err != nil {
-				continue
-			}
-			switch address {
-			case fakeDev:
-				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: fmt.Sprintf("%d", i)})
-			default:
-				deviceDescs = append(deviceDescs,
-					lidar.DeviceDescription{Type: lidar.DeviceTypeWS, Host: addressParts[0], Port: int(port)})
-			}
+		deviceDescs, err = lidar.ParseDeviceFlags(lidarAddressFlags, lidarFlagName)
+		if err != nil {
+			return runParams{}, err
 		}
 	}
 

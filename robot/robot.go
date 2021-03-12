@@ -365,8 +365,7 @@ func (r *Robot) newLidar(ctx context.Context, config api.Component) (lidar.Devic
 	case lidar.ModelNameWS:
 		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
 			Type: lidar.DeviceTypeWS,
-			Host: config.Host,
-			Port: config.Port,
+			Path: fmt.Sprintf("ws://%s:%d", config.Host, config.Port),
 		})
 	case fake.ModelName:
 		return fake.NewLidar(), nil
