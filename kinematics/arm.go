@@ -106,7 +106,7 @@ func (k *Arm) CurrentJointPositions() (api.JointPositions, error) {
 }
 
 func (k *Arm) CurrentPosition() (api.ArmPosition, error) {
-	curPos, err := k.real.CurrentJointPositions()
+	curPos, err := k.CurrentJointPositions()
 	if err != nil {
 		return api.ArmPosition{}, err
 	}
