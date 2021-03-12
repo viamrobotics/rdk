@@ -9,8 +9,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -24,13 +22,15 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+const deviceFlagName = "device"
+
 func main() {
 	go func() {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
 	var address string
-	flag.StringVar(&address, "device", "", "lidar device")
+	flag.StringVar(&address, deviceFlagName, "", "lidar device")
 	flag.Parse()
 
 	deviceDescs, err := search.Devices()
@@ -44,17 +44,11 @@ func main() {
 		}
 	}
 	if len(address) != 0 {
-		deviceDescs = nil
-		addressParts := strings.Split(address, ":")
-		if len(addressParts) != 2 {
-			golog.Global.Error("invalid address")
-		}
-		port, err := strconv.ParseInt(addressParts[1], 10, 64)
+		deviceDesc, err := lidar.ParseDeviceFlag(address, deviceFlagName)
 		if err != nil {
-			golog.Global.Error("invalid address")
+			golog.Global.Fatal(err)
 		}
-		deviceDescs = append(deviceDescs,
-			lidar.DeviceDescription{Type: lidar.DeviceTypeWS, Host: addressParts[0], Port: int(port)})
+		deviceDescs = append(deviceDescs, deviceDesc)
 	}
 
 	if len(deviceDescs) == 0 {

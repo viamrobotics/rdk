@@ -4,8 +4,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.uber.org/multierr"
@@ -21,8 +21,6 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 )
-
-const fakeDev = "fake"
 
 func main() {
 	utils.ContextualMainQuit(mainWithArgs)
@@ -61,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string) error {
 
 	if len(parsed.LidarDevices) == 0 {
 		parsed.LidarDevices = append(parsed.LidarDevices,
-			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "fake-0"})
+			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 
 	return viewLidar(ctx, parsed.Port, parsed.LidarDevices, parsed.SaveToDisk)
@@ -74,13 +72,19 @@ type Arguments struct {
 	SaveToDisk   string
 }
 
+const (
+	deviceFlagName = "device"
+	saveFlagName   = "save"
+)
+
 func parseFlags(args []string) (Arguments, error) {
 	cmdLine := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	cmdLine.SetOutput(io.Discard)
 
 	var addressFlags utils.StringFlags
-	cmdLine.Var(&addressFlags, "device", "lidar devices")
+	cmdLine.Var(&addressFlags, deviceFlagName, "lidar devices")
 	var saveToDisk string
-	cmdLine.StringVar(&saveToDisk, "save", "", "save data to disk (LAS)")
+	cmdLine.StringVar(&saveToDisk, saveFlagName, "", "save data to disk (LAS)")
 	if err := cmdLine.Parse(args[1:]); err != nil {
 		return Arguments{}, err
 	}
@@ -94,27 +98,12 @@ func parseFlags(args []string) (Arguments, error) {
 		port = int(portParsed)
 	}
 
-	var deviceDescs []lidar.DeviceDescription
 	if len(addressFlags) == 0 {
 		return Arguments{Port: port, SaveToDisk: saveToDisk}, nil
 	}
-	for i, address := range addressFlags {
-		addressParts := strings.Split(address, ":")
-		if len(addressParts) != 2 {
-			continue
-		}
-		port, err := strconv.ParseInt(addressParts[1], 10, 64)
-		if err != nil {
-			continue
-		}
-		switch address {
-		case fakeDev:
-			deviceDescs = append(deviceDescs,
-				lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: fmt.Sprintf("fake-%d", i)})
-		default:
-			deviceDescs = append(deviceDescs,
-				lidar.DeviceDescription{Type: lidar.DeviceTypeWS, Host: addressParts[0], Port: int(port)})
-		}
+	deviceDescs, err := lidar.ParseDeviceFlags(addressFlags, deviceFlagName)
+	if err != nil {
+		return Arguments{}, err
 	}
 
 	return Arguments{Port: port, LidarDevices: deviceDescs, SaveToDisk: saveToDisk}, nil
