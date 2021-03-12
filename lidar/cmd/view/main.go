@@ -91,7 +91,7 @@ func parseFlags(args []string) (Arguments, error) {
 
 	port := defaultPort
 	if cmdLine.NArg() >= 1 {
-		portParsed, err := strconv.ParseInt(cmdLine.Arg(1), 10, 32)
+		portParsed, err := strconv.ParseUint(cmdLine.Arg(0), 10, 16)
 		if err != nil {
 			return Arguments{}, err
 		}

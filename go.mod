@@ -44,6 +44,7 @@ require (
 	go.mongodb.org/mongo-driver v1.4.4
 	go.opencensus.io v0.22.5
 	go.uber.org/multierr v1.6.0
+	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
