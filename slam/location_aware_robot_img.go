@@ -28,9 +28,8 @@ var areaPointColor = color.NRGBA{255, 0, 0, 255}
 
 func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) (image.Image, error) {
 	// all areas are the same size
-	_, scaleTo := areas[0].Size()
-	bounds.X = int(math.Ceil(float64(bounds.X) * float64(scaleTo) / lar.clientZoom))
-	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(scaleTo) / lar.clientZoom))
+	bounds.X = int(math.Ceil(float64(bounds.X) * float64(lar.unitsPerMeter) / lar.clientZoom))
+	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(lar.unitsPerMeter) / lar.clientZoom))
 	centerX := bounds.X / 2
 	centerY := bounds.Y / 2
 

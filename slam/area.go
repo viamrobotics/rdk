@@ -8,41 +8,41 @@ import (
 	"go.viam.com/robotcore/pointcloud"
 )
 
-func NewSquareArea(sizeMeters int, scaleTo int) (*SquareArea, error) {
+func NewSquareArea(sizeMeters int, unitsPerMeter int) (*SquareArea, error) {
 	cloud := pointcloud.New()
-	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo)
+	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
-func NewSquareAreaFromFile(fn string, sizeMeters int, scaleTo int) (*SquareArea, error) {
+func NewSquareAreaFromFile(fn string, sizeMeters int, unitsPerMeter int) (*SquareArea, error) {
 	cloud, err := pointcloud.NewFromFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	return SquareAreaFromPointCloud(cloud, sizeMeters, scaleTo)
+	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
-func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters int, scaleTo int) (*SquareArea, error) {
-	sizeScaled := sizeMeters * scaleTo
-	if sizeScaled%2 != 0 {
-		return nil, errors.New("sizeMeters * scaleTo must be divisible by 2")
+func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters int, unitsPerMeter int) (*SquareArea, error) {
+	sizeUnits := sizeMeters * unitsPerMeter
+	if sizeUnits%2 != 0 {
+		return nil, errors.New("sizeMeters * unitsPerMeter must be divisible by 2")
 	}
 
 	return &SquareArea{
-		sizeMeters: sizeMeters,
-		scaleTo:    scaleTo,
-		dim:        sizeScaled,
-		quadLength: sizeScaled / 2,
-		cloud:      cloud,
+		sizeMeters:    sizeMeters,
+		unitsPerMeter: unitsPerMeter,
+		dim:           sizeUnits,
+		quadLength:    sizeUnits / 2,
+		cloud:         cloud,
 	}, nil
 }
 
 type SquareArea struct {
-	mu         sync.Mutex
-	sizeMeters int
-	scaleTo    int
-	dim        int
-	quadLength int
-	cloud      *pointcloud.PointCloud
+	mu            sync.Mutex
+	sizeMeters    int
+	unitsPerMeter int
+	dim           int
+	quadLength    int
+	cloud         *pointcloud.PointCloud
 }
 
 // PointCloud returns the mutable PointCloud this area uses
@@ -52,7 +52,7 @@ func (sa *SquareArea) PointCloud() *pointcloud.PointCloud {
 }
 
 func (sa *SquareArea) BlankCopy() (*SquareArea, error) {
-	area, err := NewSquareArea(sa.sizeMeters, sa.scaleTo)
+	area, err := NewSquareArea(sa.sizeMeters, sa.unitsPerMeter)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (sa *SquareArea) BlankCopy() (*SquareArea, error) {
 }
 
 func (sa *SquareArea) Size() (int, int) {
-	return sa.sizeMeters, sa.scaleTo
+	return sa.sizeMeters, sa.unitsPerMeter
 }
 
 func (sa *SquareArea) Dim() int {
