@@ -169,7 +169,7 @@ func (d *Device) Mark(ctx context.Context) error {
 
 const maxTheta = 360
 
-var parallelFactor = runtime.NumCPU()
+var parallelFactor = runtime.GOMAXPROCS(0)
 
 func init() {
 	if parallelFactor <= 0 {
