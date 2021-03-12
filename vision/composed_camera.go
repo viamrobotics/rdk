@@ -1,4 +1,4 @@
-package robot
+package vision
 
 import (
 	"context"
@@ -11,7 +11,18 @@ import (
 	"go.viam.com/robotcore/rimage"
 )
 
-func newDepthComposed(r *Robot, config api.Component) (gostream.ImageSource, error) {
+func init() {
+	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		return newDepthComposed(r, config)
+	})
+
+	api.RegisterCamera("overlay", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		return newOverlay(r, config)
+	})
+
+}
+
+func newDepthComposed(r api.Robot, config api.Component) (gostream.ImageSource, error) {
 	colorName := config.Attributes.GetString("color")
 	color := r.CameraByName(colorName)
 	if color == nil {
@@ -48,7 +59,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r *Robot, config api.Component) (gostream.ImageSource, error) {
+func newOverlay(r api.Robot, config api.Component) (gostream.ImageSource, error) {
 	source := r.CameraByName(config.Attributes.GetString("source"))
 	if source == nil {
 		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.GetString("source"))

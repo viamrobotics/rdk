@@ -2,12 +2,27 @@ package rimage
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/gostream"
+
+	"go.viam.com/robotcore/api"
 )
+
+func init() {
+	api.RegisterCamera("rotate", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		sourceName := config.Attributes.GetString("source")
+		source := r.CameraByName(sourceName)
+		if source == nil {
+			return nil, fmt.Errorf("cannot find source camera for rotate (%s)", sourceName)
+		}
+
+		return &RotateImageDepthSource{source}, nil
+	})
+}
 
 type RotateImageDepthSource struct {
 	Original gostream.ImageSource
