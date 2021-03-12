@@ -119,8 +119,11 @@ func (k *Arm) JointMoveDelta(joint int, amount float64) error {
 }
 
 func (k *Arm) MoveToJointPositions(jp api.JointPositions) error {
-	// TODO(erh): do i want to set joint positions on success?
-	return k.real.MoveToJointPositions(jp)
+	err := k.real.MoveToJointPositions(jp)
+	if err == nil {
+		k.SetJointPositions(jp.Degrees)
+	}
+	return err
 }
 
 func (k *Arm) MoveToPosition(pos api.ArmPosition) error {
