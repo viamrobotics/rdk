@@ -75,7 +75,7 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
 		},
 		moveLock: mutex,
 	}
-	
+
 	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4)
 }
 
