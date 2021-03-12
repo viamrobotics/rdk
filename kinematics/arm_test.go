@@ -12,7 +12,7 @@ import (
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
-	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+	evaArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
 	test.That(t, err, test.ShouldBeNil)
 	//~ 	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/eva.json"), 1)
 	//~ 	test.That(t, err, test.ShouldBeNil)
@@ -51,9 +51,9 @@ func TestCombinedIKinematics(t *testing.T) {
 }
 
 func TestNloptIKinematics(t *testing.T) {
-	wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
 	test.That(t, err, test.ShouldBeNil)
-	ik := kinematics.CreateNloptIKSolver(wxArm.Model)
+	ik := CreateNloptIKSolver(wxArm.Model)
 	wxArm.ik = ik
 
 	pos := api.ArmPosition{1, -368, 355, 0, 0, 0}
