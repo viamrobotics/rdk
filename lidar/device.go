@@ -28,8 +28,6 @@ const (
 type DeviceDescription struct {
 	Type DeviceType
 	Path string
-	Host string
-	Port int
 }
 
 type ScanOptions struct {

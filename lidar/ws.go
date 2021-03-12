@@ -2,7 +2,6 @@ package lidar
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"math"
 
@@ -15,7 +14,7 @@ const DeviceTypeWS = DeviceType("lidarws")
 func init() {
 	RegisterDeviceType(DeviceTypeWS, DeviceTypeRegistration{
 		New: func(ctx context.Context, desc DeviceDescription) (Device, error) {
-			return NewWSDevice(ctx, fmt.Sprintf("ws://%s:%d", desc.Host, desc.Port))
+			return NewWSDevice(ctx, desc.Path)
 		},
 	})
 }
