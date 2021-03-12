@@ -8,7 +8,6 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/eva"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
@@ -16,6 +15,9 @@ import (
 	"go.viam.com/robotcore/robots/universalrobots"
 	"go.viam.com/robotcore/robots/vgripper"
 	"go.viam.com/robotcore/robots/wx250s"
+
+	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
+	_ "go.viam.com/robotcore/vision" // this is for interesting camera types, depth, etc...
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -349,49 +351,12 @@ func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripp
 	}
 }
 
-// TODO(erd): prefer registration pattern
 func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
-	src, err := r.newCameraLL(config)
-	if err != nil {
-		return nil, err
-	}
-
-	if config.Attributes["rotate"] == "true" {
-		src = &rimage.RotateImageDepthSource{src}
-	}
-
-	return src, nil
-}
-
-func (r *Robot) newCameraLL(config api.Component) (gostream.ImageSource, error) {
-	switch config.Model {
-	case "eliot":
-		golog.Global.Warn("using 'eliot' as a camera source, should switch to intel")
-		return rimage.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
-	case "intel":
-		return rimage.NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
-
-	case "url":
-		if len(config.Attributes) == 0 {
-			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
-		}
-		return &rimage.HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
-
-	case "file":
-		return &rimage.FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
-
-	case "webcam":
-		return rimage.NewWebcamSource(config.Attributes)
-
-	case "depthComposed":
-		return newDepthComposed(r, config)
-
-	case "overlay":
-		return newOverlay(r, config)
-
-	default:
+	cc := api.CameraLookup(config.Model)
+	if cc == nil {
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
+	return cc(r, config)
 }
 
 // TODO(erd): prefer registration pattern

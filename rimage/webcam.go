@@ -17,6 +17,13 @@ import (
 	"go.viam.com/robotcore/api"
 )
 
+func init() {
+	api.RegisterCamera("webcam", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		return NewWebcamSource(config.Attributes)
+	})
+
+}
+
 func makeConstraints(attrs api.AttributeMap) mediadevices.MediaStreamConstraints {
 
 	minWidth := 680
