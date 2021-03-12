@@ -15,6 +15,7 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/kinematics"
 )
 
 // SleepAngles are the angles we go to to prepare to turn off torque
@@ -53,7 +54,7 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (*Arm, error) {
+func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
 	servos, err := findServos(attributes.GetString("usbPort"), attributes.GetString("baudRate"), attributes.GetString("armServoCount"))
 	if err != nil {
 		return nil, err
@@ -63,7 +64,7 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (*Arm, error) {
 		mutex = &sync.Mutex{}
 	}
 
-	newArm := Arm{
+	newArm := &Arm{
 		Joints: map[string][]*servo.Servo{
 			"Waist":       {servos[0]},
 			"Shoulder":    {servos[1], servos[2]},
@@ -74,8 +75,8 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (*Arm, error) {
 		},
 		moveLock: mutex,
 	}
-
-	return &newArm, nil
+	
+	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4)
 }
 
 func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
