@@ -25,7 +25,7 @@ import (
 const fakeDev = "fake"
 
 func main() {
-	utils.ContextualMain(mainWithArgs)
+	utils.ContextualMainQuit(mainWithArgs)
 }
 
 var (
