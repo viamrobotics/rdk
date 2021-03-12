@@ -103,19 +103,9 @@ func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
 	return nil
 }
 
-// CurrentJointPositions returns a sorted (from base outwards) slice of joint angles in degrees
+// CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics
 func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
-	angleMap, err := a.GetAllAngles()
-	if err != nil {
-		return api.JointPositions{}, err
-	}
-
-	var positions []float64
-	for _, jointName := range a.JointOrder() {
-		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
-	}
-
-	return api.JointPositions{positions}, nil
+	return api.JointPositions{}, nil
 }
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {
@@ -186,7 +176,7 @@ func (a *Arm) PrintPositions() error {
 		if err != nil {
 			return err
 		}
-		posString = fmt.Sprintf("%s || %d : %d", posString, i, pos)
+		posString = fmt.Sprintf("%s || %d : %d, %f degrees", posString, i, pos, servoPosToDegrees(float64(pos)))
 	}
 	return nil
 }
