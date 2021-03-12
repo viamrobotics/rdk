@@ -8,7 +8,7 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
-	github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129
+	github.com/edaniels/golog v0.0.0-20210312163446-5f44053d1c35
 	github.com/edaniels/gostream v0.0.0-20210312161311-21db299c8808
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
@@ -18,7 +18,7 @@ require (
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/golangci/golangci-lint v1.37.1
+	github.com/golangci/golangci-lint v1.38.0
 	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
@@ -44,7 +44,6 @@ require (
 	go.mongodb.org/mongo-driver v1.4.4
 	go.opencensus.io v0.22.5
 	go.uber.org/multierr v1.6.0
-	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
