@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/robot"
 )
 
+// TODO(pl) there's definitely a better way to script a series of recorded motions, but this works for now
 func navigateWx250sToDuck() []api.JointPositions {
 	var positions []api.JointPositions
 	positions = append(positions, api.JointPositions{[]float64{-3.076171875, -101.42578125, 84.814453125, 2.724609375, 49.658203125, -11.6015625}})
