@@ -161,8 +161,8 @@ github.com/edaniels/golinters v0.0.4/go.mod h1:KzjC7OrCrRlFxufhH+kQ1Sdyzuj2eanHH
 github.com/edaniels/golog v0.0.0-20210104162753-3254576d0129/go.mod h1:mSoRCzs6vkNHT1wf3cB+0r3IfBIWOpp5L+woJAmUsXI=
 github.com/edaniels/golog v0.0.0-20210312163446-5f44053d1c35 h1:E6B/44384YxpWgfTusWK7XGdYhJApNeSJQjuHBHz7m4=
 github.com/edaniels/golog v0.0.0-20210312163446-5f44053d1c35/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
-github.com/edaniels/gostream v0.0.0-20210312161311-21db299c8808 h1:uBrWCTKgfdXCIN6u9hVnlS0ebEeEa4gVUwNYRk0gbIU=
-github.com/edaniels/gostream v0.0.0-20210312161311-21db299c8808/go.mod h1:d4pCIOi+ep2rpv5wLnyQlzUK0c5QmvMCHADBbMt3sdM=
+github.com/edaniels/gostream v0.0.0-20210312201844-2bb4aae9c2d8 h1:U9ELd15RkXDsdFVwHyhGerh4D7/xzh3EtUvHTKkPh1Q=
+github.com/edaniels/gostream v0.0.0-20210312201844-2bb4aae9c2d8/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0 h1:hnK+cHF0aYBvT6osQLGV/WxRDV7/rxk8OI3iALTV+qI=

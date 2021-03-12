@@ -9,7 +9,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210312163446-5f44053d1c35
-	github.com/edaniels/gostream v0.0.0-20210312161311-21db299c8808
+	github.com/edaniels/gostream v0.0.0-20210312201844-2bb4aae9c2d8
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/edaniels/wsapi v0.0.2
 	github.com/erh/egoutil v0.0.10
