@@ -21,7 +21,7 @@ if [ "$(uname)" = "Darwin" ]; then
     exit 1
   fi
 	brew install libvpx x264 pkgconfig
-	make python-macos
+    export PKG_CONFIG_PATH=/System/Library/Frameworks/Python.framework/Versions/2.7/lib/pkgconfig/:$PKG_CONFIG_PATH
 fi
 
 NLOPT_OK=1
