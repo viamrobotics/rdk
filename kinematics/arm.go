@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/robots/wx250s"
 )
 
 type Arm struct {
@@ -96,7 +97,13 @@ func (k *Arm) SetJointPositions(angles []float64) {
 }
 
 func (k *Arm) CurrentJointPositions() (api.JointPositions, error) {
-	return k.real.CurrentJointPositions()
+	// TODO(pl): If we have more arms that need to keep track of joint angles with the model, this should be configurable
+	switch k.real.(type){
+		case *wx250s.Arm:
+			return api.JointPositions{k.modelJointsPosition()}, nil
+		default:
+			return k.real.CurrentJointPositions()
+	}
 }
 
 func (k *Arm) CurrentPosition() (api.ArmPosition, error) {
