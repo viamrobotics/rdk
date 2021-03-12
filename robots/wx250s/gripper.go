@@ -40,7 +40,7 @@ func (g *Gripper) GetMoveLock() *sync.Mutex {
 func (g *Gripper) Open() error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
-	err := g.jServo.SetGoalPWM(250)
+	err := g.jServo.SetGoalPWM(150)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (g *Gripper) Open() error {
 		if err != nil {
 			return err
 		}
-		if pos < 3000 {
+		if pos < 2800 {
 			time.Sleep(50 * time.Millisecond)
 		} else {
 			atPos = true
