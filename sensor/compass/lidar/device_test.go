@@ -231,10 +231,7 @@ func TestHeading(t *testing.T) {
 			test.That(t, heading, test.ShouldEqual, 0)
 		})
 
-		incBy := 1
-		if testing.Short() {
-			incBy = 15
-		}
+		incBy := 15 // maybe do 1 in the future when this code is faster
 		for i := 0; i < 360; i += incBy {
 			iCopy := i
 			t.Run(fmt.Sprintf("rotating %d heading should be %d", iCopy, iCopy), func(t *testing.T) {
