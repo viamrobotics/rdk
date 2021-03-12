@@ -231,7 +231,11 @@ func TestHeading(t *testing.T) {
 			test.That(t, heading, test.ShouldEqual, 0)
 		})
 
-		for i := 0; i < 360; i++ {
+		incBy := 1
+		if testing.Short() {
+			incBy = 15
+		}
+		for i := 0; i < 360; i += incBy {
 			iCopy := i
 			t.Run(fmt.Sprintf("rotating %d heading should be %d", iCopy, iCopy), func(t *testing.T) {
 				t.Parallel()
