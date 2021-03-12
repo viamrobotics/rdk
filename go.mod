@@ -14,7 +14,7 @@ require (
 	github.com/edaniels/wsapi v0.0.3-0.20210314165336-c80c5d7641e6
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
-	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90
+	github.com/fogleman/gg v1.3.0
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
@@ -50,9 +50,10 @@ require (
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
-	golang.org/x/image v0.0.0-20201208152932-35266b937fa6
+	golang.org/x/image v0.0.0-20210216034530-4410531fe030
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
+	gonum.org/v1/plot v0.9.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
 )
