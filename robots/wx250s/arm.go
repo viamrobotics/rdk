@@ -100,7 +100,7 @@ func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
 	for i, pos := range jp.Degrees {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
-	
+
 	a.moveLock.Unlock()
 	return a.WaitForMovement()
 }
