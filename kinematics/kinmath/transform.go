@@ -25,6 +25,12 @@ func NewTransformFromRotation(x, y, z float64) *Transform {
 	}
 }
 
+func (m *Transform) Clone() *Transform {
+	t := &Transform{}
+	t.Mat = mgl64.Mat4FromCols(m.Mat.Cols())
+	return t
+}
+
 func (m *Transform) Matrix() mgl64.Mat4 {
 	return m.Mat
 }
