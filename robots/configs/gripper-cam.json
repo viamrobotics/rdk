@@ -1,0 +1,17 @@
+{
+    "components" : [
+        { "name" : "color",
+          "type" : "camera",
+          "model" : "webcam",
+          "attributes" : {
+              "path_pattern" : "video0"
+          }
+        },
+        { "name" : "depth",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "127.0.0.1",
+          "port" : 8181
+        }
+    ]
+}
