@@ -1,7 +1,6 @@
 package point_cloud_segmentation
 
 import (
-	"fmt"
 	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -164,7 +163,6 @@ func DepthMapTo3D(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, fy float
 func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, fy float64) *pc.PointCloud {
 	// create new point cloud
 	pc_ := pc.New()
-	fmt.Println(depthImage.MinMax())
 	// go through depth map pixels and get 3D points
 	for y := 0; y < depthImage.Height(); y++ {
 		for x := 0; x < depthImage.Width(); x++ {
