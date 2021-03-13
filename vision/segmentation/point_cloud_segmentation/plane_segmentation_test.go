@@ -43,20 +43,14 @@ func TestSegmentPlane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println(m.Rows(), m.Cols())
-	//w, h := m.Width(), m.Height()
-
 
 	// Pixel to Meter number from Intel
-	//pixel2meter := 0.000250000011874363
 	pixel2meter := 0.001
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
 	pc_ := DepthMapTo3D(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
 
-	plane_idx, eq := SegmentPlane(pc_, 1000, 0.0025, pixel2meter)
-	fmt.Print(eq[0], eq[1], eq[2], eq[3])
-	fmt.Println("")
-	fmt.Println(len(plane_idx))
+	_, eq := SegmentPlane(pc_, 1000, 0.0025, pixel2meter)
+	fmt.Println(eq[0], eq[1], eq[2], eq[3])
 
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
@@ -68,7 +62,6 @@ func TestSegmentPlane(t *testing.T) {
 	gtPlaneEquation[3] = -1.12
 
 	dot := eq[0] * gtPlaneEquation[0] + eq[1] * gtPlaneEquation[1] + eq[2] * gtPlaneEquation[2]
-	fmt.Println(dot)
 	if math.Abs(dot) < 0.75{
 		t.Error("The estimated plane normal differs from the GT normal vector too much.")
 	}
