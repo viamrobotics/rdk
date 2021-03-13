@@ -22,6 +22,20 @@ func init() {
 
 		return &RotateImageDepthSource{source}, nil
 	})
+
+	api.RegisterCamera("resize", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		sourceName := config.Attributes.GetString("source")
+		source := r.CameraByName(sourceName)
+		if source == nil {
+			return nil, fmt.Errorf("cannot find source camera for resize (%s)", sourceName)
+		}
+
+		width := config.Attributes.GetInt("width", 800)
+		height := config.Attributes.GetInt("height", 640)
+
+		return gostream.ResizeImageSource{source, width, height}, nil
+	})
+
 }
 
 type RotateImageDepthSource struct {
