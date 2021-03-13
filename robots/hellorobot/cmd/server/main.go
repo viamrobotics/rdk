@@ -83,7 +83,7 @@ func runRobot(srcURL, lidarDevAddr string) (err error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	webCloser, err := web.InstallWeb(cancelCtx, mux, theRobot)
+	webCloser, err := web.InstallWeb(cancelCtx, mux, theRobot, web.NewOptions())
 	if err != nil {
 		return err
 	}
