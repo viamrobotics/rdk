@@ -111,7 +111,7 @@ func parseFlags() (runParams, error) {
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 	if len(lidarAddressFlags) != 0 {
-		deviceDescs, err = lidar.ParseDeviceFlags(lidarAddressFlags, lidarFlagName)
+		deviceDescs, err = lidar.ParseDeviceFlags(lidarFlagName, lidarAddressFlags)
 		if err != nil {
 			return runParams{}, err
 		}
