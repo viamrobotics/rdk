@@ -94,14 +94,15 @@ func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
 	}
 
 	a.moveLock.Lock()
-	defer a.moveLock.Unlock()
 
 	// TODO(pl): make block configurable
 	block := false
 	for i, pos := range jp.Degrees {
 		a.JointTo(a.JointOrder()[i], degreeToServoPos(pos), block)
 	}
-	return nil
+	
+	a.moveLock.Unlock()
+	return a.WaitForMovement()
 }
 
 // CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics

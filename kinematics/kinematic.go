@@ -176,9 +176,10 @@ func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
 			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
 				// These angles are complementary
 
+				// THIS IS BUGGY BUT WHY
 				origAngles := m.GetPosition()
 				origAnglesBak := m.GetPosition()
-				origTransform := m.GetOperationalPosition(0)
+				origTransform := m.GetOperationalPosition(0).Clone()
 				origAngles[i] = 0
 				origAngles[j] = 0
 				m.SetPosition(origAngles)
