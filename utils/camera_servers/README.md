@@ -14,7 +14,7 @@ Installing librealsense
     sudo make install
     
 Installing libhttpserver
-    sudo apt install libmicrohttpd-dev
+    sudo apt install libmicrohttpd-dev libtool
     git clone git@github.com:etr/libhttpserver.git
     cd libhttpserver
     ./bootstrap
