@@ -36,7 +36,7 @@ var (
 	logger = golog.Global
 )
 
-// Arguments for the command (parsed).
+// Arguments for the command.
 type Arguments struct {
 	Port         portFlag                  `flag:"0"`
 	LidarDevices []lidar.DeviceDescription `flag:"device,usage=lidar devices"`
