@@ -25,6 +25,8 @@ func main() {
 }
 
 func mainReal() error {
+	noAutoTile := flag.Bool("noAutoTile", false, "disable auto tiling")
+
 	flag.Parse()
 
 	if *cpuprofile != "" {
@@ -58,7 +60,13 @@ func mainReal() error {
 		return err
 	}
 
-	err = web.RunWeb(myRobot)
+	options := web.NewOptions()
+
+	if *noAutoTile {
+		options.AutoTile = false
+	}
+
+	err = web.RunWeb(myRobot, options)
 	if err != nil {
 		return err
 	}

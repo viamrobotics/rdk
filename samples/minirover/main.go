@@ -280,5 +280,5 @@ func realMain() error {
 		return err
 	}
 
-	return web.RunWeb(myRobot)
+	return web.RunWeb(myRobot, web.NewOptions())
 }

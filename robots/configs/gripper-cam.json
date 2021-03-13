@@ -11,7 +11,30 @@
           "type" : "camera",
           "model" : "intel",
           "host" : "127.0.0.1",
-          "port" : 8181
+          "port" : 8181,
+          "attributes" : {
+              "hide" : true
+          }
+        },
+        { "name" : "depth-pretty-awkward",
+          "type" : "camera",
+          "model" : "depthToPretty",
+          "host" : "127.0.0.1",
+          "attributes" : {
+              "source" : "depth",
+              "hide" : true
+          }
+        },
+        { "name" : "depth-pretty",
+          "type" : "camera",
+          "model" : "resize",
+          "attributes" : {
+              "source" : "depth-pretty-awkward",
+              "width" : 448,
+              "height" : 342
+          }
         }
+        
+
     ]
 }

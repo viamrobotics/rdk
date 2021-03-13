@@ -153,5 +153,5 @@ func realMain() error {
 
 	myRobot.AddBase(boat, api.Component{Name: "boatbot"})
 
-	return web.RunWeb(myRobot)
+	return web.RunWeb(myRobot, web.NewOptions())
 }

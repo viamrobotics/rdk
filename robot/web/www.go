@@ -525,28 +525,81 @@ func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot) {
 
 // ---------------
 
-func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) (func(), error) {
+func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []string) {
+	sources := []gostream.ImageSource{}
+	names := []string{}
+
+	for _, cam := range theRobot.Cameras {
+		cmp := theRobot.ComponentFor(cam)
+		if cmp.Attributes.GetBool("hide", false) {
+			continue
+		}
+
+		sources = append(sources, cam)
+		names = append(names, cmp.Name)
+	}
+
+	for _, device := range theRobot.LidarDevices {
+		cmp := theRobot.ComponentFor(device)
+		if cmp.Attributes.GetBool("hide", false) {
+			continue
+		}
+
+		source := gostream.ResizeImageSource{lidar.NewImageSource(device), 800, 600}
+
+		sources = append(sources, source)
+		names = append(names, cmp.Name)
+	}
+
+	return sources, names
+}
+
+// returns a closer func to be called when done
+func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, options Options) (func(), error) {
 	if len(theRobot.Bases) > 1 {
 		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
 	}
 
-	var view gostream.View
-	if len(theRobot.Cameras) != 0 || len(theRobot.LidarDevices) != 0 {
-		config := x264.DefaultViewConfig
-		var err error
-		view, err = gostream.NewView(config)
-		if err != nil {
-			return nil, err
+	displaySources, displayNames := allSourcesToDisplay(theRobot)
+	views := []gostream.View{}
+	var autoCameraTiler *gostream.AutoTiler
+
+	if len(displaySources) != 0 {
+		if options.AutoTile {
+			config := x264.DefaultViewConfig
+			view, err := gostream.NewView(config)
+			if err != nil {
+				return nil, err
+			}
+			view.SetOnClickHandler(func(x, y int) {
+				golog.Global.Debugw("click", "x", x, "y", y)
+			})
+			views = append(views, view)
+
+			tilerHeight := 480
+			if len(theRobot.Cameras) > 0 {
+				tilerHeight *= len(theRobot.Cameras)
+			}
+			autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
+			autoCameraTiler.SetLogger(golog.Global)
+
+		} else {
+			for idx := range displaySources {
+				config := x264.DefaultViewConfig
+				config.StreamNumber = idx
+				config.StreamName = displayNames[idx]
+				view, err := gostream.NewView(config)
+				if err != nil {
+					return nil, err
+				}
+				view.SetOnClickHandler(func(x, y int) {
+					golog.Global.Debugw("click", "x", x, "y", y)
+				})
+				views = append(views, view)
+			}
 		}
-		view.SetOnClickHandler(func(x, y int) {
-			golog.Global.Debugw("click", "x", x, "y", y)
-		})
 	}
 
-	var views []gostream.View
-	if view != nil {
-		views = append(views, view)
-	}
 	app := &robotWebApp{views: views, theRobot: theRobot}
 	err := app.Init()
 	if err != nil {
@@ -570,40 +623,36 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) 
 
 	mux.Handle("/", app)
 
-	if view != nil {
+	for _, view := range views {
 		handler := view.Handler()
 		mux.Handle("/"+handler.Name, handler.Func)
 	}
 
 	// start background threads
-	tilerHeight := 480
-	if len(theRobot.Cameras) > 0 {
-		tilerHeight *= len(theRobot.Cameras)
-	}
-	autoCameraTiler := gostream.NewAutoTiler(640, tilerHeight)
-	autoCameraTiler.SetLogger(golog.Global)
-	if len(theRobot.Cameras) > 0 {
-		for _, cam := range theRobot.Cameras {
-			if theRobot.ComponentFor(cam).Attributes.GetBool("hide", false) {
-				continue
-			}
-			autoCameraTiler.AddSource(cam)
+
+	if autoCameraTiler != nil {
+		for _, src := range displaySources {
+			autoCameraTiler.AddSource(src)
 		}
 		waitCh := make(chan struct{})
 		go func() {
 			close(waitCh)
-			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", view)
+			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", views[0])
 		}()
 		<-waitCh
-	}
-
-	for idx := range theRobot.LidarDevices {
-		name := fmt.Sprintf("LIDAR %d", idx+1)
-		go gostream.StreamNamedSource(ctx, gostream.ResizeImageSource{lidar.NewImageSource(theRobot.LidarDevices[idx]), 800, 600}, name, view)
+	} else {
+		for idx, view := range views {
+			waitCh := make(chan struct{})
+			go func() {
+				close(waitCh)
+				gostream.StreamNamedSource(ctx, displaySources[idx], displayNames[idx], view)
+			}()
+			<-waitCh
+		}
 	}
 
 	return func() {
-		if view != nil {
+		for _, view := range views {
 			view.Stop()
 		}
 	}, nil
@@ -615,13 +664,13 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot) 
 /*
 helper if you don't need to customize at all
 */
-func RunWeb(theRobot *robot.Robot) error {
+func RunWeb(theRobot *robot.Robot, options Options) error {
 	defer theRobot.Close(context.Background())
 	mux := http.NewServeMux()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	webCloser, err := InstallWeb(cancelCtx, mux, theRobot)
+	webCloser, err := InstallWeb(cancelCtx, mux, theRobot, options)
 	if err != nil {
 		return err
 	}

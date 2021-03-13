@@ -1,4 +1,4 @@
-package vision
+package rimage
 
 import (
 	"context"
@@ -8,12 +8,15 @@ import (
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/rimage"
 )
 
 func init() {
 	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
 		return newDepthComposed(r, config)
+	})
+
+	api.RegisterCamera("depthToPretty", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		return newDepthToPretty(r, config)
 	})
 
 	api.RegisterCamera("overlay", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
@@ -35,7 +38,7 @@ func newDepthComposed(r api.Robot, config api.Component) (gostream.ImageSource, 
 		return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
 	}
 
-	return rimage.NewDepthComposed(color, depth)
+	return NewDepthComposed(color, depth)
 }
 
 type overlaySource struct {
@@ -52,7 +55,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 		return i, closer, err
 	}
 	defer closer()
-	ii := rimage.ConvertToImageWithDepth(i)
+	ii := ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
 		return nil, nil, fmt.Errorf("no depth")
 	}
@@ -65,5 +68,35 @@ func newOverlay(r api.Robot, config api.Component) (gostream.ImageSource, error)
 		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.GetString("source"))
 	}
 	return &overlaySource{source}, nil
+
+}
+
+type depthToPretty struct {
+	source gostream.ImageSource
+}
+
+func (dtp *depthToPretty) Close() error {
+	return nil
+}
+
+func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error) {
+	i, closer, err := dtp.source.Next(ctx)
+	if err != nil {
+		return i, closer, err
+	}
+	defer closer()
+	ii := ConvertToImageWithDepth(i)
+	if ii.Depth == nil {
+		return nil, nil, fmt.Errorf("no depth")
+	}
+	return ii.Depth.ToPrettyPicture(0, MaxDepth), func() {}, nil
+}
+
+func newDepthToPretty(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	source := r.CameraByName(config.Attributes.GetString("source"))
+	if source == nil {
+		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.GetString("source"))
+	}
+	return &depthToPretty{source}, nil
 
 }

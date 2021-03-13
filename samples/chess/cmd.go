@@ -630,7 +630,7 @@ func main() {
 		}
 	}()
 
-	err = web.RunWeb(myRobot)
+	err = web.RunWeb(myRobot, web.NewOptions())
 	if err != nil {
 		panic(err)
 	}

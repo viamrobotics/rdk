@@ -1,6 +1,8 @@
 package api
 
 import (
+	"fmt"
+
 	"github.com/edaniels/gostream"
 )
 
@@ -11,6 +13,10 @@ var (
 )
 
 func RegisterCamera(model string, f CreateCamera) {
+	_, old := cameraRegistry[model]
+	if old {
+		panic(fmt.Errorf("trying to register two cameras with same model %s", model))
+	}
 	cameraRegistry[model] = f
 }
 
