@@ -67,7 +67,11 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 		if info.Positional {
 			strVal := flagSet.Arg(info.Position)
 			if info.IsFlagVal {
-				val = strVal
+				if strVal == "" {
+					val = info.Default
+				} else {
+					val = strVal
+				}
 			} else {
 				if strVal == "" {
 					val = info.DefaultIfc
@@ -184,9 +188,6 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 		case "required":
 			info.Required = true
 		case "default":
-			if info.IsFlagVal {
-				return flagInfo{}, fmt.Errorf("default value not supported for flag.Value %q", fieldName)
-			}
 			if len(parted) != 2 {
 				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: default must have value", fieldName)
 			}
