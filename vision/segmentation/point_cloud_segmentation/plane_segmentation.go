@@ -178,7 +178,7 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, 
 			x_int := int(math.Round(x_ / pixel2meter))
 			y_int := int(math.Round(y_ / pixel2meter))
 			z_int := int(math.Round(z / pixel2meter))
-			pt := pc.NewPoint(x_int, y_int, z_int)
+			pt := pc.NewBasicPoint(x_int, y_int, z_int)
 			pc_.Set(pt)
 		}
 	}
