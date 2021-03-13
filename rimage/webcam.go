@@ -54,7 +54,7 @@ func makeConstraints(attrs api.AttributeMap) mediadevices.MediaStreamConstraints
 			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
-			if !attrs.Has("format") {
+			if !attrs.Has("format") || attrs.GetString("format") == "" {
 				constraint.FrameFormat = prop.FrameFormatOneOf{
 					frame.FormatI420,
 					frame.FormatI444,
@@ -79,9 +79,13 @@ type Aligner interface {
 func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 	var err error
 
-	debug := attrs["debug"] == "true"
+	debug := attrs.GetBool("debug", false)
 
 	constraints := makeConstraints(attrs)
+
+	if debug {
+		golog.Global.Debugf("constraints: %v", constraints)
+	}
 
 	if attrs.Has("path") {
 		return tryWebcamOpen(attrs.GetString("path"), debug, constraints)

@@ -49,15 +49,25 @@ func main() {
 		port = int(portParsed)
 	}
 
-	attrs := api.AttributeMap{
-		"format":       *format,
-		"path":         *path,
-		"path_pattern": *pathPattern,
+	attrs := api.AttributeMap{}
+
+	if *format != "" {
+		attrs["format"] = *format
+	}
+
+	if *path != "" {
+		attrs["path"] = *path
+	}
+
+	if *pathPattern != "" {
+		attrs["path_pattern"] = *pathPattern
 	}
 
 	if *debug {
-		attrs["debug"] = "true"
+		attrs["debug"] = true
 	}
+
+	golog.Global.Debugf("attrs: %v", attrs)
 
 	webcam, err := rimage.NewWebcamSource(attrs)
 	if err != nil {
