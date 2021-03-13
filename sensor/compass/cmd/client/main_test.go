@@ -19,7 +19,7 @@ func TestMain(t *testing.T) {
 		After  func(t *testing.T, logs *observer.ObservedLogs)
 	}{
 		// parsing
-		{"no args", nil, "", nil, nil},
+		{"no args", nil, "Usage of", nil, nil},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
 			var logs *observer.ObservedLogs
