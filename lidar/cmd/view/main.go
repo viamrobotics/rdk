@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"io"
 	"strconv"
 	"time"
 
@@ -38,75 +36,39 @@ var (
 	logger = golog.Global
 )
 
+// Arguments for the command (parsed).
+type Arguments struct {
+	Port         portFlag                  `flag:"0"`
+	LidarDevices []lidar.DeviceDescription `flag:"device,usage=lidar devices"`
+	SaveToDisk   string                    `flag:"save,usage=save data to disk (LAS)"`
+}
+
 func mainWithArgs(ctx context.Context, args []string) error {
-	parsed, err := parseFlags(args)
-	if err != nil {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
 
-	if len(parsed.LidarDevices) == 0 {
-		parsed.LidarDevices, err = search.Devices()
+	if len(argsParsed.LidarDevices) == 0 {
+		var err error
+		argsParsed.LidarDevices, err = search.Devices()
 		if err != nil {
 			return fmt.Errorf("error searching for lidar devices: %w", err)
 		}
-		if len(parsed.LidarDevices) != 0 {
-			logger.Debugf("detected %d lidar devices", len(parsed.LidarDevices))
-			for _, desc := range parsed.LidarDevices {
+		if len(argsParsed.LidarDevices) != 0 {
+			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
+			for _, desc := range argsParsed.LidarDevices {
 				logger.Debugf("%s (%s)", desc.Type, desc.Path)
 			}
 		}
 	}
 
-	if len(parsed.LidarDevices) == 0 {
-		parsed.LidarDevices = append(parsed.LidarDevices,
+	if len(argsParsed.LidarDevices) == 0 {
+		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 
-	return viewLidar(ctx, parsed.Port, parsed.LidarDevices, parsed.SaveToDisk)
-}
-
-// Arguments for the command (parsed).
-type Arguments struct {
-	Port         int
-	LidarDevices []lidar.DeviceDescription
-	SaveToDisk   string
-}
-
-const (
-	deviceFlagName = "device"
-	saveFlagName   = "save"
-)
-
-func parseFlags(args []string) (Arguments, error) {
-	cmdLine := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	cmdLine.SetOutput(io.Discard)
-
-	var addressFlags utils.StringFlags
-	cmdLine.Var(&addressFlags, deviceFlagName, "lidar devices")
-	var saveToDisk string
-	cmdLine.StringVar(&saveToDisk, saveFlagName, "", "save data to disk (LAS)")
-	if err := cmdLine.Parse(args[1:]); err != nil {
-		return Arguments{}, err
-	}
-
-	port := defaultPort
-	if cmdLine.NArg() >= 1 {
-		portParsed, err := strconv.ParseUint(cmdLine.Arg(0), 10, 16)
-		if err != nil {
-			return Arguments{}, err
-		}
-		port = int(portParsed)
-	}
-
-	if len(addressFlags) == 0 {
-		return Arguments{Port: port, SaveToDisk: saveToDisk}, nil
-	}
-	deviceDescs, err := lidar.ParseDeviceFlags(addressFlags, deviceFlagName)
-	if err != nil {
-		return Arguments{}, err
-	}
-
-	return Arguments{Port: port, LidarDevices: deviceDescs, SaveToDisk: saveToDisk}, nil
+	return viewLidar(ctx, int(argsParsed.Port), argsParsed.LidarDevices, argsParsed.SaveToDisk)
 }
 
 func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) (err error) {
@@ -236,4 +198,27 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarDeviceD
 	}()
 
 	return compassDone, nil
+}
+
+type portFlag int
+
+func (pf *portFlag) String() string {
+	return fmt.Sprintf("%v", int(*pf))
+}
+
+func (pf *portFlag) Set(val string) error {
+	if val == "" {
+		*pf = portFlag(defaultPort)
+		return nil
+	}
+	portParsed, err := strconv.ParseUint(val, 10, 16)
+	if err != nil {
+		return err
+	}
+	*pf = portFlag(portParsed)
+	return nil
+}
+
+func (pf *portFlag) Get() interface{} {
+	return int(*pf)
 }
