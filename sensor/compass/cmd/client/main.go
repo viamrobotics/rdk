@@ -1,10 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"flag"
 	"time"
 
 	"go.viam.com/robotcore/sensor/compass"
@@ -19,41 +16,18 @@ func main() {
 	utils.ContextualMainQuit(mainWithArgs)
 }
 
+// Arguments for the command.
+type Arguments struct {
+	DeviceAddress string `flag:"device,required,usage=device address"`
+}
+
 func mainWithArgs(ctx context.Context, args []string) error {
-	parsed, err := parseFlags(args)
-	if err != nil {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
 
-	return readCompass(ctx, parsed.DeviceAddress)
-}
-
-// Arguments for the command (parsed).
-type Arguments struct {
-	DeviceAddress string
-}
-
-const (
-	deviceFlagName = "device"
-)
-
-func parseFlags(args []string) (Arguments, error) {
-	cmdLine := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	var buf bytes.Buffer
-	cmdLine.SetOutput(&buf)
-
-	var address string
-	cmdLine.StringVar(&address, deviceFlagName, "", "device address")
-	if err := cmdLine.Parse(args[1:]); err != nil {
-		return Arguments{}, err
-	}
-
-	if len(address) == 0 {
-		cmdLine.Usage()
-		return Arguments{}, errors.New(buf.String())
-	}
-
-	return Arguments{DeviceAddress: address}, nil
+	return readCompass(ctx, argsParsed.DeviceAddress)
 }
 
 func readCompass(ctx context.Context, deviceAddress string) error {
