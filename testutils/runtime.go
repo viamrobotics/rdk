@@ -2,9 +2,13 @@ package testutils
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
+	"sync"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
@@ -18,7 +22,7 @@ type ContextualMainExecution struct {
 	Ready      <-chan struct{}
 	Done       <-chan error
 	Stop       func()
-	QuitSignal func() // reflects syscall.SIGQUIT
+	QuitSignal func(t *testing.T) // reflects syscall.SIGQUIT
 }
 
 // ContextualMain calls a main entry point function with a cancellable
@@ -37,18 +41,30 @@ func contextualMain(main func(ctx context.Context, args []string) error, args []
 	readyF := utils.ContextMainReadyFunc(ctx)
 	doneC := make(chan error, 1)
 
+	mainDone := make(chan struct{})
+	var err error
 	go func() {
 		// if main is not a daemon like function or does not error out, just be "ready"
 		// after execution is complete.
 		defer readyF()
-		doneC <- main(ctx, append([]string{"main"}, args...))
+		defer close(mainDone)
+		err = main(ctx, append([]string{"main"}, args...))
+		doneC <- err
 	}()
 	return ContextualMainExecution{
 		Ready: readyC,
 		Done:  doneC,
 		Stop:  stop,
-		QuitSignal: func() {
-			quitC <- syscall.SIGQUIT
+		QuitSignal: func(t *testing.T) {
+			select {
+			case <-mainDone:
+				if err != nil { // safe to check as we synchronize on mainDone
+					t.Fatalf("main function completed while waiting to send quit signal with error: %v", err)
+				} else {
+					t.Fatal("main function completed while waiting to send quit signal")
+				}
+			case quitC <- syscall.SIGQUIT:
+			}
 		},
 	}
 }
@@ -59,10 +75,15 @@ type MainTestCase struct {
 	Name   string
 	Args   []string
 	Err    string
-	Before func(logger golog.Logger)
-	During func(exec *ContextualMainExecution)
+	Before func(t *testing.T, logger golog.Logger)
+	During func(ctx context.Context, t *testing.T, exec *ContextualMainExecution)
 	After  func(t *testing.T, logs *observer.ObservedLogs)
 }
+
+var (
+	completedBeforeExpected    = "main function completed before expected"
+	errCompletedBeforeExpected = errors.New(completedBeforeExpected)
+)
 
 // TestMain tests a main function with a series of test cases in serial.
 func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string) error, tcs []MainTestCase) {
@@ -71,16 +92,55 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 			var logs *observer.ObservedLogs
 			logger, logs := golog.NewObservedTestLogger(t)
 			if tc.Before != nil {
-				tc.Before(logger)
+				tc.Before(t, logger)
 			}
 			exec := ContextualMain(mainWithArgs, tc.Args)
 			<-exec.Ready
-
+			done := make(chan error)
+			var waitingInDuring bool
+			var waitingInDuringFailed bool
+			var waitMu sync.Mutex
 			if tc.During != nil {
-				tc.During(&exec)
+				waitingInDuring = true
+			}
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var doneErr error
+			go func() {
+				err := utils.FilterOutError(<-exec.Done, context.Canceled)
+				doneErr = err
+				waitMu.Lock()
+				if waitingInDuring {
+					waitingInDuringFailed = true
+					cancel()
+					if err == nil {
+						t.Error(errCompletedBeforeExpected)
+					} else {
+						t.Error(fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+					}
+				}
+				waitMu.Unlock()
+				done <- err
+			}()
+			if tc.During != nil {
+				tc.During(cancelCtx, t, &exec)
+				waitMu.Lock()
+				if waitingInDuringFailed {
+					// covers the case where the writer of During does not
+					// error themselves.
+					defer waitMu.Unlock()
+					err := <-done
+					if err == nil {
+						t.Fatal(errCompletedBeforeExpected)
+					} else {
+						t.Fatal(fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+					}
+				}
+				waitingInDuring = false
+				waitMu.Unlock()
 			}
 			exec.Stop()
-			err := <-exec.Done
+			err := <-done
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -91,5 +151,17 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 				tc.After(t, logs)
 			}
 		})
+	}
+}
+
+// WaitOrFail waits for either the given duration to pass or fails if
+// the context deems it so.
+func WaitOrFail(ctx context.Context, t *testing.T, dur time.Duration) {
+	timer := time.NewTimer(dur)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
 	}
 }

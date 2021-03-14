@@ -80,7 +80,7 @@ func TestMain(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	before := func(tLogger golog.Logger) {
+	before := func(t *testing.T, tLogger golog.Logger) {
 		logger = tLogger
 		randomPort, err := utils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
@@ -110,26 +110,27 @@ func TestMain(t *testing.T) {
 		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", before, nil, nil},
 		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", before, nil, nil},
 		{"bad save path", []string{"--save=/"}, "is a directory", before, nil, nil},
-		{"heading", nil, "", before, func(exec *testutils.ContextualMainExecution) {
-			exec.QuitSignal()
-			time.Sleep(2 * time.Second)
-			exec.QuitSignal()
+		{"heading", nil, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			exec.QuitSignal(t)
+			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.QuitSignal(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, logs.FilterMessageSnippet("marking").All(), test.ShouldHaveLength, 2)
 			test.That(t, logs.FilterMessageSnippet("marked").All(), test.ShouldHaveLength, 2)
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"heading fail", []string{"--device=fail_scan,zero"}, "", before, func(exec *testutils.ContextualMainExecution) {
-			exec.QuitSignal()
-			time.Sleep(2 * time.Second)
-			exec.QuitSignal()
+		{"heading fail", []string{"--device=fail_scan,zero"}, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			exec.QuitSignal(t)
+			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.QuitSignal(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("failed").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("error marking").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"saving", []string{"--save=" + temp.Name()}, "", before, func(exec *testutils.ContextualMainExecution) {
+		{"saving", []string{"--save=" + temp.Name()}, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			testutils.WaitOrFail(ctx, t, 2*time.Second)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			pc, err := pointcloud.NewFromFile(temp.Name())

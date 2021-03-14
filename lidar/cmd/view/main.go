@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	"go.viam.com/robotcore/robots/fake"
@@ -18,6 +17,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	"go.uber.org/multierr"
 )
 
 func main() {
@@ -172,27 +172,40 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarDeviceD
 		defer close(compassDone)
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
+		var once bool
 		for {
-			select {
-			case <-ctx.Done():
+			cont := func() bool {
+				if !once {
+					once = true
+					defer utils.ContextMainReadyFunc(ctx)()
+				}
+				select {
+				case <-ctx.Done():
+					return false
+				default:
+				}
+				select {
+				case <-ctx.Done():
+					return false
+				case <-ticker.C:
+					heading, err := lidarCompass.Heading(ctx)
+					if err != nil {
+						logger.Errorw("failed to get lidar compass heading", "error", err)
+					} else {
+						logger.Infow("heading", "data", heading)
+					}
+				case <-quitSignaler:
+					logger.Debug("marking")
+					if err := lidarCompass.Mark(ctx); err != nil {
+						logger.Errorw("error marking", "error", err)
+					} else {
+						logger.Debug("marked")
+					}
+				}
+				return true
+			}()
+			if !cont {
 				return
-			default:
-			}
-			select {
-			case <-ticker.C:
-				heading, err := lidarCompass.Heading(ctx)
-				if err != nil {
-					logger.Errorw("failed to get lidar compass heading", "error", err)
-					continue
-				}
-				logger.Infow("heading", "data", heading)
-			case <-quitSignaler:
-				logger.Debug("marking")
-				if err := lidarCompass.Mark(ctx); err != nil {
-					logger.Errorw("error marking", "error", err)
-					continue
-				}
-				logger.Debug("marked")
 			}
 		}
 	}()

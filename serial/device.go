@@ -21,7 +21,7 @@ const (
 	DeviceTypeJetson  = "nvidia-jetson"
 )
 
-func OpenDevice(devicePath string) (io.ReadWriteCloser, error) {
+var OpenDevice = func(devicePath string) (io.ReadWriteCloser, error) {
 	options := goserial.OpenOptions{
 		PortName:        devicePath,
 		BaudRate:        9600,

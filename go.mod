@@ -8,10 +8,10 @@ require (
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
-	github.com/edaniels/golog v0.0.0-20210312163446-5f44053d1c35
-	github.com/edaniels/gostream v0.0.0-20210312201844-2bb4aae9c2d8
+	github.com/edaniels/golog v0.0.0-20210314165301-f45417a9288a
+	github.com/edaniels/gostream v0.0.0-20210314141017-defeb97589cf
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
-	github.com/edaniels/wsapi v0.0.2
+	github.com/edaniels/wsapi v0.0.3-0.20210314165336-c80c5d7641e6
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90

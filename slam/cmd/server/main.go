@@ -13,7 +13,6 @@ import (
 	"strings"
 	"syscall"
 
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
@@ -27,6 +26,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	"go.uber.org/multierr"
 )
 
 const fakeDev = "fake"

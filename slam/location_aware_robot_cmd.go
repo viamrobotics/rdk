@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"go.uber.org/multierr"
 )
 
 const (

@@ -7,12 +7,12 @@ import (
 	"log"
 	"time"
 
-	"go.uber.org/multierr"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
+
+	"go.uber.org/multierr"
 )
 
 const (

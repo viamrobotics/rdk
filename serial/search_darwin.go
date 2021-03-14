@@ -6,7 +6,7 @@ import (
 	"go.viam.com/robotcore/usb"
 )
 
-func SearchDevices(filter SearchFilter) ([]DeviceDescription, error) {
+var SearchDevices = func(filter SearchFilter) ([]DeviceDescription, error) {
 	usbDevices, err := usb.SearchDevices(
 		usb.NewSearchFilter("AppleUSBACMData", "usbmodem"),
 		func(vendorID, productID int) bool {

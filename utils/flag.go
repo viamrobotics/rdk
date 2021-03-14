@@ -193,6 +193,12 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 			}
 			info.Default = parted[1]
 			switch field.Type.Kind() {
+			case reflect.Bool:
+				conv, err := strconv.ParseBool(info.Default)
+				if err != nil {
+					return flagInfo{}, fmt.Errorf("error parsing flag info default for %q: %w", fieldName, err)
+				}
+				info.DefaultIfc = conv
 			case reflect.String:
 				info.DefaultIfc = info.Default
 			case reflect.Int:
@@ -264,15 +270,40 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		if err != nil {
 			return err
 		}
+		fieldT := field.Type
+		if fieldT.Kind() == reflect.Ptr {
+			fieldT = fieldT.Elem()
+		}
 		if info.IsFlagVal {
 			flagValue := v.Field(i)
-			if reflect.PtrTo(field.Type).Implements(flagValueT) {
+			if reflect.PtrTo(fieldT).Implements(flagValueT) {
 				flagValue = flagValue.Addr()
 			}
 			flagSet.Var(&flagValueProxy{Value: flagValue.Interface().(flag.Value)}, info.Name, info.Usage)
 			continue
 		}
-		switch field.Type.Kind() {
+		if fieldT.Implements(flagUnmarshalerT) || reflect.PtrTo(fieldT).Implements(flagUnmarshalerT) {
+			flagSet.Var(&unmarshalerFlag{
+				ctor: func(val string) (interface{}, error) {
+					newVal := reflect.New(fieldT)
+					if err := newVal.Interface().(flagUnmarshaler).UnmarshalFlag(info.Name, val); err != nil {
+						return nil, fmt.Errorf("error unmarshaling flag for %q: %w", info.Name, err)
+					}
+					if field.Type.Kind() == reflect.Ptr {
+						return newVal.Interface(), nil
+					}
+					return newVal.Elem().Interface(), nil
+				},
+			}, info.Name, info.Usage)
+			continue
+		}
+		switch fieldT.Kind() {
+		case reflect.Bool:
+			var defaultVal bool
+			if info.Default != "" {
+				defaultVal = info.DefaultIfc.(bool)
+			}
+			flagSet.Bool(info.Name, defaultVal, info.Usage)
 		case reflect.String:
 			flagSet.String(info.Name, info.Default, info.Usage)
 		case reflect.Int:
@@ -282,7 +313,7 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 			}
 			flagSet.Int(info.Name, defaultVal, info.Usage)
 		case reflect.Slice:
-			sliceElem := field.Type.Elem()
+			sliceElem := fieldT.Elem()
 			var ctor func(val string) (interface{}, error)
 			if sliceElem.Implements(flagUnmarshalerT) || reflect.PtrTo(sliceElem).Implements(flagUnmarshalerT) {
 				ctor = func(val string) (interface{}, error) {
@@ -302,10 +333,32 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 				ctor: ctor,
 			}, info.Name, info.Usage)
 		default:
-			return fmt.Errorf("error extracting flag for %q: unsupported flag kind %q", info.Name, field.Type.Kind())
+			return fmt.Errorf("error extracting flag for %q: unsupported flag kind %q", info.Name, fieldT.Kind())
 		}
 	}
 	return nil
+}
+
+type unmarshalerFlag struct {
+	value interface{}
+	ctor  func(val string) (interface{}, error)
+}
+
+func (uf *unmarshalerFlag) String() string {
+	return fmt.Sprintf("%v", uf.value)
+}
+
+func (uf *unmarshalerFlag) Set(val string) error {
+	newVal, err := uf.ctor(val)
+	if err != nil {
+		return err
+	}
+	uf.value = newVal
+	return nil
+}
+
+func (uf *unmarshalerFlag) Get() interface{} {
+	return uf.value
 }
 
 type sliceFlag struct {

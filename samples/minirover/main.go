@@ -8,16 +8,15 @@ import (
 	"math"
 	"time"
 
-	"go.uber.org/multierr"
-
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 const (
