@@ -4,7 +4,8 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-              "path_pattern" : "video0"
+              "path_pattern" : "video0",
+              "width" : 1024
           }
         },
         { "name" : "depth",
@@ -33,8 +34,28 @@
               "width" : 448,
               "height" : 342
           }
+        },
+        { "name" : "combined",
+          "type" : "camera",
+          "model" : "depthComposed",
+          "attributes" : {
+              "color" : "color",
+              "depth" : "depth",
+              "config" : {
+                  "ColorInputSize" : { "X" : 1024, "Y" : 768 },
+                  "ColorWarpPoints" : [ { "X" : 0, "Y" : 0 }, { "X" : 1023, "Y" : 767 } ],
+                  "DepthInputSize" : { "X" : 224, "Y" : 171},
+                  "DepthWarpPoints" : [ { "X" : 0, "Y" : 170 }, { "X" : 0, "Y" : 0 }, { "X" : 223, "Y" : 0 }, { "X" : 223, "Y" : 170 }],
+                  "OutputSize" : { "X" : 200, "Y" : 200 }
+              }
+          }
+        },
+        { "name" : "overlay",
+          "type" : "camera",
+          "model" : "overlay",
+          "attributes" : {
+              "source" : "combined"
+          }
         }
-        
-
     ]
 }

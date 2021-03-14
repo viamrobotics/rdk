@@ -11,47 +11,86 @@ import (
 
 	"go.opencensus.io/trace"
 
+	"github.com/mitchellh/mapstructure"
+
 	"go.viam.com/robotcore/api"
 )
 
 func init() {
 	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
-		colorName := config.Attributes.GetString("color")
+		attrs := config.Attributes
+
+		colorName := attrs.GetString("color")
 		color := r.CameraByName(colorName)
 		if color == nil {
 			return nil, fmt.Errorf("cannot find color camera (%s)", colorName)
 		}
 
-		depthName := config.Attributes.GetString("depth")
+		depthName := attrs.GetString("depth")
 		depth := r.CameraByName(depthName)
 		if depth == nil {
 			return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
 		}
-		return NewDepthComposed(color, depth)
+
+		return NewDepthComposed(color, depth, config.Attributes)
+	})
+
+	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
+		config := &alignConfig{}
+		err := mapstructure.Decode(val, config)
+		if err == nil {
+			err = config.checkValid()
+		}
+		return config, err
 	})
 }
 
-type depthComposed struct {
-	color gostream.ImageSource
-	depth gostream.ImageSource
+type DepthComposed struct {
+	color, depth                   gostream.ImageSource
+	colorTransform, depthTransform TransformationMatrix
+
+	config *alignConfig
+	debug  bool
 }
 
-func NewDepthComposed(color, depth gostream.ImageSource) (gostream.ImageSource, error) {
-	if color == nil {
-		return nil, fmt.Errorf("need color")
+func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap) (*DepthComposed, error) {
+	var config *alignConfig
+	if attrs.Has("config") {
+		config = attrs["config"].(*alignConfig)
+	} else if attrs["make"] == "intel515" {
+		config = &intelConfig
+	} else {
+		return nil, fmt.Errorf("no aligntmnt config")
 	}
-	if depth == nil {
-		return nil, fmt.Errorf("need depth")
-	}
-	return &depthComposed{color, depth}, nil
+
+	dst := arrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
+
+	colorPoints := arrayToPoints(config.ColorWarpPoints)
+	depthPoints := arrayToPoints(config.DepthWarpPoints)
+
+	colorTransform := GetPerspectiveTransform(colorPoints, dst)
+	depthTransform := GetPerspectiveTransform(depthPoints, dst)
+
+	return &DepthComposed{color, depth, colorTransform, depthTransform, config, attrs.GetBool("debug", false)}, nil
 }
 
-func (dc *depthComposed) Close() error {
+func (dc *DepthComposed) Close() error {
 	// TODO(erh): who owns these?
 	return nil
 }
 
-func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) {
+func convertImageToDepthMap(img image.Image) (*DepthMap, error) {
+	switch ii := img.(type) {
+	case *ImageWithDepth:
+		return ii.Depth, nil
+	case *image.Gray16:
+		return imageToDepthMap(ii), nil
+	default:
+		return nil, fmt.Errorf("don't know how to make DepthMap from %T", img)
+	}
+}
+
+func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := dc.color.Next(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -65,57 +104,94 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	}
 	defer dCloser()
 
-	aligned, err := intel515align(ctx, &ImageWithDepth{ConvertImage(c), imageToDepthMap(d)})
+	dm, err := convertImageToDepthMap(d)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	aligned, err := dc.alignColorAndDepth(ctx, &ImageWithDepth{ConvertImage(c), dm})
 
 	return aligned, func() {}, err
 
 }
 
-func rectToPoints(r image.Rectangle) []image.Point {
-	return []image.Point{
-		r.Min,
-		{r.Max.X, r.Min.Y},
-		{r.Min.X, r.Max.Y},
-		r.Max,
+func arrayToPoints(pts []image.Point) []image.Point {
+
+	if len(pts) == 4 {
+		return pts
 	}
+
+	if len(pts) == 2 {
+		r := image.Rectangle{pts[0], pts[1]}
+		return []image.Point{
+			r.Min,
+			{r.Max.X, r.Min.Y},
+			r.Max,
+			{r.Min.X, r.Max.Y},
+		}
+	}
+
+	panic(fmt.Errorf("invalid number of points passed to arrayToPoints %d", len(pts)))
 }
 
 type alignConfig struct {
 	ColorInputSize  image.Point // this validates input size
-	ColorWarpPoints image.Rectangle
+	ColorWarpPoints []image.Point
 
 	DepthInputSize  image.Point // this validates output size
-	DepthWarpPoints image.Rectangle
+	DepthWarpPoints []image.Point
 
 	OutputSize image.Point
 }
 
+func (config alignConfig) checkValid() error {
+	if config.ColorInputSize.X == 0 ||
+		config.ColorInputSize.Y == 0 {
+		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+	}
+
+	if config.DepthInputSize.X == 0 ||
+		config.DepthInputSize.Y == 0 {
+		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+	}
+
+	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
+		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
+	}
+
+	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
+		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+	}
+
+	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
+		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+	}
+
+	return nil
+}
+
 var (
-	intelCurrentlyWriting = false
+	alignCurrentlyWriting = false
 	intelConfig           = alignConfig{
 		ColorInputSize:  image.Point{1280, 720},
-		ColorWarpPoints: image.Rect(0, 0, 1196, 720),
+		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
 
 		DepthInputSize:  image.Point{1024, 768},
-		DepthWarpPoints: image.Rect(67, 100, 1019, 665),
+		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
 
 		OutputSize: image.Point{640, 360},
 	}
 )
 
-func intel515align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
-	return alignColorAndDepth(ctx, ii, intelConfig)
-}
-
-func alignColorAndDepth(ctx context.Context, ii *ImageWithDepth, config alignConfig) (*ImageWithDepth, error) {
-	_, span := trace.StartSpan(ctx, "Intel515Align")
+func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
+	_, span := trace.StartSpan(ctx, "alignColorAndDepth")
 	defer span.End()
 
-	if false {
-		if !intelCurrentlyWriting {
-			intelCurrentlyWriting = true
+	if dc.debug {
+		if !alignCurrentlyWriting {
+			alignCurrentlyWriting = true
 			go func() {
-				defer func() { intelCurrentlyWriting = false }()
+				defer func() { alignCurrentlyWriting = false }()
 				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
 				err := ii.WriteTo(fn)
 				if err != nil {
@@ -125,26 +201,18 @@ func alignColorAndDepth(ctx context.Context, ii *ImageWithDepth, config alignCon
 				}
 			}()
 		}
-		return ii, nil
 	}
 
-	if ii.Color.Width() != config.ColorInputSize.X ||
-		ii.Color.Height() != config.ColorInputSize.Y ||
-		ii.Depth.Width() != config.DepthInputSize.X ||
-		ii.Depth.Height() != config.DepthInputSize.Y {
-		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %v",
-			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), config)
+	if ii.Color.Width() != dc.config.ColorInputSize.X ||
+		ii.Color.Height() != dc.config.ColorInputSize.Y ||
+		ii.Depth.Width() != dc.config.DepthInputSize.X ||
+		ii.Depth.Height() != dc.config.DepthInputSize.Y {
+		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
+			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dc.config)
 	}
 
-	newBounds := image.Rect(0, 0, config.OutputSize.X, config.OutputSize.Y)
-
-	dst := rectToPoints(newBounds)
-
-	depthPoints := rectToPoints(config.DepthWarpPoints)
-	colorPoints := rectToPoints(config.ColorWarpPoints)
-
-	c2 := WarpImage(ii, GetPerspectiveTransform(colorPoints, dst), newBounds.Max)
-	dm2 := ii.Depth.Warp(GetPerspectiveTransform(depthPoints, dst), newBounds.Max)
+	c2 := WarpImage(ii, dc.colorTransform, dc.config.OutputSize)
+	dm2 := ii.Depth.Warp(dc.depthTransform, dc.config.OutputSize)
 
 	return &ImageWithDepth{c2, &dm2}, nil
 }
