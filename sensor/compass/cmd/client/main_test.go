@@ -46,8 +46,10 @@ func TestMain(t *testing.T) {
 	}()
 	defer httpServer.Close()
 
-	assignLogger := func(tLogger golog.Logger) {
+	assignLogger := func(t *testing.T, tLogger golog.Logger) {
 		logger = tLogger
+		wsServer.SetLogger(logger)
+		wsServer2.SetLogger(logger)
 	}
 	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{
 		// parsing

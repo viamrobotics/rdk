@@ -33,7 +33,7 @@ func contextualMain(main func(ctx context.Context, args []string) error, quitSig
 	}
 	readyC := make(chan struct{})
 	ctx = ContextWithReadyFunc(ctx, readyC)
-	if err := main(ctx, os.Args); err != nil {
+	if err := FilterOutError(main(ctx, os.Args), context.Canceled); err != nil {
 		golog.Global.Fatal(err)
 	}
 }

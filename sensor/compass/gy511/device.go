@@ -3,6 +3,8 @@ package gy511
 import (
 	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -14,6 +16,7 @@ import (
 
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 type Device struct {
@@ -26,16 +29,16 @@ type Device struct {
 
 const headingWindow = 100
 
-func New(ctx context.Context, path string) (compass.Device, error) {
+func New(ctx context.Context, path string, logger golog.Logger) (dev compass.Device, err error) {
 	rwc, err := serial.OpenDevice(path)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		err = multierr.Combine(err, rwc.Close())
+	}()
 	d := &Device{rwc: rwc}
 	if err := d.StopCalibration(ctx); err != nil {
-		if err := rwc.Close(); err != nil {
-			return nil, err
-		}
 		return nil, err
 	}
 	d.heading.Store(math.NaN())
@@ -73,7 +76,7 @@ func New(ctx context.Context, path string) (compass.Device, error) {
 			}
 			heading, err := readHeading()
 			if err != nil {
-				golog.Global.Debugw("error reading heading", "error", err)
+				logger.Debugw("error reading heading", "error", err)
 			}
 
 			if math.IsNaN(heading) {
@@ -122,4 +125,76 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 func (d *Device) Close(ctx context.Context) error {
 	close(d.closeCh)
 	return d.rwc.Close()
+}
+
+// RawDevice demonstrates the binary protocol used to talk to a GY511
+// based on the arduino code in the directory below.
+type RawDevice struct {
+	mu          sync.Mutex
+	calibrating bool
+	heading     float64
+	fail        bool
+}
+
+func (rd *RawDevice) SetHeading(heading float64) {
+	rd.mu.Lock()
+	rd.heading = heading
+	rd.mu.Unlock()
+}
+
+func (rd *RawDevice) SetFail(fail bool) {
+	rd.mu.Lock()
+	rd.fail = fail
+	rd.mu.Unlock()
+}
+
+func (rd *RawDevice) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, errors.New("expected read data to be non-empty")
+	}
+	rd.mu.Lock()
+	fail := rd.fail
+	rd.mu.Unlock()
+	if fail {
+		return 0, errors.New("read fail")
+	}
+	if rd.calibrating {
+		return 0, nil
+	}
+	rd.mu.Lock()
+	heading := rd.heading
+	rd.mu.Unlock()
+	val := []byte(fmt.Sprintf("%0.3f\n", heading))
+	copy(p, val)
+	n := len(val)
+	if len(p) < n {
+		n = len(p)
+	}
+	return n, nil
+}
+
+func (rd *RawDevice) Write(p []byte) (int, error) {
+	if len(p) > 1 {
+		return 0, errors.New("write data must be one byte")
+	}
+	rd.mu.Lock()
+	fail := rd.fail
+	rd.mu.Unlock()
+	if fail {
+		return 0, errors.New("write fail")
+	}
+	c := p[0]
+	switch c {
+	case '0':
+		rd.calibrating = false
+	case '1':
+		rd.calibrating = true
+	default:
+		return 0, fmt.Errorf("unknown command on write: %q", c)
+	}
+	return len(p), nil
+}
+
+func (rd *RawDevice) Close() error {
+	return nil
 }

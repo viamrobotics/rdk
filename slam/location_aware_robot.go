@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
@@ -17,6 +16,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 // relative to first device
