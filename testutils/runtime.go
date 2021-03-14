@@ -4,7 +4,11 @@ import (
 	"context"
 	"os"
 	"syscall"
+	"testing"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
+	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/robotcore/utils"
 )
 
@@ -46,5 +50,46 @@ func contextualMain(main func(ctx context.Context, args []string) error, args []
 		QuitSignal: func() {
 			quitC <- syscall.SIGQUIT
 		},
+	}
+}
+
+// MainTestCase describes how to execute a main function and what
+// to expect from it.
+type MainTestCase struct {
+	Name   string
+	Args   []string
+	Err    string
+	Before func(logger golog.Logger)
+	During func(exec *ContextualMainExecution)
+	After  func(t *testing.T, logs *observer.ObservedLogs)
+}
+
+// TestMain tests a main function with a series of test cases in serial.
+func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string) error, tcs []MainTestCase) {
+	for _, tc := range tcs {
+		t.Run(tc.Name, func(t *testing.T) {
+			var logs *observer.ObservedLogs
+			logger, logs := golog.NewObservedTestLogger(t)
+			if tc.Before != nil {
+				tc.Before(logger)
+			}
+			exec := ContextualMain(mainWithArgs, tc.Args)
+			<-exec.Ready
+
+			if tc.During != nil {
+				tc.During(&exec)
+			}
+			exec.Stop()
+			err := <-exec.Done
+			if tc.Err == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
+			}
+			if tc.After != nil {
+				tc.After(t, logs)
+			}
+		})
 	}
 }
