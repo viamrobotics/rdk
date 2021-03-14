@@ -24,7 +24,7 @@ func init() {
 
 }
 
-func makeConstraints(attrs api.AttributeMap) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs api.AttributeMap, debug bool) mediadevices.MediaStreamConstraints {
 
 	minWidth := 680
 	maxWidth := 4096
@@ -68,6 +68,10 @@ func makeConstraints(attrs api.AttributeMap) mediadevices.MediaStreamConstraints
 			} else {
 				constraint.FrameFormat = prop.FrameFormatExact(attrs.GetString("format"))
 			}
+
+			if debug {
+				golog.Global.Debugf("constraints: %v", constraint)
+			}
 		},
 	}
 }
@@ -81,11 +85,7 @@ func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 
 	debug := attrs.GetBool("debug", false)
 
-	constraints := makeConstraints(attrs)
-
-	if debug {
-		golog.Global.Debugf("constraints: %v", constraints)
-	}
+	constraints := makeConstraints(attrs, debug)
 
 	if attrs.Has("path") {
 		return tryWebcamOpen(attrs.GetString("path"), debug, constraints)
