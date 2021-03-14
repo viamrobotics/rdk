@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"fmt"
 	"image"
 	"math"
 
@@ -15,6 +16,27 @@ func (m TransformationMatrix) At(x, y int) float64 {
 
 func (m TransformationMatrix) Dims() (int, int) {
 	return len(m), len(m[0])
+}
+
+// -----
+
+func newTransformationMatrix(m mat.Matrix) TransformationMatrix {
+	tm := [][]float64{
+		make([]float64, 3),
+		make([]float64, 3),
+		make([]float64, 3),
+	}
+
+	if m != nil {
+		for x := 0; x < 3; x++ {
+			for y := 0; y < 3; y++ {
+				tm[x][y] = m.At(x, y)
+			}
+		}
+
+	}
+
+	return tm
 }
 
 type WarpConnector interface {
@@ -78,7 +100,6 @@ func (c *WarpImageConnector) NumFields() int {
 
 // cribbed from opencv cv::getPerspectiveTransform
 func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
-
 	a := mat.NewDense(8, 8, nil)
 	b := mat.NewDense(8, 1, nil)
 
@@ -114,17 +135,7 @@ func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 
 	m = invert(m)
 
-	tm := [][]float64{
-		make([]float64, 3),
-		make([]float64, 3),
-		make([]float64, 3),
-	}
-
-	for x := 0; x < 3; x++ {
-		for y := 0; y < 3; y++ {
-			tm[x][y] = m.At(x, y)
-		}
-	}
+	tm := newTransformationMatrix(m)
 
 	return tm
 }
@@ -132,15 +143,25 @@ func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 func invert(m mat.Matrix) *mat.Dense {
 	rows, cols := m.Dims()
 	d := mat.NewDense(rows, cols, nil)
-	err := d.Inverse(m)
+
+	// we estimate the inverse so we can solve any shape
+	b := mat.NewDense(rows, cols, nil)
+	b.Set(0, 0, 1)
+	b.Set(1, 1, 1)
+	b.Set(2, 2, 1)
+	err := d.Solve(m, b)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("cannot invert matrix %v %s", m, err))
 	}
 	return d
 }
 
 func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) {
 	area := dx * dy
+	if area <= .00001 {
+		return
+	}
+
 	input.Get(int(rp), int(cp), buf)
 
 	for idx, vv := range buf {
@@ -181,7 +202,6 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 			for idx := 0; idx < numFields; idx++ {
 				total[idx] = 0
 			}
-
 			input.Set(r, c, getRoundedValue(input, R, C, total, buf))
 		}
 	}
