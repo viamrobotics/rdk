@@ -33,7 +33,7 @@ func searchUSB(filter SearchFilter) ([]DeviceDescription, error) {
 	return serialDeviceDecss, nil
 }
 
-func SearchDevices(filter SearchFilter) ([]DeviceDescription, error) {
+var SearchDevices = func(filter SearchFilter) ([]DeviceDescription, error) {
 	serialDeviceDecss, err := searchUSB(filter)
 	if err != nil {
 		return nil, err

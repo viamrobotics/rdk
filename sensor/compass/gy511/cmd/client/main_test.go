@@ -1,0 +1,149 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"testing"
+	"time"
+
+	"go.uber.org/zap/zaptest/observer"
+	"go.viam.com/robotcore/sensor/compass/gy511"
+	"go.viam.com/robotcore/serial"
+	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/testutils/inject"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
+)
+
+func TestMain(t *testing.T) {
+	defaultSearchDevicesFunc := func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+		return nil, nil
+	}
+	searchDevicesFunc := defaultSearchDevicesFunc
+	serial.SearchDevices = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+		return searchDevicesFunc(filter)
+	}
+	defaultOpenDeviceFunc := func(devicePath string) (io.ReadWriteCloser, error) {
+		return nil, fmt.Errorf("cannot open %s", devicePath)
+	}
+	prevOpenDeviceFunc := serial.OpenDevice
+	openDeviceFunc := defaultOpenDeviceFunc
+	serial.OpenDevice = func(devicePath string) (io.ReadWriteCloser, error) {
+		if openDeviceFunc == nil {
+			return prevOpenDeviceFunc(devicePath)
+		}
+		return openDeviceFunc(devicePath)
+	}
+	reset := func(t *testing.T, tLogger golog.Logger) {
+		logger = tLogger
+		searchDevicesFunc = defaultSearchDevicesFunc
+		openDeviceFunc = defaultOpenDeviceFunc
+	}
+
+	failingDevice := &gy511.RawDevice{}
+	failingDevice.SetHeading(5)
+	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{
+		// parsing
+		{"no args", nil, "no suitable", reset, nil, nil},
+		{"unknown named arg", []string{"--unknown"}, "not defined", reset, nil, nil},
+		{"bad calibrate flag", []string{"--calibrate=who"}, "parse", reset, nil, nil},
+		{"error searching", nil, "whoops", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return nil, errors.New("whoops")
+			}
+		}, nil, nil},
+
+		// reading
+		{"bad device", nil, "directory", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return []serial.DeviceDescription{
+					{Path: "/"},
+				}, nil
+			}
+			openDeviceFunc = nil
+		}, nil, nil},
+		{"faulty device", nil, "whoops2; whoops3", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return []serial.DeviceDescription{
+					{Path: "path"},
+				}, nil
+			}
+			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+				return &inject.ReadWriteCloser{
+					ReadFunc: func(p []byte) (int, error) {
+						return 0, errors.New("whoops1")
+					},
+					WriteFunc: func(p []byte) (int, error) {
+						return 0, errors.New("whoops2")
+					},
+					CloseFunc: func() error {
+						return errors.New("whoops3")
+					},
+				}, nil
+			}
+		}, nil, nil},
+		{"normal device", nil, "", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return []serial.DeviceDescription{
+					{Path: "path"},
+				}, nil
+			}
+			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+				rd := &gy511.RawDevice{}
+				rd.SetHeading(5)
+				return rd, nil
+			}
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			testutils.WaitOrFail(ctx, t, time.Second)
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}},
+		{"normal device with calibrate", []string{"--calibrate"}, "", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return []serial.DeviceDescription{
+					{Path: "path"},
+				}, nil
+			}
+			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+				rd := &gy511.RawDevice{}
+				rd.SetHeading(5)
+				return rd, nil
+			}
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			testutils.WaitOrFail(ctx, t, time.Second)
+			exec.QuitSignal(t)
+			testutils.WaitOrFail(ctx, t, time.Second)
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}},
+		{"failing device", nil, "", func(t *testing.T, tLogger golog.Logger) {
+			reset(t, tLogger)
+			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
+				return []serial.DeviceDescription{
+					{Path: "path"},
+				}, nil
+			}
+			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
+				return failingDevice, nil
+			}
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			testutils.WaitOrFail(ctx, t, time.Second)
+			failingDevice.SetFail(true)
+			testutils.WaitOrFail(ctx, t, time.Second)
+		}, func(t *testing.T, logs *observer.ObservedLogs) {
+			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+			test.That(t, len(logs.FilterMessageSnippet("error reading heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
+		}},
+	})
+}
