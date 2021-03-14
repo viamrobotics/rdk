@@ -4,17 +4,24 @@ import (
 	"context"
 	"image"
 	"testing"
+
+	"go.viam.com/robotcore/api"
 )
 
-type intelTestHelper struct {
+type alignTestHelper struct {
 }
 
-func (h *intelTestHelper) Process(d *MultipleImageTestDebugger, fn string, img image.Image) error {
+func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img image.Image) error {
 	ii := ConvertToImageWithDepth(img)
 
 	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, MaxDepth), "depth")
 
-	fixed, err := intel515align(context.TODO(), ii)
+	dc, err := NewDepthComposed(nil, nil, api.AttributeMap{"config": &intelConfig})
+	if err != nil {
+		d.T.Fatal(err)
+	}
+
+	fixed, err := dc.alignColorAndDepth(context.TODO(), ii)
 	if err != nil {
 		d.T.Fatal(err)
 	}
@@ -28,7 +35,7 @@ func (h *intelTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 
 func TestAlignMultiple(t *testing.T) {
 	d := NewMultipleImageTestDebugger(t, "intel515alginment", "*.both.gz")
-	err := d.Process(&intelTestHelper{})
+	err := d.Process(&alignTestHelper{})
 	if err != nil {
 		t.Fatal(err)
 	}
