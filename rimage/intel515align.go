@@ -7,11 +7,29 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 
 	"go.opencensus.io/trace"
 
-	"github.com/edaniels/gostream"
+	"go.viam.com/robotcore/api"
 )
+
+func init() {
+	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+		colorName := config.Attributes.GetString("color")
+		color := r.CameraByName(colorName)
+		if color == nil {
+			return nil, fmt.Errorf("cannot find color camera (%s)", colorName)
+		}
+
+		depthName := config.Attributes.GetString("depth")
+		depth := r.CameraByName(depthName)
+		if depth == nil {
+			return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
+		}
+		return NewDepthComposed(color, depth)
+	})
+}
 
 type depthComposed struct {
 	color gostream.ImageSource
@@ -62,11 +80,34 @@ func rectToPoints(r image.Rectangle) []image.Point {
 	}
 }
 
+type alignConfig struct {
+	ColorInputSize  image.Point // this validates input size
+	ColorWarpPoints image.Rectangle
+
+	DepthInputSize  image.Point // this validates output size
+	DepthWarpPoints image.Rectangle
+
+	OutputSize image.Point
+}
+
 var (
 	intelCurrentlyWriting = false
+	intelConfig           = alignConfig{
+		ColorInputSize:  image.Point{1280, 720},
+		ColorWarpPoints: image.Rect(0, 0, 1196, 720),
+
+		DepthInputSize:  image.Point{1024, 768},
+		DepthWarpPoints: image.Rect(67, 100, 1019, 665),
+
+		OutputSize: image.Point{640, 360},
+	}
 )
 
 func intel515align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
+	return alignColorAndDepth(ctx, ii, intelConfig)
+}
+
+func alignColorAndDepth(ctx context.Context, ii *ImageWithDepth, config alignConfig) (*ImageWithDepth, error) {
 	_, span := trace.StartSpan(ctx, "Intel515Align")
 	defer span.End()
 
@@ -87,20 +128,20 @@ func intel515align(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, er
 		return ii, nil
 	}
 
-	if ii.Color.Width() != 1280 || ii.Color.Height() != 720 ||
-		ii.Depth.Width() != 1024 || ii.Depth.Height() != 768 {
-		return nil, fmt.Errorf("unexpected intel dimensions c:(%d,%d) d:(%d,%d)",
-			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height())
+	if ii.Color.Width() != config.ColorInputSize.X ||
+		ii.Color.Height() != config.ColorInputSize.Y ||
+		ii.Depth.Width() != config.DepthInputSize.X ||
+		ii.Depth.Height() != config.DepthInputSize.Y {
+		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %v",
+			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), config)
 	}
 
-	newWidth := 640
-	newHeight := 360
-	newBounds := image.Rect(0, 0, newWidth, newHeight)
+	newBounds := image.Rect(0, 0, config.OutputSize.X, config.OutputSize.Y)
 
 	dst := rectToPoints(newBounds)
 
-	depthPoints := rectToPoints(image.Rect(67, 100, 1019, 665))
-	colorPoints := rectToPoints(image.Rect(0, 0, 1196, ii.Color.Height()))
+	depthPoints := rectToPoints(config.DepthWarpPoints)
+	colorPoints := rectToPoints(config.ColorWarpPoints)
 
 	c2 := WarpImage(ii, GetPerspectiveTransform(colorPoints, dst), newBounds.Max)
 	dm2 := ii.Depth.Warp(GetPerspectiveTransform(depthPoints, dst), newBounds.Max)

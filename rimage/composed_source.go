@@ -11,10 +11,6 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
-		return newDepthComposed(r, config)
-	})
-
 	api.RegisterCamera("depthToPretty", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
 		return newDepthToPretty(r, config)
 	})
@@ -22,23 +18,6 @@ func init() {
 	api.RegisterCamera("overlay", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
 		return newOverlay(r, config)
 	})
-
-}
-
-func newDepthComposed(r api.Robot, config api.Component) (gostream.ImageSource, error) {
-	colorName := config.Attributes.GetString("color")
-	color := r.CameraByName(colorName)
-	if color == nil {
-		return nil, fmt.Errorf("cannot find color camera (%s)", colorName)
-	}
-
-	depthName := config.Attributes.GetString("depth")
-	depth := r.CameraByName(depthName)
-	if depth == nil {
-		return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
-	}
-
-	return NewDepthComposed(color, depth)
 }
 
 type overlaySource struct {
