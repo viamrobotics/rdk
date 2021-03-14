@@ -80,84 +80,61 @@ func TestMain(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	for _, tc := range []struct {
-		Name   string
-		Args   []string
-		Err    string
-		During func(exec *testutils.ContextualMainExecution)
-		After  func(t *testing.T, logs *observer.ObservedLogs)
-	}{
+	before := func(tLogger golog.Logger) {
+		logger = tLogger
+		randomPort, err := utils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		defaultPort = randomPort
+	}
+	testPort := func(t *testing.T) {
+		hostPort := fmt.Sprintf("localhost:%d", defaultPort)
+		test.That(t, testutils.WaitSuccessfulDial(hostPort), test.ShouldBeNil)
+		req, err := http.NewRequest("GET", "http://"+hostPort, nil)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := http.DefaultClient.Do(req)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.StatusCode, test.ShouldEqual, http.StatusOK)
+	}
+	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{
 		// parsing
-		{"no args", nil, "", nil, nil},
-		{"bad port", []string{"ten"}, "invalid syntax", nil, nil},
-		{"too big port", []string{"65536"}, "out of range", nil, nil},
-		{"unknown named arg", []string{"--unknown"}, "not defined", nil, nil},
-		{"bad device", []string{"--device=foo"}, "format", nil, nil},
+		{"no args", nil, "", before, nil, nil},
+		{"bad port", []string{"ten"}, "invalid syntax", before, nil, nil},
+		{"too big port", []string{"65536"}, "out of range", before, nil, nil},
+		{"unknown named arg", []string{"--unknown"}, "not defined", before, nil, nil},
+		{"bad device", []string{"--device=foo"}, "format", before, nil, nil},
 
 		// viewing
-		{"bad device type", []string{"--device=foo,blah"}, "do not know how", nil, nil},
-		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", nil, nil},
-		{"bad device width", []string{"--device=fail_width,zero", "--save=somewhere"}, "whoops", nil, nil},
-		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", nil, nil},
-		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", nil, nil},
-		{"bad save path", []string{"--save=/"}, "is a directory", nil, nil},
-		{"heading", nil, "", func(exec *testutils.ContextualMainExecution) {
+		{"bad device type", []string{"--device=foo,blah"}, "do not know how", before, nil, nil},
+		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", before, nil, nil},
+		{"bad device width", []string{"--device=fail_width,zero", "--save=somewhere"}, "whoops", before, nil, nil},
+		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", before, nil, nil},
+		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", before, nil, nil},
+		{"bad save path", []string{"--save=/"}, "is a directory", before, nil, nil},
+		{"heading", nil, "", before, func(exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal()
 			time.Sleep(2 * time.Second)
 			exec.QuitSignal()
+			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, logs.FilterMessageSnippet("marking").All(), test.ShouldHaveLength, 2)
 			test.That(t, logs.FilterMessageSnippet("marked").All(), test.ShouldHaveLength, 2)
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"heading fail", []string{"--device=fail_scan,zero"}, "", func(exec *testutils.ContextualMainExecution) {
+		{"heading fail", []string{"--device=fail_scan,zero"}, "", before, func(exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal()
 			time.Sleep(2 * time.Second)
 			exec.QuitSignal()
+			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("failed").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("error marking").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"saving", []string{"--save=" + temp.Name()}, "", func(exec *testutils.ContextualMainExecution) {
+		{"saving", []string{"--save=" + temp.Name()}, "", before, func(exec *testutils.ContextualMainExecution) {
+			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			pc, err := pointcloud.NewFromFile(temp.Name())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc.Size(), test.ShouldNotBeZeroValue)
 		}},
-	} {
-		t.Run(tc.Name, func(t *testing.T) {
-			randomPort, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
-			defaultPort = randomPort
-
-			var logs *observer.ObservedLogs
-			logger, logs = golog.NewObservedTestLogger(t)
-			exec := testutils.ContextualMain(mainWithArgs, tc.Args)
-			<-exec.Ready
-
-			if tc.During != nil {
-				tc.During(&exec)
-			}
-			if tc.Err == "" {
-				hostPort := fmt.Sprintf("localhost:%d", defaultPort)
-				test.That(t, testutils.WaitSuccessfulDial(hostPort), test.ShouldBeNil)
-				req, err := http.NewRequest("GET", "http://"+hostPort, nil)
-				test.That(t, err, test.ShouldBeNil)
-				resp, err := http.DefaultClient.Do(req)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp.StatusCode, test.ShouldEqual, http.StatusOK)
-			}
-			exec.Stop()
-			err = <-exec.Done
-			if tc.Err == "" {
-				test.That(t, err, test.ShouldBeNil)
-			} else {
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, tc.Err)
-			}
-			if tc.After != nil {
-				tc.After(t, logs)
-			}
-		})
-	}
+	})
 }
