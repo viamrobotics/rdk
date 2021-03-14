@@ -109,3 +109,54 @@ func BenchmarkWarp(b *testing.B) {
 		WarpImage(img, m, image.Point{size, size})
 	}
 }
+
+func TestWarpInvert(t *testing.T) {
+
+	toSlice := func(m mat.Matrix) []float64 {
+		a := []float64{}
+		for x := 0; x < 3; x++ {
+			for y := 0; y < 3; y++ {
+				a = append(a, m.At(x, y))
+			}
+		}
+		return a
+	}
+
+	doTest := func(inSlice, correct []float64) {
+		input := mat.NewDense(3, 3, inSlice)
+		output := invert(input)
+		assert.InDeltaSlice(t, correct, toSlice(output), .01)
+
+	}
+
+	doTest(
+		[]float64{1.66, 0, -1.66, 0, 1.66, -1.66, 0, 0, 1},
+		[]float64{0.6, 0, 1, 0, 0.6, 1.0, 0, 0, 1},
+	)
+
+	doTest(
+		[]float64{1.3333333333333333, 0, -133.3333, 0, 1.3333, -133.333, -0, -0, 1},
+		[]float64{0.75, 0, 100, 0, 0.75, 100, 0, 0, 1},
+	)
+}
+
+func TestWarpSmall1(t *testing.T) {
+	// this is mostly making sure this test actually runs
+	// as it requires a non-standard matrix invert
+	img, err := ReadImageFromFile("data/warpsmall1.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputSize := image.Point{100, 100}
+	x := WarpImage(img, GetPerspectiveTransform(
+		[]image.Point{{0, 170}, {0, 0}, {223, 0}, {223, 170}},
+		arrayToPoints([]image.Point{{0, 0}, {outputSize.X - 1, outputSize.Y - 1}}),
+	), outputSize)
+
+	err = WriteImageToFile("out/warpsmall1.png", x)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
