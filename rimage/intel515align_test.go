@@ -6,9 +6,11 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/testutils"
 )
 
 type alignTestHelper struct {
+	attrs api.AttributeMap
 }
 
 func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img image.Image) error {
@@ -16,7 +18,7 @@ func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 
 	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, MaxDepth), "depth")
 
-	dc, err := NewDepthComposed(nil, nil, api.AttributeMap{"config": &intelConfig})
+	dc, err := NewDepthComposed(nil, nil, h.attrs)
 	if err != nil {
 		d.T.Fatal(err)
 	}
@@ -33,11 +35,28 @@ func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 	return nil
 }
 
-func TestAlignMultiple(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "intel515alginment", "*.both.gz")
-	err := d.Process(&alignTestHelper{})
+func TestAlignIntel(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &intelConfig}})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAlignGripper(t *testing.T) {
+	config, err := api.ReadConfig(testutils.ResolveFile("robots/configs/gripper-cam.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	c := config.FindComponent("combined")
+	if c == nil {
+		t.Fatal("no combined")
+	}
+
+	d := NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
+	err = d.Process(&alignTestHelper{c.Attributes})
+	if err != nil {
+		t.Fatal(err)
+	}
 }
