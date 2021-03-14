@@ -45,22 +45,35 @@ func readCompass(ctx context.Context, deviceAddress string) error {
 	defer func() {
 		logger.Infow("stats", "rate", float64(count)/time.Since(start).Seconds())
 	}()
+
+	var once bool
 	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
+		cont := func() bool {
+			if !once {
+				once = true
+				defer utils.ContextMainReadyFunc(ctx)()
+			}
+			select {
+			case <-ctx.Done():
+				return false
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return false
+			case <-ticker.C:
+			}
+			heading, err := sensor.Heading(context.Background())
+			if err != nil {
+				logger.Errorw("failed to get sensor heading", "error", err)
+			} else {
+				logger.Infow("heading", "data", heading)
+			}
+			return true
+		}()
+		if !cont {
+			break
 		}
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-		}
-		heading, err := sensor.Heading(context.Background())
-		if err != nil {
-			logger.Errorw("failed to get sensor heading", "error", err)
-			continue
-		}
-		logger.Infow("heading", "data", heading)
 	}
+	return nil
 }
