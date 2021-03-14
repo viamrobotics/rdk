@@ -2,60 +2,100 @@ package main
 
 import (
 	"context"
-	"flag"
-	"os"
-	"os/signal"
-	"syscall"
+	"errors"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/sensor/compass/gy511"
 	"go.viam.com/robotcore/serial"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
+var logger = golog.Global
+
 func main() {
-	var calibrate bool
-	flag.BoolVar(&calibrate, "calibrate", false, "calibrate compass")
-	flag.Parse()
+	utils.ContextualMainQuit(mainWithArgs)
+}
+
+// Arguments for the command.
+type Arguments struct {
+	Calibrate bool `flag:"calibrate,usage=calibrate compass"`
+}
+
+func mainWithArgs(ctx context.Context, args []string) error {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
+	}
 
 	devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 	if len(devices) == 0 {
-		golog.Global.Fatal("no applicable device found")
+		return errors.New("no suitable device found")
 	}
-	sensor, err := gy511.New(context.Background(), devices[0].Path)
+
+	return readCompass(ctx, devices[0], argsParsed.Calibrate)
+}
+
+func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription, calibrate bool) (err error) {
+	sensor, err := gy511.New(ctx, serialDeviceDesc.Path, logger)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
+	defer func() {
+		err = multierr.Combine(err, sensor.Close(ctx))
+	}()
 
 	if calibrate {
-		if err := sensor.StartCalibration(context.Background()); err != nil {
-			golog.Global.Fatal(err)
+		utils.ContextMainReadyFunc(ctx)()
+		if err := sensor.StartCalibration(ctx); err != nil {
+			return err
 		}
-		c := make(chan os.Signal, 2)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-		if err := sensor.StopCalibration(context.Background()); err != nil {
-			golog.Global.Fatal(err)
+		quitSignaler := utils.ContextMainQuitSignal(ctx)
+		<-quitSignaler
+		if err := sensor.StopCalibration(ctx); err != nil {
+			return err
 		}
 	}
 
+	ticker := time.NewTicker(100 * time.Millisecond)
+	var once bool
 	for {
-		time.Sleep(100 * time.Millisecond)
-		readings, err := sensor.Readings(context.Background())
+		err := func() error {
+			if !once {
+				once = true
+				defer utils.ContextMainReadyFunc(ctx)()
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				readings, err := sensor.Readings(ctx)
+				if err != nil {
+					logger.Errorw("failed to get sensor reading", "error", err)
+				} else {
+					logger.Infow("readings", "data", readings)
+				}
+				heading, err := sensor.Heading(ctx)
+				if err != nil {
+					logger.Errorw("failed to get sensor heading", "error", err)
+				} else {
+					logger.Infow("heading", "data", heading)
+				}
+			}
+			return nil
+		}()
 		if err != nil {
-			golog.Global.Errorw("failed to get sensor reading", "error", err)
-			continue
+			return err
 		}
-		golog.Global.Infow("readings", "data", readings)
-		heading, err := sensor.Heading(context.Background())
-		if err != nil {
-			golog.Global.Errorw("failed to get sensor heading", "error", err)
-			continue
-		}
-		golog.Global.Infow("heading", "data", heading)
 	}
 }

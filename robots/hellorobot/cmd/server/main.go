@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
@@ -18,6 +17,7 @@ import (
 	"go.viam.com/robotcore/robots/hellorobot"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 func main() {
