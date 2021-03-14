@@ -91,3 +91,12 @@ type Config struct {
 	Components []Component
 	Logger     golog.Logger
 }
+
+func (c Config) FindComponent(name string) *Component {
+	for _, cmp := range c.Components {
+		if cmp.Name == name {
+			return &cmp
+		}
+	}
+	return nil
+}
