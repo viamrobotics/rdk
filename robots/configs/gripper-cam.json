@@ -39,13 +39,14 @@
           "type" : "camera",
           "model" : "depthComposed",
           "attributes" : {
+              "debug" : false,
               "color" : "color",
               "depth" : "depth",
               "config" : {
                   "ColorInputSize" : { "X" : 1024, "Y" : 768 },
                   "ColorWarpPoints" : [ { "X" : 0, "Y" : 0 }, { "X" : 1023, "Y" : 767 } ],
                   "DepthInputSize" : { "X" : 224, "Y" : 171},
-                  "DepthWarpPoints" : [ { "X" : 0, "Y" : 170 }, { "X" : 0, "Y" : 0 }, { "X" : 223, "Y" : 0 }, { "X" : 223, "Y" : 170 }],
+                  "DepthWarpPoints" : [ { "X" : 223, "Y" : 0 }, { "X" : 223, "Y" : 170 }, {"X" : 0, "Y" : 170 }, { "X" : 0, "Y" : 0 } ],
                   "OutputSize" : { "X" : 200, "Y" : 200 }
               }
           }
