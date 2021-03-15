@@ -14,4 +14,6 @@ func TestRolling1(t *testing.T) {
 
 	ra.Add(11)
 	assert.Equal(t, 10, ra.Average())
+
+	assert.Equal(t, 2, ra.NumSamples())
 }
