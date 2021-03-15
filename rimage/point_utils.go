@@ -95,3 +95,19 @@ func BoundingBox(pts []image.Point) image.Rectangle {
 
 	return image.Rectangle{min, max}
 }
+
+func AllPointsIn(size image.Point, pts []image.Point) bool {
+	for _, p := range pts {
+		if p.X < 0 || p.Y < 0 {
+			return false
+		}
+		if p.X >= size.X {
+			return false
+		}
+		if p.Y >= size.Y {
+			return false
+		}
+	}
+
+	return true
+}
