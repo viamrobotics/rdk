@@ -11,29 +11,18 @@ import (
 )
 
 func TestAbs1(t *testing.T) {
-	if 5 != AbsInt(5) {
-		t.Errorf("wtf")
-	}
+	assert.Equal(t, 5, AbsInt(5))
+	assert.Equal(t, 5, AbsInt(-5))
+	assert.Equal(t, 0, AbsInt(0))
 
-	if 5 != AbsInt(-5) {
-		t.Errorf("wtf")
-	}
-
-	if 0 != AbsInt(0) {
-		t.Errorf("wtf")
-	}
-
+	assert.Equal(t, int64(5), AbsInt64(5))
+	assert.Equal(t, int64(5), AbsInt64(-5))
+	assert.Equal(t, int64(0), AbsInt64(0))
 }
 
 func TestSquare1(t *testing.T) {
-	if 4.0 != Square(2.0) {
-		t.Errorf("eliot can't do math")
-	}
-
-	if 4 != SquareInt(2) {
-		t.Errorf("eliot can't do math")
-	}
-
+	assert.Equal(t, 4.0, Square(2.0))
+	assert.Equal(t, 4, SquareInt(2))
 }
 
 func TestDegToRad(t *testing.T) {

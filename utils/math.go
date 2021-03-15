@@ -43,6 +43,13 @@ func AbsInt(n int) int {
 	return n
 }
 
+func AbsInt64(n int64) int64 {
+	if n < 0 {
+		return -1 * n
+	}
+	return n
+}
+
 func MaxInt(a, b int) int {
 	if a < b {
 		return b

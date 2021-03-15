@@ -9,6 +9,10 @@ func NewRollingAverage(numSamples int) *RollingAverage {
 	return &RollingAverage{data: make([]int, numSamples), pos: 0}
 }
 
+func (ra *RollingAverage) NumSamples() int {
+	return len(ra.data)
+}
+
 func (ra *RollingAverage) Add(x int) {
 	ra.data[ra.pos] = x
 	ra.pos++
