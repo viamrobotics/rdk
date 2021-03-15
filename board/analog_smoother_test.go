@@ -31,12 +31,12 @@ func TestAnalogSmoother1(t *testing.T) {
 
 	as := AnalogSmoother{
 		Raw:               &testReader,
-		AverageOverMillis: 100,
+		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}
 	as.Start()
 
-	assert.Equal(t, 1000, as.data.NumSamples())
+	assert.Equal(t, 100, as.data.NumSamples())
 
 	time.Sleep(200 * time.Millisecond)
 
