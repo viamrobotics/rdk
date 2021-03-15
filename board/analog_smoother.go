@@ -1,6 +1,7 @@
 package board
 
 import (
+	"errors"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -8,15 +9,20 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+var (
+	ErrStopReading = errors.New("stop reading")
+)
+
 type AnalogSmoother struct {
 	Raw               AnalogReader
 	AverageOverMillis int
 	SamplesPerSecond  int
 	data              *utils.RollingAverage
+	lastError         error
 }
 
 func (as *AnalogSmoother) Read() (int, error) {
-	return as.data.Average(), nil
+	return as.data.Average(), as.lastError
 }
 
 func (as *AnalogSmoother) Start() {
@@ -44,7 +50,11 @@ func (as *AnalogSmoother) Start() {
 		for {
 			start := time.Now()
 			reading, err := as.Raw.Read()
+			as.lastError = err
 			if err != nil {
+				if err == ErrStopReading {
+					break
+				}
 				golog.Global.Info("error reading analog: %s", err)
 				continue
 			}
