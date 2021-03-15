@@ -44,5 +44,5 @@ func TestAnalogSmoother1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.InEpsilon(t, 50.0, v, .03)
+	assert.InDelta(t, 50.0, v, 1.0)
 }
