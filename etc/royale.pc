@@ -1,0 +1,10 @@
+# See: man pkg-config
+includedir=/usr/include
+
+Name: Royale
+Description: 
+Requires:
+Version: 
+Libs.private:
+Libs: -lroyale
+Cflags: -I${includedir}/
