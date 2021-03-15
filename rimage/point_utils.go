@@ -26,8 +26,6 @@ func Center(contour []image.Point, maxDiff int) image.Point {
 
 	weightedMiddle := image.Point{x / len(contour), y / len(contour)}
 
-	// TODO(erh): this should be about coniguous, not distance
-
 	numPoints := 0
 	box := image.Rectangle{image.Point{1000000, 100000}, image.Point{0, 0}}
 	for _, p := range contour {
@@ -66,4 +64,34 @@ func PointDistance(a, b image.Point) float64 {
 	x := utils.SquareInt(b.X - a.X)
 	x += utils.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
+}
+
+func PointAngle(a, b image.Point) float64 {
+	x := b.X - a.X
+	y := b.Y - a.Y
+	return math.Atan2(float64(y), float64(x))
+}
+
+func BoundingBox(pts []image.Point) image.Rectangle {
+	min := image.Point{math.MaxInt32, math.MaxInt32}
+	max := image.Point{0, 0}
+
+	for _, p := range pts {
+		if p.X < min.X {
+			min.X = p.X
+		}
+		if p.Y < min.Y {
+			min.Y = p.Y
+		}
+
+		if p.X > max.X {
+			max.X = p.X
+		}
+		if p.Y > max.Y {
+			max.Y = p.Y
+		}
+
+	}
+
+	return image.Rectangle{min, max}
 }
