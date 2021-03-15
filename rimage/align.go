@@ -55,6 +55,8 @@ type DepthComposed struct {
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap) (*DepthComposed, error) {
 	var config *alignConfig
+	var err error
+
 	if attrs.Has("config") {
 		config = attrs["config"].(*alignConfig)
 	} else if attrs["make"] == "intel515" {
@@ -64,6 +66,13 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap)
 	}
 
 	dst := arrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
+
+	if config.WarpFromCommon {
+		config, err = config.computeWarpFromCommon()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	colorPoints := arrayToPoints(config.ColorWarpPoints)
 	depthPoints := arrayToPoints(config.DepthWarpPoints)
@@ -141,7 +150,31 @@ type alignConfig struct {
 	DepthInputSize  image.Point // this validates output size
 	DepthWarpPoints []image.Point
 
+	WarpFromCommon bool
+
 	OutputSize image.Point
+}
+
+func (config alignConfig) computeWarpFromCommon() (*alignConfig, error) {
+
+	colorPoints, depthPoints, err := ImageAlign(
+		config.ColorInputSize,
+		config.ColorWarpPoints,
+		config.DepthInputSize,
+		config.DepthWarpPoints,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &alignConfig{
+		ColorInputSize:  config.ColorInputSize,
+		ColorWarpPoints: arrayToPoints(colorPoints),
+		DepthInputSize:  config.DepthInputSize,
+		DepthWarpPoints: arrayToPoints(depthPoints),
+		OutputSize:      config.OutputSize,
+	}, nil
 }
 
 func (config alignConfig) checkValid() error {
@@ -210,6 +243,8 @@ func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *ImageWithDe
 		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
 			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dc.config)
 	}
+
+	ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
 
 	c2 := WarpImage(ii, dc.colorTransform, dc.config.OutputSize)
 	dm2 := ii.Depth.Warp(dc.depthTransform, dc.config.OutputSize)
