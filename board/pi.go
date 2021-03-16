@@ -53,7 +53,7 @@ func (m *gobotMotor) Go(d Direction, force byte) error {
 	return multierr.Combine(m.motor.Speed(force), m.motor.Direction(dd))
 }
 
-func (m *gobotMotor) GoFor(d Direction, millisPerSec float64, rotations float64, block bool) error {
+func (m *gobotMotor) GoFor(d Direction, rpm float64, rotations float64) error {
 	return fmt.Errorf("gobotMotor doesn't support GoFor")
 }
 
