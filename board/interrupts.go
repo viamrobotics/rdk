@@ -61,7 +61,7 @@ type BasicDigitalInterrupt struct {
 	cfg   DigitalInterruptConfig
 	count int64
 
-	callbacks []diCallback
+	callbacks []chan int64
 
 	pp PostProcess
 }
@@ -77,30 +77,23 @@ func (i *BasicDigitalInterrupt) Value() int64 {
 	return i.count
 }
 
-func (i *BasicDigitalInterrupt) Tick() {
-	i.count++
-
-	for {
-		got := false
-
-		for idx, c := range i.callbacks {
-			if i.count < c.threshold {
-				continue
-			}
-
-			c.c <- i.count
-			i.callbacks = append(i.callbacks[0:idx], i.callbacks[idx+1:]...)
-			got = true
-			break
-		}
-		if !got {
-			break
-		}
+// really just for testing
+func (i *BasicDigitalInterrupt) ticks(num int) {
+	for x := 0; x < num; x++ {
+		i.Tick()
 	}
 }
 
-func (i *BasicDigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
-	i.callbacks = append(i.callbacks, diCallback{i.count + delta, c})
+func (i *BasicDigitalInterrupt) Tick() {
+	i.count++
+
+	for _, c := range i.callbacks {
+		c <- i.count
+	}
+}
+
+func (i *BasicDigitalInterrupt) AddCallback(c chan int64) {
+	i.callbacks = append(i.callbacks, c)
 }
 
 func (i *BasicDigitalInterrupt) AddPostProcess(pp PostProcess) {
@@ -142,8 +135,8 @@ func (i *ServoDigitalInterrupt) Tick() {
 	i.ra.Add(int(diff / 1000))
 }
 
-func (i *ServoDigitalInterrupt) AddCallbackDelta(delta int64, c chan int64) {
-	panic(fmt.Errorf("servos can't have callback deltas"))
+func (i *ServoDigitalInterrupt) AddCallback(c chan int64) {
+	panic(fmt.Errorf("servos can't have callback "))
 }
 
 func (i *ServoDigitalInterrupt) AddPostProcess(pp PostProcess) {

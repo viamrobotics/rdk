@@ -35,7 +35,7 @@ type Motor interface {
 
 	Go(d Direction, force byte) error
 
-	GoFor(d Direction, millisPerSec float64, rotations float64, block bool) error
+	GoFor(d Direction, rpm float64, rotations float64) error
 
 	Off() error
 	IsOn() bool
@@ -73,15 +73,10 @@ func NewBoard(cfg Config) (Board, error) {
 	}
 }
 
-type diCallback struct {
-	threshold int64
-	c         chan int64
-}
-
 type DigitalInterrupt interface {
 	Config() DigitalInterruptConfig
 	Value() int64
 	Tick()
-	AddCallbackDelta(delta int64, c chan int64)
+	AddCallback(c chan int64)
 	AddPostProcess(pp PostProcess)
 }
