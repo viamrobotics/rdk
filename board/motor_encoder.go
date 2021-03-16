@@ -8,6 +8,11 @@ import (
 	"github.com/edaniels/golog"
 )
 
+var (
+	rpmSleep = 50 * time.Millisecond // really just for testing
+	rpmDebug = true
+)
+
 type encodedMotor struct {
 	cfg     MotorConfig
 	real    Motor
@@ -18,8 +23,14 @@ type encodedMotor struct {
 	// TODO(erh): check thread safety on this
 	desiredRPM float64 // <= 0 means thread should do nothing
 
+	lastForce    byte
+	curDirection Direction
+	setPoint     int64
+
+	curPosition int64
+
 	startedRPMMonitor bool
-	lastForce         byte
+	rpmMonitorCalls   int64
 }
 
 func (m *encodedMotor) isRegulated() bool {
@@ -35,9 +46,6 @@ func (m *encodedMotor) setRegulated(b bool) {
 }
 
 func (m *encodedMotor) Force(force byte) error {
-	if m.isRegulated() {
-		return fmt.Errorf("cannot control Force when motor in regulated mode")
-	}
 	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
 	return m.setForce(force)
 }
@@ -48,35 +56,77 @@ func (m *encodedMotor) setForce(force byte) error {
 }
 
 func (m *encodedMotor) Go(d Direction, force byte) error {
-	if m.isRegulated() {
-		return fmt.Errorf("cannot tell motor to Go when motor in regulated mode")
-	}
-	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
+	m.setRegulated(false) // user wants direct control, so we stop trying to control the world
+	m.desiredRPM = 0      // if we're setting force manually, don't control RPM
+	return m.doGo(d, force)
+}
+
+func (m *encodedMotor) doGo(d Direction, force byte) error {
 	m.lastForce = force
-	//golog.Global.Debugf("encodedMotor d: %s MillisPerSec: %v", dd, speed)
+	m.curDirection = d
 	return m.real.Go(d, force)
 }
 
-func (m *encodedMotor) rpmMonitor() {
+func (m *encodedMotor) rpmMonitorStart() {
 	if m.startedRPMMonitor {
 		return
 	}
+	go m.rpmMonitor()
+}
+
+func (m *encodedMotor) rpmMonitor() {
 	if m.encoder == nil {
-		golog.Global.Warnf("started rpmMonitor but have no encode")
-		return
+		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
 	}
 
+	if m.startedRPMMonitor {
+		return
+	}
 	m.startedRPMMonitor = true
+
+	// just a convenient place to start the encoder listener
+	encoderChannel := make(chan int64)
+	m.encoder.AddCallback(encoderChannel)
+	go func() {
+		for {
+			stop := false
+
+			<-encoderChannel
+
+			if m.curDirection == DirForward {
+				m.curPosition++
+				stop = m.isRegulated() && m.curPosition >= m.setPoint
+			} else if m.curDirection == DirBackward {
+				m.curPosition--
+				stop = m.isRegulated() && m.curPosition <= m.setPoint
+			} else {
+				golog.Global.Warnf("got encoder tick but motor should be off")
+			}
+
+			if stop {
+				err := m.Off()
+				if err != nil {
+					golog.Global.Warnf("error turning motor off from after hit set point: %v", err)
+				}
+				m.setRegulated(false)
+			}
+		}
+	}()
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()
 
 	for {
 
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(rpmSleep)
 
 		count := m.encoder.Value()
 		now := time.Now().UnixNano()
+		if now == lastTime {
+			// this really only happens in testing, b/c we decrease sleep, but nice defense anyway
+			continue
+		}
+		m.rpmMonitorCalls++
 
 		if m.desiredRPM > 0 {
 			rotations := float64(count-lastCount) / float64(m.cfg.TicksPerRotation)
@@ -87,6 +137,9 @@ func (m *encodedMotor) rpmMonitor() {
 
 			if currentRPM == 0 {
 				newForce = m.lastForce + 16
+				if newForce < 16 {
+					newForce = 255
+				}
 			} else {
 				dOverC := m.desiredRPM / currentRPM
 				if dOverC > 2 {
@@ -106,8 +159,10 @@ func (m *encodedMotor) rpmMonitor() {
 			}
 
 			if newForce != m.lastForce {
-				golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
-					currentRPM, m.lastForce, newForce, m.desiredRPM)
+				if rpmDebug {
+					golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
+						currentRPM, m.lastForce, newForce, m.desiredRPM)
+				}
 				err := m.setForce(newForce)
 				if err != nil {
 					golog.Global.Warnf("rpm regulator cannot set force %s", err)
@@ -120,82 +175,53 @@ func (m *encodedMotor) rpmMonitor() {
 	}
 }
 
-func (m *encodedMotor) GoFor(d Direction, millisPerSec float64, rotations float64, block bool) error {
-	if m.isRegulated() {
-		return fmt.Errorf("already running a GoFor directive, have to stop that first before can do another")
+func (m *encodedMotor) GoFor(d Direction, rpm float64, rotations float64) error {
+	if d == DirNone {
+		return m.Off()
 	}
 
 	if rotations < 0 {
 		return fmt.Errorf("rotations has to be >= 0")
 	}
 
-	//golog.Global.Debugf("m: %s d: %v MillisPerSec: %v rotations: %v block: %v", m.cfg.Name, d, speed, rotations, block)
-
 	if m.encoder == nil {
 		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
 	}
 
-	if !m.startedRPMMonitor {
-		go m.rpmMonitor()
-	}
-
-	start := func() error {
-		if !m.IsOn() {
-			// if we're off we start slow, otherwise we just set the desired rpm
-			err := m.Go(d, 8)
-			if err != nil {
-				return err
-			}
-		}
-		m.desiredRPM = millisPerSec
-		return nil
-	}
-
 	if rotations == 0 {
-		// go forever
-		if block {
-			return fmt.Errorf("you cannot block if you don't set a number of rotations")
-		}
-
-		return start()
+		// users probably shouldn't do this, maybe we shouldn't support, but...
+		return m.Go(d, 16) // force of 16 is random
 	}
 
-	numTicks := rotations * float64(m.cfg.TicksPerRotation)
+	m.rpmMonitorStart()
 
-	done := make(chan int64)
-	m.encoder.AddCallbackDelta(int64(numTicks), done)
+	numTicks := int64(rotations * float64(m.cfg.TicksPerRotation))
 
-	err := start()
-	if err != nil {
-		return err
+	if d == DirForward {
+		m.setPoint = m.curPosition + numTicks
+	} else if d == DirBackward {
+		m.setPoint = m.curPosition - numTicks
+	} else {
+		panic("impossible")
 	}
 
 	m.setRegulated(true)
+	m.desiredRPM = rpm
 
-	finish := func() error {
-		<-done
-		m.setRegulated(false)
-		return m.Off()
+	if !m.IsOn() {
+		// if we're off we start slow, otherwise we just set the desired rpm
+		err := m.doGo(d, 8)
+		if err != nil {
+			return err
+		}
 	}
 
-	if !block {
-		go func() {
-			err := finish()
-			if err != nil {
-				golog.Global.Warnf("after non-blocking move, could not stop motor (%s): %s", m.cfg.Name, err)
-			}
-		}()
-		return nil
-	}
-
-	return finish()
+	return nil
 }
 
 func (m *encodedMotor) Off() error {
 	m.desiredRPM = 0.0
-	if m.isRegulated() {
-		golog.Global.Warnf("turning motor off while in regulated mode, this could break things")
-	}
+	m.setRegulated(false)
 	return m.real.Off()
 }
 
