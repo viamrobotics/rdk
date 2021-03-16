@@ -51,18 +51,15 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	// if one image is rotated, it's assumed it's the second image.
 	// dist A/1 must be longer than dist B/2
 
-	var distA, distB, dist1, dist2 int
-	var err error
-	var trimTop, trimBot, trimRight, trimLeft int
-	var trimFirstTop, trimFirstBot, trimFirstRight, trimFirstLeft int
+	var dist1, dist2 int
 	// trim top (rotated 90: trim from right)
-	distA, distB = img1Points[0].Y, img1Points[1].Y
+	distA, distB := img1Points[0].Y, img1Points[1].Y
 	if rotated {
 		dist1, dist2 = img2Size.X-img2Points[0].X, img2Size.X-img2Points[1].X
 	} else {
 		dist1, dist2 = img2Points[0].Y, img2Points[1].Y
 	}
-	trimTop, trimFirstTop, err = trim(distA, distB, dist1, dist2)
+	trimTop, trimFirstTop, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
 		golog.Global.Debugf("image_align error: %s", err)
 	}
@@ -73,7 +70,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	} else {
 		dist1, dist2 = img2Size.Y-img2Points[1].Y, img2Size.Y-img2Points[0].Y
 	}
-	trimBot, trimFirstBot, err = trim(distA, distB, dist1, dist2)
+	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
 		golog.Global.Debugf("image_align error: %s", err)
 	}
@@ -84,7 +81,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	} else {
 		dist1, dist2 = img2Points[1].X, img2Points[0].X
 	}
-	trimLeft, trimFirstLeft, err = trim(distA, distB, dist1, dist2)
+	trimLeft, trimFirstLeft, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
 		golog.Global.Debugf("image_align error: %s", err)
 	}
@@ -95,7 +92,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	} else {
 		dist1, dist2 = img2Size.X-img2Points[0].X, img2Size.X-img2Points[1].X
 	}
-	trimRight, trimFirstRight, err = trim(distA, distB, dist1, dist2)
+	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
 		golog.Global.Debugf("error: %s", err)
 	}
@@ -128,24 +125,34 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	return img1Points, img2Points, nil
 }
 
-func trim(dA, dB, d1, d2 int) (int, int, error) {
-	// required: distA > distB, and dist1 > dist2
-	if (dA < dB) || (d2 > d1) {
-		return -1, -1, fmt.Errorf("%v must be less than %v, and %v must be less than %v", dB, dA, d2, d1)
+// For two images, given the distances from the image edge to two points on the image,
+// trim calculates how much to trim off of one image edge to make the ratios of the distance
+// from the points to the edge equal between the two images.
+func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, error) {
+
+	var distA, distB, dist1, dist2 float64
+	// required: distA/dist1 must be farther from the image edge that distB/dist2 so that the ratio is always > 1
+	switch {
+	case (img1Pt1Dist > img1Pt2Dist) && (img2Pt1Dist > img2Pt2Dist):
+		distA, distB = float64(img1Pt1Dist), float64(img1Pt2Dist)
+		dist1, dist2 = float64(img2Pt1Dist), float64(img2Pt2Dist)
+	case (img1Pt1Dist < img1Pt2Dist) && (img2Pt1Dist < img2Pt2Dist):
+		distA, distB = float64(img1Pt2Dist), float64(img1Pt1Dist)
+		dist1, dist2 = float64(img2Pt2Dist), float64(img2Pt1Dist)
+	default:
+		return -1, -1, fmt.Errorf("both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than) their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)", img1Pt1Dist, img2Pt1Dist, img1Pt2Dist, img2Pt2Dist)
 	}
-	distA, distB := float64(dA), float64(dB)
-	dist1, dist2 := float64(d1), float64(d2)
 	// returns whether to trim the first or second image, and by how much.
-	var trimFirst int
+	var trimFirst int // 0 means trim 2nd image, 1 means trim first image
 	var trimAmount float64
-	// are the ratios equal already?
-	const EqualityThreshold = 1e-5
 	ratioA := distA / distB
 	ratio1 := dist1 / dist2
+	// are the ratios equal already?
+	const EqualityThreshold = 1e-6
 	if math.Abs(ratioA-ratio1) <= EqualityThreshold {
 		return int(trimAmount), trimFirst, nil
 	}
-	// the ratio that is bigger is the one to match to.
+	// the bigger ratio should be matched to.
 	if ratioA > ratio1 {
 		trimFirst = 0
 		trimAmount = (distA*dist2 - distB*dist1) / (distA - distB)
