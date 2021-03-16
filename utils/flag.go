@@ -23,6 +23,9 @@ func (sf *StringFlags) String() string {
 
 // ParseFlags parses arguments derived from and into the given into struct.
 func ParseFlags(args []string, into interface{}) error {
+	if len(args) == 0 || into == nil {
+		return nil
+	}
 	cmdLine := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	var buf bytes.Buffer
 	cmdLine.SetOutput(&buf)
@@ -51,6 +54,9 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 	v := reflect.ValueOf(into)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
+	}
+	if v.Type().Kind() != reflect.Struct || !v.CanAddr() {
+		return fmt.Errorf("expected %T to be an addressable struct", into)
 	}
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
@@ -260,8 +266,14 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		v = v.Elem()
 		t = t.Elem()
 	}
+	if t.Kind() != reflect.Struct || !v.CanAddr() {
+		return fmt.Errorf("expected %T to be an addressable struct", from)
+	}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		if field.PkgPath != "" {
+			continue // unexported
+		}
 		flagStr, ok := field.Tag.Lookup("flag")
 		if !ok {
 			continue
