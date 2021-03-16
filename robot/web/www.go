@@ -452,7 +452,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			return map[string]interface{}{}, theMotor.Go(board.DirectionFromString(r.FormValue("d")), byte(speed))
 		}
 
-		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(r.FormValue("d")), speed, rVal, false)
+		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(r.FormValue("d")), speed, rVal)
 	}})
 
 	mux.Handle("/api/board/"+cfg.Name+"/servo", &apiCall{func(r *http.Request) (map[string]interface{}, error) {

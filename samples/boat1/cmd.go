@@ -41,8 +41,8 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	rotations := float64(distanceMillis) / millisPerRotation
 
 	return multierr.Combine(
-		b.starboard.GoFor(dir, speed, rotations, false),
-		b.port.GoFor(dir, speed, rotations, false),
+		b.starboard.GoFor(dir, speed, rotations),
+		b.port.GoFor(dir, speed, rotations),
 	)
 
 }
@@ -86,8 +86,8 @@ func (b *Boat) StartRC() {
 				err = b.Stop(context.Background())
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(board.DirForward, starboard, 0, false),
-					b.port.GoFor(board.DirForward, port, 0, false),
+					b.starboard.GoFor(board.DirForward, starboard, 0),
+					b.port.GoFor(board.DirForward, port, 0),
 				)
 			}
 

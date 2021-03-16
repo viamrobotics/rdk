@@ -62,10 +62,10 @@ func (r *Rover) MoveStraight(ctx context.Context, distanceMillis int, millisPerS
 	rpm := 60 * rotationsPerSec
 
 	err = multierr.Combine(
-		r.fl.GoFor(d, rpm, rotations, false),
-		r.fr.GoFor(d, rpm, rotations, false),
-		r.bl.GoFor(d, rpm, rotations, false),
-		r.br.GoFor(d, rpm, rotations, false),
+		r.fl.GoFor(d, rpm, rotations),
+		r.fr.GoFor(d, rpm, rotations),
+		r.bl.GoFor(d, rpm, rotations),
+		r.br.GoFor(d, rpm, rotations),
 	)
 
 	if err != nil {
@@ -94,10 +94,10 @@ func (r *Rover) Spin(ctx context.Context, angleDeg float64, speed int, block boo
 
 	rpm := float64(speed) // TODO(erh): fix me
 	err := multierr.Combine(
-		r.fl.GoFor(a, rpm, rotations, false),
-		r.fr.GoFor(b, rpm, rotations, false),
-		r.bl.GoFor(a, rpm, rotations, false),
-		r.br.GoFor(b, rpm, rotations, false),
+		r.fl.GoFor(a, rpm, rotations),
+		r.fr.GoFor(b, rpm, rotations),
+		r.bl.GoFor(a, rpm, rotations),
+		r.br.GoFor(b, rpm, rotations),
 	)
 
 	if err != nil {

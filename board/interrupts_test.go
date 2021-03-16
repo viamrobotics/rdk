@@ -21,11 +21,14 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	assert.Equal(t, int64(2), i.Value())
 
 	c := make(chan int64)
-	i.AddCallbackDelta(1, c)
+	i.AddCallback(c)
 
 	go func() { i.Tick() }()
-
 	v := <-c
 	assert.Equal(t, int64(2), v)
+
+	go func() { i.Tick() }()
+	v = <-c
+	assert.Equal(t, int64(3), v)
 
 }
