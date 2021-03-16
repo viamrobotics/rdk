@@ -183,21 +183,3 @@ func expand(pts []image.Point, x bool) []image.Point {
 	}
 	return n
 }
-
-func getScale(img1Points, img2Points []image.Point, is_rotated bool, get_x_scale bool) float64 {
-	var s float64
-	if get_x_scale {
-		if is_rotated {
-			s = math.Abs(float64(img1Points[0].X-img1Points[1].X)) / math.Abs(float64(img2Points[0].Y-img2Points[1].Y))
-		} else {
-			s = math.Abs(float64(img1Points[0].X-img1Points[1].X)) / math.Abs(float64(img2Points[0].X-img2Points[1].X))
-		}
-	} else {
-		if is_rotated {
-			s = math.Abs(float64(img1Points[0].Y-img1Points[1].Y)) / math.Abs(float64(img2Points[0].X-img2Points[1].X))
-		} else {
-			s = math.Abs(float64(img1Points[0].Y-img1Points[1].Y)) / math.Abs(float64(img2Points[0].Y-img2Points[1].Y))
-		}
-	}
-	return s
-}
