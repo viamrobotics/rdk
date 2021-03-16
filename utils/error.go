@@ -16,6 +16,9 @@ func FilterOutError(err, target error) error {
 	if err == nil {
 		return nil
 	}
+	if target == nil {
+		return err
+	}
 	errs := multierr.Errors(err)
 	if len(errs) == 1 {
 		// multierr flattens errors so we can assume this
