@@ -11,32 +11,32 @@ import (
 )
 
 func main() {
-	err := realMain()
+	err := realMain(os.Args[1:])
 	if err != nil {
 		golog.Global.Info(err)
 		os.Exit(-1)
 	}
 }
 
-func merge() error {
-	if flag.NArg() < 4 {
+func merge(flags *flag.FlagSet) error {
+	if flags.NArg() < 4 {
 		return fmt.Errorf("merge needs <color in> <depth in> <out>")
 	}
 
-	img, err := rimage.NewImageWithDepth(flag.Arg(1), flag.Arg(2))
+	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2))
 	if err != nil {
 		return err
 	}
 
-	return img.WriteTo(flag.Arg(3))
+	return img.WriteTo(flags.Arg(3))
 }
 
-func toLas() error {
-	if flag.NArg() < 3 {
+func toLas(flags *flag.FlagSet) error {
+	if flags.NArg() < 3 {
 		return fmt.Errorf("to-las needs <both in> <las out>")
 	}
 
-	img, err := rimage.BothReadFromFile(flag.Arg(1))
+	img, err := rimage.BothReadFromFile(flags.Arg(1))
 	if err != nil {
 		return err
 	}
@@ -46,23 +46,27 @@ func toLas() error {
 		return err
 	}
 
-	return pc.WriteToFile(flag.Arg(2))
+	return pc.WriteToFile(flags.Arg(2))
 }
 
-func realMain() error {
-	flag.Parse()
+func realMain(args []string) error {
+	flags := flag.NewFlagSet("", flag.ContinueOnError)
+	err := flags.Parse(args)
+	if err != nil {
+		return err
+	}
 
-	if flag.NArg() < 1 {
+	if flags.NArg() < 1 {
 		return fmt.Errorf("need to specify a command")
 	}
 
-	cmd := flag.Arg(0)
+	cmd := flags.Arg(0)
 
 	switch cmd {
 	case "merge":
-		return merge()
+		return merge(flags)
 	case "to-las":
-		return toLas()
+		return toLas(flags)
 	default:
 		return fmt.Errorf("unknown command: [%s]", cmd)
 	}
