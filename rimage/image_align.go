@@ -18,8 +18,6 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		return nil, nil, fmt.Errorf("need exactly 2 matching points")
 	}
 
-	/*
-	 */
 	fixPoints := func(pts []image.Point) []image.Point {
 		r := BoundingBox(pts)
 		return arrayToPoints([]image.Point{r.Min, r.Max})
