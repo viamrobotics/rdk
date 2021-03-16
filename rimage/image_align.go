@@ -150,36 +150,13 @@ func trim(dA, dB, d1, d2 int) (int, int, error) {
 		trimFirst = 0
 		trimAmount = (distA*dist2 - distB*dist1) / (distA - distB)
 		return int(trimAmount), trimFirst, nil
-	} else {
+	}
+	if ratioA < ratio1 {
 		trimFirst = 1
 		trimAmount = (dist1*distB - dist2*distA) / (dist1 - dist2)
 		return int(trimAmount), trimFirst, nil
 	}
 
-}
+	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
 
-func expand(pts []image.Point, x bool) []image.Point {
-	center := Center(pts, 100000)
-
-	n := []image.Point{}
-	for _, p := range pts {
-		if x {
-			dis := center.X - p.X
-			newDis := int(float64(dis) * 1.1)
-			if dis == newDis {
-				newDis = dis * 2
-			}
-
-			n = append(n, image.Point{center.X - newDis, p.Y})
-		} else {
-			dis := center.Y - p.Y
-			newDis := int(float64(dis) * 1.1)
-			if dis == newDis {
-				newDis = dis * 2
-			}
-			n = append(n, image.Point{p.X, center.Y - newDis})
-		}
-
-	}
-	return n
 }
