@@ -21,6 +21,9 @@
 *.prof
 *.pprof
 
+# images
+*.both.gz
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -36,6 +39,7 @@ slam/data/*diff*
 *#
 *.#*
 *.DS_Store
+*.swp
 
 # act
 .secrets
