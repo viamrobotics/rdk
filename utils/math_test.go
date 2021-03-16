@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -95,6 +94,16 @@ func TestAntiCWDeg(t *testing.T) {
 	test.That(t, AntiCWDeg(90), test.ShouldEqual, 270)
 	test.That(t, AntiCWDeg(270), test.ShouldEqual, 90)
 	test.That(t, AntiCWDeg(45), test.ShouldEqual, 315)
+}
+
+func TestModAngDeg(t *testing.T) {
+	test.That(t, ModAngDeg(0-180), test.ShouldEqual, 180)
+	test.That(t, ModAngDeg(360+40), test.ShouldEqual, 40)
+	test.That(t, ModAngDeg(180+360), test.ShouldEqual, 180)
+	test.That(t, ModAngDeg(1-209), test.ShouldEqual, 152)
+	test.That(t, ModAngDeg(90-1), test.ShouldEqual, 89)
+	test.That(t, ModAngDeg(270+90), test.ShouldEqual, 0)
+	test.That(t, ModAngDeg(45), test.ShouldEqual, 45)
 }
 
 func TestMedian(t *testing.T) {
