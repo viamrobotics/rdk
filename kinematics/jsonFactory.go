@@ -121,7 +121,7 @@ func ParseJSONFile(filename string) (*Model, error) {
 		setOrient([6]float64{fixed.Rotation.X, fixed.Rotation.Y, fixed.Rotation.Z, fixed.Translation.X, fixed.Translation.Y, fixed.Translation.Z}, fixedT)
 
 		fixedT.x.Translation = fixedT.t.Translation()
-		fixedT.x.Rotation = fixedT.t.Linear()
+		fixedT.x.Rotation = fixedT.t.Rotation()
 	}
 
 	// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"

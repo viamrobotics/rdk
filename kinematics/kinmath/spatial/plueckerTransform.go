@@ -2,7 +2,6 @@ package spatial
 
 import (
 	"github.com/go-gl/mathgl/mgl64"
-	//~ "go.viam.com/robotcore/kinematics/go-kin/kinmath"
 )
 
 type PlueckerTransform struct {
