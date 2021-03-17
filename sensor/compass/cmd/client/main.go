@@ -13,7 +13,7 @@ import (
 var logger = golog.Global
 
 func main() {
-	utils.ContextualMainQuit(mainWithArgs)
+	utils.ContextualMain(mainWithArgs)
 }
 
 // Arguments for the command.
