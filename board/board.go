@@ -63,7 +63,7 @@ type Board interface {
 type DigitalInterrupt interface {
 	Config() DigitalInterruptConfig
 	Value() int64
-	Tick()
-	AddCallback(c chan int64)
+	Tick(high bool)
+	AddCallback(c chan bool)
 	AddPostProcess(pp PostProcess)
 }
