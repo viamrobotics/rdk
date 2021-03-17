@@ -12,6 +12,15 @@ import (
 	"time"
 )
 
+// Convert point from meters (float64) to mm (int)
+func MeterToMillimeter(x, y, z float64, pixel2Meter float64) (int, int, int) {
+
+	xMm := int(x / pixel2Meter)
+	yMm := int(y / pixel2Meter)
+	zMm := int(z / pixel2Meter)
+	return xMm, yMm, zMm
+}
+
 // Function to transform a pixel with depth to a 3D point cloud
 // the intrinsics parameters should be the ones of the sensor used to obtain the image that contains the pixel
 func PixelToPoint(x, y int, z float64, cx, cy, fx, fy float64) (float64, float64, float64) {
@@ -39,7 +48,6 @@ func PointToPixel(x, y, z float64, cx, cy, fx, fy float64) (float64, float64) {
 
 // Function to apply a rigid body transform between two cameras to a 3D point
 func TransformPointToPoint(x, y, z float64, rotationMatrix mat.Dense, translationVector r3.Vector) r3.Vector {
-	//TODO(louise): add unit test
 	r, c := rotationMatrix.Dims()
 	if r != 3 || c != 3 {
 		panic("Rotation Matrix to transform point cloud should be a 3x3 matrix")
@@ -87,7 +95,7 @@ func SegmentPlane(points3d []r3.Vector, nIterations int, threshold, pixel2meter 
 		// find current plane equation denoted as:
 		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
 		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
-		d = - vec.Dot(p2)
+		d = -vec.Dot(p2)
 		// current plane equation
 		currentEquation[0], currentEquation[1], currentEquation[2], currentEquation[3] = vec.X, vec.Y, vec.Z, d
 
@@ -222,4 +230,15 @@ func GetPlaneMaskRGBCoordinates(depthImage *rimage.DepthMap, coordinates []r3.Ve
 		maskPlane.Set(int(j), int(i), white)
 	}
 	return maskPlane
+}
+
+// Convert float 3d points in meters to pointcloud
+func convert3DPointsToPointCloud(points []r3.Vector, pixel2Meter float64) *pc.PointCloud {
+	pointCloud := pc.New()
+	for _, pt := range points {
+		x, y, z := MeterToMillimeter(pt.X, pt.Y, pt.Z, pixel2Meter)
+		ptPc := pc.NewBasicPoint(x,y,z)
+		pointCloud.Set(ptPc)
+	}
+	return pointCloud
 }
