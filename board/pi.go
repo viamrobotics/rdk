@@ -11,6 +11,10 @@ import (
 	"gobot.io/x/gobot/sysfs"
 )
 
+func init() {
+	RegisterBoard("pi", NewPiBoard)
+}
+
 type gobotAnalogReader struct {
 	r   aio.AnalogReader
 	pin string
