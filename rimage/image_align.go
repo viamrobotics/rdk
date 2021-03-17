@@ -55,7 +55,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	// trim top (rotated 90: trim from right)
 	distA, distB := img1Points[0].Y, img1Points[1].Y
 	if rotated {
-		dist1, dist2 = img2Size.X-img2Points[0].X, img2Size.X-img2Points[1].X
+		dist1, dist2 = (img2Size.X-1)-img2Points[0].X, (img2Size.X-1)-img2Points[1].X
 	} else {
 		dist1, dist2 = img2Points[0].Y, img2Points[1].Y
 	}
@@ -64,11 +64,11 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		golog.Global.Debugf("image_align error: %s", err)
 	}
 	// trim bottom (rotated 90: trim from left)
-	distA, distB = img1Size.Y-img1Points[1].Y, img1Size.Y-img1Points[0].Y
+	distA, distB = (img1Size.Y-1)-img1Points[1].Y, (img1Size.Y-1)-img1Points[0].Y
 	if rotated {
 		dist1, dist2 = img2Points[1].X, img2Points[0].X
 	} else {
-		dist1, dist2 = img2Size.Y-img2Points[1].Y, img2Size.Y-img2Points[0].Y
+		dist1, dist2 = (img2Size.Y-1)-img2Points[1].Y, (img2Size.Y-1)-img2Points[0].Y
 	}
 	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
@@ -86,25 +86,25 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 		golog.Global.Debugf("image_align error: %s", err)
 	}
 	// trim right (rotated 90: trim from bottom)
-	distA, distB = img1Size.X-img1Points[0].X, img1Size.X-img1Points[1].X
+	distA, distB = (img1Size.X-1)-img1Points[0].X, (img1Size.X-1)-img1Points[1].X
 	if rotated {
-		dist1, dist2 = img2Size.Y-img2Points[0].Y, img2Size.Y-img2Points[1].Y
+		dist1, dist2 = (img2Size.Y-1)-img2Points[0].Y, (img2Size.Y-1)-img2Points[1].Y
 	} else {
-		dist1, dist2 = img2Size.X-img2Points[0].X, img2Size.X-img2Points[1].X
+		dist1, dist2 = (img2Size.X-1)-img2Points[0].X, (img2Size.X-1)-img2Points[1].X
 	}
 	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
 		golog.Global.Debugf("error: %s", err)
 	}
 	// Set the crop coorindates for the images
-	img1Points[0].X, img1Points[0].Y = trimLeft*trimFirstLeft+1, trimTop*trimFirstTop+1
-	img1Points[1].X, img1Points[1].Y = img1Size.X-trimRight*trimFirstRight-1, img1Size.Y-trimBot*trimFirstBot-1
+	img1Points[0].X, img1Points[0].Y = trimLeft*trimFirstLeft, trimTop*trimFirstTop
+	img1Points[1].X, img1Points[1].Y = (img1Size.X-1)-trimRight*trimFirstRight, (img1Size.Y-1)-trimBot*trimFirstBot
 	if rotated {
-		img2Points[0].X, img2Points[0].Y = trimBot*(1-trimFirstBot)+1, trimLeft*(1-trimFirstLeft)+1
-		img2Points[1].X, img2Points[1].Y = img2Size.X-trimTop*(1-trimFirstTop)-1, img2Size.Y-trimRight*(1-trimFirstRight)-1
+		img2Points[0].X, img2Points[0].Y = trimBot*(1-trimFirstBot), trimLeft*(1-trimFirstLeft)
+		img2Points[1].X, img2Points[1].Y = (img2Size.X-1)-trimTop*(1-trimFirstTop), (img2Size.Y-1)-trimRight*(1-trimFirstRight)
 	} else {
-		img2Points[0].X, img2Points[0].Y = trimLeft*(1-trimFirstLeft)+1, trimTop*(1-trimFirstTop)+1
-		img2Points[1].X, img2Points[1].Y = img2Size.X-trimRight*(1-trimFirstRight)-1, img2Size.Y-trimBot*(1-trimFirstBot)-1
+		img2Points[0].X, img2Points[0].Y = trimLeft*(1-trimFirstLeft), trimTop*(1-trimFirstTop)
+		img2Points[1].X, img2Points[1].Y = (img2Size.X-1)-trimRight*(1-trimFirstRight), (img2Size.Y-1)-trimBot*(1-trimFirstBot)
 	}
 
 	if debug {
@@ -119,10 +119,15 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 
 	if rotated {
 		// TODO(erh): handle flipped
-		img2Points = append(img2Points[1:], img2Points[0])
+		img2Points = rotatePoints(img2Points)
 	}
 
 	return img1Points, img2Points, nil
+}
+
+func rotatePoints(pts []image.Point) []image.Point {
+	pts = append(pts[1:], pts[0])
+	return pts
 }
 
 // For two images, given the distances from the image edge to two points on the image,
@@ -156,12 +161,12 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 	if ratioA > ratio1 {
 		trimFirst = 0
 		trimAmount = (distA*dist2 - distB*dist1) / (distA - distB)
-		return int(trimAmount), trimFirst, nil
+		return int(math.Round(trimAmount)), trimFirst, nil
 	}
 	if ratioA < ratio1 {
 		trimFirst = 1
 		trimAmount = (dist1*distB - dist2*distA) / (dist1 - dist2)
-		return int(trimAmount), trimFirst, nil
+		return int(math.Round(trimAmount)), trimFirst, nil
 	}
 
 	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
