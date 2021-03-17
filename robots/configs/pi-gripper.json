@@ -5,18 +5,29 @@
           "motors" : [
               { "name" : "g",
                 "pins" : {
-                    "a" : "40",
-                    "b" : "38",
-                    "pwm" : "11"
-                }
+                    "a" : "11",
+                    "b" : "13",
+                    "pwm" : "7"
+                },
+                "encoder" : "encoder",
+                "ticksPerRotation" : 100
               }
           ],
           "analogs" : [
-              { "name" : "potentiometer",
+              { "name" : "current",
                 "pin" : "0"
               },
               { "name" : "pressure",
-                "pin" : "7"
+                "pin" : "1"
+              },
+              { "name" : "limit",
+                "pin" : "2"
+              }
+          ],
+          "digitalInterrupts" : [
+              { "name" : "encoder",
+                "pin" : "16",
+                "mode" : "falling"
               }
           ]
         }
@@ -25,13 +36,6 @@
         { "name" : "vg1",
 		  "type": "gripper",
 		  "model": "viam"
-        },
-        { "name" : "gripper-cam",
-          "type" : "camera",
-          "model" : "webcam",
-          "attributes" : {
-              "path" :  "/dev/video0"
-          }
         }
 	]
 }
