@@ -1,9 +1,5 @@
 package board
 
-import (
-	"fmt"
-)
-
 type PostProcess func(raw int64) int64
 
 type Direction int
@@ -62,15 +58,6 @@ type Board interface {
 	Close() error
 
 	GetConfig() Config
-}
-
-func NewBoard(cfg Config) (Board, error) {
-	switch cfg.Model {
-	case "pi":
-		return NewPiBoard(cfg)
-	default:
-		return nil, fmt.Errorf("unknown board model: %v", cfg.Model)
-	}
 }
 
 type DigitalInterrupt interface {
