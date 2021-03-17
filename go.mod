@@ -51,6 +51,7 @@ require (
 	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
+	golang.org/x/tools v0.1.0 // indirect
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
 	gonum.org/v1/plot v0.9.0 // indirect
