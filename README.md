@@ -72,6 +72,7 @@ If libvpx is not available on your distro, run the following:
 1. If you add a new package, please add it to this README.
 1. If you add a new sample or command, please add it to this README.
 1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
+1. Use imperative mood for commits (see [Git Documenation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136))
 1. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
 1. Delete any non-release branches ASAP when done, or use a personal fork
 1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
