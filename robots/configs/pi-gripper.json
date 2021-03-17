@@ -26,8 +26,7 @@
           ],
           "digitalInterrupts" : [
               { "name" : "encoder",
-                "pin" : "16",
-                "mode" : "falling"
+                "pin" : "16"
               }
           ]
         }

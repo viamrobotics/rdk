@@ -80,7 +80,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	encoder.ticks(99)
 	assert.Equal(t, DirForward, real.d)
-	encoder.Tick()
+	encoder.Tick(true)
 	assert.Equal(t, DirNone, real.d)
 
 	// when we're in the middle of a GoFor and then call Go, don't turn off
@@ -102,7 +102,7 @@ func TestMotorEncoder1(t *testing.T) {
 	encoder.ticks(1000)
 
 	// we should still be moving at the previous force
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, byte(64), real.force)
 	assert.Equal(t, DirForward, real.d)
 
@@ -119,7 +119,46 @@ func TestMotorEncoder1(t *testing.T) {
 
 	encoder.ticks(99)
 	assert.Equal(t, DirBackward, real.d)
-	encoder.Tick()
+	encoder.Tick(true)
 	assert.Equal(t, DirNone, real.d)
+
+}
+
+func TestMotorEncoderHall(t *testing.T) {
+	rpmSleep = 1
+	rpmDebug = false
+
+	cfg := MotorConfig{TicksPerRotation: 100}
+	real := &fakeMotor{}
+	encoderA := &BasicDigitalInterrupt{}
+	encoderB := &BasicDigitalInterrupt{}
+
+	motor := encodedMotor{
+		cfg:      cfg,
+		real:     real,
+		encoder:  encoderA,
+		encoderB: encoderB,
+	}
+
+	motor.rpmMonitorStart()
+	time.Sleep(20 * time.Millisecond)
+
+	assert.Equal(t, int64(0), motor.curPosition)
+
+	encoderA.Tick(true)
+	encoderB.Tick(true)
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, int64(-1), motor.curPosition)
+
+	encoderB.Tick(true)
+	encoderA.Tick(true)
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, int64(0), motor.curPosition)
+
+	encoderB.Tick(false)
+	encoderB.Tick(true)
+	encoderA.Tick(true)
+	time.Sleep(210 * time.Millisecond)
+	assert.Equal(t, int64(1), motor.curPosition)
 
 }

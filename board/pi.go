@@ -214,8 +214,8 @@ func NewPiBoard(cfg Config) (Board, error) {
 				return nil, err
 			}
 
-			err = pin.Listen(di.Mode, b.sysfsListner, func(b byte) {
-				t.Tick()
+			err = pin.Listen("both", b.sysfsListner, func(b byte) {
+				t.Tick(b == 49)
 			})
 			if err != nil {
 				return nil, err
@@ -242,15 +242,26 @@ func NewPiBoard(cfg Config) (Board, error) {
 		if mc.Encoder != "" {
 			i := b.DigitalInterrupt(mc.Encoder)
 			if i == nil {
-				return nil, fmt.Errorf("cannot find encode (%s) for motor (%s)", mc.Encoder, mc.Name)
+				return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
 			}
 
-			mm = &encodedMotor{
-				cfg:     mc,
-				real:    mm,
-				encoder: i,
+			var encoderB DigitalInterrupt
+			if mc.EncoderB != "" {
+				encoderB = b.DigitalInterrupt(mc.EncoderB)
+				if encoderB == nil {
+					return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
+				}
 			}
 
+			mm2 := &encodedMotor{
+				cfg:      mc,
+				real:     mm,
+				encoder:  i,
+				encoderB: encoderB,
+			}
+			mm2.rpmMonitorStart()
+
+			mm = mm2
 		}
 
 		b.motors = append(b.motors, mm)
