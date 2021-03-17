@@ -35,9 +35,10 @@ func TestSegmentPlane(t *testing.T) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pc_ := DepthMapTo3D(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
+	pts := New3DPoints()
+	pts.CreatePoints3DFromDepthMap(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
 
-	_, eq := SegmentPlane(pc_, 1000, 0.0025, pixel2meter)
+	_, eq := pts.SegmentPlane(1000, 0.0025, pixel2meter)
 
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)

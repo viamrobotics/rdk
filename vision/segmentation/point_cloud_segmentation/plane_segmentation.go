@@ -12,8 +12,129 @@ import (
 	"time"
 )
 
+type PlaneSegmenter interface {
+	SegmentPlane(int, float64, float64) (*pc.PointCloud, []float64)
+}
+
+type Points3D struct {
+	points []r3.Vector
+}
+
+func New3DPoints() *Points3D {
+	pts := make([]r3.Vector, 0)
+	return &Points3D{pts}
+}
+
+// Convert float 3d points in meters to pointcloud
+func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) *pc.PointCloud {
+	pointCloud := pc.New()
+	for _, pt := range pts.points {
+		x, y, z := MeterToMillimeterPoint(pt.X, pt.Y, pt.Z, pixel2Meter)
+		ptPc := pc.NewBasicPoint(x, y, z)
+		pointCloud.Set(ptPc)
+	}
+	return pointCloud
+}
+
+func (pts *Points3D) convert3DPointsToPointCloudWithValue(
+	pixel2Meter float64,
+	selectedPoints map[pc.Vec3]int,
+) *pc.PointCloud {
+	pointCloud := pc.New()
+	for _, pt := range pts.points {
+		x, y, z := MeterToMillimeterPoint(pt.X, pt.Y, pt.Z, pixel2Meter)
+		val := 0
+		if _, ok := selectedPoints[pc.Vec3{x, y, z}]; ok {
+			val = 1
+		}
+		ptPc := pc.NewValuePoint(x, y, z, val)
+		pointCloud.Set(ptPc)
+	}
+	return pointCloud
+}
+
+func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64) {
+	points3d := pts.points
+	nPoints := len(points3d)
+	bestEquation := make([]float64, 4)
+	currentEquation := make([]float64, 4)
+	var bestInliers []r3.Vector
+
+	var currentInliers []r3.Vector
+	var p1, p2, p3, v1, v2, cross, vec r3.Vector
+	var n1, n2, n3 int
+	var d, dist float64
+
+	for i := 0; i < nIterations; i++ {
+		// sample 3 points from the slice of 3D points
+		n1, n2, n3 = SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1)
+		p1, p2, p3 = points3d[n1], points3d[n2], points3d[n3]
+
+		// get 2 vectors that are going to define the plane
+		v1 = p2.Sub(p1)
+		v2 = p3.Sub(p1)
+		// cross product to get the normal unit vector to the plane (v1, v2)
+		cross = v1.Cross(v2)
+		vec = cross.Normalize()
+		// find current plane equation denoted as:
+		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
+		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
+		d = -vec.Dot(p2)
+		// current plane equation
+		currentEquation[0], currentEquation[1], currentEquation[2], currentEquation[3] = vec.X, vec.Y, vec.Z, d
+
+		// compute distance to plane of each point in the cloud
+		currentInliers = nil
+		// store all the points that are below a certain distance to the plane
+		for _, pt := range points3d {
+			dist = (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
+			if math.Abs(dist) < threshold {
+				currentInliers = append(currentInliers, pt)
+			}
+		}
+		// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
+		if len(currentInliers) > len(bestInliers) {
+			bestEquation = currentEquation
+			bestInliers = nil
+			bestInliers = currentInliers
+		}
+	}
+	// Output as slice of r3.Vector
+	bestInliersPointCloud := make(map[pc.Vec3]int)
+	for _, pt := range bestInliers {
+		x, y, z := MeterToMillimeterPoint(pt.X, pt.Y, pt.Z, pixel2meter)
+		bestInliersPointCloud[pc.Vec3{x, y, z}] = 1
+	}
+	return pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud), bestEquation
+}
+
+// Function that creates a point cloud from a depth image with the intrinsics from the depth sensor camera
+// For RGB sensor (depth image aligned with RGB 1280 x 720 resolution)
+// cx, cy (Principal Point)         : 648.934, 367.736
+// fx, fy (Focal Length)            : 900.538, 900.818
+//Distortion Coefficients : [0.158701,-0.485405,-0.00143327,-0.000705919,0.435342]
+// depthMin and DepthMax are supposed to contain the range of depth values for which the confidence is high
+func (pts *Points3D)CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, fy float64, depthMin, depthMax rimage.Depth) {
+	// TODO(louise): add distortion model for better accuracy
+	// go through depth map pixels and get 3D points
+
+	for y := 0; y < depthImage.Height(); y++ {
+		for x := 0; x < depthImage.Width(); x++ {
+			// get depth value
+			d := depthImage.Get(image.Point{x, y})
+			if d > depthMin && d < depthMax { //if depth is valid
+				// get z distance to meter for unit uniformity
+				z := float64(d) * pixel2meter
+				// get x and y of 3D point
+				x_, y_, _ := PixelToPoint(x, y, z, cx, cy, fx, fy)
+				// Get point in PointCloud format
+				pts.points = append(pts.points, r3.Vector{x_, y_, z})
+			}
+		}
+	}
+}
 // Convert point from meters (float64) to mm (int)
-func MeterToMillimeter(x, y, z float64, pixel2Meter float64) (int, int, int) {
+func MeterToMillimeterPoint(x, y, z float64, pixel2Meter float64) (int, int, int) {
 
 	xMm := int(x / pixel2Meter)
 	yMm := int(y / pixel2Meter)
@@ -69,7 +190,7 @@ func SampleRandomIntRange(min, max int) int {
 // Function to detect a plane in a 3D point cloud;
 // Returns a slice of PointCloud.keys of the 3D points that belong to found plane
 // And the parameters of the plane equation as a slice of float64 (useful for determining points above plane)
-func SegmentPlane(points3d []r3.Vector, nIterations int, threshold, pixel2meter float64) ([]r3.Vector, []float64) {
+func SegmentPlaneFrom3DFloatPoints(points3d []r3.Vector, nIterations int, threshold, pixel2meter float64) ([]r3.Vector, []float64) {
 
 	nPoints := len(points3d)
 	bestEquation := make([]float64, 4)
@@ -144,7 +265,7 @@ func CreateMaskPlaneDepthIndices(pts []r3.Vector, planeInliers []int) []float64 
 // fx, fy (Focal Length)            : 900.538, 900.818
 //Distortion Coefficients : [0.158701,-0.485405,-0.00143327,-0.000705919,0.435342]
 // depthMin and DepthMax are supposed to contain the range of depth values for which the confidence is high
-func DepthMapTo3D(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, fy float64, depthMin, depthMax rimage.Depth) []r3.Vector {
+func DepthMapToPoints3D(depthImage *rimage.DepthMap, pixel2meter, cx, cy, fx, fy float64, depthMin, depthMax rimage.Depth) []r3.Vector {
 	// TODO(louise): add distortion model for better accuracy
 	// output slice
 	var points []r3.Vector
@@ -230,15 +351,4 @@ func GetPlaneMaskRGBCoordinates(depthImage *rimage.DepthMap, coordinates []r3.Ve
 		maskPlane.Set(int(j), int(i), white)
 	}
 	return maskPlane
-}
-
-// Convert float 3d points in meters to pointcloud
-func convert3DPointsToPointCloud(points []r3.Vector, pixel2Meter float64) *pc.PointCloud {
-	pointCloud := pc.New()
-	for _, pt := range points {
-		x, y, z := MeterToMillimeter(pt.X, pt.Y, pt.Z, pixel2Meter)
-		ptPc := pc.NewBasicPoint(x,y,z)
-		pointCloud.Set(ptPc)
-	}
-	return pointCloud
 }
