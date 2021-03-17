@@ -1,10 +1,15 @@
 package point_cloud_segmentation
 
 import (
+	"fmt"
 	"github.com/golang/geo/r3"
 	"go.viam.com/robotcore/rimage"
 	"gonum.org/v1/gonum/mat"
+	"image"
+	"image/color"
+	"image/png"
 	"math"
+	"os"
 	"testing"
 )
 
@@ -70,7 +75,56 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
+	rgbd, err := rimage.BothReadFromFile("data/align-test-1615172036.both.gz")
+	m := rgbd.Depth
+	rgb := rgbd.Color
+	h, w := rgb.Height(), rgb.Width()
 
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Pixel to Meter
+	pixel2meter := 0.001
+	// Select depth range
+	depthMin, depthMax := rimage.Depth(200), rimage.Depth(6000)
+	// Get 3D points
+	pts := New3DPoints()
+	pts.CreatePoints3DFromDepthMap(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
+	// Get rigid body transform between Depth and RGB sensor
+	rotationData := []float64{0.999958,-0.00838489,0.00378392,0.00824708,0.999351,0.0350734,-0.00407554,-0.0350407,0.999378}
+	rotationMatrix := mat.NewDense(3,3, rotationData)
+	translationVector := r3.Vector{-0.000828434,0.0139185,-0.0033418}
+	// Apply RBT
+	transformedPoints := pts.ApplyRigidBodyTransform(*rotationMatrix, translationVector)
+	// Re-project 3D points in RGB Plane
+	coordinatesRGB := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, 648.934, 367.736, 900.538, 900.818, pixel2meter)
+	// fill image
+	upLeft := image.Point{0, 0}
+	lowRight := image.Point{w, h}
+
+	img := image.NewGray16(image.Rectangle{upLeft, lowRight})
+	for _, pt := range coordinatesRGB {
+		if pt.Z > -1.0{
+			img.Set(int(pt.X), int(pt.Y), color.Gray16{uint16(pt.Z/pixel2meter)})
+		}
+	}
+	fn := "/tmp/projected_depth.png"
+	f, err := os.Create(fn)
+	if err != nil {
+		fmt.Println("Could not create file.")
+	}
+	err = png.Encode(f, img)
+	defer f.Close()
+
+
+	maxPt := img.Bounds().Max
+	if maxPt.X != rgb.Width() {
+		t.Error("Projected Depth map does not have the right width.")
+	}
+	if maxPt.Y != rgb.Height() {
+		t.Error("Projected Depth map does not have the right height.")
+	}
 }
 
 func TestTransformPointToPoint(t *testing.T) {
