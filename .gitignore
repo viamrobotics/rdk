@@ -36,6 +36,7 @@ slam/data/*diff*
 *#
 *.#*
 *.DS_Store
+*.swp
 
 # act
 .secrets
