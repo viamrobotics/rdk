@@ -14,9 +14,10 @@ var (
 )
 
 type encodedMotor struct {
-	cfg     MotorConfig
-	real    Motor
-	encoder DigitalInterrupt
+	cfg      MotorConfig
+	real     Motor
+	encoder  DigitalInterrupt
+	encoderB DigitalInterrupt
 
 	regulated int32 // use atomic operations when access
 
@@ -74,18 +75,16 @@ func (m *encodedMotor) rpmMonitorStart() {
 	go m.rpmMonitor()
 }
 
-func (m *encodedMotor) rpmMonitor() {
-	if m.encoder == nil {
-		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
+func (m *encodedMotor) startRegulatorThread() {
+	if m.encoderB == nil {
+		m.startSingleEncoderThread()
+	} else {
+		m.startRotaryEncoderThread()
 	}
+}
 
-	if m.startedRPMMonitor {
-		return
-	}
-	m.startedRPMMonitor = true
-
-	// just a convenient place to start the encoder listener
-	encoderChannel := make(chan int64)
+func (m *encodedMotor) startSingleEncoderThread() {
+	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
 	go func() {
 		for {
@@ -112,6 +111,70 @@ func (m *encodedMotor) rpmMonitor() {
 			}
 		}
 	}()
+}
+
+func (m *encodedMotor) startRotaryEncoderThread() {
+	chanA := make(chan bool)
+	chanB := make(chan bool)
+
+	m.encoder.AddCallback(chanA)
+	m.encoderB.AddCallback(chanB)
+
+	go func() {
+		aLevel := true
+		bLevel := true
+
+		lastWasA := true
+
+		for {
+
+			var level bool
+			var isA bool
+
+			select {
+			case level = <-chanA:
+				isA = true
+				aLevel = level
+			case level = <-chanB:
+				isA = false
+				bLevel = level
+			}
+
+			//fmt.Printf("isA: %v level: %v aLevel: %v bLevel: %v lastWasA: %v\n", isA, level, aLevel, bLevel, lastWasA)
+
+			if isA == lastWasA {
+				lastWasA = isA
+				continue
+			}
+			lastWasA = isA
+
+			if isA && level {
+				if bLevel {
+					m.curPosition++
+				}
+			} else if !isA && level {
+				if aLevel {
+					m.curPosition--
+				}
+			}
+
+		}
+	}()
+
+}
+
+func (m *encodedMotor) rpmMonitor() {
+	if m.encoder == nil {
+		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
+	}
+
+	if m.startedRPMMonitor {
+		return
+	}
+	m.startedRPMMonitor = true
+
+	// just a convenient place to start the encoder listener
+	m.startRegulatorThread()
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()

@@ -61,7 +61,7 @@ type BasicDigitalInterrupt struct {
 	cfg   DigitalInterruptConfig
 	count int64
 
-	callbacks []chan int64
+	callbacks []chan bool
 
 	pp PostProcess
 }
@@ -80,19 +80,21 @@ func (i *BasicDigitalInterrupt) Value() int64 {
 // really just for testing
 func (i *BasicDigitalInterrupt) ticks(num int) {
 	for x := 0; x < num; x++ {
-		i.Tick()
+		i.Tick(true)
 	}
 }
 
-func (i *BasicDigitalInterrupt) Tick() {
-	i.count++
+func (i *BasicDigitalInterrupt) Tick(high bool) {
+	if high {
+		i.count++
+	}
 
 	for _, c := range i.callbacks {
-		c <- i.count
+		c <- high
 	}
 }
 
-func (i *BasicDigitalInterrupt) AddCallback(c chan int64) {
+func (i *BasicDigitalInterrupt) AddCallback(c chan bool) {
 	i.callbacks = append(i.callbacks, c)
 }
 
@@ -122,7 +124,8 @@ func (i *ServoDigitalInterrupt) Value() int64 {
 	return v
 }
 
-func (i *ServoDigitalInterrupt) Tick() {
+func (i *ServoDigitalInterrupt) Tick(high bool) {
+	// TODO(erh): only need to count the high time, or something like that
 	now := time.Now().UnixNano()
 	diff := now - i.last
 	i.last = now
@@ -135,7 +138,7 @@ func (i *ServoDigitalInterrupt) Tick() {
 	i.ra.Add(int(diff / 1000))
 }
 
-func (i *ServoDigitalInterrupt) AddCallback(c chan int64) {
+func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
 	panic(fmt.Errorf("servos can't have callback "))
 }
 
