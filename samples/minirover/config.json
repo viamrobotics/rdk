@@ -42,20 +42,16 @@
           ],
           "digitalInterrupts" : [
               { "name" : "fl-e",
-                "pin" : "36",
-                "mode" : "falling"
+                "pin" : "36"
               },
               { "name" : "fr-e",
-                "pin" : "18",
-                "mode" : "falling"
+                "pin" : "18"
               },
               { "name" : "bl-e",
-                "pin" : "31",
-                "mode" : "falling"
+                "pin" : "31"
               },
               { "name" : "br-e",
-                "pin" : "10",
-                "mode" : "falling"
+                "pin" : "10"
               }
           ],
           "servos" : [

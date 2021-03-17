@@ -17,18 +17,20 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	}
 
 	assert.Equal(t, int64(1), i.Value())
-	i.Tick()
+	i.Tick(true)
+	assert.Equal(t, int64(2), i.Value())
+	i.Tick(false)
 	assert.Equal(t, int64(2), i.Value())
 
-	c := make(chan int64)
+	c := make(chan bool)
 	i.AddCallback(c)
 
-	go func() { i.Tick() }()
+	go func() { i.Tick(true) }()
 	v := <-c
-	assert.Equal(t, int64(2), v)
+	assert.Equal(t, true, v)
 
-	go func() { i.Tick() }()
+	go func() { i.Tick(true) }()
 	v = <-c
-	assert.Equal(t, int64(3), v)
+	assert.Equal(t, true, v)
 
 }
