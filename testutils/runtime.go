@@ -162,6 +162,10 @@ func WaitOrFail(ctx context.Context, t *testing.T, dur time.Duration) {
 	select {
 	case <-timer.C:
 	case <-ctx.Done():
-		t.Fatal(ctx.Err())
+		fatal(t, ctx.Err())
 	}
+}
+
+var fatal = func(t *testing.T, args ...interface{}) {
+	t.Fatal(args...)
 }
