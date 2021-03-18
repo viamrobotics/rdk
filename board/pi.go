@@ -138,15 +138,7 @@ func (pi *piBoard) AnalogReader(name string) AnalogReader {
 	for _, ac := range pi.cfg.Analogs {
 		if name == ac.Name {
 			a = &gobotAnalogReader{pi.ar, ac.Pin}
-			if ac.AverageOverMillis > 0 {
-				as := &AnalogSmoother{
-					Raw:               a,
-					AverageOverMillis: ac.AverageOverMillis,
-					SamplesPerSecond:  ac.SamplesPerSecond,
-				}
-				as.Start()
-				a = as
-			}
+			a = AnalogSmootherWrap(a, ac)
 
 			if pi.analogs == nil {
 				pi.analogs = map[string]AnalogReader{}
