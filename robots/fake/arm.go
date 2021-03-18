@@ -6,6 +6,12 @@ import (
 	"go.viam.com/robotcore/api"
 )
 
+func init() {
+	api.RegisterArm("fake", func(r api.Robot, config api.Component) (api.Arm, error) {
+		return &Arm{}, nil
+	})
+}
+
 type Arm struct {
 	position api.ArmPosition
 }
