@@ -20,12 +20,44 @@ import (
 	"strconv"
 )
 
+var (
+	piHWPinToBroadcom = map[string]int{
+		"3":  2,
+		"5":  3,
+		"7":  4,
+		"11": 17,
+		"13": 27,
+		"15": 22,
+		"19": 10,
+		"21": 9,
+		"23": 11,
+		"29": 5,
+		"31": 6,
+		"33": 13,
+		"35": 19,
+		"37": 26,
+		"8":  14,
+		"10": 15,
+		"12": 18,
+		"16": 23,
+		"18": 24,
+		"22": 25,
+		"24": 8,
+		"26": 7,
+		"32": 12,
+		"36": 16,
+		"38": 16,
+		"40": 21,
+	}
+)
+
 type piPigpio struct {
 	cfg           Config
 	analogEnabled bool
 	analogSpi     C.int
 	gpioConfigSet map[int]bool
 	analogs       map[string]AnalogReader
+	servos        map[string]Servo
 }
 
 func (pi *piPigpio) GetConfig() Config {
@@ -100,6 +132,57 @@ func (pi *piPigpio) AnalogRead(channel int) (int, error) {
 	}
 
 	return int(C.doAnalogRead(pi.analogSpi, C.int(channel))), nil
+}
+
+type piPigpioServo struct {
+	pi  *piPigpio
+	pin C.uint
+}
+
+func (s *piPigpioServo) Move(angle uint8) error {
+	val := 500 + (2000.0 * float64(angle) / 180.0)
+	res := C.gpioServo(s.pin, C.uint(val))
+	if res != 0 {
+		return fmt.Errorf("gpioServo failed with %d", res)
+	}
+	return nil
+}
+
+func (s *piPigpioServo) Current() uint8 {
+	res := C.gpioGetServoPulsewidth(s.pin)
+	if res <= 0 {
+		// this includes, errors, we'll ignore
+		return 0
+	}
+	return uint8(180 * (float64(res) - 500.0) / 2000)
+}
+
+func (pi *piPigpio) Servo(name string) Servo {
+	if pi.servos == nil {
+		pi.servos = map[string]Servo{}
+	}
+
+	s := pi.servos[name]
+	if s != nil {
+		return s
+	}
+
+	for _, c := range pi.cfg.Servos {
+		if c.Name != name {
+			continue
+		}
+
+		bcom, have := piHWPinToBroadcom[c.Pin]
+		if !have {
+			panic(fmt.Errorf("no hw mapping for %s", c.Pin))
+		}
+
+		s = &piPigpioServo{pi, C.uint(bcom)}
+		pi.servos[name] = s
+		return s
+	}
+
+	return nil
 }
 
 func (pi *piPigpio) Close() error {
