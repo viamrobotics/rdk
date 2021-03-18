@@ -41,7 +41,7 @@ func TestPiPigpio(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 0, v)
+	assert.InDelta(t, 0, v, 100)
 
 	// try to set high
 	err = p.GPIOSet(26, true)
@@ -53,6 +53,18 @@ func TestPiPigpio(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 1023, v)
+	assert.InDelta(t, 1023, v, 100)
+
+	// back to low
+	err = p.GPIOSet(26, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	v, err = reader.Read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.InDelta(t, 0, v, 100)
 
 }
