@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/robotcore/utils"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.uber.org/zap/zaptest/observer"
-	"go.viam.com/robotcore/utils"
 )
 
 // ContextualMainExecution reflects the execution of a main function
@@ -59,9 +60,9 @@ func contextualMain(main func(ctx context.Context, args []string) error, args []
 			select {
 			case <-mainDone:
 				if err != nil { // safe to check as we synchronize on mainDone
-					t.Fatalf("main function completed while waiting to send quit signal with error: %v", err)
+					fatalf(t, "main function completed while waiting to send quit signal with error: %v", err)
 				} else {
-					t.Fatal("main function completed while waiting to send quit signal")
+					fatal(t, "main function completed while waiting to send quit signal")
 				}
 			case quitC <- syscall.SIGQUIT:
 			}
@@ -87,8 +88,12 @@ var (
 
 // TestMain tests a main function with a series of test cases in serial.
 func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string) error, tcs []MainTestCase) {
-	for _, tc := range tcs {
-		t.Run(tc.Name, func(t *testing.T) {
+	for i, tc := range tcs {
+		testCaseName := tc.Name
+		if testCaseName == "" {
+			testCaseName = fmt.Sprintf("%d", i)
+		}
+		t.Run(testCaseName, func(t *testing.T) {
 			var logs *observer.ObservedLogs
 			logger, logs := golog.NewObservedTestLogger(t)
 			if tc.Before != nil {
@@ -131,9 +136,9 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 					defer waitMu.Unlock()
 					err := <-done
 					if err == nil {
-						t.Fatal(errCompletedBeforeExpected)
+						fatal(t, errCompletedBeforeExpected)
 					} else {
-						t.Fatal(fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+						fatal(t, fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
 					}
 				}
 				waitingInDuring = false
@@ -164,6 +169,10 @@ func WaitOrFail(ctx context.Context, t *testing.T, dur time.Duration) {
 	case <-ctx.Done():
 		fatal(t, ctx.Err())
 	}
+}
+
+func fatalf(t *testing.T, format string, args ...interface{}) {
+	fatal(t, fmt.Sprintf(format, args...))
 }
 
 var fatal = func(t *testing.T, args ...interface{}) {
