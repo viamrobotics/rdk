@@ -17,6 +17,12 @@ import (
 	"go.viam.com/robotcore/kinematics"
 )
 
+func init() {
+	api.RegisterArm("eva", func(r api.Robot, config api.Component) (api.Arm, error) {
+		return NewEva(config.Host, config.Attributes)
+	})
+}
+
 type evaData struct {
 	// map[estop:false]
 	Global map[string]interface{}

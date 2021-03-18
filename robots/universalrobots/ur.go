@@ -14,6 +14,12 @@ import (
 	"go.viam.com/robotcore/api"
 )
 
+func init() {
+	api.RegisterArm("ur", func(r api.Robot, config api.Component) (api.Arm, error) {
+		return URArmConnect(config.Host)
+	})
+}
+
 type URArm struct {
 	mu       sync.Mutex
 	conn     net.Conn

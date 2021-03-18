@@ -6,9 +6,20 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/utils"
 )
+
+func init() {
+	api.RegisterGripper("viam", func(r api.Robot, config api.Component) (api.Gripper, error) {
+		b := r.BoardByName("local")
+		if b == nil {
+			return nil, fmt.Errorf("viam gripper requires a board called local")
+		}
+		return NewGripperV1(b)
+	})
+}
 
 type GripperV1 struct {
 	motor       board.Motor
