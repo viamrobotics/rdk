@@ -18,6 +18,12 @@ import (
 	"go.viam.com/robotcore/kinematics"
 )
 
+func init() {
+	api.RegisterArm("wx250s", func(r api.Robot, config api.Component) (api.Arm, error) {
+		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock)
+	})
+}
+
 // SleepAngles are the angles we go to to prepare to turn off torque
 var SleepAngles = map[string]float64{
 	"Waist":       2048,

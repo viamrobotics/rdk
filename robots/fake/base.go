@@ -1,6 +1,16 @@
 package fake
 
-import "context"
+import (
+	"context"
+
+	"go.viam.com/robotcore/api"
+)
+
+func init() {
+	api.RegisterBase(ModelName, func(r api.Robot, c api.Component) (api.Base, error) {
+		return &Base{}, nil
+	})
+}
 
 // tracks in CM
 type Base struct {

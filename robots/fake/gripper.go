@@ -1,5 +1,15 @@
 package fake
 
+import (
+	"go.viam.com/robotcore/api"
+)
+
+func init() {
+	api.RegisterGripper(ModelName, func(r api.Robot, config api.Component) (api.Gripper, error) {
+		return &Gripper{}, nil
+	})
+}
+
 type Gripper struct {
 }
 

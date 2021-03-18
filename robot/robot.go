@@ -3,21 +3,21 @@ package robot
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/robots/eva"
 	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/robots/hellorobot"
-	"go.viam.com/robotcore/robots/robotiq"
-	"go.viam.com/robotcore/robots/universalrobots"
-	"go.viam.com/robotcore/robots/vgripper"
-	"go.viam.com/robotcore/robots/wx250s"
 
-	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
-	_ "go.viam.com/robotcore/vision" // this is for interesting camera types, depth, etc...
+	// TODO(erh): move these elsewhere
+	_ "go.viam.com/robotcore/rimage"     // this is for the core camera types
+	_ "go.viam.com/robotcore/robots/eva" // for eva
+	_ "go.viam.com/robotcore/robots/hellorobot"
+	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
+	_ "go.viam.com/robotcore/robots/universalrobots" // for an arm
+	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
+	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
+	_ "go.viam.com/robotcore/vision"                 // this is for interesting camera types, depth, etc...
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -123,13 +123,13 @@ func (r *Robot) LidarDeviceByName(name string) lidar.Device {
 	return nil
 }
 
-func (r *Robot) providerByModel(model string) (interface{}, error) {
+func (r *Robot) ProviderByModel(model string) api.Provider {
 	for i, c := range r.providerComponents {
 		if c.Model == model {
-			return r.providers[i], nil
+			return r.providers[i]
 		}
 	}
-	return nil, fmt.Errorf("no provider for model %q", model)
+	return nil
 }
 
 func (r *Robot) AddBoard(b board.Board, c board.Config) {
@@ -270,85 +270,37 @@ func NewRobot(ctx context.Context, cfg api.Config) (*Robot, error) {
 	return r, nil
 }
 
-// TODO(erd): prefer registration pattern
 func (r *Robot) newProvider(config api.Component) (api.Provider, error) {
-	switch config.Model {
-	case hellorobot.ModelName:
-		return hellorobot.New()
-	default:
+	pf := api.ProviderLookup(config.Model)
+	if pf == nil {
 		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
 	}
+	return pf(r, config)
 }
 
-// TODO(erd): prefer registration pattern
 func (r *Robot) newBase(config api.Component) (api.Base, error) {
-	switch config.Model {
-	case fake.ModelName:
-		return &fake.Base{}, nil
-	case hellorobot.ModelName:
-		t, err := r.providerByModel(hellorobot.ModelName)
-		if err != nil {
-			return nil, err
-		}
-		return t.(*hellorobot.Robot).Base()
-	default:
+	f := api.BaseLookup(config.Model)
+	if f == nil {
 		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}
+	return f(r, config)
 }
 
-// TODO(erd): prefer registration pattern
 func (r *Robot) newArm(config api.Component) (api.Arm, error) {
-	switch config.Model {
-	case "ur":
-		return universalrobots.URArmConnect(config.Host)
-	case "eva":
-		return eva.NewEva(config.Host, config.Attributes)
-	case "wx250s":
-		mutex := &sync.Mutex{}
-		for _, grip := range r.Grippers {
-			switch sGrip := grip.(type) {
-			case *wx250s.Gripper:
-				mutex = sGrip.GetMoveLock()
-			}
-		}
-		return wx250s.NewArm(config.Attributes, mutex)
-	case fake.ModelName:
-		return &fake.Arm{}, nil
-	case hellorobot.ModelName:
-		t, err := r.providerByModel(hellorobot.ModelName)
-		if err != nil {
-			return nil, err
-		}
-		return t.(*hellorobot.Robot).Arm()
-	default:
+	f := api.ArmLookup(config.Model)
+	if f == nil {
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
+
+	return f(r, config)
 }
 
-// TODO(erd): prefer registration pattern
 func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripper, error) {
-	switch config.Model {
-	case "robotiq":
-		return robotiq.NewGripper(config.Host, logger)
-	case "wx250s":
-		mutex := &sync.Mutex{}
-		for _, thisArm := range r.Arms {
-			switch sArm := thisArm.(type) {
-			case *wx250s.Arm:
-				mutex = sArm.GetMoveLock()
-			}
-		}
-		return wx250s.NewGripper(config.Attributes, mutex)
-	case "viam":
-		if len(r.Boards) != 1 {
-			return nil, fmt.Errorf("viam gripper requires exactly 1 board")
-		}
-		return vgripper.NewGripperV1(r.Boards[0])
-	case fake.ModelName:
-		return &fake.Gripper{}, nil
-	default:
+	f := api.GripperLookup(config.Model)
+	if f == nil {
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
+	return f(r, config)
 }
 
 func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
