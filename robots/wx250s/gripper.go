@@ -15,6 +15,12 @@ import (
 	"go.viam.com/robotcore/api"
 )
 
+func init() {
+	api.RegisterGripper("wx250s", func(r api.Robot, config api.Component) (api.Gripper, error) {
+		return NewGripper(config.Attributes, getProviderOrCreate(r).moveLock)
+	})
+}
+
 type Gripper struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex

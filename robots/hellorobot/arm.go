@@ -10,6 +10,16 @@ import (
 	"github.com/sbinet/go-python"
 )
 
+func init() {
+	api.RegisterArm(ModelName, func(r api.Robot, config api.Component) (api.Arm, error) {
+		t := r.ProviderByModel(ModelName)
+		if t == nil {
+			return nil, fmt.Errorf("no provider created for %s", ModelName)
+		}
+		return t.(*Robot).Arm()
+	})
+}
+
 type Arm struct {
 	robot  *Robot
 	armObj *python.PyObject

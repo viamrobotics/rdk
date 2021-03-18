@@ -7,22 +7,29 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/api"
 )
+
+func init() {
+	api.RegisterGripper("robotiq", func(r api.Robot, config api.Component) (api.Gripper, error) {
+		return NewGripper(config.Host)
+	})
+}
 
 type Gripper struct {
 	conn net.Conn
 
 	openLimit  string
 	closeLimit string
-	logger     golog.Logger
 }
 
-func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
+func NewGripper(host string) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
 	}
-	g := &Gripper{conn, "0", "255", logger}
+	g := &Gripper{conn, "0", "255"}
 
 	init := [][]string{
 		{"ACT", "1"},   // robot activate
@@ -194,6 +201,6 @@ func (g *Gripper) Calibrate() error {
 	}
 	g.closeLimit = x[4:]
 
-	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
+	golog.Global.Debugf("limits %s %s", g.openLimit, g.closeLimit)
 	return nil
 }

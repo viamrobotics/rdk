@@ -15,6 +15,9 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
+	api.RegisterProvider(ModelName, func(r api.Robot, config api.Component) (api.Provider, error) {
+		return New()
+	})
 }
 
 type Robot struct {

@@ -2,14 +2,26 @@ package hellorobot
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 )
+
+func init() {
+	api.RegisterBase(ModelName, func(r api.Robot, c api.Component) (api.Base, error) {
+		t := r.ProviderByModel(ModelName)
+		if t == nil {
+			return nil, fmt.Errorf("no provider created for hellorobot")
+		}
+		return t.(*Robot).Base()
+	})
+}
 
 type Base struct {
 	robot   *Robot
