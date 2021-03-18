@@ -13,6 +13,20 @@ var (
 	ErrStopReading = errors.New("stop reading")
 )
 
+func AnalogSmootherWrap(r AnalogReader, c AnalogConfig) AnalogReader {
+	if c.AverageOverMillis <= 0 {
+		return r
+	}
+
+	as := &AnalogSmoother{
+		Raw:               r,
+		AverageOverMillis: c.AverageOverMillis,
+		SamplesPerSecond:  c.SamplesPerSecond,
+	}
+	as.Start()
+	return as
+}
+
 type AnalogSmoother struct {
 	Raw               AnalogReader
 	AverageOverMillis int
