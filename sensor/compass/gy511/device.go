@@ -20,11 +20,12 @@ import (
 )
 
 type Device struct {
-	mu          sync.Mutex
-	rwc         io.ReadWriteCloser
-	heading     atomic.Value
-	calibrating bool
-	closeCh     chan struct{}
+	mu            sync.Mutex
+	rwc           io.ReadWriteCloser
+	heading       atomic.Value
+	calibrating   bool
+	closeCh       chan struct{}
+	activeWorkers sync.WaitGroup
 }
 
 const headingWindow = 100
@@ -57,7 +58,9 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev compass.Dev
 
 	d.closeCh = make(chan struct{})
 	ma := movingaverage.New(headingWindow)
+	d.activeWorkers.Add(1)
 	go func() {
+		defer d.activeWorkers.Done()
 		readHeading := func() (float64, error) {
 			line, _, err := buf.ReadLine()
 			if err != nil {
@@ -124,7 +127,9 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 
 func (d *Device) Close(ctx context.Context) error {
 	close(d.closeCh)
-	return d.rwc.Close()
+	err := d.rwc.Close()
+	d.activeWorkers.Wait()
+	return err
 }
 
 // RawDevice demonstrates the binary protocol used to talk to a GY511
