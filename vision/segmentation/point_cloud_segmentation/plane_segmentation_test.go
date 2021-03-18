@@ -2,15 +2,14 @@ package point_cloud_segmentation
 
 import (
 	"fmt"
-	"github.com/golang/geo/r3"
-	"go.viam.com/robotcore/rimage"
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
-	"image/png"
 	"math"
 	"os"
 	"testing"
+
+	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/vision/calibration"
 )
 
 func TestSegmentPlane(t *testing.T) {
@@ -40,8 +39,8 @@ func TestSegmentPlane(t *testing.T) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pts := New3DPoints()
-	pts.CreatePoints3DFromDepthMap(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
+	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
+	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 
 	_, eq := pts.SegmentPlane(1000, 0.0025, pixel2meter)
 
@@ -68,7 +67,8 @@ func TestDepthMapToPointCloud(t *testing.T) {
 		t.Fatal(err)
 	}
 	pixel2meter := 0.001
-	pc := DepthMapToPointCloud(m, pixel2meter, 542.078, 398.016, 734.938, 735.516)
+	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
+	pc := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
 	if pc.Size() != 456371 {
 		t.Error("Size of Point Cloud does not correspond to the GT point cloud size.")
 	}
@@ -88,35 +88,27 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	pixel2meter := 0.001
 	// Select depth range
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(6000)
-	// Get 3D points
-	pts := New3DPoints()
-	pts.CreatePoints3DFromDepthMap(m, pixel2meter, 542.078, 398.016, 734.938, 735.516, depthMin, depthMax)
+	// Get 3D Points
+	fmt.Println(os.Getwd())
+	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
+	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	// Get rigid body transform between Depth and RGB sensor
-	rotationData := []float64{0.999958,-0.00838489,0.00378392,0.00824708,0.999351,0.0350734,-0.00407554,-0.0350407,0.999378}
-	rotationMatrix := mat.NewDense(3,3, rotationData)
-	translationVector := r3.Vector{-0.000828434,0.0139185,-0.0033418}
+	sensorParams := calibration.NewDepthColorIntrinsicsExtrinsicsFromJsonFile("../../calibration/intel515_parameters.json")
 	// Apply RBT
-	transformedPoints := pts.ApplyRigidBodyTransform(*rotationMatrix, translationVector)
-	// Re-project 3D points in RGB Plane
-	coordinatesRGB := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, 648.934, 367.736, 900.538, 900.818, pixel2meter)
+	transformedPoints := pts.ApplyRigidBodyTransform(&sensorParams.ExtrinsicD2C)
+	// Re-project 3D Points in RGB Plane
+	colorIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "color")
+	coordinatesRGB := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, *colorIntrinsics, pixel2meter)
 	// fill image
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{w, h}
 
 	img := image.NewGray16(image.Rectangle{upLeft, lowRight})
 	for _, pt := range coordinatesRGB {
-		if pt.Z > -1.0{
-			img.Set(int(pt.X), int(pt.Y), color.Gray16{uint16(pt.Z/pixel2meter)})
+		if pt.Z > -1.0 {
+			img.Set(int(pt.X), int(pt.Y), color.Gray16{uint16(pt.Z / pixel2meter)})
 		}
 	}
-	fn := "/tmp/projected_depth.png"
-	f, err := os.Create(fn)
-	if err != nil {
-		fmt.Println("Could not create file.")
-	}
-	err = png.Encode(f, img)
-	defer f.Close()
-
 
 	maxPt := img.Bounds().Max
 	if maxPt.X != rgb.Width() {
@@ -124,52 +116,5 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	}
 	if maxPt.Y != rgb.Height() {
 		t.Error("Projected Depth map does not have the right height.")
-	}
-}
-
-func TestTransformPointToPoint(t *testing.T) {
-	x1, y1, z1 := 0., 0., 1.
-	rot1 := mat.NewDense(3, 3, nil)
-	rot1.Set(0, 0, 1.)
-	rot1.Set(1, 1, 1.)
-	rot1.Set(2, 2, 1.)
-
-	t1 := r3.Vector{0., 0., 1.}
-	vt1 := TransformPointToPoint(x1, y1, z1, *rot1, t1)
-	if vt1.X != 0. {
-		t.Error("x value for I rotation and {0,0,1} translation is not 0.")
-	}
-	if vt1.Y != 0. {
-		t.Error("y value for I rotation and {0,0,1} translation is not 0.")
-	}
-	if vt1.Z != 2. {
-		t.Error("z value for I rotation and {0,0,1} translation is not 2.")
-	}
-
-	t2 := r3.Vector{0., 2., 0.}
-	vt2 := TransformPointToPoint(x1, y1, z1, *rot1, t2)
-	if vt2.X != 0. {
-		t.Error("x value for I rotation and {0,2,0} translation is not 0.")
-	}
-	if vt2.Y != 2. {
-		t.Error("y value for I rotation and {0,2,0} translation is not 2.")
-	}
-	if vt2.Z != 1. {
-		t.Error("z value for I rotation and {0,2,0} translation is not 1.")
-	}
-	// Rotation in the (z,x) plane of 90 degrees
-	rot2 := mat.NewDense(3, 3, nil)
-	rot2.Set(0, 2, 1.)
-	rot2.Set(1, 1, 1.)
-	rot2.Set(2, 0, -1.)
-	vt3 := TransformPointToPoint(x1, y1, z1, *rot2, t2)
-	if vt3.X != 1. {
-		t.Error("x value for rotation z->x and {0,2,0} translation is not 1.")
-	}
-	if vt3.Y != 2. {
-		t.Error("y value for rotation z->x and {0,2,0} translation is not 2.")
-	}
-	if vt3.Z != 0. {
-		t.Error("z value for rotation z->x and {0,2,0} translation is not 0.")
 	}
 }

@@ -189,7 +189,6 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 }
 
 func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
-	fmt.Println("readDepthMapFormat2 : ")
 	dm := DepthMap{}
 
 	// get past garbade
