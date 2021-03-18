@@ -4,6 +4,7 @@ package board
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -12,6 +13,7 @@ func TestPiPigpio(t *testing.T) {
 
 	cfg := Config{
 		Analogs: []AnalogConfig{{Name: "blue", Pin: "0"}},
+		Servos:  []ServoConfig{{Name: "s1", Pin: "16"}},
 	}
 
 	p, err := NewPigpio(cfg)
@@ -67,4 +69,30 @@ func TestPiPigpio(t *testing.T) {
 	}
 	assert.InDelta(t, 0, v, 100)
 
+	// servo
+	s := p.Servo("s1")
+	if s == nil {
+		t.Fatal("no servo s1")
+	}
+
+	err = s.Move(90)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, byte(90), s.Current())
+	time.Sleep(200 * time.Millisecond)
+
+	err = s.Move(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, byte(0), s.Current())
+	time.Sleep(200 * time.Millisecond)
+
+	err = s.Move(180)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, byte(180), s.Current())
+	time.Sleep(200 * time.Millisecond)
 }
