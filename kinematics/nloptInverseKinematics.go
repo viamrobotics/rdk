@@ -112,8 +112,8 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	return ik
 }
 
-func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int) {
-	newtrans := &kinmath.Transform{}
+func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
+	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
