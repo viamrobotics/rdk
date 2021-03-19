@@ -11,7 +11,7 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 		Formula: "(+ 1 raw)",
 	}
 
-	i, err := createDigitalInterrupt(config)
+	i, err := CreateDigitalInterrupt(config)
 	if err != nil {
 		t.Fatal(err)
 	}
