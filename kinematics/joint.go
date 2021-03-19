@@ -175,9 +175,8 @@ func (j *Joint) SetPosition(pos []float64) {
 	
 	j.transform.t.Quat = r1
 
-	//~ j.transform.t.SetMatrix(mgl64.HomogRotate3D(angle, ))
-	//~ j.transform.x.Rotation = j.transform.t.Linear().Transpose()
-	//~ j.transform.x.Rotation = j.transform.t.Rotation()
+	j.transform.x.Rotation = j.transform.t.Linear().Transpose()
+	j.transform.x.Rotation = j.transform.t.Rotation()
 }
 
 // SetVelocity will set the joint's velocity

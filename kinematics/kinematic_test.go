@@ -53,3 +53,13 @@ func floatDelta(l1, l2 []float64) float64{
 	}
 	return delta
 }
+
+func TestJacobian(t *testing.T) {
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+	test.That(t, err, test.ShouldBeNil)
+	
+	m.ForwardPosition()
+	m.CalculateJacobian()
+	
+	fmt.Println(m.GetJacobian())
+}
