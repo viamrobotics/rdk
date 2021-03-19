@@ -2,12 +2,10 @@ package calibration
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
-	"reflect"
 
 	"github.com/golang/geo/r3"
 )
@@ -40,100 +38,12 @@ type DepthColorIntrinsicsExtrinsics struct {
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
 }
 
-func NewDistortionModel() *DistortionModel {
-	return &DistortionModel{
-		RadialK1:     0,
-		RadialK2:     0,
-		RadialK3:     0,
-		TangentialP1: 0,
-		TangentialP2: 0,
-	}
-}
-
-func NewExtrinsics() *Extrinsics {
-	return &Extrinsics{
-		RotationMatrix:    nil,
-		TranslationVector: nil,
-	}
-}
-
-func NewPinholeCameraIntrinsics() *PinholeCameraIntrinsics {
-	return &PinholeCameraIntrinsics{
-		Width:      0,
-		Height:     0,
-		Fx:         0,
-		Fy:         0,
-		Ppx:        0,
-		Ppy:        0,
-		Distortion: DistortionModel{},
-	}
-}
 func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
 	}
-}
-
-func SetField(obj interface{}, name string, value interface{}) error {
-	structValue := reflect.ValueOf(obj).Elem()
-	structFieldValue := structValue.FieldByName(name)
-
-	if !structFieldValue.IsValid() {
-		return fmt.Errorf("No such field: %s in obj.", name)
-	}
-
-	if !structFieldValue.CanSet() {
-		return fmt.Errorf("Cannot set %s field value.", name)
-	}
-
-	structFieldType := structFieldValue.Type()
-	val := reflect.ValueOf(value)
-	if structFieldType != val.Type() {
-		return errors.New("Provided value type didn't match obj field type.")
-	}
-
-	structFieldValue.Set(val)
-	return nil
-}
-
-func (s *DepthColorIntrinsicsExtrinsics) FillDepthColorIntrinsicsExtrinsicsFromMap(m map[string]interface{}) error {
-	for k, v := range m {
-		err := SetField(s, k, v)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *PinholeCameraIntrinsics) FillPinholeCameraIntrinsicsFromMap(m map[string]interface{}) error {
-	err := SetField(s, "Fx", m["fx"])
-	if err != nil {
-		return err
-	}
-	err = SetField(s, "Fy", m["fy"])
-	if err != nil {
-		return err
-	}
-	err = SetField(s, "ppx", m["ppx"])
-	if err != nil {
-		return err
-	}
-	err = SetField(s, "ppy", m["ppy"])
-	if err != nil {
-		return err
-	}
-	err = SetField(s, "Height", m["height"])
-	if err != nil {
-		return err
-	}
-	err = SetField(s, "Width", m["width"])
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func NewDepthColorIntrinsicsExtrinsicsFromJsonFile(jsonPath string) *DepthColorIntrinsicsExtrinsics {
