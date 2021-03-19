@@ -11,6 +11,17 @@ type GPIOBoard interface {
 	PWMSet(pin string, dutyCycle byte) error
 }
 
+func NewGPIOMotor(b GPIOBoard, pins map[string]string) (*GPIOMotor, error) {
+	m := &GPIOMotor{
+		b,
+		pins["a"],
+		pins["b"],
+		pins["pwm"],
+		false,
+	}
+	return m, nil
+}
+
 type GPIOMotor struct {
 	Board     GPIOBoard
 	A, B, PWM string

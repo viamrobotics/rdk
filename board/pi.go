@@ -231,29 +231,9 @@ func NewPiBoard(cfg Config) (Board, error) {
 			motor: m,
 		}
 
-		if mc.Encoder != "" {
-			i := b.DigitalInterrupt(mc.Encoder)
-			if i == nil {
-				return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
-			}
-
-			var encoderB DigitalInterrupt
-			if mc.EncoderB != "" {
-				encoderB = b.DigitalInterrupt(mc.EncoderB)
-				if encoderB == nil {
-					return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
-				}
-			}
-
-			mm2 := &encodedMotor{
-				cfg:      mc,
-				real:     mm,
-				encoder:  i,
-				encoderB: encoderB,
-			}
-			mm2.rpmMonitorStart()
-
-			mm = mm2
+		mm, err = WrapMotorWithEncoder(b, mc, mm)
+		if err != nil {
+			return nil, err
 		}
 
 		b.motors = append(b.motors, mm)

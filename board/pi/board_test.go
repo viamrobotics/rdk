@@ -22,13 +22,26 @@ func TestPiPigpio(t *testing.T) {
 		DigitalInterrupts: []board.DigitalInterruptConfig{
 			{Name: "i1", Pin: "35"},
 			{Name: "i2", Pin: "31", Type: "servo"},
+			{Name: "hall-a", Pin: "38"},
+			{Name: "hall-b", Pin: "40"},
+		},
+		Motors: []board.MotorConfig{
+			{
+				Name:             "m",
+				Pins:             map[string]string{"a": "11", "b": "13", "pwm": "15"},
+				Encoder:          "hall-a",
+				EncoderB:         "hall-b",
+				TicksPerRotation: 100,
+			},
 		},
 	}
 
-	p, err := NewPigpio(cfg)
+	pp, err := NewPigpio(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	p := pp.(*piPigpio)
 
 	assert.Equal(t, cfg, p.GetConfig())
 
@@ -46,7 +59,7 @@ func TestPiPigpio(t *testing.T) {
 		}
 
 		// try to set low
-		err = p.GPIOSet(26, false)
+		err = p.GPIOSetBcom(26, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -58,7 +71,7 @@ func TestPiPigpio(t *testing.T) {
 		assert.InDelta(t, 0, v, 150)
 
 		// try to set high
-		err = p.GPIOSet(26, true)
+		err = p.GPIOSetBcom(26, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,7 +83,7 @@ func TestPiPigpio(t *testing.T) {
 		assert.InDelta(t, 1023, v, 150)
 
 		// back to low
-		err = p.GPIOSet(26, false)
+		err = p.GPIOSetBcom(26, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,7 +124,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("basic interrupts", func(t *testing.T) {
-		err = p.GPIOSet(13, false)
+		err = p.GPIOSetBcom(13, false)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -120,7 +133,7 @@ func TestPiPigpio(t *testing.T) {
 
 		before := p.DigitalInterrupt("i1").Value()
 
-		err = p.GPIOSet(13, true)
+		err = p.GPIOSetBcom(13, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -145,5 +158,27 @@ func TestPiPigpio(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 
 		assert.InDelta(t, int64(1500), p.DigitalInterrupt("i2").Value(), 500) // this is a tad noisy
+	})
+
+	t.Run("motor", func(t *testing.T) {
+		m := p.Motor("m")
+		err := m.GoFor(board.DirForward, 250, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.True(t, m.IsOn())
+
+		loops := 0
+		for m.IsOn() {
+			time.Sleep(100 * time.Millisecond)
+			loops++
+			if loops > 100 {
+				t.Fatalf("motor didn't move enough, a: %v b: %v",
+					p.DigitalInterrupt("hall-a").Value(),
+					p.DigitalInterrupt("hall-b").Value(),
+				)
+			}
+		}
+
 	})
 }
