@@ -45,3 +45,4 @@ vision/chess/out
 /data/
 out/
 ./minirover2
+.idea/*
