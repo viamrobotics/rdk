@@ -46,37 +46,55 @@ func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-func NewDepthColorIntrinsicsExtrinsicsFromJsonFile(jsonPath string) *DepthColorIntrinsicsExtrinsics {
+func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
 	intrinsics := NewDepthColorIntrinsicsExtrinsics()
 	// open json file
-	jsonFile, _ := os.Open(jsonPath)
+	jsonFile, err := os.Open(jsonPath)
+	if err != nil {
+		err = fmt.Errorf("error opening JSON file - %s", err)
+		return intrinsics, err
+	}
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	// Parse into map
-	err := json.Unmarshal([]byte(byteValue), intrinsics)
-	if err != nil {
-		fmt.Printf("Error parsing JSON string - %s", err)
+	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	if err2 != nil {
+		err2 = fmt.Errorf("error reading JSON data - %s", err2)
+		return intrinsics, err2
 	}
-	return intrinsics
+	// Parse into map
+	err = json.Unmarshal(byteValue, intrinsics)
+	if err != nil {
+		err = fmt.Errorf("error parsing JSON string - %s", err)
+		return intrinsics, err
+	}
+	return intrinsics, nil
 }
 
-func NewPinholeCameraIntrinsicsFromJsonFile(jsonPath, cameraName string) *PinholeCameraIntrinsics {
+func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
 	intrinsics := NewDepthColorIntrinsicsExtrinsics()
 	// open json file
-	jsonFile, _ := os.Open(jsonPath)
+	jsonFile, err := os.Open(jsonPath)
+	if err != nil {
+		err = fmt.Errorf("error opening JSON file - %s", err)
+		return nil, err
+	}
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	if err2 != nil {
+		err2 = fmt.Errorf("error reading JSON data - %s", err2)
+		return nil, err2
+	}
 	// Parse into map
-	err := json.Unmarshal([]byte(byteValue), intrinsics)
+	err = json.Unmarshal(byteValue, intrinsics)
 	if err != nil {
-		fmt.Printf("Error parsing JSON string - %s", err)
+		err = fmt.Errorf("error parsing JSON string - %s", err)
+		return nil, err
 	}
 	if cameraName == "depth" {
-		return &intrinsics.DepthCamera
+		return &intrinsics.DepthCamera, nil
 	}
-	return &intrinsics.ColorCamera
+	return &intrinsics.ColorCamera, nil
 }
 
 // Function to transform a pixel with depth to a 3D point cloud
@@ -86,9 +104,9 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float6
 	xOverZ := (params.Ppx - float64(x)) / params.Fx
 	yOverZ := (params.Ppy - float64(y)) / params.Fy
 	// get x and y
-	x_ := xOverZ * z
-	y_ := yOverZ * z
-	return x_, y_, z
+	xPixel := xOverZ * z
+	yPixel := yOverZ * z
+	return xPixel, yPixel, z
 }
 
 // Function to project a 3D point to a pixel in an image plane
@@ -96,9 +114,9 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float6
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	//TODO(louise): add unit test
 	if z != 0. {
-		x_px := math.Round(x*params.Fx/(z) + params.Ppx)
-		y_px := math.Round(y*params.Fy/(z) + params.Ppy)
-		return x_px, y_px
+		xPx := math.Round(x*params.Fx/(z) + params.Ppx)
+		yPx := math.Round(y*params.Fy/(z) + params.Ppy)
+		return xPx, yPx
 	}
 	// if depth is zero at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
 	return -1.0, -1.0
@@ -106,16 +124,15 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 
 // Function to apply a rigid body transform between two cameras to a 3D point
 func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
-	//rotationMatrix translationVector
 	rotationMatrix := params.RotationMatrix
 	translationVector := params.TranslationVector
 	n := len(rotationMatrix)
 	if n != 9 {
 		panic("Rotation Matrix to transform point cloud should be a 3x3 matrix")
 	}
-	x_transformed := rotationMatrix[0]*x + rotationMatrix[1]*y + rotationMatrix[2]*z + translationVector[0]
-	y_transformed := rotationMatrix[3]*x + rotationMatrix[4]*y + rotationMatrix[5]*z + translationVector[1]
-	z_transformed := rotationMatrix[6]*x + rotationMatrix[7]*y + rotationMatrix[8]*z + translationVector[2]
+	xTransformed := rotationMatrix[0]*x + rotationMatrix[1]*y + rotationMatrix[2]*z + translationVector[0]
+	yTransformed := rotationMatrix[3]*x + rotationMatrix[4]*y + rotationMatrix[5]*z + translationVector[1]
+	zTransformed := rotationMatrix[6]*x + rotationMatrix[7]*y + rotationMatrix[8]*z + translationVector[2]
 
-	return r3.Vector{x_transformed, y_transformed, z_transformed}
+	return r3.Vector{xTransformed, yTransformed, zTransformed}
 }
