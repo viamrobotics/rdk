@@ -9,6 +9,8 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	//~ "go.viam.com/robotcore/kinematics"
 	"go.viam.com/robotcore/kinematics/kinmath/spatial"
@@ -158,18 +160,24 @@ func (j *Joint) GetOut() *Frame {
 // GetRotationVector will return about which axes this joint will rotate and how much
 // Should be normalized to [0,1] for each axis
 // So, returns a 3-element slice representing rotation around x,y,z axes
-func (j *Joint) GetRotationVector() mgl64.Vec3 {
-	return mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
+func (j *Joint) GetRotationVector() quat.Number {
+	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
 }
 
 // SetPosition will set the joint's position in RADIANS
 func (j *Joint) SetPosition(pos []float64) {
 	j.position = pos
 	angle := pos[0] + j.offset[0]
+	
+	r1 := dualquat.Number{Real: j.GetRotationVector()}
+	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
+	r1.Real.Real += math.Cos(angle / 2)
+	
+	j.transform.t.Quat = r1
 
-	j.transform.t.SetMatrix(mgl64.HomogRotate3D(angle, j.GetRotationVector()))
+	//~ j.transform.t.SetMatrix(mgl64.HomogRotate3D(angle, ))
 	//~ j.transform.x.Rotation = j.transform.t.Linear().Transpose()
-	j.transform.x.Rotation = j.transform.t.Linear()
+	//~ j.transform.x.Rotation = j.transform.t.Rotation()
 }
 
 // SetVelocity will set the joint's velocity

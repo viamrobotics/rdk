@@ -6,12 +6,12 @@ import (
 )
 
 type Goal struct {
-	GoalTransform *kinmath.Transform
+	GoalTransform *kinmath.QuatTrans
 	EffectorID    int
 }
 
 type InverseKinematics interface {
-	AddGoal(*kinmath.Transform, int)
+	AddGoal(*kinmath.QuatTrans, int)
 	ClearGoals()
 	GetGoals() []Goal
 	Solve() bool
