@@ -3,25 +3,21 @@
 package board
 
 // #include <pigpio.h>
+// #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
-//
-// int doAnalogRead(int h, int channel) {
-//     char buf[3];
-//     buf[0] = 1;
-//     buf[1] = (8+channel) << 8;
-//     buf[2] = 0;
-//     spiXfer(h, buf, buf, 3);
-//     return ((buf[1]&3)<<8) | buf[2];
-// }
 import "C"
 
 import (
 	"fmt"
 	"strconv"
+
+	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/board"
 )
 
 var (
-	piHWPinToBroadcom = map[string]int{
+	piHWPinToBroadcom = map[string]uint{
 		"3":  2,
 		"5":  3,
 		"7":  4,
@@ -52,15 +48,17 @@ var (
 )
 
 type piPigpio struct {
-	cfg           Config
+	cfg           board.Config
 	analogEnabled bool
 	analogSpi     C.int
 	gpioConfigSet map[int]bool
-	analogs       map[string]AnalogReader
-	servos        map[string]Servo
+	analogs       map[string]board.AnalogReader
+	servos        map[string]board.Servo
+	interrupts    map[string]board.DigitalInterrupt
+	interruptsHW  map[uint]board.DigitalInterrupt
 }
 
-func (pi *piPigpio) GetConfig() Config {
+func (pi *piPigpio) GetConfig() board.Config {
 	return pi.cfg
 }
 
@@ -93,33 +91,8 @@ func (par *piPigpioAnalogReader) Read() (int, error) {
 	return par.pi.AnalogRead(par.channel)
 }
 
-func (pi *piPigpio) AnalogReader(name string) AnalogReader {
-	if pi.analogs == nil {
-		pi.analogs = map[string]AnalogReader{}
-	}
-
-	ar := pi.analogs[name]
-	if ar != nil {
-		return ar
-	}
-
-	for _, ac := range pi.cfg.Analogs {
-		if ac.Name != name {
-			continue
-		}
-
-		channel, err := strconv.Atoi(ac.Pin)
-		if err != nil {
-			panic(err)
-		}
-
-		ar = &piPigpioAnalogReader{pi, channel}
-		ar = AnalogSmootherWrap(ar, ac)
-
-		return ar
-	}
-
-	return nil
+func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
+	return pi.analogs[name]
 }
 
 func (pi *piPigpio) AnalogRead(channel int) (int, error) {
@@ -157,32 +130,12 @@ func (s *piPigpioServo) Current() uint8 {
 	return uint8(180 * (float64(res) - 500.0) / 2000)
 }
 
-func (pi *piPigpio) Servo(name string) Servo {
-	if pi.servos == nil {
-		pi.servos = map[string]Servo{}
-	}
+func (pi *piPigpio) Servo(name string) board.Servo {
+	return pi.servos[name]
+}
 
-	s := pi.servos[name]
-	if s != nil {
-		return s
-	}
-
-	for _, c := range pi.cfg.Servos {
-		if c.Name != name {
-			continue
-		}
-
-		bcom, have := piHWPinToBroadcom[c.Pin]
-		if !have {
-			panic(fmt.Errorf("no hw mapping for %s", c.Pin))
-		}
-
-		s = &piPigpioServo{pi, C.uint(bcom)}
-		pi.servos[name] = s
-		return s
-	}
-
-	return nil
+func (pi *piPigpio) DigitalInterrupt(name string) board.DigitalInterrupt {
+	return pi.interrupts[name]
 }
 
 func (pi *piPigpio) Close() error {
@@ -201,11 +154,27 @@ var (
 	piInstance *piPigpio = nil
 )
 
-func NewPigpio(cfg Config) (*piPigpio, error) {
+//export pigpioInterruptCallback
+func pigpioInterruptCallback(gpio, level int, tick uint32) {
+	//golog.Global.Debugf("pigpioInterruptCallback gpio: %v level: %v", gpio, level)
+	i := piInstance.interruptsHW[uint(gpio)]
+	if i == nil {
+		golog.Global.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+		return
+	}
+	high := true
+	if level == 0 {
+		high = false
+	}
+	i.Tick(high)
+}
+
+func NewPigpio(cfg board.Config) (*piPigpio, error) {
 	if piInstance != nil {
 		return nil, fmt.Errorf("can only have 1 piPigpio instance")
 	}
 
+	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
 	resCode := C.gpioCfgSetInternals(internals)
@@ -213,10 +182,54 @@ func NewPigpio(cfg Config) (*piPigpio, error) {
 		return nil, fmt.Errorf("gpioCfgSetInternals failed with code: %d", resCode)
 	}
 
+	// setup
 	piInstance = &piPigpio{cfg: cfg}
 	resCode = C.gpioInitialise()
 	if resCode < 0 {
 		return nil, fmt.Errorf("gpioInitialise failed with code: %d", resCode)
+	}
+
+	// setup servos
+	piInstance.servos = map[string]board.Servo{}
+	for _, c := range cfg.Servos {
+		bcom, have := piHWPinToBroadcom[c.Pin]
+		if !have {
+			return nil, fmt.Errorf("no hw mapping for %s", c.Pin)
+		}
+
+		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
+	}
+
+	// setup analogs
+	piInstance.analogs = map[string]board.AnalogReader{}
+	for _, ac := range cfg.Analogs {
+		channel, err := strconv.Atoi(ac.Pin)
+		if err != nil {
+			return nil, fmt.Errorf("bad analog pin (%s)", ac.Pin)
+		}
+
+		ar := &piPigpioAnalogReader{piInstance, channel}
+		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ar, ac)
+	}
+
+	// setup interrupts
+	piInstance.interrupts = map[string]board.DigitalInterrupt{}
+	piInstance.interruptsHW = map[uint]board.DigitalInterrupt{}
+	for _, c := range cfg.DigitalInterrupts {
+		bcom, have := piHWPinToBroadcom[c.Pin]
+		if !have {
+			return nil, fmt.Errorf("no hw mapping for %s", c.Pin)
+		}
+
+		di, err := board.CreateDigitalInterrupt(c)
+		if err != nil {
+			return nil, err
+		}
+		piInstance.interrupts[c.Name] = di
+		piInstance.interruptsHW[bcom] = di
+
+		C.setupInterrupt(C.int(bcom))
+
 	}
 
 	return piInstance, nil

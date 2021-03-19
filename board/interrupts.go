@@ -9,7 +9,7 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-func createDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error) {
+func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error) {
 	if cfg.Type == "" {
 		cfg.Type = "basic"
 	}
@@ -125,12 +125,11 @@ func (i *ServoDigitalInterrupt) Value() int64 {
 }
 
 func (i *ServoDigitalInterrupt) Tick(high bool) {
-	// TODO(erh): only need to count the high time, or something like that
 	now := time.Now().UnixNano()
 	diff := now - i.last
 	i.last = now
 
-	if diff > int64(10*time.Millisecond) {
+	if high {
 		// this is time between signals, ignore
 		return
 	}
