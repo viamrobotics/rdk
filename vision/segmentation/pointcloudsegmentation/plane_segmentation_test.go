@@ -1,4 +1,4 @@
-package point_cloud_segmentation
+package pointcloudsegmentation
 
 import (
 	"fmt"
@@ -39,10 +39,10 @@ func TestSegmentPlane(t *testing.T) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
+	depthIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "depth")
 	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
-
-	_, eq := pts.SegmentPlane(1000, 0.0025, pixel2meter)
+	// Segment Plane
+	_, eq, _ := pts.SegmentPlane(1000, 0.0025, pixel2meter)
 
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
@@ -56,6 +56,11 @@ func TestSegmentPlane(t *testing.T) {
 	if math.Abs(dot) < 0.75 {
 		t.Error("The estimated plane normal differs from the GT normal vector too much.")
 	}
+	// Test conversion function
+	pointCloud, _ := pts.convert3DPointsToPointCloud(pixel2meter)
+	if pointCloud.Size() == 0 {
+		t.Error("pointCloud could not be created.")
+	}
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
@@ -67,8 +72,9 @@ func TestDepthMapToPointCloud(t *testing.T) {
 		t.Fatal(err)
 	}
 	pixel2meter := 0.001
-	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
-	pc := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	depthIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "depth")
+	pc, _ := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+
 	if pc.Size() != 456371 {
 		t.Error("Size of Point Cloud does not correspond to the GT point cloud size.")
 	}
@@ -90,14 +96,14 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(6000)
 	// Get 3D Points
 	fmt.Println(os.Getwd())
-	depthIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "depth")
+	depthIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "depth")
 	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	// Get rigid body transform between Depth and RGB sensor
-	sensorParams := calibration.NewDepthColorIntrinsicsExtrinsicsFromJsonFile("../../calibration/intel515_parameters.json")
+	sensorParams, _ := calibration.NewDepthColorIntrinsicsExtrinsicsFromJSONFile("../../calibration/intel515_parameters.json")
 	// Apply RBT
 	transformedPoints := pts.ApplyRigidBodyTransform(&sensorParams.ExtrinsicD2C)
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics := calibration.NewPinholeCameraIntrinsicsFromJsonFile("../../calibration/intel515_parameters.json", "color")
+	colorIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "color")
 	coordinatesRGB := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, *colorIntrinsics, pixel2meter)
 	// fill image
 	upLeft := image.Point{0, 0}
