@@ -190,7 +190,7 @@ func NewPiBoard(cfg Config) (Board, error) {
 		}
 
 		for _, di := range cfg.DigitalInterrupts {
-			t, err := createDigitalInterrupt(di)
+			t, err := CreateDigitalInterrupt(di)
 			if err != nil {
 				return nil, err
 			}
