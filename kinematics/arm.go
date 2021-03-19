@@ -62,7 +62,7 @@ func (k *Arm) GetForwardPosition() api.ArmPosition {
 // Sets a new goal position
 // Uses ZYX euler rotation order
 func (k *Arm) SetForwardPosition(pos api.ArmPosition) error {
-	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	transform := kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
 	transform.SetZ(pos.Z)

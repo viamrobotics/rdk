@@ -1,33 +1,55 @@
 package kinematics
 
 import (
+	"math"
 	"testing"
+	"fmt"
 
 	"github.com/edaniels/test"
-	"github.com/go-gl/mathgl/mgl64"
+	//~ "gonum.org/v1/gonum/num/dualquat"
+	//~ "gonum.org/v1/gonum/num/quat"
 	"go.viam.com/robotcore/testutils"
+	//~ "go.viam.com/robotcore/kinematics/kinmath"
 )
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Confirm end effector starts at 0,-365, 360.25
-	// This may change if we flip the Y axis
+	// Confirm end effector starts at 365, 0, 360.25
 	m.ForwardPosition()
-	mat := m.GetOperationalPosition(0).Matrix()
-	m1 := mgl64.Translate3D(0, -365, 360.25)
-	if !mat.ApproxEqualThreshold(m1, 0.0000001) {
+	expect := []float64{365, 0, 360.25, 0, 0, 0}
+	actual := m.Get6dPosition(0)
+	
+	if floatDelta(expect, actual) > 0.00001 {
 		t.Fatalf("Starting 6d position incorrect")
 	}
 
-	newPos := []float64{1.1, 0.1, 1.3, 0, 0, -1}
-	newExpect := mgl64.NewVecNFromData([]float64{69.80961299265694, -35.53086645234494, 674.4093770982129, -84.6760069731363, 8.222778583003974, 6.1125444468247565})
+	newPos := []float64{0.7854, -0.7854, 0, 0, 0, 0}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
-	new6d := mgl64.NewVecNFromData(m.Get6dPosition(0))
-	if !new6d.ApproxEqual(newExpect) {
-		t.Fatalf("Calculated 6d position incorrect")
+	actual = m.Get6dPosition(0)
+	
+	expect = []float64{57.5, 57.5, 545.1208197765168, 0, -45, 45}
+	if floatDelta(expect, actual) > 0.01 {
+		t.Fatalf("rotation 1 incorrect")
 	}
+	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
+	m.SetPosition(newPos)
+	m.ForwardPosition()
+	actual = m.Get6dPosition(0)
+	
+	expect = []float64{258.0935, -258.0935, 360.25, 45, 0, -45}
+	if floatDelta(expect, actual) > 0.01 {
+		t.Fatalf("rotation 2 incorrect")
+	}
+}
+
+func floatDelta(l1, l2 []float64) float64{
+	delta := 0.0
+	for i, v := range(l1){
+		delta += math.Abs(v - l2[i])
+	}
+	return delta
 }
