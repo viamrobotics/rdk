@@ -1,6 +1,7 @@
-package point_cloud_segmentation
+package pointcloudsegmentation
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -22,20 +23,24 @@ func New3DPoints() *Points3D {
 }
 
 // Convert float 3d Points in meters to pointcloud
-func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) *pc.PointCloud {
+func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
 		ptPc := pc.NewBasicPoint(x, y, z)
-		pointCloud.Set(ptPc)
+		err := pointCloud.Set(ptPc)
+		if err != nil {
+			err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", x, y, z, err)
+			return pointCloud, err
+		}
 	}
-	return pointCloud
+	return pointCloud, nil
 }
 
 func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	pixel2Meter float64,
 	selectedPoints map[pc.Vec3]int,
-) *pc.PointCloud {
+) (*pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
@@ -44,9 +49,13 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 			val = 1
 		}
 		ptPc := pc.NewValuePoint(x, y, z, val)
-		pointCloud.Set(ptPc)
+		err := pointCloud.Set(ptPc)
+		if err != nil {
+			err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", x, y, z, err)
+			return nil, err
+		}
 	}
-	return pointCloud
+	return pointCloud, nil
 }
 
 // Function to segment the biggest plane in the 3D Points cloud
@@ -54,7 +63,7 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // pixel2meter is the conversion factor from the depth value to its value in meters
 // This function returns a pointcloud with values; the values are set to 1 if a point belongs to the plane, 0 otherwise
-func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64) {
+func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64, error) {
 	nPoints := len(pts.Points)
 	bestEquation := make([]float64, 4)
 	currentEquation := make([]float64, 4)
@@ -90,7 +99,6 @@ func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float6
 		// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
 		if len(currentInliers) > len(bestInliers) {
 			bestEquation = currentEquation
-			bestInliers = nil
 			bestInliers = currentInliers
 		}
 	}
@@ -100,7 +108,11 @@ func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float6
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2meter)
 		bestInliersPointCloud[pc.Vec3{x, y, z}] = 1
 	}
-	return pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud), bestEquation
+	pointCloudOut, err := pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud)
+	if err != nil {
+		return nil, nil, err
+	}
+	return pointCloudOut, bestEquation, nil
 }
 
 // Function that creates a point cloud from a depth image with the intrinsics from the depth sensor camera
@@ -122,9 +134,9 @@ func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64
 				// get z distance to meter for unit uniformity
 				z := float64(d) * pixel2meter
 				// get x and y of 3D point
-				x_, y_, _ := params.PixelToPoint(x, y, z)
+				xPoint, yPoint, _ := params.PixelToPoint(x, y, z)
 				// Get point in PointCloud format
-				pts.Points = append(pts.Points, r3.Vector{x_, y_, z})
+				pts.Points = append(pts.Points, r3.Vector{xPoint, yPoint, z})
 			}
 		}
 	}
@@ -186,9 +198,9 @@ func SampleRandomIntRange(min, max int) int {
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics) *pc.PointCloud {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics) (*pc.PointCloud, error) {
 	// create new point cloud
-	pc_ := pc.New()
+	pcOut := pc.New()
 	// go through depth map pixels and get 3D Points
 	for y := 0; y < depthImage.Height(); y++ {
 		for x := 0; x < depthImage.Width(); x++ {
@@ -197,16 +209,20 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 			// get z distance to meter for unit uniformity
 			z := float64(d) * pixel2meter
 			// get x and y of 3D point
-			x_, y_, z := params.PixelToPoint(x, y, z)
+			xPoint, yPoint, z := params.PixelToPoint(x, y, z)
 			// Get point in PointCloud format
-			x_int := int(math.Round(x_ / pixel2meter))
-			y_int := int(math.Round(y_ / pixel2meter))
-			z_int := int(math.Round(z / pixel2meter))
-			pt := pc.NewBasicPoint(x_int, y_int, z_int)
-			pc_.Set(pt)
+			xInt := int(math.Round(xPoint / pixel2meter))
+			yInt := int(math.Round(yPoint / pixel2meter))
+			zInt := int(math.Round(z / pixel2meter))
+			pt := pc.NewBasicPoint(xInt, yInt, zInt)
+			err := pcOut.Set(pt)
+			if err != nil {
+				err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", xInt, yInt, zInt, err)
+				return nil, err
+			}
 		}
 	}
-	return pc_
+	return pcOut, nil
 }
 
 // Get plane 2D mask obtained from depth data in RGB image coordinates
