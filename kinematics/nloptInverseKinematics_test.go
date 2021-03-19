@@ -1,34 +1,34 @@
 package kinematics
 
-import (
-	"testing"
+//~ import (
+	//~ "testing"
 
-	"github.com/edaniels/test"
-	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/testutils"
-)
+	//~ "github.com/edaniels/test"
+	//~ "go.viam.com/robotcore/kinematics/kinmath"
+	//~ "go.viam.com/robotcore/testutils"
+//~ )
 
-type Position struct {
-	X, Y, Z float64 // meters of the end effector from the base
+//~ type Position struct {
+	//~ X, Y, Z float64 // meters of the end effector from the base
 
-	Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
-}
+	//~ Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
+//~ }
 
-func TestCreateIKSolver(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
-	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(m)
+//~ func TestCreateIKSolver(t *testing.T) {
+	//~ m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	//~ test.That(t, err, test.ShouldBeNil)
+	//~ ik := CreateNloptIKSolver(m)
 
-	pos := Position{90, -165, 360.25, 0, 45, 45}
-	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
-	transform.SetX(pos.X)
-	transform.SetY(pos.Y)
-	transform.SetZ(pos.Z)
+	//~ pos := Position{90, -165, 360.25, 0, 45, 45}
+	//~ transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	//~ transform.SetX(pos.X)
+	//~ transform.SetY(pos.Y)
+	//~ transform.SetZ(pos.Z)
 
-	ik.AddGoal(transform, 0)
+	//~ ik.AddGoal(transform, 0)
 
-	m.SetPosition([]float64{1, 1, 1, 0, 0, 1})
+	//~ m.SetPosition([]float64{1, 1, 1, 0, 0, 1})
 
-	solved := ik.Solve()
-	test.That(t, solved, test.ShouldBeTrue)
-}
+	//~ solved := ik.Solve()
+	//~ test.That(t, solved, test.ShouldBeTrue)
+//~ }

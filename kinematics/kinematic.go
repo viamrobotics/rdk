@@ -9,6 +9,8 @@ import (
 	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // ForwardPosition will update the model state to have the correct 6d position given its joint angles
@@ -26,7 +28,7 @@ func (m *Model) ForwardVelocity() {
 }
 
 // GetOperationalPosition will return the position of the given end effector ID (usually 0) and its euler angles
-func (m *Model) GetOperationalPosition(idx int) *kinmath.Transform {
+func (m *Model) GetOperationalPosition(idx int) *kinmath.QuatTrans {
 	return m.Nodes[m.Leaves[idx]].i.t
 }
 
@@ -41,20 +43,44 @@ func (m *Model) GetJacobianInverse() *mgl64.MatMxN {
 func (m *Model) Get6dPosition(idx int) []float64 {
 	var pose6d []float64
 
-	mat := m.GetOperationalPosition(idx).Matrix()
+	endTransform := m.GetOperationalPosition(idx)
+	quat := endTransform.Quat
+	cartQuat := dualquat.Mul(quat, dualquat.Conj(quat))
 	// Get xyz position
-	pose6d = append(pose6d, mat.At(0, 3))
-	pose6d = append(pose6d, mat.At(1, 3))
-	pose6d = append(pose6d, mat.At(2, 3))
+	pose6d = append(pose6d, cartQuat.Dual.Imag)
+	pose6d = append(pose6d, cartQuat.Dual.Jmag)
+	pose6d = append(pose6d, cartQuat.Dual.Kmag)
 
 	// Get euler angles
-	pose6d = append(pose6d, MatToEuler(mat)...)
+	pose6d = append(pose6d, QuatToEuler(quat.Real)...)
 	return pose6d
 }
 
 // GetOperationalVelocity will return the velocity vector of the given end effector ID (usually 0)
 func (m *Model) GetOperationalVelocity(idx int) spatial.MotionVector {
 	return m.Nodes[m.Leaves[idx]].GetVelocityVector()
+}
+
+// Bit of a weird thing we use this for
+// The quat in the transform actually describes the axis of an axis angle
+// So we want to get the direction the axis is pointing in
+func QuatToEuler(q quat.Number) []float64 {
+	w := q.Real
+	x := q.Imag
+	y := q.Jmag
+	z := q.Kmag
+
+	var angles []float64
+	
+	angles = append(angles, math.Atan2(2*(w*x + y*z), 1 - 2*(x*x + y*y)))
+	angles = append(angles, math.Asin(2*(w*y - x*z)))
+	angles = append(angles, math.Atan2(2*(w*z + y*x), 1 - 2*(y*y + z*z)))
+	
+	for i := range angles {
+		
+		angles[i] *= 180 / math.Pi
+	}
+	return angles
 }
 
 func MatToEuler(mat mgl64.Mat4) []float64 {
@@ -77,7 +103,7 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 }
 
 func (m *Model) CalculateJacobian() {
-	inWorldFrame := true
+	//~ inWorldFrame := true
 
 	m.Jacobian = mgl64.NewMatrix(m.GetOperationalDof()*6, m.GetDof())
 
@@ -91,18 +117,18 @@ func (m *Model) CalculateJacobian() {
 		m.SetVelocity(fakeVel)
 		m.ForwardVelocity()
 
-		for j := 0; j < m.GetOperationalDof(); j++ {
-			if inWorldFrame {
-				j1 := m.GetOperationalPosition(j).Linear().Mul3x1(m.GetOperationalVelocity(j).Linear)
-				m.Jacobian.Set(j*6, i, j1.X())
-				m.Jacobian.Set(j*6+1, i, j1.Y())
-				m.Jacobian.Set(j*6+2, i, j1.Z())
-				j2 := m.GetOperationalPosition(j).Linear().Mul3x1(m.GetOperationalVelocity(j).Angular)
-				m.Jacobian.Set(j*6+3, i, j2.X())
-				m.Jacobian.Set(j*6+4, i, j2.Y())
-				m.Jacobian.Set(j*6+5, i, j2.Z())
-			}
-		}
+		//~ for j := 0; j < m.GetOperationalDof(); j++ {
+			//~ if inWorldFrame {
+				//~ j1 := m.GetOperationalPosition(j).Rotation().Mul3x1(m.GetOperationalVelocity(j).Linear)
+				//~ m.Jacobian.Set(j*6, i, j1.X())
+				//~ m.Jacobian.Set(j*6+1, i, j1.Y())
+				//~ m.Jacobian.Set(j*6+2, i, j1.Z())
+				//~ j2 := m.GetOperationalPosition(j).Rotation().Mul3x1(m.GetOperationalVelocity(j).Angular)
+				//~ m.Jacobian.Set(j*6+3, i, j2.X())
+				//~ m.Jacobian.Set(j*6+4, i, j2.Y())
+				//~ m.Jacobian.Set(j*6+5, i, j2.Z())
+			//~ }
+		//~ }
 	}
 }
 

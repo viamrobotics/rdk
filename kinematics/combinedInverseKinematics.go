@@ -39,7 +39,7 @@ func CreateCombinedIKSolver(models []*Model) *CombinedIK {
 	return ik
 }
 
-func (ik *CombinedIK) AddGoal(trans *kinmath.Transform, effectorID int) {
+func (ik *CombinedIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	for _, solver := range ik.solvers {
 		solver.AddGoal(trans, effectorID)
 	}

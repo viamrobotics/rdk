@@ -25,8 +25,8 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	return &ik
 }
 
-func (ik *JacobianIK) AddGoal(trans *kinmath.Transform, effectorID int) {
-	newtrans := &kinmath.Transform{}
+func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
+	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }

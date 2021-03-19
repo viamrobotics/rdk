@@ -6,13 +6,14 @@ import (
 	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/graph"
+	//~ "gonum.org/v1/gonum/num/dualquat"
 )
 
 type Transform struct {
 	//~ Element
 	in         *Frame
 	out        *Frame
-	t          *kinmath.Transform
+	t          *kinmath.QuatTrans
 	x          spatial.PlueckerTransform
 	descriptor graph.Edge
 	name       string
@@ -20,7 +21,7 @@ type Transform struct {
 
 func NewTransform() *Transform {
 	t := Transform{}
-	t.t = kinmath.NewTransform()
+	t.t = kinmath.NewQuatTrans()
 	t.x.Rotation = mgl64.Ident3()
 	return &t
 }
@@ -58,7 +59,11 @@ func (t *Transform) GetOut() *Frame {
 }
 
 func (t *Transform) ForwardPosition() {
-	t.out.i.t.Mat = t.in.i.t.Mat.Mul4(t.t.Mat)
+	t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
+	
+	//~ fmt.Println("Rot: ", t.out.i.t.Quat.Real)
+	//~ fmt.Println("Trans: ", dualquat.Mul(t.out.i.t.Quat, dualquat.Conj(t.out.i.t.Quat)).Dual)
+	
 	t.out.i.x = t.x.Mult(t.in.i.x)
 }
 

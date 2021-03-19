@@ -8,17 +8,10 @@ import (
 
 // TODO(pl): add more descriptive field names once I work out what they ought to be
 type Frame struct {
-	//~ Element
+
 	a spatial.MotionVector
-	//~ c spatial.MotionVector
-	//~ f spatial.ForceVector
-	//~ i              spatial.RigidBodyInertia
-	//~ iA             spatial.ArticulatedBodyInertia
-	//~ pA spatial.ForceVector
 	i Transform
 	v spatial.MotionVector
-	//~ x              spatial.PlueckerTransform
-	//~ descriptor    simple.Node
 	IsWorld       bool
 	IsBody        bool
 	id            int64
@@ -30,7 +23,7 @@ func NewFrame() *Frame {
 	f := Frame{}
 	f.IsWorld = false
 	f.IsBody = false
-	f.i.t = kinmath.NewTransform()
+	f.i.t = kinmath.NewQuatTrans()
 	f.selfcollision = make(map[*Frame]bool)
 	return &f
 }
@@ -44,9 +37,11 @@ func (f *Frame) SetVertexDescriptor(newID int64) {
 }
 
 // ForwardPosition does nothing in a frame- it is handled by *Transform
-// Why is it here? Because Robotics Library has it
+// Why is it here? Because we need it to implement Element.
+// That said, we can probably completely remove Element in the future
 func (f *Frame) ForwardPosition() {
 }
+
 func (f *Frame) ForwardVelocity() {
 }
 
