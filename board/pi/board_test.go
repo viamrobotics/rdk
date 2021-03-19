@@ -160,7 +160,7 @@ func TestPiPigpio(t *testing.T) {
 		assert.InDelta(t, int64(1500), p.DigitalInterrupt("i2").Value(), 500) // this is a tad noisy
 	})
 
-	t.Run("motor", func(t *testing.T) {
+	t.Run("motor forward", func(t *testing.T) {
 		m := p.Motor("m")
 		err := m.GoFor(board.DirForward, 250, 5)
 		if err != nil {
@@ -181,4 +181,27 @@ func TestPiPigpio(t *testing.T) {
 		}
 
 	})
+
+	t.Run("motor backward", func(t *testing.T) {
+		m := p.Motor("m")
+		err := m.GoFor(board.DirBackward, 250, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.True(t, m.IsOn())
+
+		loops := 0
+		for m.IsOn() {
+			time.Sleep(100 * time.Millisecond)
+			loops++
+			if loops > 100 {
+				t.Fatalf("motor didn't move enough, a: %v b: %v",
+					p.DigitalInterrupt("hall-a").Value(),
+					p.DigitalInterrupt("hall-b").Value(),
+				)
+			}
+		}
+
+	})
+
 }
