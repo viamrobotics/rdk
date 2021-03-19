@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	//~ "fmt"
+	"fmt"
 	"log"
 	"math"
 
@@ -107,6 +107,8 @@ func (m *Model) CalculateJacobian() {
 
 	m.Jacobian = mgl64.NewMatrix(m.GetOperationalDof()*6, m.GetDof())
 
+	// Take the partial derivative of each degree of freedom
+	// We want to see how much things change when each DOF changes
 	for i := 0; i < m.GetDof(); i++ {
 		fakeVel := make([]float64, m.GetDof())
 		for j := 0; j < m.GetDof(); j++ {
@@ -114,6 +116,7 @@ func (m *Model) CalculateJacobian() {
 				fakeVel[j] = 1
 			}
 		}
+		fmt.Println(fakeVel)
 		m.SetVelocity(fakeVel)
 		m.ForwardVelocity()
 
