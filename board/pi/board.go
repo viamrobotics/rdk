@@ -16,6 +16,10 @@ import (
 	"go.viam.com/robotcore/board"
 )
 
+func init() {
+	board.RegisterBoard("pi2", NewPigpio)
+}
+
 var (
 	piHWPinToBroadcom = map[string]uint{
 		"3":  2,
@@ -42,7 +46,7 @@ var (
 		"26": 7,
 		"32": 12,
 		"36": 16,
-		"38": 16,
+		"38": 20,
 		"40": 21,
 	}
 )
@@ -56,13 +60,40 @@ type piPigpio struct {
 	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
+	motors        map[string]board.Motor
 }
 
 func (pi *piPigpio) GetConfig() board.Config {
 	return pi.cfg
 }
 
-func (pi *piPigpio) GPIOSet(bcom int, high bool) error {
+func (pi *piPigpio) GPIOSet(pin string, high bool) error {
+	bcom, have := piHWPinToBroadcom[pin]
+	if !have {
+		return fmt.Errorf("no hw pin for (%s)", pin)
+	}
+	return pi.GPIOSetBcom(int(bcom), high)
+}
+
+func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
+	bcom, have := piHWPinToBroadcom[pin]
+	if !have {
+		return fmt.Errorf("no hw pin for (%s)", pin)
+	}
+	return pi.PWMSetBcom(int(bcom), dutyCycle)
+}
+
+func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
+	//golog.Global.Debugf("PWMSetBcom %d -> %d", bcom, dutyCycle)
+	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
+	if res != 0 {
+		return fmt.Errorf("pwm set fail %d", res)
+	}
+	return nil
+}
+
+func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
+	//golog.Global.Debugf("GPIOSetBcom %d -> %v", bcom, high)
 	if !pi.gpioConfigSet[bcom] {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
@@ -138,6 +169,10 @@ func (pi *piPigpio) DigitalInterrupt(name string) board.DigitalInterrupt {
 	return pi.interrupts[name]
 }
 
+func (pi *piPigpio) Motor(name string) board.Motor {
+	return pi.motors[name]
+}
+
 func (pi *piPigpio) Close() error {
 	if pi.analogEnabled {
 		C.spiClose(C.uint(pi.analogSpi))
@@ -169,7 +204,8 @@ func pigpioInterruptCallback(gpio, level int, tick uint32) {
 	i.Tick(high)
 }
 
-func NewPigpio(cfg board.Config) (*piPigpio, error) {
+func NewPigpio(cfg board.Config) (board.Board, error) {
+	var err error
 	if piInstance != nil {
 		return nil, fmt.Errorf("can only have 1 piPigpio instance")
 	}
@@ -227,9 +263,26 @@ func NewPigpio(cfg board.Config) (*piPigpio, error) {
 		}
 		piInstance.interrupts[c.Name] = di
 		piInstance.interruptsHW[bcom] = di
-
+		fmt.Printf("setting up %d\n", bcom)
 		C.setupInterrupt(C.int(bcom))
 
+	}
+
+	// setup motors
+	piInstance.motors = map[string]board.Motor{}
+	for _, c := range cfg.Motors {
+		var m board.Motor
+		m, err = board.NewGPIOMotor(piInstance, c.Pins)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err = board.WrapMotorWithEncoder(piInstance, c, m)
+		if err != nil {
+			return nil, err
+		}
+
+		piInstance.motors[c.Name] = m
 	}
 
 	return piInstance, nil

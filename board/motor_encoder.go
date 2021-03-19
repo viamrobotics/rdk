@@ -13,6 +13,39 @@ var (
 	rpmDebug = true
 )
 
+func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor) (Motor, error) {
+	if mc.Encoder == "" {
+		return m, nil
+	}
+
+	if mc.TicksPerRotation == 0 {
+		return nil, fmt.Errorf("need a TicksPerRotation for motor (%s)", mc.Name)
+	}
+
+	i := b.DigitalInterrupt(mc.Encoder)
+	if i == nil {
+		return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
+	}
+
+	var encoderB DigitalInterrupt
+	if mc.EncoderB != "" {
+		encoderB = b.DigitalInterrupt(mc.EncoderB)
+		if encoderB == nil {
+			return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
+		}
+	}
+
+	mm2 := &encodedMotor{
+		cfg:      mc,
+		real:     m,
+		encoder:  i,
+		encoderB: encoderB,
+	}
+	mm2.rpmMonitorStart()
+
+	return mm2, nil
+}
+
 type encodedMotor struct {
 	cfg      MotorConfig
 	real     Motor
@@ -158,6 +191,18 @@ func (m *encodedMotor) startRotaryEncoderThread() {
 				}
 			}
 
+			if m.isRegulated() {
+				stop := (m.curDirection == DirForward && m.curPosition >= m.setPoint) ||
+					(m.curDirection == DirBackward && m.curPosition <= m.setPoint)
+
+				if stop {
+					err := m.Off()
+					if err != nil {
+						golog.Global.Warnf("error turning motor off from after hit set point: %v", err)
+					}
+					m.setRegulated(false)
+				}
+			}
 		}
 	}()
 
@@ -195,6 +240,9 @@ func (m *encodedMotor) rpmMonitor() {
 			rotations := float64(count-lastCount) / float64(m.cfg.TicksPerRotation)
 			minutes := float64(now-lastTime) / (1e9 * 60)
 			currentRPM := rotations / minutes
+			if minutes == 0 {
+				currentRPM = 0
+			}
 
 			var newForce byte
 
