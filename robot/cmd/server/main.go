@@ -10,6 +10,14 @@ import (
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
 
+	// These are the robot pieces we want by default
+	_ "go.viam.com/robotcore/robots/eva" // for eva
+	_ "go.viam.com/robotcore/robots/hellorobot"
+	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
+	_ "go.viam.com/robotcore/robots/universalrobots" // for an arm
+	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
+	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"

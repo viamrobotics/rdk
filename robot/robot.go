@@ -9,15 +9,9 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
 
-	// TODO(erh): move these elsewhere
-	_ "go.viam.com/robotcore/rimage"     // this is for the core camera types
-	_ "go.viam.com/robotcore/robots/eva" // for eva
-	_ "go.viam.com/robotcore/robots/hellorobot"
-	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
-	_ "go.viam.com/robotcore/robots/universalrobots" // for an arm
-	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
-	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
-	_ "go.viam.com/robotcore/vision"                 // this is for interesting camera types, depth, etc...
+	// these are the core image things we always want
+	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
+	_ "go.viam.com/robotcore/vision" // this is for interesting camera types, depth, etc...
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
