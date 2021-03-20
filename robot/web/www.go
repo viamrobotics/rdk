@@ -56,6 +56,10 @@ func (app *robotWebApp) Init() error {
 }
 
 func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	if true {
 		err := app.Init()
 		if err != nil {
@@ -622,6 +626,7 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 	InstallBoards(mux, theRobot)
 
 	mux.Handle("/", app)
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
 	for _, view := range views {
 		handler := view.Handler()
