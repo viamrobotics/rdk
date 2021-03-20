@@ -19,18 +19,6 @@ type RelativeDevice interface {
 	Mark(ctx context.Context) error
 }
 
-type DeviceType string
-
-const (
-	DeviceTypeUnknown = "unknown"
-	DeviceTypeFake    = "fake"
-)
-
-type DeviceDescription struct {
-	Type DeviceType
-	Path string
-}
-
 func MedianHeading(ctx context.Context, device Device) (float64, error) {
 	var headings []float64
 	numReadings := 5
