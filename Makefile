@@ -22,6 +22,9 @@ cover:
 test:
 	go test ./...
 
+testpi:
+	sudo go test -tags pi -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... go.viam.com/robotcore/board/pi
+
 dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
 
