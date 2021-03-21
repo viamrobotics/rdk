@@ -18,165 +18,155 @@ import (
 )
 
 type Robot struct {
-	Boards []board.Board
+	boards       map[string]board.Board
+	arms         map[string]api.Arm
+	grippers     map[string]api.Gripper
+	cameras      map[string]gostream.ImageSource
+	lidarDevices map[string]lidar.Device
+	bases        map[string]api.Base
+	providers    map[string]api.Provider
 
-	Arms         []api.Arm
-	Grippers     []api.Gripper
-	Cameras      []gostream.ImageSource
-	LidarDevices []lidar.Device
-	Bases        []api.Base
-	providers    []api.Provider
-
-	boardComponents    []board.Config
-	armComponents      []api.Component
-	gripperComponents  []api.Component
-	cameraComponents   []api.Component
-	lidarComponents    []api.Component
-	baseComponents     []api.Component
-	providerComponents []api.Component
-}
-
-// theRobot.ComponentFor( theRobot.Arms[0] )
-func (r *Robot) ComponentFor(theThing interface{}) *api.Component {
-
-	for idx, a := range r.Arms {
-		if theThing == a {
-			return &r.armComponents[idx]
-		}
-	}
-
-	for idx, g := range r.Grippers {
-		if theThing == g {
-			return &r.gripperComponents[idx]
-		}
-	}
-
-	for idx, c := range r.Cameras {
-		if theThing == c {
-			return &r.cameraComponents[idx]
-		}
-	}
-
-	for idx, l := range r.LidarDevices {
-		if theThing == l {
-			return &r.lidarComponents[idx]
-		}
-	}
-
-	for idx, b := range r.Bases {
-		if theThing == b {
-			return &r.baseComponents[idx]
-		}
-	}
-
-	return nil
+	config api.Config
 }
 
 func (r *Robot) BoardByName(name string) board.Board {
-	for i, c := range r.boardComponents {
-		if c.Name == name {
-			return r.Boards[i]
-		}
-	}
-	return nil
+	return r.boards[name]
 }
 
 func (r *Robot) ArmByName(name string) api.Arm {
-	for i, c := range r.armComponents {
-		if c.Name == name {
-			return r.Arms[i]
-		}
-	}
-	return nil
+	return r.arms[name]
+}
+
+func (r *Robot) BaseByName(name string) api.Base {
+	return r.bases[name]
 }
 
 func (r *Robot) GripperByName(name string) api.Gripper {
-	for i, c := range r.gripperComponents {
-		if c.Name == name {
-			return r.Grippers[i]
-		}
-	}
-	return nil
+	return r.grippers[name]
 }
 
 func (r *Robot) CameraByName(name string) gostream.ImageSource {
-	for i, c := range r.cameraComponents {
-		if c.Name == name {
-			return r.Cameras[i]
-		}
-	}
-	return nil
+	return r.cameras[name]
 }
 
 func (r *Robot) LidarDeviceByName(name string) lidar.Device {
-	for i, c := range r.lidarComponents {
-		if c.Name == name {
-			return r.LidarDevices[i]
-		}
-	}
-	return nil
+	return r.lidarDevices[name]
 }
 
 func (r *Robot) ProviderByModel(model string) api.Provider {
-	for i, c := range r.providerComponents {
-		if c.Model == model {
-			return r.providers[i]
-		}
-	}
-	return nil
+	return r.providers[model]
 }
 
 func (r *Robot) AddBoard(b board.Board, c board.Config) {
-	r.Boards = append(r.Boards, b)
-	r.boardComponents = append(r.boardComponents, c)
+	if c.Name == "" {
+		c.Name = fmt.Sprintf("board%d", len(r.boards))
+	}
+	r.boards[c.Name] = b
 }
 
 func (r *Robot) AddArm(a api.Arm, c api.Component) {
-	r.Arms = append(r.Arms, a)
-	r.armComponents = append(r.armComponents, c)
+	c = fixName(c, api.ComponentTypeArm, len(r.arms))
+	r.arms[c.Name] = a
 }
 
 func (r *Robot) AddGripper(g api.Gripper, c api.Component) {
-	r.Grippers = append(r.Grippers, g)
-	r.gripperComponents = append(r.gripperComponents, c)
+	c = fixName(c, api.ComponentTypeGripper, len(r.grippers))
+	r.grippers[c.Name] = g
 }
 func (r *Robot) AddCamera(camera gostream.ImageSource, c api.Component) {
-	r.Cameras = append(r.Cameras, camera)
-	r.cameraComponents = append(r.cameraComponents, c)
+	c = fixName(c, api.ComponentTypeCamera, len(r.cameras))
+	r.cameras[c.Name] = camera
 }
 func (r *Robot) AddLidar(device lidar.Device, c api.Component) {
-	r.LidarDevices = append(r.LidarDevices, device)
-	r.lidarComponents = append(r.lidarComponents, c)
+	c = fixName(c, api.ComponentTypeLidar, len(r.lidarDevices))
+	r.lidarDevices[c.Name] = device
 }
 func (r *Robot) AddBase(b api.Base, c api.Component) {
-	r.Bases = append(r.Bases, b)
-	r.baseComponents = append(r.baseComponents, c)
+	c = fixName(c, api.ComponentTypeBase, len(r.bases))
+	r.bases[c.Name] = b
 }
 func (r *Robot) AddProvider(p api.Provider, c api.Component) {
-	r.providers = append(r.providers, p)
-	r.providerComponents = append(r.providerComponents, c)
+	if c.Name == "" {
+		c.Name = fmt.Sprintf("provider%d", len(r.providers))
+	}
+	r.providers[c.Name] = p
+}
+
+func fixName(c api.Component, whichType api.ComponentType, pos int) api.Component {
+	if c.Name == "" {
+		c.Name = fmt.Sprintf("%s%d", whichType, pos)
+	}
+	if c.Type == "" {
+		c.Type = whichType
+	} else if c.Type != whichType {
+		panic(fmt.Sprintf("different types (%s) != (%s)", whichType, c.Type))
+	}
+	return c
+}
+
+func (r *Robot) ArmNames() []string {
+	names := []string{}
+	for k := range r.arms {
+		names = append(names, k)
+	}
+	return names
+}
+func (r *Robot) GripperNames() []string {
+	names := []string{}
+	for k := range r.grippers {
+		names = append(names, k)
+	}
+	return names
+}
+func (r *Robot) CameraNames() []string {
+	names := []string{}
+	for k := range r.cameras {
+		names = append(names, k)
+	}
+	return names
+}
+func (r *Robot) LidarDeviceNames() []string {
+	names := []string{}
+	for k := range r.lidarDevices {
+		names = append(names, k)
+	}
+	return names
+}
+func (r *Robot) BaseNames() []string {
+	names := []string{}
+	for k := range r.bases {
+		names = append(names, k)
+	}
+	return names
+}
+func (r *Robot) BoardNames() []string {
+	names := []string{}
+	for k := range r.boards {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (r *Robot) Close(ctx context.Context) error {
-	for _, x := range r.Arms {
+	for _, x := range r.arms {
 		x.Close()
 	}
 
-	for _, x := range r.Grippers {
+	for _, x := range r.grippers {
 		x.Close()
 	}
 
-	for _, x := range r.Cameras {
+	for _, x := range r.cameras {
 		x.Close()
 	}
 
-	for _, x := range r.LidarDevices {
+	for _, x := range r.lidarDevices {
 		if err := x.Close(ctx); err != nil {
 			golog.Global.Error("error closing lidar device", "error", err)
 		}
 	}
 
-	for _, x := range r.Bases {
+	for _, x := range r.bases {
 		if err := x.Close(ctx); err != nil {
 			golog.Global.Error("error closing base device", "error", err)
 		}
@@ -185,12 +175,25 @@ func (r *Robot) Close(ctx context.Context) error {
 	return nil
 }
 
+func (r *Robot) GetConfig() api.Config {
+	return r.config
+}
+
 func NewBlankRobot() *Robot {
-	return &Robot{}
+	return &Robot{
+		boards:       map[string]board.Board{},
+		arms:         map[string]api.Arm{},
+		grippers:     map[string]api.Gripper{},
+		cameras:      map[string]gostream.ImageSource{},
+		lidarDevices: map[string]lidar.Device{},
+		bases:        map[string]api.Base{},
+		providers:    map[string]api.Provider{},
+	}
 }
 
 func NewRobot(ctx context.Context, cfg api.Config) (*Robot, error) {
-	r := &Robot{}
+	r := NewBlankRobot()
+	r.config = cfg
 	logger := cfg.Logger
 	if logger == nil {
 		logger = golog.Global
