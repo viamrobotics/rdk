@@ -6,13 +6,15 @@ type ArmStatus struct {
 }
 
 type Status struct {
-	Arms map[string]ArmStatus
+	Arms     map[string]ArmStatus
+	Grippers map[string]bool // TODO(erh): not sure what this should be, but ok for now
 }
 
 func CreateStatus(r Robot) (Status, error) {
 	var err error
 	s := Status{
-		Arms: map[string]ArmStatus{},
+		Arms:     map[string]ArmStatus{},
+		Grippers: map[string]bool{},
 	}
 
 	for _, name := range r.ArmNames() {
@@ -29,6 +31,10 @@ func CreateStatus(r Robot) (Status, error) {
 		}
 
 		s.Arms[name] = as
+	}
+
+	for _, name := range r.GripperNames() {
+		s.Grippers[name] = true
 	}
 
 	return s, nil
