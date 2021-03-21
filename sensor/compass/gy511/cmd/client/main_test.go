@@ -23,6 +23,7 @@ func TestMain(t *testing.T) {
 		return nil, nil
 	}
 	searchDevicesFunc := defaultSearchDevicesFunc
+	prevSearchDevicesFunc := serial.SearchDevices
 	serial.SearchDevices = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 		return searchDevicesFunc(filter)
 	}
@@ -42,8 +43,12 @@ func TestMain(t *testing.T) {
 		searchDevicesFunc = defaultSearchDevicesFunc
 		openDeviceFunc = defaultOpenDeviceFunc
 	}
+	defer func() {
+		serial.SearchDevices = prevSearchDevicesFunc
+		serial.OpenDevice = prevOpenDeviceFunc
+	}()
 
-	failingDevice := &gy511.RawDevice{}
+	failingDevice := gy511.NewRawDevice()
 	failingDevice.SetHeading(5)
 	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{
 		// parsing
@@ -96,13 +101,11 @@ func TestMain(t *testing.T) {
 				}, nil
 			}
 			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
-				rd := &gy511.RawDevice{}
+				rd := gy511.NewRawDevice()
 				rd.SetHeading(5)
 				return rd, nil
 			}
-		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			testutils.WaitOrFail(ctx, t, time.Second)
-		}, func(t *testing.T, logs *observer.ObservedLogs) {
+		}, nil, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
@@ -114,12 +117,11 @@ func TestMain(t *testing.T) {
 				}, nil
 			}
 			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
-				rd := &gy511.RawDevice{}
+				rd := gy511.NewRawDevice()
 				rd.SetHeading(5)
 				return rd, nil
 			}
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			testutils.WaitOrFail(ctx, t, time.Second)
 			exec.QuitSignal(t)
 			testutils.WaitOrFail(ctx, t, time.Second)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
@@ -137,8 +139,7 @@ func TestMain(t *testing.T) {
 				return failingDevice, nil
 			}
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			testutils.WaitOrFail(ctx, t, time.Second)
-			failingDevice.SetFail(true)
+			failingDevice.SetFailAfter(0)
 			testutils.WaitOrFail(ctx, t, time.Second)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)

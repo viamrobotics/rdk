@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"testing"
-	"time"
 
 	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/testutils/inject"
@@ -60,7 +59,7 @@ func TestDevice(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops2")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops3")
 
-	rd := &RawDevice{}
+	rd := NewRawDevice()
 	openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
 		rd.SetHeading(5)
 		return rd, nil
@@ -69,7 +68,6 @@ func TestDevice(t *testing.T) {
 	t.Run("normal device", func(t *testing.T) {
 		dev, err := New(context.Background(), "/", logger)
 		test.That(t, err, test.ShouldBeNil)
-		time.Sleep(time.Second)
 		heading, err := dev.Heading(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, heading, test.ShouldEqual, 5)
@@ -85,21 +83,19 @@ func TestDevice(t *testing.T) {
 	})
 
 	t.Run("failing to make device", func(t *testing.T) {
-		rd.SetFail(true)
+		rd.SetFailAfter(0)
 		_, err = New(context.Background(), "/", logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "fail")
 	})
 
 	t.Run("failing to use device", func(t *testing.T) {
-		rd.SetFail(false)
+		rd.SetFailAfter(4)
 		dev, err := New(context.Background(), "/", logger)
 		test.That(t, err, test.ShouldBeNil)
-		rd.SetFail(true)
-		time.Sleep(time.Second)
 		heading, err := dev.Heading(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, math.IsNaN(heading), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(heading), test.ShouldBeFalse)
 		err = dev.StartCalibration(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "fail")
@@ -112,7 +108,7 @@ func TestDevice(t *testing.T) {
 		readings, err := dev.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings, test.ShouldHaveLength, 1)
-		test.That(t, math.IsNaN(readings[0].(float64)), test.ShouldBeTrue)
+		test.That(t, math.IsNaN(readings[0].(float64)), test.ShouldBeFalse)
 		test.That(t, dev.Close(context.Background()), test.ShouldBeNil)
 	})
 }
