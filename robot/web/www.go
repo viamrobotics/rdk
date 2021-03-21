@@ -81,21 +81,14 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Boards   []board.Config
 	}
 
-	temp := Temp{}
-
-	for _, b := range app.theRobot.Bases {
-		temp.Bases = append(temp.Bases, app.theRobot.ComponentFor(b).Name)
+	temp := Temp{
+		Bases:    app.theRobot.BaseNames(),
+		Arms:     app.theRobot.ArmNames(),
+		Grippers: app.theRobot.GripperNames(),
 	}
 
-	for _, a := range app.theRobot.Arms {
-		temp.Arms = append(temp.Arms, app.theRobot.ComponentFor(a).Name)
-	}
-
-	for _, g := range app.theRobot.Grippers {
-		temp.Grippers = append(temp.Grippers, app.theRobot.ComponentFor(g).Name)
-	}
-
-	for _, b := range app.theRobot.Boards {
+	for _, name := range app.theRobot.BoardNames() {
+		b := app.theRobot.BoardByName(name)
 		temp.Boards = append(temp.Boards, b.GetConfig())
 	}
 
@@ -214,21 +207,11 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 			mode = "grid"
 		}
 		action := r.FormValue("action")
-		armNumber := 0
 
-		if r.FormValue("num") != "" {
-			arm2, err2 := strconv.ParseInt(r.FormValue("num"), 10, 64)
-			if err2 != nil {
-				return nil, fmt.Errorf("bad value for arm")
-			}
-			armNumber = int(arm2)
+		arm := theRobot.ArmByName(r.FormValue("name"))
+		if arm == nil {
+			return nil, fmt.Errorf("no arm with name (%s)", r.FormValue("name"))
 		}
-
-		if armNumber < 0 || armNumber >= len(theRobot.Arms) {
-			return nil, fmt.Errorf("not a valid arm number")
-		}
-
-		arm := theRobot.Arms[armNumber]
 
 		if mode == "grid" {
 
@@ -350,66 +333,45 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 }
 
 func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
-	mux.HandleFunc("/api/gripper", func(w http.ResponseWriter, r *http.Request) {
-		gripper := 0
-
-		if r.FormValue("num") != "" {
-			g2, err := strconv.ParseInt(r.FormValue("num"), 10, 64)
-			if err != nil {
-				http.Error(w, "bad value for num", http.StatusBadRequest)
-				return
-			}
-			gripper = int(g2)
-		}
-
-		if gripper < 0 || gripper >= len(theRobot.Grippers) {
-			http.Error(w, "not a valid gripper number", http.StatusBadRequest)
-			return
+	mux.Handle("/api/gripper", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		name := r.FormValue("name")
+		gripper := theRobot.GripperByName(name)
+		if gripper == nil {
+			return nil, fmt.Errorf("no gripper with that name %s", name)
 		}
 
 		var err error
+		res := map[string]interface{}{}
 
 		action := r.FormValue("action")
 		switch action {
 		case "open":
-			err = theRobot.Grippers[gripper].Open()
+			err = gripper.Open()
 		case "grab":
-			var res bool
-			res, err = theRobot.Grippers[gripper].Grab()
-			w.Header().Add("grabbed", fmt.Sprintf("%v", res))
+			var grabbed bool
+			grabbed, err = gripper.Grab()
+			res["grabbed"] = grabbed
 		default:
 			err = fmt.Errorf("bad action: (%s)", action)
 		}
 
 		if err != nil {
-			golog.Global.Debugf("gripper error: %s", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, fmt.Errorf("gripper error: %s", err)
 		}
-
-	})
+		return res, nil
+	}})
 }
 
 func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 	theFunc := func(w http.ResponseWriter, r *http.Request) {
-		num := 0
-		if r.FormValue("num") != "" {
-			num2, err := strconv.ParseInt(r.FormValue("num"), 10, 64)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			num = int(num2)
-		}
-
-		// TODO(erh): search by name
-
-		if num >= len(theRobot.Cameras) {
-			http.Error(w, "invalid camera number", http.StatusBadRequest)
+		name := r.FormValue("name")
+		camera := theRobot.CameraByName(name)
+		if camera == nil {
+			http.Error(w, "bad camera name", http.StatusBadRequest)
 			return
 		}
 
-		img, release, err := theRobot.Cameras[num].Next(r.Context())
+		img, release, err := camera.Next(r.Context())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -522,8 +484,8 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 }
 
 func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot) {
-	for _, b := range theRobot.Boards {
-		installBoard(mux, b)
+	for _, name := range theRobot.BoardNames() {
+		installBoard(mux, theRobot.BoardByName(name))
 	}
 }
 
@@ -533,18 +495,20 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
-	for _, cam := range theRobot.Cameras {
-		cmp := theRobot.ComponentFor(cam)
+	for _, name := range theRobot.CameraNames() {
+		cam := theRobot.CameraByName(name)
+		cmp := theRobot.GetConfig().FindComponent(name)
 		if cmp.Attributes.GetBool("hide", false) {
 			continue
 		}
 
 		sources = append(sources, cam)
-		names = append(names, cmp.Name)
+		names = append(names, name)
 	}
 
-	for _, device := range theRobot.LidarDevices {
-		cmp := theRobot.ComponentFor(device)
+	for _, name := range theRobot.LidarDeviceNames() {
+		device := theRobot.LidarDeviceByName(name)
+		cmp := theRobot.GetConfig().FindComponent(name)
 		if cmp.Attributes.GetBool("hide", false) {
 			continue
 		}
@@ -552,7 +516,7 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 		source := gostream.ResizeImageSource{lidar.NewImageSource(device), 800, 600}
 
 		sources = append(sources, source)
-		names = append(names, cmp.Name)
+		names = append(names, name)
 	}
 
 	return sources, names
@@ -560,10 +524,6 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 
 // returns a closer func to be called when done
 func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, options Options) (func(), error) {
-	if len(theRobot.Bases) > 1 {
-		return nil, fmt.Errorf("robot.InstallWeb robot can't have morem than 1 base right now")
-	}
-
 	displaySources, displayNames := allSourcesToDisplay(theRobot)
 	views := []gostream.View{}
 	var autoCameraTiler *gostream.AutoTiler
@@ -580,10 +540,7 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 			})
 			views = append(views, view)
 
-			tilerHeight := 480
-			if len(theRobot.Cameras) > 0 {
-				tilerHeight *= len(theRobot.Cameras)
-			}
+			tilerHeight := 480 * len(displaySources)
 			autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
 			autoCameraTiler.SetLogger(golog.Global)
 
@@ -611,8 +568,8 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 	}
 
 	// install routes
-	if len(theRobot.Bases) > 0 {
-		InstallWebBase(mux, theRobot.Bases[0])
+	for _, name := range theRobot.BaseNames() {
+		InstallWebBase(mux, theRobot.BaseByName(name))
 	}
 
 	InstallWebArms(mux, theRobot)

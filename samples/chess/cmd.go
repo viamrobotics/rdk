@@ -392,7 +392,7 @@ func adjustArmInsideSquare(ctx context.Context, robot *robot.Robot) error {
 		return fmt.Errorf("can't find gripperCam")
 	}
 
-	arm := robot.Arms[0]
+	arm := robot.ArmByName("pieceArm")
 
 	for {
 		where, err := arm.CurrentPosition()
@@ -481,15 +481,15 @@ func main() {
 		}
 	}()
 
-	if len(myRobot.Arms) == 0 {
-		panic("need an arm")
+	myArm := myRobot.ArmByName("pieceArm")
+	if myArm == nil {
+		golog.Global.Fatal("need an arm called pieceArm")
 	}
-	myArm := myRobot.Arms[0]
 
-	if len(myRobot.Grippers) == 0 {
-		panic("need a gripper")
+	myGripper := myRobot.GripperByName("grippie")
+	if myGripper == nil {
+		golog.Global.Fatal("need a gripper called gripped")
 	}
-	myGripper := myRobot.Grippers[0]
 
 	webcam := myRobot.CameraByName("cameraOver")
 	if webcam == nil {

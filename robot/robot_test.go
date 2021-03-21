@@ -22,7 +22,7 @@ func TestConfig1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pic, _, err := r.Cameras[0].Next(context.Background())
+	pic, _, err := r.CameraByName("c1").Next(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,6 @@ func TestConfig1(t *testing.T) {
 	}
 
 	assert.Equal(t, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")), cfg.Components[0].Attributes["bar"])
-
 }
 
 func TestConfigFake(t *testing.T) {

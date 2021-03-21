@@ -10,14 +10,24 @@ import (
 type Robot interface {
 	// providers are for singletons for a whole model
 	ProviderByModel(model string) Provider
+	AddProvider(p Provider, c Component)
 
 	ArmByName(name string) Arm
+	BaseByName(name string) Base
 	GripperByName(name string) Gripper
 	CameraByName(name string) gostream.ImageSource
 	LidarDeviceByName(name string) lidar.Device
 	BoardByName(name string) board.Board
 
-	AddProvider(p Provider, c Component)
+	ArmNames() []string
+	GripperNames() []string
+	CameraNames() []string
+	LidarDeviceNames() []string
+	BaseNames() []string
+	BoardNames() []string
+
+	// this is allowed to be partial or empty
+	GetConfig() Config
 }
 
 type Provider interface {
