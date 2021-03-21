@@ -81,6 +81,7 @@ func TestMotorEncoder1(t *testing.T) {
 	encoder.ticks(99)
 	assert.Equal(t, DirForward, real.d)
 	encoder.Tick(true)
+	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, DirNone, real.d)
 
 	// when we're in the middle of a GoFor and then call Go, don't turn off
