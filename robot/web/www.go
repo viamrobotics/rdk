@@ -347,58 +347,13 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 			return nil, fmt.Errorf("unknown servo: %s", r.FormValue("name"))
 		}
 
-		var angle int64
-		var err error
-
-		if r.FormValue("angle") != "" {
-			angle, err = strconv.ParseInt(r.FormValue("angle"), 10, 64)
-		} else if r.FormValue("delta") != "" {
-			var d int64
-			d, err = strconv.ParseInt(r.FormValue("delta"), 10, 64)
-			angle = int64(theServo.Current()) + d
-		} else {
-			err = fmt.Errorf("need to specify angle or delta")
-		}
-
+		angle, err := strconv.ParseInt(r.FormValue("angle"), 10, 64)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("need to specify an angle to move to")
 		}
 
 		return nil, theServo.Move(uint8(angle))
 
-	}})
-
-	mux.Handle("/api/board/"+cfg.Name, &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		analogs := map[string]int{}
-		for _, a := range cfg.Analogs {
-			res, err := b.AnalogReader(a.Name).Read()
-			if err != nil {
-				return nil, fmt.Errorf("couldn't read %s: %s", a.Name, err)
-			}
-			analogs[a.Name] = res
-		}
-
-		digitalInterrupts := map[string]int{}
-		for _, di := range cfg.DigitalInterrupts {
-			res := b.DigitalInterrupt(di.Name).Value()
-			digitalInterrupts[di.Name] = int(res)
-		}
-
-		servos := map[string]int{}
-		for _, di := range cfg.Servos {
-			res := b.Servo(di.Name).Current()
-			servos[di.Name] = int(res)
-		}
-
-		return map[string]interface{}{
-			"analogs":           analogs,
-			"digitalInterrupts": digitalInterrupts,
-			"servos":            servos,
-		}, nil
-	}})
-
-	mux.Handle("/api/board", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		return nil, fmt.Errorf("unknown")
 	}})
 }
 

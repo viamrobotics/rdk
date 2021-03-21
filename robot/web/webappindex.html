@@ -2,17 +2,6 @@
   <head>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script>
-      function baseAction(action) {
-          var path = "/api/base?" + action + "&speed=" + document.getElementById("speed").value;
-          path = path.replace("DIS", document.getElementById("distance").value);
-          makeApiCall(path);
-      }
-
-      function doAction(name) {
-          var path = "/api/action?name=" + name;
-          makeApiCall(path);
-      }
-      
       function makeApiCall(path, cb, data) {
           if (!cb) {
               theData.error = "";
@@ -48,30 +37,6 @@
         {{ jsSafe $view.JavaScript }}
       {{ end }}
 
-
-      function boardAction(type, boardName, typeName, action) {
-          var path = "/api/board/" + boardName + "/" + type + "?name=" + typeName + "&" + action;
-          console.log(path);
-          makeApiCall(path);
-      }
-
-      function updateBoardView(name) {
-          makeApiCall("/api/board/" + name, function(response) {
-
-              function fillIn(longName, shortName) {
-                  for (var a in response[longName] ) {
-                      var id = "board_" + shortName + "_" + name + "_" + a;
-                      var e = document.getElementById(id);
-                      e.innerHTML = response[longName][a];
-                  }
-              }
-              fillIn("analogs", "a");
-              fillIn("digitalInterrupts", "di");
-              fillIn("servos", "s");
-          });
-          setTimeout(updateBoardView, 500, name);
-      }
-
       function mapToList(m) {
           var l = [];
           for ( var n in m ) {
@@ -99,8 +64,21 @@
           }
           return n;
       }
-      
-      hi = false;
+
+      function fixBoards(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              var board = old[i];
+              var newBoard = { name : board.name };
+              for (var k in board.value) {
+                  newBoard[k] = mapToList(board.value[k]);
+              }
+              n.push(newBoard);
+          }
+          return n;
+      }
+
+      firstResult = false;
       
       function updateStatus() {
 
@@ -110,14 +88,17 @@
 
               // make vue friendly
               status.Arms = mapToList(response.Arms);
+              status.Bases = mapToList(response.Bases);
               status.Grippers = mapToList(response.Grippers);
+              status.Boards = mapToList(response.Boards);
 
               status.Arms = fixArms(status.Arms);
-              if (!hi) {
-                  console.log(status.Arms);
-                  hi = true;
+              status.Boards = fixBoards(status.Boards);
+              
+              if (!firstResult) {
+                  console.log(status);
+                  firstResult = true;
               }
-
 
               theData.status = status;
           });
@@ -160,7 +141,24 @@
                       var path = "/api/gripper?name=" + name + "&action=" + action;
                       makeApiCall(path);
                   },
-
+                  servoMove : function(board, servo, amount) {
+                      var angle = theData.rawStatus.Boards[board].Servos[servo].Angle + amount;
+                      var path = "/api/board/" + board + "/servo?name=" + servo + "&angle=" + angle;
+                      makeApiCall(path);
+                  },
+                  motorButton: function(board, motor, cmd) {
+                      var path = "/api/board/" + board + "/motor?name=" + motor + "&" + cmd;
+                      makeApiCall(path);
+                  },
+                  doAction : function(name) {
+                      var path = "/api/action?name=" + name;
+                      makeApiCall(path);
+                  },
+                  baseAction : function(name, action) {
+                      var path = "/api/base?name=" + name + "&" + action + "&speed=" + document.getElementById("speed").value;
+                      path = path.replace("DIS", document.getElementById("distance").value);
+                      makeApiCall(path);
+                  }
               }
           })
           updateStatus();
@@ -171,11 +169,25 @@
   <body onLoad="startup()">
     <div id="app">
       <div id="actions">
-        <button onclick="doAction('RandomWalk')">Random Walk</button>
-        <button onclick="doAction('ResetBox')">Reset Box</button>
+        <button v-on:click="doAction('RandomWalk')">Random Walk</button>
+        <button v-on:click="doAction('ResetBox')">Reset Box</button>
       </div>      
 
       <div style="font-color: red">${ error }</div>
+
+      <!-- ******* BASE *******  -->
+      <div class="base" v-for="base in status.Bases" :key="base.name">
+        <h3>${base.name}</h3>
+        <ul>
+          <li><button v-on:click="baseAction(base.name, 'distanceMillis=DIS')">Forward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'distanceMillis=-DIS')">Backward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'angle=15')">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base.name, 'angle=-15')">Spin Counterclockwise</button></li>
+        </ul>
+        
+        Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
+        Distances (mm): <input id="distance" name="speed" value="500"/><br>
+      </div>
 
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in status.Arms" :key="arm.name">
@@ -224,27 +236,66 @@
         </ul>
       </div>
 
-      
-    </div>
+      <!-- ******* BOARD *******  -->
 
-    
-    {{ range $b := .Bases }}
-    <div class="base">
-      {{ $b }}
-      <ul>
-        <li><button onclick="baseAction('distanceMillis=DIS')">Forward</button></li>
-        <li><button onclick="baseAction('distanceMillis=-DIS')">Backward</button></li>
-        <li><button onclick="baseAction('angle=15')">Spin Clockwise</button></li>
-        <li><button onclick="baseAction('angle=-15')">Spin Counterclockwise</button></li>
-      </ul>
+      <div class="board" v-for="board in status.Boards" :key="board.name">
+        <h3>Board ${board.name}</h3>
+        <table border="1">
+          
+          <tr><th colspan="2">Motors</th></tr>
+          <tbody v-for="m in board.Motors" :key="m.name">
+            <tr>
+              <th>${m.name}</th>
+              <td>
+                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=64')">--</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=32')">-</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=none&s=0')">0</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=32')">+</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=64')">++</button>
+              </td>
+            </tr>
+            <tr>
+              <td></td>
+              <td>
+                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=64&r=10')">-10</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=32&r=1')">-1</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=32&r=1')">+1</button>
+                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=64&r=10')">+10</button>
+              </td>
+            </tr>
 
-      Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-      Distances (mm): <input id="distance" name="speed" value="500"/><br>
-    </div>
-    {{ end }}
+          </tbody>
 
+          <tr><th colspan="2">Analogs</th></tr>
+          <tr v-for="a in board.Analogs" :key="a.name">
+            <th>${a.name}</th>
+            <td>${a.value.Value}</td>
+          </tr>
 
-    
+          <tr><th colspan="2">DigitalInterrupts</th></tr>
+          <tr v-for="di in board.DigitalInterrupts" :key="di.name">
+            <th>${di.name}</th>
+            <td>${di.value.Value}</td>
+          </tr>
+
+          <tr><th colspan="2">Servos</th></tr>
+          <tbody v-for="s in board.Servos" :key="s.name">
+            <tr><th>${s.name}</th><td>${s.value.Angle}</td></tr>
+            <tr>
+              <td></td>
+              <td>
+                <button v-on:click="servoMove( board.name, s.name, -10)">-10</button>
+                <button v-on:click="servoMove( board.name, s.name, -1)">-1</button>
+                <button v-on:click="servoMove( board.name, s.name, 1)">1</button>
+                <button v-on:click="servoMove( board.name, s.name, 10)">10</button>
+              </td>
+            </tr>
+          </tbody>
+          
+        </table>
+      </div> <!-- end boards -->
+    </div> <!-- end vue app -->
+
     <table>
       <tr>
         <td><img id="i0" src=""/></td>
@@ -255,75 +306,7 @@
           </td>
         {{ end }}
       </tr>
-      </table>
-
-    {{ range $b := .Boards }}
-    <h3>Board {{$b.Name}}</h3>
-    <table border="1">
-      <tr><th>Model</th><td>{{$b.Model}}</td></tr>
-      
-      {{if $b.Motors }}
-      <tr><th colspan="2">Motors</th></tr>
-      
-      {{ range $m := $b.Motors }}
-      <tr>
-        <th>{{$m.Name}}</th>
-        <td>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=64')">--</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=32')">-</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=none&s=0')">0</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=32')">+</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=64')">++</button>
-        </td>
-      </tr>
-      {{ if $m.Encoder }}
-      <tr>
-        <td></td>
-        <td>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=64&r=10')">-10</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=backward&s=32&r=1')">-1</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=32&r=1')">+1</button>
-          <button onclick="boardAction('motor', '{{$b.Name}}', '{{$m.Name}}', 'd=forward&s=64&r=10')">+10</button>
-        </td>
-      </tr>
-      {{end }}
-      
-      {{ end }}
-      {{end}}
-    
-      {{if $b.Analogs }}
-      <tr><th colspan="2">Analogs</th></tr>
-      {{ range $a := $b.Analogs }}
-      <tr><th>{{$a.Name}}</th><td id="board_a_{{$b.Name}}_{{$a.Name}}"></td></tr>
-      {{ end }}
-      {{end}}
-
-      {{if $b.DigitalInterrupts }}
-      <tr><th colspan="2">DigitalInterrupts</th></tr>
-      {{ range $i := $b.DigitalInterrupts }}
-      <tr><th>{{$i.Name}}</th><td id="board_di_{{$b.Name}}_{{$i.Name}}"></td></tr>
-      {{ end }}
-      {{end}}
-
-      {{if $b.Servos}}
-      <tr><th colspan="2">Servos</th></tr>
-      {{ range $i := $b.Servos }}
-      <tr><th>{{$i.Name}}</th><td id="board_s_{{$b.Name}}_{{$i.Name}}"></td></tr>
-      <tr>
-        <td></td>
-        <td>
-          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=-10')">-10</button>
-          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=-1')">-1</button>
-          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=1')">+1</button>
-          <button onclick="boardAction('servo', '{{$b.Name}}', '{{$i.Name}}', 'delta=10')">+10</button>
-        </td>
-      </tr>
-      {{ end }}      
-      {{end}}
-      
     </table>
-    <script>updateBoardView('{{$b.Name}}');</script>
-    {{end}} <!-- end Boards -->
     
     
     <div id="res"></div>
