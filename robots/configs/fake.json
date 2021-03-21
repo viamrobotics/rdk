@@ -1,0 +1,48 @@
+{
+    "boards" : [
+        { "name" : "board1",
+          "model" : "fake",
+          "motors" : [
+              { "name" : "g",
+                "pins" : {
+                    "a" : "1",
+                    "b" : "2",
+                    "pwm" : "3"
+                },
+                "encoder" : "encoder",
+                "ticksPerRotation" : 100
+              }
+          ],
+          "analogs" : [
+              { "name" : "analog1",
+                "pin" : "0"
+              }
+          ],
+          "digitalInterrupts" : [
+              { "name" : "encoder",
+                "pin" : "14"
+              }
+          ],
+          "servos" : [
+              { "name" : "servo1",
+                "pin" : "12"
+              }
+          ]
+        }
+    ],
+    "components" : [
+        { "name" : "arm1",
+          "type": "arm",
+          "model": "fake"
+        },
+        { "name" : "base1",
+          "type": "base",
+          "model": "fake"
+        },
+
+        { "name" : "gripper1",
+          "type" : "gripper",
+          "model" : "fake"
+        }
+    ]
+}
