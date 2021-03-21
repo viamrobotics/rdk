@@ -179,6 +179,10 @@ func (r *Robot) GetConfig() api.Config {
 	return r.config
 }
 
+func (r *Robot) Status() (api.Status, error) {
+	return api.CreateStatus(r)
+}
+
 func NewBlankRobot() *Robot {
 	return &Robot{
 		boards:       map[string]board.Board{},

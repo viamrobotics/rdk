@@ -28,6 +28,9 @@ type Robot interface {
 
 	// this is allowed to be partial or empty
 	GetConfig() Config
+
+	// use CreateStatus helper in most cases
+	Status() (Status, error)
 }
 
 type Provider interface {
