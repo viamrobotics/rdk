@@ -1,48 +1,18 @@
 package board
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-type fakeMotor struct {
-	force byte
-	d     Direction
-}
-
-func (m *fakeMotor) Force(force byte) error {
-	m.force = force
-	return nil
-}
-
-func (m *fakeMotor) Go(d Direction, force byte) error {
-	m.d = d
-	m.force = force
-	return nil
-}
-
-func (m *fakeMotor) GoFor(d Direction, rpm float64, rotations float64) error {
-	return fmt.Errorf("should not be called")
-}
-
-func (m *fakeMotor) Off() error {
-	m.d = DirNone
-	return nil
-}
-
-func (m *fakeMotor) IsOn() bool {
-	return m.d != DirNone && m.force > 0
-}
-
 func TestMotorEncoder1(t *testing.T) {
 	rpmSleep = 1
 	rpmDebug = false
 
 	cfg := MotorConfig{TicksPerRotation: 100}
-	real := &fakeMotor{}
+	real := &FakeMotor{}
 	encoder := &BasicDigitalInterrupt{}
 
 	motor := encodedMotor{
@@ -130,7 +100,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	rpmDebug = false
 
 	cfg := MotorConfig{TicksPerRotation: 100}
-	real := &fakeMotor{}
+	real := &FakeMotor{}
 	encoderA := &BasicDigitalInterrupt{}
 	encoderB := &BasicDigitalInterrupt{}
 
