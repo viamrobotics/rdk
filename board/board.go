@@ -58,6 +58,9 @@ type Board interface {
 	Close() error
 
 	GetConfig() Config
+
+	// should use CreateStatus in most cases
+	Status() (Status, error)
 }
 
 type DigitalInterrupt interface {

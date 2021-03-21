@@ -163,6 +163,10 @@ func (pi *piBoard) Close() error {
 	return multierr.Combine(err...)
 }
 
+func (pi *piBoard) Status() (Status, error) {
+	return CreateStatus(pi)
+}
+
 func NewPiBoard(cfg Config) (Board, error) {
 	var err error
 

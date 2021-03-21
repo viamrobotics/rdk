@@ -184,6 +184,9 @@ func (pi *piPigpio) Close() error {
 	piInstance = nil
 	return nil
 }
+func (pi *piPigpio) Status() (board.Status, error) {
+	return board.CreateStatus(pi)
+}
 
 var (
 	piInstance *piPigpio = nil
