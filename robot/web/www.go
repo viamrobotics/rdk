@@ -391,6 +391,24 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 
 }
 
+func InstallStatus(mux *http.ServeMux, theRobot *robot.Robot) {
+	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
+		status, err := theRobot.Status()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		enc := json.NewEncoder(w)
+		err = enc.Encode(status)
+		if err != nil {
+			golog.Global.Infof("failed to encode status %s", err)
+		}
+	})
+}
+
 func installBoard(mux *http.ServeMux, b board.Board) {
 	cfg := b.GetConfig()
 
@@ -581,6 +599,8 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 	InstallSimpleCamera(mux, theRobot)
 
 	InstallBoards(mux, theRobot)
+
+	InstallStatus(mux, theRobot)
 
 	mux.Handle("/", app)
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))

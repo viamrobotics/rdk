@@ -14,6 +14,7 @@ func init() {
 
 type Arm struct {
 	position api.ArmPosition
+	joints   api.JointPositions
 }
 
 func (a *Arm) Close() {
@@ -29,11 +30,12 @@ func (a *Arm) MoveToPosition(c api.ArmPosition) error {
 }
 
 func (a *Arm) MoveToJointPositions(joints api.JointPositions) error {
-	return fmt.Errorf("arm MoveToJointPositions doesn't work")
+	a.joints = joints
+	return nil
 }
 
 func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
-	return api.JointPositions{}, fmt.Errorf("arm CurrentJointPositions doesn't work")
+	return a.joints, nil
 }
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {
