@@ -8,8 +8,15 @@ import (
 
 func init() {
 	api.RegisterArm("fake", func(r api.Robot, config api.Component) (api.Arm, error) {
-		return &Arm{}, nil
+		return NewArm(), nil
 	})
+}
+
+func NewArm() *Arm {
+	return &Arm{
+		position: api.ArmPosition{},
+		joints:   api.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+	}
 }
 
 type Arm struct {
