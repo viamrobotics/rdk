@@ -58,19 +58,28 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev compass.Dev
 
 	d.closeCh = make(chan struct{})
 	ma := movingaverage.New(headingWindow)
+	readHeading := func() (float64, error) {
+		line, _, err := buf.ReadLine()
+		if err != nil {
+			return math.NaN(), err
+		}
+		if len(line) == 0 {
+			return math.NaN(), nil
+		}
+		return strconv.ParseFloat(string(line), 64)
+	}
+	heading, err := readHeading()
+	if err != nil {
+		return nil, err
+	}
+	if !math.IsNaN(heading) {
+		ma.Add(heading)
+		d.heading.Store(ma.Avg())
+	}
+
 	d.activeWorkers.Add(1)
 	go func() {
 		defer d.activeWorkers.Done()
-		readHeading := func() (float64, error) {
-			line, _, err := buf.ReadLine()
-			if err != nil {
-				return math.NaN(), err
-			}
-			if len(line) == 0 {
-				return math.NaN(), nil
-			}
-			return strconv.ParseFloat(string(line), 64)
-		}
 		for {
 			select {
 			case <-d.closeCh:
@@ -138,7 +147,11 @@ type RawDevice struct {
 	mu          sync.Mutex
 	calibrating bool
 	heading     float64
-	fail        bool
+	failAfter   int
+}
+
+func NewRawDevice() *RawDevice {
+	return &RawDevice{failAfter: -1}
 }
 
 func (rd *RawDevice) SetHeading(heading float64) {
@@ -147,9 +160,9 @@ func (rd *RawDevice) SetHeading(heading float64) {
 	rd.mu.Unlock()
 }
 
-func (rd *RawDevice) SetFail(fail bool) {
+func (rd *RawDevice) SetFailAfter(after int) {
 	rd.mu.Lock()
-	rd.fail = fail
+	rd.failAfter = after
 	rd.mu.Unlock()
 }
 
@@ -158,11 +171,13 @@ func (rd *RawDevice) Read(p []byte) (int, error) {
 		return 0, errors.New("expected read data to be non-empty")
 	}
 	rd.mu.Lock()
-	fail := rd.fail
-	rd.mu.Unlock()
-	if fail {
+	failAfter := rd.failAfter
+	if failAfter == 0 {
+		rd.mu.Unlock()
 		return 0, errors.New("read fail")
 	}
+	rd.failAfter--
+	rd.mu.Unlock()
 	if rd.calibrating {
 		return 0, nil
 	}
@@ -183,11 +198,13 @@ func (rd *RawDevice) Write(p []byte) (int, error) {
 		return 0, errors.New("write data must be one byte")
 	}
 	rd.mu.Lock()
-	fail := rd.fail
-	rd.mu.Unlock()
-	if fail {
+	failAfter := rd.failAfter
+	if failAfter == 0 {
+		rd.mu.Unlock()
 		return 0, errors.New("write fail")
 	}
+	rd.failAfter--
+	rd.mu.Unlock()
 	c := p[0]
 	switch c {
 	case '0':
