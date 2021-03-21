@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -47,8 +48,12 @@ func TestWeb(t *testing.T) {
 	}
 
 	const port = 51211
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		t.Fatal(err)
+	}
 	httpServer := &http.Server{
-		Addr:           fmt.Sprintf(":%d", port),
+		Addr:           listener.Addr().String(),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -64,13 +69,11 @@ func TestWeb(t *testing.T) {
 	}()
 
 	go func() {
-		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
+		if err := httpServer.Serve(listener); err != http.ErrServerClosed {
 			panic(err)
 		}
 	}()
 
-	time.Sleep(50*time.Millisecond) // TODO(erh): this is to try to make CI happier, is there a better way?
-	
 	client := Client{fmt.Sprintf("http://localhost:%d", port)}
 	checkStatus(t, r, &client)
 
