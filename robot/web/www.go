@@ -201,135 +201,36 @@ func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
 }
 
 func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
-	mux.Handle("/api/arm", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		mode := r.FormValue("mode")
-		if mode == "" {
-			mode = "grid"
+	mux.Handle("/api/arm/MoveToPosition", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		req := &MoveToPositionRequest{}
+		err := json.NewDecoder(r.Body).Decode(req)
+		if err != nil {
+			return nil, err
 		}
-		action := r.FormValue("action")
 
-		arm := theRobot.ArmByName(r.FormValue("name"))
+		arm := theRobot.ArmByName(req.Name)
 		if arm == nil {
-			return nil, fmt.Errorf("no arm with name (%s)", r.FormValue("name"))
+			return nil, fmt.Errorf("no arm with name (%s)", req.Name)
 		}
 
-		if mode == "grid" {
-
-			where, err := arm.CurrentPosition()
-			if err != nil {
-				return nil, err
-			}
-
-			changed := false
-			for _, n := range []string{"x", "y", "z", "rx", "ry", "rz"} {
-				if r.FormValue(n) == "" {
-					continue
-				}
-
-				val, err := strconv.ParseFloat(r.FormValue(n), 64)
-				if err != nil {
-					return nil, fmt.Errorf("bad value for:%s [%s]", n, r.FormValue(n))
-				}
-
-				if action == "abs" {
-					switch n {
-					case "x":
-						where.X = val / 1000
-					case "y":
-						where.Y = val / 1000
-					case "z":
-						where.Z = val / 1000
-					case "rx":
-						where.Rx = val
-					case "ry":
-						where.Ry = val
-					case "rz":
-						where.Rz = val
-					}
-				} else if action == "inc" {
-					switch n {
-					case "x":
-						where.X += val / 1000
-					case "y":
-						where.Y += val / 1000
-					case "z":
-						where.Z += val / 1000
-					case "rx":
-						where.Rx += val
-					case "ry":
-						where.Ry += val
-					case "rz":
-						where.Rz += val
-					}
-				}
-
-				changed = true
-			}
-
-			if changed {
-				err = arm.MoveToPosition(where)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return map[string]interface{}{
-				"x":  int64(where.X * 1000),
-				"y":  int64(where.Y * 1000),
-				"z":  int64(where.Z * 1000),
-				"rx": where.Rx,
-				"ry": where.Ry,
-				"rz": where.Rz,
-			}, nil
-		} else if mode == "joint" {
-			current, err := arm.CurrentJointPositions()
-			if err != nil {
-				return nil, err
-			}
-
-			changes := false
-			if action == "inc" {
-				for i := 0; i < len(current.Degrees); i++ {
-					temp := r.FormValue(fmt.Sprintf("j%d", i))
-					if temp == "" {
-						continue
-					}
-					val, err := strconv.ParseFloat(temp, 64)
-					if err != nil {
-						return nil, err
-					}
-					current.Degrees[i] += val
-					changes = true
-				}
-			} else if action == "abs" {
-				for i := 0; i < len(current.Degrees); i++ {
-					temp := r.FormValue(fmt.Sprintf("j%d", i))
-					if temp == "" {
-						continue
-					}
-					val, err := strconv.ParseFloat(temp, 64)
-					if err != nil {
-						return nil, err
-					}
-					current.Degrees[i] = val
-					changes = true
-				}
-			}
-
-			if changes {
-				err = arm.MoveToJointPositions(current)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return map[string]interface{}{"joints": current.Degrees}, nil
-
-		}
-
-		return nil, fmt.Errorf("invalid mode [%s]", mode)
-
+		return nil, arm.MoveToPosition(req.To)
 	}})
+
+	mux.Handle("/api/arm/MoveToJointPositions", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
+		req := &MoveToJointPositionsRequest{}
+		err := json.NewDecoder(r.Body).Decode(req)
+		if err != nil {
+			return nil, err
+		}
+
+		arm := theRobot.ArmByName(req.Name)
+		if arm == nil {
+			return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+		}
+
+		return nil, arm.MoveToJointPositions(req.To)
+	}})
+
 }
 
 func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
@@ -602,8 +503,8 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 
 	InstallStatus(mux, theRobot)
 
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("robot/web/static/"))))
 	mux.Handle("/", app)
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
 	for _, view := range views {
 		handler := view.Handler()

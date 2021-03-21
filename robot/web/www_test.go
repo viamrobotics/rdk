@@ -14,6 +14,20 @@ import (
 	"go.viam.com/robotcore/robots/fake"
 )
 
+func checkStatus(t *testing.T, r api.Robot, client *Client) {
+	statusLocal, err := r.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	statusRemote, err := client.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, statusLocal, statusRemote)
+}
+
 func TestWeb(t *testing.T) {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
@@ -22,7 +36,7 @@ func TestWeb(t *testing.T) {
 	r := robot.NewBlankRobot()
 	defer r.Close(cancelCtx)
 
-	arm := &fake.Arm{}
+	arm := fake.NewArm()
 	r.AddArm(arm, api.Component{Name: "arm1"})
 
 	// set up server
@@ -56,16 +70,41 @@ func TestWeb(t *testing.T) {
 	}()
 
 	client := Client{fmt.Sprintf("http://localhost:%d", port)}
+	checkStatus(t, r, &client)
 
-	statusLocal, err := r.Status()
-	if err != nil {
-		t.Fatal(err)
-	}
+	t.Run("Arm MoveToPosition", func(t *testing.T) {
+		p := api.ArmPosition{1, 2, 3, 4, 5, 6}
+		err = client.ArmByName("arm1").MoveToPosition(p)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	statusRemote, err := client.Status()
-	if err != nil {
-		t.Fatal(err)
-	}
+		checkStatus(t, r, &client)
+		p, err = arm.CurrentPosition()
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, 2.0, p.Y)
+	})
 
-	assert.Equal(t, statusLocal, statusRemote)
+	t.Run("Arm MoveToPosition", func(t *testing.T) {
+		p, err := arm.CurrentJointPositions()
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.Degrees[2] += 3.0
+
+		err = client.ArmByName("arm1").MoveToJointPositions(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		checkStatus(t, r, &client)
+		p, err = arm.CurrentJointPositions()
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, 3.0, p.Degrees[2])
+	})
+
 }

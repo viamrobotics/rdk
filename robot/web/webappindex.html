@@ -1,6 +1,6 @@
 <html>
   <head>
-    <script src="/static/client.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script>
       function baseAction(action) {
           var path = "/api/base?" + action + "&speed=" + document.getElementById("speed").value;
@@ -13,19 +13,29 @@
           makeApiCall(path);
       }
       
-      function makeApiCall(path, cb) {
+      function makeApiCall(path, cb, data) {
           if (!cb) {
-              document.getElementById("err").innerHTML = "";
+              theData.error = "";
               document.getElementById("res").innerHTML = "";
               console.log(path);
           }
 
-          fetch( path, { method: "POST"})
+          var options = {
+              method : "POST",
+              headers : {}
+          }
+
+          if (data) {
+              options.headers["Content-Type"] = "application/json"
+              options.body = JSON.stringify(data)
+          }
+          
+          fetch( path, options)
               .then(function(response) {
                   return response.json();})
               .then(function(response) {
                   if ("err" in response ){
-                      document.getElementById("err").innerHTML = JSON.stringify(response);
+                      theData.error = JSON.stringify(response);
                   } else if (cb) {
                       cb(response);
                   } else {
@@ -33,24 +43,6 @@
                   }
               });
       }
-
-      window.onkeypress = function(k) {
-          switch (k.key) {
-          case "s":
-              baseAction("stop=true");
-              break;
-          }
-
-      }
-
-      function armInc(arm, action, mode) {
-          if (!mode) {
-              mode = "grid"
-          }
-          var path = "/api/arm?num=" + arm + "&mode=" + mode + "&action=inc&" + action;
-          makeApiCall(path);
-      }
-
       function gripperAction(num, action) {
           var path = "/api/gripper?num=" + num + "&" + action;
           makeApiCall(path);
@@ -60,81 +52,6 @@
         {{ jsSafe $view.JavaScript }}
       {{ end }}
 
-      function updateJointView(arm) {
-          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
-              var j = response["joints"];
-              for ( var i=0; i<j.length; i++) {
-                  var id = "arm_j_" + arm + "_" + i;
-                  document.getElementById(id).innerHTML = Number(j[i]).toFixed(2);
-              }
-          });
-          setTimeout(updateJointView, 500, arm);
-      }
-
-      function updateGridView(arm) {
-          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
-              for ( var i in response) {
-                  var id = "arm_c_" + arm + "_" + i;
-                  var e = document.getElementById(id);
-                  if (e) {
-                      e.innerHTML = Number(response[i]).toFixed(1);
-                      if (i.length == 1) {
-                          e.innerHTML += " mm";
-                      }
-                      if (i.length == 2) {
-                          e.innerHTML += " deg";
-                      }
-                  }
-              }
-          });
-          setTimeout(updateGridView, 500, arm);
-      }
-
-      function jointCopy(arm) {
-          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
-              var j = response["joints"];
-              for ( var i=0; i<j.length; i++) {
-                  var id = "arm_ji_" + arm + "_" + i;
-                  document.getElementById(id).value = Number(j[i]).toFixed(2);
-              }
-          });
-      }
-
-      function jointSet(arm) {
-          var path = "/api/arm?mode=joint&num=" + arm + "&action=abs";
-          makeApiCall("/api/arm?mode=joint&num=" + arm, function(response) {
-              var j = response["joints"];
-              for ( var i=0; i<j.length; i++) {
-                  var id = "arm_ji_" + arm + "_" + i;
-                  path = path + "&j" + i + "=" + document.getElementById(id).value;
-              }
-              makeApiCall(path);
-          });
-      }
-
-      function gridCopy(arm) {
-          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
-              for ( var i in response) {
-                  var id = "arm_ci_" + arm + "_" + i;
-                  var e = document.getElementById(id);
-                  if (e) {
-                      e.value = Number(response[i]).toFixed(1);
-                  }
-              }
-          });
-      }
-
-      function gridSet(arm) {
-          var path = "/api/arm?mode=grid&num=" + arm + "&action=abs";
-          makeApiCall("/api/arm?mode=grid&num=" + arm, function(response) {
-              for ( var i in response) {
-                  var id = "arm_ci_" + arm + "_" + i;
-                  var e = document.getElementById(id);
-                  path = path + "&" + i + "=" + document.getElementById(id).value;
-              }
-              makeApiCall(path);
-          });
-      }
 
       function boardAction(type, boardName, typeName, action) {
           var path = "/api/board/" + boardName + "/" + type + "?name=" + typeName + "&" + action;
@@ -158,17 +75,147 @@
           });
           setTimeout(updateBoardView, 500, name);
       }
+
+      function mapToList(m) {
+          var l = [];
+          for ( var n in m ) {
+              l.push( { name : n, value : m[n] });
+          }
+          return l;
+      }
+
+      function fixArms(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              var arm = old[i];
+              var newArm = { name : arm.name, pieces : [] };
+
+              var fields = [ "X", "Y", "Z", "Rx", "Ry", "Rz"];
+              for (var j=0; j<fields.length; j++ ){
+                  newArm.pieces.push( { grid : fields[j],
+                                        joint : j,
+                                        gridValue : arm.value.GridPosition[fields[j]],
+                                        jointValue : arm.value.JointPositions.Degrees[j],
+                                      });
+              }
+              
+              n.push(newArm);
+          }
+          return n;
+      }
+      
+      hi = false;
+      
+      function updateStatus() {
+
+          makeApiCall("/api/status", function(response) {
+              theData.rawStatus = response;
+              var status = {};
+              // make vue friendly
+              status.Arms = mapToList(response.Arms);
+
+              status.Arms = fixArms(status.Arms);
+              if (!hi) {
+                  console.log(status.Arms);
+                  hi = true;
+              }
+
+
+              theData.status = status;
+          });
+          setTimeout(updateStatus, 500);
+
+      }
+      
+      function startup() {
+          theData = {
+              error : "",
+              rawStatus : null,
+              status : {}
+          };
+          theApp = new Vue({
+              el: '#app',
+              delimiters: ['${', '}'],
+              data: theData,
+              methods : {
+                  armGridInc : function(name, field, amount) {
+                      var old = theData.rawStatus.Arms[name].GridPosition;
+                      var newPosition = Object.assign({}, old);
+                      newPosition[field] += amount;
+                      makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
+                  },
+                  armJointInc : function(name, field, amount) {
+                      var old = theData.rawStatus.Arms[name].JointPositions;
+                      var newPosition = Object.assign({}, old);
+                      newPosition.Degrees[field] += amount;
+                      makeApiCall("/api/arm/MoveToJointPositions", null, { Name : name, To : newPosition});
+                  },
+                  armHome : function(name, field, amount) {
+                      var old = theData.rawStatus.Arms[name].GridPosition;
+                      var newPosition = {};
+                      for (var k in old) {
+                          newPosition[k] = 0.0;
+                      }
+                      makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
+                  },
+              }
+          })
+          updateStatus();
+      }
       
     </script>
   </head>
-  <body>
-    <div id="actions">
-      <button onclick="doAction('RandomWalk')">Random Walk</button>
+  <body onLoad="startup()">
+    <div id="app">
+      <div id="actions">
+        <button onclick="doAction('RandomWalk')">Random Walk</button>
+        <button onclick="doAction('ResetBox')">Reset Box</button>
+      </div>      
+
+      <div style="font-color: red">${ error }</div>
+
+      <div class="arm" v-for="arm in status.Arms" :key="arm.name">
+        <h3>Arm ${arm.name}</h3>
+        <table border="1">
+          <tr>
+            <th colspan="4"><h5>GRID</h5></th>
+            <th colspan="4"><h5>JOINTS</h5></th>
+          </tr>
+          <tr v-for="aa in arm.pieces" :key="aa.joint">
+            <th>${aa.grid}</th>
+            <td>
+              <button v-on:click="armGridInc( arm.name, aa.grid, -2 )">--</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid, -1 )">-</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid, 1 )">+</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid, 2 )">++</button>
+            </td>
+            <td>${aa.gridValue}</td>
+
+            <td></td>
+            
+            <th>Joint ${aa.joint}</th>
+            <td>
+              <button v-on:click="armJointInc( arm.name, aa.joint, -2 )">--</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, 2 )">++</button>
+            </td>
+            <td>${aa.jointValue}</td>
+          </tr>
+          <tr>
+            <th colspan="8"> 
+              <button v-on:click="armHome( arm.name)">Home</button>
+            </th>
+          </tr>
+
+        </table>
+      </div>
+      
     </div>
-    <div id="actions">
-      <button onclick="doAction('ResetBox')">Reset Box</button>
-    </div>
-    <div id="err" style="font-color: red"></div>
+
+
+
+    
     {{ range $b := .Bases }}
     <div class="base">
       {{ $b }}
@@ -181,63 +228,6 @@
 
       Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
       Distances (mm): <input id="distance" name="speed" value="500"/><br>
-    </div>
-    {{ end }}
-
-    {{ range $idx, $a := .Arms }}
-    <div class="arm">
-      <h3>Arm {{ $a }}</h3>
-      <script>
-        updateJointView({{$idx}})
-        updateGridView({{$idx}})
-      </script>
-      <table border="1">
-        <tr>
-          <th colspan="4"><h5>GRID</h5></th>
-          <th colspan="4"><h5>JOINTS</h5></th>
-        </tr>
-        <tr>
-          {{ template "C" list $idx "x" 2}}
-          {{ template "J" list $idx 0}}
-        </tr>
-        <tr>
-          {{ template "C" list $idx "y" 2}}
-          {{template "J" list $idx 1}}
-        </tr>
-        <tr>
-          {{ template "C" list $idx "z" 2}}
-          {{template "J" list $idx 2}}
-        </tr>
-        <tr>
-          {{ template "C" list $idx "rx" 1}}
-          {{template "J" list $idx 3}}
-        </tr>
-        <tr>
-          {{ template "C" list $idx "ry" 1}}
-          {{template "J" list $idx 4}}
-        </tr>
-        <tr>
-          {{ template "C" list $idx "rz" 1}}
-          {{template "J" list $idx 5}}
-        </tr>
-        <tr>
-          <td/>
-          <td colspan="3">
-            <button onclick="gridCopy({{ $idx }})">Copy values</button>
-            <button onclick="gridSet({{ $idx }})">Apply values</button>
-          </td>
-          <td/>
-          <td colspan="3">
-            <button onclick="jointCopy({{ $idx }})">Copy values</button>
-            <button onclick="jointSet({{ $idx }})">Apply values</button>
-          </td>
-        </tr>
-        <tr>
-          <th colspan="8"> 
-            <button onclick="makeApiCall('/api/arm?num={{$idx}}&mode=joint&action=abs&j0=0&j1=0&j2=0&j3=0&j4=0&j5=0')">Home</button>
-          </th>
-        </tr>
-      </table>
     </div>
     {{ end }}
 
@@ -338,34 +328,3 @@
   </body>
 </html>
 
-{{define "C"}}
-<th>
-  {{ index . 1 }}
-</th>
-<td>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{mul 10 (index . 2)}}')">++</button>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}={{index . 2}}')">+</button>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{index . 2}}')">-</button>
-  <button onclick="armInc({{ index . 0 }}, '{{index . 1 }}=-{{mul 10 (index . 2)}}')">--</button>
-</td>
-<td id='arm_c_{{index . 0}}_{{index . 1}}'></td>
-<td>
-  <input id='arm_ci_{{index . 0}}_{{index . 1}}' size=7>
-</td>
-{{end}}
-
-{{define "J"}}
-<th>
-  Joint {{index . 1}}
-</th>
-<td>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=10', 'joint' )">++</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=1', 'joint' )">+</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-1', 'joint' )">-</button>
-  <button onclick="armInc({{ index . 0}}, 'j{{index . 1}}=-10', 'joint' )">--</button>
-</td>
-<td id='arm_j_{{index . 0}}_{{index . 1}}'></td>
-<td>
-  <input id='arm_ji_{{index . 0}}_{{index . 1}}' size=7>
-</td>
-{{end}}
