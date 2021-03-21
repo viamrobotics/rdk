@@ -69,6 +69,8 @@ func TestWeb(t *testing.T) {
 		}
 	}()
 
+	time.Sleep(50*time.Millisecond) // TODO(erh): this is to try to make CI happier, is there a better way?
+	
 	client := Client{fmt.Sprintf("http://localhost:%d", port)}
 	checkStatus(t, r, &client)
 
