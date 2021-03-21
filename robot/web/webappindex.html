@@ -43,10 +43,6 @@
                   }
               });
       }
-      function gripperAction(num, action) {
-          var path = "/api/gripper?num=" + num + "&" + action;
-          makeApiCall(path);
-      }
       
       {{ range $view := .Views }}
         {{ jsSafe $view.JavaScript }}
@@ -111,8 +107,10 @@
           makeApiCall("/api/status", function(response) {
               theData.rawStatus = response;
               var status = {};
+
               // make vue friendly
               status.Arms = mapToList(response.Arms);
+              status.Grippers = mapToList(response.Grippers);
 
               status.Arms = fixArms(status.Arms);
               if (!hi) {
@@ -158,6 +156,11 @@
                       }
                       makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
                   },
+                  gripperAction : function(name, action) {
+                      var path = "/api/gripper?name=" + name + "&action=" + action;
+                      makeApiCall(path);
+                  },
+
               }
           })
           updateStatus();
@@ -174,6 +177,7 @@
 
       <div style="font-color: red">${ error }</div>
 
+      <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in status.Arms" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
         <table border="1">
@@ -209,11 +213,19 @@
           </tr>
 
         </table>
+      </div> 
+      
+      <!-- ******* GRIPPER *******  -->
+      <div class="gripper" v-for="gripper in status.Grippers" :key="gripper.name">
+        <h3>Gripper ${ gripper.name }</h3>
+        <ul>
+          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
+          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
+        </ul>
       </div>
+
       
     </div>
-
-
 
     
     {{ range $b := .Bases }}
@@ -231,15 +243,6 @@
     </div>
     {{ end }}
 
-    {{ range $idx, $g := .Grippers }}
-    <div class="gripper">
-      Gripper {{ $g }}
-      <ul>
-        <li><button onclick="gripperAction({{ $idx }}, 'action=open')">Open</button></li>
-        <li><button onclick="gripperAction({{ $idx }}, 'action=grab')">Close</button></li>
-      </ul>
-    </div>
-    {{ end }}
 
     
     <table>
