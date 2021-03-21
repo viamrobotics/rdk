@@ -33,23 +33,11 @@ func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
 
-func (dm *DepthMap) HasData() bool {
-	return dm.width > 0 && dm.data != nil
-}
-
 func (dm *DepthMap) Width() int {
 	return dm.width
 }
 
 func (dm *DepthMap) Height() int {
-	return dm.height
-}
-
-func (dm *DepthMap) Cols() int {
-	return dm.width
-}
-
-func (dm *DepthMap) Rows() int {
 	return dm.height
 }
 

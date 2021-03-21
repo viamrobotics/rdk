@@ -34,11 +34,11 @@ func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
 		t.Errorf("color columns wrong: %d", bounds.Max.X)
 	}
 
-	if b.Cols() != 640 && b.Cols() != 1280 {
-		t.Errorf("depth columns wrong: %d", b.Cols())
+	if b.Width() != 640 && b.Width() != 1280 {
+		t.Errorf("depth columns wrong: %d", b.Width())
 	}
 
-	if bounds.Max.X != b.Cols() {
+	if bounds.Max.X != b.Width() {
 		t.Errorf("color and depth don't match")
 	}
 }
