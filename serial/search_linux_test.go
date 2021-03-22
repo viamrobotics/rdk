@@ -1,4 +1,4 @@
-package usb
+package serial
 
 import (
 	"fmt"
@@ -7,6 +7,8 @@ import (
 	"path"
 	"path/filepath"
 	"testing"
+
+	"go.viam.com/robotcore/usb"
 
 	"github.com/edaniels/test"
 )
@@ -19,9 +21,9 @@ func TestSearchDevices(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.RemoveAll(tempDir2) // clean up
 
-	prevSysPaths := SysPaths
+	prevSysPaths := usb.SysPaths
 	defer func() {
-		SysPaths = prevSysPaths
+		usb.SysPaths = prevSysPaths
 	}()
 
 	dev1Root, err := ioutil.TempDir(tempDir1, "")
@@ -37,7 +39,7 @@ func TestSearchDevices(t *testing.T) {
 	dev3, err := ioutil.TempDir(dev3Root, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, os.WriteFile(filepath.Join(dev1Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev1Root, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
 
 	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0700), test.ShouldBeNil)
@@ -49,31 +51,23 @@ func TestSearchDevices(t *testing.T) {
 	test.That(t, os.Symlink(dev3, path.Join(tempDir2, filepath.Base(dev2))), test.ShouldBeNil)
 
 	for i, tc := range []struct {
-		IncludeDevice func(vendorID, productID int) bool
-		Paths         []string
-		Expected      []DeviceDescription
+		Filter   SearchFilter
+		Paths    []string
+		Expected []DeviceDescription
 	}{
-		{nil, nil, nil},
-		{nil, []string{"/"}, nil},
-		{nil, []string{tempDir2}, nil},
-		{func(vendorID, productID int) bool {
-			return true
-		}, []string{tempDir2}, []DeviceDescription{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
-			{ID: Identifier{Vendor: 4293, Product: 60001}, Path: "/dev/two"},
-		}},
-		{func(vendorID, productID int) bool {
-			return vendorID == 4292 && productID == 60000
-		}, []string{tempDir2}, []DeviceDescription{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
-		}},
-		{func(vendorID, productID int) bool {
-			return false
-		}, []string{tempDir2}, nil},
+		{SearchFilter{}, nil, nil},
+		{SearchFilter{}, []string{"/"}, nil},
+		{SearchFilter{}, []string{tempDir2}, []DeviceDescription{
+			{Type: DeviceTypeArduino, Path: "/dev/one"}},
+		},
+		{SearchFilter{Type: DeviceTypeArduino}, []string{tempDir2}, []DeviceDescription{
+			{Type: DeviceTypeArduino, Path: "/dev/one"}},
+		},
+		{SearchFilter{Type: DeviceTypeJetson}, []string{tempDir2}, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			SysPaths = tc.Paths
-			result := SearchDevices(SearchFilter{}, tc.IncludeDevice)
+			usb.SysPaths = tc.Paths
+			result := SearchDevices(tc.Filter)
 			test.That(t, result, test.ShouldHaveLength, len(tc.Expected))
 			expectedM := map[DeviceDescription]struct{}{}
 			for _, e := range tc.Expected {
