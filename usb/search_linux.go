@@ -15,16 +15,16 @@ var sysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc
 
 type SearchFilter struct{}
 
-func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) ([]DeviceDescription, error) {
-	searchPath := func(sysPath string) ([]DeviceDescription, error) {
+func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+	searchPath := func(sysPath string) []DeviceDescription {
 		devicesDir, err := os.Open(sysPath)
 		if err != nil {
-			return nil, nil
+			return nil
 		}
 		defer devicesDir.Close()
 		devices, err := devicesDir.Readdir(0)
 		if err != nil {
-			return nil, nil
+			return nil
 		}
 		var results []DeviceDescription
 		for _, device := range devices {
@@ -75,7 +75,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				if err != nil {
 					continue
 				}
-				if !includeDevice(int(vendorID), int(productID)) {
+				if includeDevice != nil && !includeDevice(int(vendorID), int(productID)) {
 					continue
 				}
 				results = append(results, DeviceDescription{
@@ -87,15 +87,11 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				})
 			}
 		}
-		return results, nil
+		return results
 	}
 	var allDevices []DeviceDescription
 	for _, sysPath := range sysPaths {
-		devices, err := searchPath(sysPath)
-		if err != nil {
-			return nil, err
-		}
-		allDevices = append(allDevices, devices...)
+		allDevices = append(allDevices, searchPath(sysPath)...)
 	}
-	return allDevices, nil
+	return allDevices
 }

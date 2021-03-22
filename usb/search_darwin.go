@@ -20,18 +20,23 @@ func NewSearchFilter(ioObjectClass, ioTTYBaseName string) SearchFilter {
 	}
 }
 
-func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) ([]DeviceDescription, error) {
-	cmd := exec.Command("ioreg", "-r", "-c", filter.ioObjectClass, "-a", "-l")
+var searchCmd = func(ioObjectClass string) []byte {
+	cmd := exec.Command("ioreg", "-r", "-c", ioObjectClass, "-a", "-l")
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, nil
+		return nil
 	}
+	return out
+}
+
+func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+	out := searchCmd(filter.ioObjectClass)
 	if len(out) == 0 {
-		return nil, nil
+		return nil
 	}
 	var data []map[string]interface{}
 	if _, err := plist.Unmarshal(out, &data); err != nil {
-		return nil, nil
+		return nil
 	}
 	var results []DeviceDescription
 	for _, device := range data {
@@ -47,7 +52,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			continue
 		}
 		vendorID, productID := int(idVendor), int(idProduct)
-		if !includeDevice(vendorID, productID) {
+		if includeDevice != nil && !includeDevice(vendorID, productID) {
 			continue
 		}
 
@@ -79,5 +84,5 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			})
 		}
 	}
-	return results, nil
+	return results
 }
