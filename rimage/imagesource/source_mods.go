@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
 )
 
 func init() {
@@ -49,7 +50,7 @@ func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 	}
 	defer release()
 
-	iwd, ok := orig.(*ImageWithDepth)
+	iwd, ok := orig.(*rimage.ImageWithDepth)
 	if !ok {
 		return imaging.Rotate(orig, 180, color.Black), func() {}, nil
 	}

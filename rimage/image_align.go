@@ -20,7 +20,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 
 	fixPoints := func(pts []image.Point) []image.Point {
 		r := BoundingBox(pts)
-		return arrayToPoints([]image.Point{r.Min, r.Max})
+		return ArrayToPoints([]image.Point{r.Min, r.Max})
 	}
 
 	// this only works for things on a multiple of 90 degrees apart, not arbitrary
@@ -171,4 +171,82 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 
 	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
 
+}
+
+func ArrayToPoints(pts []image.Point) []image.Point {
+	if len(pts) == 4 {
+		return pts
+	}
+
+	if len(pts) == 2 {
+		r := image.Rectangle{pts[0], pts[1]}
+		return []image.Point{
+			r.Min,
+			{r.Max.X, r.Min.Y},
+			r.Max,
+			{r.Min.X, r.Max.Y},
+		}
+	}
+
+	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
+}
+
+type AlignConfig struct {
+	ColorInputSize  image.Point // this validates input size
+	ColorWarpPoints []image.Point
+
+	DepthInputSize  image.Point // this validates output size
+	DepthWarpPoints []image.Point
+
+	WarpFromCommon bool
+
+	OutputSize image.Point
+}
+
+func (config AlignConfig) ComputeWarpFromCommon() (*AlignConfig, error) {
+
+	colorPoints, depthPoints, err := ImageAlign(
+		config.ColorInputSize,
+		config.ColorWarpPoints,
+		config.DepthInputSize,
+		config.DepthWarpPoints,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &AlignConfig{
+		ColorInputSize:  config.ColorInputSize,
+		ColorWarpPoints: ArrayToPoints(colorPoints),
+		DepthInputSize:  config.DepthInputSize,
+		DepthWarpPoints: ArrayToPoints(depthPoints),
+		OutputSize:      config.OutputSize,
+	}, nil
+}
+
+func (config AlignConfig) CheckValid() error {
+	if config.ColorInputSize.X == 0 ||
+		config.ColorInputSize.Y == 0 {
+		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+	}
+
+	if config.DepthInputSize.X == 0 ||
+		config.DepthInputSize.Y == 0 {
+		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+	}
+
+	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
+		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
+	}
+
+	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
+		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+	}
+
+	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
+		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+	}
+
+	return nil
 }

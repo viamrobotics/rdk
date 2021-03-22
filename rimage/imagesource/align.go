@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"context"
@@ -6,14 +6,13 @@ import (
 	"image"
 	"time"
 
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-
-	"go.opencensus.io/trace"
-
 	"github.com/mitchellh/mapstructure"
-
-	"go.viam.com/robotcore/api"
+	"go.opencensus.io/trace"
 )
 
 func init() {
@@ -36,10 +35,10 @@ func init() {
 	})
 
 	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
-		config := &alignConfig{}
+		config := &rimage.AlignConfig{}
 		err := mapstructure.Decode(val, config)
 		if err == nil {
-			err = config.checkValid()
+			err = config.CheckValid()
 		}
 		return config, err
 	})
@@ -47,38 +46,38 @@ func init() {
 
 type DepthComposed struct {
 	color, depth                   gostream.ImageSource
-	colorTransform, depthTransform TransformationMatrix
+	colorTransform, depthTransform rimage.TransformationMatrix
 
-	config *alignConfig
+	config *rimage.AlignConfig
 	debug  bool
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap) (*DepthComposed, error) {
-	var config *alignConfig
+	var config *rimage.AlignConfig
 	var err error
 
 	if attrs.Has("config") {
-		config = attrs["config"].(*alignConfig)
+		config = attrs["config"].(*rimage.AlignConfig)
 	} else if attrs["make"] == "intel515" {
 		config = &intelConfig
 	} else {
 		return nil, fmt.Errorf("no aligntmnt config")
 	}
 
-	dst := arrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
+	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
 
 	if config.WarpFromCommon {
-		config, err = config.computeWarpFromCommon()
+		config, err = config.ComputeWarpFromCommon()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	colorPoints := arrayToPoints(config.ColorWarpPoints)
-	depthPoints := arrayToPoints(config.DepthWarpPoints)
+	colorPoints := rimage.ArrayToPoints(config.ColorWarpPoints)
+	depthPoints := rimage.ArrayToPoints(config.DepthWarpPoints)
 
-	colorTransform := GetPerspectiveTransform(colorPoints, dst)
-	depthTransform := GetPerspectiveTransform(depthPoints, dst)
+	colorTransform := rimage.GetPerspectiveTransform(colorPoints, dst)
+	depthTransform := rimage.GetPerspectiveTransform(depthPoints, dst)
 
 	return &DepthComposed{color, depth, colorTransform, depthTransform, config, attrs.GetBool("debug", false)}, nil
 }
@@ -88,9 +87,9 @@ func (dc *DepthComposed) Close() error {
 	return nil
 }
 
-func convertImageToDepthMap(img image.Image) (*DepthMap, error) {
+func convertImageToDepthMap(img image.Image) (*rimage.DepthMap, error) {
 	switch ii := img.(type) {
-	case *ImageWithDepth:
+	case *rimage.ImageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:
 		return imageToDepthMap(ii), nil
@@ -118,94 +117,15 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	aligned, err := dc.alignColorAndDepth(ctx, &ImageWithDepth{ConvertImage(c), dm})
+	aligned, err := dc.alignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm})
 
 	return aligned, func() {}, err
 
 }
 
-func arrayToPoints(pts []image.Point) []image.Point {
-
-	if len(pts) == 4 {
-		return pts
-	}
-
-	if len(pts) == 2 {
-		r := image.Rectangle{pts[0], pts[1]}
-		return []image.Point{
-			r.Min,
-			{r.Max.X, r.Min.Y},
-			r.Max,
-			{r.Min.X, r.Max.Y},
-		}
-	}
-
-	panic(fmt.Errorf("invalid number of points passed to arrayToPoints %d", len(pts)))
-}
-
-type alignConfig struct {
-	ColorInputSize  image.Point // this validates input size
-	ColorWarpPoints []image.Point
-
-	DepthInputSize  image.Point // this validates output size
-	DepthWarpPoints []image.Point
-
-	WarpFromCommon bool
-
-	OutputSize image.Point
-}
-
-func (config alignConfig) computeWarpFromCommon() (*alignConfig, error) {
-
-	colorPoints, depthPoints, err := ImageAlign(
-		config.ColorInputSize,
-		config.ColorWarpPoints,
-		config.DepthInputSize,
-		config.DepthWarpPoints,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &alignConfig{
-		ColorInputSize:  config.ColorInputSize,
-		ColorWarpPoints: arrayToPoints(colorPoints),
-		DepthInputSize:  config.DepthInputSize,
-		DepthWarpPoints: arrayToPoints(depthPoints),
-		OutputSize:      config.OutputSize,
-	}, nil
-}
-
-func (config alignConfig) checkValid() error {
-	if config.ColorInputSize.X == 0 ||
-		config.ColorInputSize.Y == 0 {
-		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
-	}
-
-	if config.DepthInputSize.X == 0 ||
-		config.DepthInputSize.Y == 0 {
-		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
-	}
-
-	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
-		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
-	}
-
-	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
-		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
-	}
-
-	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
-		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
-	}
-
-	return nil
-}
-
 var (
 	alignCurrentlyWriting = false
-	intelConfig           = alignConfig{
+	intelConfig           = rimage.AlignConfig{
 		ColorInputSize:  image.Point{1280, 720},
 		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
 
@@ -216,7 +136,7 @@ var (
 	}
 )
 
-func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *ImageWithDepth) (*ImageWithDepth, error) {
+func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	_, span := trace.StartSpan(ctx, "alignColorAndDepth")
 	defer span.End()
 
@@ -246,8 +166,8 @@ func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *ImageWithDe
 
 	ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
 
-	c2 := WarpImage(ii, dc.colorTransform, dc.config.OutputSize)
+	c2 := rimage.WarpImage(ii, dc.colorTransform, dc.config.OutputSize)
 	dm2 := ii.Depth.Warp(dc.depthTransform, dc.config.OutputSize)
 
-	return &ImageWithDepth{c2, &dm2}, nil
+	return &rimage.ImageWithDepth{c2, &dm2}, nil
 }
