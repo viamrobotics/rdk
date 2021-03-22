@@ -16,6 +16,9 @@ var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc
 type SearchFilter struct{}
 
 func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+	if includeDevice == nil {
+		return nil
+	}
 	searchPath := func(sysPath string) []DeviceDescription {
 		devicesDir, err := os.Open(sysPath)
 		if err != nil {
@@ -75,7 +78,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				if err != nil {
 					continue
 				}
-				if includeDevice == nil || !includeDevice(int(vendorID), int(productID)) {
+				if !includeDevice(int(vendorID), int(productID)) {
 					continue
 				}
 				results = append(results, DeviceDescription{
