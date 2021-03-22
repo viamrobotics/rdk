@@ -68,12 +68,6 @@ func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription) ([]Devi
 		return nil, allErrs
 	}
 
-	for _, dev := range devices {
-		if err := dev.Start(ctx); err != nil {
-			return nil, fmt.Errorf("error starting: %w", err)
-		}
-	}
-
 	return devices, nil
 }
 

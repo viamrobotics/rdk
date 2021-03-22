@@ -74,6 +74,9 @@ func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescript
 		return err
 	}
 	for _, lidarDev := range lidarDevices {
+		if err := lidarDev.Start(ctx); err != nil {
+			return err
+		}
 		info, infoErr := lidarDev.Info(ctx)
 		if infoErr != nil {
 			return infoErr

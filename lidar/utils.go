@@ -40,7 +40,7 @@ func ParseDeviceFlag(flagName, flag string) (DeviceDescription, error) {
 		return DeviceDescription{}, fmt.Errorf("wrong device format; use --%s=type,path", flagName)
 	}
 	return DeviceDescription{
-		Type: DeviceType(deviceFlagParts[0]), // TODO(erd): validate?
+		Type: DeviceType(deviceFlagParts[0]),
 		Path: deviceFlagParts[1],
 	}, nil
 }
@@ -49,7 +49,7 @@ func ParseDeviceFlag(flagName, flag string) (DeviceDescription, error) {
 func ParseDeviceFlags(flagName string, flags []string) ([]DeviceDescription, error) {
 	deviceDescs := make([]DeviceDescription, 0, len(flags))
 	for _, deviceFlag := range flags {
-		desc, err := ParseDeviceFlag(deviceFlag, flagName)
+		desc, err := ParseDeviceFlag(flagName, deviceFlag)
 		if err != nil {
 			return nil, err
 		}
