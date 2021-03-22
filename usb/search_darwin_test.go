@@ -8,6 +8,10 @@ import (
 )
 
 func TestSearchDevices(t *testing.T) {
+	goodFilter := NewSearchFilter("IOUserSerial", "usbserial-")
+	goodInclude := func(vendorID, productID int) bool {
+		return true
+	}
 	for i, tc := range []struct {
 		Filter        SearchFilter
 		IncludeDevice func(vendorID, productID int) bool
@@ -16,24 +20,32 @@ func TestSearchDevices(t *testing.T) {
 	}{
 		{SearchFilter{}, nil, "", nil},
 		{SearchFilter{}, nil, "text", nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), nil, out1, nil},
+		{SearchFilter{}, goodInclude, "text", nil},
+		{goodFilter, nil, out1, nil},
 		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+		{goodFilter, func(vendorID, productID int) bool {
 			return true
 		}, out1, []DeviceDescription{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+		{goodFilter, func(vendorID, productID int) bool {
 			return vendorID == 4292 && productID == 60000
 		}, out1, []DeviceDescription{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+		{goodFilter, func(vendorID, productID int) bool {
 			return false
 		}, out1, nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-2"), func(vendorID, productID int) bool {
-			return true
-		}, out1, nil},
+		{NewSearchFilter("IOUserSerial", "usbserial-2"), goodInclude, out1, nil},
+		{goodFilter, goodInclude, out2, nil},
+		{goodFilter, goodInclude, out3, nil},
+		{goodFilter, goodInclude, out4, nil},
+		{goodFilter, goodInclude, out5, nil},
+		{goodFilter, goodInclude, out6, nil},
+		{goodFilter, goodInclude, out7, nil},
+		{goodFilter, goodInclude, out8, nil},
+		{goodFilter, goodInclude, out9, nil},
+		{goodFilter, goodInclude, out10, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			prevSearchCmd := SearchCmd
@@ -125,8 +137,6 @@ const (
 				<string>com.apple.iokit.IOSerialFamily</string>
 				<key>IOCalloutDevice</key>
 				<string>/dev/cu.usbserial-0001</string>
-				<key>IOClass</key>
-				<string>IOSerialBSDClient</string>
 				<key>IODialinDevice</key>
 				<string>/dev/tty.usbserial-0001</string>
 				<key>IOMatchCategory</key>
@@ -197,4 +207,166 @@ const (
 </array>
 </plist>
 `
+
+	out2 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out3 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<integer>4292</integer>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out4 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<string>usbserial-</string>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out5 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<string>usbserial-</string>
+	</dict>
+</array>
+</plist>
+`
+
+	out6 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<string>usbserial-</string>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out7 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string></string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out8 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<integer>4292</integer>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out9 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<integer>4292</integer>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out10 = `<plist version="1.0">`
 )

@@ -30,23 +30,49 @@ func TestSearchDevices(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	dev3Root, err := ioutil.TempDir(tempDir1, "")
 	test.That(t, err, test.ShouldBeNil)
+	dev4Root, err := ioutil.TempDir(tempDir1, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev5Root, err := ioutil.TempDir(tempDir1, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev6Root, err := ioutil.TempDir(tempDir1, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev7Root, err := ioutil.TempDir(tempDir1, "")
+	test.That(t, err, test.ShouldBeNil)
 	dev1, err := ioutil.TempDir(dev1Root, "")
 	test.That(t, err, test.ShouldBeNil)
-	dev2, err := ioutil.TempDir(dev2Root, "")
+	_, err = ioutil.TempDir(dev2Root, "")
 	test.That(t, err, test.ShouldBeNil)
 	dev3, err := ioutil.TempDir(dev3Root, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev4, err := ioutil.TempDir(dev4Root, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev5, err := ioutil.TempDir(dev5Root, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev6, err := ioutil.TempDir(dev6Root, "")
+	test.That(t, err, test.ShouldBeNil)
+	dev7, err := ioutil.TempDir(dev7Root, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, os.WriteFile(filepath.Join(dev1Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev4Root, "uevent"), []byte("PRODUCT=10c5X/ea61"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev5Root, "uevent"), []byte("PRODUCT=10c5/ea6X"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev6Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dev7Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
 
 	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0700), test.ShouldBeNil)
 	test.That(t, os.Mkdir(filepath.Join(dev3, "tty"), 0700), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev6, "tty"), 0666), test.ShouldBeNil)
+	test.That(t, os.Mkdir(filepath.Join(dev7, "tty"), 0700), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0666), test.ShouldBeNil)
 
 	test.That(t, os.Symlink(dev1, path.Join(tempDir2, filepath.Base(dev1))), test.ShouldBeNil)
-	test.That(t, os.Symlink(dev3, path.Join(tempDir2, filepath.Base(dev2))), test.ShouldBeNil)
+	test.That(t, os.Symlink(dev3, path.Join(tempDir2, filepath.Base(dev3))), test.ShouldBeNil)
+	test.That(t, os.Symlink(dev4, path.Join(tempDir2, filepath.Base(dev4))), test.ShouldBeNil)
+	test.That(t, os.Symlink(dev5, path.Join(tempDir2, filepath.Base(dev5))), test.ShouldBeNil)
+	test.That(t, os.Symlink(dev6, path.Join(tempDir2, filepath.Base(dev6))), test.ShouldBeNil)
+	test.That(t, os.Symlink(dev7, path.Join(tempDir2, filepath.Base(dev7))), test.ShouldBeNil)
 
 	for i, tc := range []struct {
 		IncludeDevice func(vendorID, productID int) bool
@@ -65,6 +91,11 @@ func TestSearchDevices(t *testing.T) {
 		{func(vendorID, productID int) bool {
 			return vendorID == 4292 && productID == 60000
 		}, []string{tempDir2}, []DeviceDescription{
+			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
+		}},
+		{func(vendorID, productID int) bool {
+			return vendorID == 4292 && productID == 60000
+		}, []string{"somewhereelse", tempDir2}, []DeviceDescription{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
 		}},
 		{func(vendorID, productID int) bool {
