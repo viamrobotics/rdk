@@ -1,13 +1,15 @@
-package rimage
+package imagesource
 
 import (
 	"context"
 	"image"
 	"testing"
+
+	"go.viam.com/robotcore/rimage"
 )
 
 func TestRotateSource(t *testing.T) {
-	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
+	pc, err := rimage.NewImageWithDepth("../data/board1.png", "../data/board1.dat.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,12 +22,12 @@ func TestRotateSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = WriteImageToFile("out/test_rotate_source.png", rawImage)
+	err = rimage.WriteImageToFile("out/test_rotate_source.png", rawImage)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	img := ConvertImage(rawImage)
+	img := rimage.ConvertImage(rawImage)
 
 	for x := 0; x < pc.Color.Width(); x++ {
 		p1 := image.Point{x, 0}
@@ -40,7 +42,7 @@ func TestRotateSource(t *testing.T) {
 		}
 
 		d1 := pc.Depth.Get(p1)
-		d2 := rawImage.(*ImageWithDepth).Depth.Get(p2)
+		d2 := rawImage.(*rimage.ImageWithDepth).Depth.Get(p2)
 
 		if d1 != d2 {
 			t.Errorf("depth doesn't match %v %v", d1, d2)
@@ -50,7 +52,7 @@ func TestRotateSource(t *testing.T) {
 }
 
 func BenchmarkRotate(b *testing.B) {
-	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
+	pc, err := rimage.NewImageWithDepth("../data/board1.png", "../data/board1.dat.gz")
 	if err != nil {
 		b.Fatal(err)
 	}
