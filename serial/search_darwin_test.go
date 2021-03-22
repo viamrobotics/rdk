@@ -20,7 +20,13 @@ func TestSearchDevices(t *testing.T) {
 		{SearchFilter{}, out1, []DeviceDescription{
 			{Type: DeviceTypeArduino, Path: "/dev/tty.usbserial-0001"}},
 		},
+		{SearchFilter{Type: DeviceTypeArduino}, out1, []DeviceDescription{
+			{Type: DeviceTypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		},
 		{SearchFilter{Type: DeviceTypeJetson}, out1, nil},
+		{SearchFilter{}, out2, nil},
+		{SearchFilter{}, out3, nil},
+		{SearchFilter{}, out4, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			prevSearchCmd := usb.SearchCmd
@@ -180,6 +186,69 @@ const (
 		<integer>67</integer>
 		<key>idVendor</key>
 		<integer>9025</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out2 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out3 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbmodem</string>
+		<key>idProduct</key>
+		<integer>68</integer>
+		<key>idVendor</key>
+		<integer>9025</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out4 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbmodem</string>
+		<key>idProduct</key>
+		<integer>67</integer>
+		<key>idVendor</key>
+		<integer>9026</integer>
 	</dict>
 </array>
 </plist>
