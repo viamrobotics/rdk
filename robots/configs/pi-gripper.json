@@ -10,6 +10,7 @@
                     "pwm" : "7"
                 },
                 "encoder" : "encoder",
+                "encoderB" : "encoder-b",
                 "ticksPerRotation" : 100
               }
           ],
@@ -19,13 +20,13 @@
               },
               { "name" : "pressure",
                 "pin" : "1"
-              },
-              { "name" : "limit",
-                "pin" : "2"
               }
           ],
           "digitalInterrupts" : [
               { "name" : "encoder",
+                "pin" : "18"
+              },
+              { "name" : "encoder-b",
                 "pin" : "16"
               }
           ]
