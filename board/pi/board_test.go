@@ -1,6 +1,6 @@
 // +build pi
 
-package board
+package pi
 
 import (
 	"testing"
