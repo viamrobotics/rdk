@@ -20,5 +20,6 @@ comment:
   require_changes: no
 
 ignore:
+  - "testutils/inject/**/*"
   - "samples/**/*"
   - "robots/**/*"
