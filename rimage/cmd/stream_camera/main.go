@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/imagesource"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -69,7 +69,7 @@ func main() {
 
 	golog.Global.Debugf("attrs: %v", attrs)
 
-	webcam, err := rimage.NewWebcamSource(attrs)
+	webcam, err := imagesource.NewWebcamSource(attrs)
 	if err != nil {
 		golog.Global.Fatal(err)
 	}
