@@ -52,6 +52,28 @@ func TestParseFlags(t *testing.T) {
 		})
 	})
 
+	t.Run("NetPortFlag", func(t *testing.T) {
+		var psn parseStructNet
+		test.That(t, ParseFlags([]string{"1", "--a=2"}, &psn), test.ShouldBeNil)
+		test.That(t, psn, test.ShouldResemble, parseStructNet{
+			A: NetPortFlag(2),
+		})
+		test.That(t, ParseFlags([]string{"1", "--a=0"}, &psn), test.ShouldBeNil)
+		test.That(t, psn, test.ShouldResemble, parseStructNet{
+			A: NetPortFlag(0),
+		})
+		test.That(t, ParseFlags([]string{"1"}, &psn), test.ShouldBeNil)
+		test.That(t, psn, test.ShouldResemble, parseStructNet{
+			A: NetPortFlag(5555),
+		})
+		err := ParseFlags([]string{"1", "--a=-1"}, &psn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+		err = ParseFlags([]string{"1", "--a=-10000"}, &psn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+	})
+
 	t.Run("flagUnmarshaler", func(t *testing.T) {
 		var ps4 parseStruct4
 		test.That(t, ParseFlags([]string{"1", "--a=hey there", "--b=one", "--b=two"}, &ps4), test.ShouldBeNil)
@@ -131,6 +153,10 @@ type parseStruct7 struct {
 
 type parseStruct8 struct {
 	A bool `flag:",default=foo"`
+}
+
+type parseStructNet struct {
+	A NetPortFlag `flag:"a"`
 }
 
 type uflagStruct struct {

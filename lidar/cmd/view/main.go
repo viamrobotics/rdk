@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"go.viam.com/robotcore/lidar"
@@ -25,7 +24,6 @@ func main() {
 }
 
 var (
-	defaultPort  = 5555
 	streamWidth  = 800
 	streamHeight = 600
 
@@ -38,7 +36,7 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         portFlag                  `flag:"0"`
+	Port         utils.NetPortFlag         `flag:"0"`
 	LidarDevices []lidar.DeviceDescription `flag:"device,usage=lidar devices"`
 	SaveToDisk   string                    `flag:"save,usage=save data to disk (LAS)"`
 }
@@ -211,27 +209,4 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarDeviceD
 	}()
 
 	return compassDone, nil
-}
-
-type portFlag int
-
-func (pf *portFlag) String() string {
-	return fmt.Sprintf("%v", int(*pf))
-}
-
-func (pf *portFlag) Set(val string) error {
-	if val == "" {
-		*pf = portFlag(defaultPort)
-		return nil
-	}
-	portParsed, err := strconv.ParseUint(val, 10, 16)
-	if err != nil {
-		return err
-	}
-	*pf = portFlag(portParsed)
-	return nil
-}
-
-func (pf *portFlag) Get() interface{} {
-	return int(*pf)
 }

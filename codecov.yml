@@ -20,6 +20,7 @@ comment:
   require_changes: no
 
 ignore:
-  - "testutils/inject/**/*"
-  - "samples/**/*"
-  - "robots/**/*"
+  - "testutils/inject"
+  - "samples/"
+  - "robots/"
+  - "rimage/cmd/stream_camera/" # cannot test hardware cameras
