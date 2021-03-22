@@ -96,10 +96,7 @@ func parseFlags() (runParams, error) {
 		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
 	}
 
-	deviceDescs, err := search.Devices()
-	if err != nil {
-		golog.Global.Debugw("error searching for lidar devices", "error", err)
-	}
+	deviceDescs := search.Devices()
 	if len(deviceDescs) != 0 {
 		golog.Global.Debugf("detected %d lidar devices", len(deviceDescs))
 		for _, desc := range deviceDescs {
