@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var sysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
+var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
 
 type SearchFilter struct{}
 
@@ -90,7 +90,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 		return results
 	}
 	var allDevices []DeviceDescription
-	for _, sysPath := range sysPaths {
+	for _, sysPath := range SysPaths {
 		allDevices = append(allDevices, searchPath(sysPath)...)
 	}
 	return allDevices
