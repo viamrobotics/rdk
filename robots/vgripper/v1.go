@@ -22,11 +22,9 @@ func init() {
 }
 
 type GripperV1 struct {
-	motor       board.Motor
-	encoder     board.DigitalInterrupt
-	current     board.AnalogReader
-	pressure    board.AnalogReader
-	limitSwitch board.AnalogReader
+	motor    board.Motor
+	current  board.AnalogReader
+	pressure board.AnalogReader
 
 	encoderGap int64
 
@@ -39,24 +37,20 @@ func NewGripperV1(theBoard board.Board) (*GripperV1, error) {
 
 	vg := &GripperV1{
 		motor:        theBoard.Motor("g"),
-		encoder:      theBoard.DigitalInterrupt("encoder"),
 		current:      theBoard.AnalogReader("current"),
 		pressure:     theBoard.AnalogReader("pressure"),
-		limitSwitch:  theBoard.AnalogReader("limit"),
-		defaultSpeed: 16,
+		defaultSpeed: 64,
 	}
 
 	if vg.motor == nil {
 		return nil, fmt.Errorf("gripper needs a motor named 'g'")
 	}
-	if vg.encoder == nil {
-		return nil, fmt.Errorf("gripper needs an encoder named 'encoder'")
+	if !vg.motor.PositionSupported() {
+		return nil, fmt.Errorf("gripper motor needs to support position")
 	}
+
 	if vg.current == nil || vg.pressure == nil {
 		return nil, fmt.Errorf("gripper needs a current and a pressure reader")
-	}
-	if vg.limitSwitch == nil {
-		return nil, fmt.Errorf("gripper needs a limit switch")
 	}
 
 	// pick a direction and move till it stops
@@ -71,7 +65,7 @@ func NewGripperV1(theBoard board.Board) (*GripperV1, error) {
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, fmt.Errorf("pressure same open and closed, something is wrong potentiometer: %d %d", sideA, sideB)
+		return nil, fmt.Errorf("pressure same open and closed, something is wrong encoer: %d %d", sideA, sideB)
 	}
 
 	vg.encoderGap = utils.AbsInt64(sideB - sideA)
@@ -192,28 +186,14 @@ func (vg *GripperV1) hasPressure() (bool, error) {
 	return p < 1000, err
 }
 
-func (vg *GripperV1) readLimitSwitch() (int, error) {
-	return vg.limitSwitch.Read()
-}
-
-func (vg *GripperV1) limitSwitched() (bool, error) {
-	v, err := vg.readLimitSwitch()
-	return v > 800, err
-}
-
-// return hasPressure, current, limitSwitch
-func (vg *GripperV1) analogs() (hasPressure bool, current int, limitSwitch bool, err error) {
+// return hasPressure, current
+func (vg *GripperV1) analogs() (hasPressure bool, current int, err error) {
 	hasPressure, err = vg.hasPressure()
 	if err != nil {
 		return
 	}
 
 	current, err = vg.readCurrent()
-	if err != nil {
-		return
-	}
-
-	limitSwitch, err = vg.limitSwitched()
 	if err != nil {
 		return
 	}
@@ -227,41 +207,44 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir board.Direction) (int64
 		if err != nil {
 			golog.Global.Warnf("couldn't stop motor %s", err)
 		}
+		golog.Global.Debugf("stopped")
 	}()
+
+	golog.Global.Debugf("starting to move dir: %v", dir)
 
 	err := vg.motor.Go(dir, vg.defaultSpeed)
 	if err != nil {
 		return -1, false, err
 	}
 
-	last := vg.encoder.Value()
+	last := vg.motor.Position()
 	if err != nil {
 		return -1, false, err
 	}
 
-	time.Sleep(2000 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	for {
-		now := vg.encoder.Value()
+		now := vg.motor.Position()
 		if err != nil {
 			return -1, false, err
 		}
 
-		hasPressure, _, limitSwitched, err := vg.analogs()
+		hasPressure, _, err := vg.analogs()
 		if err != nil {
 			return -1, false, err
 		}
 
-		golog.Global.Debugf("dir: %v last: %v now: %v hasPressure: %v limitSwitched: %v",
-			dir, last, now, hasPressure, limitSwitched)
+		golog.Global.Debugf("dir: %v last: %v now: %v hasPressure: %v",
+			dir, last, now, hasPressure)
 
-		if vg.encoderSame(last, now) || hasPressure || limitSwitched {
+		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
 			err := vg.motor.Force(128)
 			if err != nil {
 				return -1, false, err
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(2500 * time.Millisecond)
 			return now, hasPressure, err
 		}
 		last = now
