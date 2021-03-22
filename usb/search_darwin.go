@@ -52,7 +52,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			continue
 		}
 		vendorID, productID := int(idVendor), int(idProduct)
-		if includeDevice != nil && !includeDevice(vendorID, productID) {
+		if includeDevice == nil || !includeDevice(vendorID, productID) {
 			continue
 		}
 
