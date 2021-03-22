@@ -30,10 +30,7 @@ func mainWithArgs(ctx context.Context, args []string) error {
 		return err
 	}
 
-	devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
-	if err != nil {
-		return err
-	}
+	devices := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
 	if len(devices) == 0 {
 		return errors.New("no suitable device found")
 	}

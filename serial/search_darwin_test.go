@@ -1,50 +1,37 @@
-package usb
+package serial
 
 import (
 	"fmt"
 	"testing"
+
+	"go.viam.com/robotcore/usb"
 
 	"github.com/edaniels/test"
 )
 
 func TestSearchDevices(t *testing.T) {
 	for i, tc := range []struct {
-		Filter        SearchFilter
-		IncludeDevice func(vendorID, productID int) bool
-		Output        string
-		Expected      []DeviceDescription
+		Filter   SearchFilter
+		Output   string
+		Expected []DeviceDescription
 	}{
-		{SearchFilter{}, nil, "", nil},
-		{SearchFilter{}, nil, "text", nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), nil, out1, nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
-			return true
-		}, out1, []DeviceDescription{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
+		{SearchFilter{}, "", nil},
+		{SearchFilter{}, "text", nil},
+		{SearchFilter{}, out1, []DeviceDescription{
+			{Type: DeviceTypeArduino, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
-			return vendorID == 4292 && productID == 60000
-		}, out1, []DeviceDescription{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
-		},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
-			return false
-		}, out1, nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-2"), func(vendorID, productID int) bool {
-			return true
-		}, out1, nil},
+		{SearchFilter{Type: DeviceTypeJetson}, out1, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			prevSearchCmd := SearchCmd
+			prevSearchCmd := usb.SearchCmd
 			defer func() {
-				SearchCmd = prevSearchCmd
+				usb.SearchCmd = prevSearchCmd
 			}()
-			SearchCmd = func(ioObjectClass string) []byte {
-				test.That(t, ioObjectClass, test.ShouldEqual, tc.Filter.ioObjectClass)
+			usb.SearchCmd = func(ioObjectClass string) []byte {
+				test.That(t, ioObjectClass, test.ShouldEqual, "AppleUSBACMData")
 				return []byte(tc.Output)
 			}
-			result := SearchDevices(tc.Filter, tc.IncludeDevice)
+			result := SearchDevices(tc.Filter)
 			test.That(t, result, test.ShouldResemble, tc.Expected)
 		})
 	}
@@ -93,9 +80,9 @@ const (
 			<key>bInterfaceNumber</key>
 			<integer>0</integer>
 			<key>idProduct</key>
-			<integer>60000</integer>
+			<integer>67</integer>
 			<key>idVendor</key>
-			<integer>4292</integer>
+			<integer>9025</integer>
 		</dict>
 		<key>IOObjectClass</key>
 		<string>IOUserSerial</string>
@@ -156,9 +143,9 @@ const (
 				<key>IOServiceState</key>
 				<integer>30</integer>
 				<key>IOTTYBaseName</key>
-				<string>usbserial-</string>
+				<string>usbmodem</string>
 				<key>IOTTYDevice</key>
-				<string>usbserial-0001</string>
+				<string>usbmodem-0001</string>
 				<key>IOTTYSuffix</key>
 				<string>0001</string>
 			</dict>
@@ -176,7 +163,7 @@ const (
 		<key>IOServiceState</key>
 		<integer>30</integer>
 		<key>IOTTYBaseName</key>
-		<string>usbserial-</string>
+		<string>usbmodem</string>
 		<key>IOTTYSuffix</key>
 		<string>0001</string>
 		<key>IOUserClass</key>
@@ -190,9 +177,9 @@ const (
 		<key>bInterfaceNumber</key>
 		<integer>0</integer>
 		<key>idProduct</key>
-		<integer>60000</integer>
+		<integer>67</integer>
 		<key>idVendor</key>
-		<integer>4292</integer>
+		<integer>9025</integer>
 	</dict>
 </array>
 </plist>
