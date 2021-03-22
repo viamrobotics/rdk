@@ -28,6 +28,14 @@ type GPIOMotor struct {
 	on        bool
 }
 
+func (m *GPIOMotor) Position() int64 {
+	return 0
+}
+
+func (m *GPIOMotor) PositionSupported() bool {
+	return false
+}
+
 func (m *GPIOMotor) Force(force byte) error {
 	return m.Board.PWMSet(m.PWM, force)
 }

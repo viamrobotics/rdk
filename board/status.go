@@ -5,7 +5,9 @@ import (
 )
 
 type MotorStatus struct {
-	On bool
+	On                bool
+	PositionSupported bool
+	Position          int64
 }
 
 type ServoStatus struct {
@@ -40,7 +42,11 @@ func CreateStatus(b Board) (Status, error) {
 	for _, c := range cfg.Motors {
 		name := c.Name
 		x := b.Motor(name)
-		s.Motors[name] = MotorStatus{On: x.IsOn()}
+		s.Motors[name] = MotorStatus{
+			On:                x.IsOn(),
+			Position:          x.Position(),
+			PositionSupported: x.PositionSupported(),
+		}
 	}
 
 	for _, c := range cfg.Servos {
