@@ -56,21 +56,6 @@ func (r *Robot) Ready(theRobot api.Robot) error {
 	return nil
 }
 
-func (r *Robot) Startup() error {
-	r.robotObj.CallMethod("startup")
-	return checkPythonErr()
-}
-
-func (r *Robot) Stop() error {
-	r.robotObj.CallMethod("stop")
-	return checkPythonErr()
-}
-
-func (r *Robot) Home() error {
-	r.robotObj.CallMethod("home")
-	return checkPythonErr()
-}
-
 func (r *Robot) pushCommand() error {
 	r.robotObj.CallMethod("push_command")
 	return checkPythonErr()
@@ -79,9 +64,4 @@ func (r *Robot) pushCommand() error {
 func (r *Robot) Base() (*Base, error) {
 	base := r.robotObj.GetAttrString("base")
 	return &Base{robot: r, baseObj: base}, checkPythonErr()
-}
-
-func (r *Robot) Compass() (*Compass, error) {
-	pimu := r.robotObj.GetAttrString("pimu")
-	return &Compass{robot: r, pimuObj: pimu}, checkPythonErr()
 }
