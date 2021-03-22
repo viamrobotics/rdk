@@ -6,7 +6,7 @@ extern void pigpioInterruptCallback(int gpio, int level, uint32_t tick);
 int doAnalogRead(int h, int channel) {
     char buf[3];
     buf[0] = 1;
-    buf[1] = (8+channel) << 8;
+    buf[1] = (8+channel) << 4;
     buf[2] = 0;
     spiXfer(h, buf, buf, 3);
     return ((buf[1]&3)<<8) | buf[2];

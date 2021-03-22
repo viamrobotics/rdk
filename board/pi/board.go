@@ -135,7 +135,9 @@ func (pi *piPigpio) AnalogRead(channel int) (int, error) {
 		pi.analogEnabled = true
 	}
 
-	return int(C.doAnalogRead(pi.analogSpi, C.int(channel))), nil
+	val := int(C.doAnalogRead(pi.analogSpi, C.int(channel)))
+	//golog.Global.Debugf("analog read (%d) %d -> %d", pi.analogSpi, channel, val)
+	return val, nil
 }
 
 type piPigpioServo struct {
@@ -266,7 +268,6 @@ func NewPigpio(cfg board.Config) (board.Board, error) {
 		}
 		piInstance.interrupts[c.Name] = di
 		piInstance.interruptsHW[bcom] = di
-		fmt.Printf("setting up %d\n", bcom)
 		C.setupInterrupt(C.int(bcom))
 
 	}
