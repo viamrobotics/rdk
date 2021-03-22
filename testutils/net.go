@@ -7,9 +7,10 @@ import (
 	"time"
 )
 
+var waitDur = 5 * time.Second
+
 // WaitSuccessfulDial waits for a dial attempt to succeed.
 func WaitSuccessfulDial(address string) error {
-	const waitDur = 5 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), waitDur)
 	lastErr := errors.New("timed out dialing")
 	defer cancel()
