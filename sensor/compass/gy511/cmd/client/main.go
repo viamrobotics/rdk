@@ -66,6 +66,7 @@ func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription,
 	var once bool
 	for {
 		err := func() error {
+			defer utils.ContextMainIterFunc(ctx)()
 			if !once {
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()

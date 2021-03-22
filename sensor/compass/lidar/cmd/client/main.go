@@ -93,6 +93,7 @@ func readCompass(ctx context.Context, lidarDeviceDescs []lidar.DeviceDescription
 	var once bool
 	for {
 		err := func() error {
+			defer utils.ContextMainIterFunc(ctx)()
 			if !once {
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()

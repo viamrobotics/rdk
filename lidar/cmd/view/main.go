@@ -175,6 +175,7 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarDeviceD
 		var once bool
 		for {
 			cont := func() bool {
+				defer utils.ContextMainIterFunc(ctx)()
 				if !once {
 					once = true
 					defer utils.ContextMainReadyFunc(ctx)()

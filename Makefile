@@ -9,7 +9,7 @@ setup:
 	bash etc/setup.sh
 
 build:
-	go build -v ./...
+	go build ./...
 
 lint: goformat
 	go get -u github.com/edaniels/golinters/cmd/combined
@@ -17,7 +17,7 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
 cover:
-	go test -cpu=1 -parallel=1 -v -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... ./...
+	go test -cpu=1 -parallel=1 -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... ./...
 
 test:
 	go test ./...
