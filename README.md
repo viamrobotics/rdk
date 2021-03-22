@@ -38,7 +38,6 @@
 * [rimage/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
 * [rimage/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
 * [robot/server](./robot/cmd/server) - Run a robot server
-* [robots/hellorobot/server](./robots/hellorobot/cmd/server) - Control a hello robot
 * [sensor/compass/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
 * [sensor/compass/gy511/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
 * [sensor/compass/lidar/client](./sensor/compass/lidar/cmd/client) - Run a LIDAR based compass
