@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"testing"
-	"time"
 
 	"go.uber.org/zap/zaptest/observer"
 	"go.viam.com/robotcore/sensor/compass/gy511"
@@ -38,7 +37,7 @@ func TestMain(t *testing.T) {
 		}
 		return openDeviceFunc(devicePath)
 	}
-	reset := func(t *testing.T, tLogger golog.Logger) {
+	reset := func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 		logger = tLogger
 		searchDevicesFunc = defaultSearchDevicesFunc
 		openDeviceFunc = defaultOpenDeviceFunc
@@ -55,16 +54,16 @@ func TestMain(t *testing.T) {
 		{"no args", nil, "no suitable", reset, nil, nil},
 		{"unknown named arg", []string{"--unknown"}, "not defined", reset, nil, nil},
 		{"bad calibrate flag", []string{"--calibrate=who"}, "parse", reset, nil, nil},
-		{"error searching", nil, "whoops", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"error searching", nil, "whoops", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return nil, errors.New("whoops")
 			}
 		}, nil, nil},
 
 		// reading
-		{"bad device", nil, "directory", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"bad device", nil, "directory", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return []serial.DeviceDescription{
 					{Path: "/"},
@@ -72,8 +71,8 @@ func TestMain(t *testing.T) {
 			}
 			openDeviceFunc = nil
 		}, nil, nil},
-		{"faulty device", nil, "whoops2; whoops3", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"faulty device", nil, "whoops2; whoops3", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return []serial.DeviceDescription{
 					{Path: "path"},
@@ -93,8 +92,8 @@ func TestMain(t *testing.T) {
 				}, nil
 			}
 		}, nil, nil},
-		{"normal device", nil, "", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"normal device", nil, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return []serial.DeviceDescription{
 					{Path: "path"},
@@ -109,8 +108,8 @@ func TestMain(t *testing.T) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"normal device with calibrate", []string{"--calibrate"}, "", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"normal device with calibrate", []string{"--calibrate"}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return []serial.DeviceDescription{
 					{Path: "path"},
@@ -121,15 +120,16 @@ func TestMain(t *testing.T) {
 				rd.SetHeading(5)
 				return rd, nil
 			}
+			exec.ExpectIters(t, 2)
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal(t)
-			testutils.WaitOrFail(ctx, t, time.Second)
+			exec.WaitIters(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"failing device", nil, "", func(t *testing.T, tLogger golog.Logger) {
-			reset(t, tLogger)
+		{"failing device", nil, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			reset(t, tLogger, exec)
 			searchDevicesFunc = func(filter serial.SearchFilter) ([]serial.DeviceDescription, error) {
 				return []serial.DeviceDescription{
 					{Path: "path"},
@@ -138,9 +138,10 @@ func TestMain(t *testing.T) {
 			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
 				return failingDevice, nil
 			}
+			exec.ExpectIters(t, 2)
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
 			failingDevice.SetFailAfter(0)
-			testutils.WaitOrFail(ctx, t, time.Second)
+			exec.WaitIters(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("readings").All()), test.ShouldBeGreaterThanOrEqualTo, 1)

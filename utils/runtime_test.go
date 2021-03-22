@@ -98,3 +98,26 @@ func TestContextWithReadyFunc(t *testing.T) {
 	}
 	test.That(t, ok, test.ShouldBeTrue)
 }
+
+func TestContextWithIterFunc(t *testing.T) {
+	ctx := context.Background()
+	sig := make(chan struct{}, 1)
+	ctx = ContextWithIterFunc(ctx, func() {
+		sig <- struct{}{}
+	})
+	func1 := ContextMainIterFunc(context.Background())
+	func1()
+	var ok bool
+	select {
+	case <-sig:
+		ok = true
+	default:
+	}
+	test.That(t, ok, test.ShouldBeFalse)
+	func1 = ContextMainIterFunc(ctx)
+	go func1()
+	<-sig
+	go func1()
+	go func1()
+	<-sig
+}

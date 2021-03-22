@@ -53,7 +53,7 @@ func TestMain(t *testing.T) {
 	}()
 	defer httpServer.Close()
 
-	assignLogger := func(t *testing.T, tLogger golog.Logger) {
+	assignLogger := func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 		logger = tLogger
 		wsServer.SetLogger(logger)
 	}
@@ -110,11 +110,15 @@ func TestMain(t *testing.T) {
 		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", assignLogger, nil, nil},
 		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", assignLogger, nil, nil},
 		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", assignLogger, nil, nil},
-		{"normal", []string{fmt.Sprintf("--device=lidarws,ws://127.0.0.1:%d", port)}, "", assignLogger, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+		{"normal", []string{fmt.Sprintf("--device=lidarws,ws://127.0.0.1:%d", port)}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			assignLogger(t, tLogger, exec)
+			exec.ExpectIters(t, 2)
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal(t)
-			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.WaitIters(t)
+			exec.ExpectIters(t, 12)
 			exec.QuitSignal(t)
-			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.WaitIters(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, logs.FilterMessageSnippet("marking").All(), test.ShouldHaveLength, 2)
 			test.That(t, logs.FilterMessageSnippet("marked").All(), test.ShouldHaveLength, 2)

@@ -47,6 +47,7 @@ type ctxKey int
 const (
 	ctxKeyQuitSignaler = ctxKey(iota)
 	ctxKeyReadyFunc
+	ctxKeyIterFunc
 )
 
 // ContextWithQuitSignal attaches a quit signaler to the given context.
@@ -82,4 +83,19 @@ func ContextMainReadyFunc(ctx context.Context) func() {
 		return func() {}
 	}
 	return signaler.(func())
+}
+
+// ContextWithIterFunc attaches an interation func to the given context.
+func ContextWithIterFunc(ctx context.Context, f func()) context.Context {
+	return context.WithValue(ctx, ctxKeyIterFunc, f)
+}
+
+// ContextMainIterFunc returns a function for indicating an iteration of the
+// program has completed.
+func ContextMainIterFunc(ctx context.Context) func() {
+	iterFunc := ctx.Value(ctxKeyIterFunc)
+	if iterFunc == nil {
+		return func() {}
+	}
+	return iterFunc.(func())
 }
