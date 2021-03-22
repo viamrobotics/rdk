@@ -81,11 +81,6 @@ func (r *Robot) Base() (*Base, error) {
 	return &Base{robot: r, baseObj: base}, checkPythonErr()
 }
 
-func (r *Robot) Arm() (*Arm, error) {
-	arm := r.robotObj.GetAttrString("arm")
-	return &Arm{robot: r, armObj: arm}, checkPythonErr()
-}
-
 func (r *Robot) Compass() (*Compass, error) {
 	pimu := r.robotObj.GetAttrString("pimu")
 	return &Compass{robot: r, pimuObj: pimu}, checkPythonErr()
