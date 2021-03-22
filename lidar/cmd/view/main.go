@@ -50,11 +50,7 @@ func mainWithArgs(ctx context.Context, args []string) error {
 	}
 
 	if len(argsParsed.LidarDevices) == 0 {
-		var err error
-		argsParsed.LidarDevices, err = search.Devices()
-		if err != nil {
-			return fmt.Errorf("error searching for lidar devices: %w", err)
-		}
+		argsParsed.LidarDevices = search.Devices()
 		if len(argsParsed.LidarDevices) != 0 {
 			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
 			for _, desc := range argsParsed.LidarDevices {

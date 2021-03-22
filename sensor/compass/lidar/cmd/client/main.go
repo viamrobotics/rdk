@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	_ "net/http/pprof"
 	"time"
 
@@ -37,10 +36,7 @@ func mainWithArgs(ctx context.Context, args []string) error {
 
 	var deviceDescs []lidar.DeviceDescription
 	if argsParsed.LidarDevice == nil {
-		deviceDescs, err := search.Devices()
-		if err != nil {
-			return fmt.Errorf("error searching for lidar devices: %w", err)
-		}
+		deviceDescs = search.Devices()
 		if len(deviceDescs) != 0 {
 			logger.Debugf("detected %d lidar devices", len(deviceDescs))
 			for _, desc := range deviceDescs {

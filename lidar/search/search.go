@@ -6,6 +6,6 @@ import (
 	"go.viam.com/robotcore/lidar"
 )
 
-func Devices() ([]lidar.DeviceDescription, error) {
-	return nil, nil
+func Devices() []lidar.DeviceDescription {
+	return nil
 }
