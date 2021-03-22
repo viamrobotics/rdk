@@ -7,14 +7,11 @@ import (
 )
 
 var SearchDevices = func(filter SearchFilter) ([]DeviceDescription, error) {
-	usbDevices, err := usb.SearchDevices(
+	usbDevices := usb.SearchDevices(
 		usb.NewSearchFilter("AppleUSBACMData", "usbmodem"),
 		func(vendorID, productID int) bool {
 			return checkProductDeviceIDs(vendorID, productID) != DeviceTypeUnknown
 		})
-	if err != nil {
-		return nil, err
-	}
 	serialDeviceDecss := make([]DeviceDescription, 0, len(usbDevices))
 	for _, dev := range usbDevices {
 		devType := checkProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
