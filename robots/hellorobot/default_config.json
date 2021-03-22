@@ -10,11 +10,6 @@
       "type": "base"
     },
     {
-      "model": "hellorobot",
-      "name": "vertArm",
-      "type": "arm"
-    },
-    {
       "host": "127.0.0.1",
       "port": 4444,
       "model": "lidarws",
