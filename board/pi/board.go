@@ -1,6 +1,6 @@
 // +build pi
 
-package board
+package pi
 
 // #include <pigpio.h>
 // #include "pi.h"
@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	board.RegisterBoard("pi2", NewPigpio)
+	board.RegisterBoard("pi", NewPigpio)
 }
 
 var (

@@ -10,6 +10,8 @@ import (
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
 
+	_ "go.viam.com/robotcore/board/detector"
+
 	// These are the robot pieces we want by default
 	_ "go.viam.com/robotcore/robots/eva" // for eva
 	_ "go.viam.com/robotcore/robots/hellorobot"
