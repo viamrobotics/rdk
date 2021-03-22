@@ -20,7 +20,7 @@ func NewSearchFilter(ioObjectClass, ioTTYBaseName string) SearchFilter {
 	}
 }
 
-var searchCmd = func(ioObjectClass string) []byte {
+var SearchCmd = func(ioObjectClass string) []byte {
 	cmd := exec.Command("ioreg", "-r", "-c", ioObjectClass, "-a", "-l")
 	out, err := cmd.Output()
 	if err != nil {
@@ -30,7 +30,7 @@ var searchCmd = func(ioObjectClass string) []byte {
 }
 
 func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
-	out := searchCmd(filter.ioObjectClass)
+	out := SearchCmd(filter.ioObjectClass)
 	if len(out) == 0 {
 		return nil
 	}
