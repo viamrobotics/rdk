@@ -8,14 +8,11 @@ import (
 )
 
 func Devices() ([]lidar.DeviceDescription, error) {
-	usbDevices, err := usb.SearchDevices(
+	usbDevices := usb.SearchDevices(
 		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
 			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
 		})
-	if err != nil {
-		return nil, err
-	}
 	lidarDeviceDecss := make([]lidar.DeviceDescription, 0, len(usbDevices))
 	for _, dev := range usbDevices {
 		devType := lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
