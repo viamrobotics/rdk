@@ -172,6 +172,13 @@ func (r *Robot) Close(ctx context.Context) error {
 		}
 	}
 
+	for _, x := range r.boards {
+		if err := x.Close(); err != nil {
+			golog.Global.Error("error closing boar", "error", err)
+		}
+
+	}
+
 	return nil
 }
 
