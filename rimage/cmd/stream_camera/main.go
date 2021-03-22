@@ -2,14 +2,10 @@ package main
 
 import (
 	"context"
-	"flag"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage/imagesource"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -18,92 +14,99 @@ import (
 )
 
 func main() {
+	utils.ContextualMain(mainWithArgs)
+}
 
-	debug := flag.Bool("debug", false, "")
-	dump := flag.Bool("dump", false, "dump all camera info")
-	format := flag.String("format", "", "")
-	path := flag.String("path", "", "")
-	pathPattern := flag.String("pathPattern", "", "")
+var (
+	logger = golog.Global
+)
 
-	flag.Parse()
+// Arguments for the command.
+type Arguments struct {
+	Port        utils.NetPortFlag `flag:"0"`
+	Debug       bool              `flag:"debug"`
+	Dump        bool              `flag:"dump,usage=dump all camera info"`
+	Format      string            `flag:"format"`
+	Path        string            `flag:"path"`
+	PathPattern string            `flag:"pathPattern"`
+}
 
-	if *dump {
+func mainWithArgs(ctx context.Context, args []string) error {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
+	}
+
+	if argsParsed.Dump {
 		all := media.QueryVideoDevices()
 		for _, info := range all {
-			golog.Global.Debugf("%s", info.ID)
-			golog.Global.Debugf("\t labels: %v", info.Labels)
+			logger.Debugf("%s", info.ID)
+			logger.Debugf("\t labels: %v", info.Labels)
 			for _, p := range info.Properties {
-				golog.Global.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
+				logger.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
 			}
 
 		}
-		return
-	}
-
-	port := 5555
-	if flag.NArg() >= 1 {
-		portParsed, err := strconv.ParseInt(flag.Arg(1), 10, 32)
-		if err != nil {
-			golog.Global.Fatal(err)
-		}
-		port = int(portParsed)
+		return nil
 	}
 
 	attrs := api.AttributeMap{}
 
-	if *format != "" {
-		attrs["format"] = *format
+	if argsParsed.Format != "" {
+		attrs["format"] = argsParsed.Format
 	}
 
-	if *path != "" {
-		attrs["path"] = *path
+	if argsParsed.Path != "" {
+		attrs["path"] = argsParsed.Path
 	}
 
-	if *pathPattern != "" {
-		attrs["path_pattern"] = *pathPattern
+	if argsParsed.PathPattern != "" {
+		attrs["path_pattern"] = argsParsed.PathPattern
 	}
 
-	if *debug {
+	if argsParsed.Debug {
 		attrs["debug"] = true
 	}
 
-	golog.Global.Debugf("attrs: %v", attrs)
-
-	webcam, err := imagesource.NewWebcamSource(attrs)
-	if err != nil {
-		golog.Global.Fatal(err)
+	if argsParsed.Debug {
+		logger.Debugf("attrs: %v", attrs)
 	}
 
-	func() {
-		img, closer, err := webcam.Next(context.TODO())
+	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug)
+}
+
+func viewCamera(ctx context.Context, attrs api.AttributeMap, port int, debug bool) error {
+	webcam, err := imagesource.NewWebcamSource(attrs)
+	if err != nil {
+		return err
+	}
+
+	if err := func() error {
+		img, closer, err := webcam.Next(ctx)
 		if err != nil {
-			golog.Global.Fatal(err)
+			return err
 		}
 		defer closer()
-		golog.Global.Debugf("image type: %T dimensions: %v", img, img.Bounds())
-	}()
+		if debug {
+			logger.Debugf("image type: %T dimensions: %v", img, img.Bounds())
+		}
+		return nil
+	}(); err != nil {
+		return err
+	}
 
 	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
 	if err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 
-	server := gostream.NewViewServer(port, remoteView, golog.Global)
+	server := gostream.NewViewServer(port, remoteView, logger)
 	if err := server.Start(); err != nil {
-		golog.Global.Fatal(err)
+		return err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		cancelFunc()
-	}()
+	utils.ContextMainReadyFunc(ctx)()
+	gostream.StreamSource(ctx, webcam, remoteView)
 
-	gostream.StreamSource(cancelCtx, webcam, remoteView)
-
-	if err := server.Stop(context.Background()); err != nil {
-		golog.Global.Error(err)
-	}
+	return server.Stop(context.Background())
 }

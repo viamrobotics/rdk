@@ -126,7 +126,7 @@ func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("could find no webcams")
+	return nil, fmt.Errorf("found no webcams")
 }
 
 func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (gostream.ImageSource, error) {
