@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
 )
 
 func init() {
@@ -34,7 +35,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 		return i, closer, err
 	}
 	defer closer()
-	ii := ConvertToImageWithDepth(i)
+	ii := rimage.ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
 		return nil, nil, fmt.Errorf("no depth")
 	}
@@ -64,11 +65,11 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 		return i, closer, err
 	}
 	defer closer()
-	ii := ConvertToImageWithDepth(i)
+	ii := rimage.ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
 		return nil, nil, fmt.Errorf("no depth")
 	}
-	return ii.Depth.ToPrettyPicture(0, MaxDepth), func() {}, nil
+	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }
 
 func newDepthToPretty(r api.Robot, config api.Component) (gostream.ImageSource, error) {

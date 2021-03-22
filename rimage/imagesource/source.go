@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"bufio"
@@ -9,11 +9,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/edaniels/gostream"
-
-	_ "github.com/lmittmann/ppm" // register ppm
-
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
+
+	"github.com/edaniels/gostream"
+	_ "github.com/lmittmann/ppm" // register ppm
 )
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 }
 
 type StaticSource struct {
-	Img *ImageWithDepth
+	Img *rimage.ImageWithDepth
 }
 
 func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
@@ -54,7 +54,7 @@ type FileSource struct {
 }
 
 func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := NewImageWithDepth(fs.ColorFN, fs.DepthFN)
+	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN)
 	return img, func() {}, err
 }
 
@@ -100,12 +100,12 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	// do this first and make sure ok before creating any mats
-	depth, err := ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
+	depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return &ImageWithDepth{ConvertImage(img), depth}, func() {}, nil
+	return &rimage.ImageWithDepth{rimage.ConvertImage(img), depth}, func() {}, nil
 }
 
 func (hs *HTTPSource) Close() error {
@@ -138,6 +138,6 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
 	}
 
-	img, err := BothReadFromBytes(allData)
+	img, err := rimage.BothReadFromBytes(allData)
 	return img, func() {}, err
 }

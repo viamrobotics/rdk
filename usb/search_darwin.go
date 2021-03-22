@@ -30,6 +30,9 @@ var SearchCmd = func(ioObjectClass string) []byte {
 }
 
 func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+	if includeDevice == nil {
+		return nil
+	}
 	out := SearchCmd(filter.ioObjectClass)
 	if len(out) == 0 {
 		return nil
@@ -52,7 +55,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			continue
 		}
 		vendorID, productID := int(idVendor), int(idProduct)
-		if includeDevice == nil || !includeDevice(vendorID, productID) {
+		if !includeDevice(vendorID, productID) {
 			continue
 		}
 
