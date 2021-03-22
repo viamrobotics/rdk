@@ -47,7 +47,6 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
-	gobot.io/x/gobot v1.15.0
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
 	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197 // indirect
@@ -59,5 +58,3 @@ require (
 )
 
 replace github.com/jblindsay/lidario => github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de
-
-replace gobot.io/x/gobot => github.com/erh/gobot v0.0.0-20210302143937-e15079af0c35
