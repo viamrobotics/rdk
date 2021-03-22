@@ -198,9 +198,9 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 					waitingInDuringFailed = true
 					cancel()
 					if err == nil {
-						t.Error(errCompletedBeforeExpected)
+						tError(t, errCompletedBeforeExpected)
 					} else {
-						t.Error(fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+						tError(t, fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
 					}
 				}
 				waitMu.Unlock()
@@ -219,6 +219,7 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 					} else {
 						fatal(t, fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
 					}
+					return
 				}
 				waitingInDuring = false
 				waitMu.Unlock()
@@ -240,6 +241,10 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 
 func fatalf(t *testing.T, format string, args ...interface{}) {
 	fatal(t, fmt.Sprintf(format, args...))
+}
+
+var tError = func(t *testing.T, args ...interface{}) {
+	t.Error(args...)
 }
 
 var fatal = func(t *testing.T, args ...interface{}) {

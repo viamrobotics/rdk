@@ -15,12 +15,15 @@ import (
 func TestContextualMain(t *testing.T) {
 	var captured []interface{}
 	prevFatal := fatal
+	prevError := tError
 	defer func() {
 		fatal = prevFatal
+		tError = prevError
 	}()
 	fatal = func(t *testing.T, args ...interface{}) {
 		captured = args
 	}
+	tError = fatal
 
 	err1 := errors.New("whoops")
 	mainWithArgs := func(ctx context.Context, args []string) error {
@@ -108,12 +111,15 @@ func TestContextualMain(t *testing.T) {
 func TestTestMain(t *testing.T) {
 	var captured []interface{}
 	prevFatal := fatal
+	prevError := tError
 	defer func() {
 		fatal = prevFatal
+		tError = prevError
 	}()
 	fatal = func(t *testing.T, args ...interface{}) {
 		captured = args
 	}
+	tError = fatal
 
 	err1 := errors.New("whoops")
 	var capturedArgs []string
@@ -131,11 +137,8 @@ func TestTestMain(t *testing.T) {
 				captured = nil
 				test.That(t, logger, test.ShouldNotBeNil)
 			},
-			During: func(ctx context.Context, t *testing.T, exec *ContextualMainExecution) {
-				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
-				test.That(t, exec, test.ShouldNotBeNil)
-			},
 			After: func(t *testing.T, logs *observer.ObservedLogs) {
+				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 				test.That(t, captured, test.ShouldBeNil)
 				test.That(t, logs, test.ShouldNotBeNil)
 			},
@@ -170,6 +173,7 @@ func TestTestMain(t *testing.T) {
 		capturedArgs = args
 		utils.ContextMainReadyFunc(ctx)()
 		<-utils.ContextMainQuitSignal(ctx)
+		<-ctx.Done()
 		return err1
 	}
 	TestMain(t, mainWithArgs, []MainTestCase{
@@ -184,7 +188,6 @@ func TestTestMain(t *testing.T) {
 			During: func(ctx context.Context, t *testing.T, exec *ContextualMainExecution) {
 				<-exec.Ready
 				exec.QuitSignal(t)
-				exec.Stop()
 				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 				test.That(t, exec, test.ShouldNotBeNil)
 			},
@@ -205,7 +208,6 @@ func TestTestMain(t *testing.T) {
 			During: func(ctx context.Context, t *testing.T, exec *ContextualMainExecution) {
 				<-exec.Ready
 				exec.QuitSignal(t)
-				exec.Stop()
 				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 				test.That(t, exec, test.ShouldNotBeNil)
 			},
@@ -223,6 +225,7 @@ func TestTestMain(t *testing.T) {
 		utils.ContextMainIterFunc(ctx)()
 		utils.ContextMainIterFunc(ctx)()
 		<-utils.ContextMainQuitSignal(ctx)
+		<-ctx.Done()
 		return nil
 	}
 	TestMain(t, mainWithArgs, []MainTestCase{
@@ -239,7 +242,6 @@ func TestTestMain(t *testing.T) {
 				<-exec.Ready
 				exec.WaitIters(t)
 				exec.QuitSignal(t)
-				exec.Stop()
 				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 				test.That(t, exec, test.ShouldNotBeNil)
 			},
@@ -260,7 +262,6 @@ func TestTestMain(t *testing.T) {
 			During: func(ctx context.Context, t *testing.T, exec *ContextualMainExecution) {
 				<-exec.Ready
 				exec.QuitSignal(t)
-				exec.Stop()
 				test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 				test.That(t, exec, test.ShouldNotBeNil)
 			},
