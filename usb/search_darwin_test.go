@@ -15,10 +15,24 @@ func TestSearchDevices(t *testing.T) {
 	}{
 		{SearchFilter{}, nil, "", nil},
 		{SearchFilter{}, nil, "text", nil},
-		{NewSearchFilter("IOUserSerial", "usbserial-"), nil, out1, []DeviceDescription{
+		{NewSearchFilter("IOUserSerial", "usbserial-"), nil, out1, nil},
+		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
+		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+			return true
+		}, out1, []DeviceDescription{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
+		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+			return vendorID == 4292 && productID == 60000
+		}, out1, []DeviceDescription{
+			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
+		},
+		{NewSearchFilter("IOUserSerial", "usbserial-"), func(vendorID, productID int) bool {
+			return false
+		}, out1, nil},
+		{NewSearchFilter("IOUserSerial", "usbserial-2"), func(vendorID, productID int) bool {
+			return true
+		}, out1, nil},
 	} {
 		prevSearchCmd := searchCmd
 		defer func() {

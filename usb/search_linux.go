@@ -32,12 +32,12 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			if err != nil {
 				continue
 			}
-			ueventFile, err := os.Open(filepath.Join(sysPath, linkedFile, "../uevent"))
+			ueventFile, err := os.Open(filepath.Join(linkedFile, "../uevent"))
 			if err != nil {
 				continue
 			}
 			defer ueventFile.Close()
-			ttyFile, err := os.Open(filepath.Join(sysPath, linkedFile, "./tty"))
+			ttyFile, err := os.Open(filepath.Join(linkedFile, "./tty"))
 			if err != nil {
 				continue
 			}
@@ -75,7 +75,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				if err != nil {
 					continue
 				}
-				if includeDevice != nil && !includeDevice(int(vendorID), int(productID)) {
+				if includeDevice == nil || !includeDevice(int(vendorID), int(productID)) {
 					continue
 				}
 				results = append(results, DeviceDescription{
