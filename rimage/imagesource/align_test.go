@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils"
 )
 
@@ -14,11 +15,11 @@ type alignTestHelper struct {
 	dc    *DepthComposed
 }
 
-func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img image.Image) error {
+func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
 	var err error
-	ii := ConvertToImageWithDepth(img)
+	ii := rimage.ConvertToImageWithDepth(img)
 
-	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, MaxDepth), "depth")
+	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
 	if h.dc == nil {
 		h.dc, err = NewDepthComposed(nil, nil, h.attrs)
@@ -33,14 +34,14 @@ func (h *alignTestHelper) Process(d *MultipleImageTestDebugger, fn string, img i
 	}
 
 	d.GotDebugImage(fixed.Color, "color-fixed")
-	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, MaxDepth), "depth-fixed")
+	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	d.GotDebugImage(fixed.Overlay(), "overlay")
 	return nil
 }
 
 func TestAlignIntel(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
 	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &intelConfig}, nil})
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +59,7 @@ func TestAlignGripper(t *testing.T) {
 		t.Fatal("no combined")
 	}
 
-	d := NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
 	err = d.Process(&alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)

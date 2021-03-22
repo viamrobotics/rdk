@@ -1,10 +1,12 @@
-package rimage
+package imagesource
 
 import (
 	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/gostream"
 )
@@ -27,7 +29,7 @@ func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
 		t.Fatal(err)
 	}
 
-	b := ConvertToImageWithDepth(a).Depth
+	b := rimage.ConvertToImageWithDepth(a).Depth
 
 	bounds := a.Bounds()
 	if bounds.Max.X != 640 && bounds.Max.X != 1280 {

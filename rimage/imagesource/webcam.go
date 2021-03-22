@@ -1,4 +1,4 @@
-package rimage
+package imagesource
 
 import (
 	"context"
@@ -7,14 +7,15 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rimage"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
-
-	"go.viam.com/robotcore/api"
 )
 
 func init() {
@@ -77,7 +78,7 @@ func makeConstraints(attrs api.AttributeMap, debug bool) mediadevices.MediaStrea
 }
 
 type Aligner interface {
-	Align(ctx context.Context, img *ImageWithDepth) (*ImageWithDepth, error)
+	Align(ctx context.Context, img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error)
 }
 
 func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
@@ -132,21 +133,21 @@ func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStream
 	return media.GetNamedVideoReader(filepath.Base(path), constraints)
 }
 
-func imageToDepthMap(img image.Image) *DepthMap {
+func imageToDepthMap(img image.Image) *rimage.DepthMap {
 	bounds := img.Bounds()
 
 	width, height := bounds.Dx(), bounds.Dy()
 
 	// TODO(erd): handle non realsense Z16 devices better
 	// realsense seems to rotate
-	dm := NewEmptyDepthMap(height, width)
+	dm := rimage.NewEmptyDepthMap(height, width)
 
 	grayImg := img.(*image.Gray16)
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			i := grayImg.PixOffset(x, y)
 			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
-			dm.Set(y, x, Depth(z))
+			dm.Set(y, x, rimage.Depth(z))
 		}
 	}
 

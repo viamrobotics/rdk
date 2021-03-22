@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/imagesource"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
@@ -530,7 +531,7 @@ func main() {
 
 	initialPositionOk := false
 
-	annotatedImageHolder := &rimage.StaticSource{}
+	annotatedImageHolder := &imagesource.StaticSource{}
 	myRobot.AddCamera(annotatedImageHolder, api.Component{})
 
 	go func() {
