@@ -67,6 +67,14 @@ type encodedMotor struct {
 	rpmMonitorCalls   int64
 }
 
+func (m *encodedMotor) Position() int64 {
+	return m.curPosition
+}
+
+func (m *encodedMotor) PositionSupported() bool {
+	return true
+}
+
 func (m *encodedMotor) isRegulated() bool {
 	return atomic.LoadInt32(&m.regulated) == 1
 }

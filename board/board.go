@@ -33,6 +33,10 @@ type Motor interface {
 
 	GoFor(d Direction, rpm float64, rotations float64) error
 
+	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
+	Position() int64
+	PositionSupported() bool
+
 	Off() error
 	IsOn() bool
 }

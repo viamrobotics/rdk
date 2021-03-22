@@ -68,6 +68,7 @@ func (pi *piPigpio) GetConfig() board.Config {
 }
 
 func (pi *piPigpio) GPIOSet(pin string, high bool) error {
+	//golog.Global.Debugf("GPIOSet %s -> %v", pin, high)
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return fmt.Errorf("no hw pin for (%s)", pin)
