@@ -30,25 +30,27 @@ func searchUSB(filter SearchFilter) []DeviceDescription {
 	return serialDeviceDescs
 }
 
+var devPath = "/dev"
+
 var SearchDevices = func(filter SearchFilter) []DeviceDescription {
 	serialDeviceDescs := searchUSB(filter)
 	if filter.Type != "" && filter.Type != DeviceTypeJetson {
 		return serialDeviceDescs
 	}
-	devicesDir, err := os.Open("/dev")
+	devicesDir, err := os.Open(devPath)
 	if err != nil {
-		return nil
+		return serialDeviceDescs
 	}
 	defer devicesDir.Close()
 	devices, err := devicesDir.Readdir(0)
 	if err != nil {
-		return nil
+		return serialDeviceDescs
 	}
 	for _, dev := range devices {
 		if strings.HasPrefix(dev.Name(), "ttyTHS") {
 			serialDeviceDescs = append(serialDeviceDescs, DeviceDescription{
 				Type: DeviceTypeJetson,
-				Path: filepath.Join("/dev", dev.Name()),
+				Path: filepath.Join(devPath, dev.Name()),
 			})
 		}
 	}
