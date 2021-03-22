@@ -9,6 +9,14 @@ type FakeMotor struct {
 	d     Direction
 }
 
+func (m *FakeMotor) Position() int64 {
+	return 0
+}
+
+func (m *FakeMotor) PositionSupported() bool {
+	return false
+}
+
 func (m *FakeMotor) Force(force byte) error {
 	m.force = force
 	return nil
