@@ -33,6 +33,9 @@ func TestDevices(t *testing.T) {
 		{out1, []lidar.DeviceDescription{
 			{Type: deviceType, Path: "/dev/tty.usbserial-0001"}},
 		},
+		{out2, nil},
+		{out3, nil},
+		{out4, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			prevSearchCmd := usb.SearchCmd
@@ -192,6 +195,69 @@ const (
 		<integer>60000</integer>
 		<key>idVendor</key>
 		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out2 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out3 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60001</integer>
+		<key>idVendor</key>
+		<integer>4292</integer>
+	</dict>
+</array>
+</plist>
+`
+
+	out4 = `<plist version="1.0">
+<array>
+	<dict>
+		<key>IORegistryEntryChildren</key>
+		<array>
+			<dict>
+				<key>IODialinDevice</key>
+				<string>/dev/tty.usbserial-0001</string>
+			</dict>
+		</array>
+		<key>IOTTYBaseName</key>
+		<string>usbserial-</string>
+		<key>idProduct</key>
+		<integer>60000</integer>
+		<key>idVendor</key>
+		<integer>4293</integer>
 	</dict>
 </array>
 </plist>
