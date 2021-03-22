@@ -49,6 +49,7 @@ func readCompass(ctx context.Context, deviceAddress string) error {
 	var once bool
 	for {
 		cont := func() bool {
+			defer utils.ContextMainIterFunc(ctx)()
 			if !once {
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()
