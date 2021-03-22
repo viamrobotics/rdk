@@ -179,6 +179,9 @@ func runSlam(params runParams) (err error) {
 		return err
 	}
 	for _, lidarDev := range lidarDevices {
+		if err := lidarDev.Start(context.Background()); err != nil {
+			return err
+		}
 		info, infoErr := lidarDev.Info(context.Background())
 		if infoErr != nil {
 			return infoErr
