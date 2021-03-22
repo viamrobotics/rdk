@@ -10,17 +10,6 @@ import (
 	"strings"
 )
 
-type StringFlags []string
-
-func (sf *StringFlags) Set(value string) error {
-	*sf = append(*sf, value)
-	return nil
-}
-
-func (sf *StringFlags) String() string {
-	return fmt.Sprint([]string(*sf))
-}
-
 // ParseFlags parses arguments derived from and into the given into struct.
 func ParseFlags(args []string, into interface{}) error {
 	if len(args) == 0 || into == nil {
@@ -393,4 +382,40 @@ func (sf *sliceFlag) Set(val string) error {
 
 func (sf *sliceFlag) Get() interface{} {
 	return sf.values
+}
+
+type NetPortFlag int
+
+func (pf *NetPortFlag) String() string {
+	return fmt.Sprintf("%v", int(*pf))
+}
+
+var DefaultNetPort = 5555
+
+func (pf *NetPortFlag) Set(val string) error {
+	if val == "" {
+		*pf = NetPortFlag(DefaultNetPort)
+		return nil
+	}
+	portParsed, err := strconv.ParseUint(val, 10, 16)
+	if err != nil {
+		return err
+	}
+	*pf = NetPortFlag(portParsed)
+	return nil
+}
+
+func (pf *NetPortFlag) Get() interface{} {
+	return int(*pf)
+}
+
+type StringFlags []string
+
+func (sf *StringFlags) Set(value string) error {
+	*sf = append(*sf, value)
+	return nil
+}
+
+func (sf *StringFlags) String() string {
+	return fmt.Sprint([]string(*sf))
 }
