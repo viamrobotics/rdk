@@ -74,23 +74,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Temp struct {
-		Views    []View
-		Bases    []string
-		Arms     []string
-		Grippers []string
-		Boards   []board.Config
+		Views []View
 	}
 
-	temp := Temp{
-		Bases:    app.theRobot.BaseNames(),
-		Arms:     app.theRobot.ArmNames(),
-		Grippers: app.theRobot.GripperNames(),
-	}
-
-	for _, name := range app.theRobot.BoardNames() {
-		b := app.theRobot.BoardByName(name)
-		temp.Boards = append(temp.Boards, b.GetConfig())
-	}
+	temp := Temp{}
 
 	for _, view := range app.views {
 		htmlData := view.HTML()
