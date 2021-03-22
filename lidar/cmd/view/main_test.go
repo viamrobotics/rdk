@@ -79,14 +79,19 @@ func TestMain(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
+	prevPort := utils.DefaultNetPort
+	defer func() {
+		utils.DefaultNetPort = prevPort
+	}()
+
 	before := func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 		logger = tLogger
 		randomPort, err := utils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
-		defaultPort = randomPort
+		utils.DefaultNetPort = randomPort
 	}
 	testPort := func(t *testing.T) {
-		hostPort := fmt.Sprintf("localhost:%d", defaultPort)
+		hostPort := fmt.Sprintf("localhost:%d", utils.DefaultNetPort)
 		test.That(t, testutils.WaitSuccessfulDial(hostPort), test.ShouldBeNil)
 		req, err := http.NewRequest("GET", "http://"+hostPort, nil)
 		test.That(t, err, test.ShouldBeNil)
