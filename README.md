@@ -10,8 +10,8 @@
 ## Packages
 
 * [api](./api) - Robot, Arm, Base, Gripper API and Configuration
-* [arduino](./arduino) - Custom Arduino libraries
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
+  * [pi](./board/pi) - raspberry pi library
 * [kinematics](./kinematics) - Kinematics library
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
