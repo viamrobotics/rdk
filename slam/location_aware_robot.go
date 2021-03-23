@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,12 +20,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
-
-// relative to first device
-type DeviceOffset struct {
-	Angle                float64
-	DistanceX, DistanceY float64
-}
 
 type LocationAwareRobot struct {
 	started              bool
@@ -586,4 +582,53 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 
 func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea) {
 	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
+}
+
+// relative to first device
+type DeviceOffset struct {
+	Angle                float64
+	DistanceX, DistanceY float64
+}
+
+func (do *DeviceOffset) String() string {
+	return fmt.Sprintf("%#v", do)
+}
+
+func (do *DeviceOffset) Set(val string) error {
+	parsed, err := parseDevicOffsetFlag("", val)
+	if err != nil {
+		return err
+	}
+	*do = parsed
+	return nil
+}
+
+func (do *DeviceOffset) Get() interface{} {
+	return do
+}
+
+// parseDevicOffsetFlag parses a lidar offset flag from command line arguments.
+func parseDevicOffsetFlag(flagName, flag string) (DeviceOffset, error) {
+	split := strings.Split(flag, ",")
+	if len(split) != 3 {
+		return DeviceOffset{}, fmt.Errorf("wrong offset format; use --%s=angle,x,y", flagName)
+	}
+	angle, err := strconv.ParseFloat(split[0], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+	distX, err := strconv.ParseFloat(split[1], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+	distY, err := strconv.ParseFloat(split[2], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+
+	return DeviceOffset{
+		Angle:     angle,
+		DistanceX: distX,
+		DistanceY: distY,
+	}, nil
 }

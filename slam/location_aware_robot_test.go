@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
@@ -65,7 +66,7 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 	scansPerCull := larBot.cullInterval / int(larBot.updateInterval/time.Millisecond)
 
 	cmdReg := gostream.NewCommandRegistry()
-	larBot.RegisterCommands(cmdReg)
+	larBot.RegisterCommands(context.Background(), cmdReg)
 
 	return &testHarness{
 		larBot,
@@ -1148,4 +1149,32 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, actual, test.ShouldHaveLength, 2*(cullTTL-1)*th.scansPerCull)
 		test.That(t, actual, test.ShouldResemble, expected)
 	})
+}
+
+func TestDeviceOffsetFlag(t *testing.T) {
+	type MyStruct struct {
+		Offset DeviceOffset `flag:"offset"`
+	}
+	var myStruct MyStruct
+	err := utils.ParseFlags([]string{"main", "--offset=foo"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
+
+	err = utils.ParseFlags([]string{"main", "--offset=false,2.3,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,false,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,2.3,false"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,2.3,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myStruct.Offset.Angle, test.ShouldEqual, 1.2)
+	test.That(t, myStruct.Offset.DistanceX, test.ShouldEqual, 2.3)
+	test.That(t, myStruct.Offset.DistanceY, test.ShouldEqual, 4.5)
 }

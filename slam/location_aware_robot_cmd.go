@@ -12,7 +12,6 @@ import (
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"go.uber.org/multierr"
 )
@@ -46,8 +45,8 @@ const (
 
 const defaultClientMoveAmountMillis = 200
 
-// TODO(erd): context.TODOs here must be satisfied by updating gostream.Command
-func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistry) {
+// TODO(erd): replace ctx by updating gostream.Command to support context.Context
+func (lar *LocationAwareRobot) RegisterCommands(ctx context.Context, registry gostream.CommandRegistry) {
 	registry.Add(commandSave, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		lar.serverMu.Lock()
 		defer lar.serverMu.Unlock()
@@ -62,18 +61,17 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if lar.compassSensor == nil {
 			return nil, nil
 		}
-		golog.Global.Info("calibrating compass")
-		if err := lar.compassSensor.StartCalibration(context.TODO()); err != nil {
+		if err := lar.compassSensor.StartCalibration(ctx); err != nil {
 			return nil, err
 		}
 		defer func() {
-			if stopErr := lar.compassSensor.StopCalibration(context.TODO()); stopErr != nil {
+			if stopErr := lar.compassSensor.StopCalibration(ctx); stopErr != nil {
 				err = multierr.Combine(err, stopErr)
 			}
 		}()
 		step := 10.0
 		for i := 0.0; i < 360; i += step {
-			if err := compass.ReduceBase(lar.baseDevice).Spin(context.TODO(), step, 0, true); err != nil {
+			if err := compass.ReduceBase(lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
 				return nil, err
 			}
 		}
@@ -110,21 +108,21 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		}
 		dir := Direction(cmd.Args[0])
 		amount := defaultClientMoveAmountMillis
-		if err := lar.Move(context.TODO(), &amount, &dir); err != nil {
+		if err := lar.Move(ctx, &amount, &dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved %q\n%s", dir, lar)), nil
 	})
 	registry.Add(commandRobotMoveForward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		amount := defaultClientMoveAmountMillis
-		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
+		if err := lar.Move(ctx, &amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved forward\n%s", lar)), nil
 	})
 	registry.Add(commandRobotMoveBackward, func(cmd *gostream.Command) (*gostream.CommandResponse, error) {
 		amount := -defaultClientMoveAmountMillis
-		if err := lar.Move(context.TODO(), &amount, nil); err != nil {
+		if err := lar.Move(ctx, &amount, nil); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("moved backward\n%s", lar)), nil
@@ -135,7 +133,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 				DirectionUp, DirectionRight, DirectionDown, DirectionLeft)
 		}
 		dir := Direction(cmd.Args[0])
-		if err := lar.rotateTo(context.TODO(), dir); err != nil {
+		if err := lar.rotateTo(ctx, dir); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("rotate to %q", dir)), nil
@@ -183,7 +181,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err != nil {
 			return nil, err
 		}
-		if err := lar.devices[lidarDeviceNum].Start(context.TODO()); err != nil {
+		if err := lar.devices[lidarDeviceNum].Start(ctx); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d started", lidarDeviceNum)), nil
@@ -197,7 +195,7 @@ func (lar *LocationAwareRobot) RegisterCommands(registry gostream.CommandRegistr
 		if err != nil {
 			return nil, err
 		}
-		if err := lar.devices[lidarDeviceNum].Stop(context.TODO()); err != nil {
+		if err := lar.devices[lidarDeviceNum].Stop(ctx); err != nil {
 			return nil, err
 		}
 		return gostream.NewCommandResponseText(fmt.Sprintf("lidar %d stopped", lidarDeviceNum)), nil

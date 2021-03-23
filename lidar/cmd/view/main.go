@@ -24,6 +24,7 @@ func main() {
 }
 
 var (
+	defaultPort  = 5555
 	streamWidth  = 800
 	streamHeight = 600
 
@@ -45,6 +46,9 @@ func mainWithArgs(ctx context.Context, args []string) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
+	}
+	if argsParsed.Port == 0 {
+		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
 
 	if len(argsParsed.LidarDevices) == 0 {

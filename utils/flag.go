@@ -59,6 +59,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			return err
 		}
 		var val interface{}
+		var flagValIsSet bool
 		if info.Positional {
 			strVal := flagSet.Arg(info.Position)
 			if info.IsFlagVal {
@@ -103,10 +104,15 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 				if info.IsFlagVal {
 					flagValP := flagVal.Value.(*flagValueProxy)
 					if flagValP.IsSet {
-						// no work to do here
-						continue
+						flagValIsSet = true
+						if field.Type.Kind() != reflect.Ptr {
+							// no more work to do here
+							continue
+						}
+						val = flagVal.Value.(flag.Getter).Get()
+					} else {
+						val = info.Default
 					}
-					val = info.Default
 				} else {
 					val = flagVal.Value.(flag.Getter).Get()
 				}
@@ -117,17 +123,20 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 		}
 
 		valV := reflect.ValueOf(val)
+		if !valV.IsValid() {
+			continue
+		}
+		if !info.DefaultSet && valV.IsZero() {
+			continue
+		}
 		fieldV := v.Field(i)
-		if info.IsFlagVal {
+		if info.IsFlagVal && !flagValIsSet {
 			if reflect.PtrTo(fieldV.Type()).Implements(flagValueT) {
 				fieldV = fieldV.Addr()
 			}
 			if err := fieldV.Interface().(flag.Value).Set(val.(string)); err != nil { // will always be string
 				return fmt.Errorf("error parsing flag %q: %w", info.Name, err)
 			}
-			continue
-		}
-		if !valV.IsValid() || valV.IsZero() {
 			continue
 		}
 		if field.Type.Kind() == reflect.Slice {
@@ -138,6 +147,14 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			fieldV.Set(fieldSlice)
 		} else {
 			vT := fieldV.Type()
+			if vT.Kind() == reflect.Ptr {
+				newFieldV := reflect.New(vT.Elem())
+				fieldV.Set(newFieldV)
+				if valV.Kind() != reflect.Ptr {
+					fieldV = fieldV.Elem()
+					vT = vT.Elem()
+				}
+			}
 			if valV.Type().AssignableTo(vT) {
 				fieldV.Set(valV)
 			} else {
@@ -152,6 +169,7 @@ type flagInfo struct {
 	Name       string
 	Default    string
 	DefaultIfc interface{}
+	DefaultSet bool
 	Usage      string
 	Required   bool
 	Positional bool
@@ -183,6 +201,7 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 		case "required":
 			info.Required = true
 		case "default":
+			info.DefaultSet = true
 			if len(parted) != 2 {
 				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: default must have value", fieldName)
 			}
@@ -215,13 +234,8 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 	return info, nil
 }
 
-type flagUnmarshaler interface {
-	UnmarshalFlag(flagName, val string) error
-}
-
 var (
-	flagUnmarshalerT = reflect.TypeOf((*flagUnmarshaler)(nil)).Elem()
-	flagValueT       = reflect.TypeOf((*flag.Value)(nil)).Elem()
+	flagValueT = reflect.TypeOf((*flag.Value)(nil)).Elem()
 )
 
 type flagValueProxy struct {
@@ -277,25 +291,13 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		}
 		if info.IsFlagVal {
 			flagValue := v.Field(i)
+			if flagValue.Kind() == reflect.Ptr {
+				flagValue = reflect.New(fieldT).Elem()
+			}
 			if reflect.PtrTo(fieldT).Implements(flagValueT) {
 				flagValue = flagValue.Addr()
 			}
 			flagSet.Var(&flagValueProxy{Value: flagValue.Interface().(flag.Value)}, info.Name, info.Usage)
-			continue
-		}
-		if fieldT.Implements(flagUnmarshalerT) || reflect.PtrTo(fieldT).Implements(flagUnmarshalerT) {
-			flagSet.Var(&unmarshalerFlag{
-				ctor: func(val string) (interface{}, error) {
-					newVal := reflect.New(fieldT)
-					if err := newVal.Interface().(flagUnmarshaler).UnmarshalFlag(info.Name, val); err != nil {
-						return nil, fmt.Errorf("error unmarshaling flag for %q: %w", info.Name, err)
-					}
-					if field.Type.Kind() == reflect.Ptr {
-						return newVal.Interface(), nil
-					}
-					return newVal.Elem().Interface(), nil
-				},
-			}, info.Name, info.Usage)
 			continue
 		}
 		switch fieldT.Kind() {
@@ -316,11 +318,11 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		case reflect.Slice:
 			sliceElem := fieldT.Elem()
 			var ctor func(val string) (interface{}, error)
-			if sliceElem.Implements(flagUnmarshalerT) || reflect.PtrTo(sliceElem).Implements(flagUnmarshalerT) {
+			if sliceElem.Implements(flagValueT) || reflect.PtrTo(sliceElem).Implements(flagValueT) {
 				ctor = func(val string) (interface{}, error) {
 					newSliceElem := reflect.New(sliceElem)
-					if err := newSliceElem.Interface().(flagUnmarshaler).UnmarshalFlag(info.Name, val); err != nil {
-						return nil, fmt.Errorf("error unmarshaling flag for %q: %w", info.Name, err)
+					if err := newSliceElem.Interface().(flag.Value).(flag.Value).Set(val); err != nil {
+						return nil, fmt.Errorf("error setting flag for %q: %w", info.Name, err)
 					}
 					return newSliceElem.Elem().Interface(), nil
 				}
@@ -338,28 +340,6 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		}
 	}
 	return nil
-}
-
-type unmarshalerFlag struct {
-	value interface{}
-	ctor  func(val string) (interface{}, error)
-}
-
-func (uf *unmarshalerFlag) String() string {
-	return fmt.Sprintf("%v", uf.value)
-}
-
-func (uf *unmarshalerFlag) Set(val string) error {
-	newVal, err := uf.ctor(val)
-	if err != nil {
-		return err
-	}
-	uf.value = newVal
-	return nil
-}
-
-func (uf *unmarshalerFlag) Get() interface{} {
-	return uf.value
 }
 
 type sliceFlag struct {
@@ -386,36 +366,19 @@ func (sf *sliceFlag) Get() interface{} {
 
 type NetPortFlag int
 
-func (pf *NetPortFlag) String() string {
-	return fmt.Sprintf("%v", int(*pf))
+func (npf *NetPortFlag) String() string {
+	return fmt.Sprintf("%v", int(*npf))
 }
 
-var DefaultNetPort = 5555
-
-func (pf *NetPortFlag) Set(val string) error {
-	if val == "" {
-		*pf = NetPortFlag(DefaultNetPort)
-		return nil
-	}
+func (npf *NetPortFlag) Set(val string) error {
 	portParsed, err := strconv.ParseUint(val, 10, 16)
 	if err != nil {
 		return err
 	}
-	*pf = NetPortFlag(portParsed)
+	*npf = NetPortFlag(portParsed)
 	return nil
 }
 
-func (pf *NetPortFlag) Get() interface{} {
-	return int(*pf)
-}
-
-type StringFlags []string
-
-func (sf *StringFlags) Set(value string) error {
-	*sf = append(*sf, value)
-	return nil
-}
-
-func (sf *StringFlags) String() string {
-	return fmt.Sprint([]string(*sf))
+func (npf *NetPortFlag) Get() interface{} {
+	return int(*npf)
 }

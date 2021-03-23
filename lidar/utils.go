@@ -24,13 +24,21 @@ func BestAngularResolution(ctx context.Context, lidarDevices []Device) (float64,
 	return best, lidarDevices[deviceNum], deviceNum, nil
 }
 
-func (desc *DeviceDescription) UnmarshalFlag(flagName, val string) error {
-	parsed, err := ParseDeviceFlag(flagName, val)
+func (desc *DeviceDescription) String() string {
+	return fmt.Sprintf("%#v", desc)
+}
+
+func (desc *DeviceDescription) Set(val string) error {
+	parsed, err := ParseDeviceFlag("", val)
 	if err != nil {
 		return err
 	}
 	*desc = parsed
 	return nil
+}
+
+func (desc *DeviceDescription) Get() interface{} {
+	return desc
 }
 
 // ParseDeviceFlag parses a device flag from command line arguments.
