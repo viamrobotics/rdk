@@ -70,7 +70,10 @@ type Board interface {
 type DigitalInterrupt interface {
 	Config() DigitalInterruptConfig
 	Value() int64
-	Tick(high bool)
+
+	// nanos is from an arbitrary point in time, but always increasing and always needs to be accurate
+	// using time.Now().UnixNano() would be acceptable, but not required
+	Tick(high bool, nanos uint64)
 	AddCallback(c chan bool)
 	AddPostProcess(pp PostProcess)
 }

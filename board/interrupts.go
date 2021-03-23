@@ -2,11 +2,14 @@ package board
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/erh/scheme"
 
 	"go.viam.com/robotcore/utils"
+)
+
+const (
+	ServoRollingAverageWidndow = 10
 )
 
 func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error) {
@@ -19,7 +22,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	case "basic":
 		i = &BasicDigitalInterrupt{cfg: cfg}
 	case "servo":
-		i = &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(15)}
+		i = &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWidndow)}
 	default:
 		panic(fmt.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
@@ -78,13 +81,13 @@ func (i *BasicDigitalInterrupt) Value() int64 {
 }
 
 // really just for testing
-func (i *BasicDigitalInterrupt) ticks(num int) {
+func (i *BasicDigitalInterrupt) ticks(num int, now uint64) {
 	for x := 0; x < num; x++ {
-		i.Tick(true)
+		i.Tick(true, now+uint64(x))
 	}
 }
 
-func (i *BasicDigitalInterrupt) Tick(high bool) {
+func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
 	if high {
 		i.count++
 	}
@@ -106,7 +109,7 @@ func (i *BasicDigitalInterrupt) AddPostProcess(pp PostProcess) {
 
 type ServoDigitalInterrupt struct {
 	cfg  DigitalInterruptConfig
-	last int64
+	last uint64
 	ra   *utils.RollingAverage
 	pp   PostProcess
 }
@@ -124,10 +127,15 @@ func (i *ServoDigitalInterrupt) Value() int64 {
 	return v
 }
 
-func (i *ServoDigitalInterrupt) Tick(high bool) {
-	now := time.Now().UnixNano()
+func (i *ServoDigitalInterrupt) Tick(high bool, now uint64) {
+	lastValid := i.last != 0
+
 	diff := now - i.last
 	i.last = now
+
+	if !lastValid {
+		return
+	}
 
 	if high {
 		// this is time between signals, ignore
