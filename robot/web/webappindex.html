@@ -5,7 +5,7 @@
       function makeApiCall(path, cb, data) {
           if (!cb) {
               theData.error = "";
-              document.getElementById("res").innerHTML = "";
+              theData.res = {};
               console.log(path);
           }
 
@@ -28,7 +28,7 @@
                   } else if (cb) {
                       cb(response);
                   } else {
-                      document.getElementById("res").innerHTML = JSON.stringify(response);
+                      theData.res = response;
                   }
               });
       }
@@ -109,6 +109,7 @@
       function startup() {
           theData = {
               error : "",
+              res : {},
               rawStatus : null,
               status : {}
           };
@@ -236,6 +237,18 @@
         </ul>
       </div>
 
+      <table>
+        <tr>
+          <td><img id="i0" src=""/></td>
+          <td><img id="i1" src=""/></td>
+          {{ range $view := .Views }}
+          <td>
+            {{ htmlSafe $view.Body }}
+          </td>
+          {{ end }}
+        </tr>
+      </table>
+      
       <!-- ******* BOARD *******  -->
 
       <div class="board" v-for="board in status.Boards" :key="board.name">
@@ -308,22 +321,12 @@
           
         </table>
       </div> <!-- end boards -->
+
+      <div>${res}</div>
     </div> <!-- end vue app -->
 
-    <table>
-      <tr>
-        <td><img id="i0" src=""/></td>
-        <td><img id="i1" src=""/></td>
-        {{ range $view := .Views }}
-          <td>
-          {{ htmlSafe $view.Body }}
-          </td>
-        {{ end }}
-      </tr>
-    </table>
     
-    
-    <div id="res"></div>
+
     
   </body>
 </html>
