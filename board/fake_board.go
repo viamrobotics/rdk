@@ -1,5 +1,9 @@
 package board
 
+import (
+	"github.com/edaniels/golog"
+)
+
 func init() {
 	RegisterBoard("fake", NewFakeBoard)
 }
@@ -66,7 +70,7 @@ func (b *FakeBoard) Status() (Status, error) {
 	return CreateStatus(b)
 }
 
-func NewFakeBoard(cfg Config) (Board, error) {
+func NewFakeBoard(cfg Config, logger golog.Logger) (Board, error) {
 	var err error
 
 	b := &FakeBoard{
