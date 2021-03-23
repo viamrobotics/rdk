@@ -300,11 +300,8 @@ func (m *encodedMotor) GoFor(d Direction, rpm float64, rotations float64) error 
 	}
 
 	if rotations < 0 {
-		return fmt.Errorf("rotations has to be >= 0")
-	}
-
-	if m.encoder == nil {
-		return fmt.Errorf("we don't have an encoder for motor %s", m.cfg.Name)
+		rotations *= -1
+		d = FlipDirection(d)
 	}
 
 	if rotations == 0 {
