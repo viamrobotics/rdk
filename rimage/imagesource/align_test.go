@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/vision/calibration"
 )
 
 type alignTestHelper struct {
@@ -29,7 +30,7 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 		}
 	}
 
-	fixed, err := h.dc.alignColorAndDepth(context.TODO(), ii, logger)
+	fixed, err := h.dc.AlignColorAndDepth(context.TODO(), ii, logger)
 	if err != nil {
 		d.T.Fatal(err)
 	}
@@ -43,7 +44,7 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 
 func TestAlignIntel(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
-	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &intelConfig}, nil})
+	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &calibration.IntelConfig}, nil})
 	if err != nil {
 		t.Fatal(err)
 	}
