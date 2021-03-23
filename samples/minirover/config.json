@@ -63,15 +63,26 @@
         }
     ],
     "components" : [
+        { "name" : "pierre",
+          "model" : "four-wheel",
+          "type" : "base",
+          "attributes" : {
+              "board" : "local",
+              "widthMillis" : 600,
+              "wheelCircumferenceMillis" : 470,
+              "frontLeft" : "fl-m",
+              "frontRight" : "fr-m",
+              "backLeft" : "bl-m",
+              "backRight" : "br-m"
+          }
+        },
         { "name" : "front-color",
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
 	          "hide" : true,
               "path_pattern" : "usb",
-	          "width" : 1280,
-              "rotate" : true,
-              "debug" : true
+	          "width" : 1280
           }
         },
         { "name" : "front-depth",
@@ -80,8 +91,7 @@
           "attributes" : {
 	          "hide" : true,
               "format" : "Z16",
-	          "width" : 768,
-              "debug" : true
+	          "width" : 768
           }
         },
         { "name" : "front",
@@ -98,7 +108,15 @@
           "type" : "camera",
           "model" : "overlay",
           "attributes" : {
+              "hide" : true,
               "source" : "front"
+          }
+        },
+        { "name" : "front-overlay-flipped",
+          "type" : "camera",
+          "model" : "rotate",
+          "attributes" : {
+              "source" : "front-overlay"
           }
         }
     ],

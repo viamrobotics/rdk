@@ -37,3 +37,6 @@ minirover2:
 python-macos:
 	sudo mkdir -p /usr/local/lib/pkgconfig
 	sudo cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
+
+piserver:
+	go build -tags=pi -o server robot/cmd/server/main.go

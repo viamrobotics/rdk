@@ -35,7 +35,11 @@ type FakeBoard struct {
 }
 
 func (b *FakeBoard) Motor(name string) Motor {
-	return b.motors[name]
+	m, ok := b.motors[name]
+	if ok {
+		return m
+	}
+	return nil
 }
 
 func (b *FakeBoard) Servo(name string) Servo {

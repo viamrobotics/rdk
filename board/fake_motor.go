@@ -1,9 +1,5 @@
 package board
 
-import (
-	"fmt"
-)
-
 type FakeMotor struct {
 	force byte
 	d     Direction
@@ -29,7 +25,9 @@ func (m *FakeMotor) Go(d Direction, force byte) error {
 }
 
 func (m *FakeMotor) GoFor(d Direction, rpm float64, rotations float64) error {
-	return fmt.Errorf("should not be called")
+	m.d = d
+	m.force = 1
+	return nil
 }
 
 func (m *FakeMotor) Off() error {

@@ -14,6 +14,7 @@ import (
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/robotcore/board/detector"
+	_ "go.viam.com/robotcore/rimage/imagesource"
 	_ "go.viam.com/robotcore/robots/eva" // for eva
 	_ "go.viam.com/robotcore/robots/hellorobot"
 	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
