@@ -26,6 +26,17 @@ func DirectionFromString(s string) Direction {
 	return DirNone
 }
 
+func FlipDirection(d Direction) Direction {
+	switch d {
+	case DirForward:
+		return DirBackward
+	case DirBackward:
+		return DirForward
+	}
+
+	return d
+}
+
 type Motor interface {
 	Force(force byte) error
 
