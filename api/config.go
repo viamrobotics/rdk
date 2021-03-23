@@ -58,6 +58,20 @@ func (am AttributeMap) GetInt(name string, def int) int {
 	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
 }
 
+func (am AttributeMap) GetFloat64(name string, def float64) float64 {
+	x, has := am[name]
+	if !has {
+		return def
+	}
+
+	v, ok := x.(float64)
+	if ok {
+		return v
+	}
+
+	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
+}
+
 func (am AttributeMap) GetBool(name string, def bool) bool {
 	x, has := am[name]
 	if !has {
