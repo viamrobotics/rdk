@@ -29,14 +29,16 @@ func TestAnalogSmoother1(t *testing.T) {
 	}
 	defer func() { testReader.stop = true }()
 
-	as := AnalogSmoother{
-		Raw:               &testReader,
+	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{})
+	_, ok := tmp.(*AnalogSmoother)
+	assert.False(t, ok)
+
+	as := AnalogSmootherWrap(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
-	}
-	as.Start()
-
-	assert.Equal(t, 100, as.data.NumSamples())
+	})
+	_, ok = as.(*AnalogSmoother)
+	assert.True(t, ok)
 
 	time.Sleep(200 * time.Millisecond)
 
