@@ -1,11 +1,7 @@
-package fake
-
-import (
-	"go.viam.com/robotcore/board"
-)
+package board
 
 func init() {
-	board.RegisterBoard("fake", NewBoard)
+	RegisterBoard("fake", NewBoard)
 }
 
 type fakeServo struct {
@@ -29,56 +25,56 @@ func (a *fakeAnalog) Read() (int, error) {
 	return a.Value, nil
 }
 
-type Board struct {
-	motors   map[string]*board.FakeMotor
+type FakeBoard struct {
+	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
 	analogs  map[string]*fakeAnalog
-	digitals map[string]board.DigitalInterrupt
+	digitals map[string]DigitalInterrupt
 
-	cfg board.Config
+	cfg Config
 }
 
-func (b *Board) Motor(name string) board.Motor {
+func (b *FakeBoard) Motor(name string) Motor {
 	return b.motors[name]
 }
 
-func (b *Board) Servo(name string) board.Servo {
+func (b *FakeBoard) Servo(name string) Servo {
 	return b.servos[name]
 }
 
-func (b *Board) AnalogReader(name string) board.AnalogReader {
+func (b *FakeBoard) AnalogReader(name string) AnalogReader {
 	return b.analogs[name]
 }
 
-func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
+func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	return b.digitals[name]
 }
 
-func (b *Board) Close() error {
+func (b *FakeBoard) Close() error {
 	return nil
 }
 
-func (b *Board) GetConfig() board.Config {
+func (b *FakeBoard) GetConfig() Config {
 	return b.cfg
 }
 
-func (b *Board) Status() (board.Status, error) {
-	return board.CreateStatus(b)
+func (b *FakeBoard) Status() (Status, error) {
+	return CreateStatus(b)
 }
 
-func NewBoard(cfg board.Config) (board.Board, error) {
+func NewFakeBoard(cfg Config) (Board, error) {
 	var err error
 
-	b := &Board{
+	b := &FakeBoard{
 		cfg:      cfg,
-		motors:   map[string]*board.FakeMotor{},
+		motors:   map[string]*FakeMotor{},
 		servos:   map[string]*fakeServo{},
 		analogs:  map[string]*fakeAnalog{},
-		digitals: map[string]board.DigitalInterrupt{},
+		digitals: map[string]DigitalInterrupt{},
 	}
 
 	for _, c := range cfg.Motors {
-		b.motors[c.Name] = &board.FakeMotor{}
+		b.motors[c.Name] = &FakeMotor{}
 	}
 
 	for _, c := range cfg.Servos {
@@ -90,7 +86,7 @@ func NewBoard(cfg board.Config) (board.Board, error) {
 	}
 
 	for _, c := range cfg.DigitalInterrupts {
-		b.digitals[c.Name], err = board.CreateDigitalInterrupt(c)
+		b.digitals[c.Name], err = CreateDigitalInterrupt(c)
 		if err != nil {
 			return nil, err
 		}
