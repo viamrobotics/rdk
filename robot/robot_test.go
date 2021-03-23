@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"go.viam.com/robotcore/api"
+
+	_ "go.viam.com/robotcore/rimage/imagesource"
 )
 
 func TestConfig1(t *testing.T) {
