@@ -48,9 +48,9 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
 	assert.Equal(t, byte(255), real.force)
 
-	encoder.ticks(99)
+	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, DirForward, real.d)
-	encoder.Tick(true)
+	encoder.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, DirNone, real.d)
 
@@ -63,14 +63,14 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Equal(t, byte(255), real.force)
 
 	// we didn't hit the set point
-	encoder.ticks(99)
+	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, DirForward, real.d)
 
 	// go to non controlled
 	motor.Go(DirForward, 64)
 
 	// go far!
-	encoder.ticks(1000)
+	encoder.ticks(1000, nowNanosTest())
 
 	// we should still be moving at the previous force
 	time.Sleep(50 * time.Millisecond)
@@ -88,9 +88,9 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
 	assert.Equal(t, byte(255), real.force)
 
-	encoder.ticks(99)
+	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, DirBackward, real.d)
-	encoder.Tick(true)
+	encoder.Tick(true, nowNanosTest())
 	assert.Equal(t, DirNone, real.d)
 
 }
@@ -116,19 +116,19 @@ func TestMotorEncoderHall(t *testing.T) {
 
 	assert.Equal(t, int64(0), motor.curPosition)
 
-	encoderA.Tick(true)
-	encoderB.Tick(true)
+	encoderA.Tick(true, nowNanosTest())
+	encoderB.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, int64(-1), motor.curPosition)
 
-	encoderB.Tick(true)
-	encoderA.Tick(true)
+	encoderB.Tick(true, nowNanosTest())
+	encoderA.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, int64(0), motor.curPosition)
 
-	encoderB.Tick(false)
-	encoderB.Tick(true)
-	encoderA.Tick(true)
+	encoderB.Tick(false, nowNanosTest())
+	encoderB.Tick(true, nowNanosTest())
+	encoderA.Tick(true, nowNanosTest())
 	time.Sleep(210 * time.Millisecond)
 	assert.Equal(t, int64(1), motor.curPosition)
 

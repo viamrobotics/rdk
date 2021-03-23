@@ -9,6 +9,7 @@ import "C"
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/edaniels/golog"
@@ -192,12 +193,21 @@ func (pi *piPigpio) Status() (board.Status, error) {
 }
 
 var (
-	piInstance *piPigpio = nil
+	piInstance    *piPigpio = nil
+	lastTick                = uint32(0)
+	tickRollevers           = 0
 )
 
 //export pigpioInterruptCallback
-func pigpioInterruptCallback(gpio, level int, tick uint32) {
-	//golog.Global.Debugf("pigpioInterruptCallback gpio: %v level: %v", gpio, level)
+func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
+	if rawTick < lastTick {
+		tickRollevers++
+	}
+	lastTick = rawTick
+
+	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
+	//golog.Global.Debugf("pigpioInterruptCallback gpio: %v level: %v rawTick: %v tick: %v", gpio, level, rawTick, tick)
+
 	i := piInstance.interruptsHW[uint(gpio)]
 	if i == nil {
 		golog.Global.Infof("no DigitalInterrupt configured for gpio %d", gpio)
@@ -207,7 +217,7 @@ func pigpioInterruptCallback(gpio, level int, tick uint32) {
 	if level == 0 {
 		high = false
 	}
-	i.Tick(high)
+	i.Tick(high, tick*1000)
 }
 
 func NewPigpio(cfg board.Config) (board.Board, error) {
