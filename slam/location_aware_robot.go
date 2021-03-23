@@ -595,7 +595,7 @@ func (do *DeviceOffset) String() string {
 }
 
 func (do *DeviceOffset) Set(val string) error {
-	parsed, err := parseDevicOffsetFlag("", val)
+	parsed, err := parseDevicOffsetFlag(val)
 	if err != nil {
 		return err
 	}
@@ -608,10 +608,10 @@ func (do *DeviceOffset) Get() interface{} {
 }
 
 // parseDevicOffsetFlag parses a lidar offset flag from command line arguments.
-func parseDevicOffsetFlag(flagName, flag string) (DeviceOffset, error) {
+func parseDevicOffsetFlag(flag string) (DeviceOffset, error) {
 	split := strings.Split(flag, ",")
 	if len(split) != 3 {
-		return DeviceOffset{}, fmt.Errorf("wrong offset format; use --%s=angle,x,y", flagName)
+		return DeviceOffset{}, errors.New("wrong offset format; use angle,x,y")
 	}
 	angle, err := strconv.ParseFloat(split[0], 64)
 	if err != nil {
