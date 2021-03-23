@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"fmt"
 	"image"
 	"testing"
 
@@ -9,6 +8,7 @@ import (
 )
 
 type alignImageHelper struct {
+	name                string
 	config              AlignConfig
 	expectedColorOutput []image.Point
 	expectedDepthOutput []image.Point
@@ -22,7 +22,8 @@ func Abs(x int) int {
 }
 func makeTestCases() []alignImageHelper {
 	cases := []alignImageHelper{
-		{ //base case
+		{
+			name: "base_case",
 			config: AlignConfig{
 				ColorInputSize:  image.Point{120, 240},
 				ColorWarpPoints: []image.Point{{29, 82}, {61, 48}},
@@ -33,7 +34,8 @@ func makeTestCases() []alignImageHelper {
 			expectedColorOutput: ArrayToPoints([]image.Point{{14, 25}, {119, 124}}),
 			expectedDepthOutput: ArrayToPoints([]image.Point{{0, 0}, {105, 99}}),
 		},
-		{ //rotated case
+		{
+			name: "rotated case",
 			config: AlignConfig{
 				ColorInputSize:  image.Point{120, 240},
 				ColorWarpPoints: []image.Point{{29, 82}, {61, 48}},
@@ -44,7 +46,8 @@ func makeTestCases() []alignImageHelper {
 			expectedColorOutput: ArrayToPoints([]image.Point{{14, 25}, {119, 124}}),
 			expectedDepthOutput: rotatePoints(ArrayToPoints([]image.Point{{0, 0}, {99, 105}})),
 		},
-		{ //scaled case
+		{
+			name: "scaled case",
 			config: AlignConfig{
 				ColorInputSize:  image.Point{120, 240},
 				ColorWarpPoints: []image.Point{{29, 82}, {61, 48}},
@@ -55,7 +58,8 @@ func makeTestCases() []alignImageHelper {
 			expectedColorOutput: ArrayToPoints([]image.Point{{14, 25}, {119, 124}}),
 			expectedDepthOutput: ArrayToPoints([]image.Point{{0, 0}, {79, 74}}),
 		},
-		{ //scaled+rotated case
+		{
+			name: "scaled+rotated case",
 			config: AlignConfig{
 				ColorInputSize:  image.Point{120, 240},
 				ColorWarpPoints: []image.Point{{29, 82}, {61, 48}},
@@ -70,38 +74,34 @@ func makeTestCases() []alignImageHelper {
 	return cases
 }
 
-func expectedImageAlignOutput(a alignImageHelper, logger golog.Logger) (bool, error) {
+func expectedImageAlignOutput(a alignImageHelper, t *testing.T, logger golog.Logger) {
 
 	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints, logger)
 	if err != nil {
-		return false, err
+		t.Error(err)
 	}
 	// If scaling changes expected pixel boundaries by 1 pixel, that can be explained by rounding
 	for i := range colorOutput {
 		Xdiff := Abs(colorOutput[i].X - a.expectedColorOutput[i].X)
 		Ydiff := Abs(colorOutput[i].Y - a.expectedColorOutput[i].Y)
 		if Xdiff > 1 || Ydiff > 1 {
-			return false, fmt.Errorf("color got: %v color exp: %v", colorOutput, a.expectedColorOutput)
+			t.Errorf("color got: %v color exp: %v", colorOutput, a.expectedColorOutput)
 		}
 	}
 	for i := range depthOutput {
 		Xdiff := Abs(depthOutput[i].X - a.expectedDepthOutput[i].X)
 		Ydiff := Abs(depthOutput[i].Y - a.expectedDepthOutput[i].Y)
 		if Xdiff > 1 || Ydiff > 1 {
-			return false, fmt.Errorf("depth got: %v depth exp: %v", depthOutput, a.expectedDepthOutput)
+			t.Errorf("depth got: %v depth exp: %v", depthOutput, a.expectedDepthOutput)
 		}
 	}
-	return true, nil
 }
 
 func TestAlignImage(t *testing.T) {
 	cases := makeTestCases()
 	for _, c := range cases {
 		logger := golog.NewTestLogger(t)
-		ok, err := expectedImageAlignOutput(c, logger)
-		if !ok {
-			t.Error(err)
-		}
+		expectedImageAlignOutput(c, t, logger)
 	}
 
 }
