@@ -30,7 +30,10 @@ func (b *testGPIOBoard) PWMSet(pin string, dutyCycle byte) error {
 func TestMotor1(t *testing.T) {
 	b := &testGPIOBoard{}
 
-	m := GPIOMotor{b, "1", "2", "3", false}
+	m, err := NewGPIOMotor(b, map[string]string{"a": "1", "b": "2", "pwm": "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	assert.Nil(t, m.Off())
 	assert.Equal(t, false, b.gpio["1"])
@@ -57,4 +60,13 @@ func TestMotor1(t *testing.T) {
 	assert.Equal(t, false, b.gpio["2"])
 	assert.False(t, m.IsOn())
 
+	assert.Nil(t, m.Go(DirBackward, 112))
+	assert.Equal(t, false, b.gpio["1"])
+	assert.Equal(t, true, b.gpio["2"])
+	assert.Nil(t, m.Go(DirNone, 121))
+	assert.False(t, b.gpio["1"])
+	assert.False(t, b.gpio["2"])
+
+	assert.Equal(t, int64(0), m.Position())
+	assert.False(t, m.PositionSupported())
 }
