@@ -11,7 +11,7 @@ import (
 	"github.com/fogleman/gg"
 )
 
-func roverWalk(pc *rimage.ImageWithDepth, debug bool) (image.Image, int) {
+func roverWalk(pc *rimage.ImageWithDepth, debug bool, logger golog.Logger) (image.Image, int) {
 
 	var dc *gg.Context
 	if debug {
@@ -94,7 +94,7 @@ func roverWalk(pc *rimage.ImageWithDepth, debug bool) (image.Image, int) {
 		rimage.DrawString(dc, fmt.Sprintf("%d", points), image.Point{20, 80}, rimage.Green, 64)
 	}
 
-	golog.Global.Debugf("\t %d", points)
+	logger.Debugf("\t %d", points)
 
 	if dc != nil {
 		return dc.Image(), points

@@ -3,6 +3,7 @@ package kinematics
 import (
 	//~ "fmt"
 	//~ "github.com/edaniels/golog"
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
@@ -20,7 +21,7 @@ type ReturnTest struct {
 // Creates a combined parallel IK solver with the number of models given
 // Must pass at least two models. Two will produce one jacobian IK solver, and all additional
 // models will create nlopt solvers with different random seeds
-func CreateCombinedIKSolver(models []*Model) *CombinedIK {
+func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	ik := &CombinedIK{}
 	if len(models) < 2 {
 		// Anything calling this should check core counts
@@ -31,7 +32,7 @@ func CreateCombinedIKSolver(models []*Model) *CombinedIK {
 	ik.solvers = append(ik.solvers, CreateJacobianIKSolver(models[1]))
 	for i := 2; i < len(models); i++ {
 		models[i].SetSeed(int64(i))
-		ik.solvers = append(ik.solvers, CreateNloptIKSolver(models[i]))
+		ik.solvers = append(ik.solvers, CreateNloptIKSolver(models[i], logger))
 	}
 	for i, solver := range ik.solvers {
 		solver.SetID(i)

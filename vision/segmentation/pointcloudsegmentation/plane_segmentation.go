@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -23,8 +24,8 @@ func New3DPoints() *Points3D {
 }
 
 // Convert float 3d Points in meters to pointcloud
-func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.PointCloud, error) {
-	pointCloud := pc.New()
+func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64, logger golog.Logger) (*pc.PointCloud, error) {
+	pointCloud := pc.New(logger)
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
 		ptPc := pc.NewBasicPoint(x, y, z)
@@ -40,8 +41,9 @@ func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.Point
 func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	pixel2Meter float64,
 	selectedPoints map[pc.Vec3]int,
+	logger golog.Logger,
 ) (*pc.PointCloud, error) {
-	pointCloud := pc.New()
+	pointCloud := pc.New(logger)
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
 		val := 0
@@ -63,7 +65,7 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // pixel2meter is the conversion factor from the depth value to its value in meters
 // This function returns a pointcloud with values; the values are set to 1 if a point belongs to the plane, 0 otherwise
-func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64, error) {
+func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64, logger golog.Logger) (*pc.PointCloud, []float64, error) {
 	nPoints := len(pts.Points)
 	bestEquation := make([]float64, 4)
 	currentEquation := make([]float64, 4)
@@ -108,7 +110,7 @@ func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float6
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2meter)
 		bestInliersPointCloud[pc.Vec3{x, y, z}] = 1
 	}
-	pointCloudOut, err := pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud)
+	pointCloudOut, err := pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud, logger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -198,9 +200,9 @@ func SampleRandomIntRange(min, max int) int {
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics) (*pc.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics, logger golog.Logger) (*pc.PointCloud, error) {
 	// create new point cloud
-	pcOut := pc.New()
+	pcOut := pc.New(logger)
 	// go through depth map pixels and get 3D Points
 	for y := 0; y < depthImage.Height(); y++ {
 		for x := 0; x < depthImage.Width(); x++ {

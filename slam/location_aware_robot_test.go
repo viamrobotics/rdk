@@ -13,6 +13,7 @@ import (
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
 )
@@ -24,6 +25,7 @@ type testHarness struct {
 	lidarDev     *inject.LidarDevice
 	cmdReg       gostream.CommandRegistry
 	scansPerCull int
+	logger       golog.Logger
 }
 
 func (th *testHarness) ResetPos() {
@@ -40,8 +42,9 @@ func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter int) *testHarnes
 }
 
 func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter int) *testHarness {
+	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(meters, unitsPerMeter)
+	area, err := NewSquareArea(meters, unitsPerMeter, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
@@ -57,6 +60,7 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -75,12 +79,14 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 		injectLidarDev,
 		cmdReg,
 		scansPerCull,
+		logger,
 	}
 }
 
 func TestNewLocationAwareRobot(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(10, 100)
+	area, err := NewSquareArea(10, 100, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{}
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
@@ -94,6 +100,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -109,6 +116,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldWrap, err1)
 
@@ -127,6 +135,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldWrap, err1)
 }
@@ -504,7 +513,7 @@ func TestScanAndStore(t *testing.T) {
 
 func testUpdate(t *testing.T, internal bool) {
 	th := newTestHarness(t)
-	area, err := th.area.BlankCopy()
+	area, err := th.area.BlankCopy(th.logger)
 	test.That(t, err, test.ShouldBeNil)
 	device := &inject.LidarDevice{}
 	err1 := errors.New("whoops")
@@ -857,7 +866,7 @@ func testUpdate(t *testing.T, internal bool) {
 				}
 				devices = append(devices, device)
 			}
-			area, err := th.area.BlankCopy()
+			area, err := th.area.BlankCopy(th.logger)
 			test.That(t, err, test.ShouldBeNil)
 			if internal {
 				err = th.bot.scanAndStore(context.Background(), devices, area)

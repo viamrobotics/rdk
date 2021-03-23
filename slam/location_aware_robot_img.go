@@ -125,7 +125,7 @@ func (lar *LocationAwareRobot) renderStoredView() (image.Image, func(), error) {
 
 func (lar *LocationAwareRobot) renderLiveView(ctx context.Context) (image.Image, func(), error) {
 	devices, bounds, areas := lar.areasToView()
-	blankArea, err := areas[0].BlankCopy()
+	blankArea, err := areas[0].BlankCopy(lar.logger)
 	if err != nil {
 		return nil, nil, err
 	}

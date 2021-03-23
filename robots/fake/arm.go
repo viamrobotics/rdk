@@ -3,11 +3,12 @@ package fake
 import (
 	"fmt"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 )
 
 func init() {
-	api.RegisterArm("fake", func(r api.Robot, config api.Component) (api.Arm, error) {
+	api.RegisterArm("fake", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
 		return NewArm(), nil
 	})
 }

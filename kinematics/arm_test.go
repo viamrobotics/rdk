@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
@@ -12,7 +13,8 @@ import (
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
-	evaArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+	logger := golog.NewTestLogger(t)
+	evaArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	//~ 	evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/eva.json"), 1)
 	//~ 	test.That(t, err, test.ShouldBeNil)
@@ -51,9 +53,10 @@ func TestCombinedIKinematics(t *testing.T) {
 }
 
 func TestNloptIKinematics(t *testing.T) {
-	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
+	logger := golog.NewTestLogger(t)
+	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(wxArm.Model)
+	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
 
 	pos := api.ArmPosition{1, -368, 355, 0, 0, 0}
