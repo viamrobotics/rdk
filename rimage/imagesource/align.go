@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"time"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/vision/calibration"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
-	"go.opencensus.io/trace"
 )
 
 func init() {
@@ -45,42 +44,17 @@ func init() {
 }
 
 type DepthComposed struct {
-	color, depth                   gostream.ImageSource
-	colorTransform, depthTransform rimage.TransformationMatrix
-
-	config *rimage.AlignConfig
-	debug  bool
-	logger golog.Logger
+	color, depth                      gostream.ImageSource
+	*calibration.DepthColorTransforms // using anonymous fields
+	logger                            golog.Logger
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	var config *rimage.AlignConfig
-	var err error
-
-	if attrs.Has("config") {
-		config = attrs["config"].(*rimage.AlignConfig)
-	} else if attrs["make"] == "intel515" {
-		config = &intelConfig
-	} else {
-		return nil, fmt.Errorf("no aligntmnt config")
+	dct, err := calibration.NewDepthColorTransforms(attrs, logger)
+	if err != nil {
+		return nil, err
 	}
-
-	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
-
-	if config.WarpFromCommon {
-		config, err = config.ComputeWarpFromCommon(logger)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	colorPoints := rimage.ArrayToPoints(config.ColorWarpPoints)
-	depthPoints := rimage.ArrayToPoints(config.DepthWarpPoints)
-
-	colorTransform := rimage.GetPerspectiveTransform(colorPoints, dst)
-	depthTransform := rimage.GetPerspectiveTransform(depthPoints, dst)
-
-	return &DepthComposed{color, depth, colorTransform, depthTransform, config, attrs.GetBool("debug", false), logger}, nil
+	return &DepthComposed{color, depth, dct, logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {
@@ -118,57 +92,8 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	aligned, err := dc.alignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}, dc.logger)
+	aligned, err := dc.AlignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}, dc.logger)
 
 	return aligned, func() {}, err
 
-}
-
-var (
-	alignCurrentlyWriting = false
-	intelConfig           = rimage.AlignConfig{
-		ColorInputSize:  image.Point{1280, 720},
-		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
-
-		DepthInputSize:  image.Point{1024, 768},
-		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
-
-		OutputSize: image.Point{640, 360},
-	}
-)
-
-func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
-	_, span := trace.StartSpan(ctx, "alignColorAndDepth")
-	defer span.End()
-
-	if dc.debug {
-		if !alignCurrentlyWriting {
-			alignCurrentlyWriting = true
-			go func() {
-				defer func() { alignCurrentlyWriting = false }()
-				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
-				err := ii.WriteTo(fn)
-				if err != nil {
-					logger.Debugf("error writing debug file: %s", err)
-				} else {
-					logger.Debugf("wrote debug file to %s", fn)
-				}
-			}()
-		}
-	}
-
-	if ii.Color.Width() != dc.config.ColorInputSize.X ||
-		ii.Color.Height() != dc.config.ColorInputSize.Y ||
-		ii.Depth.Width() != dc.config.DepthInputSize.X ||
-		ii.Depth.Height() != dc.config.DepthInputSize.Y {
-		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
-			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dc.config)
-	}
-
-	ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
-
-	c2 := rimage.WarpImage(ii, dc.colorTransform, dc.config.OutputSize)
-	dm2 := ii.Depth.Warp(dc.depthTransform, dc.config.OutputSize)
-
-	return &rimage.ImageWithDepth{c2, &dm2}, nil
 }

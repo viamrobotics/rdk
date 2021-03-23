@@ -85,14 +85,14 @@ func expectedImageAlignOutput(a alignImageHelper, t *testing.T, logger golog.Log
 		Xdiff := Abs(colorOutput[i].X - a.expectedColorOutput[i].X)
 		Ydiff := Abs(colorOutput[i].Y - a.expectedColorOutput[i].Y)
 		if Xdiff > 1 || Ydiff > 1 {
-			t.Errorf("color got: %v color exp: %v", colorOutput, a.expectedColorOutput)
+			t.Errorf("%s color got: %v color exp: %v", a.name, colorOutput, a.expectedColorOutput)
 		}
 	}
 	for i := range depthOutput {
 		Xdiff := Abs(depthOutput[i].X - a.expectedDepthOutput[i].X)
 		Ydiff := Abs(depthOutput[i].Y - a.expectedDepthOutput[i].Y)
 		if Xdiff > 1 || Ydiff > 1 {
-			t.Errorf("depth got: %v depth exp: %v", depthOutput, a.expectedDepthOutput)
+			t.Errorf("%s depth got: %v depth exp: %v", a.name, depthOutput, a.expectedDepthOutput)
 		}
 	}
 }
