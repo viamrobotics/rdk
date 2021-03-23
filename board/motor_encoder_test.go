@@ -150,7 +150,7 @@ func TestMotorEncoderWrap(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 
-	b, err := NewFakeBoard(Config{})
+	b, err := NewFakeBoard(Config{}, golog.Global)
 	if err != nil {
 		t.Fatal(err)
 	}

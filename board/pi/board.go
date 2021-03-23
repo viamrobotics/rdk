@@ -211,7 +211,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 
 	i := piInstance.interruptsHW[uint(gpio)]
 	if i == nil {
-		logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+		golog.Global.Infof("no DigitalInterrupt configured for gpio %d", gpio)
 		return
 	}
 	high := true
@@ -262,7 +262,7 @@ func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel}
-		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ar, ac)
+		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ar, ac, logger)
 	}
 
 	// setup interrupts
@@ -293,7 +293,7 @@ func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
 			return nil, err
 		}
 
-		m, err = board.WrapMotorWithEncoder(piInstance, c, m)
+		m, err = board.WrapMotorWithEncoder(piInstance, c, m, logger)
 		if err != nil {
 			return nil, err
 		}
