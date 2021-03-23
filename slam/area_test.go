@@ -6,15 +6,17 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestNewSquareArea(t *testing.T) {
-	_, err := NewSquareArea(99, 1)
+	logger := golog.NewTestLogger(t)
+	_, err := NewSquareArea(99, 1, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "divisible")
 
-	sa, err := NewSquareArea(100, 10)
+	sa, err := NewSquareArea(100, 10, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sa.Dim(), test.ShouldEqual, 1000)
@@ -25,7 +27,8 @@ func TestNewSquareArea(t *testing.T) {
 }
 
 func TestSquareAreaWriteToFile(t *testing.T) {
-	sa, err := NewSquareArea(100, 10)
+	logger := golog.NewTestLogger(t)
+	sa, err := NewSquareArea(100, 10, logger)
 	test.That(t, err, test.ShouldBeNil)
 	sa.Mutate(func(area MutableArea) {
 		test.That(t, area.Set(1, 2, 5), test.ShouldBeNil)
@@ -41,13 +44,14 @@ func TestSquareAreaWriteToFile(t *testing.T) {
 	err = sa.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextArea, err := NewSquareAreaFromFile(temp.Name(), 100, 10)
+	nextArea, err := NewSquareAreaFromFile(temp.Name(), 100, 10, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextArea, test.ShouldResemble, sa)
 }
 
 func TestSquareArea(t *testing.T) {
-	sa, err := NewSquareArea(100, 10)
+	logger := golog.NewTestLogger(t)
+	sa, err := NewSquareArea(100, 10, logger)
 	test.That(t, err, test.ShouldBeNil)
 	sa.Mutate(func(area MutableArea) {
 		test.That(t, area.Set(1, 2, 5), test.ShouldBeNil)
@@ -105,7 +109,7 @@ func TestSquareArea(t *testing.T) {
 		test.That(t, expected, test.ShouldBeEmpty)
 	})
 
-	newSA, err := sa.BlankCopy()
+	newSA, err := sa.BlankCopy(logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	sizeMeters, unitsPerMeter := sa.Size()

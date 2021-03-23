@@ -19,13 +19,13 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("webcam", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
-		return NewWebcamSource(config.Attributes)
+	api.RegisterCamera("webcam", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+		return NewWebcamSource(config.Attributes, logger)
 	})
 
 }
 
-func makeConstraints(attrs api.AttributeMap, debug bool) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs api.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 
 	minWidth := 680
 	maxWidth := 4096
@@ -71,7 +71,7 @@ func makeConstraints(attrs api.AttributeMap, debug bool) mediadevices.MediaStrea
 			}
 
 			if debug {
-				golog.Global.Debugf("constraints: %v", constraint)
+				logger.Debugf("constraints: %v", constraint)
 			}
 		},
 	}
@@ -81,12 +81,12 @@ type Aligner interface {
 	Align(ctx context.Context, img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error)
 }
 
-func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
+func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	var err error
 
 	debug := attrs.GetBool("debug", false)
 
-	constraints := makeConstraints(attrs, debug)
+	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Has("path") {
 		return tryWebcamOpen(attrs.GetString("path"), debug, constraints)
@@ -103,12 +103,12 @@ func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 	labels := media.QueryVideoDeviceLabels()
 	for _, label := range labels {
 		if debug {
-			golog.Global.Debugf("%s", label)
+			logger.Debugf("%s", label)
 		}
 
 		if pattern != nil && !pattern.MatchString(label) {
 			if debug {
-				golog.Global.Debugf("\t skipping because of pattern")
+				logger.Debugf("\t skipping because of pattern")
 			}
 			continue
 		}
@@ -116,13 +116,13 @@ func NewWebcamSource(attrs api.AttributeMap) (gostream.ImageSource, error) {
 		s, err := tryWebcamOpen(label, debug, constraints)
 		if err == nil {
 			if debug {
-				golog.Global.Debugf("\t USING")
+				logger.Debugf("\t USING")
 			}
 
 			return s, nil
 		}
 		if debug {
-			golog.Global.Debugf("\t %s", err)
+			logger.Debugf("\t %s", err)
 		}
 	}
 

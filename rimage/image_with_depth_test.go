@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,6 +51,7 @@ func TestPCRoundTrip(t *testing.T) {
 }
 
 func TestPC3(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +59,7 @@ func TestPC3(t *testing.T) {
 
 	os.MkdirAll("out", 0775)
 
-	pc, err := iwd.ToPointCloud()
+	pc, err := iwd.ToPointCloud(logger)
 	if err != nil {
 		t.Fatal(err)
 	}

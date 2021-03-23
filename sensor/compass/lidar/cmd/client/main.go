@@ -6,21 +6,22 @@ import (
 	_ "net/http/pprof"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/stat"
 )
 
-var logger = golog.Global
+var logger = rlog.Logger.Named("lidar_client")
 
 func main() {
-	utils.ContextualMainQuit(mainWithArgs)
+	utils.ContextualMainQuit(mainWithArgs, logger)
 }
 
 // Arguments for the command.
@@ -28,7 +29,7 @@ type Arguments struct {
 	LidarDevice *lidar.DeviceDescription `flag:"device,usage=lidar device"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err

@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,14 +30,15 @@ func TestAnalogSmoother1(t *testing.T) {
 	}
 	defer func() { testReader.stop = true }()
 
-	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{})
+	logger := golog.NewTestLogger(t)
+	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{}, logger)
 	_, ok := tmp.(*AnalogSmoother)
 	assert.False(t, ok)
 
 	as := AnalogSmootherWrap(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
-	})
+	}, logger)
 	_, ok = as.(*AnalogSmoother)
 	assert.True(t, ok)
 

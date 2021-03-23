@@ -13,7 +13,7 @@ var (
 	rpmDebug = true
 )
 
-func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor) (Motor, error) {
+func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -40,6 +40,7 @@ func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor) (Motor, error) {
 		real:     m,
 		encoder:  i,
 		encoderB: encoderB,
+		logger:   logger,
 	}
 	mm2.rpmMonitorStart()
 
@@ -65,6 +66,7 @@ type encodedMotor struct {
 
 	startedRPMMonitor bool
 	rpmMonitorCalls   int64
+	logger            golog.Logger
 }
 
 func (m *encodedMotor) Position() int64 {
@@ -140,13 +142,13 @@ func (m *encodedMotor) startSingleEncoderThread() {
 				m.curPosition--
 				stop = m.isRegulated() && m.curPosition <= m.setPoint
 			} else {
-				golog.Global.Warnf("got encoder tick but motor should be off")
+				m.logger.Warnf("got encoder tick but motor should be off")
 			}
 
 			if stop {
 				err := m.Off()
 				if err != nil {
-					golog.Global.Warnf("error turning motor off from after hit set point: %v", err)
+					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 				}
 				m.setRegulated(false)
 			}
@@ -206,7 +208,7 @@ func (m *encodedMotor) startRotaryEncoderThread() {
 				if stop {
 					err := m.Off()
 					if err != nil {
-						golog.Global.Warnf("error turning motor off from after hit set point: %v", err)
+						m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 					}
 					m.setRegulated(false)
 				}
@@ -279,12 +281,12 @@ func (m *encodedMotor) rpmMonitor() {
 
 			if newForce != m.lastForce {
 				if rpmDebug {
-					golog.Global.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
+					m.logger.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
 						currentRPM, m.lastForce, newForce, m.desiredRPM)
 				}
 				err := m.setForce(newForce)
 				if err != nil {
-					golog.Global.Warnf("rpm regulator cannot set force %s", err)
+					m.logger.Warnf("rpm regulator cannot set force %s", err)
 				}
 			}
 		}

@@ -32,6 +32,7 @@ type robotWebApp struct {
 	template *template.Template
 	views    []gostream.View
 	theRobot *robot.Robot
+	logger   golog.Logger
 }
 
 func (app *robotWebApp) Init() error {
@@ -63,7 +64,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if true {
 		err := app.Init()
 		if err != nil {
-			golog.Global.Debugf("couldn't reload template: %s", err)
+			app.logger.Debugf("couldn't reload template: %s", err)
 			return
 		}
 	}
@@ -89,13 +90,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err := app.template.Execute(w, temp)
 	if err != nil {
-		golog.Global.Debugf("couldn't execute web page: %s", err)
+		app.logger.Debugf("couldn't execute web page: %s", err)
 	}
 }
 
 // ---------------
 
-func InstallWebBase(mux *http.ServeMux, theBase api.Base) {
+func InstallWebBase(mux *http.ServeMux, theBase api.Base, logger golog.Logger) {
 
 	mux.Handle("/api/base", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
@@ -140,19 +141,20 @@ func InstallWebBase(mux *http.ServeMux, theBase api.Base) {
 
 		return nil, nil
 
-	}})
+	}, logger})
 }
 
 type apiMethod func(r *http.Request) (map[string]interface{}, error)
 
 type apiCall struct {
 	theMethod apiMethod
+	logger    golog.Logger
 }
 
 func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	res, err := ac.theMethod(r)
 	if err != nil {
-		golog.Global.Warnf("error in api call: %s", err)
+		ac.logger.Warnf("error in api call: %s", err)
 		res = map[string]interface{}{"err": err.Error()}
 	}
 
@@ -162,7 +164,7 @@ func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	js, err := json.Marshal(res)
 	if err != nil {
-		golog.Global.Warnf("cannot marshal json: %s", err)
+		ac.logger.Warnf("cannot marshal json: %s", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -171,7 +173,7 @@ func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(js) //nolint
 }
 
-func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallActions(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	mux.Handle("/api/action", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		name := r.FormValue("name")
 		switch name {
@@ -184,10 +186,10 @@ func InstallActions(mux *http.ServeMux, theRobot *robot.Robot) {
 		default:
 			return nil, fmt.Errorf("unknown action name [%s]", name)
 		}
-	}})
+	}, logger})
 }
 
-func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	mux.Handle("/api/arm/MoveToPosition", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		req := &MoveToPositionRequest{}
 		err := json.NewDecoder(r.Body).Decode(req)
@@ -201,7 +203,7 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 		}
 
 		return nil, arm.MoveToPosition(req.To)
-	}})
+	}, logger})
 
 	mux.Handle("/api/arm/MoveToJointPositions", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		req := &MoveToJointPositionsRequest{}
@@ -216,11 +218,11 @@ func InstallWebArms(mux *http.ServeMux, theRobot *robot.Robot) {
 		}
 
 		return nil, arm.MoveToJointPositions(req.To)
-	}})
+	}, logger})
 
 }
 
-func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	mux.Handle("/api/gripper", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		name := r.FormValue("name")
 		gripper := theRobot.GripperByName(name)
@@ -247,10 +249,10 @@ func InstallWebGrippers(mux *http.ServeMux, theRobot *robot.Robot) {
 			return nil, fmt.Errorf("gripper error: %s", err)
 		}
 		return res, nil
-	}})
+	}, logger})
 }
 
-func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	theFunc := func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
 		camera := theRobot.CameraByName(name)
@@ -271,7 +273,7 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 		w.Header().Set("Content-Type", "image/jpeg")
 		err = jpeg.Encode(w, img, nil)
 		if err != nil {
-			golog.Global.Debugf("error encoding jpeg: %s", err)
+			logger.Debugf("error encoding jpeg: %s", err)
 		}
 	}
 	mux.HandleFunc("/api/camera", theFunc)
@@ -279,7 +281,7 @@ func InstallSimpleCamera(mux *http.ServeMux, theRobot *robot.Robot) {
 
 }
 
-func InstallStatus(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallStatus(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	mux.HandleFunc("/api/status", func(w http.ResponseWriter, r *http.Request) {
 		status, err := theRobot.Status()
 		if err != nil {
@@ -292,12 +294,12 @@ func InstallStatus(mux *http.ServeMux, theRobot *robot.Robot) {
 		enc := json.NewEncoder(w)
 		err = enc.Encode(status)
 		if err != nil {
-			golog.Global.Infof("failed to encode status %s", err)
+			logger.Infof("failed to encode status %s", err)
 		}
 	})
 }
 
-func installBoard(mux *http.ServeMux, b board.Board) {
+func installBoard(mux *http.ServeMux, b board.Board, logger golog.Logger) {
 	cfg := b.GetConfig()
 
 	mux.Handle("/api/board/"+cfg.Name+"/motor", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
@@ -325,7 +327,7 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 		}
 
 		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(r.FormValue("d")), speed, rVal)
-	}})
+	}, logger})
 
 	mux.Handle("/api/board/"+cfg.Name+"/servo", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		name := r.FormValue("name")
@@ -341,12 +343,12 @@ func installBoard(mux *http.ServeMux, b board.Board) {
 
 		return nil, theServo.Move(uint8(angle))
 
-	}})
+	}, logger})
 }
 
-func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot) {
+func InstallBoards(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
 	for _, name := range theRobot.BoardNames() {
-		installBoard(mux, theRobot.BoardByName(name))
+		installBoard(mux, theRobot.BoardByName(name), logger)
 	}
 }
 
@@ -384,7 +386,7 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 }
 
 // returns a closer func to be called when done
-func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, options Options) (func(), error) {
+func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, options Options, logger golog.Logger) (func(), error) {
 	displaySources, displayNames := allSourcesToDisplay(theRobot)
 	views := []gostream.View{}
 	var autoCameraTiler *gostream.AutoTiler
@@ -397,13 +399,13 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 				return nil, err
 			}
 			view.SetOnClickHandler(func(x, y int) {
-				golog.Global.Debugw("click", "x", x, "y", y)
+				logger.Debugw("click", "x", x, "y", y)
 			})
 			views = append(views, view)
 
 			tilerHeight := 480 * len(displaySources)
 			autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
-			autoCameraTiler.SetLogger(golog.Global)
+			autoCameraTiler.SetLogger(logger)
 
 		} else {
 			for idx := range displaySources {
@@ -415,14 +417,14 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 					return nil, err
 				}
 				view.SetOnClickHandler(func(x, y int) {
-					golog.Global.Debugw("click", "x", x, "y", y)
+					logger.Debugw("click", "x", x, "y", y)
 				})
 				views = append(views, view)
 			}
 		}
 	}
 
-	app := &robotWebApp{views: views, theRobot: theRobot}
+	app := &robotWebApp{views: views, theRobot: theRobot, logger: logger}
 	err := app.Init()
 	if err != nil {
 		return nil, err
@@ -430,20 +432,20 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 
 	// install routes
 	for _, name := range theRobot.BaseNames() {
-		InstallWebBase(mux, theRobot.BaseByName(name))
+		InstallWebBase(mux, theRobot.BaseByName(name), logger)
 	}
 
-	InstallWebArms(mux, theRobot)
+	InstallWebArms(mux, theRobot, logger)
 
-	InstallWebGrippers(mux, theRobot)
+	InstallWebGrippers(mux, theRobot, logger)
 
-	InstallActions(mux, theRobot)
+	InstallActions(mux, theRobot, logger)
 
-	InstallSimpleCamera(mux, theRobot)
+	InstallSimpleCamera(mux, theRobot, logger)
 
-	InstallBoards(mux, theRobot)
+	InstallBoards(mux, theRobot, logger)
 
-	InstallStatus(mux, theRobot)
+	InstallStatus(mux, theRobot, logger)
 
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("robot/web/static/"))))
 	mux.Handle("/", app)
@@ -489,13 +491,13 @@ func InstallWeb(ctx context.Context, mux *http.ServeMux, theRobot *robot.Robot, 
 /*
 helper if you don't need to customize at all
 */
-func RunWeb(theRobot *robot.Robot, options Options) error {
+func RunWeb(theRobot *robot.Robot, options Options, logger golog.Logger) error {
 	defer theRobot.Close(context.Background())
 	mux := http.NewServeMux()
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	webCloser, err := InstallWeb(cancelCtx, mux, theRobot, options)
+	webCloser, err := InstallWeb(cancelCtx, mux, theRobot, options, logger)
 	if err != nil {
 		return err
 	}
@@ -516,13 +518,13 @@ func RunWeb(theRobot *robot.Robot, options Options) error {
 		cancelFunc()
 		webCloser()
 		if err := httpServer.Shutdown(context.Background()); err != nil {
-			golog.Global.Errorw("error shutting down", "error", err)
+			theRobot.Logger().Errorw("error shutting down", "error", err)
 		}
 	}()
 
-	golog.Global.Debugw("going to listen", "addr", fmt.Sprintf("http://localhost:%d", port), "port", port)
+	theRobot.Logger().Debugw("going to listen", "addr", fmt.Sprintf("http://localhost:%d", port), "port", port)
 	if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
-		golog.Global.Fatal(err)
+		theRobot.Logger().Fatal(err)
 	}
 
 	return nil

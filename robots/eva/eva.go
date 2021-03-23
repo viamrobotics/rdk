@@ -12,14 +12,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
 )
 
 func init() {
-	api.RegisterArm("eva", func(r api.Robot, config api.Component) (api.Arm, error) {
-		return NewEva(config.Host, config.Attributes)
+	api.RegisterArm("eva", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return NewEva(config.Host, config.Attributes, logger)
 	})
 }
 
@@ -56,6 +55,7 @@ type eva struct {
 	sessionToken string
 
 	moveLock sync.Mutex
+	logger   golog.Logger
 }
 
 func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
@@ -238,7 +238,7 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	}
 
 	if block {
-		golog.Global.Debugf("i don't know how to block")
+		e.logger.Debugf("i don't know how to block")
 		time.Sleep(1000 * time.Millisecond)
 	}
 	return nil
@@ -251,15 +251,16 @@ func (e *eva) apiLock() error {
 func (e *eva) apiUnlock() {
 	err := e.apiRequest("DELETE", "controls/lock", nil, true, nil)
 	if err != nil {
-		golog.Global.Debugf("eva unlock failed: %s", err)
+		e.logger.Debugf("eva unlock failed: %s", err)
 	}
 }
 
-func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
+func NewEva(host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, error) {
 	e := &eva{
 		host:    host,
 		version: "v1",
 		token:   attrs.GetString("token"),
+		logger:  logger,
 	}
 
 	name, err := e.apiName()
@@ -267,7 +268,7 @@ func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
 		return nil, err
 	}
 
-	golog.Global.Debugf("connected to eva: %v", name)
+	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4)
+	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4, logger)
 }

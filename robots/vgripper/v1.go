@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/utils"
 )
 
 func init() {
-	api.RegisterGripper("viam", func(r api.Robot, config api.Component) (api.Gripper, error) {
+	api.RegisterGripper("viam", func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, fmt.Errorf("viam gripper requires a board called local")
 		}
-		return NewGripperV1(b)
+		return NewGripperV1(b, logger)
 	})
 }
 
@@ -31,15 +30,17 @@ type GripperV1 struct {
 	defaultSpeed byte
 
 	closeDirection, openDirection board.Direction
+	logger                        golog.Logger
 }
 
-func NewGripperV1(theBoard board.Board) (*GripperV1, error) {
+func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error) {
 
 	vg := &GripperV1{
 		motor:        theBoard.Motor("g"),
 		current:      theBoard.AnalogReader("current"),
 		pressure:     theBoard.AnalogReader("pressure"),
 		defaultSpeed: 64,
+		logger:       logger,
 	}
 
 	if vg.motor == nil {
@@ -205,12 +206,12 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir board.Direction) (int64
 	defer func() {
 		err := vg.Stop()
 		if err != nil {
-			golog.Global.Warnf("couldn't stop motor %s", err)
+			vg.logger.Warnf("couldn't stop motor %s", err)
 		}
-		golog.Global.Debugf("stopped")
+		vg.logger.Debugf("stopped")
 	}()
 
-	golog.Global.Debugf("starting to move dir: %v", dir)
+	vg.logger.Debugf("starting to move dir: %v", dir)
 
 	err := vg.motor.Go(dir, vg.defaultSpeed)
 	if err != nil {
@@ -235,7 +236,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir board.Direction) (int64
 			return -1, false, err
 		}
 
-		golog.Global.Debugf("dir: %v last: %v now: %v hasPressure: %v",
+		vg.logger.Debugf("dir: %v last: %v now: %v hasPressure: %v",
 			dir, last, now, hasPressure)
 
 		if vg.encoderSame(last, now) || hasPressure {

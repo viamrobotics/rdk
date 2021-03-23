@@ -31,11 +31,11 @@ type ContextualMainExecution struct {
 // ContextualMain calls a main entry point function with a cancellable
 // context via the returned execution struct. The main function is run
 // in a separate goroutine.
-func ContextualMain(main func(ctx context.Context, args []string) error, args []string) ContextualMainExecution {
-	return contextualMain(main, args)
+func ContextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, args []string, logger golog.Logger) ContextualMainExecution {
+	return contextualMain(main, args, logger)
 }
 
-func contextualMain(main func(ctx context.Context, args []string) error, args []string) ContextualMainExecution {
+func contextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, args []string, logger golog.Logger) ContextualMainExecution {
 	ctx, stop := context.WithCancel(context.Background())
 	quitC := make(chan os.Signal)
 	ctx = utils.ContextWithQuitSignal(ctx, quitC)
@@ -59,7 +59,7 @@ func contextualMain(main func(ctx context.Context, args []string) error, args []
 				// after execution is complete.
 				defer readyF()
 				defer close(mainDone)
-				err = main(ctx, append([]string{"main"}, args...))
+				err = main(ctx, append([]string{"main"}, args...), logger)
 				doneC <- err
 			}()
 		})
@@ -165,16 +165,15 @@ var (
 )
 
 // TestMain tests a main function with a series of test cases in serial.
-func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string) error, tcs []MainTestCase) {
+func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string, logger golog.Logger) error, tcs []MainTestCase) {
 	for i, tc := range tcs {
 		testCaseName := tc.Name
 		if testCaseName == "" {
 			testCaseName = fmt.Sprintf("%d", i)
 		}
 		t.Run(testCaseName, func(t *testing.T) {
-			var logs *observer.ObservedLogs
-			exec := ContextualMain(mainWithArgs, tc.Args)
 			logger, logs := golog.NewObservedTestLogger(t)
+			exec := ContextualMain(mainWithArgs, tc.Args, logger)
 			if tc.Before != nil {
 				tc.Before(t, logger, &exec)
 			}

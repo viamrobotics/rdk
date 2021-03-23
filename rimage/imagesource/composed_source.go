@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
@@ -12,11 +13,11 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthToPretty", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("depthToPretty", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return newDepthToPretty(r, config)
 	})
 
-	api.RegisterCamera("overlay", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("overlay", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return newOverlay(r, config)
 	})
 }
