@@ -11,11 +11,11 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
 
@@ -25,6 +25,8 @@ const (
 
 	WheelCircumferenceMillis = math.Pi * 150
 )
+
+var logger = rlog.Logger.Named("minirover")
 
 // ------
 
@@ -150,12 +152,12 @@ func (r *Rover) neckOffset(left int) error {
 }
 
 func (r *Rover) neckPosition(pan, tilt uint8) error {
-	golog.Global.Debugf("neckPosition to %v %v", pan, tilt)
+	logger.Debugf("neckPosition to %v %v", pan, tilt)
 	return multierr.Combine(r.pan.Move(pan), r.tilt.Move(tilt))
 }
 
 func (r *Rover) Ready(theRobot api.Robot) error {
-	golog.Global.Debugf("minirover2 Ready called")
+	logger.Debugf("minirover2 Ready called")
 	cam := theRobot.CameraByName("front")
 	if cam == nil {
 		return fmt.Errorf("no camera named front")
@@ -170,19 +172,19 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 				func() {
 					img, release, err := cam.Next(context.Background())
 					if err != nil {
-						golog.Global.Debugf("error from camera %s", err)
+						logger.Debugf("error from camera %s", err)
 						return
 					}
 					defer release()
 					pc := rimage.ConvertToImageWithDepth(img)
 					if pc.Depth == nil {
-						golog.Global.Warnf("no depth data")
+						logger.Warnf("no depth data")
 						depthErr = true
 						return
 					}
 					err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
 					if err != nil {
-						golog.Global.Debugf("error writing %s", err)
+						logger.Debugf("error writing %s", err)
 					}
 				}()
 				if depthErr {
@@ -241,7 +243,7 @@ func NewRover(theBoard board.Board) (*Rover, error) {
 		}
 	}
 
-	golog.Global.Debug("rover ready")
+	logger.Debug("rover ready")
 
 	return rover, nil
 }
@@ -261,7 +263,7 @@ func realMain() error {
 		return err
 	}
 
-	myRobot, err := robot.NewRobot(context.Background(), cfg)
+	myRobot, err := robot.NewRobot(context.Background(), cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -279,5 +281,5 @@ func realMain() error {
 		return err
 	}
 
-	return web.RunWeb(myRobot, web.NewOptions())
+	return web.RunWeb(myRobot, web.NewOptions(), logger)
 }

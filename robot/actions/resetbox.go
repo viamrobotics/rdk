@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/robot"
@@ -242,6 +240,6 @@ func ResetBoxSteps(theRobot *robot.Robot, shakes int) error {
 func ResetBox(theRobot *robot.Robot, shakes int) {
 	err := ResetBoxSteps(theRobot, shakes)
 	if err != nil {
-		golog.Global.Errorf("error resetting box: %s", err)
+		theRobot.Logger().Errorf("error resetting box: %s", err)
 	}
 }

@@ -15,8 +15,8 @@ import (
 )
 
 func init() {
-	api.RegisterArm("ur", func(r api.Robot, config api.Component) (api.Arm, error) {
-		return URArmConnect(config.Host)
+	api.RegisterArm("ur", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return URArmConnect(config.Host, logger)
 	})
 }
 
@@ -34,13 +34,13 @@ func (arm *URArm) Close() {
 	// TODO(erh): close socket
 }
 
-func URArmConnect(host string) (*URArm, error) {
+func URArmConnect(host string, logger golog.Logger) (*URArm, error) {
 	conn, err := net.Dial("tcp", host+":30001")
 	if err != nil {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, debug: false, haveData: false, logger: golog.Global}
+	arm := &URArm{conn: conn, debug: false, haveData: false, logger: logger}
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
@@ -249,7 +249,7 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 
 		switch buf[0] {
 		case 16:
-			state, err := readRobotStateMessage(buf[1:])
+			state, err := readRobotStateMessage(buf[1:], arm.logger)
 			if err != nil {
 				panic(err)
 			}
@@ -273,7 +273,7 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			err := readURRobotMessage(buf)
+			err := readURRobotMessage(buf, arm.logger)
 			if err != nil {
 				panic(err)
 			}

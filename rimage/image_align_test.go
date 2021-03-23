@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 	"testing"
+
+	"github.com/edaniels/golog"
 )
 
 type alignImageHelper struct {
@@ -68,9 +70,9 @@ func makeTestCases() []alignImageHelper {
 	return cases
 }
 
-func expectedImageAlignOutput(a alignImageHelper) (bool, error) {
+func expectedImageAlignOutput(a alignImageHelper, logger golog.Logger) (bool, error) {
 
-	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints)
+	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints, logger)
 	if err != nil {
 		return false, err
 	}
@@ -95,7 +97,8 @@ func expectedImageAlignOutput(a alignImageHelper) (bool, error) {
 func TestAlignImage(t *testing.T) {
 	cases := makeTestCases()
 	for _, c := range cases {
-		ok, err := expectedImageAlignOutput(c)
+		logger := golog.NewTestLogger(t)
+		ok, err := expectedImageAlignOutput(c, logger)
 		if !ok {
 			t.Error(err)
 		}

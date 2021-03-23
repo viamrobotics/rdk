@@ -26,6 +26,7 @@ type MultipleImageTestDebugger struct {
 	currentFile string
 
 	pendingImages int32
+	logger        golog.Logger
 }
 
 func (d *MultipleImageTestDebugger) currentImgConfigFile() string {
@@ -67,12 +68,12 @@ func (d *MultipleImageTestDebugger) addImageCell(f string) {
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(d *MultipleImageTestDebugger, fn string, img image.Image) error
+	Process(d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
 }
 
 func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
 
-	d := MultipleImageTestDebugger{}
+	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.T = t
 	d.glob = glob
 	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
@@ -106,7 +107,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 				break
 			}
 
-			golog.Global.Debugf("sleeping for pending images %d", pending)
+			d.logger.Debugf("sleeping for pending images %d", pending)
 
 			time.Sleep(time.Duration(50*pending) * time.Millisecond)
 		}
@@ -122,7 +123,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		numFiles++
 
 		d.currentFile = f
-		golog.Global.Debug(f)
+		d.logger.Debug(f)
 
 		cont := d.T.Run(f, func(t *testing.T) {
 			img, err := ReadImageFromFile(f)
@@ -134,7 +135,8 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 			d.html.WriteString("<tr>")
 			d.GotDebugImage(img, "raw")
 
-			err = x.Process(d, f, img)
+			logger := golog.NewTestLogger(t)
+			err = x.Process(d, f, img, logger)
 			if err != nil {
 				t.Fatalf("error processing file %s : %s", f, err)
 			}
@@ -155,7 +157,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	d.html.WriteString("</table></body></html>")
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
-	golog.Global.Debug(htmlOutFile)
+	d.logger.Debug(htmlOutFile)
 
 	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
 }

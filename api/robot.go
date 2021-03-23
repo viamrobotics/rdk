@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/board"
@@ -31,6 +32,8 @@ type Robot interface {
 
 	// use CreateStatus helper in most cases
 	Status() (Status, error)
+
+	Logger() golog.Logger
 }
 
 type Provider interface {

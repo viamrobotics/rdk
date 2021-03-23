@@ -5,6 +5,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils"
@@ -15,20 +16,20 @@ type alignTestHelper struct {
 	dc    *DepthComposed
 }
 
-func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
+func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
 	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
 	if h.dc == nil {
-		h.dc, err = NewDepthComposed(nil, nil, h.attrs)
+		h.dc, err = NewDepthComposed(nil, nil, h.attrs, logger)
 		if err != nil {
 			d.T.Fatal(err)
 		}
 	}
 
-	fixed, err := h.dc.alignColorAndDepth(context.TODO(), ii)
+	fixed, err := h.dc.alignColorAndDepth(context.TODO(), ii, logger)
 	if err != nil {
 		d.T.Fatal(err)
 	}

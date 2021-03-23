@@ -4,6 +4,7 @@ import (
 	//~ "fmt"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/testutils"
@@ -64,7 +65,8 @@ func TestSetOrient(t *testing.T) {
 // since that will be caught by tests to the actual kinematics
 // So we'll just check that we read in the right number of joints
 func TestParseJSONFile(t *testing.T) {
-	model, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	logger := golog.NewTestLogger(t)
+	model, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	if len(model.Joints) != 6 {

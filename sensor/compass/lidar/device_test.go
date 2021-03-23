@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"gonum.org/v1/gonum/mat"
 )
@@ -162,7 +163,8 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with angular resolution failing", func(t *testing.T) {
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
+		logger := golog.NewTestLogger(t)
+		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()
@@ -191,7 +193,8 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
+		logger := golog.NewTestLogger(t)
+		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()

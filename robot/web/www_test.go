@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 
 	"go.viam.com/robotcore/api"
@@ -30,11 +31,12 @@ func checkStatus(t *testing.T, r api.Robot, client *Client) {
 }
 
 func TestWeb(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
 	// setup arm
-	r := robot.NewBlankRobot()
+	r := robot.NewBlankRobot(logger)
 	defer r.Close(cancelCtx)
 
 	arm := fake.NewArm()
@@ -42,7 +44,7 @@ func TestWeb(t *testing.T) {
 
 	// set up server
 	mux := http.NewServeMux()
-	webCloser, err := InstallWeb(cancelCtx, mux, r, Options{})
+	webCloser, err := InstallWeb(cancelCtx, mux, r, Options{}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

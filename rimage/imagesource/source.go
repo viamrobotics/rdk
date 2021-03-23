@@ -12,24 +12,25 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	_ "github.com/lmittmann/ppm" // register ppm
 )
 
 func init() {
-	api.RegisterCamera("intel", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("intel", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
 	})
 	api.RegisterCamera("eliot", api.CameraLookup("intel"))
 
-	api.RegisterCamera("url", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("url", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
 		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 	})
 
-	api.RegisterCamera("file", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("file", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 	})
 }

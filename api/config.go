@@ -3,8 +3,6 @@ package api
 import (
 	"fmt"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/board"
 )
 
@@ -89,7 +87,6 @@ type Component struct {
 type Config struct {
 	Boards     []board.Config
 	Components []Component
-	Logger     golog.Logger
 }
 
 func (c Config) FindComponent(name string) *Component {

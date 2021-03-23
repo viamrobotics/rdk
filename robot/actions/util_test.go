@@ -10,12 +10,13 @@ import (
 	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/disintegration/imaging"
+	"github.com/edaniels/golog"
 )
 
 type MyDebug struct {
 }
 
-func (ddd MyDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
+func (ddd MyDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	dm, err := rimage.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -29,7 +30,7 @@ func (ddd MyDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img i
 	}
 	d.GotDebugImage(pc.Color, "cropped")
 
-	walked, _ := roverWalk(pc, true)
+	walked, _ := roverWalk(pc, true, logger)
 	d.GotDebugImage(walked, "depth2")
 
 	return nil
@@ -49,11 +50,11 @@ func Test1(t *testing.T) {
 type ChargeDebug struct {
 }
 
-func (cd ChargeDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
+func (cd ChargeDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	img = imaging.Rotate(img, 180, color.Black)
 	d.GotDebugImage(img, "rotated")
 
-	m2, err := segmentation.ShapeWalkEntireDebug(rimage.ConvertImage(img), segmentation.ShapeWalkOptions{})
+	m2, err := segmentation.ShapeWalkEntireDebug(rimage.ConvertImage(img), segmentation.ShapeWalkOptions{}, logger)
 	if err != nil {
 		return err
 	}

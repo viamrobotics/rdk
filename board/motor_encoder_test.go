@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -136,15 +137,16 @@ func TestMotorEncoderHall(t *testing.T) {
 }
 
 func TestMotorEncoderWrap(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	real := &FakeMotor{}
 
 	// don't wrap with no encoder
-	m, err := WrapMotorWithEncoder(nil, MotorConfig{}, real)
+	m, err := WrapMotorWithEncoder(nil, MotorConfig{}, real, logger)
 	assert.Nil(t, err)
 	assert.Equal(t, real, m)
 
 	// enforce need TicksPerRotation
-	m, err = WrapMotorWithEncoder(nil, MotorConfig{Encoder: "a"}, real)
+	m, err = WrapMotorWithEncoder(nil, MotorConfig{Encoder: "a"}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 
@@ -154,22 +156,22 @@ func TestMotorEncoderWrap(t *testing.T) {
 	}
 
 	// enforce need encoder
-	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real)
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 
 	b.(*FakeBoard).digitals["a"] = &BasicDigitalInterrupt{}
-	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real)
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	assert.Nil(t, err)
 	_, ok := m.(*encodedMotor)
 	assert.True(t, ok)
 
 	// enforce need encoder b
-	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real)
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 
-	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real)
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 

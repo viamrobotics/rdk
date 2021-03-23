@@ -3,25 +3,26 @@ package api
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRegistry(t *testing.T) {
-	pf := func(r Robot, config Component) (Provider, error) {
+	pf := func(r Robot, config Component, logger golog.Logger) (Provider, error) {
 		return nil, nil
 	}
 
-	af := func(r Robot, config Component) (Arm, error) {
+	af := func(r Robot, config Component, logger golog.Logger) (Arm, error) {
 		return nil, nil
 	}
 
-	cf := func(r Robot, config Component) (gostream.ImageSource, error) {
+	cf := func(r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return nil, nil
 	}
 
-	gf := func(r Robot, config Component) (Gripper, error) {
+	gf := func(r Robot, config Component, logger golog.Logger) (Gripper, error) {
 		return nil, nil
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
@@ -17,7 +18,7 @@ type Arm struct {
 }
 
 // Returns a new kinematics.Model from a correctly formatted JSON file
-func NewArm(real api.Arm, jsonFile string, cores int) (*Arm, error) {
+func NewArm(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
 	// We want to make (cores + 1) copies of our model
 	// Our master copy, plus one for each of the IK engines to work with
 	// We create them all now because deep copies of sufficiently complicated structs is a pain
@@ -27,14 +28,14 @@ func NewArm(real api.Arm, jsonFile string, cores int) (*Arm, error) {
 	}
 	models := make([]*Model, cores+1)
 	for i := 0; i <= cores; i++ {
-		model, err := ParseJSONFile(jsonFile)
+		model, err := ParseJSONFile(jsonFile, logger)
 		if err != nil {
 			return nil, err
 		}
 		models[i] = model
 	}
 
-	ik := CreateCombinedIKSolver(models)
+	ik := CreateCombinedIKSolver(models, logger)
 	return &Arm{real, models[0], ik, 0}, nil
 }
 

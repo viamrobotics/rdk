@@ -27,6 +27,7 @@ type Robot struct {
 	providers    map[string]api.Provider
 
 	config api.Config
+	logger golog.Logger
 }
 
 func (r *Robot) BoardByName(name string) board.Board {
@@ -162,19 +163,19 @@ func (r *Robot) Close(ctx context.Context) error {
 
 	for _, x := range r.lidarDevices {
 		if err := x.Close(ctx); err != nil {
-			golog.Global.Error("error closing lidar device", "error", err)
+			r.logger.Error("error closing lidar device", "error", err)
 		}
 	}
 
 	for _, x := range r.bases {
 		if err := x.Close(ctx); err != nil {
-			golog.Global.Error("error closing base device", "error", err)
+			r.logger.Error("error closing base device", "error", err)
 		}
 	}
 
 	for _, x := range r.boards {
 		if err := x.Close(); err != nil {
-			golog.Global.Error("error closing boar", "error", err)
+			r.logger.Error("error closing boar", "error", err)
 		}
 
 	}
@@ -190,7 +191,11 @@ func (r *Robot) Status() (api.Status, error) {
 	return api.CreateStatus(r)
 }
 
-func NewBlankRobot() *Robot {
+func (r *Robot) Logger() golog.Logger {
+	return r.logger
+}
+
+func NewBlankRobot(logger golog.Logger) *Robot {
 	return &Robot{
 		boards:       map[string]board.Board{},
 		arms:         map[string]api.Arm{},
@@ -199,16 +204,13 @@ func NewBlankRobot() *Robot {
 		lidarDevices: map[string]lidar.Device{},
 		bases:        map[string]api.Base{},
 		providers:    map[string]api.Provider{},
+		logger:       logger,
 	}
 }
 
-func NewRobot(ctx context.Context, cfg api.Config) (*Robot, error) {
-	r := NewBlankRobot()
+func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot, error) {
+	r := NewBlankRobot(logger)
 	r.config = cfg
-	logger := cfg.Logger
-	if logger == nil {
-		logger = golog.Global
-	}
 
 	for _, c := range cfg.Boards {
 		b, err := board.NewBoard(c)
@@ -246,7 +248,7 @@ func NewRobot(ctx context.Context, cfg api.Config) (*Robot, error) {
 			}
 			r.AddArm(a, c)
 		case api.ComponentTypeGripper:
-			g, err := r.newGripper(c, logger)
+			g, err := r.newGripper(c)
 			if err != nil {
 				return nil, err
 			}
@@ -283,7 +285,7 @@ func (r *Robot) newProvider(config api.Component) (api.Provider, error) {
 	if pf == nil {
 		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
 	}
-	return pf(r, config)
+	return pf(r, config, r.logger)
 }
 
 func (r *Robot) newBase(config api.Component) (api.Base, error) {
@@ -291,7 +293,7 @@ func (r *Robot) newBase(config api.Component) (api.Base, error) {
 	if f == nil {
 		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}
-	return f(r, config)
+	return f(r, config, r.logger)
 }
 
 func (r *Robot) newArm(config api.Component) (api.Arm, error) {
@@ -300,15 +302,15 @@ func (r *Robot) newArm(config api.Component) (api.Arm, error) {
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
 
-	return f(r, config)
+	return f(r, config, r.logger)
 }
 
-func (r *Robot) newGripper(config api.Component, logger golog.Logger) (api.Gripper, error) {
+func (r *Robot) newGripper(config api.Component) (api.Gripper, error) {
 	f := api.GripperLookup(config.Model)
 	if f == nil {
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
-	return f(r, config)
+	return f(r, config, r.logger)
 }
 
 func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
@@ -316,7 +318,7 @@ func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
 	if cc == nil {
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
-	return cc(r, config)
+	return cc(r, config, r.logger)
 }
 
 // TODO(erd): prefer registration pattern

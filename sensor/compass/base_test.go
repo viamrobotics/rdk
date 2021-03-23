@@ -6,6 +6,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/sensor/compass"
@@ -13,14 +14,15 @@ import (
 )
 
 func TestAugmentReduce(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
 	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
-	test.That(t, compass.BaseWithCompass(dev, nil), test.ShouldEqual, dev)
+	test.That(t, compass.BaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
 
 	comp := &inject.Compass{}
-	aug := compass.BaseWithCompass(dev, comp)
+	aug := compass.BaseWithCompass(dev, comp, logger)
 	test.That(t, aug, test.ShouldNotEqual, dev)
 	var baseDev *api.Base = nil
 	test.That(t, aug, test.ShouldImplement, baseDev)
@@ -29,12 +31,13 @@ func TestAugmentReduce(t *testing.T) {
 }
 
 func TestDeviceWithCompass(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
 	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	comp := &inject.Compass{}
-	aug := compass.BaseWithCompass(dev, comp)
+	aug := compass.BaseWithCompass(dev, comp, logger)
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0

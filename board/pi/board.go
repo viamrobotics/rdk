@@ -62,6 +62,7 @@ type piPigpio struct {
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
 	motors        map[string]board.Motor
+	logger        golog.Logger
 }
 
 func (pi *piPigpio) GetConfig() board.Config {
@@ -69,7 +70,7 @@ func (pi *piPigpio) GetConfig() board.Config {
 }
 
 func (pi *piPigpio) GPIOSet(pin string, high bool) error {
-	//golog.Global.Debugf("GPIOSet %s -> %v", pin, high)
+	//logger.Debugf("GPIOSet %s -> %v", pin, high)
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return fmt.Errorf("no hw pin for (%s)", pin)
@@ -86,7 +87,7 @@ func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 }
 
 func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
-	//golog.Global.Debugf("PWMSetBcom %d -> %d", bcom, dutyCycle)
+	//logger.Debugf("PWMSetBcom %d -> %d", bcom, dutyCycle)
 	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
 	if res != 0 {
 		return fmt.Errorf("pwm set fail %d", res)
@@ -95,7 +96,7 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 }
 
 func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
-	//golog.Global.Debugf("GPIOSetBcom %d -> %v", bcom, high)
+	//logger.Debugf("GPIOSetBcom %d -> %v", bcom, high)
 	if !pi.gpioConfigSet[bcom] {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
@@ -138,7 +139,7 @@ func (pi *piPigpio) AnalogRead(channel int) (int, error) {
 	}
 
 	val := int(C.doAnalogRead(pi.analogSpi, C.int(channel)))
-	//golog.Global.Debugf("analog read (%d) %d -> %d", pi.analogSpi, channel, val)
+	//logger.Debugf("analog read (%d) %d -> %d", pi.analogSpi, channel, val)
 	return val, nil
 }
 
@@ -206,11 +207,11 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	lastTick = rawTick
 
 	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
-	//golog.Global.Debugf("pigpioInterruptCallback gpio: %v level: %v rawTick: %v tick: %v", gpio, level, rawTick, tick)
+	//logger.Debugf("pigpioInterruptCallback gpio: %v level: %v rawTick: %v tick: %v", gpio, level, rawTick, tick)
 
 	i := piInstance.interruptsHW[uint(gpio)]
 	if i == nil {
-		golog.Global.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+		logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
 		return
 	}
 	high := true
@@ -220,7 +221,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	i.Tick(high, tick*1000)
 }
 
-func NewPigpio(cfg board.Config) (board.Board, error) {
+func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
 	var err error
 	if piInstance != nil {
 		return nil, fmt.Errorf("can only have 1 piPigpio instance")

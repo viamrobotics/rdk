@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
@@ -20,7 +21,7 @@ import (
 )
 
 func main() {
-	utils.ContextualMainQuit(mainWithArgs)
+	utils.ContextualMainQuit(mainWithArgs, logger)
 }
 
 var (
@@ -32,7 +33,7 @@ var (
 	areaSizeMeters = 50
 	unitsPerMeter  = 100 // cm
 
-	logger = golog.Global
+	logger = rlog.Logger.Named("lidar_view")
 )
 
 // Arguments for the command.
@@ -42,7 +43,7 @@ type Arguments struct {
 	SaveToDisk   string                    `flag:"save,usage=save data to disk (LAS)"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -95,7 +96,7 @@ func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescript
 	var lar *slam.LocationAwareRobot
 	var area *slam.SquareArea
 	if saveToDisk != "" {
-		area, err = slam.NewSquareArea(areaSizeMeters, unitsPerMeter)
+		area, err = slam.NewSquareArea(areaSizeMeters, unitsPerMeter, logger)
 		if err != nil {
 			return err
 		}
@@ -108,6 +109,7 @@ func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescript
 			lidarDevices,
 			nil,
 			nil,
+			logger,
 		)
 		if err != nil {
 			return err

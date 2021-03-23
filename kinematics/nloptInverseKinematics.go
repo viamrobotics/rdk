@@ -21,16 +21,17 @@ type NloptIK struct {
 	opt           *nlopt.NLopt
 	ID            int
 	halt          bool
+	logger        golog.Logger
 }
 
-func errCheck(err error) {
+func errCheck(err error, logger golog.Logger) {
 	if err != nil {
-		golog.Global.Error("nlopt init error: ", err)
+		logger.Error("nlopt init error: ", err)
 	}
 }
 
-func CreateNloptIKSolver(mdl *Model) *NloptIK {
-	ik := &NloptIK{}
+func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
+	ik := &NloptIK{logger: logger}
 	ik.Mdl = mdl
 	ik.epsilon = 0.0001
 	floatEpsilon := math.Nextafter(1, 2) - 1
@@ -43,7 +44,7 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
 	if err != nil {
-		golog.Global.Error("nlopt creation error: ", err)
+		logger.Error("nlopt creation error: ", err)
 		return &NloptIK{}
 	}
 	ik.opt = opt
@@ -99,15 +100,15 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	}
 	//~ nloptMinFunc := func(x, gradient []float64) float64 {
 
-	errCheck(opt.SetFtolAbs(floatEpsilon))
-	errCheck(opt.SetFtolRel(floatEpsilon))
-	errCheck(opt.SetLowerBounds(ik.lowerBound))
-	errCheck(opt.SetMinObjective(nloptMinFunc))
-	errCheck(opt.SetStopVal(ik.epsilon * ik.epsilon))
-	errCheck(opt.SetUpperBounds(ik.upperBound))
-	errCheck(opt.SetXtolAbs1(floatEpsilon))
-	errCheck(opt.SetXtolRel(floatEpsilon))
-	errCheck(opt.SetMaxEval(8001))
+	errCheck(opt.SetFtolAbs(floatEpsilon), logger)
+	errCheck(opt.SetFtolRel(floatEpsilon), logger)
+	errCheck(opt.SetLowerBounds(ik.lowerBound), logger)
+	errCheck(opt.SetMinObjective(nloptMinFunc), logger)
+	errCheck(opt.SetStopVal(ik.epsilon*ik.epsilon), logger)
+	errCheck(opt.SetUpperBounds(ik.upperBound), logger)
+	errCheck(opt.SetXtolAbs1(floatEpsilon), logger)
+	errCheck(opt.SetXtolRel(floatEpsilon), logger)
+	errCheck(opt.SetMaxEval(8001), logger)
 
 	return ik
 }
@@ -142,7 +143,7 @@ func (ik *NloptIK) Halt() {
 	ik.halt = true
 	err := ik.opt.ForceStop()
 	if err != nil {
-		golog.Global.Info("nlopt halt error: ", err)
+		ik.logger.Info("nlopt halt error: ", err)
 	}
 }
 
@@ -155,7 +156,7 @@ func (ik *NloptIK) Solve() bool {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
 			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP" {
-				golog.Global.Info("nlopt optimization error: ", err)
+				ik.logger.Info("nlopt optimization error: ", err)
 			}
 		}
 

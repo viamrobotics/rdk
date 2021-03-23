@@ -8,11 +8,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestNewFromFile(t *testing.T) {
-	cloud, err := NewFromFile("data/test.las")
+	logger := golog.NewTestLogger(t)
+	cloud, err := NewFromFile("data/test.las", logger)
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 8413)
@@ -24,13 +26,14 @@ func TestNewFromFile(t *testing.T) {
 	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewFromFile(temp.Name())
+	nextCloud, err := NewFromFile(temp.Name(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
-	cloud := New()
+	logger := golog.NewTestLogger(t)
+	cloud := New(logger)
 	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
@@ -52,7 +55,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
-	nextCloud, err := NewFromFile(temp.Name())
+	nextCloud, err := NewFromFile(temp.Name(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }

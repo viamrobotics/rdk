@@ -1,11 +1,12 @@
 package fake
 
 import (
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 )
 
 func init() {
-	api.RegisterGripper(ModelName, func(r api.Robot, config api.Component) (api.Gripper, error) {
+	api.RegisterGripper(ModelName, func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
 		return &Gripper{}, nil
 	})
 }

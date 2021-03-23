@@ -7,6 +7,7 @@ import (
 	"image/color"
 
 	"github.com/disintegration/imaging"
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
@@ -14,7 +15,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("rotate", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("rotate", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.GetString("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
@@ -24,7 +25,7 @@ func init() {
 		return &RotateImageDepthSource{source}, nil
 	})
 
-	api.RegisterCamera("resize", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("resize", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.GetString("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {

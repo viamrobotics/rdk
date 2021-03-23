@@ -13,17 +13,17 @@ import (
 // ContextualMain calls a main entry point function with a cancellable
 // context via SIGTERM. This should be called once per process so as
 // to not clobber the signals from Notify.
-func ContextualMain(main func(ctx context.Context, args []string) error) {
-	contextualMain(main, false)
+func ContextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, logger golog.Logger) {
+	contextualMain(main, false, logger)
 }
 
 // ContextualMainQuit is the same as ContextualMain but catches quit signals into the provided
 // context accessed via ContextMainQuitSignal.
-func ContextualMainQuit(main func(ctx context.Context, args []string) error) {
-	contextualMain(main, true)
+func ContextualMainQuit(main func(ctx context.Context, args []string, logger golog.Logger) error, logger golog.Logger) {
+	contextualMain(main, true, logger)
 }
 
-func contextualMain(main func(ctx context.Context, args []string) error, quitSignal bool) {
+func contextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, quitSignal bool, logger golog.Logger) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	if quitSignal {
@@ -33,13 +33,13 @@ func contextualMain(main func(ctx context.Context, args []string) error, quitSig
 	}
 	readyC := make(chan struct{})
 	ctx = ContextWithReadyFunc(ctx, readyC)
-	if err := FilterOutError(main(ctx, os.Args), context.Canceled); err != nil {
-		fatal(err)
+	if err := FilterOutError(main(ctx, os.Args, logger), context.Canceled); err != nil {
+		fatal(logger, err)
 	}
 }
 
-var fatal = func(args ...interface{}) {
-	golog.Global.Fatal(args...)
+var fatal = func(logger golog.Logger, args ...interface{}) {
+	logger.Fatal(args...)
 }
 
 type ctxKey int

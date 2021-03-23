@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
 )
 
@@ -41,9 +42,10 @@ func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, min
 }
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	os.MkdirAll("out", 0775)
 
-	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board1")
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board1", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,9 +69,10 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	os.MkdirAll("out", 0775)
 
-	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board2")
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board2", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +93,7 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	annotated := theBoard.Annotate()
 	rimage.WriteImageToFile("out/board2_annotated.png", annotated)
 
-	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
+	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +106,8 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess3(t *testing.T) {
-
-	theBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543520")
+	logger := golog.NewTestLogger(t)
+	theBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543520", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +123,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
 	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
 
-	nextBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543783")
+	nextBoard, err := FindAndWarpBoardFromFilesRoot("../../samples/chess/data/init/board-1605543783", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +139,8 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 }
 
 func TestArmBlock1(t *testing.T) {
-	board, err := FindAndWarpBoardFromFiles("data/armblock1.png", "data/armblock1.dat.gz")
+	logger := golog.NewTestLogger(t)
+	board, err := FindAndWarpBoardFromFiles("data/armblock1.png", "data/armblock1.dat.gz", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +155,10 @@ func TestArmBlock1(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess4(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	os.MkdirAll("out", 0775)
 
-	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board-1610063549")
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board-1610063549", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,9 +183,10 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 }
 
 func TestWarpColorAndDepthToChess5(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	os.MkdirAll("out", 0775)
 
-	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board5")
+	theBoard, err := FindAndWarpBoardFromFilesRoot("data/board5", logger)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/calibration"
 )
@@ -42,7 +43,8 @@ func TestSegmentPlane(t *testing.T) {
 	depthIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "depth")
 	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	// Segment Plane
-	_, eq, _ := pts.SegmentPlane(1000, 0.0025, pixel2meter)
+	logger := golog.NewTestLogger(t)
+	_, eq, _ := pts.SegmentPlane(1000, 0.0025, pixel2meter, logger)
 
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
@@ -57,13 +59,14 @@ func TestSegmentPlane(t *testing.T) {
 		t.Error("The estimated plane normal differs from the GT normal vector too much.")
 	}
 	// Test conversion function
-	pointCloud, _ := pts.convert3DPointsToPointCloud(pixel2meter)
+	pointCloud, _ := pts.convert3DPointsToPointCloud(pixel2meter, logger)
 	if pointCloud.Size() == 0 {
 		t.Error("pointCloud could not be created.")
 	}
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	rgbd, err := rimage.BothReadFromFile("data/align-test-1615172036.both.gz")
 	m := rgbd.Depth
 	//rgb := rgbd.Color
@@ -73,7 +76,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	}
 	pixel2meter := 0.001
 	depthIntrinsics, _ := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../calibration/intel515_parameters.json", "depth")
-	pc, _ := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	pc, _ := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, logger)
 
 	if pc.Size() != 456371 {
 		t.Error("Size of Point Cloud does not correspond to the GT point cloud size.")

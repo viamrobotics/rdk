@@ -5,17 +5,16 @@ import (
 	"math"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/utils"
-
-	"github.com/edaniels/golog"
 )
 
-func BaseWithCompass(device api.Base, cmp Device) api.Base {
+func BaseWithCompass(device api.Base, cmp Device, logger golog.Logger) api.Base {
 	if cmp == nil {
 		return device
 	}
-	return baseDeviceWithCompass{device, cmp}
+	return baseDeviceWithCompass{device, cmp, logger}
 }
 
 func ReduceBase(b api.Base) api.Base {
@@ -29,6 +28,7 @@ func ReduceBase(b api.Base) api.Base {
 type baseDeviceWithCompass struct {
 	api.Base
 	compass Device
+	logger  golog.Logger
 }
 
 func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
@@ -43,7 +43,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 		if err != nil {
 			return err
 		}
-		golog.Global.Debugf("start heading %f", startHeading)
+		wc.logger.Debugf("start heading %f", startHeading)
 		if err := wc.Base.Spin(ctx, angleDeg, speed, block); err != nil {
 			return err
 		}
@@ -52,17 +52,17 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 		if err != nil {
 			return err
 		}
-		golog.Global.Debugf("end heading %f", endHeading)
+		wc.logger.Debugf("end heading %f", endHeading)
 		actual := utils.AngleDiffDeg(startHeading, endHeading)
 		offBy := math.Abs(math.Abs(angleDeg) - actual)
-		golog.Global.Debugf("off by %f", offBy)
+		wc.logger.Debugf("off by %f", offBy)
 		if offBy < 1 {
 			return nil
 		}
 		if actual > angleDeg {
 			offBy *= -1
 		}
-		golog.Global.Debugf("next %f", offBy)
+		wc.logger.Debugf("next %f", offBy)
 		angleDeg = offBy
 	}
 }

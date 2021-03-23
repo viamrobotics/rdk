@@ -26,17 +26,18 @@ func TestContextualMain(t *testing.T) {
 	tError = fatal
 
 	err1 := errors.New("whoops")
-	mainWithArgs := func(ctx context.Context, args []string) error {
+	mainWithArgs := func(ctx context.Context, args []string, logger golog.Logger) error {
 		return err1
 	}
-	exec := ContextualMain(mainWithArgs, nil)
+	logger := golog.NewTestLogger(t)
+	exec := ContextualMain(mainWithArgs, nil, logger)
 	exec.Start()
 	<-exec.Ready
 	exec.Stop()
 	test.That(t, <-exec.Done, test.ShouldEqual, err1)
 	test.That(t, captured, test.ShouldHaveLength, 0)
 
-	exec = ContextualMain(mainWithArgs, nil)
+	exec = ContextualMain(mainWithArgs, nil, logger)
 	exec.Start()
 	<-exec.Ready
 	exec.QuitSignal(t)
@@ -47,17 +48,17 @@ func TestContextualMain(t *testing.T) {
 	test.That(t, captured[0], test.ShouldContainSubstring, "whoops")
 	captured = nil
 
-	mainWithArgs = func(ctx context.Context, args []string) error {
+	mainWithArgs = func(ctx context.Context, args []string, logger golog.Logger) error {
 		return nil
 	}
-	exec = ContextualMain(mainWithArgs, nil)
+	exec = ContextualMain(mainWithArgs, nil, logger)
 	exec.Start()
 	<-exec.Ready
 	exec.Stop()
 	test.That(t, <-exec.Done, test.ShouldBeNil)
 	test.That(t, captured, test.ShouldHaveLength, 0)
 
-	exec = ContextualMain(mainWithArgs, nil)
+	exec = ContextualMain(mainWithArgs, nil, logger)
 	exec.Start()
 	<-exec.Ready
 	exec.QuitSignal(t)
@@ -69,14 +70,14 @@ func TestContextualMain(t *testing.T) {
 	captured = nil
 
 	var capturedArgs []string
-	mainWithArgs = func(ctx context.Context, args []string) error {
+	mainWithArgs = func(ctx context.Context, args []string, logger golog.Logger) error {
 		capturedArgs = args
 		utils.ContextMainReadyFunc(ctx)()
 		<-utils.ContextMainQuitSignal(ctx)
 		return nil
 	}
 
-	exec = ContextualMain(mainWithArgs, []string{"1", "2", "3"})
+	exec = ContextualMain(mainWithArgs, []string{"1", "2", "3"}, logger)
 	exec.Start()
 	<-exec.Ready
 	exec.QuitSignal(t)
@@ -86,7 +87,7 @@ func TestContextualMain(t *testing.T) {
 	test.That(t, capturedArgs, test.ShouldResemble, []string{"main", "1", "2", "3"})
 	captured = nil
 
-	mainWithArgs = func(ctx context.Context, args []string) error {
+	mainWithArgs = func(ctx context.Context, args []string, logger golog.Logger) error {
 		capturedArgs = args
 		utils.ContextMainReadyFunc(ctx)()
 		utils.ContextMainIterFunc(ctx)()
@@ -95,7 +96,7 @@ func TestContextualMain(t *testing.T) {
 		return err1
 	}
 
-	exec = ContextualMain(mainWithArgs, []string{"1", "2", "3"})
+	exec = ContextualMain(mainWithArgs, []string{"1", "2", "3"}, logger)
 	exec.ExpectIters(t, 2)
 	exec.Start()
 	<-exec.Ready
@@ -123,7 +124,7 @@ func TestTestMain(t *testing.T) {
 
 	err1 := errors.New("whoops")
 	var capturedArgs []string
-	mainWithArgs := func(ctx context.Context, args []string) error {
+	mainWithArgs := func(ctx context.Context, args []string, logger golog.Logger) error {
 		capturedArgs = args
 		return err1
 	}
@@ -169,7 +170,7 @@ func TestTestMain(t *testing.T) {
 		},
 	})
 
-	mainWithArgs = func(ctx context.Context, args []string) error {
+	mainWithArgs = func(ctx context.Context, args []string, logger golog.Logger) error {
 		capturedArgs = args
 		utils.ContextMainReadyFunc(ctx)()
 		<-utils.ContextMainQuitSignal(ctx)
@@ -219,7 +220,7 @@ func TestTestMain(t *testing.T) {
 		},
 	})
 
-	mainWithArgs = func(ctx context.Context, args []string) error {
+	mainWithArgs = func(ctx context.Context, args []string, logger golog.Logger) error {
 		capturedArgs = args
 		utils.ContextMainReadyFunc(ctx)()
 		utils.ContextMainIterFunc(ctx)()

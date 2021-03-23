@@ -3,6 +3,7 @@ package hellorobot
 import (
 	"errors"
 
+	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 
 	"go.viam.com/robotcore/api"
@@ -15,13 +16,14 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	api.RegisterProvider(ModelName, func(r api.Robot, config api.Component) (api.Provider, error) {
+	api.RegisterProvider(ModelName, func(r api.Robot, config api.Component, logger golog.Logger) (api.Provider, error) {
 		return New()
 	})
 }
 
 type Robot struct {
 	robotObj *python.PyObject
+	logger   golog.Logger
 }
 
 func checkPythonErr() error {

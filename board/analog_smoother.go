@@ -13,7 +13,7 @@ var (
 	ErrStopReading = errors.New("stop reading")
 )
 
-func AnalogSmootherWrap(r AnalogReader, c AnalogConfig) AnalogReader {
+func AnalogSmootherWrap(r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
 	if c.AverageOverMillis <= 0 {
 		return r
 	}
@@ -22,6 +22,7 @@ func AnalogSmootherWrap(r AnalogReader, c AnalogConfig) AnalogReader {
 		Raw:               r,
 		AverageOverMillis: c.AverageOverMillis,
 		SamplesPerSecond:  c.SamplesPerSecond,
+		logger:            logger,
 	}
 	as.Start()
 	return as
@@ -33,6 +34,7 @@ type AnalogSmoother struct {
 	SamplesPerSecond  int
 	data              *utils.RollingAverage
 	lastError         error
+	logger            golog.Logger
 }
 
 func (as *AnalogSmoother) Read() (int, error) {
@@ -69,11 +71,11 @@ func (as *AnalogSmoother) Start() {
 				if err == ErrStopReading {
 					break
 				}
-				golog.Global.Info("error reading analog: %s", err)
+				as.logger.Info("error reading analog: %s", err)
 				continue
 			}
 
-			//golog.Global.Debugf("reading: %d", reading)
+			//as.logger.Debugf("reading: %d", reading)
 			as.data.Add(reading)
 
 			end := time.Now()

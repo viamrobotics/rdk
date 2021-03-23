@@ -4,11 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestAreaViewer(t *testing.T) {
-	sa, err := NewSquareArea(100, 10)
+	logger := golog.NewTestLogger(t)
+	sa, err := NewSquareArea(100, 10, logger)
 	test.That(t, err, test.ShouldBeNil)
 	viewer := AreaViewer{sa}
 

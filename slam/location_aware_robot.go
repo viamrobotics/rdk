@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
 
@@ -52,6 +52,7 @@ type LocationAwareRobot struct {
 	updateInterval time.Duration
 	cullInterval   int
 	updateHook     func(culled bool)
+	logger         golog.Logger
 }
 
 func NewLocationAwareRobot(
@@ -61,6 +62,7 @@ func NewLocationAwareRobot(
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
 	compassSensor compass.Device,
+	logger golog.Logger,
 ) (*LocationAwareRobot, error) {
 	baseDeviceWidth, err := baseDevice.WidthMillis(ctx)
 	if err != nil {
@@ -83,7 +85,7 @@ func NewLocationAwareRobot(
 		devBounds = append(devBounds, bounds)
 	}
 
-	presentViewArea, err := area.BlankCopy()
+	presentViewArea, err := area.BlankCopy(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +111,7 @@ func NewLocationAwareRobot(
 
 		updateInterval: defaultUpdateInterval,
 		cullInterval:   defaultCullInterval,
+		logger:         logger,
 	}
 	robot.baseDeviceWidthUnits = robot.millimetersToMeasuredUnit(baseDeviceWidth)
 
@@ -169,7 +172,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 
 	currentOrientation := lar.orientation()
 	if rotateTo != nil {
-		golog.Global.Debugw("request to rotate", "dir", *rotateTo)
+		lar.logger.Debugw("request to rotate", "dir", *rotateTo)
 		from := currentOrientation
 		var to float64
 		switch *rotateTo {
@@ -395,7 +398,7 @@ func (lar *LocationAwareRobot) newPresentView() error {
 	}
 
 	// allocate new presentView
-	newArea, err := lar.presentViewArea.BlankCopy()
+	newArea, err := lar.presentViewArea.BlankCopy(lar.logger)
 	if err != nil {
 		return err
 	}
@@ -506,11 +509,11 @@ func (lar *LocationAwareRobot) updateLoop() {
 					}()
 				}
 				if err := lar.update(cancelCtx); err != nil {
-					golog.Global.Debugw("error updating", "error", err)
+					lar.logger.Debugw("error updating", "error", err)
 				}
 				if (count+1)%lar.cullInterval == 0 {
 					if err := lar.cull(); err != nil {
-						golog.Global.Debugw("error culling", "error", err)
+						lar.logger.Debugw("error culling", "error", err)
 					}
 					culled = true
 					count = 0

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/sensor/compass"
@@ -27,12 +28,12 @@ import (
 const fakeDev = "fake"
 
 func main() {
-	utils.ContextualMain(mainWithArgs)
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 var (
 	defaultPort = 5555
-	logger      = golog.Global
+	logger      = rlog.Logger.Named("slam_server")
 )
 
 // Arguments for the command.
@@ -71,7 +72,7 @@ func (btf *baseTypeFlag) Get() interface{} {
 	return string(*btf)
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -103,13 +104,13 @@ func mainWithArgs(ctx context.Context, args []string) error {
 		return fmt.Errorf("can only have up to %d lidar device offsets", len(argsParsed.LidarDevices)-1)
 	}
 
-	return runSlam(ctx, argsParsed)
+	return runSlam(ctx, argsParsed, logger)
 }
 
-func runSlam(ctx context.Context, args Arguments) (err error) {
+func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err error) {
 	areaSizeMeters := 50
 	unitsPerMeter := 100 // cm
-	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter)
+	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter, logger)
 	if err != nil {
 		return err
 	}
@@ -171,7 +172,7 @@ func runSlam(ctx context.Context, args Arguments) (err error) {
 
 	if compassSensor != nil {
 		if _, isFake := baseDevice.(*fake.Base); !isFake {
-			baseDevice = compass.BaseWithCompass(baseDevice, compassSensor)
+			baseDevice = compass.BaseWithCompass(baseDevice, compassSensor, logger)
 		}
 	}
 
@@ -182,6 +183,7 @@ func runSlam(ctx context.Context, args Arguments) (err error) {
 		lidarDevices,
 		args.LidarOffsets,
 		compassSensor,
+		logger,
 	)
 	if err != nil {
 		return err

@@ -16,8 +16,8 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("wx250s", func(r api.Robot, config api.Component) (api.Gripper, error) {
-		return NewGripper(config.Attributes, getProviderOrCreate(r).moveLock)
+	api.RegisterGripper("wx250s", func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+		return NewGripper(config.Attributes, getProviderOrCreate(r).moveLock, logger)
 	})
 }
 
@@ -26,8 +26,8 @@ type Gripper struct {
 	moveLock *sync.Mutex
 }
 
-func NewGripper(attributes api.AttributeMap, mutex *sync.Mutex) (*Gripper, error) {
-	jServo := findServo(attributes.GetString("usbPort"), attributes.GetString("baudRate"))
+func NewGripper(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
+	jServo := findServo(attributes.GetString("usbPort"), attributes.GetString("baudRate"), logger)
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}
@@ -101,11 +101,11 @@ func (g *Gripper) Close() error {
 
 // Find the gripper numbered Dynamixel servo on the specified USB port
 // We're going to hardcode some USB parameters that we will literally never want to change
-func findServo(usbPort, baudRateStr string) *servo.Servo {
+func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	GripperServoNum := 9
 	baudRate, err := strconv.Atoi(baudRateStr)
 	if err != nil {
-		golog.Global.Fatalf("Mangled baudrate: %v\n", err)
+		logger.Fatalf("Mangled baudrate: %v\n", err)
 	}
 	options := serial.OpenOptions{
 		PortName:              usbPort,
@@ -118,7 +118,7 @@ func findServo(usbPort, baudRateStr string) *servo.Servo {
 
 	serial, err := serial.Open(options)
 	if err != nil {
-		golog.Global.Fatalf("error opening serial port: %v\n", err)
+		logger.Fatalf("error opening serial port: %v\n", err)
 	}
 
 	network := network.New(serial)
@@ -127,7 +127,7 @@ func findServo(usbPort, baudRateStr string) *servo.Servo {
 	//Get model ID of servo
 	newServo, err := s_model.New(network, GripperServoNum)
 	if err != nil {
-		golog.Global.Fatalf("error initializing servo %d: %v\n", GripperServoNum, err)
+		logger.Fatalf("error initializing servo %d: %v\n", GripperServoNum, err)
 	}
 
 	return newServo

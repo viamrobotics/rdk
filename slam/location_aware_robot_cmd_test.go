@@ -46,7 +46,7 @@ func TestCommands(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		sizeMeters, unitsPerMeter := th.bot.rootArea.Size()
-		sq, err := NewSquareAreaFromFile(temp.Name(), sizeMeters, unitsPerMeter)
+		sq, err := NewSquareAreaFromFile(temp.Name(), sizeMeters, unitsPerMeter, th.logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sq, test.ShouldResemble, th.bot.rootArea)
 	})
@@ -109,7 +109,7 @@ func TestCommands(t *testing.T) {
 			headingCount++
 			return math.NaN(), nil
 		}
-		baseWithCompass := compass.BaseWithCompass(injectBase, theCompass)
+		baseWithCompass := compass.BaseWithCompass(injectBase, theCompass, th.logger)
 		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 			return nil
