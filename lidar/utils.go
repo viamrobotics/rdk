@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -29,7 +30,7 @@ func (desc *DeviceDescription) String() string {
 }
 
 func (desc *DeviceDescription) Set(val string) error {
-	parsed, err := ParseDeviceFlag("", val)
+	parsed, err := ParseDeviceFlag(val)
 	if err != nil {
 		return err
 	}
@@ -42,10 +43,10 @@ func (desc *DeviceDescription) Get() interface{} {
 }
 
 // ParseDeviceFlag parses a device flag from command line arguments.
-func ParseDeviceFlag(flagName, flag string) (DeviceDescription, error) {
+func ParseDeviceFlag(flag string) (DeviceDescription, error) {
 	deviceFlagParts := strings.Split(flag, ",")
 	if len(deviceFlagParts) != 2 {
-		return DeviceDescription{}, fmt.Errorf("wrong device format; use --%s=type,path", flagName)
+		return DeviceDescription{}, errors.New("wrong device format; use type,path")
 	}
 	return DeviceDescription{
 		Type: DeviceType(deviceFlagParts[0]),
@@ -54,10 +55,10 @@ func ParseDeviceFlag(flagName, flag string) (DeviceDescription, error) {
 }
 
 // ParseDeviceFlags parses device flags from command line arguments.
-func ParseDeviceFlags(flagName string, flags []string) ([]DeviceDescription, error) {
+func ParseDeviceFlags(flags []string) ([]DeviceDescription, error) {
 	deviceDescs := make([]DeviceDescription, 0, len(flags))
 	for _, deviceFlag := range flags {
-		desc, err := ParseDeviceFlag(flagName, deviceFlag)
+		desc, err := ParseDeviceFlag(deviceFlag)
 		if err != nil {
 			return nil, err
 		}
