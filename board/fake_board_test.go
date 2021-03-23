@@ -3,11 +3,13 @@ package board
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFakeRegistry(t *testing.T) {
-	b, err := NewBoard(Config{Model: "fake"})
+	b, err := NewBoard(Config{Model: "fake"}, golog.Global)
 	assert.Nil(t, err)
 	_, ok := b.(*FakeBoard)
 	assert.True(t, ok)
@@ -37,7 +39,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 	}
 
-	b, err := NewFakeBoard(cfg)
+	b, err := NewFakeBoard(cfg, golog.Global)
 	if err != nil {
 		t.Fatal(err)
 	}
