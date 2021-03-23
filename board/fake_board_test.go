@@ -6,6 +6,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestFakeRegistry(t *testing.T) {
+	b, err := NewBoard(Config{Model: "fake"})
+	assert.Nil(t, err)
+	_, ok := b.(*FakeBoard)
+	assert.True(t, ok)
+}
+
 func TestFakeBoard(t *testing.T) {
 	cfg := Config{
 		Analogs: []AnalogConfig{{Name: "blue", Pin: "0"}},

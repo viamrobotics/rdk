@@ -1,7 +1,7 @@
 package board
 
 func init() {
-	RegisterBoard("fake", NewBoard)
+	RegisterBoard("fake", NewFakeBoard)
 }
 
 type fakeServo struct {
