@@ -23,6 +23,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	// test some basic defaults
 	assert.Equal(t, false, motor.IsOn())
+	assert.True(t, motor.PositionSupported())
 
 	assert.Equal(t, false, motor.isRegulated())
 	motor.setRegulated(true)
@@ -114,22 +115,62 @@ func TestMotorEncoderHall(t *testing.T) {
 	motor.rpmMonitorStart()
 	time.Sleep(20 * time.Millisecond)
 
-	assert.Equal(t, int64(0), motor.curPosition)
+	assert.Equal(t, int64(0), motor.Position())
 
 	encoderA.Tick(true, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, int64(-1), motor.curPosition)
+	assert.Equal(t, int64(-1), motor.Position())
 
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, int64(0), motor.curPosition)
+	assert.Equal(t, int64(0), motor.Position())
 
 	encoderB.Tick(false, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
 	time.Sleep(210 * time.Millisecond)
-	assert.Equal(t, int64(1), motor.curPosition)
+	assert.Equal(t, int64(1), motor.Position())
+
+}
+
+func TestMotorEncoderWrap(t *testing.T) {
+	real := &FakeMotor{}
+
+	// don't wrap with no encoder
+	m, err := WrapMotorWithEncoder(nil, MotorConfig{}, real)
+	assert.Nil(t, err)
+	assert.Equal(t, real, m)
+
+	// enforce need TicksPerRotation
+	m, err = WrapMotorWithEncoder(nil, MotorConfig{Encoder: "a"}, real)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
+
+	b, err := NewFakeBoard(Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// enforce need encoder
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
+
+	b.(*FakeBoard).digitals["a"] = &BasicDigitalInterrupt{}
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real)
+	assert.Nil(t, err)
+	_, ok := m.(*encodedMotor)
+	assert.True(t, ok)
+
+	// enforce need encoder b
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
+
+	m, err = WrapMotorWithEncoder(b, MotorConfig{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real)
+	assert.NotNil(t, err)
+	assert.Nil(t, m)
 
 }
