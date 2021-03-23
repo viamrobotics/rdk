@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/edaniels/test"
@@ -44,14 +43,6 @@ func TestParseFlags(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "parse")
 	})
 
-	t.Run("StringFlags", func(t *testing.T) {
-		var ps3 parseStruct3
-		test.That(t, ParseFlags([]string{"1", "--a=2", "--a=3", "--a=4"}, &ps3), test.ShouldBeNil)
-		test.That(t, ps3, test.ShouldResemble, parseStruct3{
-			A: StringFlags{"2", "3", "4"},
-		})
-	})
-
 	t.Run("NetPortFlag", func(t *testing.T) {
 		var psn parseStructNet
 		test.That(t, ParseFlags([]string{"1", "--a=2"}, &psn), test.ShouldBeNil)
@@ -69,47 +60,57 @@ func TestParseFlags(t *testing.T) {
 		err := ParseFlags([]string{"1", "--a=-1"}, &psn)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
-		err = ParseFlags([]string{"1", "--a=-10000"}, &psn)
+		err = ParseFlags([]string{"1", "--a=100000"}, &psn)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
-	})
+		test.That(t, err.Error(), test.ShouldContainSubstring, "range")
 
-	t.Run("flagUnmarshaler", func(t *testing.T) {
-		var ps4 parseStruct4
-		test.That(t, ParseFlags([]string{"1", "--a=hey there", "--b=one", "--b=two"}, &ps4), test.ShouldBeNil)
-		test.That(t, ps4.A.flagName, test.ShouldEqual, "a")
-		test.That(t, ps4.A.val, test.ShouldEqual, "hey there")
-		test.That(t, ps4.B, test.ShouldResemble, []uflagStruct{
-			{"b", "one"},
-			{"b", "two"},
+		test.That(t, ParseFlags([]string{"1", "--b=2", "--b=3"}, &psn), test.ShouldBeNil)
+		test.That(t, psn, test.ShouldResemble, parseStructNet{
+			A: NetPortFlag(5555),
+			B: []NetPortFlag{2, 3},
 		})
 
-		var ps5 parseStruct5
-		err := ParseFlags([]string{"1", "--a=hey there"}, &ps5)
+		err = ParseFlags([]string{"1", "--b=2", "--b=foo"}, &psn)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+		err = ParseFlags([]string{"1", "--b=2", "--b=100000"}, &psn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "range")
+
+		psn = parseStructNet{}
+		test.That(t, ParseFlags([]string{"1", "--d=2"}, &psn), test.ShouldBeNil)
+		nf := NetPortFlag(2)
+		test.That(t, psn, test.ShouldResemble, parseStructNet{
+			A: NetPortFlag(5555),
+			D: &nf,
+		})
+		err = ParseFlags([]string{"1", "--d=foo"}, &psn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 	})
 
 	t.Run("flag options", func(t *testing.T) {
-		var ps6 parseStruct6
-		err := ParseFlags([]string{"1", "--A=hey there"}, &ps6)
+		var ps3 parseStruct3
+		err := ParseFlags([]string{"1", "--A=hey there"}, &ps3)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Usage")
-		err = ParseFlags([]string{"1", "--A=hey there", "--b=one"}, &ps6)
+		err = ParseFlags([]string{"1", "--A=hey there", "--b=one"}, &ps3)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "Usage")
-		err = ParseFlags([]string{"1", "--A=hey there", "--b=one", "--c=2"}, &ps6)
+		err = ParseFlags([]string{"1", "--A=hey there", "--b=one", "--c=2"}, &ps3)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ps6.A, test.ShouldEqual, "hey there")
-		test.That(t, ps6.B, test.ShouldEqual, "one")
-		test.That(t, ps6.C, test.ShouldEqual, 2)
-		test.That(t, ps6.D, test.ShouldEqual, 1)
+		test.That(t, ps3.A, test.ShouldEqual, "hey there")
+		test.That(t, ps3.B, test.ShouldEqual, "one")
+		test.That(t, ps3.C, test.ShouldEqual, 2)
+		test.That(t, ps3.D, test.ShouldEqual, 1)
+		test.That(t, ps3.E, test.ShouldEqual, "whatisup")
 
-		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct7{})
+		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct4{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
-		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct8{})
+		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct5{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 	})
@@ -127,52 +128,44 @@ type parseStruct2 struct {
 	D bool   `flag:"d"`
 }
 
+type stringFlag string
+
+func (sf *stringFlag) String() string {
+	return string(*sf)
+}
+
+func (sf *stringFlag) Set(val string) error {
+	if val != "" {
+		*sf = stringFlag(val)
+		return nil
+	}
+	*sf = stringFlag("whatisup")
+	return nil
+}
+
+func (sf *stringFlag) Get() interface{} {
+	return string(*sf)
+}
+
 type parseStruct3 struct {
-	A StringFlags `flag:"a"`
+	A string     `flag:""`
+	B string     `flag:"b,required,default=foo,usage=hello alice"`
+	C int        `flag:"c,required,usage=hello bob"`
+	D int        `flag:"d,default=1,usage=hello charlie"`
+	E stringFlag `flag:"e,default="`
 }
 
 type parseStruct4 struct {
-	A uflagStruct   `flag:"a"`
-	B []uflagStruct `flag:"b"`
-}
-
-type parseStruct5 struct {
-	A uflagStructErr `flag:"a"`
-}
-
-type parseStruct6 struct {
-	A string `flag:""`
-	B string `flag:"b,required,default=foo,usage=hello alice"`
-	C int    `flag:"c,required,usage=hello bob"`
-	D int    `flag:"d,default=1,usage=hello charlie"`
-}
-
-type parseStruct7 struct {
 	A int `flag:",default=foo"`
 }
 
-type parseStruct8 struct {
+type parseStruct5 struct {
 	A bool `flag:",default=foo"`
 }
 
 type parseStructNet struct {
-	A NetPortFlag `flag:"a"`
-}
-
-type uflagStruct struct {
-	flagName string
-	val      string
-}
-
-func (ufs *uflagStruct) UnmarshalFlag(flagName, val string) error {
-	ufs.flagName = flagName
-	ufs.val = val
-	return nil
-}
-
-type uflagStructErr struct {
-}
-
-func (ufse *uflagStructErr) UnmarshalFlag(flagName, val string) error {
-	return errors.New("whoops")
+	A NetPortFlag   `flag:"a,default=5555"`
+	B []NetPortFlag `flag:"b"`
+	C NetPortFlag   `flag:"c"`
+	D *NetPortFlag  `flag:"d"`
 }

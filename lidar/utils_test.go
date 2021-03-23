@@ -46,7 +46,8 @@ func TestBestAngularResolution(t *testing.T) {
 
 func TestDeviceDescriptionFlag(t *testing.T) {
 	type MyStruct struct {
-		Desc lidar.DeviceDescription `flag:"desc"`
+		Desc  lidar.DeviceDescription `flag:"desc"`
+		Desc2 lidar.DeviceDescription `flag:"0"`
 	}
 	var myStruct MyStruct
 	err := utils.ParseFlags([]string{"main", "--desc=foo"}, &myStruct)
@@ -57,6 +58,11 @@ func TestDeviceDescriptionFlag(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myStruct.Desc.Type, test.ShouldEqual, lidar.DeviceType("foo"))
 	test.That(t, myStruct.Desc.Path, test.ShouldEqual, "bar")
+
+	err = utils.ParseFlags([]string{"main", "foo,bar"}, &myStruct)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myStruct.Desc2.Type, test.ShouldEqual, lidar.DeviceType("foo"))
+	test.That(t, myStruct.Desc2.Path, test.ShouldEqual, "bar")
 }
 
 func TestParseDeviceFlag(t *testing.T) {
