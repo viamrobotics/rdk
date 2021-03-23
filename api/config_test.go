@@ -63,4 +63,7 @@ func TestConfig3(t *testing.T) {
 	b := bb.(*temp)
 	assert.Equal(t, 6, b.X)
 	assert.Equal(t, "eliot", b.Y)
+
+	assert.Equal(t, 5.17, cfg.Components[0].Attributes.GetFloat64("bar5", 1.1))
+	assert.Equal(t, 1.1, cfg.Components[0].Attributes.GetFloat64("bar5-no", 1.1))
 }

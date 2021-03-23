@@ -70,6 +70,7 @@
               "board" : "local",
               "widthMillis" : 600,
               "wheelCircumferenceMillis" : 470,
+              "spinSlipFactor" : 2.0,
               "frontLeft" : "fl-m",
               "frontRight" : "fr-m",
               "backLeft" : "bl-m",
