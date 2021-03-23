@@ -3,11 +3,12 @@ package fake
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(r api.Robot, c api.Component) (api.Base, error) {
+	api.RegisterBase(ModelName, func(r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
 		return &Base{}, nil
 	})
 }

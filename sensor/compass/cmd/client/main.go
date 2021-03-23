@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
+	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
-
-	"github.com/edaniels/golog"
 )
 
-var logger = golog.Global
+var logger = rlog.Logger.Named("compass_client")
 
 func main() {
-	utils.ContextualMain(mainWithArgs)
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 // Arguments for the command.
@@ -21,7 +21,7 @@ type Arguments struct {
 	DeviceAddress string `flag:"device,required,usage=device address"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err

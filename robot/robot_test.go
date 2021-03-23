@@ -6,18 +6,20 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 
 	"go.viam.com/robotcore/api"
 )
 
 func TestConfig1(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	cfg, err := api.ReadConfig("data/cfgtest1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	r, err := NewRobot(context.Background(), cfg)
+	r, err := NewRobot(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,12 +39,13 @@ func TestConfig1(t *testing.T) {
 }
 
 func TestConfigFake(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	cfg, err := api.ReadConfig("data/fake.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	r, err := NewRobot(context.Background(), cfg)
+	r, err := NewRobot(context.Background(), cfg, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

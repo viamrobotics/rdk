@@ -146,7 +146,8 @@ func TestMain(t *testing.T) {
 			exec.WaitIters(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
-			pc, err := pointcloud.NewFromFile(temp.Name())
+			logger := golog.NewTestLogger(t)
+			pc, err := pointcloud.NewFromFile(temp.Name(), logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc.Size(), test.ShouldNotBeZeroValue)
 		}},

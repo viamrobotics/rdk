@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"go.viam.com/robotcore/utils"
-
 	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/utils"
 )
 
 type RobotModeData struct {
@@ -131,7 +130,7 @@ type RobotState struct {
 	ForceModeData
 }
 
-func readRobotStateMessage(buf []byte) (RobotState, error) {
+func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) {
 	state := RobotState{}
 
 	for len(buf) > 0 {
@@ -201,14 +200,14 @@ func readRobotStateMessage(buf []byte) (RobotState, error) {
 		} else if packageType == 12 {
 			// Tool mode info, skipping, don't think we need
 		} else {
-			golog.Global.Debugf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
+			logger.Debugf("unknown packageType: %d size: %d content size: %d\n", packageType, sz, len(content))
 		}
 	}
 
 	return state, nil
 }
 
-func readURRobotMessage(buf []byte) error {
+func readURRobotMessage(buf []byte, logger golog.Logger) error {
 	ts := binary.BigEndian.Uint64(buf[1:])
 	//messageSource := buf[9]
 	robotMessageType := buf[10]
@@ -217,7 +216,7 @@ func readURRobotMessage(buf []byte) error {
 
 	switch robotMessageType {
 	case 0: // text?
-		golog.Global.Debugf("ur log: %s\n", string(buf))
+		logger.Debugf("ur log: %s\n", string(buf))
 
 	case 6: // error
 		robotMessageCode := binary.BigEndian.Uint32(buf)
@@ -227,7 +226,7 @@ func readURRobotMessage(buf []byte) error {
 		robotMessageData := binary.BigEndian.Uint32(buf[16:])
 		robotCommTextMessage := string(buf[20:])
 
-		golog.Global.Debugf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
+		logger.Debugf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
 			robotMessageCode, robotMessageArgument, robotMessageReportLevel, robotMessageDataType, robotMessageData, robotCommTextMessage)
 
 	case 3: // Version
@@ -240,16 +239,16 @@ func readURRobotMessage(buf []byte) error {
 		bugFixVersion := binary.BigEndian.Uint32(buf[pos+2:])
 		buildNumber := binary.BigEndian.Uint32(buf[pos+8:])
 
-		golog.Global.Debugf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
+		logger.Debugf("UR version %v.%v.%v.%v\n", majorVersion, minorVersion, bugFixVersion, buildNumber)
 
 	case 12: // i have no idea what this is
 		if len(buf) != 9 {
-			golog.Global.Debugf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
+			logger.Debugf("got a weird robot message of type 12 with bad length: %d\n", len(buf))
 		} else {
 			a := binary.BigEndian.Uint64(buf)
 			b := buf[8]
 			if a != 0 || b != 1 {
-				golog.Global.Debugf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
+				logger.Debugf("got a weird robot message of type 12 with bad data: %v %v\n", a, b)
 			}
 		}
 
@@ -262,11 +261,11 @@ func readURRobotMessage(buf []byte) error {
 
 		if false {
 			// TODO(erh): this is better than sleeping in other code, be smart!!
-			golog.Global.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
+			logger.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
 				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
 		}
 	default:
-		golog.Global.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
+		logger.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
 		return nil
 	}
 

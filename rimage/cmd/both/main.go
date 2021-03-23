@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rlog"
 )
+
+var logger = rlog.Logger.Named("rimage_both")
 
 func main() {
 	err := realMain(os.Args[1:])
 	if err != nil {
-		golog.Global.Info(err)
-		os.Exit(-1)
+		logger.Fatal(err)
 	}
 }
 
@@ -41,7 +41,7 @@ func toLas(flags *flag.FlagSet) error {
 		return err
 	}
 
-	pc, err := img.ToPointCloud()
+	pc, err := img.ToPointCloud(logger)
 	if err != nil {
 		return err
 	}

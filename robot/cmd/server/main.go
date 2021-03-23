@@ -7,12 +7,13 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/erh/egoutil"
-	"go.opencensus.io/trace"
-
-	_ "go.viam.com/robotcore/board/detector"
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rlog"
+	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/web"
 
 	// These are the robot pieces we want by default
+	_ "go.viam.com/robotcore/board/detector"
 	_ "go.viam.com/robotcore/robots/eva" // for eva
 	_ "go.viam.com/robotcore/robots/hellorobot"
 	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
@@ -20,9 +21,8 @@ import (
 	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
 	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
 
-	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/robot/web"
+	"github.com/erh/egoutil"
+	"go.opencensus.io/trace"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
@@ -33,6 +33,8 @@ func main() {
 		panic(err)
 	}
 }
+
+var logger = rlog.Logger.Named("robot_server")
 
 func mainReal() error {
 	noAutoTile := flag.Bool("noAutoTile", false, "disable auto tiling")
@@ -65,7 +67,7 @@ func mainReal() error {
 		return err
 	}
 
-	myRobot, err := robot.NewRobot(context.Background(), cfg)
+	myRobot, err := robot.NewRobot(context.Background(), cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func mainReal() error {
 		options.AutoTile = false
 	}
 
-	err = web.RunWeb(myRobot, options)
+	err = web.RunWeb(myRobot, options, logger)
 	if err != nil {
 		return err
 	}

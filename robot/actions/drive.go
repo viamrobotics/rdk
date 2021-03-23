@@ -7,8 +7,6 @@ import (
 
 	"github.com/edaniels/gostream"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 )
@@ -47,13 +45,13 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 	pc, err = pc.CropToDepthData()
 
 	if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
-		golog.Global.Debugf("error getting depth info: %s, backing up", err)
+		theRobot.Logger().Debugf("error getting depth info: %s, backing up", err)
 		return base.MoveStraight(ctx, -200, 60, true)
 	}
 
-	_, points := roverWalk(pc, false)
+	_, points := roverWalk(pc, false, theRobot.Logger())
 	if points < 200 {
-		golog.Global.Debugf("safe to move forward")
+		theRobot.Logger().Debugf("safe to move forward")
 		return base.MoveStraight(ctx, 200, 50, true)
 	}
 
@@ -63,12 +61,12 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 		return err
 	}
 
-	golog.Global.Debugf("not safe, let's spin, wrote debug img to: %s", fn)
+	theRobot.Logger().Debugf("not safe, let's spin, wrote debug img to: %s", fn)
 	return base.Spin(ctx, -15, 60, true)
 }
 
 func RandomWalk(theRobot api.Robot, numSeconds int64) {
-	defer func() { golog.Global.Debugf("RandomWalk done") }()
+	defer func() { theRobot.Logger().Debugf("RandomWalk done") }()
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(numSeconds))
 	defer cancelFunc()
@@ -76,7 +74,7 @@ func RandomWalk(theRobot api.Robot, numSeconds int64) {
 		err := randomWalkIncrement(ctx, theRobot)
 
 		if err != nil {
-			golog.Global.Debugf("error doing random walk, trying again: %s", err)
+			theRobot.Logger().Debugf("error doing random walk, trying again: %s", err)
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}

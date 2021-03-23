@@ -3,6 +3,7 @@ package kinematics
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/testutils"
@@ -15,9 +16,10 @@ type Position struct {
 }
 
 func TestCreateIKSolver(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	logger := golog.NewTestLogger(t)
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(m)
+	ik := CreateNloptIKSolver(m, logger)
 
 	pos := Position{90, -165, 360.25, 0, 45, 45}
 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)

@@ -10,7 +10,7 @@ import (
 
 // returns points suitable for calling warp on
 func ImageAlign(img1Size image.Point, img1Points []image.Point,
-	img2Size image.Point, img2Points []image.Point) ([]image.Point, []image.Point, error) {
+	img2Size image.Point, img2Points []image.Point, logger golog.Logger) ([]image.Point, []image.Point, error) {
 
 	debug := true
 
@@ -45,7 +45,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 
 	if debug {
-		golog.Global.Debugf("colorAngle: %v depthAngle: %v rotated: %v", colorAngle, depthAngle, rotated)
+		logger.Debugf("colorAngle: %v depthAngle: %v rotated: %v", colorAngle, depthAngle, rotated)
 	}
 	// crop the four sides of the images so they enclose the same area
 	// if one image is rotated, it's assumed it's the second image.
@@ -61,7 +61,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimTop, trimFirstTop, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		golog.Global.Debugf("image_align error: %s", err)
+		logger.Debugf("image_align error: %s", err)
 	}
 	// trim bottom (rotated 90: trim from left)
 	distA, distB = (img1Size.Y-1)-img1Points[1].Y, (img1Size.Y-1)-img1Points[0].Y
@@ -72,7 +72,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		golog.Global.Debugf("image_align error: %s", err)
+		logger.Debugf("image_align error: %s", err)
 	}
 	// trim left (rotated 90: trim from top)
 	distA, distB = img1Points[1].X, img1Points[0].X
@@ -83,7 +83,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimLeft, trimFirstLeft, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		golog.Global.Debugf("image_align error: %s", err)
+		logger.Debugf("image_align error: %s", err)
 	}
 	// trim right (rotated 90: trim from bottom)
 	distA, distB = (img1Size.X-1)-img1Points[0].X, (img1Size.X-1)-img1Points[1].X
@@ -94,7 +94,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		golog.Global.Debugf("error: %s", err)
+		logger.Debugf("error: %s", err)
 	}
 	// Set the crop coorindates for the images
 	img1Points[0].X, img1Points[0].Y = trimLeft*trimFirstLeft, trimTop*trimFirstTop
@@ -108,10 +108,10 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 
 	if debug {
-		golog.Global.Debugf("img1 size: %v img1 points: %v", img1Size, img1Points)
-		golog.Global.Debugf("img2 size: %v img2 points: %v", img2Size, img2Points)
+		logger.Debugf("img1 size: %v img1 points: %v", img1Size, img1Points)
+		logger.Debugf("img2 size: %v img2 points: %v", img2Size, img2Points)
 		if !AllPointsIn(img1Size, img1Points) || !AllPointsIn(img2Size, img2Points) {
-			golog.Global.Debugf("Points are not contained in the images: %v %v", AllPointsIn(img1Size, img1Points), AllPointsIn(img2Size, img2Points))
+			logger.Debugf("Points are not contained in the images: %v %v", AllPointsIn(img1Size, img1Points), AllPointsIn(img2Size, img2Points))
 		}
 	}
 	img1Points = fixPoints(img1Points)
@@ -203,13 +203,14 @@ type AlignConfig struct {
 	OutputSize image.Point
 }
 
-func (config AlignConfig) ComputeWarpFromCommon() (*AlignConfig, error) {
+func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
 
 	colorPoints, depthPoints, err := ImageAlign(
 		config.ColorInputSize,
 		config.ColorWarpPoints,
 		config.DepthInputSize,
 		config.DepthWarpPoints,
+		logger,
 	)
 
 	if err != nil {

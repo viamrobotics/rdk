@@ -2,6 +2,8 @@ package chess
 
 import (
 	"testing"
+
+	"github.com/edaniels/golog"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {
@@ -15,7 +17,8 @@ func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, corr
 }
 
 func TestPiece1(t *testing.T) {
-	theBoard, err := FindAndWarpBoardFromFiles("data/board2.png", "data/board2.dat.gz")
+	logger := golog.NewTestLogger(t)
+	theBoard, err := FindAndWarpBoardFromFiles("data/board2.png", "data/board2.dat.gz", logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +37,7 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, theBoard, "e3", "empty")
 	_testPieceStatusHelper(t, game, theBoard, "e7", "black")
 
-	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz")
+	nextBoard, err := FindAndWarpBoardFromFiles("data/board3.png", "data/board3.dat.gz", logger)
 	if err != nil {
 		t.Fatal(err)
 	}

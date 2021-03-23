@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component) (gostream.ImageSource, error) {
+	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.GetString("color")
@@ -31,7 +31,7 @@ func init() {
 			return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
 		}
 
-		return NewDepthComposed(color, depth, config.Attributes)
+		return NewDepthComposed(color, depth, config.Attributes, logger)
 	})
 
 	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
@@ -50,9 +50,10 @@ type DepthComposed struct {
 
 	config *rimage.AlignConfig
 	debug  bool
+	logger golog.Logger
 }
 
-func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap) (*DepthComposed, error) {
+func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
 	var config *rimage.AlignConfig
 	var err error
 
@@ -67,7 +68,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap)
 	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
 
 	if config.WarpFromCommon {
-		config, err = config.ComputeWarpFromCommon()
+		config, err = config.ComputeWarpFromCommon(logger)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +80,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap)
 	colorTransform := rimage.GetPerspectiveTransform(colorPoints, dst)
 	depthTransform := rimage.GetPerspectiveTransform(depthPoints, dst)
 
-	return &DepthComposed{color, depth, colorTransform, depthTransform, config, attrs.GetBool("debug", false)}, nil
+	return &DepthComposed{color, depth, colorTransform, depthTransform, config, attrs.GetBool("debug", false), logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {
@@ -117,7 +118,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	aligned, err := dc.alignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm})
+	aligned, err := dc.alignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}, dc.logger)
 
 	return aligned, func() {}, err
 
@@ -136,7 +137,7 @@ var (
 	}
 )
 
-func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
+func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
 	_, span := trace.StartSpan(ctx, "alignColorAndDepth")
 	defer span.End()
 
@@ -148,9 +149,9 @@ func (dc *DepthComposed) alignColorAndDepth(ctx context.Context, ii *rimage.Imag
 				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
 				err := ii.WriteTo(fn)
 				if err != nil {
-					golog.Global.Debugf("error writing debug file: %s", err)
+					logger.Debugf("error writing debug file: %s", err)
 				} else {
-					golog.Global.Debugf("wrote debug file to %s", fn)
+					logger.Debugf("wrote debug file to %s", fn)
 				}
 			}()
 		}

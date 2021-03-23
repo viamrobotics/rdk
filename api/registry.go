@@ -3,14 +3,15 @@ package api
 import (
 	"fmt"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 )
 
-type CreateProvider func(r Robot, config Component) (Provider, error)
-type CreateCamera func(r Robot, config Component) (gostream.ImageSource, error)
-type CreateArm func(r Robot, config Component) (Arm, error)
-type CreateGripper func(r Robot, config Component) (Gripper, error)
-type CreateBase func(r Robot, config Component) (Base, error)
+type CreateProvider func(r Robot, config Component, logger golog.Logger) (Provider, error)
+type CreateCamera func(r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error)
+type CreateArm func(r Robot, config Component, logger golog.Logger) (Arm, error)
+type CreateGripper func(r Robot, config Component, logger golog.Logger) (Gripper, error)
+type CreateBase func(r Robot, config Component, logger golog.Logger) (Base, error)
 
 var (
 	cameraRegistry   = map[string]CreateCamera{}

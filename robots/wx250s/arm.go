@@ -19,8 +19,8 @@ import (
 )
 
 func init() {
-	api.RegisterArm("wx250s", func(r api.Robot, config api.Component) (api.Arm, error) {
-		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock)
+	api.RegisterArm("wx250s", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock, logger)
 	})
 }
 
@@ -47,6 +47,7 @@ var OffAngles = map[string]float64{
 type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
+	logger   golog.Logger
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -60,7 +61,7 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
+func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (api.Arm, error) {
 	servos, err := findServos(attributes.GetString("usbPort"), attributes.GetString("baudRate"), attributes.GetString("armServoCount"))
 	if err != nil {
 		return nil, err
@@ -80,9 +81,10 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
 			"Wrist_rot":   {servos[7]},
 		},
 		moveLock: mutex,
+		logger:   logger,
 	}
 
-	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4)
+	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
 func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
@@ -127,7 +129,7 @@ func (a *Arm) Close() {
 	// If not, let's move through the home position first
 	angles, err := a.GetAllAngles()
 	if err != nil {
-		golog.Global.Errorf("failed to get angles: %s", err)
+		a.logger.Errorf("failed to get angles: %s", err)
 	}
 	alreadyAtSleep := true
 	for _, joint := range a.JointOrder() {
@@ -138,16 +140,16 @@ func (a *Arm) Close() {
 	if !alreadyAtSleep {
 		err = a.HomePosition()
 		if err != nil {
-			golog.Global.Errorf("Home position error: %s", err)
+			a.logger.Errorf("Home position error: %s", err)
 		}
 	}
 	err = a.SleepPosition()
 	if err != nil {
-		golog.Global.Errorf("Sleep pos error: %s", err)
+		a.logger.Errorf("Sleep pos error: %s", err)
 	}
 	err = a.TorqueOff()
 	if err != nil {
-		golog.Global.Errorf("Torque off error: %s", err)
+		a.logger.Errorf("Torque off error: %s", err)
 	}
 }
 
@@ -268,7 +270,7 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 
 	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
-		golog.Global.Errorf("%s jointTo error: %s", jointName, err)
+		a.logger.Errorf("%s jointTo error: %s", jointName, err)
 	}
 }
 
@@ -329,7 +331,7 @@ func setServoDefaults(newServo *servo.Servo) error {
 	// Set some nice-to-have settings
 	//~ 	err := newServo.SetMovingThreshold(0)
 	//~ 	if err != nil {
-	//~ 		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+	//~ 		logger.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
 	//~ 	}
 	err := newServo.SetPGain(2800)
 	if err != nil {

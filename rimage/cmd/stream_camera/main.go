@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage/imagesource"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -14,11 +15,11 @@ import (
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs)
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 var (
-	logger = golog.Global
+	logger = rlog.Logger.Named("stream_camera")
 )
 
 // Arguments for the command.
@@ -31,7 +32,7 @@ type Arguments struct {
 	PathPattern string            `flag:"pathPattern"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -72,11 +73,11 @@ func mainWithArgs(ctx context.Context, args []string) error {
 		logger.Debugf("attrs: %v", attrs)
 	}
 
-	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug)
+	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs api.AttributeMap, port int, debug bool) error {
-	webcam, err := imagesource.NewWebcamSource(attrs)
+func viewCamera(ctx context.Context, attrs api.AttributeMap, port int, debug bool, logger golog.Logger) error {
+	webcam, err := imagesource.NewWebcamSource(attrs, logger)
 	if err != nil {
 		return err
 	}
