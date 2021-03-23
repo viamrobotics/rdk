@@ -66,23 +66,21 @@ func TestDeviceDescriptionFlag(t *testing.T) {
 }
 
 func TestParseDeviceFlag(t *testing.T) {
-	_, err := lidar.ParseDeviceFlag("woo", "foo")
+	_, err := lidar.ParseDeviceFlag("foo")
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "--woo")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	desc, err := lidar.ParseDeviceFlag("woo", "foo,bar")
+	desc, err := lidar.ParseDeviceFlag("foo,bar")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, desc, test.ShouldResemble, lidar.DeviceDescription{Type: lidar.DeviceType("foo"), Path: "bar"})
 }
 
 func TestParseDeviceFlags(t *testing.T) {
-	_, err := lidar.ParseDeviceFlags("woo", []string{"foo", "foo,bar", "baz,baf"})
+	_, err := lidar.ParseDeviceFlags([]string{"foo", "foo,bar", "baz,baf"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "--woo")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	descs, err := lidar.ParseDeviceFlags("woo", []string{"foo,bar", "baz,baf"})
+	descs, err := lidar.ParseDeviceFlags([]string{"foo,bar", "baz,baf"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, descs, test.ShouldResemble, []lidar.DeviceDescription{
 		{Type: lidar.DeviceType("foo"), Path: "bar"},
