@@ -3,7 +3,6 @@ package imagesource
 import (
 	"context"
 	"fmt"
-	"image"
 	"path/filepath"
 	"regexp"
 
@@ -131,25 +130,4 @@ func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.Imag
 
 func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (gostream.ImageSource, error) {
 	return media.GetNamedVideoReader(filepath.Base(path), constraints)
-}
-
-func imageToDepthMap(img image.Image) *rimage.DepthMap {
-	bounds := img.Bounds()
-
-	width, height := bounds.Dx(), bounds.Dy()
-
-	// TODO(erd): handle non realsense Z16 devices better
-	// realsense seems to rotate
-	dm := rimage.NewEmptyDepthMap(height, width)
-
-	grayImg := img.(*image.Gray16)
-	for x := 0; x < width; x++ {
-		for y := 0; y < height; y++ {
-			i := grayImg.PixOffset(x, y)
-			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
-			dm.Set(y, x, rimage.Depth(z))
-		}
-	}
-
-	return &dm
 }

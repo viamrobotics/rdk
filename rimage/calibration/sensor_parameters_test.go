@@ -2,15 +2,17 @@ package calibration
 
 import (
 	"testing"
+
+	"go.viam.com/robotcore/rimage"
 )
 
 func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
-	jsonFilePath := "intel515_parameters.json"
+	jsonFilePath := "../../robots/configs/intel515_parameters.json"
 
 	// check depth sensor parameters values
 	depthIntrinsics, err := NewPinholeCameraIntrinsicsFromJSONFile(jsonFilePath, "depth")
 	if err != nil {
-		t.Errorf("Could not read parameters from JSON file.")
+		t.Fatal("Could not read parameters from JSON file.")
 	}
 	if depthIntrinsics.Height != 768 {
 		t.Error("Depth sensor height does not have the right value.")
@@ -29,7 +31,7 @@ func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
 	// check color sensor parameters values
 	colorIntrinsics, err2 := NewPinholeCameraIntrinsicsFromJSONFile(jsonFilePath, "color")
 	if err2 != nil {
-		t.Errorf("Could not read parameters from JSON file.")
+		t.Fatal("Could not read parameters from JSON file.")
 	}
 	if colorIntrinsics.Height != 720 {
 		t.Error("Color sensor height does not have the right value.")
@@ -47,7 +49,7 @@ func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
 	// check sensorParams sensor parameters values
 	sensorParams, err3 := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	if err3 != nil {
-		t.Errorf("Could not read parameters from JSON file.")
+		t.Fatal("Could not read parameters from JSON file.")
 	}
 	gtRotation := []float64{0.999958, -0.00838489, 0.00378392, 0.00824708, 0.999351, 0.0350734, -0.00407554, -0.0350407, 0.999378}
 
@@ -71,7 +73,7 @@ func TestTransformPointToPoint(t *testing.T) {
 
 	t1 := []float64{0, 0, 1}
 	// Get rigid body transform between Depth and RGB sensor
-	extrinsics1 := Extrinsics{
+	extrinsics1 := rimage.Extrinsics{
 		RotationMatrix:    rot1,
 		TranslationVector: t1,
 	}
@@ -87,7 +89,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	}
 
 	t2 := []float64{0, 2, 0}
-	extrinsics2 := Extrinsics{
+	extrinsics2 := rimage.Extrinsics{
 		RotationMatrix:    rot1,
 		TranslationVector: t2,
 	}
@@ -103,7 +105,7 @@ func TestTransformPointToPoint(t *testing.T) {
 	}
 	// Rotation in the (z,x) plane of 90 degrees
 	rot2 := []float64{0, 0, 1, 0, 1, 0, 0, 0, -1}
-	extrinsics3 := Extrinsics{
+	extrinsics3 := rimage.Extrinsics{
 		RotationMatrix:    rot2,
 		TranslationVector: t2,
 	}
