@@ -160,5 +160,7 @@ func realMain() error {
 		return err
 	}
 
-	return web.RunWeb(myRobot, web.NewOptions(), logger)
+	options := web.NewOptions()
+	options.AutoTile = false
+	return web.RunWeb(myRobot, options, logger)
 }
