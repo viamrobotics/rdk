@@ -29,7 +29,7 @@ type WarpPointTransforms struct {
 }
 
 func (dct *WarpPointTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
-	return nil, fmt.Errorf("ToPointCloudWithColor not implemented for WarpPointTransforms")
+	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for WarpPointTransforms")
 }
 
 func (dct *WarpPointTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {

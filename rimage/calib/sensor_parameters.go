@@ -7,6 +7,10 @@ import (
 	"math"
 	"os"
 
+	"go.viam.com/robotcore/pointcloud"
+	"go.viam.com/robotcore/rimage"
+
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 )
 
@@ -37,6 +41,14 @@ type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
+}
+
+func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
+	return nil, fmt.Errorf("method ToAlignedImageWithDepth not implemented for DepthColorIntrinsicsExtrinsics")
+}
+
+func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
+	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorIntrinsicsExtrinsics")
 }
 
 func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {

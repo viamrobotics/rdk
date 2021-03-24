@@ -48,18 +48,18 @@ func init() {
 var alignCurrentlyWriting = false
 
 type DepthComposed struct {
-	color, depth               gostream.ImageSource
-	*calib.WarpPointTransforms // using anonymous fields
-	debug                      bool
-	logger                     golog.Logger
+	color, depth gostream.ImageSource
+	aligner      calib.DepthColorAligner
+	debug        bool
+	logger       golog.Logger
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	dct, err := calib.NewDepthColorTransformsFromWarp(attrs, logger)
+	dcaligner, err := calib.NewDepthColorTransformsFromWarp(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &DepthComposed{color, depth, dct, attrs.GetBool("debug", false), logger}, nil
+	return &DepthComposed{color, depth, dcaligner, attrs.GetBool("debug", false), logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {
@@ -105,7 +105,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			}()
 		}
 	}
-	aligned, err := dc.ToAlignedImageWithDepth(ii, dc.logger)
+	aligned, err := dc.aligner.ToAlignedImageWithDepth(ii, dc.logger)
 
 	return aligned, func() {}, err
 

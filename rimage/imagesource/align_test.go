@@ -29,7 +29,7 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 		}
 	}
 
-	fixed, err := h.dc.ToAlignedImageWithDepth(ii, logger)
+	fixed, err := h.dc.aligner.ToAlignedImageWithDepth(ii, logger)
 	if err != nil {
 		d.T.Fatal(err)
 	}
