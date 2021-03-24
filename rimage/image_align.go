@@ -6,7 +6,186 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 )
+
+type DistortionModel struct {
+	RadialK1     float64 `json:"rk1"`
+	RadialK2     float64 `json:"rk2"`
+	RadialK3     float64 `json:"rk3"`
+	TangentialP1 float64 `json:"tp1"`
+	TangentialP2 float64 `json:"tp2"`
+}
+
+type PinholeCameraIntrinsics struct {
+	Width      int             `json:"width"`
+	Height     int             `json:"height"`
+	Fx         float64         `json:"fx"`
+	Fy         float64         `json:"fy"`
+	Ppx        float64         `json:"ppx"`
+	Ppy        float64         `json:"ppy"`
+	Distortion DistortionModel `json:"distortion"`
+}
+
+type Extrinsics struct {
+	RotationMatrix    []float64 `json:"rotation"`
+	TranslationVector []float64 `json:"translation"`
+}
+
+type DepthColorIntrinsicsExtrinsics struct {
+	ColorCamera  PinholeCameraIntrinsics `json:"color"`
+	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
+	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
+}
+
+func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
+	return &DepthColorIntrinsicsExtrinsics{
+		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
+		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
+		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
+	}
+}
+
+// Function to transform a pixel with depth to a 3D point cloud
+// the intrinsics parameters should be the ones of the sensor used to obtain the image that contains the pixel
+func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float64, float64, float64) {
+	//TODO(louise): add unit test
+	xOverZ := (params.Ppx - float64(x)) / params.Fx
+	yOverZ := (params.Ppy - float64(y)) / params.Fy
+	// get x and y
+	xPixel := xOverZ * z
+	yPixel := yOverZ * z
+	return xPixel, yPixel, z
+}
+
+// Function to project a 3D point to a pixel in an image plane
+// the intrinsics parameters should be the ones of the sensor we want to project to
+func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
+	//TODO(louise): add unit test
+	if z != 0. {
+		xPx := math.Round(x*params.Fx/(z) + params.Ppx)
+		yPx := math.Round(y*params.Fy/(z) + params.Ppy)
+		return xPx, yPx
+	}
+	// if depth is zero at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
+	return -1.0, -1.0
+}
+
+// Function to apply a rigid body transform between two cameras to a 3D point
+func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
+	rotationMatrix := params.RotationMatrix
+	translationVector := params.TranslationVector
+	n := len(rotationMatrix)
+	if n != 9 {
+		panic("Rotation Matrix to transform point cloud should be a 3x3 matrix")
+	}
+	xTransformed := rotationMatrix[0]*x + rotationMatrix[1]*y + rotationMatrix[2]*z + translationVector[0]
+	yTransformed := rotationMatrix[3]*x + rotationMatrix[4]*y + rotationMatrix[5]*z + translationVector[1]
+	zTransformed := rotationMatrix[6]*x + rotationMatrix[7]*y + rotationMatrix[8]*z + translationVector[2]
+
+	return r3.Vector{xTransformed, yTransformed, zTransformed}
+}
+
+type AlignConfig struct {
+	ColorInputSize  image.Point // this validates input size
+	ColorWarpPoints []image.Point
+
+	DepthInputSize  image.Point // this validates output size
+	DepthWarpPoints []image.Point
+
+	WarpFromCommon bool
+
+	OutputSize image.Point
+}
+
+func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
+
+	colorPoints, depthPoints, err := ImageAlign(
+		config.ColorInputSize,
+		config.ColorWarpPoints,
+		config.DepthInputSize,
+		config.DepthWarpPoints,
+		logger,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &AlignConfig{
+		ColorInputSize:  config.ColorInputSize,
+		ColorWarpPoints: ArrayToPoints(colorPoints),
+		DepthInputSize:  config.DepthInputSize,
+		DepthWarpPoints: ArrayToPoints(depthPoints),
+		OutputSize:      config.OutputSize,
+	}, nil
+}
+
+func (config AlignConfig) CheckValid() error {
+	if config.ColorInputSize.X == 0 ||
+		config.ColorInputSize.Y == 0 {
+		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+	}
+
+	if config.DepthInputSize.X == 0 ||
+		config.DepthInputSize.Y == 0 {
+		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+	}
+
+	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
+		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
+	}
+
+	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
+		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+	}
+
+	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
+		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+	}
+
+	return nil
+}
+
+type DepthColorTransforms struct {
+	ColorTransform, DepthTransform TransformationMatrix
+	*AlignConfig                   // anonymous fields
+}
+
+func (dct *DepthColorTransforms) AlignColorAndDepth(ii *ImageWithDepth, logger golog.Logger) (*ImageWithDepth, error) {
+
+	if ii.Color.Width() != dct.ColorInputSize.X ||
+		ii.Color.Height() != dct.ColorInputSize.Y ||
+		ii.Depth.Width() != dct.DepthInputSize.X ||
+		ii.Depth.Height() != dct.DepthInputSize.Y {
+		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
+			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dct.AlignConfig)
+	}
+	ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
+
+	c2 := WarpImage(ii, dct.ColorTransform, dct.OutputSize)
+	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)
+
+	return &ImageWithDepth{c2, &dm2}, nil
+}
+
+func ArrayToPoints(pts []image.Point) []image.Point {
+	if len(pts) == 4 {
+		return pts
+	}
+
+	if len(pts) == 2 {
+		r := image.Rectangle{pts[0], pts[1]}
+		return []image.Point{
+			r.Min,
+			{r.Max.X, r.Min.Y},
+			r.Max,
+			{r.Min.X, r.Max.Y},
+		}
+	}
+
+	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
+}
 
 // returns points suitable for calling warp on
 func ImageAlign(img1Size image.Point, img1Points []image.Point,
@@ -171,83 +350,4 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 
 	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
 
-}
-
-func ArrayToPoints(pts []image.Point) []image.Point {
-	if len(pts) == 4 {
-		return pts
-	}
-
-	if len(pts) == 2 {
-		r := image.Rectangle{pts[0], pts[1]}
-		return []image.Point{
-			r.Min,
-			{r.Max.X, r.Min.Y},
-			r.Max,
-			{r.Min.X, r.Max.Y},
-		}
-	}
-
-	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
-}
-
-type AlignConfig struct {
-	ColorInputSize  image.Point // this validates input size
-	ColorWarpPoints []image.Point
-
-	DepthInputSize  image.Point // this validates output size
-	DepthWarpPoints []image.Point
-
-	WarpFromCommon bool
-
-	OutputSize image.Point
-}
-
-func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
-
-	colorPoints, depthPoints, err := ImageAlign(
-		config.ColorInputSize,
-		config.ColorWarpPoints,
-		config.DepthInputSize,
-		config.DepthWarpPoints,
-		logger,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &AlignConfig{
-		ColorInputSize:  config.ColorInputSize,
-		ColorWarpPoints: ArrayToPoints(colorPoints),
-		DepthInputSize:  config.DepthInputSize,
-		DepthWarpPoints: ArrayToPoints(depthPoints),
-		OutputSize:      config.OutputSize,
-	}, nil
-}
-
-func (config AlignConfig) CheckValid() error {
-	if config.ColorInputSize.X == 0 ||
-		config.ColorInputSize.Y == 0 {
-		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
-	}
-
-	if config.DepthInputSize.X == 0 ||
-		config.DepthInputSize.Y == 0 {
-		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
-	}
-
-	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
-		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
-	}
-
-	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
-		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
-	}
-
-	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
-		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
-	}
-
-	return nil
 }

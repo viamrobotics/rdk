@@ -4,14 +4,16 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"time"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/vision/calibration"
+	"go.viam.com/robotcore/rimage/calibration"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
+	"go.opencensus.io/trace"
 )
 
 func init() {
@@ -43,34 +45,26 @@ func init() {
 	})
 }
 
+var alignCurrentlyWriting = false
+
 type DepthComposed struct {
-	color, depth                      gostream.ImageSource
-	*calibration.DepthColorTransforms // using anonymous fields
-	logger                            golog.Logger
+	color, depth                 gostream.ImageSource
+	*rimage.DepthColorTransforms // using anonymous fields
+	debug                        bool
+	logger                       golog.Logger
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	dct, err := calibration.NewDepthColorTransforms(attrs, logger)
+	dct, err := calibration.NewDepthColorTransformsFromWarp(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &DepthComposed{color, depth, dct, logger}, nil
+	return &DepthComposed{color, depth, dct, attrs.GetBool("debug", false), logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {
 	// TODO(erh): who owns these?
 	return nil
-}
-
-func convertImageToDepthMap(img image.Image) (*rimage.DepthMap, error) {
-	switch ii := img.(type) {
-	case *rimage.ImageWithDepth:
-		return ii.Depth, nil
-	case *image.Gray16:
-		return imageToDepthMap(ii), nil
-	default:
-		return nil, fmt.Errorf("don't know how to make DepthMap from %T", img)
-	}
 }
 
 func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) {
@@ -87,12 +81,31 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	}
 	defer dCloser()
 
-	dm, err := convertImageToDepthMap(d)
+	dm, err := rimage.ConvertImageToDepthMap(d)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	aligned, err := dc.AlignColorAndDepth(ctx, &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}, dc.logger)
+	ii := &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}
+
+	_, span := trace.StartSpan(ctx, "AlignColorAndDepth")
+	defer span.End()
+	if dc.debug {
+		if !alignCurrentlyWriting {
+			alignCurrentlyWriting = true
+			go func() {
+				defer func() { alignCurrentlyWriting = false }()
+				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
+				err := ii.WriteTo(fn)
+				if err != nil {
+					dc.logger.Debugf("error writing debug file: %s", err)
+				} else {
+					dc.logger.Debugf("wrote debug file to %s", fn)
+				}
+			}()
+		}
+	}
+	aligned, err := dc.AlignColorAndDepth(ii, dc.logger)
 
 	return aligned, func() {}, err
 

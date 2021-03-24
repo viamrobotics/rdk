@@ -1,15 +1,14 @@
 package imagesource
 
 import (
-	"context"
 	"image"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/calibration"
 	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/vision/calibration"
 )
 
 type alignTestHelper struct {
@@ -30,7 +29,7 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 		}
 	}
 
-	fixed, err := h.dc.AlignColorAndDepth(context.TODO(), ii, logger)
+	fixed, err := h.dc.AlignColorAndDepth(ii, logger)
 	if err != nil {
 		d.T.Fatal(err)
 	}
