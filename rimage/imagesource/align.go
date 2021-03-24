@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calibration"
+	"go.viam.com/robotcore/rimage/calib"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -36,7 +36,7 @@ func init() {
 	})
 
 	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
-		config := &rimage.AlignConfig{}
+		config := &calib.AlignConfig{}
 		err := mapstructure.Decode(val, config)
 		if err == nil {
 			err = config.CheckValid()
@@ -48,14 +48,14 @@ func init() {
 var alignCurrentlyWriting = false
 
 type DepthComposed struct {
-	color, depth                 gostream.ImageSource
-	*rimage.DepthColorTransforms // using anonymous fields
-	debug                        bool
-	logger                       golog.Logger
+	color, depth               gostream.ImageSource
+	*calib.WarpPointTransforms // using anonymous fields
+	debug                      bool
+	logger                     golog.Logger
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	dct, err := calibration.NewDepthColorTransformsFromWarp(attrs, logger)
+	dct, err := calib.NewDepthColorTransformsFromWarp(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 
 	ii := &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}
 
-	_, span := trace.StartSpan(ctx, "AlignColorAndDepth")
+	_, span := trace.StartSpan(ctx, "ToAlignedImageWithDepth")
 	defer span.End()
 	if dc.debug {
 		if !alignCurrentlyWriting {
@@ -105,7 +105,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			}()
 		}
 	}
-	aligned, err := dc.AlignColorAndDepth(ii, dc.logger)
+	aligned, err := dc.ToAlignedImageWithDepth(ii, dc.logger)
 
 	return aligned, func() {}, err
 
