@@ -10,7 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calibration"
+	"go.viam.com/robotcore/rimage/calib"
 )
 
 func TestSegmentPlane(t *testing.T) {
@@ -40,7 +40,7 @@ func TestSegmentPlane(t *testing.T) {
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	depthIntrinsics, err := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 		t.Fatal(err)
 	}
 	pixel2meter := 0.001
-	depthIntrinsics, err := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,20 +105,20 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(6000)
 	// Get 3D Points
 	fmt.Println(os.Getwd())
-	depthIntrinsics, err := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
 	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	// Get rigid body transform between Depth and RGB sensor
-	sensorParams, err := calibration.NewDepthColorIntrinsicsExtrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json")
+	sensorParams, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Apply RBT
 	transformedPoints := pts.ApplyRigidBodyTransform(&sensorParams.ExtrinsicD2C)
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics, err := calibration.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "color")
+	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "color")
 	if err != nil {
 		t.Fatal(err)
 	}
