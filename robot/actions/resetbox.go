@@ -6,8 +6,11 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/robot"
 )
+
+func init() {
+	RegisterAction("ResetBox", ResetBox)
+}
 
 // TODO(pl) there's definitely a better way to script a series of recorded motions, but this works for now
 func navigateWx250sToDuck() []api.JointPositions {
@@ -134,7 +137,7 @@ func FlatField(b board.Board) error {
 	return tiltServo.Move(32)
 }
 
-func ReplaceObject(theRobot *robot.Robot) error {
+func ReplaceObject(theRobot api.Robot) error {
 	myArm := theRobot.ArmByName("pieceArm")
 	myGripper := theRobot.GripperByName("pieceGripper")
 	err := myGripper.Open()
@@ -187,7 +190,7 @@ func ReplaceObject(theRobot *robot.Robot) error {
 	return myArm.MoveToJointPositions(api.JointPositions{[]float64{0, 0, 0, 0, 0, 0}})
 }
 
-func ResetBoxSteps(theRobot *robot.Robot, shakes int) error {
+func ResetBoxSteps(theRobot api.Robot, shakes int) error {
 	resetBoard := theRobot.BoardByName("resetDriveBoard")
 	if resetBoard == nil {
 		return fmt.Errorf("robot does not have a resetDriveBoard")
@@ -237,8 +240,8 @@ func ResetBoxSteps(theRobot *robot.Robot, shakes int) error {
 	return ReplaceObject(theRobot)
 }
 
-func ResetBox(theRobot *robot.Robot, shakes int) {
-	err := ResetBoxSteps(theRobot, shakes)
+func ResetBox(theRobot api.Robot) {
+	err := ResetBoxSteps(theRobot, 4)
 	if err != nil {
 		theRobot.Logger().Errorf("error resetting box: %s", err)
 	}

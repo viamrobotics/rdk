@@ -75,10 +75,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Temp struct {
-		Views []View
+		Actions []string
+		Views   []View
 	}
 
-	temp := Temp{}
+	temp := Temp{
+		Actions: actions.AllActionNames(),
+	}
 
 	for _, view := range app.views {
 		htmlData := view.HTML()
@@ -173,19 +176,15 @@ func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(js) //nolint
 }
 
-func InstallActions(mux *http.ServeMux, theRobot *robot.Robot, logger golog.Logger) {
+func InstallActions(mux *http.ServeMux, theRobot api.Robot, logger golog.Logger) {
 	mux.Handle("/api/action", &apiCall{func(r *http.Request) (map[string]interface{}, error) {
 		name := r.FormValue("name")
-		switch name {
-		case "RandomWalk":
-			go actions.RandomWalk(theRobot, 60)
-			return map[string]interface{}{"started": true}, nil
-		case "ResetBox":
-			go actions.ResetBox(theRobot, 4)
-			return map[string]interface{}{"started": true}, nil
-		default:
+		action := actions.LookupAction(name)
+		if action == nil {
 			return nil, fmt.Errorf("unknown action name [%s]", name)
 		}
+		go action(theRobot)
+		return map[string]interface{}{"started": true}, nil
 	}, logger})
 }
 

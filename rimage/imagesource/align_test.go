@@ -16,7 +16,7 @@ type alignTestHelper struct {
 	dc    *DepthComposed
 }
 
-func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
@@ -25,13 +25,13 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 	if h.dc == nil {
 		h.dc, err = NewDepthComposed(nil, nil, h.attrs, logger)
 		if err != nil {
-			d.T.Fatal(err)
+			t.Fatal(err)
 		}
 	}
 
 	fixed, err := h.dc.alignColorAndDepth(context.TODO(), ii, logger)
 	if err != nil {
-		d.T.Fatal(err)
+		t.Fatal(err)
 	}
 
 	d.GotDebugImage(fixed.Color, "color-fixed")
@@ -43,7 +43,7 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 
 func TestAlignIntel(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
-	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &intelConfig}, nil})
+	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &intelConfig}, nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestAlignGripper(t *testing.T) {
 	}
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
-	err = d.Process(&alignTestHelper{c.Attributes, nil})
+	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)
 	}

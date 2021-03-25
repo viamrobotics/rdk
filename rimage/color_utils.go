@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"image/color"
 	"io/ioutil"
+	"sort"
 	"strings"
 )
 
@@ -28,7 +29,46 @@ type ColorDiff struct {
 	Diff  float64
 }
 
-type ColorDiffs []ColorDiff
+type ColorDiffs struct {
+	all        []ColorDiff
+	seenCombos map[uint64]bool // this a + b for now, which is wrong, but..
+}
+
+func (x *ColorDiffs) Len() int {
+	return len(x.all)
+}
+
+func (x *ColorDiffs) Less(i, j int) bool {
+	return x.all[i].Diff < x.all[j].Diff
+}
+
+func (x *ColorDiffs) Swap(i, j int) {
+	t := x.all[i]
+	x.all[i] = x.all[j]
+	x.all[j] = t
+}
+
+func (x *ColorDiffs) Sort() {
+	sort.Sort(x)
+}
+
+func (x *ColorDiffs) AddD(a, b Color, d float64) {
+	if x.seenCombos == nil {
+		x.seenCombos = map[uint64]bool{}
+	}
+
+	t := uint64(a) + uint64(b)
+	if x.seenCombos[t] {
+		return
+	}
+	x.all = append(x.all, ColorDiff{a, b, d})
+	x.seenCombos[t] = true
+}
+
+func (x *ColorDiffs) Add(a, b Color) {
+	d := a.Distance(b)
+	x.AddD(a, b, d)
+}
 
 func (x *ColorDiffs) output() string {
 	t := "<html><body><table>" +
@@ -47,7 +87,7 @@ func (x *ColorDiffs) output() string {
 	}
 
 	w := strings.Builder{}
-	err = tt.Execute(&w, x)
+	err = tt.Execute(&w, x.all)
 	if err != nil {
 		panic(err)
 	}
@@ -62,8 +102,7 @@ func ComputeColorDiffs(all []Color) ColorDiffs {
 	diffs := ColorDiffs{}
 	for i, c := range all {
 		for _, c2 := range all[i+1:] {
-			d := c.Distance(c2)
-			diffs = append(diffs, ColorDiff{c, c2, d})
+			diffs.Add(c, c2)
 		}
 	}
 	return diffs

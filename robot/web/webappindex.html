@@ -170,8 +170,9 @@
   <body onLoad="startup()">
     <div id="app">
       <div id="actions">
-        <button v-on:click="doAction('RandomWalk')">Random Walk</button>
-        <button v-on:click="doAction('ResetBox')">Reset Box</button>
+        {{range $r := .Actions}}
+        <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
+        {{end}}
       </div>      
 
       <div style="font-color: red">${ error }</div>
