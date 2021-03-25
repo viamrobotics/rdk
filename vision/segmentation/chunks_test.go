@@ -11,7 +11,12 @@ import (
 type chunkImageDebug struct {
 }
 
-func (cid *chunkImageDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, imgraw image.Image, logger golog.Logger) error {
+func (cid *chunkImageDebug) Process(
+	t *testing.T,
+	d *rimage.MultipleImageTestDebugger,
+	fn string,
+	imgraw image.Image,
+	logger golog.Logger) error {
 
 	img := rimage.ConvertImage(imgraw)
 
@@ -67,7 +72,7 @@ func (cid *chunkImageDebug) Process(d *rimage.MultipleImageTestDebugger, fn stri
 					return err
 				}
 
-				d.T.Errorf("out of pixel range %s %v %d", fn, s, numPixels)
+				t.Errorf("out of pixel range %s %v %d", fn, s, numPixels)
 			}
 		}
 
@@ -86,7 +91,7 @@ func (cid *chunkImageDebug) Process(d *rimage.MultipleImageTestDebugger, fn stri
 
 func TestChunk1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*")
-	err := d.Process(&chunkImageDebug{})
+	err := d.Process(t, &chunkImageDebug{})
 	if err != nil {
 		t.Fatal(err)
 	}
