@@ -70,3 +70,18 @@ func TestPC3(t *testing.T) {
 	}
 
 }
+
+func TestImageToDepthMap(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// convert to gray16 image
+	depthImage := iwd.Depth.ToGray16Picture()
+	// convert back
+	dmFromImage := imageToDepthMap(depthImage)
+	// tests
+	assert.Equal(t, dmFromImage.Height(), iwd.Depth.Height())
+	assert.Equal(t, dmFromImage.Width(), iwd.Depth.Width())
+	assert.Equal(t, dmFromImage, iwd.Depth)
+}
