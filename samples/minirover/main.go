@@ -62,17 +62,26 @@ func dock(r api.Robot) error {
 			continue
 		}
 		logger.Debugf("x: %v y: %v\n", x, y)
-		if y > 0 {
+		if y > .35 {
 			// we're close enough?
 			logger.Info("docking close enough")
 			return nil
 		}
 
-		angle := x * 15
+		angle := x * -15
+		logger.Debugf("turning %v degrees", angle)
 		err = base.Spin(ctx, angle, 10, true)
 		if err != nil {
 			return err
 		}
+
+		amount := 100.0 - (100.0 * y)
+		logger.Debugf("moved %v millis", amount)
+		err = base.MoveStraight(ctx, int(-1*amount), 50, true)
+		if err != nil {
+			return err
+		}
+
 		tries = 0
 	}
 
@@ -95,8 +104,8 @@ func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64
 
 	logger.Debugf("black: %v", p)
 
-	x := float64((ri.Width()/2)-p.X) / float64(ri.Width())
-	y := float64((ri.Height()/2)-p.Y) / float64(ri.Height())
+	x := 2 * float64((ri.Width()/2)-p.X) / float64(ri.Width())
+	y := 2 * float64((ri.Height()/2)-p.Y) / float64(ri.Height())
 	return x, y, nil
 }
 

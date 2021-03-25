@@ -125,7 +125,7 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-              "path_pattern" : "usb.0.1.2",
+              "path_pattern" : "usb.0.1.2.*index0",
               "width" : 640,
               "debug" : true
           }
