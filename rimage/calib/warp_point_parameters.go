@@ -11,28 +11,16 @@ import (
 	"github.com/edaniels/golog"
 )
 
-var (
-	IntelConfig = AlignConfig{
-		ColorInputSize:  image.Point{1280, 720},
-		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
-
-		DepthInputSize:  image.Point{1024, 768},
-		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
-
-		OutputSize: image.Point{640, 360},
-	}
-)
-
-type WarpPointTransforms struct {
+type DepthColorWarpTransforms struct {
 	ColorTransform, DepthTransform rimage.TransformationMatrix
 	*AlignConfig                   // anonymous fields
 }
 
-func (dct *WarpPointTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
-	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for WarpPointTransforms")
+func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
+	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorWarpTransforms")
 }
 
-func (dct *WarpPointTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
+func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
 
 	if ii.Color.Width() != dct.ColorInputSize.X ||
 		ii.Color.Height() != dct.ColorInputSize.Y ||
@@ -49,16 +37,14 @@ func (dct *WarpPointTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDept
 	return &rimage.ImageWithDepth{c2, &dm2}, nil
 }
 
-func NewDepthColorTransformsFromWarp(attrs api.AttributeMap, logger golog.Logger) (*WarpPointTransforms, error) {
+func NewDepthColorWarpTransforms(attrs api.AttributeMap, logger golog.Logger) (*DepthColorWarpTransforms, error) {
 	var config *AlignConfig
 	var err error
 
 	if attrs.Has("config") {
 		config = attrs["config"].(*AlignConfig)
-	} else if attrs["make"] == "intel515" {
-		config = &IntelConfig
 	} else {
-		return nil, fmt.Errorf("no aligntmnt config")
+		return nil, fmt.Errorf("no alignment config")
 	}
 
 	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
@@ -76,5 +62,5 @@ func NewDepthColorTransformsFromWarp(attrs api.AttributeMap, logger golog.Logger
 	colorTransform := rimage.GetPerspectiveTransform(colorPoints, dst)
 	depthTransform := rimage.GetPerspectiveTransform(depthPoints, dst)
 
-	return &WarpPointTransforms{colorTransform, depthTransform, config}, nil
+	return &DepthColorWarpTransforms{colorTransform, depthTransform, config}, nil
 }

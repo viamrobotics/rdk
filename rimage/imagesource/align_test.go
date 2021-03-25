@@ -41,9 +41,27 @@ func (h *alignTestHelper) Process(d *rimage.MultipleImageTestDebugger, fn string
 	return nil
 }
 
-func TestAlignIntel(t *testing.T) {
+func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
 	err := d.Process(&alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAlignIntelMatrices(t *testing.T) {
+	config, err := api.ReadConfig(testutils.ResolveFile("robots/configs/intel.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := config.FindComponent("front")
+	if c == nil {
+		t.Fatal("no front")
+	}
+
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	err = d.Process(&alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)
 	}
