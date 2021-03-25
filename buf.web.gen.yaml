@@ -1,0 +1,11 @@
+version: v1beta1
+plugins:
+  - name: js
+    out: dist/js
+    opt:
+      - import_style=commonjs
+  - name: grpc-web
+    out: dist/js
+    opt:
+      - import_style=commonjs
+      - mode=grpcwebtext

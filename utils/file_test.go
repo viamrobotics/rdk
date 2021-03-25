@@ -1,4 +1,4 @@
-package testutils
+package utils
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 func TestResolveFile(t *testing.T) {
 	var sentinel = "great"
 	_ = sentinel
-	resolved := ResolveFile("testutils/file_test.go")
+	resolved := ResolveFile("utils/file_test.go")
 	rd, err := ioutil.ReadFile(resolved)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bytes.Contains(rd, []byte("var sentinel = \"great\"")), test.ShouldBeTrue)

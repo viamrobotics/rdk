@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robots/fake"
+	"goji.io"
 )
 
 func checkStatus(t *testing.T, r api.Robot, client *Client) {
@@ -43,7 +44,7 @@ func TestWeb(t *testing.T) {
 	r.AddArm(arm, api.Component{Name: "arm1"})
 
 	// set up server
-	mux := http.NewServeMux()
+	mux := goji.NewMux()
 	webCloser, err := InstallWeb(cancelCtx, mux, r, Options{}, logger)
 	if err != nil {
 		t.Fatal(err)

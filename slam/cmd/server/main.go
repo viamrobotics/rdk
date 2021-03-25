@@ -11,7 +11,6 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/sensor/compass"
@@ -33,7 +32,7 @@ func main() {
 
 var (
 	defaultPort = 5555
-	logger      = rlog.Logger.Named("slam_server")
+	logger      = golog.NewDevelopmentLogger("slam_server")
 )
 
 // Arguments for the command.
@@ -134,7 +133,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 
 	var compassSensor compass.Device
 	if args.Compass != "" {
-		sensor, err := compass.NewWSDevice(ctx, args.Compass)
+		sensor, err := compass.NewClient(ctx, args.Compass)
 		if err != nil {
 			return err
 		}

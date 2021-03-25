@@ -29,7 +29,7 @@ func ParseFlags(args []string, into interface{}) error {
 	if err := UnmarshalFlags(cmdLine, into); err != nil {
 		if errors.Is(err, errRequiredFlagUnspecified) {
 			cmdLine.Usage()
-			return errors.New(buf.String())
+			return fmt.Errorf("%s\n%s", err, buf.String())
 		}
 		return err
 	}
@@ -191,6 +191,7 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 	if posIdx, err := strconv.ParseInt(info.Name, 10, 64); err == nil {
 		info.Positional = true
 		info.Position = int(posIdx)
+		info.Name = fmt.Sprintf("positional_arg_%d", posIdx)
 	}
 	if field.Type.Implements(flagValueT) || reflect.PtrTo(field.Type).Implements(flagValueT) {
 		info.IsFlagVal = true

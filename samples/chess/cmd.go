@@ -15,12 +15,12 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/imagesource"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
 	"go.viam.com/robotcore/vision/chess"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/tonyOreglia/glee/pkg/engine"
 	"github.com/tonyOreglia/glee/pkg/moves"
@@ -41,7 +41,7 @@ var (
 	wantPicture = int32(0)
 
 	numPiecesCaptured = 0
-	logger            = rlog.Logger.Named("chess")
+	logger            = golog.NewDevelopmentLogger("chess")
 )
 
 func getCoord(chess string) pos {
@@ -632,7 +632,7 @@ func main() {
 		}
 	}()
 
-	err = web.RunWeb(myRobot, web.NewOptions(), logger)
+	err = web.RunWeb(context.Background(), myRobot, web.NewOptions(), logger)
 	if err != nil {
 		panic(err)
 	}

@@ -17,7 +17,6 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/robot/web"
@@ -36,7 +35,7 @@ const (
 	TiltCenter = 113
 )
 
-var logger = rlog.Logger.Named("minirover")
+var logger = golog.NewDevelopmentLogger("minirover")
 
 func init() {
 	actions.RegisterAction("dock", func(r api.Robot) {
@@ -332,5 +331,5 @@ func realMain() error {
 	options := web.NewOptions()
 	options.AutoTile = false
 	options.Pprof = true
-	return web.RunWeb(myRobot, options, logger)
+	return web.RunWeb(context.Background(), myRobot, options, logger)
 }

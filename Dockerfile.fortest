@@ -42,7 +42,16 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     python2.7-dev \
     lsb-release \
     htop \
-    bc
+    bc \
+    protobuf-compiler
+
+# Homebrew
+RUN git clone https://github.com/Homebrew/brew ~/.linuxbrew/Homebrew
+RUN mkdir ~/.linuxbrew/bin
+RUN ln -s ~/.linuxbrew/Homebrew/bin/brew ~/.linuxbrew/bin
+RUN ~/.linuxbrew/bin/brew tap bufbuild/buf
+RUN ~/.linuxbrew/bin/brew install buf
+RUN cp /root/.linuxbrew/bin/* /usr/local/bin
 
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 RUN echo \

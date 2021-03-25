@@ -324,10 +324,10 @@ func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
 // TODO(erd): prefer registration pattern
 func (r *Robot) newLidar(ctx context.Context, config api.Component) (lidar.Device, error) {
 	switch config.Model {
-	case lidar.ModelNameWS:
+	case lidar.ModelNameClient:
 		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
-			Type: lidar.DeviceTypeWS,
-			Path: fmt.Sprintf("ws://%s:%d", config.Host, config.Port),
+			Type: lidar.DeviceTypeClient,
+			Path: fmt.Sprintf("%s:%d", config.Host, config.Port),
 		})
 	case fake.ModelName:
 		return fake.NewLidar(), nil

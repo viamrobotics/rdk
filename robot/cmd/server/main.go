@@ -2,15 +2,13 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"os"
 	"runtime/pprof"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
+	"go.viam.com/robotcore/utils"
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/robotcore/board/detector"
@@ -22,29 +20,33 @@ import (
 	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
 	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
 
+	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-var webprofile = flag.Bool("webprofile", false, "include profiler in http server")
-
 func main() {
-	err := mainReal()
-	if err != nil {
-		panic(err)
-	}
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
-var logger = rlog.Logger.Named("robot_server")
+var logger = golog.NewDevelopmentLogger("robot_server")
 
-func mainReal() error {
-	noAutoTile := flag.Bool("noAutoTile", false, "disable auto tiling")
+// Arguments for the command.
+type Arguments struct {
+	ConfigFile string `flag:"0,required,usage=robot config file"`
+	NoAutoTile bool   `flag:"noAutoTile,usage=disable auto tiling"`
+	CPUProfile string `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile bool   `flag:"webprofile,usage=include profiler in http server"`
+}
 
-	flag.Parse()
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
+	}
 
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
+	if argsParsed.CPUProfile != "" {
+		f, err := os.Create(argsParsed.CPUProfile)
 		if err != nil {
 			return err
 		}
@@ -59,34 +61,19 @@ func mainReal() error {
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	if flag.NArg() == 0 {
-		return fmt.Errorf("need to specify a config file")
-	}
-
-	cfgFile := flag.Arg(0)
-	cfg, err := api.ReadConfig(cfgFile)
+	cfg, err := api.ReadConfig(argsParsed.ConfigFile)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robot.NewRobot(context.Background(), cfg, logger)
+	myRobot, err := robot.NewRobot(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 
 	options := web.NewOptions()
+	options.AutoTile = !argsParsed.NoAutoTile
+	options.Pprof = argsParsed.WebProfile
 
-	if *noAutoTile {
-		options.AutoTile = false
-	}
-	if *webprofile {
-		options.Pprof = true
-	}
-
-	err = web.RunWeb(myRobot, options, logger)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return web.RunWeb(ctx, myRobot, options, logger)
 }
