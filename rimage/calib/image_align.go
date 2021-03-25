@@ -1,12 +1,87 @@
-package rimage
+package calib
 
 import (
 	"fmt"
 	"image"
 	"math"
 
+	"go.viam.com/robotcore/rimage"
+
 	"github.com/edaniels/golog"
 )
+
+var (
+	IntelConfig = AlignConfig{
+		ColorInputSize:  image.Point{1280, 720},
+		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
+
+		DepthInputSize:  image.Point{1024, 768},
+		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
+
+		OutputSize: image.Point{640, 360},
+	}
+)
+
+type AlignConfig struct {
+	ColorInputSize  image.Point // this validates input size
+	ColorWarpPoints []image.Point
+
+	DepthInputSize  image.Point // this validates output size
+	DepthWarpPoints []image.Point
+
+	WarpFromCommon bool
+
+	OutputSize image.Point
+}
+
+func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
+
+	colorPoints, depthPoints, err := ImageAlign(
+		config.ColorInputSize,
+		config.ColorWarpPoints,
+		config.DepthInputSize,
+		config.DepthWarpPoints,
+		logger,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &AlignConfig{
+		ColorInputSize:  config.ColorInputSize,
+		ColorWarpPoints: rimage.ArrayToPoints(colorPoints),
+		DepthInputSize:  config.DepthInputSize,
+		DepthWarpPoints: rimage.ArrayToPoints(depthPoints),
+		OutputSize:      config.OutputSize,
+	}, nil
+}
+
+func (config AlignConfig) CheckValid() error {
+	if config.ColorInputSize.X == 0 ||
+		config.ColorInputSize.Y == 0 {
+		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+	}
+
+	if config.DepthInputSize.X == 0 ||
+		config.DepthInputSize.Y == 0 {
+		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+	}
+
+	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
+		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
+	}
+
+	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
+		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+	}
+
+	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
+		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+	}
+
+	return nil
+}
 
 // returns points suitable for calling warp on
 func ImageAlign(img1Size image.Point, img1Points []image.Point,
@@ -19,15 +94,15 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 
 	fixPoints := func(pts []image.Point) []image.Point {
-		r := BoundingBox(pts)
-		return ArrayToPoints([]image.Point{r.Min, r.Max})
+		r := rimage.BoundingBox(pts)
+		return rimage.ArrayToPoints([]image.Point{r.Min, r.Max})
 	}
 
 	// this only works for things on a multiple of 90 degrees apart, not arbitrary
 
 	// firse we figure out if we are rotated 90 degrees or not to know which direction to expand
-	colorAngle := PointAngle(img1Points[0], img1Points[1])
-	depthAngle := PointAngle(img2Points[0], img2Points[1])
+	colorAngle := rimage.PointAngle(img1Points[0], img1Points[1])
+	depthAngle := rimage.PointAngle(img2Points[0], img2Points[1])
 
 	if colorAngle < 0 {
 		colorAngle += math.Pi
@@ -110,8 +185,8 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	if debug {
 		logger.Debugf("img1 size: %v img1 points: %v", img1Size, img1Points)
 		logger.Debugf("img2 size: %v img2 points: %v", img2Size, img2Points)
-		if !AllPointsIn(img1Size, img1Points) || !AllPointsIn(img2Size, img2Points) {
-			logger.Debugf("Points are not contained in the images: %v %v", AllPointsIn(img1Size, img1Points), AllPointsIn(img2Size, img2Points))
+		if !rimage.AllPointsIn(img1Size, img1Points) || !rimage.AllPointsIn(img2Size, img2Points) {
+			logger.Debugf("Points are not contained in the images: %v %v", rimage.AllPointsIn(img1Size, img1Points), rimage.AllPointsIn(img2Size, img2Points))
 		}
 	}
 	img1Points = fixPoints(img1Points)
@@ -171,83 +246,4 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 
 	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
 
-}
-
-func ArrayToPoints(pts []image.Point) []image.Point {
-	if len(pts) == 4 {
-		return pts
-	}
-
-	if len(pts) == 2 {
-		r := image.Rectangle{pts[0], pts[1]}
-		return []image.Point{
-			r.Min,
-			{r.Max.X, r.Min.Y},
-			r.Max,
-			{r.Min.X, r.Max.Y},
-		}
-	}
-
-	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
-}
-
-type AlignConfig struct {
-	ColorInputSize  image.Point // this validates input size
-	ColorWarpPoints []image.Point
-
-	DepthInputSize  image.Point // this validates output size
-	DepthWarpPoints []image.Point
-
-	WarpFromCommon bool
-
-	OutputSize image.Point
-}
-
-func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
-
-	colorPoints, depthPoints, err := ImageAlign(
-		config.ColorInputSize,
-		config.ColorWarpPoints,
-		config.DepthInputSize,
-		config.DepthWarpPoints,
-		logger,
-	)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &AlignConfig{
-		ColorInputSize:  config.ColorInputSize,
-		ColorWarpPoints: ArrayToPoints(colorPoints),
-		DepthInputSize:  config.DepthInputSize,
-		DepthWarpPoints: ArrayToPoints(depthPoints),
-		OutputSize:      config.OutputSize,
-	}, nil
-}
-
-func (config AlignConfig) CheckValid() error {
-	if config.ColorInputSize.X == 0 ||
-		config.ColorInputSize.Y == 0 {
-		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
-	}
-
-	if config.DepthInputSize.X == 0 ||
-		config.DepthInputSize.Y == 0 {
-		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
-	}
-
-	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
-		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
-	}
-
-	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
-		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
-	}
-
-	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
-		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
-	}
-
-	return nil
 }
