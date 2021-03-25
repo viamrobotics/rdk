@@ -11,7 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
-	cal "go.viam.com/robotcore/vision/calibration"
+	"go.viam.com/robotcore/rimage/calib"
 )
 
 type Points3D struct {
@@ -123,7 +123,7 @@ func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float6
 // fx, fy (Focal Length)            : 900.538, 900.818
 //Distortion Coefficients : [0.158701,-0.485405,-0.00143327,-0.000705919,0.435342]
 // depthMin and DepthMax are supposed to contain the range of depth values for which the confidence is high
-func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) *Points3D {
+func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) *Points3D {
 	// TODO(louise): add distortion model for better accuracy
 	// go through depth map pixels and get 3D Points
 	pts := New3DPoints()
@@ -146,7 +146,7 @@ func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64
 }
 
 // Function to project 3D point in a given camera image plane
-func (pts *Points3D) ProjectPlane3dPointsToRGBPlane(h, w int, params cal.PinholeCameraIntrinsics, pixel2meter float64) []r3.Vector {
+func (pts *Points3D) ProjectPlane3dPointsToRGBPlane(h, w int, params calib.PinholeCameraIntrinsics, pixel2meter float64) []r3.Vector {
 	var coordinates []r3.Vector
 	for _, pt := range pts.Points {
 		j, i := params.PointToPixel(pt.X, pt.Y, pt.Z)
@@ -172,7 +172,7 @@ func IsPixelInImage(i, j, h, w int) bool {
 }
 
 // Function to project 3D point in a given camera image plane
-func (pts *Points3D) ApplyRigidBodyTransform(params *cal.Extrinsics) *Points3D {
+func (pts *Points3D) ApplyRigidBodyTransform(params *calib.Extrinsics) *Points3D {
 	transformedPoints := New3DPoints()
 	for _, pt := range pts.Points {
 		ptTransformed := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
@@ -200,7 +200,7 @@ func SampleRandomIntRange(min, max int) int {
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params cal.PinholeCameraIntrinsics, logger golog.Logger) (*pc.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics, logger golog.Logger) (*pc.PointCloud, error) {
 	// create new point cloud
 	pcOut := pc.New(logger)
 	// go through depth map pixels and get 3D Points
