@@ -12,7 +12,15 @@ if [ ! -f $GO_PATH ]; then
 fi
 
 if [ "$(uname)" = "Linux" ]; then
-	sudo apt install python2.7-dev libvpx-dev libx264-dev pkg-config
+	sudo apt install python2.7-dev libvpx-dev libx264-dev pkg-config protobuf-compiler
+  PREFIX="/usr/local" && \
+  VERSION="0.40.0" && \
+    curl -sSL \
+      "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
+      sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
+  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
+  chmod +x protoc-gen-grpc-web
+  mv protoc-gen-grpc-web /usr/local/bin/
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
@@ -20,9 +28,18 @@ if [ "$(uname)" = "Darwin" ]; then
     echo "You need to install Xcode"
     exit 1
   fi
-	brew install libvpx x264 pkgconfig
+  brew tap bufbuild/buf
+	brew install libvpx x264 pkgconfig protobuf buf
 	make python-macos
+  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
+  chmod +x protoc-gen-grpc-web
+  mv protoc-gen-grpc-web /usr/local/bin/
 fi
+
+go install google.golang.org/protobuf/cmd/protoc-gen-go \
+  google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+  github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+  github.com/fullstorydev/grpcurl/cmd/grpcurl
 
 NLOPT_OK=1
 pkg-config nlopt || NLOPT_OK=0

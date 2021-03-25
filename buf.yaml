@@ -1,0 +1,15 @@
+version: v1beta1
+name: buf.build/viam/robotcore
+build:
+  roots:
+    - .
+  excludes:
+    - vendor
+lint:
+  use:
+    - DEFAULT
+breaking:
+  use:
+    - FILE
+deps:
+  - buf.build/beta/googleapis
