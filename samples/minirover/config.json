@@ -82,7 +82,7 @@
           "model" : "webcam",
           "attributes" : {
 	          "hide" : true,
-              "path_pattern" : "usb",
+              "path_pattern" : "usb.0.1.1",
 	          "width" : 1280
           }
         },
@@ -92,6 +92,7 @@
           "attributes" : {
 	          "hide" : true,
               "format" : "Z16",
+              "path_pattern" : "usb.0.1.1",
 	          "width" : 768
           }
         },
@@ -118,6 +119,15 @@
           "model" : "rotate",
           "attributes" : {
               "source" : "front-overlay"
+          }
+        },
+        { "name" : "back-color",
+          "type" : "camera",
+          "model" : "webcam",
+          "attributes" : {
+              "path_pattern" : "usb.0.1.2",
+              "width" : 640,
+              "debug" : true
           }
         }
     ],

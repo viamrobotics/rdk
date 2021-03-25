@@ -189,7 +189,8 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
 		section = 2
 		// we're in the bottom left quadrat
-		wh /= 5
+		wv *= 3.0
+		wh /= 20
 		ws /= 2
 	} else if (s1 < .3 && v1 < .35) || (s2 < .3 && v2 < .35) {
 		section = 3
