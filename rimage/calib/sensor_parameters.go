@@ -1,4 +1,4 @@
-package calibration
+package calib
 
 import (
 	"encoding/json"
@@ -7,6 +7,11 @@ import (
 	"math"
 	"os"
 
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/pointcloud"
+	"go.viam.com/robotcore/rimage"
+
+	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 )
 
@@ -32,13 +37,45 @@ type Extrinsics struct {
 	RotationMatrix    []float64 `json:"rotation"`
 	TranslationVector []float64 `json:"translation"`
 }
+
 type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
 }
 
-func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
+func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
+	if dcie == nil {
+		return fmt.Errorf("pointer to DepthColorIntrinsicsExtrinsics is nil")
+	}
+	if dcie.ColorCamera.Width == 0 || dcie.ColorCamera.Height == 0 {
+		return fmt.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	}
+	if dcie.DepthCamera.Width == 0 || dcie.DepthCamera.Height == 0 {
+		return fmt.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
+	}
+	return nil
+}
+
+func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
+	if ii.Color.Height() != dcie.ColorCamera.Height || ii.Color.Width() != dcie.ColorCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, ii.Color.Width(), ii.Color.Height())
+	}
+	if ii.Depth.Height() != dcie.DepthCamera.Height || ii.Depth.Width() != dcie.DepthCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, ii.Depth.Width(), ii.Depth.Height())
+	}
+	newDepthImg, err := dcie.TransformDepthCoordToColorCoord(ii.Depth)
+	if err != nil {
+		return nil, err
+	}
+	return &rimage.ImageWithDepth{ii.Color, newDepthImg}, nil
+}
+
+func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
+	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorIntrinsicsExtrinsics")
+}
+
+func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
@@ -46,8 +83,19 @@ func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
+func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap, logger golog.Logger) (*DepthColorIntrinsicsExtrinsics, error) {
+	var matrices *DepthColorIntrinsicsExtrinsics
+
+	if attrs.Has("matrices") {
+		matrices = attrs["matrices"].(*DepthColorIntrinsicsExtrinsics)
+	} else {
+		return nil, fmt.Errorf("no alignment config")
+	}
+	return matrices, nil
+}
+
 func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
-	intrinsics := NewDepthColorIntrinsicsExtrinsics()
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
@@ -71,7 +119,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 }
 
 func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
-	intrinsics := NewDepthColorIntrinsicsExtrinsics()
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
@@ -135,4 +183,35 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
 	zTransformed := rotationMatrix[6]*x + rotationMatrix[7]*y + rotationMatrix[8]*z + translationVector[2]
 
 	return r3.Vector{xTransformed, yTransformed, zTransformed}
+}
+
+// Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
+func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy int, dz float64) (int, int, float64) {
+	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
+	vec := dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	cx, cy := dcie.ColorCamera.PointToPixel(vec.X, vec.Y, vec.Z)
+	return int(cx), int(cy), vec.Z
+}
+
+// change coordinate system of depth map to be in same coordinate system as color image
+// TODO: make this use matrix multiplication rather than loops
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inmap *rimage.DepthMap) (*rimage.DepthMap, error) {
+	if inmap.Height() != dcie.DepthCamera.Height || inmap.Width() != dcie.DepthCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, inmap.Width(), inmap.Height())
+	}
+	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	for x := 0; x < dcie.DepthCamera.Width; x++ {
+		for y := 0; y < dcie.DepthCamera.Height; y++ {
+			z := inmap.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			cx, cy, cz := dcie.DepthPixelToColorPixel(x, y, float64(z))
+			if cx < 0 || cy < 0 || cx > dcie.ColorCamera.Width-1 || cy > dcie.ColorCamera.Height-1 {
+				continue
+			}
+			outmap.Set(cx, cy, rimage.Depth(cz))
+		}
+	}
+	return &outmap, nil
 }

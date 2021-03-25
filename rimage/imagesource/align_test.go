@@ -1,13 +1,13 @@
 package imagesource
 
 import (
-	"context"
 	"image"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/calib"
 	"go.viam.com/robotcore/testutils"
 )
 
@@ -29,7 +29,7 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 		}
 	}
 
-	fixed, err := h.dc.alignColorAndDepth(context.TODO(), ii, logger)
+	fixed, err := h.dc.aligner.ToAlignedImageWithDepth(ii, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,9 +41,27 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 	return nil
 }
 
-func TestAlignIntel(t *testing.T) {
+func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
-	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &intelConfig}, nil})
+	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAlignIntelMatrices(t *testing.T) {
+	config, err := api.ReadConfig(testutils.ResolveFile("robots/configs/intel.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := config.FindComponent("front")
+	if c == nil {
+		t.Fatal("no front")
+	}
+
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)
 	}
