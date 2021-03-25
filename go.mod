@@ -11,7 +11,7 @@ require (
 	github.com/edaniels/golog v0.0.0-20210314165301-f45417a9288a
 	github.com/edaniels/gostream v0.0.0-20210314141017-defeb97589cf
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
-	github.com/edaniels/wsapi v0.0.3-0.20210314165336-c80c5d7641e6
+	github.com/edaniels/wsapi v0.0.3-0.20210324204427-1997000fad97
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
