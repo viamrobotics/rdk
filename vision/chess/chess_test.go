@@ -15,7 +15,7 @@ type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn
 
 func TestChessCheatRed1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*")
-	err := d.Process(&ChessImageProcessDebug{FindChessCornersPinkCheat})
+	err := d.Process(t, &ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)
 	}

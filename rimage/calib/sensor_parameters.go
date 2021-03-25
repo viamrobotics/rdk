@@ -58,7 +58,16 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 }
 
 func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
-	newDepthImg := dcie.TransformDepthCoordToColorCoord(ii.Depth)
+	if ii.Color.Height() != dcie.ColorCamera.Height || ii.Color.Width() != dcie.ColorCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, ii.Color.Width(), ii.Color.Height())
+	}
+	if ii.Depth.Height() != dcie.DepthCamera.Height || ii.Depth.Width() != dcie.DepthCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, ii.Depth.Width(), ii.Depth.Height())
+	}
+	newDepthImg, err := dcie.TransformDepthCoordToColorCoord(ii.Depth)
+	if err != nil {
+		return nil, err
+	}
 	return &rimage.ImageWithDepth{ii.Color, newDepthImg}, nil
 }
 
@@ -186,7 +195,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy int, d
 
 // change coordinate system of depth map to be in same coordinate system as color image
 // TODO: make this use matrix multiplication rather than loops
-func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inmap *rimage.DepthMap) *rimage.DepthMap {
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inmap *rimage.DepthMap) (*rimage.DepthMap, error) {
+	if inmap.Height() != dcie.DepthCamera.Height || inmap.Width() != dcie.DepthCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, inmap.Width(), inmap.Height())
+	}
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	for x := 0; x < dcie.DepthCamera.Width; x++ {
 		for y := 0; y < dcie.DepthCamera.Height; y++ {
@@ -195,11 +207,11 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inma
 				continue
 			}
 			cx, cy, cz := dcie.DepthPixelToColorPixel(x, y, float64(z))
-			if cx < 0 || cy < 0 || cx >= dcie.ColorCamera.Width || cy >= dcie.ColorCamera.Height {
+			if cx < 0 || cy < 0 || cx > dcie.ColorCamera.Width-1 || cy > dcie.ColorCamera.Height-1 {
 				continue
 			}
 			outmap.Set(cx, cy, rimage.Depth(cz))
 		}
 	}
-	return &outmap
+	return &outmap, nil
 }
