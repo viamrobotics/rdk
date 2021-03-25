@@ -16,7 +16,6 @@ import (
 )
 
 type MultipleImageTestDebugger struct {
-	T      *testing.T
 	name   string
 	glob   string
 	inroot string
@@ -68,13 +67,12 @@ func (d *MultipleImageTestDebugger) addImageCell(f string) {
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
+	Process(t *testing.T, d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
 }
 
 func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
 
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
-	d.T = t
 	d.glob = glob
 	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
 	d.name = strings.Replace(prefix, "/", "-", 100)
@@ -92,7 +90,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleIma
 	return d
 }
 
-func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor) error {
+func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) error {
 	files, err := filepath.Glob(filepath.Join(d.inroot, d.glob))
 	if err != nil {
 		return err
@@ -125,7 +123,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		d.currentFile = f
 		d.logger.Debug(f)
 
-		cont := d.T.Run(f, func(t *testing.T) {
+		cont := t.Run(f, func(t *testing.T) {
 			img, err := ReadImageFromFile(f)
 			if err != nil {
 				t.Fatal(err)
@@ -136,7 +134,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 			d.GotDebugImage(img, "raw")
 
 			logger := golog.NewTestLogger(t)
-			err = x.Process(d, f, img, logger)
+			err = x.Process(t, d, f, img, logger)
 			if err != nil {
 				t.Fatalf("error processing file %s : %s", f, err)
 			}
@@ -150,7 +148,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	}
 
 	if numFiles == 0 {
-		d.T.Skip("no input files")
+		t.Skip("no input files")
 		return nil
 	}
 

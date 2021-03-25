@@ -192,16 +192,33 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 		wv *= 3.0
 		wh /= 20
 		ws /= 2
-	} else if (s1 < .3 && v1 < .35) || (s2 < .3 && v2 < .35) {
-		section = 3
-		// bottom left bigger quadrant
-		wh /= 2.5
 	} else if s1 < .10 || s2 < .10 {
-		section = 4
+		section = 3
 		// we're in the very light range
 		wh *= .06 * (v1 + v2) * ((s1 + s2) * 5)
 		ws *= 1.15
-		wv *= 1.54
+		wv *= 1.65
+
+		if s1 > .1 || s2 > .2 {
+			wh *= 2
+		}
+		dd = math.Sqrt(.95 + s1 + s2)
+		wh *= dd
+	} else if (s1 < .3 && v1 < .345) || (s2 < .3 && v2 < .35) {
+		section = 4
+		// bottom left bigger quadrant
+		ac = _ratioOffFrom135(v1-v2, s1-s2)
+		wh /= 2.5
+		ws *= 1.1
+		if v1 < .25 && v2 < .25 {
+			wh /= 2
+		}
+		if ac < .5 {
+			wh *= 1.25
+		}
+		dd = math.Pow(1.5-v1-v2, 2)
+		wh *= dd
+
 	} else if s1 < .19 && s2 < .19 {
 		section = 5
 		// we're in the light range
