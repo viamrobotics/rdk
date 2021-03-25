@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"math"
 	"os"
@@ -336,6 +337,21 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 	}
 
 	return min, max
+}
+
+func (dm *DepthMap) ToGray16Picture() image.Image {
+
+	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
+
+	for x := 0; x < dm.Width(); x++ {
+		for y := 0; y < dm.Height(); y++ {
+			val := dm.GetDepth(x, y)
+			grayColor := color.Gray16{uint16(val)}
+			grayScale.Set(x, y, grayColor)
+		}
+	}
+
+	return grayScale
 }
 
 func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {

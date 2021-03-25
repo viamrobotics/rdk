@@ -4,15 +4,21 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"image"
 	"log"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/robot/web"
+	"go.viam.com/robotcore/vision/segmentation"
 
 	_ "go.viam.com/robotcore/board/detector"
 	_ "go.viam.com/robotcore/rimage/imagesource"
@@ -26,6 +32,122 @@ const (
 )
 
 var logger = rlog.Logger.Named("minirover")
+
+func init() {
+	actions.RegisterAction("dock", func(r api.Robot) {
+		err := dock(r)
+		if err != nil {
+			logger.Errorf("error docking: %s", err)
+		}
+	})
+}
+
+func dock(r api.Robot) error {
+	ctx := context.Background()
+
+	cam := r.CameraByName("back-color")
+	if cam == nil {
+		return fmt.Errorf("no back-color camera")
+	}
+
+	base := r.BaseByName("pierre")
+	if base == nil {
+		return fmt.Errorf("no pierre")
+	}
+
+	for tries := 0; tries < 5; tries++ {
+		x, y, err := dockNextMoveCompute(ctx, cam)
+		if err != nil {
+			logger.Infof("failed to compute, will try again: %s", err)
+			continue
+		}
+		logger.Debugf("x: %v y: %v\n", x, y)
+		if y > 0 {
+			// we're close enough?
+			logger.Info("docking close enough")
+			return nil
+		}
+
+		angle := x * 15
+		err = base.Spin(ctx, angle, 10, true)
+		if err != nil {
+			return err
+		}
+		tries = 0
+	}
+
+	return fmt.Errorf("failed to dock")
+}
+
+// return delta x, delta y, error
+func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64, float64, error) {
+	img, closer, err := cam.Next(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer closer()
+
+	ri := rimage.ConvertImage(img)
+	p, _, err := findBlack(ri, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	logger.Debugf("black: %v", p)
+
+	x := float64((ri.Width()/2)-p.X) / float64(ri.Width())
+	y := float64((ri.Height()/2)-p.Y) / float64(ri.Height())
+	return x, y, nil
+}
+
+func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point {
+	mid := img.Width() / 2
+	for y := 0; y < img.Height(); y++ {
+		for x := mid; x < img.Width(); x++ {
+			p := image.Point{x, y}
+			s := img.GetSegment(p)
+			if s == segment {
+				return p
+			}
+
+			p = image.Point{mid - (x - mid), y}
+			s = img.GetSegment(p)
+			if s == segment {
+				return p
+			}
+
+		}
+	}
+	return image.Point{0, 0}
+}
+
+func findBlack(img *rimage.Image, logger golog.Logger) (image.Point, image.Image, error) {
+	for x := 1; x < img.Width(); x += 3 {
+		for y := 1; y < img.Height(); y += 3 {
+			c := img.GetXY(x, y)
+			if c.Distance(rimage.Black) > 1 {
+				continue
+			}
+
+			x, err := segmentation.ShapeWalk(img,
+				image.Point{x, y},
+				segmentation.ShapeWalkOptions{
+					//Debug: true,
+				},
+				logger,
+			)
+			if err != nil {
+				return image.Point{}, nil, err
+			}
+
+			if x.PixelsInSegmemnt(1) > 10000 {
+				return findTopInSegment(x, 1), x, nil
+			}
+		}
+	}
+
+	return image.Point{}, nil, fmt.Errorf("no black found")
+}
 
 // ------
 

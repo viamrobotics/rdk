@@ -11,6 +11,10 @@ import (
 	"go.viam.com/robotcore/rimage"
 )
 
+func init() {
+	RegisterAction("RandomWalk", RandomWalk)
+}
+
 func setup(theRobot api.Robot) (api.Base, gostream.ImageSource, error) {
 	baseNames := theRobot.BaseNames()
 	if len(baseNames) == 0 {
@@ -65,10 +69,10 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 	return base.Spin(ctx, -15, 60, true)
 }
 
-func RandomWalk(theRobot api.Robot, numSeconds int64) {
+func RandomWalk(theRobot api.Robot) {
 	defer func() { theRobot.Logger().Debugf("RandomWalk done") }()
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(numSeconds))
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(60))
 	defer cancelFunc()
 	for {
 		err := randomWalkIncrement(ctx, theRobot)

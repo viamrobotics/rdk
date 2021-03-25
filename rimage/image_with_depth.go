@@ -175,14 +175,14 @@ func imageToDepthMap(img image.Image) *DepthMap {
 
 	// TODO(erd): handle non realsense Z16 devices better
 	// realsense seems to rotate
-	dm := NewEmptyDepthMap(height, width)
+	dm := NewEmptyDepthMap(width, height)
 
 	grayImg := img.(*image.Gray16)
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			i := grayImg.PixOffset(x, y)
 			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
-			dm.Set(y, x, Depth(z))
+			dm.Set(x, y, Depth(z))
 		}
 	}
 

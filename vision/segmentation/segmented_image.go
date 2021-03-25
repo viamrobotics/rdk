@@ -25,6 +25,14 @@ func newSegmentedImage(img *rimage.Image) *SegmentedImage {
 	return si
 }
 
+func (si *SegmentedImage) Height() int {
+	return si.height
+}
+
+func (si *SegmentedImage) Width() int {
+	return si.width
+}
+
 func (si *SegmentedImage) toK(p image.Point) int {
 	return (p.Y * si.width) + p.X
 }
@@ -33,6 +41,10 @@ func (si *SegmentedImage) fromK(k int) image.Point {
 	y := k / si.width
 	x := k - (y * si.width)
 	return image.Point{x, y}
+}
+
+func (si *SegmentedImage) GetSegment(p image.Point) int {
+	return si.get(p)
 }
 
 func (si *SegmentedImage) get(p image.Point) int {

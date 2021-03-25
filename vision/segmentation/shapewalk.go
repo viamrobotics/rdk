@@ -15,7 +15,7 @@ const (
 	DefaultLookbackScaling            = 6.0 // the bigger the number, the tighter the threshold
 	DefaultInterestingThreshold       = .45
 	DefaultInterestingRange           = 5
-	DefaultAverageColorDistanceWeight = 1.5
+	DefaultAverageColorDistanceWeight = .5
 )
 
 type ShapeWalkOptions struct {
@@ -23,6 +23,7 @@ type ShapeWalkOptions struct {
 	MaxRadius    int // 0 means no max
 	SkipCleaning bool
 	ThresholdMod float64 // 0 means no modificatin > 0 means more things will match
+	Diffs        *rimage.ColorDiffs
 }
 
 type walkState struct {
@@ -136,12 +137,13 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 	myColor := ws.img.Get(p)
 
 	myInterestingPixelDensity := ws.interestingPixelDensity(p)
+	myInterestingPixelDensity = math.Abs(myInterestingPixelDensity - ws.originalInterestingPixelDensity)
 
 	if ws.options.Debug {
 		ws.logger.Debugf("\t %v %v myInterestingPixelDensity: %v", p, myColor.Hex(), myInterestingPixelDensity)
 	}
 
-	if math.Abs(myInterestingPixelDensity-ws.originalInterestingPixelDensity) > DefaultInterestingThreshold {
+	if myInterestingPixelDensity > DefaultInterestingThreshold {
 		if ws.options.Debug {
 			ws.logger.Debugf("\t\t blocked b/c density")
 		}
@@ -152,6 +154,9 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
 		prevColor := ws.img.Get(prev)
 		d := prevColor.Distance(myColor)
+		if ws.options.Diffs != nil && d > .1 {
+			ws.options.Diffs.AddD(prevColor, myColor, d)
+		}
 
 		threshold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * DefaultLookbackScaling))
 
@@ -233,12 +238,6 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 
 	temp, averageColorDistance := ws.img.AverageColorAndStats(start, 1)
 	ws.originalColor = temp
-	if ws.options.Debug {
-		ws.logger.Debugf("\t\t averageColorDistance: %v originalInterestingPixelDensity: %v",
-			averageColorDistance,
-			ws.originalInterestingPixelDensity,
-		)
-	}
 
 	oldThreshold := ws.threshold
 	defer func() {
@@ -247,6 +246,14 @@ func (ws *walkState) piece(start image.Point, clusterNumber int) int {
 
 	ws.threshold += averageColorDistance * DefaultAverageColorDistanceWeight
 	ws.threshold += ws.originalInterestingPixelDensity
+
+	if ws.options.Debug {
+		ws.logger.Debugf("\t\t averageColorDistance: %v originalInterestingPixelDensity: %v threshold: %v -> %v",
+			averageColorDistance,
+			ws.originalInterestingPixelDensity,
+			oldThreshold, ws.threshold,
+		)
+	}
 
 	origTotal := 1 // we count the original pixel here
 

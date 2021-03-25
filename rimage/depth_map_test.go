@@ -3,6 +3,7 @@ package rimage
 import (
 	"bufio"
 	"bytes"
+	"image/png"
 	"os"
 	"testing"
 
@@ -133,6 +134,25 @@ func TestDepthRotate90(t *testing.T) {
 	dm2 := dm.Rotate90(true)
 
 	assert.Equal(t, Depth(1), dm2.GetDepth(0, 0))
+}
+
+func TestToGray16Picture(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.MkdirAll("out", 0775)
+	gimg := iwd.Depth.ToGray16Picture()
+
+	assert.Equal(t, gimg.Bounds().Max.X, iwd.Depth.Width())
+	assert.Equal(t, gimg.Bounds().Max.Y, iwd.Depth.Height())
+
+	file, err := os.Create("out/board2_gray.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	png.Encode(file, gimg)
 }
 
 func BenchmarkDepthMapRotate90(b *testing.B) {

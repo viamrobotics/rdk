@@ -16,7 +16,7 @@ import (
 type MyDebug struct {
 }
 
-func (ddd MyDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	dm, err := rimage.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (ddd MyDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img i
 
 func Test1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png")
-	err := d.Process(MyDebug{})
+	err := d.Process(t, MyDebug{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func Test1(t *testing.T) {
 type ChargeDebug struct {
 }
 
-func (cd ChargeDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	img = imaging.Rotate(img, 180, color.Black)
 	d.GotDebugImage(img, "rotated")
 
@@ -65,7 +65,7 @@ func (cd ChargeDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, im
 
 func TestCharge1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz")
-	err := d.Process(ChargeDebug{})
+	err := d.Process(t, ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)
 	}
