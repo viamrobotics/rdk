@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 
@@ -43,20 +44,96 @@ type DepthColorIntrinsicsExtrinsics struct {
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
 }
 
+func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
+	if dcie == nil {
+		return fmt.Errorf("pointer to DepthColorIntrinsicsExtrinsics is nil")
+	}
+	if dcie.ColorCamera.Width == 0 || dcie.ColorCamera.Height == 0 {
+		return fmt.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	}
+	if dcie.DepthCamera.Width == 0 || dcie.DepthCamera.Height == 0 {
+		return fmt.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
+	}
+	return nil
+}
+
 func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
-	return nil, fmt.Errorf("method ToAlignedImageWithDepth not implemented for DepthColorIntrinsicsExtrinsics")
+	newDepthImg := dcie.TransformDepthCoordToColorCoord(ii.Depth)
+	return &rimage.ImageWithDepth{ii.Color, newDepthImg}, nil
 }
 
 func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
 	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorIntrinsicsExtrinsics")
 }
 
-func NewDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
+func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
 	}
+}
+
+func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap, logger golog.Logger) (*DepthColorIntrinsicsExtrinsics, error) {
+	var matrices *DepthColorIntrinsicsExtrinsics
+
+	if attrs.Has("matrices") {
+		matrices = attrs["matrices"].(*DepthColorIntrinsicsExtrinsics)
+	} else {
+		return nil, fmt.Errorf("no alignment config")
+	}
+	return matrices, nil
+}
+
+func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	// open json file
+	jsonFile, err := os.Open(jsonPath)
+	if err != nil {
+		err = fmt.Errorf("error opening JSON file - %s", err)
+		return intrinsics, err
+	}
+	defer jsonFile.Close()
+	// read our opened jsonFile as a byte array.
+	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	if err2 != nil {
+		err2 = fmt.Errorf("error reading JSON data - %s", err2)
+		return intrinsics, err2
+	}
+	// Parse into map
+	err = json.Unmarshal(byteValue, intrinsics)
+	if err != nil {
+		err = fmt.Errorf("error parsing JSON string - %s", err)
+		return intrinsics, err
+	}
+	return intrinsics, nil
+}
+
+func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
+	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	// open json file
+	jsonFile, err := os.Open(jsonPath)
+	if err != nil {
+		err = fmt.Errorf("error opening JSON file - %s", err)
+		return nil, err
+	}
+	defer jsonFile.Close()
+	// read our opened jsonFile as a byte array.
+	byteValue, err2 := ioutil.ReadAll(jsonFile)
+	if err2 != nil {
+		err2 = fmt.Errorf("error reading JSON data - %s", err2)
+		return nil, err2
+	}
+	// Parse into map
+	err = json.Unmarshal(byteValue, intrinsics)
+	if err != nil {
+		err = fmt.Errorf("error parsing JSON string - %s", err)
+		return nil, err
+	}
+	if cameraName == "depth" {
+		return &intrinsics.DepthCamera, nil
+	}
+	return &intrinsics.ColorCamera, nil
 }
 
 // Function to transform a pixel with depth to a 3D point cloud
@@ -99,53 +176,30 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
 	return r3.Vector{xTransformed, yTransformed, zTransformed}
 }
 
-func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
-	intrinsics := NewDepthColorIntrinsicsExtrinsics()
-	// open json file
-	jsonFile, err := os.Open(jsonPath)
-	if err != nil {
-		err = fmt.Errorf("error opening JSON file - %s", err)
-		return intrinsics, err
-	}
-	defer jsonFile.Close()
-	// read our opened jsonFile as a byte array.
-	byteValue, err2 := ioutil.ReadAll(jsonFile)
-	if err2 != nil {
-		err2 = fmt.Errorf("error reading JSON data - %s", err2)
-		return intrinsics, err2
-	}
-	// Parse into map
-	err = json.Unmarshal(byteValue, intrinsics)
-	if err != nil {
-		err = fmt.Errorf("error parsing JSON string - %s", err)
-		return intrinsics, err
-	}
-	return intrinsics, nil
+// Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
+func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy int, dz float64) (int, int, float64) {
+	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
+	vec := dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	cx, cy := dcie.ColorCamera.PointToPixel(vec.X, vec.Y, vec.Z)
+	return int(cx), int(cy), vec.Z
 }
 
-func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
-	intrinsics := NewDepthColorIntrinsicsExtrinsics()
-	// open json file
-	jsonFile, err := os.Open(jsonPath)
-	if err != nil {
-		err = fmt.Errorf("error opening JSON file - %s", err)
-		return nil, err
+// change coordinate system of depth map to be in same coordinate system as color image
+// TODO: make this use matrix multiplication rather than loops
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inmap *rimage.DepthMap) *rimage.DepthMap {
+	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+	for x := 0; x < dcie.DepthCamera.Width; x++ {
+		for y := 0; y < dcie.DepthCamera.Height; y++ {
+			z := inmap.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			cx, cy, cz := dcie.DepthPixelToColorPixel(x, y, float64(z))
+			if cx < 0 || cy < 0 || cx >= dcie.ColorCamera.Width || cy >= dcie.ColorCamera.Height {
+				continue
+			}
+			outmap.Set(cx, cy, rimage.Depth(cz))
+		}
 	}
-	defer jsonFile.Close()
-	// read our opened jsonFile as a byte array.
-	byteValue, err2 := ioutil.ReadAll(jsonFile)
-	if err2 != nil {
-		err2 = fmt.Errorf("error reading JSON data - %s", err2)
-		return nil, err2
-	}
-	// Parse into map
-	err = json.Unmarshal(byteValue, intrinsics)
-	if err != nil {
-		err = fmt.Errorf("error parsing JSON string - %s", err)
-		return nil, err
-	}
-	if cameraName == "depth" {
-		return &intrinsics.DepthCamera, nil
-	}
-	return &intrinsics.ColorCamera, nil
+	return &outmap
 }

@@ -43,6 +43,19 @@ func init() {
 		}
 		return config, err
 	})
+
+	api.Register(api.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
+		matrices := &calib.DepthColorIntrinsicsExtrinsics{}
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
+		if err != nil {
+			return nil, err
+		}
+		err = decoder.Decode(val)
+		if err == nil {
+			err = matrices.CheckValid()
+		}
+		return matrices, err
+	})
 }
 
 var alignCurrentlyWriting = false
@@ -55,7 +68,16 @@ type DepthComposed struct {
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	dcaligner, err := calib.NewDepthColorTransformsFromWarp(attrs, logger)
+	var dcaligner calib.DepthColorAligner
+	var err error
+
+	if attrs.Has("config") {
+		dcaligner, err = calib.NewDepthColorWarpTransforms(attrs, logger)
+	} else if attrs.Has("matrices") {
+		dcaligner, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs, logger)
+	} else {
+		return nil, fmt.Errorf("no alignment config")
+	}
 	if err != nil {
 		return nil, err
 	}
