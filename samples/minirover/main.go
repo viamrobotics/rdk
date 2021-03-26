@@ -8,11 +8,14 @@ import (
 	"log"
 	"time"
 
+	"github.com/erh/egoutil"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
@@ -24,6 +27,8 @@ import (
 	_ "go.viam.com/robotcore/rimage/imagesource"
 
 	"go.uber.org/multierr"
+
+	"go.opencensus.io/trace"
 )
 
 const (
@@ -43,6 +48,7 @@ func init() {
 }
 
 func dock(r api.Robot) error {
+	logger.Info("docking started")
 	ctx := context.Background()
 
 	cam := r.CameraByName("back-color")
@@ -90,14 +96,21 @@ func dock(r api.Robot) error {
 
 // return delta x, delta y, error
 func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64, float64, error) {
+	ctx, span := trace.StartSpan(ctx, "dockNextMoveCompute")
+	defer span.End()
+
+	logger.Debugf("dock - next")
 	img, closer, err := cam.Next(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
 	defer closer()
 
+	logger.Debugf("dock - convert")
 	ri := rimage.ConvertImage(img)
-	p, _, err := findBlack(ri, nil)
+
+	logger.Debugf("dock - findBlack")
+	p, _, err := findBlack(ctx, ri, nil)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -130,7 +143,10 @@ func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point
 	return image.Point{0, 0}
 }
 
-func findBlack(img *rimage.Image, logger golog.Logger) (image.Point, image.Image, error) {
+func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (image.Point, image.Image, error) {
+	_, span := trace.StartSpan(ctx, "findBlack")
+	defer span.End()
+
 	for x := 1; x < img.Width(); x += 3 {
 		for y := 1; y < img.Height(); y += 3 {
 			c := img.GetXY(x, y)
@@ -141,6 +157,7 @@ func findBlack(img *rimage.Image, logger golog.Logger) (image.Point, image.Image
 			x, err := segmentation.ShapeWalk(img,
 				image.Point{x, y},
 				segmentation.ShapeWalkOptions{
+					SkipCleaning: true,
 					//Debug: true,
 				},
 				logger,
@@ -219,7 +236,7 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 	return nil
 }
 
-func NewRover(theBoard board.Board) (*Rover, error) {
+func NewRover(r api.Robot, theBoard board.Board) (*Rover, error) {
 	rover := &Rover{theBoard: theBoard}
 	rover.pan = theBoard.Servo("pan")
 	rover.tilt = theBoard.Servo("tilt")
@@ -256,6 +273,23 @@ func NewRover(theBoard board.Board) (*Rover, error) {
 		}
 	}
 
+	theLidar := r.LidarDeviceByName("lidarBase")
+	if false && theLidar != nil {
+		go func() {
+			for {
+				time.Sleep(time.Second)
+
+				ms, err := theLidar.Scan(context.Background(), lidar.ScanOptions{})
+				if err != nil {
+					logger.Infof("theLidar scan failed: %s", err)
+					continue
+				}
+
+				logger.Debugf("fowrad distance %#v", ms[0])
+			}
+		}()
+	}
+
 	logger.Debug("rover ready")
 
 	return rover, nil
@@ -271,6 +305,10 @@ func main() {
 func realMain() error {
 	flag.Parse()
 
+	exp := egoutil.NewNiceLoggingSpanExporter()
+	trace.RegisterExporter(exp)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
 	cfg, err := api.ReadConfig("samples/minirover/config.json")
 	if err != nil {
 		return err
@@ -282,7 +320,7 @@ func realMain() error {
 	}
 	defer myRobot.Close(context.Background())
 
-	rover, err := NewRover(myRobot.BoardByName("local"))
+	rover, err := NewRover(myRobot, myRobot.BoardByName("local"))
 	if err != nil {
 		return err
 	}
@@ -293,5 +331,6 @@ func realMain() error {
 
 	options := web.NewOptions()
 	options.AutoTile = false
+	options.Pprof = true
 	return web.RunWeb(myRobot, options, logger)
 }
