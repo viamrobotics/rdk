@@ -85,3 +85,31 @@ func TestImageToDepthMap(t *testing.T) {
 	assert.Equal(t, dmFromImage.Width(), iwd.Depth.Width())
 	assert.Equal(t, dmFromImage, iwd.Depth)
 }
+
+func TestConvertToDepthMap(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// convert to gray16 image
+	depthImage := iwd.Depth.ToGray16Picture()
+
+	// case 1
+	dm1, err := ConvertImageToDepthMap(iwd)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, dm1, iwd.Depth)
+	// case 2
+	dm2, err := ConvertImageToDepthMap(depthImage)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, dm2, iwd.Depth)
+	// default - should return error
+	badType := iwd.Color
+	dm3, err := ConvertImageToDepthMap(badType)
+	if dm3 != nil {
+		t.Errorf("expected error for image type %T, got err = %v", badType, err)
+	}
+}

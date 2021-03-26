@@ -54,23 +54,32 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-func myMax(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (dm *DepthMap) Smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
-	if err := utils.Walk(centerX, centerY, 1+(myMax(dm.width, dm.height)/2), func(x, y int) error {
+	if err := utils.Walk(centerX, centerY, 1+(utils.MaxInt(dm.width, dm.height)/2), func(x, y int) error {
 		dm._getDepthOrEstimate(x, y)
 		return nil
 	}); err != nil {
 		// shouldn't happen
 		panic(err)
 	}
+}
+
+func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
+	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
+	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
+	if xmin == xmax || ymin == ymax { // return empty DepthMap
+		return DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
+	}
+	width := xmax - xmin
+	height := ymax - ymin
+	newData := make([]Depth, 0, width*height)
+	for y := ymin; y < ymax; y++ {
+		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
+		newData = append(newData, dm.data[begin:end]...)
+	}
+	return DepthMap{width: width, height: height, data: newData}
 }
 
 func (dm *DepthMap) _getDepthOrEstimate(x, y int) Depth {
@@ -87,8 +96,8 @@ func (dm *DepthMap) _getDepthOrEstimate(x, y int) Depth {
 
 	offset := 0
 	for offset = 1; offset < 1000 && num == 0; offset++ {
-		startX := myMax(0, x-offset)
-		startY := myMax(0, y-offset)
+		startX := utils.MaxInt(0, x-offset)
+		startY := utils.MaxInt(0, y-offset)
 
 		for a := startX; a < x+offset && a < dm.width; a++ {
 			for b := startY; b < y+offset && b < dm.height; b++ {
