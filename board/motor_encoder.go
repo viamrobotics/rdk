@@ -10,7 +10,7 @@ import (
 
 var (
 	rpmSleep = 50 * time.Millisecond // really just for testing
-	rpmDebug = true
+	rpmDebug = false
 )
 
 func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {

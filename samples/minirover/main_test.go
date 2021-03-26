@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -15,7 +16,7 @@ type ChargeDebug struct {
 func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
 	i2 := rimage.ConvertImage(img)
 
-	top, x, err := findBlack(i2, logger)
+	top, x, err := findBlack(context.Background(), i2, logger)
 	if err != nil {
 		return err
 	}
