@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
+	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -56,9 +56,14 @@ func (m *Model) Get6dPosition(idx int) []float64 {
 	return pose6d
 }
 
-// GetOperationalVelocity will return the velocity vector of the given end effector ID (usually 0)
-func (m *Model) GetOperationalVelocity(idx int) spatial.MotionVector {
-	return m.Nodes[m.Leaves[idx]].GetVelocityVector()
+// GetOperationalVelocity will return the velocity quaternion of the given end effector ID (usually 0)
+func (m *Model) GetOperationalVelocity(idx int) dualquat.Number {
+	return m.Nodes[m.Leaves[idx]].GetVelocity()
+}
+
+// GetJointOperationalVelocity will return the velocity quaternion of the given joint 
+func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
+	return m.Joints[idx].GetOperationalVelocity()
 }
 
 // Bit of a weird thing we use this for
@@ -102,23 +107,58 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
+// This used to support multiple end effectors
+// Removed that support when quaternions were added
+// because nothing we have has multiple end effectors, and I didn't need to worry about it
+// Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
 	//~ inWorldFrame := true
 
-	m.Jacobian = mgl64.NewMatrix(m.GetOperationalDof()*6, m.GetDof())
+	m.Jacobian = mgl64.NewMatrix(8, m.GetDof())
+	
+	// 
+	q := dualquat.Number{}
+	q.Real.Real = 1
+	
+	m.ForwardPosition()
+	m.ForwardVelocity()
+	endEffPosition := m.GetOperationalPosition(0).Quat
 
 	// Take the partial derivative of each degree of freedom
 	// We want to see how much things change when each DOF changes
 	for i := 0; i < m.GetDof(); i++ {
-		fakeVel := make([]float64, m.GetDof())
-		for j := 0; j < m.GetDof(); j++ {
-			if i == j {
-				fakeVel[j] = 1
-			}
-		}
-		fmt.Println(fakeVel)
-		m.SetVelocity(fakeVel)
-		m.ForwardVelocity()
+		
+		
+		
+		effVel := m.GetJointOperationalVelocity(i)
+		fmt.Println("z", effVel)
+		jacQuat := dualquat.Mul(effVel, endEffPosition)
+		m.Jacobian.Set(0, i, jacQuat.Real.Real)
+		m.Jacobian.Set(1, i, jacQuat.Real.Imag)
+		m.Jacobian.Set(2, i, jacQuat.Real.Jmag)
+		m.Jacobian.Set(3, i, jacQuat.Real.Kmag)
+		m.Jacobian.Set(4, i, jacQuat.Dual.Real)
+		m.Jacobian.Set(5, i, jacQuat.Dual.Imag)
+		m.Jacobian.Set(6, i, jacQuat.Dual.Jmag)
+		m.Jacobian.Set(7, i, jacQuat.Dual.Kmag)
+		
+				
+		//~ m.Jacobian.Set(0, i, axisAngle.Imag)
+		//~ m.Jacobian.Set(1, i, axisAngle.Kmag)
+		//~ m.Jacobian.Set(2, i, axisAngle.Jmag)
+		//~ m.Jacobian.Set(3, i, cartLoc.Imag)
+		//~ m.Jacobian.Set(4, i, cartLoc.Imag)
+		//~ m.Jacobian.Set(5, i, cartLoc.Imag)
+		
+		//~ fakeVel := make([]float64, m.GetDof())
+		//~ for j := 0; j < m.GetDof(); j++ {
+			//~ if i == j {
+				//~ fakeVel[j] = 1
+			//~ }
+		//~ }
+		//~ fmt.Println(fakeVel)
+		//~ m.SetVelocity(fakeVel)
+		//~ m.ForwardVelocity()
 
 		//~ for j := 0; j < m.GetOperationalDof(); j++ {
 			//~ if inWorldFrame {

@@ -13,7 +13,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 
 	//~ "go.viam.com/robotcore/kinematics"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
+	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 )
 
 // TODO(pl): initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
@@ -31,7 +31,7 @@ type Joint struct {
 	positionD   []float64
 	positionDD  []float64
 	SpatialMat  *mgl64.MatMxN
-	v           *spatial.MotionVector
+	//~ v           *spatial.MotionVector
 	wraparound  []bool
 	descriptor  graph.Edge
 	transform   *Transform
@@ -49,8 +49,8 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.positionD = make([]float64, dVel)
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
-	j.v = &spatial.MotionVector{}
-	j.v.SetZero()
+	//~ j.v = &spatial.MotionVector{}
+	//~ j.v.SetZero()
 
 	return &j
 }
@@ -97,11 +97,21 @@ func Distance(q1, q2 []float64) float64 {
 
 func (j *Joint) ForwardPosition() {
 	j.transform.ForwardPosition()
+	//t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
 }
 
+// This is currently written such that it works for Jacobians
+// In other words it works as though this is the only moving joint
+// DO NOT try to be able to this for dynamics in its present state
 func (j *Joint) ForwardVelocity() {
-	j.transform.out.v = j.transform.x.MultMV(j.transform.in.v)
-	j.transform.out.v.AddMV(j.v)
+	
+	orientedModel := dualquat.Mul(j.transform.in.i.t.Quat, j.PointAtZ())
+	
+	//~ fmt.Println("q", orientedModel)
+	j.transform.out.v = quatDeriv(orientedModel)
+	
+	//~ j.transform.out.v = j.transform.x.MultMV(j.transform.in.v)
+	//~ j.transform.out.v.AddMV(j.v)
 }
 
 func (j *Joint) GetDof() int {
@@ -159,9 +169,22 @@ func (j *Joint) GetOut() *Frame {
 
 // GetRotationVector will return about which axes this joint will rotate and how much
 // Should be normalized to [0,1] for each axis
-// So, returns a 3-element slice representing rotation around x,y,z axes
 func (j *Joint) GetRotationVector() quat.Number {
 	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
+}
+
+// PointAtZ returns the quat about which to rotate to point this joint's axis at Z
+// We use mgl64 Quats for this, because they have the function conveniently built in
+func (j *Joint) PointAtZ() dualquat.Number {
+	zAxis := mgl64.Vec3{0,0,1}
+	rotVec := mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
+	zGlQuat := mgl64.QuatBetweenVectors(rotVec, zAxis)
+	return dualquat.Number{quat.Number{zGlQuat.W, zGlQuat.V.X(), zGlQuat.V.Y(), zGlQuat.V.Z()}, quat.Number{}}
+}
+
+
+func (j *Joint) GetOperationalVelocity() dualquat.Number {
+	return j.transform.out.v
 }
 
 // SetPosition will set the joint's position in RADIANS
@@ -175,15 +198,15 @@ func (j *Joint) SetPosition(pos []float64) {
 	
 	j.transform.t.Quat = r1
 
-	j.transform.x.Rotation = j.transform.t.Linear().Transpose()
-	j.transform.x.Rotation = j.transform.t.Rotation()
+	//~ j.transform.x.Rotation = j.transform.t.Linear().Transpose()
+	//~ j.transform.x.Rotation = j.transform.t.Rotation()
 }
 
 // SetVelocity will set the joint's velocity
 func (j *Joint) SetVelocity(vel []float64) {
 	j.positionD = vel
-	motionVec := j.SpatialMat.MulNx1(mgl64.NewVecN(0), mgl64.NewVecNFromData(vel))
-	j.v = spatial.NewMVFromVecN(motionVec)
+	//~ motionVec := j.SpatialMat.MulNx1(mgl64.NewVecN(0), mgl64.NewVecNFromData(vel))
+	//~ j.v = spatial.NewMVFromVecN(motionVec)
 }
 
 // Clamp ensures that all values are between a given range
@@ -236,4 +259,26 @@ func (j *Joint) IsValid(posvec []float64) bool {
 		}
 	}
 	return true
+}
+
+
+// Given a quaternion representing FK up to a certain joint, this will calculate a quaternion which,
+// if multiplied by the end effector's operational position, gives the velocity of the end effector at
+// the various quaternion values.
+// IMPORTANT: this assumes rotation around the Z axis. If your joint rotates around e.g. the Y axis, you
+// must rotate qIn by 90 degrees aroung X, then call quatDeriv, then un-rotate.
+func quatDeriv (qIn dualquat.Number) dualquat.Number{
+	qReal := qIn.Real
+	qDual := qIn.Dual
+	dq := dualquat.Number{}
+	
+	dq.Real.Imag = qReal.Imag * qReal.Kmag + qReal.Real * qReal.Jmag
+	dq.Real.Jmag = qReal.Jmag * qReal.Kmag - qReal.Real * qReal.Imag
+	dq.Real.Kmag = (qReal.Kmag * qReal.Kmag - qReal.Jmag * qReal.Jmag - qReal.Imag * qReal.Imag + qReal.Real * + qReal.Real) / 2
+	
+	dq.Dual.Imag = qReal.Imag * qDual.Kmag + qDual.Imag * qReal.Kmag + qReal.Real * qDual.Jmag + qDual.Real * qReal.Jmag
+	dq.Dual.Jmag = qReal.Jmag * qDual.Kmag + qDual.Jmag * qReal.Kmag - qReal.Real * qDual.Imag - qDual.Real * qReal.Imag
+	dq.Dual.Kmag = qReal.Kmag * qDual.Kmag - qReal.Jmag * qDual.Jmag - qReal.Imag * qDual.Imag + qReal.Real * qDual.Real
+	
+	return dq
 }

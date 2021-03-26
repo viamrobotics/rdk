@@ -2,11 +2,11 @@ package kinematics
 
 import (
 	//~ "fmt"
-	"github.com/go-gl/mathgl/mgl64"
+	//~ "github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
+	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/graph"
-	//~ "gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/dualquat"
 )
 
 type Transform struct {
@@ -14,7 +14,7 @@ type Transform struct {
 	in         *Frame
 	out        *Frame
 	t          *kinmath.QuatTrans
-	x          spatial.PlueckerTransform
+	//~ x          spatial.PlueckerTransform
 	descriptor graph.Edge
 	name       string
 }
@@ -22,7 +22,7 @@ type Transform struct {
 func NewTransform() *Transform {
 	t := Transform{}
 	t.t = kinmath.NewQuatTrans()
-	t.x.Rotation = mgl64.Ident3()
+	//~ t.x.Rotation = mgl64.Ident3()
 	return &t
 }
 
@@ -60,10 +60,12 @@ func (t *Transform) GetOut() *Frame {
 
 func (t *Transform) ForwardPosition() {
 	t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
+	//~ fmt.Println(t.t.Quat)
 	
-	t.out.i.x = t.x.Mult(t.in.i.x)
+	//~ t.out.i.x = t.x.Mult(t.in.i.x)
 }
 
+//
 func (t *Transform) ForwardVelocity() {
-	t.out.v = t.x.MultMV(t.in.v)
+	t.out.v = dualquat.Mul(t.in.v, t.t.Quat)
 }

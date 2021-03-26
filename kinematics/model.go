@@ -101,6 +101,7 @@ func (m *Model) GetOperationalDof() int {
 }
 
 // GetDof returns the sum of Dof from all joints- Should sum to the total degrees of freedom for the robot
+// In other words, if the robot consists of a 6dof arm and an additional 4dof arm, this will return 10
 func (m *Model) GetDof() int {
 	dof := 0
 	for _, joint := range m.Joints {

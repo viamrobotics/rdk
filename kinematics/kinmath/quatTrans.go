@@ -2,7 +2,7 @@ package kinmath
 
 import (
 	//~ "math"
-	
+	//~ "fmt"
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -101,18 +101,31 @@ func (m *QuatTrans) SetZ(z float64) {
 // ToDelta returns the difference between two QuatTranss
 // We use quaternion/angle axis for this because distances are well-defined
 func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
-	ret := make([]float64, 6)
+	ret := make([]float64, 8)
 	
-	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
-	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	//~ otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
+	//~ mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
 	
-	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
-	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
-	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
+	//~ fmt.Println("other real", otherTrans.Real)
+	//~ fmt.Println("m real", mTrans.Real)
+	
+	//~ ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
+	//~ ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
+	//~ ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
 
-	ret[3] = 100 * (other.Quat.Real.Imag * other.Quat.Real.Real) - (m.Quat.Real.Imag * m.Quat.Real.Real)
-	ret[4] = 100 * (other.Quat.Real.Jmag * other.Quat.Real.Real) - (m.Quat.Real.Jmag * m.Quat.Real.Real)
-	ret[5] = 100 * (other.Quat.Real.Kmag * other.Quat.Real.Real) - (m.Quat.Real.Kmag * m.Quat.Real.Real)
+	//~ ret[3] = 100 * (other.Quat.Real.Imag * other.Quat.Real.Real) - (m.Quat.Real.Imag * m.Quat.Real.Real)
+	//~ ret[4] = 100 * (other.Quat.Real.Jmag * other.Quat.Real.Real) - (m.Quat.Real.Jmag * m.Quat.Real.Real)
+	//~ ret[5] = 100 * (other.Quat.Real.Kmag * other.Quat.Real.Real) - (m.Quat.Real.Kmag * m.Quat.Real.Real)
+	
+	ret[0] = other.Quat.Real.Real - m.Quat.Real.Real
+	ret[1] = other.Quat.Real.Imag - m.Quat.Real.Imag
+	ret[2] = other.Quat.Real.Jmag - m.Quat.Real.Jmag
+	ret[3] = other.Quat.Real.Kmag - m.Quat.Real.Kmag
+	ret[4] = other.Quat.Dual.Real - m.Quat.Dual.Real
+	ret[5] = other.Quat.Dual.Imag - m.Quat.Dual.Imag
+	ret[6] = other.Quat.Dual.Jmag - m.Quat.Dual.Jmag
+	ret[7] = other.Quat.Dual.Kmag - m.Quat.Dual.Kmag
+	
 	return ret
 }
 
