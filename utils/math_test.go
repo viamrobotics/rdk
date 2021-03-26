@@ -181,4 +181,8 @@ func TestRayToUpwardCWCartesian(t *testing.T) {
 	tt(360+180, 1, 0, -1)
 	tt(360+270, 1, -1, 0)
 
+	tt(45, math.Sqrt(2), 1, 1)
+	tt(135, math.Sqrt(2), 1, -1)
+	tt(225, math.Sqrt(2), -1, -1)
+	tt(315, math.Sqrt(2), -1, 1)
 }
