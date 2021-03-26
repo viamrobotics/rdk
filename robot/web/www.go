@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"image"
 	"image/jpeg"
 	"net/http"
 	"os"
@@ -375,7 +376,7 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 			continue
 		}
 
-		source := gostream.ResizeImageSource{lidar.NewImageSource(device), 800, 600}
+		source := lidar.NewImageSource(image.Point{600, 600}, device)
 
 		sources = append(sources, source)
 		names = append(names, name)

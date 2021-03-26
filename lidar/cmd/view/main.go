@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
 	"time"
 
 	"go.viam.com/robotcore/lidar"
@@ -27,7 +28,7 @@ func main() {
 var (
 	defaultPort  = 5555
 	streamWidth  = 800
-	streamHeight = 600
+	streamHeight = 800
 
 	// for saving to disk
 	areaSizeMeters = 50
@@ -130,7 +131,7 @@ func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescript
 
 	autoTiler := gostream.NewAutoTiler(streamWidth, streamHeight)
 	for _, dev := range lidarDevices {
-		autoTiler.AddSource(lidar.NewImageSource(dev))
+		autoTiler.AddSource(lidar.NewImageSource(image.Point{streamWidth, streamWidth}, dev))
 		break
 	}
 
