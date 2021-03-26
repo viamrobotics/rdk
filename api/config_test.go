@@ -67,3 +67,25 @@ func TestConfig3(t *testing.T) {
 	assert.Equal(t, 5.17, cfg.Components[0].Attributes.GetFloat64("bar5", 1.1))
 	assert.Equal(t, 1.1, cfg.Components[0].Attributes.GetFloat64("bar5-no", 1.1))
 }
+
+func TestConfigLoad1(t *testing.T) {
+	cfg, err := ReadConfig("data/cfg3.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c1 := cfg.FindComponent("c1")
+	if c1 == nil {
+		t.Fatalf("no c1")
+	}
+
+	_, ok := c1.Attributes["matrics"].(string)
+	assert.False(t, ok)
+
+	c2 := cfg.FindComponent("c2")
+	if c2 == nil {
+		t.Fatalf("no c2")
+	}
+
+	assert.Equal(t, 5.1, c2.Attributes["matrics"].(map[string]interface{})["a"])
+}
