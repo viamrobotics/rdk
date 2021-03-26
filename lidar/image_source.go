@@ -2,6 +2,7 @@ package lidar
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"math"
 
@@ -11,7 +12,7 @@ import (
 
 // ImageSource generates images from the current scan of a lidar device
 type ImageSource struct {
-	Size          image.Point
+	size          image.Point
 	device        Device
 	unitsPerMeter int
 	noFilter      bool
@@ -19,8 +20,8 @@ type ImageSource struct {
 
 const unitsPerMeter = 100 // centimeters
 
-func NewImageSource(device Device) *ImageSource {
-	return &ImageSource{Size: image.Point{800, 800}, device: device, unitsPerMeter: unitsPerMeter}
+func NewImageSource(outputSize image.Point, device Device) *ImageSource {
+	return &ImageSource{size: outputSize, device: device, unitsPerMeter: unitsPerMeter}
 }
 
 var red = rimage.Red
@@ -31,18 +32,20 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	return MeasurementsToImage(measurements, is.Size), func() {}, nil
+	img, err := MeasurementsToImage(measurements, is.size)
+	return img, func() {}, err
 }
 
 func (is *ImageSource) Close() error {
 	return nil
 }
 
-func MeasurementsToImage(measurements Measurements, size image.Point) image.Image {
+func MeasurementsToImage(measurements Measurements, size image.Point) (image.Image, error) {
 
 	if size.X != size.Y {
-		panic("size has to be square")
+		return nil, fmt.Errorf("size has to be square, not %v", size)
 	}
+
 	maxDistance := .001
 
 	for _, next := range measurements {
@@ -72,5 +75,5 @@ func MeasurementsToImage(measurements Measurements, size image.Point) image.Imag
 		dc.SetPixel(int(x), int(y))
 	}
 
-	return dc.Image()
+	return dc.Image(), nil
 }

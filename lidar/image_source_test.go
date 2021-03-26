@@ -23,7 +23,7 @@ func TestImageSource(t *testing.T) {
 		return nil, err2
 	}
 
-	src := lidar.NewImageSource(injectDev)
+	src := lidar.NewImageSource(image.Point{100, 100}, injectDev)
 
 	_, _, err := src.Next(context.Background())
 	test.That(t, err, test.ShouldEqual, err2)
@@ -40,7 +40,6 @@ func TestImageSource(t *testing.T) {
 		return ms, nil
 	}
 
-	src.Size = image.Point{100, 100}
 	img, release, err := src.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
