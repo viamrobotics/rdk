@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -211,8 +212,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			if cx < 0 || cy < 0 || cx > dcie.ColorCamera.Width-1 || cy > dcie.ColorCamera.Height-1 {
 				continue
 			}
-			xMin, yMin = myMin(xMin, cx), myMin(yMin, cy)
-			xMax, yMax = myMax(xMax, cx), myMax(yMax, cy)
+			xMin, yMin = utils.MinInt(xMin, cx), utils.MinInt(yMin, cy)
+			xMax, yMax = utils.MaxInt(xMax, cx), utils.MaxInt(yMax, cy)
 			outmap.Set(cx, cy, rimage.Depth(cz))
 		}
 	}
@@ -220,18 +221,4 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	outmap = outmap.SubImage(crop)
 	outcol := img.Color.SubImage(crop)
 	return &rimage.ImageWithDepth{&outcol, &outmap}, nil
-}
-
-func myMax(x, y int) int {
-	if x < y {
-		return y
-	}
-	return x
-}
-
-func myMin(x, y int) int {
-	if x > y {
-		return y
-	}
-	return x
 }
