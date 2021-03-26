@@ -81,7 +81,7 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-	          "hide" : true,
+	          "hide" : false,
               "path_pattern" : "usb.0.1.1",
 	          "width" : 1280
           }
@@ -90,7 +90,7 @@
           "type" : "camera",
           "model" : "webcam",
           "attributes" : {
-	          "hide" : true,
+	          "hide" : false,
               "format" : "Z16",
               "path_pattern" : "usb.0.1.1",
 	          "width" : 768
@@ -103,7 +103,7 @@
 	          "hide" : true,
               "color" : "front-color",
               "depth" : "front-depth",
-              "make" : "intel515"
+              "matrices" : "$load{../../robots/configs/intel515_parameters.json}"
           }
         },
 	    { "name" : "front-overlay",
@@ -129,9 +129,7 @@
               "width" : 640,
               "debug" : true
           }
-        }
-    ],
-    "components-archive" :[
+        },
         {
             "host": "127.0.0.1",
             "port": 4444,
