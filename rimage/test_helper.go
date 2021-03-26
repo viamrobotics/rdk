@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/testutils"
 )
 
 type MultipleImageTestDebugger struct {
@@ -74,7 +76,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleIma
 
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.glob = glob
-	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
+	d.inroot = testutils.LargeFileTestPath(prefix)
 	d.name = prefix + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)

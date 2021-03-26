@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"os"
 	"path/filepath"
 	"runtime"
 )
@@ -12,4 +13,8 @@ func ResolveFile(fn string) string {
 		panic(err)
 	}
 	return filepath.Join(thisDirPath, "..", fn)
+}
+
+func LargeFileTestPath(path string) string {
+	return filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", path)
 }
