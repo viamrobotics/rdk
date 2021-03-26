@@ -19,6 +19,7 @@ var (
 		DepthWarpPoints: []image.Point{{67, 100}, {1019, 665}},
 
 		OutputSize: image.Point{640, 360},
+		Smooth:     false,
 	}
 )
 
@@ -30,8 +31,8 @@ type AlignConfig struct {
 	DepthWarpPoints []image.Point
 
 	WarpFromCommon bool
-
-	OutputSize image.Point
+	OutputSize     image.Point
+	Smooth         bool
 }
 
 func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
@@ -54,6 +55,7 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 		DepthInputSize:  config.DepthInputSize,
 		DepthWarpPoints: rimage.ArrayToPoints(depthPoints),
 		OutputSize:      config.OutputSize,
+		Smooth:          config.Smooth,
 	}, nil
 }
 
