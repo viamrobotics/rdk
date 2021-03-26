@@ -75,14 +75,14 @@ func TestTransformPointToPoint(t *testing.T) {
 		RotationMatrix:    rot1,
 		TranslationVector: t1,
 	}
-	vt1 := extrinsics1.TransformPointToPoint(x1, y1, z1)
-	if vt1.X != 0. {
+	x2, y2, z2 := extrinsics1.TransformPointToPoint(x1, y1, z1)
+	if x2 != 0. {
 		t.Error("x value for I rotation and {0,0,1} translation is not 0.")
 	}
-	if vt1.Y != 0. {
+	if y2 != 0. {
 		t.Error("y value for I rotation and {0,0,1} translation is not 0.")
 	}
-	if vt1.Z != 2. {
+	if z2 != 2. {
 		t.Error("z value for I rotation and {0,0,1} translation is not 2.")
 	}
 
@@ -91,14 +91,14 @@ func TestTransformPointToPoint(t *testing.T) {
 		RotationMatrix:    rot1,
 		TranslationVector: t2,
 	}
-	vt2 := extrinsics2.TransformPointToPoint(x1, y1, z1)
-	if vt2.X != 0. {
+	x3, y3, z3 := extrinsics2.TransformPointToPoint(x1, y1, z1)
+	if x3 != 0. {
 		t.Error("x value for I rotation and {0,2,0} translation is not 0.")
 	}
-	if vt2.Y != 2. {
+	if y3 != 2. {
 		t.Error("y value for I rotation and {0,2,0} translation is not 2.")
 	}
-	if vt2.Z != 1. {
+	if z3 != 1. {
 		t.Error("z value for I rotation and {0,2,0} translation is not 1.")
 	}
 	// Rotation in the (z,x) plane of 90 degrees
@@ -107,14 +107,14 @@ func TestTransformPointToPoint(t *testing.T) {
 		RotationMatrix:    rot2,
 		TranslationVector: t2,
 	}
-	vt3 := extrinsics3.TransformPointToPoint(x1, y1, z1)
-	if vt3.X != 1. {
+	x4, y4, z4 := extrinsics3.TransformPointToPoint(x1, y1, z1)
+	if x4 != 1. {
 		t.Error("x value for rotation z->x and {0,2,0} translation is not 1.")
 	}
-	if vt3.Y != 2. {
+	if y4 != 2. {
 		t.Error("y value for rotation z->x and {0,2,0} translation is not 2.")
 	}
-	if vt3.Z != -1. {
+	if z4 != -1. {
 		t.Error("z value for rotation z->x and {0,2,0} translation is not 0.")
 	}
 }

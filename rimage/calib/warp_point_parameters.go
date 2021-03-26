@@ -29,7 +29,10 @@ func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWit
 		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
 			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dct.AlignConfig)
 	}
-	ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
+
+	if dct.Smooth {
+		ii.Depth.Smooth() // TODO(erh): maybe instead of this I should change warp to let the user determine how to average
+	}
 
 	c2 := rimage.WarpImage(ii, dct.ColorTransform, dct.OutputSize)
 	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)

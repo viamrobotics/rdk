@@ -92,3 +92,19 @@ func NewImage(width, height int) *Image {
 func NewImageFromBounds(bounds image.Rectangle) *Image {
 	return NewImage(bounds.Max.X, bounds.Max.Y)
 }
+
+func (i *Image) SubImage(r image.Rectangle) Image {
+	xmin, xmax := utils.MinInt(i.width, r.Min.X), utils.MinInt(i.width, r.Max.X)
+	ymin, ymax := utils.MinInt(i.height, r.Min.Y), utils.MinInt(i.height, r.Max.Y)
+	if xmin == xmax || ymin == ymax { // return empty Image
+		return Image{data: []Color{}, width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin)}
+	}
+	width := xmax - xmin
+	height := ymax - ymin
+	newData := make([]Color, 0, width*height)
+	for y := ymin; y < ymax; y++ {
+		begin, end := (y*i.width)+xmin, (y*i.width)+xmax
+		newData = append(newData, i.data[begin:end]...)
+	}
+	return Image{data: newData, width: width, height: height}
+}

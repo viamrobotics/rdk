@@ -3,6 +3,7 @@ package calib
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"io/ioutil"
 	"math"
 	"os"
@@ -10,9 +11,9 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 )
 
 type DistortionModel struct {
@@ -58,17 +59,11 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 }
 
 func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
-	if ii.Color.Height() != dcie.ColorCamera.Height || ii.Color.Width() != dcie.ColorCamera.Width {
-		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, ii.Color.Width(), ii.Color.Height())
-	}
-	if ii.Depth.Height() != dcie.DepthCamera.Height || ii.Depth.Width() != dcie.DepthCamera.Width {
-		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, ii.Depth.Width(), ii.Depth.Height())
-	}
-	newDepthImg, err := dcie.TransformDepthCoordToColorCoord(ii.Depth)
+	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
 	if err != nil {
 		return nil, err
 	}
-	return &rimage.ImageWithDepth{ii.Color, newDepthImg}, nil
+	return newImgWithDepth, nil
 }
 
 func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
@@ -149,12 +144,12 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 // the intrinsics parameters should be the ones of the sensor used to obtain the image that contains the pixel
 func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float64, float64, float64) {
 	//TODO(louise): add unit test
-	xOverZ := (params.Ppx - float64(x)) / params.Fx
-	yOverZ := (params.Ppy - float64(y)) / params.Fy
+	xOverZ := (float64(x) - params.Ppx) / params.Fx
+	yOverZ := (float64(y) - params.Ppy) / params.Fy
 	// get x and y
-	xPixel := xOverZ * z
-	yPixel := yOverZ * z
-	return xPixel, yPixel, z
+	xm := xOverZ * z
+	ym := yOverZ * z
+	return xm, ym, z
 }
 
 // Function to project a 3D point to a pixel in an image plane
@@ -162,8 +157,8 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float6
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	//TODO(louise): add unit test
 	if z != 0. {
-		xPx := math.Round(x*params.Fx/(z) + params.Ppx)
-		yPx := math.Round(y*params.Fy/(z) + params.Ppy)
+		xPx := math.Round((x*params.Fx)/z + params.Ppx)
+		yPx := math.Round((y*params.Fy)/z + params.Ppy)
 		return xPx, yPx
 	}
 	// if depth is zero at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
@@ -171,7 +166,7 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 }
 
 // Function to apply a rigid body transform between two cameras to a 3D point
-func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
+func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
 	rotationMatrix := params.RotationMatrix
 	translationVector := params.TranslationVector
 	n := len(rotationMatrix)
@@ -182,23 +177,30 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) r3.Vector {
 	yTransformed := rotationMatrix[3]*x + rotationMatrix[4]*y + rotationMatrix[5]*z + translationVector[1]
 	zTransformed := rotationMatrix[6]*x + rotationMatrix[7]*y + rotationMatrix[8]*z + translationVector[2]
 
-	return r3.Vector{xTransformed, yTransformed, zTransformed}
+	return xTransformed, yTransformed, zTransformed
 }
 
 // Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
 func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy int, dz float64) (int, int, float64) {
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
-	vec := dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
-	cx, cy := dcie.ColorCamera.PointToPixel(vec.X, vec.Y, vec.Z)
-	return int(cx), int(cy), vec.Z
+	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
+	return int(cx), int(cy), z
 }
 
 // change coordinate system of depth map to be in same coordinate system as color image
-// TODO: make this use matrix multiplication rather than loops
-func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inmap *rimage.DepthMap) (*rimage.DepthMap, error) {
-	if inmap.Height() != dcie.DepthCamera.Height || inmap.Width() != dcie.DepthCamera.Width {
-		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, inmap.Width(), inmap.Height())
+// then crop both images
+// TODO(bijan): make this use matrix multiplication rather than loops
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
+	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
 	}
+	if img.Depth.Height() != dcie.DepthCamera.Height || img.Depth.Width() != dcie.DepthCamera.Width {
+		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
+	}
+	inmap := img.Depth
+	// keep track of the bounds of the new depth image, then use these to crop the image
+	xMin, xMax, yMin, yMax := dcie.ColorCamera.Width, 0, dcie.ColorCamera.Height, 0
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	for x := 0; x < dcie.DepthCamera.Width; x++ {
 		for y := 0; y < dcie.DepthCamera.Height; y++ {
@@ -210,8 +212,13 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(inma
 			if cx < 0 || cy < 0 || cx > dcie.ColorCamera.Width-1 || cy > dcie.ColorCamera.Height-1 {
 				continue
 			}
+			xMin, yMin = utils.MinInt(xMin, cx), utils.MinInt(yMin, cy)
+			xMax, yMax = utils.MaxInt(xMax, cx), utils.MaxInt(yMax, cy)
 			outmap.Set(cx, cy, rimage.Depth(cz))
 		}
 	}
-	return &outmap, nil
+	crop := image.Rect(xMin, yMin, xMax, yMax)
+	outmap = outmap.SubImage(crop)
+	outcol := img.Color.SubImage(crop)
+	return &rimage.ImageWithDepth{&outcol, &outmap}, nil
 }

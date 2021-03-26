@@ -175,7 +175,8 @@ func IsPixelInImage(i, j, h, w int) bool {
 func (pts *Points3D) ApplyRigidBodyTransform(params *calib.Extrinsics) *Points3D {
 	transformedPoints := New3DPoints()
 	for _, pt := range pts.Points {
-		ptTransformed := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
+		x, y, z := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
+		ptTransformed := r3.Vector{x, y, z}
 		transformedPoints.Points = append(transformedPoints.Points, ptTransformed)
 	}
 	return transformedPoints
