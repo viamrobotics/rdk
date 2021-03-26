@@ -32,9 +32,11 @@ func errCheck(err error) {
 func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	ik := &NloptIK{}
 	ik.Mdl = mdl
+	// How close we want to get to the goal
 	ik.epsilon = 0.0001
+	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 500000
+	ik.maxIterations = 5
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -57,12 +59,12 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
+		dx := make([]float64, ik.Mdl.GetOperationalDof()*8)
 
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
 			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
-			dxIdx := goal.EffectorID * 6
+			dxIdx := goal.EffectorID * 8
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
@@ -74,10 +76,19 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 			ik.Mdl.CalculateJacobian()
 			j := ik.Mdl.GetJacobian()
 			grad2 := mgl64.NewVecN(len(dx))
-			j2 := j.Transpose(mgl64.NewMatrix(j.NumRowCols()))
+			j2 := j.Transpose(mgl64.NewMatrix(j.NumCols(), j.NumRows()))
 			j2 = j2.Mul(j2, -2)
 
-			//~ // Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
+			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
+			//~ fmt.Println("grad2", grad2)
+			//~ fmt.Println("dx", dx)
+			
+			//~ fmt.Println("j2", j2)
+			//~ fmt.Println("j2 R", j2.NumCols())
+			//~ dxv := mgl64.NewVecNFromData(dx)
+			//~ fmt.Println("mul", j2.MulNx1(dxv, dxv))
+			//~ fmt.Println("dxv", dxv)
+			//~ fmt.Println("dxv size", dxv.Size())
 			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
 			for i, v := range gradient2 {
 				gradient[i] = v
