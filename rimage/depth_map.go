@@ -54,6 +54,13 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
+func myMin(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func myMax(a, b int) int {
 	if a > b {
 		return a
@@ -71,6 +78,22 @@ func (dm *DepthMap) Smooth() {
 		// shouldn't happen
 		panic(err)
 	}
+}
+
+func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
+	xmin, xmax := myMin(dm.width, r.Min.X), myMin(dm.width, r.Max.X)
+	ymin, ymax := myMin(dm.height, r.Min.Y), myMin(dm.height, r.Max.Y)
+	if xmin == xmax || ymin == ymax { // return empty DepthMap
+		return DepthMap{width: myMax(0, xmax-xmin), height: myMax(0, ymax-ymin), data: []Depth{}}
+	}
+	width := xmax - xmin
+	height := ymax - ymin
+	newData := make([]Depth, 0, width*height)
+	for y := ymin; y < ymax; y++ {
+		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
+		newData = append(newData, dm.data[begin:end]...)
+	}
+	return DepthMap{width: width, height: height, data: newData}
 }
 
 func (dm *DepthMap) _getDepthOrEstimate(x, y int) Depth {
