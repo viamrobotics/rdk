@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"os"
 	"testing"
 
 	"github.com/edaniels/test"
@@ -17,33 +18,24 @@ import (
 
 func TestImageSource(t *testing.T) {
 	injectDev := &inject.LidarDevice{}
-	err1 := errors.New("whoops1")
 	err2 := errors.New("whoops2")
-	injectDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{}, err1
-	}
 	injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err2
 	}
 
-	src := lidar.NewImageSource(injectDev)
+	src := lidar.NewImageSource(image.Point{100, 100}, injectDev)
+
 	_, _, err := src.Next(context.Background())
-	test.That(t, err, test.ShouldEqual, err1)
-
-	injectDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{1, 1}, nil
-	}
-
-	_, _, err = src.Next(context.Background())
 	test.That(t, err, test.ShouldEqual, err2)
 
 	ms := lidar.Measurements{
-		lidar.NewMeasurement(0, 0),
-		lidar.NewMeasurement(1, 0.1),
-		lidar.NewMeasurement(45, 0.2),
-		lidar.NewMeasurement(220, 0.5),
-		lidar.NewMeasurement(350, 0.4),
+		lidar.NewMeasurement(0, 0),   // 50,50
+		lidar.NewMeasurement(0, 1),   // 50,?
+		lidar.NewMeasurement(90, 2),  // ?,50
+		lidar.NewMeasurement(180, 3), // 50,?
+		lidar.NewMeasurement(270, 4), // ?,50
 	}
+
 	injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return ms, nil
 	}
@@ -52,12 +44,18 @@ func TestImageSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
+	os.MkdirAll("out", 0775)
+	err = rimage.WriteImageToFile("out/out.png", img)
+	test.That(t, err, test.ShouldBeNil)
+
+	delta := 8
+
 	points := utils.NewStringSet(
-		"17,11",
-		"43,89",
 		"50,50",
-		"50,59",
-		"64,64",
+		fmt.Sprintf("50,%d", 50-delta),
+		fmt.Sprintf("%d,50", 50+2*delta),
+		fmt.Sprintf("50,%d", 50+3*delta),
+		fmt.Sprintf("%d,50", 50-4*delta),
 	)
 	count := 0
 	rimage.IterateImage(img, func(x, y int, c color.Color) bool {
