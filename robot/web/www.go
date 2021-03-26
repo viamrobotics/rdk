@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/jpeg"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -500,6 +501,14 @@ func RunWeb(theRobot *robot.Robot, options Options, logger golog.Logger) error {
 	webCloser, err := InstallWeb(cancelCtx, mux, theRobot, options, logger)
 	if err != nil {
 		return err
+	}
+
+	if options.Pprof {
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	}
 
 	const port = 8080

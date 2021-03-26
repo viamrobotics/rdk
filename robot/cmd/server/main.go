@@ -27,6 +27,7 @@ import (
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+var webprofile = flag.Bool("webprofile", false, "include profiler in http server")
 
 func main() {
 	err := mainReal()
@@ -77,6 +78,9 @@ func mainReal() error {
 
 	if *noAutoTile {
 		options.AutoTile = false
+	}
+	if *webprofile {
+		options.Pprof = true
 	}
 
 	err = web.RunWeb(myRobot, options, logger)
