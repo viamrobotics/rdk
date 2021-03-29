@@ -12,15 +12,23 @@ if [ ! -f $GO_PATH ]; then
 fi
 
 if [ "$(uname)" = "Linux" ]; then
-	sudo apt install python2.7-dev libvpx-dev libx264-dev pkg-config protobuf-compiler
+	sudo apt install python2.7-dev libvpx-dev libx264-dev pkg-config
   PREFIX="/usr/local" && \
   VERSION="0.40.0" && \
     curl -sSL \
       "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
       sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
-  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
+  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-linux-x86_64 --output protoc-gen-grpc-web
   chmod +x protoc-gen-grpc-web
-  mv protoc-gen-grpc-web /usr/local/bin/
+  sudo mv protoc-gen-grpc-web /usr/local/bin/
+  TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'protoctmp')
+  cd $TEMP_DIR
+  curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+  unzip protoc-3.15.6-linux-x86_64.zip
+  sudo cp bin/* /usr/local/bin
+  sudo cp -R include/* /usr/local/include
+  sudo chmod 755 /usr/local/bin/protoc
+  cd $DIR
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
@@ -33,7 +41,7 @@ if [ "$(uname)" = "Darwin" ]; then
 	make python-macos
   curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
   chmod +x protoc-gen-grpc-web
-  mv protoc-gen-grpc-web /usr/local/bin/
+  sudo mv protoc-gen-grpc-web /usr/local/bin/
 fi
 
 go install google.golang.org/protobuf/cmd/protoc-gen-go \
