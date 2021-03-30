@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/utils"
@@ -54,7 +55,7 @@ func TestRobotNext(t *testing.T) {
 		test.That(t, points, test.ShouldBeEmpty)
 
 		t.Run("live should be based on lidar, not area", func(t *testing.T) {
-			larBot.clientLidarViewMode = clientLidarViewModeLive
+			larBot.clientLidarViewMode = pb.LidarViewMode_LIDAR_VIEW_MODE_LIVE
 
 			err1 := errors.New("oof")
 			harness.lidarDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
@@ -91,7 +92,7 @@ func TestRobotNext(t *testing.T) {
 	t.Run("unknown view mode", func(t *testing.T) {
 		harness := newTestHarnessWithSize(t, 10, 10)
 		larBot := harness.bot
-		larBot.clientLidarViewMode = "idk"
+		larBot.clientLidarViewMode = pb.LidarViewMode_LIDAR_VIEW_MODE_UNSPECIFIED
 		_, _, err := larBot.Next(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown view mode")
@@ -149,7 +150,7 @@ func TestRobotNext(t *testing.T) {
 				test.That(t, fakeLidar.Start(context.Background()), test.ShouldBeNil)
 				harness := newTestHarnessWithLidarAndSize(t, fakeLidar, 10, 10)
 				larBot := harness.bot
-				larBot.clientLidarViewMode = clientLidarViewModeLive
+				larBot.clientLidarViewMode = pb.LidarViewMode_LIDAR_VIEW_MODE_LIVE
 				larBot.basePosX = tc.BasePosX
 				larBot.basePosY = tc.BasePosY
 				test.That(t, tc.Zoom, test.ShouldBeGreaterThanOrEqualTo, 1)

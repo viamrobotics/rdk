@@ -1,30 +1,23 @@
 package slam
 
-type Direction string
+import pb "go.viam.com/robotcore/proto/slam/v1"
 
-const (
-	DirectionUp    = Direction("up")
-	DirectionRight = Direction("right")
-	DirectionDown  = Direction("down")
-	DirectionLeft  = Direction("left")
-)
-
-func DirectionFromXY(x, y, viewWidth, viewHeight int) Direction {
+func DirectionFromXY(x, y, viewWidth, viewHeight int) pb.Direction {
 	centerX := viewWidth / 2
 	centerY := viewHeight / 2
 
-	var dir Direction
+	var dir pb.Direction
 	if x < centerX {
 		if y < centerY {
-			dir = DirectionUp
+			dir = pb.Direction_DIRECTION_UP
 		} else {
-			dir = DirectionLeft
+			dir = pb.Direction_DIRECTION_LEFT
 		}
 	} else {
 		if y < centerY {
-			dir = DirectionDown
+			dir = pb.Direction_DIRECTION_DOWN
 		} else {
-			dir = DirectionRight
+			dir = pb.Direction_DIRECTION_RIGHT
 		}
 	}
 	return dir

@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"math"
 
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
 
@@ -15,9 +16,9 @@ import (
 
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), error) {
 	switch lar.clientLidarViewMode {
-	case clientLidarViewModeStored:
+	case pb.LidarViewMode_LIDAR_VIEW_MODE_STORED:
 		return lar.renderStoredView()
-	case clientLidarViewModeLive:
+	case pb.LidarViewMode_LIDAR_VIEW_MODE_LIVE:
 		return lar.renderLiveView(ctx)
 	default:
 		return nil, nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
