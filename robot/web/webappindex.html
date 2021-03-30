@@ -145,7 +145,7 @@
 
           // TODO(erd): make duration configurable
           const streamReq = new robotApi.StatusStreamRequest();
-          streamReq.setEvery((new proto.google.protobuf.Duration()).setSeconds(1));
+          streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000));
           const statusStream = robotService.statusStream(streamReq);
           statusStream.on('data', function(response) {
             // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
