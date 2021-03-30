@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	pb "go.viam.com/robotcore/proto/rpc/examples/echo/v1"
 
@@ -39,9 +38,6 @@ func TestServer(t *testing.T) {
 	go func() {
 		errChan <- rpcServer.Serve(httpListener)
 	}()
-
-	// TODO(erd): replace with signal or waiting on request
-	time.Sleep(time.Second)
 
 	// standard grpc
 	conn, err := grpc.DialContext(context.Background(), httpListener.Addr().String(), grpc.WithInsecure(), grpc.WithBlock())

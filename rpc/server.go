@@ -21,6 +21,7 @@ import (
 // A Server provides a convenient way to get a gRPC server up and running
 // with HTTP facilities.
 type Server interface {
+	InternalAddr() net.Addr
 	Start() error
 	Serve(listener net.Listener) (err error)
 	Stop() error
@@ -45,17 +46,18 @@ type simpleServer struct {
 	secure             bool
 }
 
+var JSONPB = &runtime.JSONPb{
+	MarshalOptions: protojson.MarshalOptions{
+		UseProtoNames:   true,
+		EmitUnpopulated: true,
+	},
+}
+
 func NewServerWithListener(grpcListener net.Listener) Server {
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
 	grpcWebServer := grpcweb.WrapServer(grpcServer)
-	grpcGatewayHandler := runtime.NewServeMux(
-		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
-			MarshalOptions: protojson.MarshalOptions{
-				UseProtoNames: true,
-			},
-		}),
-	)
+	grpcGatewayHandler := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, JSONPB))
 
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,
@@ -133,6 +135,10 @@ func (ss *simpleServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		ss.grpcGatewayHandler.ServeHTTP(w, r)
 	}
+}
+
+func (ss *simpleServer) InternalAddr() net.Addr {
+	return ss.grpcListener.Addr()
 }
 
 func (ss *simpleServer) Start() error {

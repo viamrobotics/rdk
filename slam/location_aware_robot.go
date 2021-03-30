@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
@@ -41,8 +42,8 @@ type LocationAwareRobot struct {
 	compassSensor compass.Device
 
 	clientZoom          float64
-	clientClickMode     string
-	clientLidarViewMode string
+	clientClickMode     pb.ClickMode
+	clientLidarViewMode pb.LidarViewMode
 
 	activeWorkers   sync.WaitGroup
 	serverMu        sync.Mutex
@@ -105,8 +106,8 @@ func NewLocationAwareRobot(
 		compassSensor: compassSensor,
 
 		clientZoom:          1,
-		clientClickMode:     clientClickModeInfo,
-		clientLidarViewMode: clientLidarViewModeStored,
+		clientClickMode:     pb.ClickMode_CLICK_MODE_INFO,
+		clientLidarViewMode: pb.LidarViewMode_LIDAR_VIEW_MODE_STORED,
 		closeCh:             make(chan struct{}),
 
 		updateInterval: defaultUpdateInterval,
@@ -164,7 +165,7 @@ func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
 }
 
-func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *Direction) (err error) {
+func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *pb.Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -176,13 +177,13 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 		from := currentOrientation
 		var to float64
 		switch *rotateTo {
-		case DirectionUp:
+		case pb.Direction_DIRECTION_UP:
 			to = 0
-		case DirectionRight:
+		case pb.Direction_DIRECTION_RIGHT:
 			to = 90
-		case DirectionDown:
+		case pb.Direction_DIRECTION_DOWN:
 			to = 180
-		case DirectionLeft:
+		case pb.Direction_DIRECTION_LEFT:
 			to = 270
 		default:
 			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
@@ -262,7 +263,7 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64,
 	return nil
 }
 
-func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir Direction) error {
+func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir pb.Direction) error {
 	return lar.Move(ctx, nil, &dir)
 }
 
