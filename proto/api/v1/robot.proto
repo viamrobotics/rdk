@@ -1,0 +1,88 @@
+syntax = "proto3";
+option go_package = "go.viam.com/robotcore/proto/api/v1";
+
+package proto.api.v1;
+
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+
+message StatusRequest {}
+
+message StatusStreamRequest {
+	google.protobuf.Duration every = 1;
+}
+
+message StatusResponse {
+	Status status = 1;
+}
+
+message StatusStreamResponse {
+	Status status = 1;
+}
+
+message Status {
+	map<string, ArmStatus> arms = 1;
+	map<string, bool> bases = 2;
+	map<string, bool> grippers = 3;
+	map<string, BoardStatus> boards = 4;
+}
+
+message ArmStatus {
+	ArmPosition   grid_position = 1;
+	JointPositions joint_positions = 2;
+}
+
+message ArmPosition {
+	// meters of the end effector from the base
+	double x = 1;
+	double y = 2;
+	double z = 3;
+
+	// angular orientation about each axis, in degrees
+	double r_x = 4;
+	double r_y = 5;
+	double r_z = 6;
+}
+
+message JointPositions {
+	repeated double degrees = 1;
+}
+
+message BoardStatus {
+	map<string, MotorStatus> motors = 1;
+	map<string, ServoStatus> servos = 2;
+	map<string, AnalogStatus> analogs = 3;
+	map<string, DigitalInterruptStatus> digital_interrupts = 4;
+}
+
+message MotorStatus {
+	bool on = 1;
+	bool position_supported = 2;
+	int64 position = 3;
+}
+
+message ServoStatus {
+	uint32 angle = 1;
+}
+
+message AnalogStatus {
+	int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+	int64 value = 1;
+}
+
+service RobotService {
+	rpc Status(StatusRequest) returns (StatusResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status"
+		};
+	}
+
+	rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status_stream"
+		};
+	}
+}

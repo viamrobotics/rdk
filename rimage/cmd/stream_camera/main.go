@@ -5,7 +5,6 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage/imagesource"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -19,7 +18,7 @@ func main() {
 }
 
 var (
-	logger = rlog.Logger.Named("stream_camera")
+	logger = golog.NewDevelopmentLogger("stream_camera")
 )
 
 // Arguments for the command.

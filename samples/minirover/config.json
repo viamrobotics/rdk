@@ -133,7 +133,7 @@
         {
             "host": "127.0.0.1",
             "port": 4444,
-            "model": "lidarws",
+            "model": "lidarclient",
             "name": "lidarBase",
             "type": "lidar"
         }

@@ -7,9 +7,9 @@ import (
 	"log"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 
@@ -20,7 +20,7 @@ const (
 	millisPerRotation = 200
 )
 
-var logger = rlog.Logger.Named("boat1")
+var logger = golog.NewDevelopmentLogger("boat1")
 
 type Boat struct {
 	theBoard        board.Board
@@ -156,5 +156,5 @@ func realMain() error {
 
 	myRobot.AddBase(boat, api.Component{Name: "boatbot"})
 
-	return web.RunWeb(myRobot, web.NewOptions(), logger)
+	return web.RunWeb(context.Background(), myRobot, web.NewOptions(), logger)
 }

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/disintegration/imaging"
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/fogleman/gg"
@@ -23,7 +23,7 @@ import (
 var (
 	xFlag, yFlag *int
 	debug        *bool
-	logger       = rlog.Logger.Named("vision")
+	logger       = golog.NewDevelopmentLogger("vision")
 )
 
 func _getOutputfile() string {

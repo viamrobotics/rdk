@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/utils"
@@ -18,7 +17,7 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-var logger = rlog.Logger.Named("lidar_client")
+var logger = golog.NewDevelopmentLogger("lidar_client")
 
 func main() {
 	utils.ContextualMainQuit(mainWithArgs, logger)

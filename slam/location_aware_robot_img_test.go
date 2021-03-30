@@ -12,7 +12,6 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/test"
@@ -100,13 +99,13 @@ func TestRobotNext(t *testing.T) {
 
 	t.Run("precomputed", func(t *testing.T) {
 		getDataFileName := func(testName string) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s.png", testName))
+			return utils.ResolveFile(fmt.Sprintf("slam/data/%s.png", testName))
 		}
 		getNewDataFileName := func(testName string) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
+			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
 		}
 		getDiffDataFileName := func(testName string) string {
-			return testutils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
+			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
 		}
 
 		for _, tc := range []struct {

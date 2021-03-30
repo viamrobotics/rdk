@@ -34,6 +34,21 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
+    - name: Verify no newly generated files
+      run: |
+        go install google.golang.org/protobuf/cmd/protoc-gen-go \
+          google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+          github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+        git init
+        git add .
+        make buf
+        GEN_DIFF=$(git diff)
+        if [ -n "$GEN_DIFF" ]; then
+            echo '"buf generate" resulted in changes not in git' 1>&2
+            echo "$GEN_DIFF" 1>&2
+            exit 1
+        fi
+
     - name: Lint
       run: |
         make lint

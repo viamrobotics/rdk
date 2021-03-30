@@ -44,6 +44,14 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     htop \
     bc
 
+# Homebrew
+RUN git clone https://github.com/Homebrew/brew ~/.linuxbrew/Homebrew
+RUN mkdir ~/.linuxbrew/bin
+RUN ln -s ~/.linuxbrew/Homebrew/bin/brew ~/.linuxbrew/bin
+RUN ~/.linuxbrew/bin/brew tap bufbuild/buf
+RUN ~/.linuxbrew/bin/brew install buf
+RUN cp /root/.linuxbrew/bin/* /usr/local/bin
+
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 RUN echo \
   "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian \
@@ -62,4 +70,14 @@ WORKDIR /opt/build
 RUN set -ex \
     && wget -q --no-check-certificate https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0 \
     && tar -xzvf v2.7.0 && rm -f v2.7.0 \
-    && cd nlopt-2.7.0 && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr .. && make && make install && cd ../.. \
+    && cd nlopt-2.7.0 && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=/usr .. && make && make install
+
+# Proto
+RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+RUN unzip protoc-3.15.6-linux-x86_64.zip
+RUN cp bin/* /usr/local/bin
+RUN cp -R include/* /usr/local/include
+RUN chmod 755 /usr/local/bin/protoc
+RUN curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-linux-x86_64 --output protoc-gen-grpc-web
+RUN chmod +x protoc-gen-grpc-web
+RUN mv protoc-gen-grpc-web /usr/local/bin/

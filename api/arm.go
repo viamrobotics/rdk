@@ -34,7 +34,7 @@ func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) ArmPosition {
 }
 
 type JointPositions struct {
-	Degrees []float64
+	Degrees []float64 `json:"degreesList"`
 }
 
 func (jp JointPositions) Radians() []float64 {

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rlog"
 )
 
-var logger = rlog.Logger.Named("rimage_both")
+var logger = golog.NewDevelopmentLogger("rimage_both")
 
 func main() {
 	err := realMain(os.Args[1:])

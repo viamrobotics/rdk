@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
@@ -34,7 +33,7 @@ var (
 	areaSizeMeters = 50
 	unitsPerMeter  = 100 // cm
 
-	logger = rlog.Logger.Named("lidar_view")
+	logger = golog.NewDevelopmentLogger("lidar_view")
 )
 
 // Arguments for the command.
