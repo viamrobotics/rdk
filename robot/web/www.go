@@ -405,9 +405,6 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 			if err != nil {
 				return nil, err
 			}
-			view.SetOnClickHandler(func(x, y int) {
-				logger.Debugw("click", "x", x, "y", y)
-			})
 			views = append(views, view)
 
 			tilerHeight := 480 * len(displaySources)
@@ -423,9 +420,6 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 				if err != nil {
 					return nil, err
 				}
-				view.SetOnClickHandler(func(x, y int) {
-					logger.Debugw("click", "x", x, "y", y)
-				})
 				views = append(views, view)
 			}
 		}

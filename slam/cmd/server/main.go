@@ -11,12 +11,15 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/slam"
 	"go.viam.com/robotcore/utils"
+	"google.golang.org/grpc"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -201,20 +204,61 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	if err != nil {
 		return err
 	}
-	lar.RegisterCommands(ctx, remoteView.CommandRegistry())
 
 	clientWidth := 800
 	clientHeight := 600
 
-	remoteView.SetOnClickHandler(func(x, y int) {
+	rpcServer, err := rpc.NewServer()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, rpcServer.Stop())
+	}()
+	if err := rpcServer.RegisterServiceServer(
+		ctx,
+		&pb.SlamService_ServiceDesc,
+		slam.NewLocationAwareRobotServer(lar),
+		pb.RegisterSlamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+
+	go func() {
+		if err := rpcServer.Start(); err != nil {
+			logger.Errorw("error starting", "error", err)
+		}
+	}()
+
+	grpcConn, err := grpc.DialContext(ctx, rpcServer.InternalAddr().String(), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, grpcConn.Close())
+	}()
+	slamClient := pb.NewSlamServiceClient(grpcConn)
+
+	remoteView.SetOnDataHandler(func(data []byte, responder gostream.ClientResponder) {
+		// TODO(erd): gostream should provide a context baesd on client but this is
+		// fine for now
+		resp, err := rpc.CallClientMethodLineJSON(ctx, slamClient, data)
+		if err != nil {
+			responder.SendText(err.Error())
+			return
+		}
+		responder.SendText(string(resp))
+	})
+
+	remoteView.SetOnClickHandler(func(x, y int, responder gostream.ClientResponder) {
 		logger.Debugw("click", "x", x, "y", y)
 		resp, err := lar.HandleClick(ctx, x, y, clientWidth, clientHeight)
 		if err != nil {
-			remoteView.SendTextToAll(err.Error())
+			responder.SendText(err.Error())
 			return
 		}
 		if resp != "" {
-			remoteView.SendTextToAll(resp)
+			responder.SendText(resp)
 		}
 	})
 
