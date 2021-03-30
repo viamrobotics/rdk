@@ -150,6 +150,8 @@ func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMoto
 		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
 	}
 
+	// erh: this isn't right semantically.
+	// GoFor with 0 rotations means something important.
 	rVal := 0.0
 	if req.Rotations != 0 {
 		rVal = req.Rotations
