@@ -2,39 +2,16 @@ package board
 
 import (
 	"fmt"
+
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
-type MotorStatus struct {
-	On                bool
-	PositionSupported bool
-	Position          int64
-}
-
-type ServoStatus struct {
-	Angle uint8
-}
-
-type AnalogStatus struct {
-	Value int
-}
-
-type DigitalInterruptStatus struct {
-	Value int64
-}
-
-type Status struct {
-	Motors            map[string]MotorStatus
-	Servos            map[string]ServoStatus
-	Analogs           map[string]AnalogStatus
-	DigitalInterrupts map[string]DigitalInterruptStatus
-}
-
-func CreateStatus(b Board) (Status, error) {
-	s := Status{
-		Motors:            map[string]MotorStatus{},
-		Servos:            map[string]ServoStatus{},
-		Analogs:           map[string]AnalogStatus{},
-		DigitalInterrupts: map[string]DigitalInterruptStatus{},
+func CreateStatus(b Board) (*pb.BoardStatus, error) {
+	s := &pb.BoardStatus{
+		Motors:            map[string]*pb.MotorStatus{},
+		Servos:            map[string]*pb.ServoStatus{},
+		Analogs:           map[string]*pb.AnalogStatus{},
+		DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{},
 	}
 
 	cfg := b.GetConfig()
@@ -42,7 +19,7 @@ func CreateStatus(b Board) (Status, error) {
 	for _, c := range cfg.Motors {
 		name := c.Name
 		x := b.Motor(name)
-		s.Motors[name] = MotorStatus{
+		s.Motors[name] = &pb.MotorStatus{
 			On:                x.IsOn(),
 			Position:          x.Position(),
 			PositionSupported: x.PositionSupported(),
@@ -52,7 +29,9 @@ func CreateStatus(b Board) (Status, error) {
 	for _, c := range cfg.Servos {
 		name := c.Name
 		x := b.Servo(name)
-		s.Servos[name] = ServoStatus{x.Current()}
+		s.Servos[name] = &pb.ServoStatus{
+			Angle: uint32(x.Current()),
+		}
 	}
 
 	for _, c := range cfg.Analogs {
@@ -62,13 +41,13 @@ func CreateStatus(b Board) (Status, error) {
 		if err != nil {
 			return s, fmt.Errorf("couldn't read analog (%s) : %s", name, err)
 		}
-		s.Analogs[name] = AnalogStatus{val}
+		s.Analogs[name] = &pb.AnalogStatus{Value: int32(val)}
 	}
 
 	for _, c := range cfg.DigitalInterrupts {
 		name := c.Name
 		x := b.DigitalInterrupt(name)
-		s.DigitalInterrupts[name] = DigitalInterruptStatus{x.Value()}
+		s.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
 	}
 
 	return s, nil

@@ -1,8 +1,10 @@
 package board
 
+import pb "go.viam.com/robotcore/proto/api/v1"
+
 type FakeMotor struct {
 	force byte
-	d     Direction
+	d     pb.DirectionRelative
 }
 
 func (m *FakeMotor) Position() int64 {
@@ -18,23 +20,23 @@ func (m *FakeMotor) Force(force byte) error {
 	return nil
 }
 
-func (m *FakeMotor) Go(d Direction, force byte) error {
+func (m *FakeMotor) Go(d pb.DirectionRelative, force byte) error {
 	m.d = d
 	m.force = force
 	return nil
 }
 
-func (m *FakeMotor) GoFor(d Direction, rpm float64, rotations float64) error {
+func (m *FakeMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
 	m.d = d
 	m.force = 1
 	return nil
 }
 
 func (m *FakeMotor) Off() error {
-	m.d = DirNone
+	m.d = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
 	return nil
 }
 
 func (m *FakeMotor) IsOn() bool {
-	return m.d != DirNone && m.force > 0
+	return m.d != pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED && m.force > 0
 }

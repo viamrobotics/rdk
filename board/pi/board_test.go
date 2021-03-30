@@ -162,7 +162,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("motor forward", func(t *testing.T) {
 		m := p.Motor("m")
-		err := m.GoFor(board.DirForward, 250, 5)
+		err := m.GoFor(board.pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 250, 5)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,7 +184,7 @@ func TestPiPigpio(t *testing.T) {
 
 	t.Run("motor backward", func(t *testing.T) {
 		m := p.Motor("m")
-		err := m.GoFor(board.DirBackward, 250, 5)
+		err := m.GoFor(board.pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 250, 5)
 		if err != nil {
 			t.Fatal(err)
 		}

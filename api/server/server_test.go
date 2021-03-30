@@ -15,21 +15,25 @@ import (
 	"github.com/edaniels/test"
 )
 
-func TestServer(t *testing.T) {
+func newServer(t *testing.T) pb.RobotServiceServer {
+	t.Helper()
 	logger := golog.NewTestLogger(t)
-
 	cfg, err := api.ReadConfig(utils.ResolveFile("./robots/configs/fake.json"))
 	test.That(t, err, test.ShouldBeNil)
-
 	myRobot, err := robot.NewRobot(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	return apiserver.New(myRobot)
+}
 
-	server := apiserver.New(myRobot)
-	statusResp, err := server.Status(context.Background(), &pb.StatusRequest{})
-	test.That(t, err, test.ShouldBeNil)
+func TestServer(t *testing.T) {
+	t.Run("Status", func(t *testing.T) {
+		server := newServer(t)
+		statusResp, err := server.Status(context.Background(), &pb.StatusRequest{})
+		test.That(t, err, test.ShouldBeNil)
 
-	// TODO(erd): more exhaustive test with errors too
-	test.That(t, strings.ReplaceAll(statusResp.GetStatus().String(), " ", ""), test.ShouldResemble, `arms:{key:"arm1"value:{grid_position:{}joint_positions:{degrees:0degrees:0degrees:0degrees:0degrees:0degrees:0}}}bases:{key:"base1"value:true}grippers:{key:"gripper1"value:true}boards:{key:"board1"value:{motors:{key:"g"value:{}}servos:{key:"servo1"value:{}}analogs:{key:"analog1"value:{}}digital_interrupts:{key:"encoder"value:{}}}}`)
+		// TODO(erd): more exhaustive test with errors too
+		test.That(t, strings.ReplaceAll(statusResp.GetStatus().String(), " ", ""), test.ShouldResemble, `arms:{key:"arm1"value:{grid_position:{}joint_positions:{degrees:0degrees:0degrees:0degrees:0degrees:0degrees:0}}}bases:{key:"base1"value:true}grippers:{key:"gripper1"value:true}boards:{key:"board1"value:{motors:{key:"g"value:{}}servos:{key:"servo1"value:{}}analogs:{key:"analog1"value:{}}digital_interrupts:{key:"encoder"value:{}}}}`)
+	})
 
 	// TODO(erd): test server.StatusStream
 }

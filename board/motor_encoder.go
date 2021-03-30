@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	pb "go.viam.com/robotcore/proto/api/v1"
+
 	"github.com/edaniels/golog"
 )
 
@@ -59,7 +61,7 @@ type encodedMotor struct {
 	desiredRPM float64 // <= 0 means thread should do nothing
 
 	lastForce    byte
-	curDirection Direction
+	curDirection pb.DirectionRelative
 	setPoint     int64
 
 	curPosition int64
@@ -99,13 +101,13 @@ func (m *encodedMotor) setForce(force byte) error {
 	return m.real.Force(force)
 }
 
-func (m *encodedMotor) Go(d Direction, force byte) error {
+func (m *encodedMotor) Go(d pb.DirectionRelative, force byte) error {
 	m.setRegulated(false) // user wants direct control, so we stop trying to control the world
 	m.desiredRPM = 0      // if we're setting force manually, don't control RPM
 	return m.doGo(d, force)
 }
 
-func (m *encodedMotor) doGo(d Direction, force byte) error {
+func (m *encodedMotor) doGo(d pb.DirectionRelative, force byte) error {
 	m.lastForce = force
 	m.curDirection = d
 	return m.real.Go(d, force)
@@ -135,10 +137,10 @@ func (m *encodedMotor) startSingleEncoderThread() {
 
 			<-encoderChannel
 
-			if m.curDirection == DirForward {
+			if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 				m.curPosition++
 				stop = m.isRegulated() && m.curPosition >= m.setPoint
-			} else if m.curDirection == DirBackward {
+			} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 				m.curPosition--
 				stop = m.isRegulated() && m.curPosition <= m.setPoint
 			} else {
@@ -202,8 +204,8 @@ func (m *encodedMotor) startRotaryEncoderThread() {
 			}
 
 			if m.isRegulated() {
-				stop := (m.curDirection == DirForward && m.curPosition >= m.setPoint) ||
-					(m.curDirection == DirBackward && m.curPosition <= m.setPoint)
+				stop := (m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD && m.curPosition >= m.setPoint) ||
+					(m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD && m.curPosition <= m.setPoint)
 
 				if stop {
 					err := m.Off()
@@ -296,8 +298,8 @@ func (m *encodedMotor) rpmMonitor() {
 	}
 }
 
-func (m *encodedMotor) GoFor(d Direction, rpm float64, rotations float64) error {
-	if d == DirNone {
+func (m *encodedMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
+	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return m.Off()
 	}
 
@@ -315,9 +317,9 @@ func (m *encodedMotor) GoFor(d Direction, rpm float64, rotations float64) error 
 
 	numTicks := int64(rotations * float64(m.cfg.TicksPerRotation))
 
-	if d == DirForward {
+	if d == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 		m.setPoint = m.curPosition + numTicks
-	} else if d == DirBackward {
+	} else if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 		m.setPoint = m.curPosition - numTicks
 	} else {
 		panic("impossible")

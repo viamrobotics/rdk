@@ -3,8 +3,10 @@ package fake
 import (
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
 )
 
 func init() {
@@ -15,34 +17,34 @@ func init() {
 
 func NewArm() *Arm {
 	return &Arm{
-		position: api.ArmPosition{},
-		joints:   api.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		position: &pb.ArmPosition{},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 	}
 }
 
 type Arm struct {
-	position api.ArmPosition
-	joints   api.JointPositions
+	position *pb.ArmPosition
+	joints   *pb.JointPositions
 }
 
 func (a *Arm) Close() {
 }
 
-func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
+func (a *Arm) CurrentPosition() (*pb.ArmPosition, error) {
 	return a.position, nil
 }
 
-func (a *Arm) MoveToPosition(c api.ArmPosition) error {
+func (a *Arm) MoveToPosition(c *pb.ArmPosition) error {
 	a.position = c
 	return nil
 }
 
-func (a *Arm) MoveToJointPositions(joints api.JointPositions) error {
+func (a *Arm) MoveToJointPositions(joints *pb.JointPositions) error {
 	a.joints = joints
 	return nil
 }
 
-func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
+func (a *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
