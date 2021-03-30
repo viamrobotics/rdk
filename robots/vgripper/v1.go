@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 func init() {
@@ -29,7 +31,7 @@ type GripperV1 struct {
 
 	defaultSpeed byte
 
-	closeDirection, openDirection board.Direction
+	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
 }
 
@@ -55,12 +57,12 @@ func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error)
 	}
 
 	// pick a direction and move till it stops
-	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(board.DirForward)
+	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 	if err != nil {
 		return nil, err
 	}
 
-	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(board.DirBackward)
+	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 	if err != nil {
 		return nil, err
 	}
@@ -72,11 +74,11 @@ func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error)
 	vg.encoderGap = utils.AbsInt64(sideB - sideA)
 
 	if hasPressureA {
-		vg.closeDirection = board.DirForward
-		vg.openDirection = board.DirBackward
+		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 	} else {
-		vg.closeDirection = board.DirBackward
-		vg.openDirection = board.DirForward
+		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	}
 
 	return vg, vg.Open()
@@ -202,7 +204,7 @@ func (vg *GripperV1) analogs() (hasPressure bool, current int, err error) {
 	return
 }
 
-func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir board.Direction) (int64, bool, error) {
+func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir pb.DirectionRelative) (int64, bool, error) {
 	defer func() {
 		err := vg.Stop()
 		if err != nil {

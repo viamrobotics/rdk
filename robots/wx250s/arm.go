@@ -16,6 +16,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
 func init() {
@@ -87,16 +88,16 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
-func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
-	return api.ArmPosition{}, fmt.Errorf("wx250s dosn't support kinematics")
+func (a *Arm) CurrentPosition() (*pb.ArmPosition, error) {
+	return nil, fmt.Errorf("wx250s dosn't support kinematics")
 }
 
-func (a *Arm) MoveToPosition(c api.ArmPosition) error {
+func (a *Arm) MoveToPosition(c *pb.ArmPosition) error {
 	return fmt.Errorf("wx250s dosn't support kinematics")
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
-func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
+func (a *Arm) MoveToJointPositions(jp *pb.JointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
@@ -114,8 +115,8 @@ func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
 }
 
 // CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics
-func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
-	return api.JointPositions{}, nil
+func (a *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
+	return &pb.JointPositions{}, nil
 }
 
 func (a *Arm) JointMoveDelta(joint int, amount float64) error {

@@ -3,6 +3,8 @@ package board
 import (
 	"fmt"
 
+	pb "go.viam.com/robotcore/proto/api/v1"
+
 	"go.uber.org/multierr"
 )
 
@@ -40,18 +42,18 @@ func (m *GPIOMotor) Force(force byte) error {
 	return m.Board.PWMSet(m.PWM, force)
 }
 
-func (m *GPIOMotor) Go(d Direction, force byte) error {
+func (m *GPIOMotor) Go(d pb.DirectionRelative, force byte) error {
 	switch d {
-	case DirNone:
+	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off()
-	case DirForward:
+	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
 		return multierr.Combine(
 			m.Board.PWMSet(m.PWM, force),
 			m.Board.GPIOSet(m.A, true),
 			m.Board.GPIOSet(m.B, false),
 		)
-	case DirBackward:
+	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.on = true
 		return multierr.Combine(
 			m.Board.PWMSet(m.PWM, force),
@@ -63,7 +65,7 @@ func (m *GPIOMotor) Go(d Direction, force byte) error {
 	return fmt.Errorf("unknown direction %v", d)
 }
 
-func (m *GPIOMotor) GoFor(d Direction, rpm float64, rotations float64) error {
+func (m *GPIOMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
 	return fmt.Errorf("not supported")
 }
 

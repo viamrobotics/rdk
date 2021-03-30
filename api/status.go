@@ -1,33 +1,21 @@
 package api
 
 import (
-	"go.viam.com/robotcore/board"
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
-type ArmStatus struct {
-	GridPosition   ArmPosition
-	JointPositions JointPositions
-}
-
-type Status struct {
-	Arms     map[string]ArmStatus
-	Bases    map[string]bool // TODO(erh): not sure what this should be, but ok for now
-	Grippers map[string]bool // TODO(erh): not sure what this should be, but ok for now
-	Boards   map[string]board.Status
-}
-
-func CreateStatus(r Robot) (Status, error) {
+func CreateStatus(r Robot) (*pb.Status, error) {
 	var err error
-	s := Status{
-		Arms:     map[string]ArmStatus{},
+	s := &pb.Status{
+		Arms:     map[string]*pb.ArmStatus{},
 		Bases:    map[string]bool{},
 		Grippers: map[string]bool{},
-		Boards:   map[string]board.Status{},
+		Boards:   map[string]*pb.BoardStatus{},
 	}
 
 	for _, name := range r.ArmNames() {
 		arm := r.ArmByName(name)
-		as := ArmStatus{}
+		as := &pb.ArmStatus{}
 
 		as.GridPosition, err = arm.CurrentPosition()
 		if err != nil {

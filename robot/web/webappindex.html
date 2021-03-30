@@ -4,34 +4,15 @@
     <script src="./static/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script>
-      function makeApiCall(path, cb, data) {
-          if (!cb) {
-              theData.error = "";
-              theData.res = {};
-          }
-
-          var options = {
-              method : "POST",
-              headers : {}
-          }
-
-          if (data) {
-              options.headers["Content-Type"] = "application/json"
-              options.body = JSON.stringify(data)
-          }
-          
-          fetch( path, options)
-              .then(function(response) {
-                  return response.json();})
-              .then(function(response) {
-                  if ("err" in response ){
-                      theData.error = JSON.stringify(response);
-                  } else if (cb) {
-                      cb(response);
-                  } else {
-                      theData.res = response;
-                  }
-              });
+      const enableDevTools = window.__GRPCWEB_DEVTOOLS__ || (() => {});
+      enableDevTools([robotService]);
+      async function consumeClientCall(prom) {
+        try {
+          const resp = await prom;
+          theData.res = JSON.stringify(resp.toObject());
+        } catch (e) {
+          theData.error = JSON.stringify(e);
+        }
       }
       
       {{ range $view := .Views }}
@@ -44,11 +25,11 @@
               const [armName, armValue] = old[i];
               var newArm = { name : armName, pieces : [] };
 
-              var fields = [ "x", "y", "z", "rX", "rY", "rZ"];
-              for (var j=0; j<fields.length; j++ ){
-                  newArm.pieces.push( { grid : fields[j],
+              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["rX", "RX"], ["rY", "RY"], ["rZ", "RZ"]];
+              for (var j=0; j<fieldSetters.length; j++ ){
+                  newArm.pieces.push( { grid : fieldSetters[j],
                                         joint : j,
-                                        gridValue : armValue.gridPosition[fields[j]],
+                                        gridValue : armValue.gridPosition[fieldSetters[j][0]],
                                         jointValue : armValue.jointPositions.degreesList[j],
                                       });
               }
@@ -62,14 +43,17 @@
       
       async function updateStatus(rawStatus) {
           theData.rawStatus = rawStatus;
+          window.rawStatus = rawStatus;
+          // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
+          const rawSatusObj = rawStatus.toObject();
 
           var status = {}
 
           // make vue friendly
-          status.armsMap = rawStatus.armsMap;
-          status.basesMap = rawStatus.basesMap;
-          status.grippersMap = rawStatus.grippersMap;
-          status.boardsMap = rawStatus.boardsMap;
+          status.armsMap = rawSatusObj.armsMap;
+          status.basesMap = rawSatusObj.basesMap;
+          status.grippersMap = rawSatusObj.grippersMap;
+          status.boardsMap = rawSatusObj.boardsMap;
 
           status.armsMap = fixArms(status.armsMap);
 
@@ -93,52 +77,99 @@
               delimiters: ['${', '}'],
               data: theData,
               methods : {
-                  armGridInc : function(idx, field, amount) {
-                      const [name, value] = theData.rawStatus.armsMap[idx];
-                      var old = value.gridPosition;
-                      var newPosition = Object.assign({}, old);
-                      newPosition[field] += amount;
-                      makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
+                  armGridInc : function(name, getterSetter, amount) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      var old = arm.getGridPosition();
+                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
+                      const getter = `get${getterSetter}`;
+                      const setter = `set${getterSetter}`;
+                      newPosition[setter](newPosition[getter]() + amount);
+                      const req = new robotApi.MoveArmToPositionRequest();
+                      req.setName(name);
+                      req.setTo(newPosition);
+                      consumeClientCall(robotService.moveArmToPosition(req));
                   },
-                  armJointInc : function(idx, field, amount) {
-                      const [name, value] = theData.rawStatus.armsMap[idx];
-                      var old = value.jointPositions;
-                      var newPosition = Object.assign({}, old);
-                      newPosition.degreesList[field] += amount;
-                      makeApiCall("/api/arm/MoveToJointPositions", null, { Name : name, To : newPosition});
+                  armJointInc : function(name, field, amount) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      var old = arm.getJointPositions();
+                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newList = newPosition.getDegreesList();
+                      newList[field] += amount;
+                      newPosition.setDegreesList(newList);
+                      const req = new robotApi.MoveArmToJointPositionsRequest();
+                      req.setName(name);
+                      req.setTo(newPosition);
+                      consumeClientCall(robotService.moveArmToJointPositions(req));
                   },
-                  armHome : function(idx, field, amount) {
-                      const [name, value] = theData.rawStatus.armsMap[idx];
-                      var old = value.gridPosition;
-                      var newPosition = {};
-                      for (var k in old) {
-                          newPosition[k] = 0.0;
-                      }
-                      makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
+                  armHome : function(name) {
+                      const req = new robotApi.MoveArmToPositionRequest();
+                      req.setName(name);
+                      req.setTo(new robotApi.ArmPosition());
+                      consumeClientCall(robotService.moveArmToPosition(req));
                   },
                   gripperAction : function(name, action) {
-                      var path = "/api/gripper?name=" + name + "&action=" + action;
-                      makeApiCall(path);
+                      const req = new robotApi.ControlGripperRequest();
+                      req.setName(name);
+                      switch (action) {
+                        case 'open':
+                          req.setAction(robotApi.ControlGripperAction.CONTROL_GRIPPER_ACTION_OPEN);
+                          break;
+                        case 'grab':
+                          req.setAction(robotApi.ControlGripperAction.CONTROL_GRIPPER_ACTION_GRAB);
+                          break;
+                      }
+                      consumeClientCall(robotService.controlGripper(req));
                   },
                   servoMove : function(idx, servoIdx, amount) {
-                      const [boardName, boardValue] = theData.rawStatus.boardsMap[idx];
+                      const [boardName, boardValue] = theData.status.boardsMap[idx];
                       const [servoName, servoValue] = boardValue.servosMap[servoIdx];
                       var angle = servoValue.angle + amount;
-                      var path = "/api/board/" + boardName + "/servo?name=" + servoName + "&angle=" + angle;
-                      makeApiCall(path);
+                      const req = new robotApi.ControlBoardServoRequest();
+                      req.setBoardName(boardName);
+                      req.setServoName(servoName);
+                      req.setAngleDeg(angle);
+                      consumeClientCall(robotService.controlBoardServo(req));
                   },
                   motorButton: function(board, motor, cmd) {
-                      var path = "/api/board/" + board + "/motor?name=" + motor + "&" + cmd;
-                      makeApiCall(path);
+                      const req = new robotApi.ControlBoardMotorRequest();
+                      req.setBoardName(board);
+                      req.setMotorName(motor);
+                      if (cmd.s) {
+                        req.setSpeed(cmd.s);
+                      }
+                      if (cmd.r) {
+                        req.setRotations(cmd.r);
+                      }
+                      switch (cmd.d) {
+                        case 'backward':
+                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
+                          break;
+                        case 'forward':
+                          req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
+                          break;
+                      }
+                      consumeClientCall(robotService.controlBoardMotor(req));
                   },
                   doAction : function(name) {
-                      var path = "/api/action?name=" + name;
-                      makeApiCall(path);
+                      const req = new robotApi.DoActionRequest();
+                      req.setName(name);
+                      consumeClientCall(robotService.doAction(req));
                   },
-                  baseAction : function(name, action) {
-                      var path = "/api/base?name=" + name + "&" + action + "&speed=" + document.getElementById("speed").value;
-                      path = path.replace("DIS", document.getElementById("distance").value);
-                      makeApiCall(path);
+                  baseAction : function(name, action, amount) {
+                      const req = new robotApi.ControlBaseRequest();
+                      req.setName(name);
+                      const moveBase = new robotApi.MoveBase();
+                      moveBase.setSpeed(document.getElementById("speed").value)
+                      switch (action) {
+                        case 'straight':
+                          moveBase.setStraightDistanceMillis(document.getElementById("distance").value * amount);
+                          break;
+                        case 'angle':
+                          moveBase.setSpinAngleDeg(amount);
+                          break;
+                      }
+                      req.setMove(moveBase);
+                      consumeClientCall(robotService.controlBase(req));
                   }
               }
           })
@@ -148,8 +179,7 @@
           streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000));
           const statusStream = robotService.statusStream(streamReq);
           statusStream.on('data', function(response) {
-            // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
-            updateStatus(response.getStatus().toObject());
+            updateStatus(response.getStatus());
           });
           statusStream.on('status', function(status) {
             console.log("error streaming robot status");
@@ -176,10 +206,10 @@
       <div class="base" v-for="base in status.basesMap" :key="base[0]">
         <h3>${base[0]}</h3>
         <ul>
-          <li><button v-on:click="baseAction(base[0], 'distanceMillis=DIS')">Forward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'distanceMillis=-DIS')">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle=15')">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle=-15')">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', 15)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', -15)">Spin Counterclockwise</button></li>
         </ul>
         
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
@@ -187,20 +217,20 @@
       </div>
 
       <!-- ******* ARM *******  -->
-      <div class="arm" v-for="(arm, index) in status.armsMap" :key="arm[0]">
-        <h3>Arm ${arm[0]}</h3>
+      <div class="arm" v-for="arm in status.armsMap" :key="arm.name">
+        <h3>Arm ${arm.name}</h3>
         <table border="1">
           <tr>
             <th colspan="4"><h5>GRID</h5></th>
             <th colspan="4"><h5>JOINTS</h5></th>
           </tr>
           <tr v-for="aa in arm.pieces" :key="aa.joint">
-            <th>${aa.grid}</th>
+            <th>${aa.grid[0]}</th>
             <td>
-              <button v-on:click="armGridInc( index, aa.grid, -2 )">--</button>
-              <button v-on:click="armGridInc( index, aa.grid, -1 )">-</button>
-              <button v-on:click="armGridInc( index, aa.grid, 1 )">+</button>
-              <button v-on:click="armGridInc( index, aa.grid, 2 )">++</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], -2 )">--</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], 2 )">++</button>
             </td>
             <td>${aa.gridValue}</td>
 
@@ -208,16 +238,16 @@
             
             <th>Joint ${aa.joint}</th>
             <td>
-              <button v-on:click="armJointInc( index, aa.joint, -2 )">--</button>
-              <button v-on:click="armJointInc( index, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( index, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( index, aa.joint, 2 )">++</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, -2 )">--</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, 2 )">++</button>
             </td>
             <td>${aa.jointValue}</td>
           </tr>
           <tr>
             <th colspan="8"> 
-              <button v-on:click="armHome( index)">Home</button>
+              <button v-on:click="armHome( arm.name)">Home</button>
             </th>
           </tr>
 
@@ -256,20 +286,20 @@
             <tr>
               <th>${m[0]}</th>
               <td>
-                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=64')">--</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=32')">-</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=none&s=0')">0</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=32')">+</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=64')">++</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 64})">--</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 32})">-</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'none', s: 0})">0</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 32})">+</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 64})">++</button>
               </td>
             </tr>
             <tr>
               <td></td>
               <td>
-                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=64&r=10')">-10</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=32&r=1')">-1</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=32&r=1')">+1</button>
-                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=64&r=10')">+10</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 64, r: 10})">-10</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 32, r: 1})">-1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 32, r: 1})">+1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 64, r: 10})">+10</button>
               </td>
             </tr>
             
