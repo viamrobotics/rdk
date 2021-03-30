@@ -11,9 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
 )
 
 func init() {
@@ -58,24 +60,24 @@ type eva struct {
 	logger   golog.Logger
 }
 
-func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
+func (e *eva) CurrentJointPositions() (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return api.JointPositions{}, err
+		return &pb.JointPositions{}, err
 	}
 	return api.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-func (e *eva) CurrentPosition() (api.ArmPosition, error) {
-	return api.ArmPosition{}, fmt.Errorf("eva low level doesn't support kinematics")
+func (e *eva) CurrentPosition() (*pb.ArmPosition, error) {
+	return nil, fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToPosition(pos api.ArmPosition) error {
+func (e *eva) MoveToPosition(pos *pb.ArmPosition) error {
 	return fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToJointPositions(newPositions api.JointPositions) error {
-	radians := newPositions.Radians()
+func (e *eva) MoveToJointPositions(newPositions *pb.JointPositions) error {
+	radians := api.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(radians)
 	if err == nil {

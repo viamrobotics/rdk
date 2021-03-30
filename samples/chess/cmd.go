@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/imagesource"
 	"go.viam.com/robotcore/robot"
@@ -217,13 +218,13 @@ func moveOutOfWay(myArm api.Arm) error {
 
 func initArm(myArm api.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(api.ArmPosition{
+	err := myArm.MoveToPosition(&pb.ArmPosition{
 		X:  foo.x,
 		Y:  foo.y,
 		Z:  SafeMoveHeight,
-		Rx: -180,
-		Ry: 0,
-		Rz: 0,
+		RX: -180,
+		RY: 0,
+		RZ: 0,
 	})
 
 	if err != nil {
@@ -355,9 +356,9 @@ func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) erro
 		where.X = -0.42
 		where.Y = 0.02
 		where.Z = 0.6
-		where.Rx = -2.600206
-		where.Ry = -0.007839
-		where.Rz = -0.061827
+		where.RX = -2.600206
+		where.RY = -0.007839
+		where.RZ = -0.061827
 		err = myArm.MoveToPosition(where)
 		if err != nil {
 			return err

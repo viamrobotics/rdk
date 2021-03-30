@@ -3,6 +3,8 @@ package board
 import (
 	"testing"
 
+	pb "go.viam.com/robotcore/proto/api/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,13 +42,13 @@ func TestMotor1(t *testing.T) {
 	assert.Equal(t, false, b.gpio["2"])
 	assert.False(t, m.IsOn())
 
-	assert.Nil(t, m.Go(DirForward, 111))
+	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 111))
 	assert.Equal(t, true, b.gpio["1"])
 	assert.Equal(t, false, b.gpio["2"])
 	assert.Equal(t, byte(111), b.pwm["3"])
 	assert.True(t, m.IsOn())
 
-	assert.Nil(t, m.Go(DirBackward, 112))
+	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
 	assert.Equal(t, byte(112), b.pwm["3"])
@@ -60,10 +62,10 @@ func TestMotor1(t *testing.T) {
 	assert.Equal(t, false, b.gpio["2"])
 	assert.False(t, m.IsOn())
 
-	assert.Nil(t, m.Go(DirBackward, 112))
+	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
-	assert.Nil(t, m.Go(DirNone, 121))
+	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 121))
 	assert.False(t, b.gpio["1"])
 	assert.False(t, b.gpio["2"])
 

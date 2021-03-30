@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
 )
 
 type Arm struct {
@@ -44,26 +46,26 @@ func (k *Arm) Close() {
 }
 
 // Returns the end effector's current Position
-func (k *Arm) GetForwardPosition() api.ArmPosition {
+func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	k.Model.ForwardPosition()
 
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
-	pos := api.ArmPosition{}
+	pos := &pb.ArmPosition{}
 	pos.X = pos6d[0]
 	pos.Y = pos6d[1]
 	pos.Z = pos6d[2]
-	pos.Rx = pos6d[3]
-	pos.Ry = pos6d[4]
-	pos.Rz = pos6d[5]
+	pos.RX = pos6d[3]
+	pos.RY = pos6d[4]
+	pos.RZ = pos6d[5]
 
 	return pos
 }
 
 // Sets a new goal position
 // Uses ZYX euler rotation order
-func (k *Arm) SetForwardPosition(pos api.ArmPosition) error {
-	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
+	transform := kinmath.NewTransformFromRotation(pos.RX, pos.RY, pos.RZ)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
 	transform.SetZ(pos.Z)
@@ -96,20 +98,20 @@ func (k *Arm) SetJointPositions(angles []float64) {
 	k.Model.SetPosition(radAngles)
 }
 
-func (k *Arm) CurrentJointPositions() (api.JointPositions, error) {
+func (k *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
 	// If the real arm returns empty struct, nil then that means we should use the kinematics angles
 	jp, err := k.real.CurrentJointPositions()
 
 	if len(jp.Degrees) == 0 && err == nil {
-		jp = api.JointPositions{k.modelJointsPosition()}
+		jp = &pb.JointPositions{Degrees: k.modelJointsPosition()}
 	}
 	return jp, err
 }
 
-func (k *Arm) CurrentPosition() (api.ArmPosition, error) {
+func (k *Arm) CurrentPosition() (*pb.ArmPosition, error) {
 	curPos, err := k.CurrentJointPositions()
 	if err != nil {
-		return api.ArmPosition{}, err
+		return &pb.ArmPosition{}, err
 	}
 	k.SetJointPositions(curPos.Degrees)
 	pos := k.GetForwardPosition()
@@ -125,7 +127,7 @@ func (k *Arm) JointMoveDelta(joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
-func (k *Arm) MoveToJointPositions(jp api.JointPositions) error {
+func (k *Arm) MoveToJointPositions(jp *pb.JointPositions) error {
 	err := k.real.MoveToJointPositions(jp)
 	if err == nil {
 		k.SetJointPositions(jp.Degrees)
@@ -133,7 +135,7 @@ func (k *Arm) MoveToJointPositions(jp api.JointPositions) error {
 	return err
 }
 
-func (k *Arm) MoveToPosition(pos api.ArmPosition) error {
+func (k *Arm) MoveToPosition(pos *pb.ArmPosition) error {
 	pos.X *= 1000
 	pos.Y *= 1000
 	pos.Z *= 1000
@@ -143,7 +145,7 @@ func (k *Arm) MoveToPosition(pos api.ArmPosition) error {
 		return err
 	}
 
-	joints := api.JointPositions{k.modelJointsPosition()}
+	joints := &pb.JointPositions{Degrees: k.modelJointsPosition()}
 
 	return k.real.MoveToJointPositions(joints)
 }

@@ -7,6 +7,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robots/fake"
 
 	// these are the core image things we always want
@@ -187,7 +188,7 @@ func (r *Robot) GetConfig() api.Config {
 	return r.config
 }
 
-func (r *Robot) Status() (api.Status, error) {
+func (r *Robot) Status() (*pb.Status, error) {
 	return api.CreateStatus(r)
 }
 

@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/golog"
-
-	"github.com/stretchr/testify/assert"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFourWheelBase1(t *testing.T) {
@@ -66,17 +66,17 @@ func TestFourWheelBase1(t *testing.T) {
 
 	t.Run("math", func(t *testing.T) {
 		d, rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
-		assert.Equal(t, board.DirForward, d)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, d)
 		assert.Equal(t, 60.0, rpm)
 		assert.Equal(t, 1.0, rotations)
 
 		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
-		assert.Equal(t, board.DirBackward, d)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, d)
 		assert.Equal(t, 60.0, rpm)
 		assert.Equal(t, 1.0, rotations)
 
 		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
-		assert.Equal(t, board.DirForward, d)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, d)
 		assert.Equal(t, 60.0, rpm)
 		assert.Equal(t, 1.0, rotations)
 	})
@@ -87,7 +87,7 @@ func TestFourWheelBase1(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = base.allMotors[0].Go(board.DirForward, 1)
+		err = base.allMotors[0].Go(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -156,11 +156,11 @@ func TestFourWheelBase1(t *testing.T) {
 		// i'm only testing pieces that are correct
 
 		leftDirection, _, rotations := base.spinMath(90, 10)
-		assert.Equal(t, board.DirForward, leftDirection)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, leftDirection)
 		assert.InEpsilon(t, .0785, rotations, .001)
 
 		leftDirection, _, rotations = base.spinMath(-90, 10)
-		assert.Equal(t, board.DirBackward, leftDirection)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, leftDirection)
 		assert.InEpsilon(t, .0785, rotations, .001)
 
 	})

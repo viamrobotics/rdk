@@ -7,12 +7,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
 
@@ -30,9 +31,9 @@ type Boat struct {
 }
 
 func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	dir := board.DirForward
+	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if distanceMillis < 0 {
-		dir = board.DirBackward
+		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		distanceMillis *= -1
 	}
 
@@ -89,8 +90,8 @@ func (b *Boat) StartRC() {
 				err = b.Stop(context.Background())
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(board.DirForward, starboard, 0),
-					b.port.GoFor(board.DirForward, port, 0),
+					b.starboard.GoFor(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, starboard, 0),
+					b.port.GoFor(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, port, 0),
 				)
 			}
 

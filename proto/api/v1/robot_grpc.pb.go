@@ -20,6 +20,13 @@ const _ = grpc.SupportPackageIsVersion7
 type RobotServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (RobotService_StatusStreamClient, error)
+	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
+	ControlBase(ctx context.Context, in *ControlBaseRequest, opts ...grpc.CallOption) (*ControlBaseResponse, error)
+	MoveArmToPosition(ctx context.Context, in *MoveArmToPositionRequest, opts ...grpc.CallOption) (*MoveArmToPositionResponse, error)
+	MoveArmToJointPositions(ctx context.Context, in *MoveArmToJointPositionsRequest, opts ...grpc.CallOption) (*MoveArmToJointPositionsResponse, error)
+	ControlGripper(ctx context.Context, in *ControlGripperRequest, opts ...grpc.CallOption) (*ControlGripperResponse, error)
+	ControlBoardMotor(ctx context.Context, in *ControlBoardMotorRequest, opts ...grpc.CallOption) (*ControlBoardMotorResponse, error)
+	ControlBoardServo(ctx context.Context, in *ControlBoardServoRequest, opts ...grpc.CallOption) (*ControlBoardServoResponse, error)
 }
 
 type robotServiceClient struct {
@@ -71,12 +78,82 @@ func (x *robotServiceStatusStreamClient) Recv() (*StatusStreamResponse, error) {
 	return m, nil
 }
 
+func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
+	out := new(DoActionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/DoAction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ControlBase(ctx context.Context, in *ControlBaseRequest, opts ...grpc.CallOption) (*ControlBaseResponse, error) {
+	out := new(ControlBaseResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBase", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MoveArmToPosition(ctx context.Context, in *MoveArmToPositionRequest, opts ...grpc.CallOption) (*MoveArmToPositionResponse, error) {
+	out := new(MoveArmToPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MoveArmToPosition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) MoveArmToJointPositions(ctx context.Context, in *MoveArmToJointPositionsRequest, opts ...grpc.CallOption) (*MoveArmToJointPositionsResponse, error) {
+	out := new(MoveArmToJointPositionsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MoveArmToJointPositions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ControlGripper(ctx context.Context, in *ControlGripperRequest, opts ...grpc.CallOption) (*ControlGripperResponse, error) {
+	out := new(ControlGripperResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlGripper", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ControlBoardMotor(ctx context.Context, in *ControlBoardMotorRequest, opts ...grpc.CallOption) (*ControlBoardMotorResponse, error) {
+	out := new(ControlBoardMotorResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBoardMotor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ControlBoardServo(ctx context.Context, in *ControlBoardServoRequest, opts ...grpc.CallOption) (*ControlBoardServoResponse, error) {
+	out := new(ControlBoardServoResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBoardServo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
 type RobotServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error
+	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
+	ControlBase(context.Context, *ControlBaseRequest) (*ControlBaseResponse, error)
+	MoveArmToPosition(context.Context, *MoveArmToPositionRequest) (*MoveArmToPositionResponse, error)
+	MoveArmToJointPositions(context.Context, *MoveArmToJointPositionsRequest) (*MoveArmToJointPositionsResponse, error)
+	ControlGripper(context.Context, *ControlGripperRequest) (*ControlGripperResponse, error)
+	ControlBoardMotor(context.Context, *ControlBoardMotorRequest) (*ControlBoardMotorResponse, error)
+	ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -89,6 +166,27 @@ func (UnimplementedRobotServiceServer) Status(context.Context, *StatusRequest) (
 }
 func (UnimplementedRobotServiceServer) StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method StatusStream not implemented")
+}
+func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
+}
+func (UnimplementedRobotServiceServer) ControlBase(context.Context, *ControlBaseRequest) (*ControlBaseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ControlBase not implemented")
+}
+func (UnimplementedRobotServiceServer) MoveArmToPosition(context.Context, *MoveArmToPositionRequest) (*MoveArmToPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveArmToPosition not implemented")
+}
+func (UnimplementedRobotServiceServer) MoveArmToJointPositions(context.Context, *MoveArmToJointPositionsRequest) (*MoveArmToJointPositionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MoveArmToJointPositions not implemented")
+}
+func (UnimplementedRobotServiceServer) ControlGripper(context.Context, *ControlGripperRequest) (*ControlGripperResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ControlGripper not implemented")
+}
+func (UnimplementedRobotServiceServer) ControlBoardMotor(context.Context, *ControlBoardMotorRequest) (*ControlBoardMotorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ControlBoardMotor not implemented")
+}
+func (UnimplementedRobotServiceServer) ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ControlBoardServo not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -142,6 +240,132 @@ func (x *robotServiceStatusStreamServer) Send(m *StatusStreamResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DoActionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).DoAction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/DoAction",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ControlBase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ControlBaseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ControlBase(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ControlBase",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ControlBase(ctx, req.(*ControlBaseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MoveArmToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveArmToPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MoveArmToPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MoveArmToPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MoveArmToPosition(ctx, req.(*MoveArmToPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_MoveArmToJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MoveArmToJointPositionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).MoveArmToJointPositions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/MoveArmToJointPositions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).MoveArmToJointPositions(ctx, req.(*MoveArmToJointPositionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ControlGripper_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ControlGripperRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ControlGripper(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ControlGripper",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ControlGripper(ctx, req.(*ControlGripperRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ControlBoardMotor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ControlBoardMotorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ControlBoardMotor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ControlBoardMotor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ControlBoardMotor(ctx, req.(*ControlBoardMotorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ControlBoardServo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ControlBoardServoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ControlBoardServo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ControlBoardServo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ControlBoardServo(ctx, req.(*ControlBoardServoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +376,34 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Status",
 			Handler:    _RobotService_Status_Handler,
+		},
+		{
+			MethodName: "DoAction",
+			Handler:    _RobotService_DoAction_Handler,
+		},
+		{
+			MethodName: "ControlBase",
+			Handler:    _RobotService_ControlBase_Handler,
+		},
+		{
+			MethodName: "MoveArmToPosition",
+			Handler:    _RobotService_MoveArmToPosition_Handler,
+		},
+		{
+			MethodName: "MoveArmToJointPositions",
+			Handler:    _RobotService_MoveArmToJointPositions_Handler,
+		},
+		{
+			MethodName: "ControlGripper",
+			Handler:    _RobotService_ControlGripper_Handler,
+		},
+		{
+			MethodName: "ControlBoardMotor",
+			Handler:    _RobotService_ControlBoardMotor_Handler,
+		},
+		{
+			MethodName: "ControlBoardServo",
+			Handler:    _RobotService_ControlBoardServo_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

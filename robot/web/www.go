@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"image"
@@ -12,12 +11,9 @@ import (
 	"net/http/pprof"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"time"
 
-	"go.viam.com/robotcore/api"
 	apiserver "go.viam.com/robotcore/api/server"
-	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot"
@@ -107,158 +103,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func InstallWebBase(mux *goji.Mux, theBase api.Base, logger golog.Logger) {
-
-	mux.Handle(pat.New("/api/base"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
-		if r.FormValue("speed") != "" {
-			speed2, err := strconv.ParseFloat(r.FormValue("speed"), 64)
-			if err != nil {
-				return nil, err
-			}
-			millisPerSec = speed2
-		}
-
-		s := r.FormValue("stop")
-		d := r.FormValue("distanceMillis")
-		a := r.FormValue("angle")
-
-		var err error
-
-		if s == "t" || s == "true" {
-			err = theBase.Stop(r.Context())
-		} else if d != "" {
-			d2, err2 := strconv.ParseInt(d, 10, 64)
-			if err2 != nil {
-				return nil, err2
-			}
-
-			err = theBase.MoveStraight(r.Context(), int(d2), millisPerSec, false)
-		} else if a != "" {
-			a2, err2 := strconv.ParseInt(a, 10, 64)
-			if err2 != nil {
-				return nil, err2
-			}
-
-			// TODO(erh): fix speed
-			err = theBase.Spin(r.Context(), float64(a2), 64, false)
-		} else {
-			return nil, fmt.Errorf("no stop, distanceMillis, angle given")
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("erorr moving %s", err)
-		}
-
-		return nil, nil
-
-	}, logger})
-}
-
-type apiMethod func(r *http.Request) (map[string]interface{}, error)
-
-type apiCall struct {
-	theMethod apiMethod
-	logger    golog.Logger
-}
-
-func (ac *apiCall) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	res, err := ac.theMethod(r)
-	if err != nil {
-		ac.logger.Warnf("error in api call: %s", err)
-		res = map[string]interface{}{"err": err.Error()}
-	}
-
-	if res == nil {
-		res = map[string]interface{}{"ok": true}
-	}
-
-	js, err := json.Marshal(res)
-	if err != nil {
-		ac.logger.Warnf("cannot marshal json: %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(js) //nolint
-}
-
-func InstallActions(mux *goji.Mux, theRobot api.Robot, logger golog.Logger) {
-	mux.Handle(pat.New("/api/action"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		name := r.FormValue("name")
-		action := actions.LookupAction(name)
-		if action == nil {
-			return nil, fmt.Errorf("unknown action name [%s]", name)
-		}
-		go action(theRobot)
-		return map[string]interface{}{"started": true}, nil
-	}, logger})
-}
-
-func InstallWebArms(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
-	mux.Handle(pat.New("/api/arm/MoveToPosition"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		req := &MoveToPositionRequest{}
-		err := json.NewDecoder(r.Body).Decode(req)
-		if err != nil {
-			return nil, err
-		}
-
-		arm := theRobot.ArmByName(req.Name)
-		if arm == nil {
-			return nil, fmt.Errorf("no arm with name (%s)", req.Name)
-		}
-
-		return nil, arm.MoveToPosition(req.To)
-	}, logger})
-
-	mux.Handle(pat.New("/api/arm/MoveToJointPositions"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		req := &MoveToJointPositionsRequest{}
-		err := json.NewDecoder(r.Body).Decode(req)
-		if err != nil {
-			return nil, err
-		}
-
-		arm := theRobot.ArmByName(req.Name)
-		if arm == nil {
-			return nil, fmt.Errorf("no arm with name (%s)", req.Name)
-		}
-
-		return nil, arm.MoveToJointPositions(req.To)
-	}, logger})
-
-}
-
-func InstallWebGrippers(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
-	mux.Handle(pat.New("/api/gripper"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		name := r.FormValue("name")
-		gripper := theRobot.GripperByName(name)
-		if gripper == nil {
-			return nil, fmt.Errorf("no gripper with that name %s", name)
-		}
-
-		var err error
-		res := map[string]interface{}{}
-
-		action := r.FormValue("action")
-		switch action {
-		case "open":
-			err = gripper.Open()
-		case "grab":
-			var grabbed bool
-			grabbed, err = gripper.Grab()
-			res["grabbed"] = grabbed
-		default:
-			err = fmt.Errorf("bad action: (%s)", action)
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("gripper error: %s", err)
-		}
-		return res, nil
-	}, logger})
-}
-
 func InstallSimpleCamera(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
 	theFunc := func(w http.ResponseWriter, r *http.Request) {
 		name := r.FormValue("name")
@@ -286,77 +130,6 @@ func InstallSimpleCamera(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logg
 	mux.HandleFunc(pat.New("/api/camera"), theFunc)
 	mux.HandleFunc(pat.New("/api/camera/"), theFunc)
 
-}
-
-func InstallStatus(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
-	mux.HandleFunc(pat.New("/api/status"), func(w http.ResponseWriter, r *http.Request) {
-		status, err := theRobot.Status()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-
-		enc := json.NewEncoder(w)
-		err = enc.Encode(status)
-		if err != nil {
-			logger.Infof("failed to encode status %s", err)
-		}
-	})
-}
-
-func installBoard(mux *goji.Mux, b board.Board, logger golog.Logger) {
-	cfg := b.GetConfig()
-
-	mux.Handle(pat.New("/api/board/"+cfg.Name+"/motor"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		name := r.FormValue("name")
-		theMotor := b.Motor(name)
-		if theMotor == nil {
-			return nil, fmt.Errorf("unknown motor: %s", r.FormValue("name"))
-		}
-
-		speed, err := strconv.ParseFloat(r.FormValue("s"), 64)
-		if err != nil {
-			return nil, err
-		}
-
-		rVal := 0.0
-		if r.FormValue("r") != "" {
-			rVal, err = strconv.ParseFloat(r.FormValue("r"), 64)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if rVal == 0 {
-			return map[string]interface{}{}, theMotor.Go(board.DirectionFromString(r.FormValue("d")), byte(speed))
-		}
-
-		return map[string]interface{}{}, theMotor.GoFor(board.DirectionFromString(r.FormValue("d")), speed, rVal)
-	}, logger})
-
-	mux.Handle(pat.New("/api/board/"+cfg.Name+"/servo"), &apiCall{func(r *http.Request) (map[string]interface{}, error) {
-		name := r.FormValue("name")
-		theServo := b.Servo(name)
-		if theServo == nil {
-			return nil, fmt.Errorf("unknown servo: %s", r.FormValue("name"))
-		}
-
-		angle, err := strconv.ParseInt(r.FormValue("angle"), 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("need to specify an angle to move to")
-		}
-
-		return nil, theServo.Move(uint8(angle))
-
-	}, logger})
-}
-
-func InstallBoards(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
-	for _, name := range theRobot.BoardNames() {
-		installBoard(mux, theRobot.BoardByName(name), logger)
-	}
 }
 
 // ---------------
@@ -431,22 +204,7 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 		return nil, err
 	}
 
-	// install routes
-	for _, name := range theRobot.BaseNames() {
-		InstallWebBase(mux, theRobot.BaseByName(name), logger)
-	}
-
-	InstallWebArms(mux, theRobot, logger)
-
-	InstallWebGrippers(mux, theRobot, logger)
-
-	InstallActions(mux, theRobot, logger)
-
 	InstallSimpleCamera(mux, theRobot, logger)
-
-	InstallBoards(mux, theRobot, logger)
-
-	InstallStatus(mux, theRobot, logger)
 
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveFile("robot/web/frontend/dist")))))
 	mux.Handle(pat.New("/"), app)

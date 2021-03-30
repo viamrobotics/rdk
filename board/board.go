@@ -1,37 +1,15 @@
 package board
 
+import pb "go.viam.com/robotcore/proto/api/v1"
+
 type PostProcess func(raw int64) int64
 
-type Direction int
-
-const (
-	DirNone     = Direction(0)
-	DirForward  = Direction(1)
-	DirBackward = Direction(2)
-)
-
-func DirectionFromString(s string) Direction {
-	if len(s) == 0 {
-		return DirNone
-	}
-
-	if s[0] == 'f' {
-		return DirForward
-	}
-
-	if s[0] == 'b' {
-		return DirBackward
-	}
-
-	return DirNone
-}
-
-func FlipDirection(d Direction) Direction {
+func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 	switch d {
-	case DirForward:
-		return DirBackward
-	case DirBackward:
-		return DirForward
+	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
+		return pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
+		return pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	}
 
 	return d
@@ -40,9 +18,9 @@ func FlipDirection(d Direction) Direction {
 type Motor interface {
 	Force(force byte) error
 
-	Go(d Direction, force byte) error
+	Go(d pb.DirectionRelative, force byte) error
 
-	GoFor(d Direction, rpm float64, rotations float64) error
+	GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error
 
 	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
 	Position() int64
@@ -75,7 +53,7 @@ type Board interface {
 	GetConfig() Config
 
 	// should use CreateStatus in most cases
-	Status() (Status, error)
+	Status() (*pb.BoardStatus, error)
 }
 
 type DigitalInterrupt interface {

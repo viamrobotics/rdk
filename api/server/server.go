@@ -2,11 +2,12 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/robot/actions"
 )
 
 type Server struct {
@@ -23,7 +24,7 @@ func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusRes
 	if err != nil {
 		return nil, err
 	}
-	return &pb.StatusResponse{Status: StatusToProto(status)}, nil
+	return &pb.StatusResponse{Status: status}, nil
 }
 
 const defaultStreamInterval = 1 * time.Second
@@ -50,106 +51,127 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 		if err != nil {
 			return err
 		}
-		if err := server.Send(&pb.StatusStreamResponse{Status: StatusToProto(status)}); err != nil {
+		if err := server.Send(&pb.StatusStreamResponse{Status: status}); err != nil {
 			return err
 		}
 	}
 }
 
-func StatusToProto(status api.Status) *pb.Status {
-	var pbStatus pb.Status
-	if status.Arms != nil {
-		pbStatus.Arms = map[string]*pb.ArmStatus{}
-		for key, value := range status.Arms {
-			pbStatus.Arms[key] = ArmStatusToProto(value)
+func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoActionResponse, error) {
+	action := actions.LookupAction(req.Name)
+	if action == nil {
+		return nil, fmt.Errorf("unknown action name [%s]", req.Name)
+	}
+	go action(s.r)
+	return &pb.DoActionResponse{}, nil
+}
+
+func (s *Server) ControlBase(ctx context.Context, req *pb.ControlBaseRequest) (*pb.ControlBaseResponse, error) {
+	base := s.r.BaseByName(req.Name)
+	if base == nil {
+		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+	}
+
+	switch v := req.Action.(type) {
+	case *pb.ControlBaseRequest_Stop:
+		if v.Stop {
+			return &pb.ControlBaseResponse{}, base.Stop(ctx)
 		}
-	}
-	pbStatus.Bases = status.Bases
-	pbStatus.Grippers = status.Grippers
-	if status.Boards != nil {
-		pbStatus.Boards = map[string]*pb.BoardStatus{}
-		for key, value := range status.Boards {
-			pbStatus.Boards[key] = BoardStatusToProto(value)
+		return &pb.ControlBaseResponse{}, nil
+	case *pb.ControlBaseRequest_Move:
+		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
+		if v.Move.Speed != 0 {
+			millisPerSec = v.Move.Speed
 		}
-	}
-	return &pbStatus
-}
-
-func ArmStatusToProto(status api.ArmStatus) *pb.ArmStatus {
-	return &pb.ArmStatus{
-		GridPosition:   ArmPositionToProto(status.GridPosition),
-		JointPositions: JointPositionsToProto(status.JointPositions),
-	}
-}
-
-func ArmPositionToProto(status api.ArmPosition) *pb.ArmPosition {
-	return &pb.ArmPosition{
-		X:  status.X,
-		Y:  status.Y,
-		Z:  status.Z,
-		RX: status.Rx,
-		RY: status.Ry,
-		RZ: status.Rz,
-	}
-}
-
-func JointPositionsToProto(status api.JointPositions) *pb.JointPositions {
-	return &pb.JointPositions{
-		Degrees: status.Degrees,
-	}
-}
-
-func BoardStatusToProto(status board.Status) *pb.BoardStatus {
-	var pbStatus pb.BoardStatus
-	if status.Motors != nil {
-		pbStatus.Motors = map[string]*pb.MotorStatus{}
-		for key, value := range status.Motors {
-			pbStatus.Motors[key] = MotorStatusToProto(value)
+		switch o := v.Move.Option.(type) {
+		case *pb.MoveBase_StraightDistanceMillis:
+			return &pb.ControlBaseResponse{}, base.MoveStraight(ctx, int(o.StraightDistanceMillis), millisPerSec, false)
+		case *pb.MoveBase_SpinAngleDeg:
+			return &pb.ControlBaseResponse{}, base.Spin(ctx, o.SpinAngleDeg, 64, false)
+		default:
+			return nil, fmt.Errorf("unknown move %T", o)
 		}
+	default:
+		return nil, fmt.Errorf("unknown action %T", v)
 	}
-	if status.Servos != nil {
-		pbStatus.Servos = map[string]*pb.ServoStatus{}
-		for key, value := range status.Servos {
-			pbStatus.Servos[key] = ServoStatusToProto(value)
+}
+
+func (s *Server) MoveArmToPosition(ctx context.Context, req *pb.MoveArmToPositionRequest) (*pb.MoveArmToPositionResponse, error) {
+	arm := s.r.ArmByName(req.Name)
+	if arm == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+	}
+
+	return &pb.MoveArmToPositionResponse{}, arm.MoveToPosition(req.To)
+}
+
+func (s *Server) MoveArmToJointPositions(ctx context.Context, req *pb.MoveArmToJointPositionsRequest) (*pb.MoveArmToJointPositionsResponse, error) {
+	arm := s.r.ArmByName(req.Name)
+	if arm == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+	}
+
+	return &pb.MoveArmToJointPositionsResponse{}, arm.MoveToJointPositions(req.To)
+}
+
+func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperRequest) (*pb.ControlGripperResponse, error) {
+	gripper := s.r.GripperByName(req.Name)
+	if gripper == nil {
+		return nil, fmt.Errorf("no gripper with that name %s", req.Name)
+	}
+
+	var grabbed bool
+	switch req.Action {
+	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN:
+		if err := gripper.Open(); err != nil {
+			return nil, err
 		}
-	}
-	if status.Analogs != nil {
-		pbStatus.Analogs = map[string]*pb.AnalogStatus{}
-		for key, value := range status.Analogs {
-			pbStatus.Analogs[key] = AnalogStatusToProto(value)
+	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB:
+		var err error
+		grabbed, err = gripper.Grab()
+		if err != nil {
+			return nil, err
 		}
+	default:
+		return nil, fmt.Errorf("unknown action: (%s)", req.Action)
 	}
-	if status.DigitalInterrupts != nil {
-		pbStatus.DigitalInterrupts = map[string]*pb.DigitalInterruptStatus{}
-		for key, value := range status.DigitalInterrupts {
-			pbStatus.DigitalInterrupts[key] = DigitalInterruptStatusToProto(value)
-		}
-	}
-	return &pbStatus
+
+	return &pb.ControlGripperResponse{Grabbed: grabbed}, nil
 }
 
-func MotorStatusToProto(status board.MotorStatus) *pb.MotorStatus {
-	return &pb.MotorStatus{
-		On:                status.On,
-		PositionSupported: status.PositionSupported,
-		Position:          status.Position,
+func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMotorRequest) (*pb.ControlBoardMotorResponse, error) {
+	b := s.r.BoardByName(req.BoardName)
+	if b == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.BoardName)
 	}
+
+	theMotor := b.Motor(req.MotorName)
+	if theMotor == nil {
+		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	rVal := 0.0
+	if req.Rotations != 0 {
+		rVal = req.Rotations
+	}
+
+	if rVal == 0 {
+		return &pb.ControlBoardMotorResponse{}, theMotor.Go(req.Direction, byte(req.Speed))
+	}
+
+	return &pb.ControlBoardMotorResponse{}, theMotor.GoFor(req.Direction, req.Speed, rVal)
 }
 
-func ServoStatusToProto(status board.ServoStatus) *pb.ServoStatus {
-	return &pb.ServoStatus{
-		Angle: uint32(status.Angle),
+func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServoRequest) (*pb.ControlBoardServoResponse, error) {
+	b := s.r.BoardByName(req.BoardName)
+	if b == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.BoardName)
 	}
-}
 
-func AnalogStatusToProto(status board.AnalogStatus) *pb.AnalogStatus {
-	return &pb.AnalogStatus{
-		Value: int32(status.Value),
+	theServo := b.Servo(req.ServoName)
+	if theServo == nil {
+		return nil, fmt.Errorf("unknown Servo: %s", req.ServoName)
 	}
-}
 
-func DigitalInterruptStatusToProto(status board.DigitalInterruptStatus) *pb.DigitalInterruptStatus {
-	return &pb.DigitalInterruptStatus{
-		Value: status.Value,
-	}
+	return &pb.ControlBoardServoResponse{}, theServo.Move(uint8(req.AngleDeg))
 }

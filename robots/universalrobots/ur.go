@@ -9,9 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
+	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 func init() {
@@ -72,7 +74,7 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
-func (arm *URArm) CurrentJointPositions() (api.JointPositions, error) {
+func (arm *URArm) CurrentJointPositions() (*pb.JointPositions, error) {
 	radians := []float64{}
 	state := arm.State()
 	for _, j := range state.Joints {
@@ -81,7 +83,7 @@ func (arm *URArm) CurrentJointPositions() (api.JointPositions, error) {
 	return api.JointPositionsFromRadians(radians), nil
 }
 
-func (arm *URArm) CurrentPosition() (api.ArmPosition, error) {
+func (arm *URArm) CurrentPosition() (*pb.ArmPosition, error) {
 	s := arm.State().CartesianInfo
 	return api.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
@@ -102,8 +104,8 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 	return arm.MoveToJointPositionRadians(radians)
 }
 
-func (arm *URArm) MoveToJointPositions(joints api.JointPositions) error {
-	return arm.MoveToJointPositionRadians(joints.Radians())
+func (arm *URArm) MoveToJointPositions(joints *pb.JointPositions) error {
+	return arm.MoveToJointPositionRadians(api.JointPositionsToRadians(joints))
 }
 
 func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
@@ -165,13 +167,13 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 
 }
 
-func (arm *URArm) MoveToPosition(pos api.ArmPosition) error {
+func (arm *URArm) MoveToPosition(pos *pb.ArmPosition) error {
 	x := pos.X
 	y := pos.Y
 	z := pos.Z
-	rx := pos.RxRadians()
-	ry := pos.RyRadians()
-	rz := pos.RzRadians()
+	rx := utils.DegToRad(pos.RX)
+	ry := utils.DegToRad(pos.RY)
+	rz := utils.DegToRad(pos.RZ)
 
 	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
 
