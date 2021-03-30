@@ -5,12 +5,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 )
 
-var logger = rlog.Logger.Named("compass_client")
+var logger = golog.NewDevelopmentLogger("compass_client")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
@@ -31,7 +30,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func readCompass(ctx context.Context, deviceAddress string) error {
-	sensor, err := compass.NewWSDevice(ctx, deviceAddress)
+	sensor, err := compass.NewClient(ctx, deviceAddress)
 	if err != nil {
 		return err
 	}

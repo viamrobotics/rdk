@@ -1,12 +1,13 @@
 <html>
   <head>
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+    <script src="./static/main.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
     <script>
       function makeApiCall(path, cb, data) {
           if (!cb) {
               theData.error = "";
               theData.res = {};
-              console.log(path);
           }
 
           var options = {
@@ -37,26 +38,18 @@
         {{ jsSafe $view.JavaScript }}
       {{ end }}
 
-      function mapToList(m) {
-          var l = [];
-          for ( var n in m ) {
-              l.push( { name : n, value : m[n] });
-          }
-          return l;
-      }
-
       function fixArms(old) {
           var n = [];
           for (var i=0; i<old.length; i++) {
-              var arm = old[i];
-              var newArm = { name : arm.name, pieces : [] };
+              const [armName, armValue] = old[i];
+              var newArm = { name : armName, pieces : [] };
 
-              var fields = [ "X", "Y", "Z", "Rx", "Ry", "Rz"];
+              var fields = [ "x", "y", "z", "rX", "rY", "rZ"];
               for (var j=0; j<fields.length; j++ ){
                   newArm.pieces.push( { grid : fields[j],
                                         joint : j,
-                                        gridValue : arm.value.GridPosition[fields[j]],
-                                        jointValue : arm.value.JointPositions.Degrees[j],
+                                        gridValue : armValue.gridPosition[fields[j]],
+                                        jointValue : armValue.jointPositions.degreesList[j],
                                       });
               }
               
@@ -65,45 +58,27 @@
           return n;
       }
 
-      function fixBoards(old) {
-          var n = [];
-          for (var i=0; i<old.length; i++) {
-              var board = old[i];
-              var newBoard = { name : board.name };
-              for (var k in board.value) {
-                  newBoard[k] = mapToList(board.value[k]);
-              }
-              n.push(newBoard);
-          }
-          return n;
-      }
-
       firstResult = false;
       
-      function updateStatus() {
+      async function updateStatus(rawStatus) {
+          theData.rawStatus = rawStatus;
 
-          makeApiCall("/api/status", function(response) {
-              theData.rawStatus = response;
-              var status = {};
+          var status = {}
 
-              // make vue friendly
-              status.Arms = mapToList(response.Arms);
-              status.Bases = mapToList(response.Bases);
-              status.Grippers = mapToList(response.Grippers);
-              status.Boards = mapToList(response.Boards);
+          // make vue friendly
+          status.armsMap = rawStatus.armsMap;
+          status.basesMap = rawStatus.basesMap;
+          status.grippersMap = rawStatus.grippersMap;
+          status.boardsMap = rawStatus.boardsMap;
 
-              status.Arms = fixArms(status.Arms);
-              status.Boards = fixBoards(status.Boards);
-              
-              if (!firstResult) {
-                  console.log(status);
-                  firstResult = true;
-              }
+          status.armsMap = fixArms(status.armsMap);
 
-              theData.status = status;
-          });
-          setTimeout(updateStatus, 500);
+          if (!firstResult) {
+            console.log(status);
+            firstResult = true;
+          }
 
+          theData.status = status;
       }
       
       function startup() {
@@ -118,20 +93,23 @@
               delimiters: ['${', '}'],
               data: theData,
               methods : {
-                  armGridInc : function(name, field, amount) {
-                      var old = theData.rawStatus.Arms[name].GridPosition;
+                  armGridInc : function(idx, field, amount) {
+                      const [name, value] = theData.rawStatus.armsMap[idx];
+                      var old = value.gridPosition;
                       var newPosition = Object.assign({}, old);
                       newPosition[field] += amount;
                       makeApiCall("/api/arm/MoveToPosition", null, { Name : name, To : newPosition});
                   },
-                  armJointInc : function(name, field, amount) {
-                      var old = theData.rawStatus.Arms[name].JointPositions;
+                  armJointInc : function(idx, field, amount) {
+                      const [name, value] = theData.rawStatus.armsMap[idx];
+                      var old = value.jointPositions;
                       var newPosition = Object.assign({}, old);
-                      newPosition.Degrees[field] += amount;
+                      newPosition.degreesList[field] += amount;
                       makeApiCall("/api/arm/MoveToJointPositions", null, { Name : name, To : newPosition});
                   },
-                  armHome : function(name, field, amount) {
-                      var old = theData.rawStatus.Arms[name].GridPosition;
+                  armHome : function(idx, field, amount) {
+                      const [name, value] = theData.rawStatus.armsMap[idx];
+                      var old = value.gridPosition;
                       var newPosition = {};
                       for (var k in old) {
                           newPosition[k] = 0.0;
@@ -142,9 +120,11 @@
                       var path = "/api/gripper?name=" + name + "&action=" + action;
                       makeApiCall(path);
                   },
-                  servoMove : function(board, servo, amount) {
-                      var angle = theData.rawStatus.Boards[board].Servos[servo].Angle + amount;
-                      var path = "/api/board/" + board + "/servo?name=" + servo + "&angle=" + angle;
+                  servoMove : function(idx, servoIdx, amount) {
+                      const [boardName, boardValue] = theData.rawStatus.boardsMap[idx];
+                      const [servoName, servoValue] = boardValue.servosMap[servoIdx];
+                      var angle = servoValue.angle + amount;
+                      var path = "/api/board/" + boardName + "/servo?name=" + servoName + "&angle=" + angle;
                       makeApiCall(path);
                   },
                   motorButton: function(board, motor, cmd) {
@@ -162,7 +142,22 @@
                   }
               }
           })
-          updateStatus();
+
+          // TODO(erd): make duration configurable
+          const streamReq = new robotApi.StatusStreamRequest();
+          streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000));
+          const statusStream = robotService.statusStream(streamReq);
+          statusStream.on('data', function(response) {
+            // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
+            updateStatus(response.getStatus().toObject());
+          });
+          statusStream.on('status', function(status) {
+            console.log("error streaming robot status");
+            console.log(status.code, " ", status.details);
+          });
+          statusStream.on('end', function(end) {
+            console.log("done streaming robot status");
+          });
       }
       
     </script>
@@ -178,13 +173,13 @@
       <div style="font-color: red">${ error }</div>
 
       <!-- ******* BASE *******  -->
-      <div class="base" v-for="base in status.Bases" :key="base.name">
-        <h3>${base.name}</h3>
+      <div class="base" v-for="base in status.basesMap" :key="base[0]">
+        <h3>${base[0]}</h3>
         <ul>
-          <li><button v-on:click="baseAction(base.name, 'distanceMillis=DIS')">Forward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'distanceMillis=-DIS')">Backward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'angle=15')">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base.name, 'angle=-15')">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'distanceMillis=DIS')">Forward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'distanceMillis=-DIS')">Backward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle=15')">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle=-15')">Spin Counterclockwise</button></li>
         </ul>
         
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
@@ -192,8 +187,8 @@
       </div>
 
       <!-- ******* ARM *******  -->
-      <div class="arm" v-for="arm in status.Arms" :key="arm.name">
-        <h3>Arm ${arm.name}</h3>
+      <div class="arm" v-for="(arm, index) in status.armsMap" :key="arm[0]">
+        <h3>Arm ${arm[0]}</h3>
         <table border="1">
           <tr>
             <th colspan="4"><h5>GRID</h5></th>
@@ -202,10 +197,10 @@
           <tr v-for="aa in arm.pieces" :key="aa.joint">
             <th>${aa.grid}</th>
             <td>
-              <button v-on:click="armGridInc( arm.name, aa.grid, -2 )">--</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid, -1 )">-</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid, 1 )">+</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid, 2 )">++</button>
+              <button v-on:click="armGridInc( index, aa.grid, -2 )">--</button>
+              <button v-on:click="armGridInc( index, aa.grid, -1 )">-</button>
+              <button v-on:click="armGridInc( index, aa.grid, 1 )">+</button>
+              <button v-on:click="armGridInc( index, aa.grid, 2 )">++</button>
             </td>
             <td>${aa.gridValue}</td>
 
@@ -213,16 +208,16 @@
             
             <th>Joint ${aa.joint}</th>
             <td>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -2 )">--</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 2 )">++</button>
+              <button v-on:click="armJointInc( index, aa.joint, -2 )">--</button>
+              <button v-on:click="armJointInc( index, aa.joint, -1 )">-</button>
+              <button v-on:click="armJointInc( index, aa.joint, 1 )">+</button>
+              <button v-on:click="armJointInc( index, aa.joint, 2 )">++</button>
             </td>
             <td>${aa.jointValue}</td>
           </tr>
           <tr>
             <th colspan="8"> 
-              <button v-on:click="armHome( arm.name)">Home</button>
+              <button v-on:click="armHome( index)">Home</button>
             </th>
           </tr>
 
@@ -230,11 +225,11 @@
       </div> 
       
       <!-- ******* GRIPPER *******  -->
-      <div class="gripper" v-for="gripper in status.Grippers" :key="gripper.name">
-        <h3>Gripper ${ gripper.name }</h3>
+      <div class="gripper" v-for="gripper in status.grippersMap" :key="gripper[0]">
+        <h3>Gripper ${ gripper[0] }</h3>
         <ul>
-          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
-          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
+          <li><button v-on:click="gripperAction( gripper[0], 'open')">Open</button></li>
+          <li><button v-on:click="gripperAction( gripper[0], 'grab')">Grab</button></li>
         </ul>
       </div>
 
@@ -252,70 +247,70 @@
       
       <!-- ******* BOARD *******  -->
 
-      <div class="board" v-for="board in status.Boards" :key="board.name">
-        <h3>Board ${board.name}</h3>
+      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
+        <h3>Board ${board[0]}</h3>
         <table border="1">
           
           <tr><th colspan="2">Motors</th></tr>
-          <tbody v-for="m in board.Motors" :key="m.name">
+          <tbody v-for="m in board[1].motorsMap" :key="m[0]">
             <tr>
-              <th>${m.name}</th>
+              <th>${m[0]}</th>
               <td>
-                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=64')">--</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=32')">-</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=none&s=0')">0</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=32')">+</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=64')">++</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=64')">--</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=32')">-</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=none&s=0')">0</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=32')">+</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=64')">++</button>
               </td>
             </tr>
             <tr>
               <td></td>
               <td>
-                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=64&r=10')">-10</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=backward&s=32&r=1')">-1</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=32&r=1')">+1</button>
-                <button v-on:click="motorButton(board.name, m.name, 'd=forward&s=64&r=10')">+10</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=64&r=10')">-10</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=backward&s=32&r=1')">-1</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=32&r=1')">+1</button>
+                <button v-on:click="motorButton(board[0], m[0], 'd=forward&s=64&r=10')">+10</button>
               </td>
             </tr>
             
             <tr>
               <td align="right">On</td>
-              <td>${m.value.On}</td>
+              <td>${m[1].on}</td>
             </tr>
             <tr>
               <td align="right">PositionSupported</td>
-              <td>${m.value.PositionSupported}</td>
+              <td>${m[1].positionSupported}</td>
             </tr>
             <tr>
               <td align="right">Position</td>
-              <td>${m.value.Position}</td>
+              <td>${m[1].position}</td>
             </tr>
 
 
           </tbody>
 
           <tr><th colspan="2">Analogs</th></tr>
-          <tr v-for="a in board.Analogs" :key="a.name">
-            <th>${a.name}</th>
-            <td>${a.value.Value}</td>
+          <tr v-for="a in board[1].analogsMap" :key="a[0]">
+            <th>${a[0]}</th>
+            <td>${a[1].value}</td>
           </tr>
 
           <tr><th colspan="2">DigitalInterrupts</th></tr>
-          <tr v-for="di in board.DigitalInterrupts" :key="di.name">
-            <th>${di.name}</th>
-            <td>${di.value.Value}</td>
+          <tr v-for="di in board[1].digitalInterruptsMap" :key="di[0]">
+            <th>${di[0]}</th>
+            <td>${di[1].value}</td>
           </tr>
 
           <tr><th colspan="2">Servos</th></tr>
-          <tbody v-for="s in board.Servos" :key="s.name">
-            <tr><th>${s.name}</th><td>${s.value.Angle}</td></tr>
+          <tbody v-for="(s, servoIndex) in board[1].servosMap" :key="s[0]">
+            <tr><th>${s[0]}</th><td>${s[1].angle}</td></tr>
             <tr>
               <td></td>
               <td>
-                <button v-on:click="servoMove( board.name, s.name, -10)">-10</button>
-                <button v-on:click="servoMove( board.name, s.name, -1)">-1</button>
-                <button v-on:click="servoMove( board.name, s.name, 1)">1</button>
-                <button v-on:click="servoMove( board.name, s.name, 10)">10</button>
+                <button v-on:click="servoMove( boardIndex, servoIndex, -10)">-10</button>
+                <button v-on:click="servoMove( boardIndex, servoIndex, -1)">-1</button>
+                <button v-on:click="servoMove( boardIndex, servoIndex, 1)">1</button>
+                <button v-on:click="servoMove( boardIndex, servoIndex, 10)">10</button>
               </td>
             </tr>
           </tbody>

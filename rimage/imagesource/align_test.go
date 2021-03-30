@@ -4,11 +4,12 @@ import (
 	"image"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
-	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 type alignTestHelper struct {
@@ -50,7 +51,7 @@ func TestAlignIntelWarp(t *testing.T) {
 }
 
 func TestAlignIntelMatrices(t *testing.T) {
-	config, err := api.ReadConfig(testutils.ResolveFile("robots/configs/intel.json"))
+	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestAlignIntelMatrices(t *testing.T) {
 }
 
 func TestAlignGripper(t *testing.T) {
-	config, err := api.ReadConfig(testutils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

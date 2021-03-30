@@ -3,16 +3,17 @@ package kinematics
 import (
 	"testing"
 
+	"go.viam.com/robotcore/utils"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"github.com/go-gl/mathgl/mgl64"
-	"go.viam.com/robotcore/testutils"
 )
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 0,-365, 360.25

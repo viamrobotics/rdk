@@ -10,7 +10,6 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
@@ -164,7 +163,7 @@ func TestHeading(t *testing.T) {
 
 	t.Run("with angular resolution failing", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"), logger)
+		pointCloud, err := pointcloud.NewFromFile(utils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()
@@ -194,7 +193,7 @@ func TestHeading(t *testing.T) {
 
 	t.Run("with mark", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"), logger)
+		pointCloud, err := pointcloud.NewFromFile(utils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()
