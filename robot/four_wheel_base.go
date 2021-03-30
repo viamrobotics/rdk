@@ -6,12 +6,12 @@ import (
 	"math"
 	"time"
 
-	"go.uber.org/multierr"
-
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 func init() {
@@ -28,8 +28,8 @@ type fourWheelBase struct {
 }
 
 // return direction, rpm, rotations
-func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (board.Direction, float64, float64) {
-	var d board.Direction = board.DirForward
+func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (pb.DirectionRelative, float64, float64) {
+	var d pb.DirectionRelative = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if millisPerSec < 0 {
 		d = board.FlipDirection(d)
 		millisPerSec *= -1
@@ -70,8 +70,8 @@ func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 }
 
 // return left direction, rpm, rotations
-func (base *fourWheelBase) spinMath(angleDeg float64, speed int) (board.Direction, float64, float64) {
-	leftDirection := board.DirForward
+func (base *fourWheelBase) spinMath(angleDeg float64, speed int) (pb.DirectionRelative, float64, float64) {
+	leftDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if angleDeg < 0 {
 		leftDirection = board.FlipDirection(leftDirection)
 		angleDeg *= -1

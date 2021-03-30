@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -23,12 +23,26 @@ func TestCombinedIKinematics(t *testing.T) {
 	evaArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
 
 	// Test ability to arrive at a small X shift ahead
-	pos := api.ArmPosition{-46.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
+	pos := &pb.ArmPosition{
+		X:  -46.445827416798814,
+		Y:  -133.99229347583582,
+		Z:  372.4849299627513,
+		RX: -178.88747811107424,
+		RY: -33.160094626838045,
+		RZ: -111.02282693533935,
+	}
 	err = evaArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test a larger X axis movement
-	pos = api.ArmPosition{-66.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
+	pos = &pb.ArmPosition{
+		X:  -66.445827416798814,
+		Y:  -133.99229347583582,
+		Z:  372.4849299627513,
+		RX: -178.88747811107424,
+		RY: -33.160094626838045,
+		RZ: -111.02282693533935,
+	}
 	err = evaArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -60,8 +74,15 @@ func TestNloptIKinematics(t *testing.T) {
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
 
-	pos := api.ArmPosition{1, -368, 355, 0, 0, 0}
-	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	pos := &pb.ArmPosition{
+		X:  1,
+		Y:  -368,
+		Z:  355,
+		RX: 0,
+		RY: 0,
+		RZ: 0,
+	}
+	transform := kinmath.NewTransformFromRotation(pos.RX, pos.RY, pos.RZ)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
 	transform.SetZ(pos.Z)

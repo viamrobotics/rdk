@@ -1,11 +1,12 @@
 package api
 
 import (
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
-
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 )
 
 type Robot interface {
@@ -31,7 +32,7 @@ type Robot interface {
 	GetConfig() Config
 
 	// use CreateStatus helper in most cases
-	Status() (Status, error)
+	Status() (*pb.Status, error)
 
 	Logger() golog.Logger
 }

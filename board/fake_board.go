@@ -2,6 +2,8 @@ package board
 
 import (
 	"github.com/edaniels/golog"
+
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
 func init() {
@@ -66,7 +68,7 @@ func (b *FakeBoard) GetConfig() Config {
 	return b.cfg
 }
 
-func (b *FakeBoard) Status() (Status, error) {
+func (b *FakeBoard) Status() (*pb.BoardStatus, error) {
 	return CreateStatus(b)
 }
 
