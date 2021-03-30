@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/sensor/compass/gy511"
 	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/utils"
@@ -14,7 +13,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-var logger = rlog.Logger.Named("gy511_client")
+var logger = golog.NewDevelopmentLogger("gy511_client")
 
 func main() {
 	utils.ContextualMainQuit(mainWithArgs, logger)

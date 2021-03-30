@@ -22,5 +22,7 @@ comment:
 ignore:
   - "testutils/inject"
   - "samples/"
+  - "rpc/examples/"
   - "robots/"
   - "rimage/cmd/stream_camera/" # cannot test hardware cameras
+  - "proto" # code generated
