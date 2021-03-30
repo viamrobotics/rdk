@@ -8,11 +8,23 @@ format: goformat
 setup:
 	bash etc/setup.sh
 
-build:
+build: buf build-web
 	go build ./...
 
+build-web:
+	cd robot/web/frontend && npm install && npx webpack
+
+buf:
+	buf lint
+	buf generate
+	buf generate --template buf.web.gen.yaml buf.build/beta/googleapis
+
 lint: goformat
-	go get -u github.com/edaniels/golinters/cmd/combined
+	go install google.golang.org/protobuf/cmd/protoc-gen-go \
+      google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+      github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+	buf lint
+	go install github.com/edaniels/golinters/cmd/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 

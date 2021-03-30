@@ -20,6 +20,7 @@
 * [robot](./robot) - Implementation of ([api](./api))
   * [web](./robot/web) - Web server for using robots
 * [robots](./robots) - Implementations of specific robots, arms, grippers
+* [rpc](./rpc) - gRPC server utilities
 * [sensor](./sensor) - Various sensor APIs
   * [compass](./sensor/compass) - Compass and ways to use for spinning
 * [serial](./serial) - Serial connection tools
@@ -38,6 +39,7 @@
 * [rimage/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
 * [rimage/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
 * [robot/server](./robot/cmd/server) - Run a robot server
+* [rpc/examples/echo](./rpc/examples/echo) - Run a gRPC echo example
 * [sensor/compass/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
 * [sensor/compass/gy511/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
 * [sensor/compass/lidar/client](./sensor/compass/lidar/cmd/client) - Run a LIDAR based compass
@@ -75,6 +77,15 @@ If libvpx is not available on your distro, run the following:
 1. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
 1. Delete any non-release branches ASAP when done, or use a personal fork
 1. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+
+### Protocol Buffers/gRPC
+
+For API intercommunication, we use Protocol Buffers to serialize data and gRPC to communicate it. For more information on both technologies, see https://developers.google.com/protocol-buffers and https://grpc.io/.
+
+Some guidelines on using these:
+1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
+1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files.
+1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
 ### Testing with Dropbox
 
