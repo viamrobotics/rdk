@@ -31,9 +31,9 @@ func merge(flags *flag.FlagSet) error {
 	return img.WriteTo(flags.Arg(3))
 }
 
-func iwd(flags *flag.FlagSet) error {
+func combineRGBAndZ16(flags *flag.FlagSet) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("iwd needs <color png in> <grayscale png in> <out>")
+		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out>")
 	}
 
 	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2))
@@ -78,7 +78,7 @@ func realMain(args []string) error {
 	switch cmd {
 	case "merge":
 		return merge(flags)
-	case "iwd":
+	case "combineRGBAndZ16":
 		return iwd(flags)
 	case "to-las":
 		return toLas(flags)
