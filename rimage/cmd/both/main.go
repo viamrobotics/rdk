@@ -79,7 +79,7 @@ func realMain(args []string) error {
 	case "merge":
 		return merge(flags)
 	case "combineRGBAndZ16":
-		return iwd(flags)
+		return combineRGBAndZ16(flags)
 	case "to-las":
 		return toLas(flags)
 	default:
