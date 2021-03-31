@@ -1,8 +1,11 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"image"
+	"image/jpeg"
 	"testing"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -635,6 +639,136 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capAngle, test.ShouldEqual, 5)
+	})
+
+	t.Run("CameraFrame", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+			capName = name
+			return nil
+		}
+
+		_, err := server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, capName, test.ShouldEqual, "camera1")
+
+		injectImageSource := &inject.ImageSource{}
+		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+			return injectImageSource
+		}
+		err1 := errors.New("whoops")
+		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+			return nil, nil, err1
+		}
+		_, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+		var imgBuf bytes.Buffer
+		test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+
+		var released bool
+		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+			return img, func() { released = true }, nil
+		}
+
+		resp, err := server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, released, test.ShouldBeTrue)
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
+
+		released = false
+		resp, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name:     "camera1",
+			MimeType: "image/jpeg",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, released, test.ShouldBeTrue)
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
+
+		released = false
+		_, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name:     "camera1",
+			MimeType: "image/who",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+		test.That(t, released, test.ShouldBeTrue)
+	})
+
+	t.Run("RenderCameraFrame", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+			capName = name
+			return nil
+		}
+
+		_, err := server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+		test.That(t, capName, test.ShouldEqual, "camera1")
+
+		injectImageSource := &inject.ImageSource{}
+		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+			return injectImageSource
+		}
+		err1 := errors.New("whoops")
+		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+			return nil, nil, err1
+		}
+		_, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
+		var imgBuf bytes.Buffer
+		test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+
+		var released bool
+		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+			return img, func() { released = true }, nil
+		}
+
+		resp, err := server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, released, test.ShouldBeTrue)
+		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
+
+		released = false
+		resp, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name:     "camera1",
+			MimeType: "image/jpeg",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, released, test.ShouldBeTrue)
+		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
+
+		released = false
+		_, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+			Name:     "camera1",
+			MimeType: "image/who",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+		test.That(t, released, test.ShouldBeTrue)
 	})
 }
 

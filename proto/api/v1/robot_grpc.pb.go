@@ -4,6 +4,7 @@ package v1
 
 import (
 	context "context"
+	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -27,6 +28,8 @@ type RobotServiceClient interface {
 	ControlGripper(ctx context.Context, in *ControlGripperRequest, opts ...grpc.CallOption) (*ControlGripperResponse, error)
 	ControlBoardMotor(ctx context.Context, in *ControlBoardMotorRequest, opts ...grpc.CallOption) (*ControlBoardMotorResponse, error)
 	ControlBoardServo(ctx context.Context, in *ControlBoardServoRequest, opts ...grpc.CallOption) (*ControlBoardServoResponse, error)
+	CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error)
+	RenderCameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
 }
 
 type robotServiceClient struct {
@@ -141,6 +144,24 @@ func (c *robotServiceClient) ControlBoardServo(ctx context.Context, in *ControlB
 	return out, nil
 }
 
+func (c *robotServiceClient) CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error) {
+	out := new(CameraFrameResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CameraFrame", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) RenderCameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error) {
+	out := new(httpbody.HttpBody)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/RenderCameraFrame", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -154,6 +175,8 @@ type RobotServiceServer interface {
 	ControlGripper(context.Context, *ControlGripperRequest) (*ControlGripperResponse, error)
 	ControlBoardMotor(context.Context, *ControlBoardMotorRequest) (*ControlBoardMotorResponse, error)
 	ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error)
+	CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error)
+	RenderCameraFrame(context.Context, *CameraFrameRequest) (*httpbody.HttpBody, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -187,6 +210,12 @@ func (UnimplementedRobotServiceServer) ControlBoardMotor(context.Context, *Contr
 }
 func (UnimplementedRobotServiceServer) ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ControlBoardServo not implemented")
+}
+func (UnimplementedRobotServiceServer) CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CameraFrame not implemented")
+}
+func (UnimplementedRobotServiceServer) RenderCameraFrame(context.Context, *CameraFrameRequest) (*httpbody.HttpBody, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RenderCameraFrame not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -366,6 +395,42 @@ func _RobotService_ControlBoardServo_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_CameraFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraFrameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).CameraFrame(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/CameraFrame",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).CameraFrame(ctx, req.(*CameraFrameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_RenderCameraFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraFrameRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).RenderCameraFrame(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/RenderCameraFrame",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).RenderCameraFrame(ctx, req.(*CameraFrameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -404,6 +469,14 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ControlBoardServo",
 			Handler:    _RobotService_ControlBoardServo_Handler,
+		},
+		{
+			MethodName: "CameraFrame",
+			Handler:    _RobotService_CameraFrame_Handler,
+		},
+		{
+			MethodName: "RenderCameraFrame",
+			Handler:    _RobotService_RenderCameraFrame_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -5,6 +5,7 @@ package proto.api.v1;
 
 import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
 
 message StatusRequest {}
 
@@ -150,6 +151,17 @@ message ControlBoardServoRequest {
 
 message ControlBoardServoResponse {}
 
+message CameraFrameRequest {
+	string name = 1;
+	string mime_type = 2;
+	bytes frame = 3;
+}
+
+message CameraFrameResponse {
+	string mime_type = 1;
+	bytes frame = 2;	
+}
+
 service RobotService {
 	rpc Status(StatusRequest) returns (StatusResponse) {
 	    option (google.api.http) = {
@@ -202,6 +214,18 @@ service RobotService {
 	rpc ControlBoardServo(ControlBoardServoRequest) returns (ControlBoardServoResponse) {
 		option (google.api.http) = {
 			put: "/v1/board/{board_name}/servero/{servo_name}/control"
+		};
+	}
+
+	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/frame"
+		};
+	}
+
+	rpc RenderCameraFrame(CameraFrameRequest) returns (google.api.HttpBody) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/render_frame"
 		};
 	}
 }

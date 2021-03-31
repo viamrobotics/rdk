@@ -57,7 +57,7 @@ func NewServerWithListener(grpcListener net.Listener) Server {
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
 	grpcWebServer := grpcweb.WrapServer(grpcServer)
-	grpcGatewayHandler := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, JSONPB))
+	grpcGatewayHandler := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.HTTPBodyMarshaler{JSONPB}))
 
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,

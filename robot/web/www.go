@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"image"
-	"image/jpeg"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -103,37 +102,6 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func InstallSimpleCamera(mux *goji.Mux, theRobot *robot.Robot, logger golog.Logger) {
-	theFunc := func(w http.ResponseWriter, r *http.Request) {
-		name := r.FormValue("name")
-		camera := theRobot.CameraByName(name)
-		if camera == nil {
-			http.Error(w, "bad camera name", http.StatusBadRequest)
-			return
-		}
-
-		img, release, err := camera.Next(r.Context())
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		defer release()
-
-		//TODO(erh): choice of encoding
-
-		w.Header().Set("Content-Type", "image/jpeg")
-		err = jpeg.Encode(w, img, nil)
-		if err != nil {
-			logger.Debugf("error encoding jpeg: %s", err)
-		}
-	}
-	mux.HandleFunc(pat.New("/api/camera"), theFunc)
-	mux.HandleFunc(pat.New("/api/camera/"), theFunc)
-
-}
-
-// ---------------
-
 func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []string) {
 	sources := []gostream.ImageSource{}
 	names := []string{}
@@ -203,8 +171,6 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 	if err != nil {
 		return nil, err
 	}
-
-	InstallSimpleCamera(mux, theRobot, logger)
 
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveFile("robot/web/frontend/dist")))))
 	mux.Handle(pat.New("/"), app)

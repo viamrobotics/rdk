@@ -19,6 +19,8 @@ grpc.web = require('grpc-web');
 var google_protobuf_duration_pb = require('google-protobuf/google/protobuf/duration_pb.js')
 
 var google_api_annotations_pb = require('../../../google/api/annotations_pb.js')
+
+var google_api_httpbody_pb = require('../../../google/api/httpbody_pb.js')
 const proto = {};
 proto.proto = {};
 proto.proto.api = {};
@@ -788,6 +790,166 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.controlBoardServo =
       request,
       metadata || {},
       methodDescriptor_RobotService_ControlBoardServo);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.proto.api.v1.CameraFrameResponse>}
+ */
+const methodDescriptor_RobotService_CameraFrame = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CameraFrame',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CameraFrameRequest,
+  proto.proto.api.v1.CameraFrameResponse,
+  /**
+   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CameraFrameResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.proto.api.v1.CameraFrameResponse>}
+ */
+const methodInfo_RobotService_CameraFrame = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CameraFrameResponse,
+  /**
+   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CameraFrameResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CameraFrameResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CameraFrameResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.cameraFrame =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CameraFrame',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CameraFrame,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.CameraFrameResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.cameraFrame =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CameraFrame',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CameraFrame);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.google.api.HttpBody>}
+ */
+const methodDescriptor_RobotService_RenderCameraFrame = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/RenderCameraFrame',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CameraFrameRequest,
+  google_api_httpbody_pb.HttpBody,
+  /**
+   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  google_api_httpbody_pb.HttpBody.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.google.api.HttpBody>}
+ */
+const methodInfo_RobotService_RenderCameraFrame = new grpc.web.AbstractClientBase.MethodInfo(
+  google_api_httpbody_pb.HttpBody,
+  /**
+   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  google_api_httpbody_pb.HttpBody.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.google.api.HttpBody)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.google.api.HttpBody>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.renderCameraFrame =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/RenderCameraFrame',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_RenderCameraFrame,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.google.api.HttpBody>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.renderCameraFrame =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/RenderCameraFrame',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_RenderCameraFrame);
 };
 
 
