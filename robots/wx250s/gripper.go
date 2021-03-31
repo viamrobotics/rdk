@@ -1,6 +1,7 @@
 package wx250s
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -43,7 +44,7 @@ func (g *Gripper) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
-func (g *Gripper) Open() error {
+func (g *Gripper) Open(ctx context.Context) error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(150)
@@ -69,7 +70,7 @@ func (g *Gripper) Open() error {
 	return err
 }
 
-func (g *Gripper) Grab() (bool, error) {
+func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
 	err := g.jServo.SetGoalPWM(-350)
@@ -94,7 +95,7 @@ func (g *Gripper) Grab() (bool, error) {
 }
 
 // closes the connection, not the gripper
-func (g *Gripper) Close() error {
+func (g *Gripper) Close(ctx context.Context) error {
 	err := g.jServo.SetTorqueEnable(false)
 	return err
 }

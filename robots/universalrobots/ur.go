@@ -1,6 +1,7 @@
 package universalrobots
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -31,7 +32,7 @@ type URArm struct {
 	logger   golog.Logger
 }
 
-func (arm *URArm) Close() {
+func (arm *URArm) Close(ctx context.Context) {
 	// TODO(erh): stop thread
 	// TODO(erh): close socket
 }
@@ -74,7 +75,7 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
-func (arm *URArm) CurrentJointPositions() (*pb.JointPositions, error) {
+func (arm *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state := arm.State()
 	for _, j := range state.Joints {
@@ -83,12 +84,12 @@ func (arm *URArm) CurrentJointPositions() (*pb.JointPositions, error) {
 	return api.JointPositionsFromRadians(radians), nil
 }
 
-func (arm *URArm) CurrentPosition() (*pb.ArmPosition, error) {
+func (arm *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := arm.State().CartesianInfo
 	return api.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
-func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
+func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	if joint < 0 || joint > 5 {
 		return fmt.Errorf("invalid joint")
 	}
@@ -101,14 +102,14 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 
 	radians[joint] += amount
 
-	return arm.MoveToJointPositionRadians(radians)
+	return arm.MoveToJointPositionRadians(ctx, radians)
 }
 
-func (arm *URArm) MoveToJointPositions(joints *pb.JointPositions) error {
-	return arm.MoveToJointPositionRadians(api.JointPositionsToRadians(joints))
+func (arm *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+	return arm.MoveToJointPositionRadians(ctx, api.JointPositionsToRadians(joints))
 }
 
-func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
+func (arm *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	if len(radians) != 6 {
 		return fmt.Errorf("need 6 joints")
 	}
@@ -167,7 +168,7 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 
 }
 
-func (arm *URArm) MoveToPosition(pos *pb.ArmPosition) error {
+func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	x := pos.X
 	y := pos.Y
 	z := pos.Z

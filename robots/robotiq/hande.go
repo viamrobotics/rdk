@@ -1,6 +1,7 @@
 package robotiq
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -12,7 +13,7 @@ import (
 
 func init() {
 	api.RegisterGripper("robotiq", func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
-		return NewGripper(config.Host, logger)
+		return NewGripper(context.TODO(), config.Host, logger)
 	})
 }
 
@@ -24,7 +25,7 @@ type Gripper struct {
 	logger     golog.Logger
 }
 
-func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
+func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func NewGripper(host string, logger golog.Logger) (*Gripper, error) {
 		return nil, err
 	}
 
-	err = g.Calibrate() // TODO(erh): should this live elsewhere?
+	err = g.Calibrate(ctx) // TODO(erh): should this live elsewhere?
 	if err != nil {
 		return nil, err
 	}
@@ -148,18 +149,18 @@ func (g *Gripper) SetPos(pos string) (bool, error) {
 
 }
 
-func (g *Gripper) Open() error {
+func (g *Gripper) Open(ctx context.Context) error {
 	_, err := g.SetPos(g.openLimit)
 	return err
 }
 
-func (g *Gripper) Close() error {
+func (g *Gripper) Close(ctx context.Context) error {
 	_, err := g.SetPos(g.closeLimit)
 	return err
 }
 
 // return true iff grabbed something
-func (g *Gripper) Grab() (bool, error) {
+func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	res, err := g.SetPos(g.closeLimit)
 	if err != nil {
 		return false, err
@@ -178,8 +179,8 @@ func (g *Gripper) Grab() (bool, error) {
 	return val == "OBJ 2", nil
 }
 
-func (g *Gripper) Calibrate() error {
-	err := g.Open()
+func (g *Gripper) Calibrate(ctx context.Context) error {
+	err := g.Open(ctx)
 	if err != nil {
 		return err
 	}
@@ -190,7 +191,7 @@ func (g *Gripper) Calibrate() error {
 	}
 	g.openLimit = x[4:]
 
-	err = g.Close()
+	err = g.Close(ctx)
 	if err != nil {
 		return err
 	}

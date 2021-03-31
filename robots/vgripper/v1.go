@@ -1,6 +1,7 @@
 package vgripper
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -18,7 +19,7 @@ func init() {
 		if b == nil {
 			return nil, fmt.Errorf("viam gripper requires a board called local")
 		}
-		return NewGripperV1(b, logger)
+		return NewGripperV1(context.TODO(), b, logger)
 	})
 }
 
@@ -35,7 +36,7 @@ type GripperV1 struct {
 	logger                        golog.Logger
 }
 
-func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error) {
+func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (*GripperV1, error) {
 
 	vg := &GripperV1{
 		motor:        theBoard.Motor("g"),
@@ -48,7 +49,11 @@ func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error)
 	if vg.motor == nil {
 		return nil, fmt.Errorf("gripper needs a motor named 'g'")
 	}
-	if !vg.motor.PositionSupported() {
+	supported, err := vg.motor.PositionSupported(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !supported {
 		return nil, fmt.Errorf("gripper motor needs to support position")
 	}
 
@@ -57,12 +62,12 @@ func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error)
 	}
 
 	// pick a direction and move till it stops
-	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 	if err != nil {
 		return nil, err
 	}
 
-	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +86,11 @@ func NewGripperV1(theBoard board.Board, logger golog.Logger) (*GripperV1, error)
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	}
 
-	return vg, vg.Open()
+	return vg, vg.Open(ctx)
 }
 
-func (vg *GripperV1) Open() error {
-	_, _, err := vg.moveInDirectionTillWontMoveMore(vg.openDirection)
+func (vg *GripperV1) Open(ctx context.Context) error {
+	_, _, err := vg.moveInDirectionTillWontMoveMore(ctx, vg.openDirection)
 	return err
 	/*
 		err := vg.motor.Go(vg.openDirection, vg.defaultSpeed)
@@ -114,8 +119,8 @@ func (vg *GripperV1) Open() error {
 	*/
 }
 
-func (vg *GripperV1) Grab() (bool, error) {
-	_, _, err := vg.moveInDirectionTillWontMoveMore(vg.closeDirection)
+func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
+	_, _, err := vg.moveInDirectionTillWontMoveMore(ctx, vg.closeDirection)
 	return false, err
 
 	/*
@@ -164,39 +169,39 @@ func (vg *GripperV1) Grab() (bool, error) {
 	*/
 }
 
-func (vg *GripperV1) Close() error {
-	return vg.Stop()
+func (vg *GripperV1) Close(ctx context.Context) error {
+	return vg.Stop(ctx)
 }
 
-func (vg *GripperV1) Stop() error {
-	return vg.motor.Off()
+func (vg *GripperV1) Stop(ctx context.Context) error {
+	return vg.motor.Off(ctx)
 }
 
-func (vg *GripperV1) readCurrent() (int, error) {
-	return vg.current.Read()
+func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
+	return vg.current.Read(ctx)
 }
 
 func (vg *GripperV1) encoderSame(a, b int64) bool {
 	return utils.AbsInt64(b-a) < 5
 }
 
-func (vg *GripperV1) readPressure() (int, error) {
-	return vg.pressure.Read()
+func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
+	return vg.pressure.Read(ctx)
 }
 
-func (vg *GripperV1) hasPressure() (bool, error) {
-	p, err := vg.readPressure()
+func (vg *GripperV1) hasPressure(ctx context.Context) (bool, error) {
+	p, err := vg.readPressure(ctx)
 	return p < 1000, err
 }
 
 // return hasPressure, current
-func (vg *GripperV1) analogs() (hasPressure bool, current int, err error) {
-	hasPressure, err = vg.hasPressure()
+func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, current int, err error) {
+	hasPressure, err = vg.hasPressure(ctx)
 	if err != nil {
 		return
 	}
 
-	current, err = vg.readCurrent()
+	current, err = vg.readCurrent(ctx)
 	if err != nil {
 		return
 	}
@@ -204,9 +209,9 @@ func (vg *GripperV1) analogs() (hasPressure bool, current int, err error) {
 	return
 }
 
-func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir pb.DirectionRelative) (int64, bool, error) {
+func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb.DirectionRelative) (int64, bool, error) {
 	defer func() {
-		err := vg.Stop()
+		err := vg.Stop(ctx)
 		if err != nil {
 			vg.logger.Warnf("couldn't stop motor %s", err)
 		}
@@ -215,12 +220,12 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir pb.DirectionRelative) (
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.Go(dir, vg.defaultSpeed)
+	err := vg.motor.Go(ctx, dir, vg.defaultSpeed)
 	if err != nil {
 		return -1, false, err
 	}
 
-	last := vg.motor.Position()
+	last, err := vg.motor.Position(ctx)
 	if err != nil {
 		return -1, false, err
 	}
@@ -228,12 +233,12 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir pb.DirectionRelative) (
 	time.Sleep(500 * time.Millisecond)
 
 	for {
-		now := vg.motor.Position()
+		now, err := vg.motor.Position(ctx)
 		if err != nil {
 			return -1, false, err
 		}
 
-		hasPressure, _, err := vg.analogs()
+		hasPressure, _, err := vg.analogs(ctx)
 		if err != nil {
 			return -1, false, err
 		}
@@ -243,7 +248,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(dir pb.DirectionRelative) (
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
-			err := vg.motor.Force(128)
+			err := vg.motor.Force(ctx, 128)
 			if err != nil {
 				return -1, false, err
 			}

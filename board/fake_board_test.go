@@ -1,6 +1,7 @@
 package board
 
 import (
+	"context"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -43,11 +44,11 @@ func TestFakeBoard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close()
+	defer b.Close(context.Background())
 
-	assert.Nil(t, b.Servo("s1").Move(15))
+	assert.Nil(t, b.Servo("s1").Move(context.Background(), 15))
 
-	status, err := b.Status()
+	status, err := b.Status(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

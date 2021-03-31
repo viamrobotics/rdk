@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -41,8 +42,8 @@ func NewArm(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm
 	return &Arm{real, models[0], ik, 0}, nil
 }
 
-func (k *Arm) Close() {
-	k.real.Close() // TODO(erh): who owns this?
+func (k *Arm) Close(ctx context.Context) {
+	k.real.Close(ctx) // TODO(erh): who owns this?
 }
 
 // Returns the end effector's current Position
@@ -98,9 +99,9 @@ func (k *Arm) SetJointPositions(angles []float64) {
 	k.Model.SetPosition(radAngles)
 }
 
-func (k *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
+func (k *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	// If the real arm returns empty struct, nil then that means we should use the kinematics angles
-	jp, err := k.real.CurrentJointPositions()
+	jp, err := k.real.CurrentJointPositions(ctx)
 
 	if len(jp.Degrees) == 0 && err == nil {
 		jp = &pb.JointPositions{Degrees: k.modelJointsPosition()}
@@ -108,8 +109,8 @@ func (k *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
 	return jp, err
 }
 
-func (k *Arm) CurrentPosition() (*pb.ArmPosition, error) {
-	curPos, err := k.CurrentJointPositions()
+func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	curPos, err := k.CurrentJointPositions(ctx)
 	if err != nil {
 		return &pb.ArmPosition{}, err
 	}
@@ -123,19 +124,19 @@ func (k *Arm) CurrentPosition() (*pb.ArmPosition, error) {
 
 }
 
-func (k *Arm) JointMoveDelta(joint int, amount float64) error {
+func (k *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
-func (k *Arm) MoveToJointPositions(jp *pb.JointPositions) error {
-	err := k.real.MoveToJointPositions(jp)
+func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
+	err := k.real.MoveToJointPositions(ctx, jp)
 	if err == nil {
 		k.SetJointPositions(jp.Degrees)
 	}
 	return err
 }
 
-func (k *Arm) MoveToPosition(pos *pb.ArmPosition) error {
+func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	pos.X *= 1000
 	pos.Y *= 1000
 	pos.Z *= 1000
@@ -147,5 +148,5 @@ func (k *Arm) MoveToPosition(pos *pb.ArmPosition) error {
 
 	joints := &pb.JointPositions{Degrees: k.modelJointsPosition()}
 
-	return k.real.MoveToJointPositions(joints)
+	return k.real.MoveToJointPositions(ctx, joints)
 }

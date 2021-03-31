@@ -74,13 +74,13 @@ func TestServer(t *testing.T) {
 	t.Run("Status", func(t *testing.T) {
 		server, injectRobot := newServer()
 		err1 := errors.New("whoops")
-		injectRobot.StatusFunc = func() (*pb.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 			return nil, err1
 		}
 		_, err := server.Status(context.Background(), &pb.StatusRequest{})
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectRobot.StatusFunc = func() (*pb.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 			return emptyStatus.Status, nil
 		}
 		statusResp, err := server.Status(context.Background(), &pb.StatusRequest{})
@@ -91,7 +91,7 @@ func TestServer(t *testing.T) {
 	t.Run("StatusStream", func(t *testing.T) {
 		server, injectRobot := newServer()
 		err1 := errors.New("whoops")
-		injectRobot.StatusFunc = func() (*pb.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 			return nil, err1
 		}
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -106,7 +106,7 @@ func TestServer(t *testing.T) {
 		}, streamServer)
 		test.That(t, err, test.ShouldEqual, err1)
 
-		injectRobot.StatusFunc = func() (*pb.Status, error) {
+		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 			return emptyStatus.Status, nil
 		}
 		streamServer.fail = true
@@ -340,7 +340,7 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 		var capAP *pb.ArmPosition
-		injectArm.MoveToPositionFunc = func(ap *pb.ArmPosition) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
 			capAP = ap
 			return err1
 		}
@@ -353,7 +353,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capAP, test.ShouldEqual, pos)
 
-		injectArm.MoveToPositionFunc = func(ap *pb.ArmPosition) error {
+		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
 			return nil
 		}
 		_, err = server.MoveArmToPosition(context.Background(), &pb.MoveArmToPositionRequest{
@@ -385,7 +385,7 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 		var capJP *pb.JointPositions
-		injectArm.MoveToJointPositionsFunc = func(jp *pb.JointPositions) error {
+		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 			capJP = jp
 			return err1
 		}
@@ -398,7 +398,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capJP, test.ShouldEqual, pos)
 
-		injectArm.MoveToJointPositionsFunc = func(jp *pb.JointPositions) error {
+		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 			return nil
 		}
 		_, err = server.MoveArmToJointPositions(context.Background(), &pb.MoveArmToJointPositionsRequest{
@@ -434,7 +434,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown action")
 
 		err1 := errors.New("whoops")
-		injectGripper.OpenFunc = func() error {
+		injectGripper.OpenFunc = func(ctx context.Context) error {
 			return err1
 		}
 		_, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
@@ -442,7 +442,7 @@ func TestServer(t *testing.T) {
 			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.OpenFunc = func() error {
+		injectGripper.OpenFunc = func(ctx context.Context) error {
 			return nil
 		}
 		resp, err := server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
@@ -452,7 +452,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, nil)
 		test.That(t, resp.Grabbed, test.ShouldBeFalse)
 
-		injectGripper.GrabFunc = func() (bool, error) {
+		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return false, err1
 		}
 		_, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
@@ -460,7 +460,7 @@ func TestServer(t *testing.T) {
 			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		injectGripper.GrabFunc = func() (bool, error) {
+		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 
@@ -471,7 +471,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, nil)
 		test.That(t, resp.Grabbed, test.ShouldBeFalse)
 
-		injectGripper.GrabFunc = func() (bool, error) {
+		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 		resp, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
@@ -521,7 +521,7 @@ func TestServer(t *testing.T) {
 
 		var capArgs []interface{}
 		err1 := errors.New("whoops")
-		injectMotor.GoFunc = func(d pb.DirectionRelative, force byte) error {
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
 			capArgs = []interface{}{d, force}
 			return err1
 		}
@@ -532,7 +532,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, byte(0)})
 
-		injectMotor.GoFunc = func(d pb.DirectionRelative, force byte) error {
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
 			capArgs = []interface{}{d, force}
 			return nil
 		}
@@ -545,10 +545,10 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, byte(2)})
 
-		injectMotor.GoFunc = func(d pb.DirectionRelative, force byte) error {
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
 			return errors.New("no")
 		}
-		injectMotor.GoForFunc = func(d pb.DirectionRelative, rpm float64, rotations float64) error {
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 			capArgs = []interface{}{d, rpm, rotations}
 			return err1
 		}
@@ -562,7 +562,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
 
-		injectMotor.GoForFunc = func(d pb.DirectionRelative, rpm float64, rotations float64) error {
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 			capArgs = []interface{}{d, rpm, rotations}
 			return nil
 		}
@@ -616,7 +616,7 @@ func TestServer(t *testing.T) {
 
 		var capAngle uint8
 		err1 := errors.New("whoops")
-		injectServo.MoveFunc = func(angle uint8) error {
+		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 			capAngle = angle
 			return err1
 		}
@@ -628,7 +628,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capAngle, test.ShouldEqual, 5)
 
-		injectServo.MoveFunc = func(angle uint8) error {
+		injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 			capAngle = angle
 			return nil
 		}
