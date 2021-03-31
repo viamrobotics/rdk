@@ -142,10 +142,10 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 
 // Function to transform a pixel with depth to a 3D point cloud
 // the intrinsics parameters should be the ones of the sensor used to obtain the image that contains the pixel
-func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float64, float64, float64) {
+func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, float64, float64) {
 	//TODO(louise): add unit test
-	xOverZ := (float64(x) - params.Ppx) / params.Fx
-	yOverZ := (float64(y) - params.Ppy) / params.Fy
+	xOverZ := (x - params.Ppx) / params.Fx
+	yOverZ := (y - params.Ppy) / params.Fy
 	// get x and y
 	xm := xOverZ * z
 	ym := yOverZ * z
@@ -181,11 +181,11 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 }
 
 // Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
-func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy int, dz float64) (int, int, float64) {
+func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz float64) (float64, float64, float64) {
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
 	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
 	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
-	return int(cx), int(cy), z
+	return cx, cy, z
 }
 
 // change coordinate system of depth map to be in same coordinate system as color image
@@ -202,19 +202,30 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	// keep track of the bounds of the new depth image, then use these to crop the image
 	xMin, xMax, yMin, yMax := dcie.ColorCamera.Width, 0, dcie.ColorCamera.Height, 0
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
-	for x := 0; x < dcie.DepthCamera.Width; x++ {
-		for y := 0; y < dcie.DepthCamera.Height; y++ {
-			z := inmap.GetDepth(x, y)
-			if z == 0 {
+	for dy := 0; dy < dcie.DepthCamera.Height; dy++ {
+		for dx := 0; dx < dcie.DepthCamera.Width; dx++ {
+			dz := inmap.GetDepth(dx, dy)
+			if dz == 0 {
 				continue
 			}
-			cx, cy, cz := dcie.DepthPixelToColorPixel(x, y, float64(z))
-			if cx < 0 || cy < 0 || cx > dcie.ColorCamera.Width-1 || cy > dcie.ColorCamera.Height-1 {
+			// if depth pixels are bigger than color pixel, will cause a grid effect. Take into account size of pixel
+			// get top-left corner of depth pixel
+			cx, cy, cz0 := dcie.DepthPixelToColorPixel(float64(dx)-0.5, float64(dy)-0.5, float64(dz))
+			cx0, cy0 := int(cx+0.5), int(cy+0.5)
+			// get bottom-right corner of depth pixel
+			cx, cy, cz1 := dcie.DepthPixelToColorPixel(float64(dx)+0.5, float64(dy)+0.5, float64(dz))
+			cx1, cy1 := int(cx+0.5), int(cy+0.5)
+			if cx0 < 0 || cy0 < 0 || cx1 > dcie.ColorCamera.Width-1 || cy1 > dcie.ColorCamera.Height-1 {
 				continue
 			}
-			xMin, yMin = utils.MinInt(xMin, cx), utils.MinInt(yMin, cy)
-			xMax, yMax = utils.MaxInt(xMax, cx), utils.MaxInt(yMax, cy)
-			outmap.Set(cx, cy, rimage.Depth(cz))
+			xMin, yMin = utils.MinInt(xMin, cx0), utils.MinInt(yMin, cy0)
+			xMax, yMax = utils.MaxInt(xMax, cx1), utils.MaxInt(yMax, cy1)
+			z := rimage.Depth((cz0 + cz1) / 2.0) // average of depth within color pixel
+			for y := cy0; y <= cy1; y++ {
+				for x := cx0; x <= cx1; x++ {
+					outmap.Set(x, y, z)
+				}
+			}
 		}
 	}
 	crop := image.Rect(xMin, yMin, xMax, yMax)
