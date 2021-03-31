@@ -1,6 +1,8 @@
 package inject
 
 import (
+	"context"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
@@ -26,9 +28,10 @@ type Robot struct {
 	LidarDeviceNamesFunc  func() []string
 	BaseNamesFunc         func() []string
 	BoardNamesFunc        func() []string
-	GetConfigFunc         func() api.Config
-	StatusFunc            func() (*pb.Status, error)
+	GetConfigFunc         func(ctx context.Context) (api.Config, error)
+	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
+	CloseFunc             func(ctx context.Context) error
 }
 
 func (r *Robot) ProviderByModel(model string) api.Provider {
@@ -130,18 +133,18 @@ func (r *Robot) BoardNames() []string {
 	return r.BoardNamesFunc()
 }
 
-func (r *Robot) GetConfig() api.Config {
+func (r *Robot) GetConfig(ctx context.Context) (api.Config, error) {
 	if r.GetConfigFunc == nil {
-		return r.Robot.GetConfig()
+		return r.Robot.GetConfig(ctx)
 	}
-	return r.GetConfigFunc()
+	return r.GetConfigFunc(ctx)
 }
 
-func (r *Robot) Status() (*pb.Status, error) {
+func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
 	if r.StatusFunc == nil {
-		return r.Robot.Status()
+		return r.Robot.Status(ctx)
 	}
-	return r.StatusFunc()
+	return r.StatusFunc(ctx)
 }
 
 func (r *Robot) Logger() golog.Logger {
@@ -149,4 +152,11 @@ func (r *Robot) Logger() golog.Logger {
 		return r.Robot.Logger()
 	}
 	return r.LoggerFunc()
+}
+
+func (r *Robot) Close(ctx context.Context) error {
+	if r.CloseFunc == nil {
+		return r.Robot.Close(ctx)
+	}
+	return r.CloseFunc(ctx)
 }

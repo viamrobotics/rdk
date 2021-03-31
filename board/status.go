@@ -1,12 +1,13 @@
 package board
 
 import (
+	"context"
 	"fmt"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
-func CreateStatus(b Board) (*pb.BoardStatus, error) {
+func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	s := &pb.BoardStatus{
 		Motors:            map[string]*pb.MotorStatus{},
 		Servos:            map[string]*pb.ServoStatus{},
@@ -14,30 +15,49 @@ func CreateStatus(b Board) (*pb.BoardStatus, error) {
 		DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{},
 	}
 
-	cfg := b.GetConfig()
+	cfg, err := b.GetConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, c := range cfg.Motors {
 		name := c.Name
 		x := b.Motor(name)
+		isOn, err := x.IsOn(ctx)
+		if err != nil {
+			return nil, err
+		}
+		position, err := x.Position(ctx)
+		if err != nil {
+			return nil, err
+		}
+		positionSupported, err := x.PositionSupported(ctx)
+		if err != nil {
+			return nil, err
+		}
 		s.Motors[name] = &pb.MotorStatus{
-			On:                x.IsOn(),
-			Position:          x.Position(),
-			PositionSupported: x.PositionSupported(),
+			On:                isOn,
+			Position:          position,
+			PositionSupported: positionSupported,
 		}
 	}
 
 	for _, c := range cfg.Servos {
 		name := c.Name
 		x := b.Servo(name)
+		current, err := x.Current(ctx)
+		if err != nil {
+			return nil, err
+		}
 		s.Servos[name] = &pb.ServoStatus{
-			Angle: uint32(x.Current()),
+			Angle: uint32(current),
 		}
 	}
 
 	for _, c := range cfg.Analogs {
 		name := c.Name
 		x := b.AnalogReader(name)
-		val, err := x.Read()
+		val, err := x.Read(ctx)
 		if err != nil {
 			return s, fmt.Errorf("couldn't read analog (%s) : %s", name, err)
 		}

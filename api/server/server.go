@@ -24,7 +24,7 @@ func New(r api.Robot) pb.RobotServiceServer {
 }
 
 func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
-	status, err := s.r.Status()
+	status, err := s.r.Status(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 			return server.Context().Err()
 		case <-ticker.C:
 		}
-		status, err := s.r.Status()
+		status, err := s.r.Status(server.Context())
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func (s *Server) MoveArmToPosition(ctx context.Context, req *pb.MoveArmToPositio
 		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
 	}
 
-	return &pb.MoveArmToPositionResponse{}, arm.MoveToPosition(req.To)
+	return &pb.MoveArmToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
 }
 
 func (s *Server) MoveArmToJointPositions(ctx context.Context, req *pb.MoveArmToJointPositionsRequest) (*pb.MoveArmToJointPositionsResponse, error) {
@@ -118,7 +118,7 @@ func (s *Server) MoveArmToJointPositions(ctx context.Context, req *pb.MoveArmToJ
 		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
 	}
 
-	return &pb.MoveArmToJointPositionsResponse{}, arm.MoveToJointPositions(req.To)
+	return &pb.MoveArmToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
 }
 
 func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperRequest) (*pb.ControlGripperResponse, error) {
@@ -130,12 +130,12 @@ func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperReque
 	var grabbed bool
 	switch req.Action {
 	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN:
-		if err := gripper.Open(); err != nil {
+		if err := gripper.Open(ctx); err != nil {
 			return nil, err
 		}
 	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB:
 		var err error
-		grabbed, err = gripper.Grab()
+		grabbed, err = gripper.Grab(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -165,10 +165,10 @@ func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMoto
 	}
 
 	if rVal == 0 {
-		return &pb.ControlBoardMotorResponse{}, theMotor.Go(req.Direction, byte(req.Speed))
+		return &pb.ControlBoardMotorResponse{}, theMotor.Go(ctx, req.Direction, byte(req.Speed))
 	}
 
-	return &pb.ControlBoardMotorResponse{}, theMotor.GoFor(req.Direction, req.Speed, rVal)
+	return &pb.ControlBoardMotorResponse{}, theMotor.GoFor(ctx, req.Direction, req.Speed, rVal)
 }
 
 func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServoRequest) (*pb.ControlBoardServoResponse, error) {
@@ -182,7 +182,7 @@ func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServ
 		return nil, fmt.Errorf("unknown servo: %s", req.ServoName)
 	}
 
-	return &pb.ControlBoardServoResponse{}, theServo.Move(uint8(req.AngleDeg))
+	return &pb.ControlBoardServoResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
 }
 
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
