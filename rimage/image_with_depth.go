@@ -149,6 +149,24 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 	return BothWriteToFile(i, fn)
 }
 
+func NewImageWithDepthFromImages(colorFN, depthFN string) (*ImageWithDepth, error) {
+	img, err := NewImageFromFile(colorFN)
+	if err != nil {
+		return nil, err
+	}
+
+	depthImg, err := ReadImageFromFile(depthFN)
+	if err != nil {
+		return nil, err
+	}
+	dm, err := ConvertImageToDepthMap(depthImg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImageWithDepth{img, dm}, nil
+}
+
 func NewImageWithDepth(colorFN, depthFN string) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
