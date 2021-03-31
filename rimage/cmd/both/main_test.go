@@ -24,7 +24,7 @@ func TestBothMain(t *testing.T) {
 	}
 
 	out3 := "out/shelf.both.gz"
-	err = realMain([]string{"iwd", "../../data/shelf_color.png", "../../data/shelf_grayscale.png", out3})
+	err = realMain([]string{"combineRGBAndZ16", "../../data/shelf_color.png", "../../data/shelf_grayscale.png", out3})
 	if err != nil {
 		t.Fatal(err)
 	}
