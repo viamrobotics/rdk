@@ -31,6 +31,19 @@ func merge(flags *flag.FlagSet) error {
 	return img.WriteTo(flags.Arg(3))
 }
 
+func combineRGBAndZ16(flags *flag.FlagSet) error {
+	if flags.NArg() < 4 {
+		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out>")
+	}
+
+	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2))
+	if err != nil {
+		return err
+	}
+
+	return img.WriteTo(flags.Arg(3))
+}
+
 func toLas(flags *flag.FlagSet) error {
 	if flags.NArg() < 3 {
 		return fmt.Errorf("to-las needs <both in> <las out>")
@@ -65,6 +78,8 @@ func realMain(args []string) error {
 	switch cmd {
 	case "merge":
 		return merge(flags)
+	case "combineRGBAndZ16":
+		return combineRGBAndZ16(flags)
 	case "to-las":
 		return toLas(flags)
 	default:

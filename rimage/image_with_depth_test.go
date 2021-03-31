@@ -71,6 +71,20 @@ func TestPC3(t *testing.T) {
 
 }
 
+func TestImageWithDepthFromImages(t *testing.T) {
+	iwd, err := NewImageWithDepthFromImages("data/shelf_color.png", "data/shelf_grayscale.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.MkdirAll("out", 0775)
+
+	err = iwd.WriteTo("out/shelf.both.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestImageToDepthMap(t *testing.T) {
 	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
