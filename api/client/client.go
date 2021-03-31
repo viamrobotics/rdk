@@ -61,8 +61,6 @@ func (ss *StatusStream) Next() (*pb.Status, error) {
 	return resp.Status, nil
 }
 
-// TODO(erd): StatusStream
-
 func (rc *RobotClient) DoAction(ctx context.Context, name string) error {
 	_, err := rc.client.DoAction(ctx, &pb.DoActionRequest{
 		Name: name,
