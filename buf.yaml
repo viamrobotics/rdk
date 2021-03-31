@@ -8,8 +8,16 @@ build:
 lint:
   use:
     - DEFAULT
+  ignore_only:
+    RPC_RESPONSE_STANDARD_NAME:
+      - proto/api/v1/robot.proto
+    RPC_REQUEST_RESPONSE_UNIQUE:
+      - proto/api/v1/robot.proto
+    RPC_REQUEST_STANDARD_NAME:
+      - proto/api/v1/robot.proto
 breaking:
   use:
     - FILE
 deps:
   - buf.build/beta/googleapis
+  
