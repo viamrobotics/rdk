@@ -1,8 +1,10 @@
 package api
 
-type Gripper interface {
-	Open() error
-	Grab() (bool, error)
+import "context"
 
-	Close() error // closes the connection, not the gripper
+type Gripper interface {
+	Open(ctx context.Context) error
+	Grab(ctx context.Context) (bool, error)
+
+	Close(ctx context.Context) error // closes the connection, not the gripper
 }

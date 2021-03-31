@@ -1,6 +1,7 @@
 package wx250s
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
@@ -88,16 +89,16 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
-func (a *Arm) CurrentPosition() (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, fmt.Errorf("wx250s dosn't support kinematics")
 }
 
-func (a *Arm) MoveToPosition(c *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	return fmt.Errorf("wx250s dosn't support kinematics")
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
-func (a *Arm) MoveToJointPositions(jp *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
@@ -115,16 +116,16 @@ func (a *Arm) MoveToJointPositions(jp *pb.JointPositions) error {
 }
 
 // CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics
-func (a *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
+func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return &pb.JointPositions{}, nil
 }
 
-func (a *Arm) JointMoveDelta(joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
 // Close will get the arm ready to be turned off
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first

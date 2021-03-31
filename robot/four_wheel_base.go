@@ -56,7 +56,7 @@ func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
 
 	for _, m := range base.allMotors {
-		err := m.GoFor(d, rpm, rotations)
+		err := m.GoFor(ctx, d, rpm, rotations)
 		if err != nil {
 			return multierr.Combine(err, base.Stop(ctx))
 		}
@@ -92,10 +92,10 @@ func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, speed int
 	rightDirection := board.FlipDirection(leftDirection)
 
 	err := multierr.Combine(
-		base.frontLeft.GoFor(leftDirection, rpm, rotations),
-		base.frontRight.GoFor(rightDirection, rpm, rotations),
-		base.backLeft.GoFor(leftDirection, rpm, rotations),
-		base.backRight.GoFor(rightDirection, rpm, rotations),
+		base.frontLeft.GoFor(ctx, leftDirection, rpm, rotations),
+		base.frontRight.GoFor(ctx, rightDirection, rpm, rotations),
+		base.backLeft.GoFor(ctx, leftDirection, rpm, rotations),
+		base.backRight.GoFor(ctx, rightDirection, rpm, rotations),
 	)
 
 	if err != nil {
@@ -117,7 +117,11 @@ func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			if m.IsOn() {
+			isOn, err := m.IsOn(ctx)
+			if err != nil {
+				return err
+			}
+			if isOn {
 				anyOn = true
 			} else {
 				anyOff = true
@@ -137,10 +141,10 @@ func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
 
 func (base *fourWheelBase) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		base.frontLeft.Off(),
-		base.frontRight.Off(),
-		base.backLeft.Off(),
-		base.backRight.Off(),
+		base.frontLeft.Off(ctx),
+		base.frontRight.Off(ctx),
+		base.backLeft.Off(ctx),
+		base.backRight.Off(ctx),
 	)
 }
 

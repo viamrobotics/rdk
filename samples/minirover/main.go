@@ -191,7 +191,7 @@ func (r *Rover) neckOffset(left int) error {
 
 func (r *Rover) neckPosition(pan, tilt uint8) error {
 	logger.Debugf("neckPosition to %v %v", pan, tilt)
-	return multierr.Combine(r.pan.Move(pan), r.tilt.Move(tilt))
+	return multierr.Combine(r.pan.Move(context.TODO(), pan), r.tilt.Move(context.TODO(), tilt))
 }
 
 func (r *Rover) Ready(theRobot api.Robot) error {

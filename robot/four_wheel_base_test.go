@@ -87,11 +87,13 @@ func TestFourWheelBase1(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = base.allMotors[0].Go(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
+		err = base.allMotors[0].Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 		if err != nil {
 			t.Fatal(err)
 		}
-		assert.True(t, base.allMotors[0].IsOn())
+		isOn, err := base.allMotors[0].IsOn(context.Background())
+		assert.Nil(t, err)
+		assert.True(t, isOn)
 
 		err = base.waitForMotorsToStop(ctx)
 		if err != nil {
@@ -99,7 +101,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.False(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.False(t, isOn)
 		}
 
 		err = base.waitForMotorsToStop(ctx)
@@ -108,7 +112,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.False(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.False(t, isOn)
 		}
 
 	})
@@ -122,7 +128,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.True(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.True(t, isOn)
 		}
 
 		err = base.Stop(ctx)
@@ -147,7 +155,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.False(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.False(t, isOn)
 		}
 
 	})
@@ -172,7 +182,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.True(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.True(t, isOn)
 		}
 
 		err = base.Stop(ctx)
@@ -197,7 +209,9 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 
 		for _, m := range base.allMotors {
-			assert.False(t, m.IsOn())
+			isOn, err := m.IsOn(context.Background())
+			assert.Nil(t, err)
+			assert.False(t, isOn)
 		}
 
 	})

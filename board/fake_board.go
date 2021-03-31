@@ -1,6 +1,8 @@
 package board
 
 import (
+	"context"
+
 	"github.com/edaniels/golog"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -14,20 +16,20 @@ type fakeServo struct {
 	angle uint8
 }
 
-func (s *fakeServo) Move(angle uint8) error {
+func (s *fakeServo) Move(ctx context.Context, angle uint8) error {
 	s.angle = angle
 	return nil
 }
 
-func (s *fakeServo) Current() uint8 {
-	return s.angle
+func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
+	return s.angle, nil
 }
 
 type fakeAnalog struct {
 	Value int
 }
 
-func (a *fakeAnalog) Read() (int, error) {
+func (a *fakeAnalog) Read(context.Context) (int, error) {
 	return a.Value, nil
 }
 
@@ -60,16 +62,16 @@ func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	return b.digitals[name]
 }
 
-func (b *FakeBoard) Close() error {
+func (b *FakeBoard) Close(ctx context.Context) error {
 	return nil
 }
 
-func (b *FakeBoard) GetConfig() Config {
-	return b.cfg
+func (b *FakeBoard) GetConfig(ctx context.Context) (Config, error) {
+	return b.cfg, nil
 }
 
-func (b *FakeBoard) Status() (*pb.BoardStatus, error) {
-	return CreateStatus(b)
+func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+	return CreateStatus(ctx, b)
 }
 
 func NewFakeBoard(cfg Config, logger golog.Logger) (Board, error) {

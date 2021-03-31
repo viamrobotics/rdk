@@ -1,6 +1,10 @@
 package board
 
-import pb "go.viam.com/robotcore/proto/api/v1"
+import (
+	"context"
+
+	pb "go.viam.com/robotcore/proto/api/v1"
+)
 
 type PostProcess func(raw int64) int64
 
@@ -16,28 +20,28 @@ func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 }
 
 type Motor interface {
-	Force(force byte) error
+	Force(ctx context.Context, force byte) error
 
-	Go(d pb.DirectionRelative, force byte) error
+	Go(ctx context.Context, d pb.DirectionRelative, force byte) error
 
-	GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error
+	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
 
 	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
-	Position() int64
-	PositionSupported() bool
+	Position(ctx context.Context) (int64, error)
+	PositionSupported(ctx context.Context) (bool, error)
 
-	Off() error
-	IsOn() bool
+	Off(ctx context.Context) error
+	IsOn(ctx context.Context) (bool, error)
 }
 
 type Servo interface {
 	// moves to that angle (0-180)
-	Move(angle uint8) error
-	Current() uint8
+	Move(ctx context.Context, angle uint8) error
+	Current(ctx context.Context) (uint8, error)
 }
 
 type AnalogReader interface {
-	Read() (int, error)
+	Read(ctx context.Context) (int, error)
 }
 
 type Board interface {
@@ -48,12 +52,12 @@ type Board interface {
 	AnalogReader(name string) AnalogReader
 	DigitalInterrupt(name string) DigitalInterrupt
 
-	Close() error
+	Close(ctx context.Context) error
 
-	GetConfig() Config
+	GetConfig(ctx context.Context) (Config, error)
 
 	// should use CreateStatus in most cases
-	Status() (*pb.BoardStatus, error)
+	Status(ctx context.Context) (*pb.BoardStatus, error)
 }
 
 type DigitalInterrupt interface {

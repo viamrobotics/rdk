@@ -61,12 +61,12 @@ func getCoord(chess string) pos {
 
 func moveTo(myArm api.Arm, chess string, heightMod float64) error {
 	// first make sure in safe position
-	where, err := myArm.CurrentPosition()
+	where, err := myArm.CurrentPosition(context.TODO())
 	if err != nil {
 		return err
 	}
 	where.Z = SafeMoveHeight + heightMod
-	err = myArm.MoveToPosition(where)
+	err = myArm.MoveToPosition(context.TODO(), where)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func moveTo(myArm api.Arm, chess string, heightMod float64) error {
 		where.X = f.x
 		where.Y = f.y
 	}
-	return myArm.MoveToPosition(where)
+	return myArm.MoveToPosition(context.TODO(), where)
 }
 
 func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, myGripper api.Gripper, from, to string) error {
@@ -107,7 +107,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 	}
 
 	// open before going down
-	err = myGripper.Open()
+	err = myGripper.Open(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -118,16 +118,16 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where, err := myArm.CurrentPosition()
+	where, err := myArm.CurrentPosition(context.TODO())
 	if err != nil {
 		return err
 	}
 	where.Z = BoardHeight + (height / 1000) + .01
-	myArm.MoveToPosition(where)
+	myArm.MoveToPosition(context.TODO(), where)
 
 	// grab piece
 	for {
-		grabbedSomething, err := myGripper.Grab()
+		grabbedSomething, err := myGripper.Grab(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -136,12 +136,12 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 			// got the piece
 			break
 		}
-		err = myGripper.Open()
+		err = myGripper.Open(context.TODO())
 		if err != nil {
 			return err
 		}
 		logger.Debug("no piece")
-		where, err = myArm.CurrentPosition()
+		where, err = myArm.CurrentPosition(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
 		}
-		myArm.MoveToPosition(where)
+		myArm.MoveToPosition(context.TODO(), where)
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -163,9 +163,9 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 
 		go func() {
 			time.Sleep(200 * time.Millisecond)
-			myGripper.Open()
+			myGripper.Open(context.TODO())
 		}()
-		err = myArm.JointMoveDelta(4, -1)
+		err = myArm.JointMoveDelta(context.TODO(), 4, -1)
 		if err != nil {
 			return err
 		}
@@ -179,23 +179,23 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 	}
 
 	// drop piece
-	where, err = myArm.CurrentPosition()
+	where, err = myArm.CurrentPosition(context.TODO())
 	if err != nil {
 		return err
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPosition(where)
+	myArm.MoveToPosition(context.TODO(), where)
 
-	myGripper.Open()
+	myGripper.Open(context.TODO())
 
 	if to != "-" {
-		where, err = myArm.CurrentPosition()
+		where, err = myArm.CurrentPosition(context.TODO())
 		if err != nil {
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPosition(where)
+		myArm.MoveToPosition(context.TODO(), where)
 
 		moveOutOfWay(myArm)
 	}
@@ -205,7 +205,7 @@ func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, 
 func moveOutOfWay(myArm api.Arm) error {
 	foo := getCoord("a1")
 
-	where, err := myArm.CurrentPosition()
+	where, err := myArm.CurrentPosition(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -213,12 +213,12 @@ func moveOutOfWay(myArm api.Arm) error {
 	where.Y = foo.y
 	where.Z = SafeMoveHeight + .3 // HARD CODED
 
-	return myArm.MoveToPosition(where)
+	return myArm.MoveToPosition(context.TODO(), where)
 }
 
 func initArm(myArm api.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(&pb.ArmPosition{
+	err := myArm.MoveToPosition(context.TODO(), &pb.ArmPosition{
 		X:  foo.x,
 		Y:  foo.y,
 		Z:  SafeMoveHeight,
@@ -296,7 +296,7 @@ func getWristPicCorners(ctx context.Context, wristCam gostream.ImageSource, debu
 func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.ImageSource, corners []image.Point, imageSize image.Point) error {
 	debugNumber := 100
 	for {
-		where, err := myArm.CurrentPosition()
+		where, err := myArm.CurrentPosition(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -325,7 +325,7 @@ func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.Im
 
 		where.X += xMove
 		where.Y += yMove
-		err = myArm.MoveToPosition(where)
+		err = myArm.MoveToPosition(context.TODO(), where)
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) erro
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where, err := myArm.CurrentPosition()
+		where, err := myArm.CurrentPosition(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -359,14 +359,14 @@ func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) erro
 		where.RX = -2.600206
 		where.RY = -0.007839
 		where.RZ = -0.061827
-		err = myArm.MoveToPosition(where)
+		err = myArm.MoveToPosition(context.TODO(), where)
 		if err != nil {
 			return err
 		}
 
 		d := .1
 		for i := 0.0; i < 1.6; i = i + d {
-			err = myArm.JointMoveDelta(0, foo*d)
+			err = myArm.JointMoveDelta(context.TODO(), 0, foo*d)
 			if err != nil {
 				return err
 			}
@@ -398,7 +398,7 @@ func adjustArmInsideSquare(ctx context.Context, robot *robot.Robot) error {
 	arm := robot.ArmByName("pieceArm")
 
 	for {
-		where, err := arm.CurrentPosition()
+		where, err := arm.CurrentPosition(context.TODO())
 		if err != nil {
 			return err
 		}
@@ -443,7 +443,7 @@ func adjustArmInsideSquare(ctx context.Context, robot *robot.Robot) error {
 
 		fmt.Printf("\t moving to %0.3f,%0.3f\n", where.X, where.Y)
 
-		err = arm.MoveToPosition(where)
+		err = arm.MoveToPosition(context.TODO(), where)
 		if err != nil {
 			return err
 		}

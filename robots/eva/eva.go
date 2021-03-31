@@ -2,6 +2,7 @@ package eva
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -60,7 +61,7 @@ type eva struct {
 	logger   golog.Logger
 }
 
-func (e *eva) CurrentJointPositions() (*pb.JointPositions, error) {
+func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
 		return &pb.JointPositions{}, err
@@ -68,15 +69,15 @@ func (e *eva) CurrentJointPositions() (*pb.JointPositions, error) {
 	return api.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-func (e *eva) CurrentPosition() (*pb.ArmPosition, error) {
+func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToPosition(pos *pb.ArmPosition) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	return fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToJointPositions(newPositions *pb.JointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := api.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(radians)
@@ -109,11 +110,11 @@ func (e *eva) doMoveJoints(joints []float64) error {
 	return e.apiControlGoTo(joints, true)
 }
 
-func (e *eva) JointMoveDelta(joint int, amount float64) error {
+func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
-func (e *eva) Close() {
+func (e *eva) Close(ctx context.Context) {
 
 }
 func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {

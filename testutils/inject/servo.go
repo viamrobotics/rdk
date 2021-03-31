@@ -1,25 +1,27 @@
 package inject
 
 import (
+	"context"
+
 	"go.viam.com/robotcore/board"
 )
 
 type Servo struct {
 	board.Servo
-	MoveFunc    func(angle uint8) error
-	CurrentFunc func() uint8
+	MoveFunc    func(ctx context.Context, angle uint8) error
+	CurrentFunc func(ctx context.Context) (uint8, error)
 }
 
-func (s *Servo) Move(angle uint8) error {
+func (s *Servo) Move(ctx context.Context, angle uint8) error {
 	if s.MoveFunc == nil {
-		return s.Servo.Move(angle)
+		return s.Servo.Move(ctx, angle)
 	}
-	return s.MoveFunc(angle)
+	return s.MoveFunc(ctx, angle)
 }
 
-func (s *Servo) Current() uint8 {
+func (s *Servo) Current(ctx context.Context) (uint8, error) {
 	if s.CurrentFunc == nil {
-		return s.Servo.Current()
+		return s.Servo.Current(ctx)
 	}
-	return s.CurrentFunc()
+	return s.CurrentFunc(ctx)
 }

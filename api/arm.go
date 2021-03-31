@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 )
@@ -35,13 +37,13 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // -----
 
 type Arm interface {
-	CurrentPosition() (*pb.ArmPosition, error)
-	MoveToPosition(c *pb.ArmPosition) error
+	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
+	MoveToPosition(ctx context.Context, c *pb.ArmPosition) error
 
-	MoveToJointPositions(*pb.JointPositions) error
-	CurrentJointPositions() (*pb.JointPositions, error)
+	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
+	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
-	JointMoveDelta(joint int, amount float64) error // TODO(erh): make it clear the units
+	JointMoveDelta(ctx context.Context, joint int, amount float64) error // TODO(erh): make it clear the units
 
-	Close()
+	Close(ctx context.Context)
 }

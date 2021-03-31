@@ -1,6 +1,8 @@
 package api
 
 import (
+	"context"
+
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -29,12 +31,13 @@ type Robot interface {
 	BoardNames() []string
 
 	// this is allowed to be partial or empty
-	GetConfig() Config
+	GetConfig(ctx context.Context) (Config, error)
 
 	// use CreateStatus helper in most cases
-	Status() (*pb.Status, error)
+	Status(ctx context.Context) (*pb.Status, error)
 
 	Logger() golog.Logger
+	Close(ctx context.Context) error
 }
 
 type Provider interface {

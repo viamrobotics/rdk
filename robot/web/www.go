@@ -102,13 +102,18 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []string) {
+func allSourcesToDisplay(ctx context.Context, theRobot *robot.Robot) ([]gostream.ImageSource, []string, error) {
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
+	config, err := theRobot.GetConfig(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	for _, name := range theRobot.CameraNames() {
 		cam := theRobot.CameraByName(name)
-		cmp := theRobot.GetConfig().FindComponent(name)
+		cmp := config.FindComponent(name)
 		if cmp.Attributes.GetBool("hide", false) {
 			continue
 		}
@@ -119,7 +124,7 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 
 	for _, name := range theRobot.LidarDeviceNames() {
 		device := theRobot.LidarDeviceByName(name)
-		cmp := theRobot.GetConfig().FindComponent(name)
+		cmp := config.FindComponent(name)
 		if cmp.Attributes.GetBool("hide", false) {
 			continue
 		}
@@ -130,12 +135,15 @@ func allSourcesToDisplay(theRobot *robot.Robot) ([]gostream.ImageSource, []strin
 		names = append(names, name)
 	}
 
-	return sources, names
+	return sources, names, nil
 }
 
 // returns a closer func to be called when done
 func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, options Options, logger golog.Logger) (func(), error) {
-	displaySources, displayNames := allSourcesToDisplay(theRobot)
+	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
+	if err != nil {
+		return nil, err
+	}
 	views := []gostream.View{}
 	var autoCameraTiler *gostream.AutoTiler
 
@@ -167,8 +175,7 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 	}
 
 	app := &robotWebApp{views: views, theRobot: theRobot, logger: logger}
-	err := app.Init()
-	if err != nil {
+	if err := app.Init(); err != nil {
 		return nil, err
 	}
 

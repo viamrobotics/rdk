@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
+
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
-func CreateStatus(r Robot) (*pb.Status, error) {
+func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 	var err error
 	s := &pb.Status{
 		Arms:     map[string]*pb.ArmStatus{},
@@ -17,11 +19,11 @@ func CreateStatus(r Robot) (*pb.Status, error) {
 		arm := r.ArmByName(name)
 		as := &pb.ArmStatus{}
 
-		as.GridPosition, err = arm.CurrentPosition()
+		as.GridPosition, err = arm.CurrentPosition(ctx)
 		if err != nil {
 			return s, err
 		}
-		as.JointPositions, err = arm.CurrentJointPositions()
+		as.JointPositions, err = arm.CurrentJointPositions(ctx)
 		if err != nil {
 			return s, err
 		}
@@ -38,7 +40,7 @@ func CreateStatus(r Robot) (*pb.Status, error) {
 	}
 
 	for _, name := range r.BoardNames() {
-		s.Boards[name], err = r.BoardByName(name).Status()
+		s.Boards[name], err = r.BoardByName(name).Status(ctx)
 		if err != nil {
 			return s, err
 		}

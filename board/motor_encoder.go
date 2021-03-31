@@ -1,6 +1,7 @@
 package board
 
 import (
+	"context"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -15,7 +16,7 @@ var (
 	rpmDebug = false
 )
 
-func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {
+func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil
 	}
@@ -44,7 +45,7 @@ func WrapMotorWithEncoder(b Board, mc MotorConfig, m Motor, logger golog.Logger)
 		encoderB: encoderB,
 		logger:   logger,
 	}
-	mm2.rpmMonitorStart()
+	mm2.rpmMonitorStart(ctx)
 
 	return mm2, nil
 }
@@ -71,12 +72,12 @@ type encodedMotor struct {
 	logger            golog.Logger
 }
 
-func (m *encodedMotor) Position() int64 {
-	return m.curPosition
+func (m *encodedMotor) Position(ctx context.Context) (int64, error) {
+	return m.curPosition, nil
 }
 
-func (m *encodedMotor) PositionSupported() bool {
-	return true
+func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {
+	return true, nil
 }
 
 func (m *encodedMotor) isRegulated() bool {
@@ -91,44 +92,44 @@ func (m *encodedMotor) setRegulated(b bool) {
 	}
 }
 
-func (m *encodedMotor) Force(force byte) error {
+func (m *encodedMotor) Force(ctx context.Context, force byte) error {
 	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
-	return m.setForce(force)
+	return m.setForce(ctx, force)
 }
 
-func (m *encodedMotor) setForce(force byte) error {
+func (m *encodedMotor) setForce(ctx context.Context, force byte) error {
 	m.lastForce = force
-	return m.real.Force(force)
+	return m.real.Force(ctx, force)
 }
 
-func (m *encodedMotor) Go(d pb.DirectionRelative, force byte) error {
+func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
 	m.setRegulated(false) // user wants direct control, so we stop trying to control the world
 	m.desiredRPM = 0      // if we're setting force manually, don't control RPM
-	return m.doGo(d, force)
+	return m.doGo(ctx, d, force)
 }
 
-func (m *encodedMotor) doGo(d pb.DirectionRelative, force byte) error {
+func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, force byte) error {
 	m.lastForce = force
 	m.curDirection = d
-	return m.real.Go(d, force)
+	return m.real.Go(ctx, d, force)
 }
 
-func (m *encodedMotor) rpmMonitorStart() {
+func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 	if m.startedRPMMonitor {
 		return
 	}
-	go m.rpmMonitor()
+	go m.rpmMonitor(ctx)
 }
 
-func (m *encodedMotor) startRegulatorThread() {
+func (m *encodedMotor) startRegulatorThread(ctx context.Context) {
 	if m.encoderB == nil {
-		m.startSingleEncoderThread()
+		m.startSingleEncoderThread(ctx)
 	} else {
-		m.startRotaryEncoderThread()
+		m.startRotaryEncoderThread(ctx)
 	}
 }
 
-func (m *encodedMotor) startSingleEncoderThread() {
+func (m *encodedMotor) startSingleEncoderThread(ctx context.Context) {
 	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
 	go func() {
@@ -148,7 +149,7 @@ func (m *encodedMotor) startSingleEncoderThread() {
 			}
 
 			if stop {
-				err := m.Off()
+				err := m.Off(ctx)
 				if err != nil {
 					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 				}
@@ -158,7 +159,7 @@ func (m *encodedMotor) startSingleEncoderThread() {
 	}()
 }
 
-func (m *encodedMotor) startRotaryEncoderThread() {
+func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
@@ -208,7 +209,7 @@ func (m *encodedMotor) startRotaryEncoderThread() {
 					(m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD && m.curPosition <= m.setPoint)
 
 				if stop {
-					err := m.Off()
+					err := m.Off(ctx)
 					if err != nil {
 						m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 					}
@@ -220,7 +221,7 @@ func (m *encodedMotor) startRotaryEncoderThread() {
 
 }
 
-func (m *encodedMotor) rpmMonitor() {
+func (m *encodedMotor) rpmMonitor(ctx context.Context) {
 	if m.encoder == nil {
 		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
 	}
@@ -231,7 +232,7 @@ func (m *encodedMotor) rpmMonitor() {
 	m.startedRPMMonitor = true
 
 	// just a convenient place to start the encoder listener
-	m.startRegulatorThread()
+	m.startRegulatorThread(ctx)
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()
@@ -286,7 +287,7 @@ func (m *encodedMotor) rpmMonitor() {
 					m.logger.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
 						currentRPM, m.lastForce, newForce, m.desiredRPM)
 				}
-				err := m.setForce(newForce)
+				err := m.setForce(ctx, newForce)
 				if err != nil {
 					m.logger.Warnf("rpm regulator cannot set force %s", err)
 				}
@@ -298,9 +299,9 @@ func (m *encodedMotor) rpmMonitor() {
 	}
 }
 
-func (m *encodedMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return m.Off()
+		return m.Off(ctx)
 	}
 
 	if rotations < 0 {
@@ -310,10 +311,10 @@ func (m *encodedMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations floa
 
 	if rotations == 0 {
 		// users probably shouldn't do this, maybe we shouldn't support, but...
-		return m.Go(d, 16) // force of 16 is random
+		return m.Go(ctx, d, 16) // force of 16 is random
 	}
 
-	m.rpmMonitorStart()
+	m.rpmMonitorStart(ctx)
 
 	numTicks := int64(rotations * float64(m.cfg.TicksPerRotation))
 
@@ -328,9 +329,13 @@ func (m *encodedMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations floa
 	m.setRegulated(true)
 	m.desiredRPM = rpm
 
-	if !m.IsOn() {
+	isOn, err := m.IsOn(ctx)
+	if err != nil {
+		return err
+	}
+	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.doGo(d, 8)
+		err := m.doGo(ctx, d, 8)
 		if err != nil {
 			return err
 		}
@@ -339,12 +344,12 @@ func (m *encodedMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations floa
 	return nil
 }
 
-func (m *encodedMotor) Off() error {
+func (m *encodedMotor) Off(ctx context.Context) error {
 	m.desiredRPM = 0.0
 	m.setRegulated(false)
-	return m.real.Off()
+	return m.real.Off(ctx)
 }
 
-func (m *encodedMotor) IsOn() bool {
-	return m.real.IsOn()
+func (m *encodedMotor) IsOn(ctx context.Context) (bool, error) {
+	return m.real.IsOn(ctx)
 }
