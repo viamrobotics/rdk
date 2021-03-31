@@ -1,6 +1,7 @@
 package fake
 
 import (
+	"context"
 	"fmt"
 
 	"go.viam.com/robotcore/api"
@@ -27,27 +28,27 @@ type Arm struct {
 	joints   *pb.JointPositions
 }
 
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) {
 }
 
-func (a *Arm) CurrentPosition() (*pb.ArmPosition, error) {
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return a.position, nil
 }
 
-func (a *Arm) MoveToPosition(c *pb.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	a.position = c
 	return nil
 }
 
-func (a *Arm) MoveToJointPositions(joints *pb.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	a.joints = joints
 	return nil
 }
 
-func (a *Arm) CurrentJointPositions() (*pb.JointPositions, error) {
+func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
-func (a *Arm) JointMoveDelta(joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("arm JointMoveDelta does nothing")
 }

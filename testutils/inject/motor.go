@@ -1,66 +1,68 @@
 package inject
 
 import (
+	"context"
+
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
 type Motor struct {
 	board.Motor
-	ForceFunc             func(force byte) error
-	GoFunc                func(d pb.DirectionRelative, force byte) error
-	GoForFunc             func(d pb.DirectionRelative, rpm float64, rotations float64) error
-	PositionFunc          func() int64
-	PositionSupportedFunc func() bool
-	OffFunc               func() error
-	IsOnFunc              func() bool
+	ForceFunc             func(ctx context.Context, force byte) error
+	GoFunc                func(ctx context.Context, d pb.DirectionRelative, force byte) error
+	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
+	PositionFunc          func(ctx context.Context) (int64, error)
+	PositionSupportedFunc func(ctx context.Context) (bool, error)
+	OffFunc               func(ctx context.Context) error
+	IsOnFunc              func(ctx context.Context) (bool, error)
 }
 
-func (m *Motor) Force(force byte) error {
+func (m *Motor) Force(ctx context.Context, force byte) error {
 	if m.ForceFunc == nil {
-		return m.Motor.Force(force)
+		return m.Motor.Force(ctx, force)
 	}
-	return m.ForceFunc(force)
+	return m.ForceFunc(ctx, force)
 }
 
-func (m *Motor) Go(d pb.DirectionRelative, force byte) error {
+func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
 	if m.GoFunc == nil {
-		return m.Motor.Go(d, force)
+		return m.Motor.Go(ctx, d, force)
 	}
-	return m.GoFunc(d, force)
+	return m.GoFunc(ctx, d, force)
 }
 
-func (m *Motor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	if m.GoForFunc == nil {
-		return m.Motor.GoFor(d, rpm, rotations)
+		return m.Motor.GoFor(ctx, d, rpm, rotations)
 	}
-	return m.GoForFunc(d, rpm, rotations)
+	return m.GoForFunc(ctx, d, rpm, rotations)
 }
 
-func (m *Motor) Position() int64 {
+func (m *Motor) Position(ctx context.Context) (int64, error) {
 	if m.PositionFunc == nil {
-		return m.Motor.Position()
+		return m.Motor.Position(ctx)
 	}
-	return m.PositionFunc()
+	return m.PositionFunc(ctx)
 }
 
-func (m *Motor) PositionSupported() bool {
+func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	if m.PositionSupportedFunc == nil {
-		return m.Motor.PositionSupported()
+		return m.Motor.PositionSupported(ctx)
 	}
-	return m.PositionSupportedFunc()
+	return m.PositionSupportedFunc(ctx)
 }
 
-func (m *Motor) Off() error {
+func (m *Motor) Off(ctx context.Context) error {
 	if m.OffFunc == nil {
-		return m.Motor.Off()
+		return m.Motor.Off(ctx)
 	}
-	return m.OffFunc()
+	return m.OffFunc(ctx)
 }
 
-func (m *Motor) IsOn() bool {
+func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	if m.IsOnFunc == nil {
-		return m.Motor.IsOn()
+		return m.Motor.IsOn(ctx)
 	}
-	return m.IsOnFunc()
+	return m.IsOnFunc(ctx)
 }

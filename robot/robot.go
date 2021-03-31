@@ -151,11 +151,11 @@ func (r *Robot) BoardNames() []string {
 
 func (r *Robot) Close(ctx context.Context) error {
 	for _, x := range r.arms {
-		x.Close()
+		x.Close(ctx)
 	}
 
 	for _, x := range r.grippers {
-		x.Close()
+		x.Close(ctx)
 	}
 
 	for _, x := range r.cameras {
@@ -175,7 +175,7 @@ func (r *Robot) Close(ctx context.Context) error {
 	}
 
 	for _, x := range r.boards {
-		if err := x.Close(); err != nil {
+		if err := x.Close(ctx); err != nil {
 			r.logger.Error("error closing boar", "error", err)
 		}
 
@@ -184,12 +184,12 @@ func (r *Robot) Close(ctx context.Context) error {
 	return nil
 }
 
-func (r *Robot) GetConfig() api.Config {
-	return r.config
+func (r *Robot) GetConfig(ctx context.Context) (api.Config, error) {
+	return r.config, nil
 }
 
-func (r *Robot) Status() (*pb.Status, error) {
-	return api.CreateStatus(r)
+func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
+	return api.CreateStatus(ctx, r)
 }
 
 func (r *Robot) Logger() golog.Logger {

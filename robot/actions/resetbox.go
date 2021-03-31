@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -83,13 +84,13 @@ func OpenBox(b board.Board, gentle bool) error {
 
 	// Back off in case we're already at the limit switch
 	if gentle {
-		err := shakeServo.Move(100)
+		err := shakeServo.Move(context.TODO(), 100)
 		if err != nil {
 			return err
 		}
 		time.Sleep(300 * time.Millisecond)
 	}
-	err := shakeServo.Move(uint8(servoSpeed))
+	err := shakeServo.Move(context.TODO(), uint8(servoSpeed))
 	if err != nil {
 		return err
 	}
@@ -98,7 +99,7 @@ func OpenBox(b board.Board, gentle bool) error {
 		currentValue = lSwitch.Value()
 	}
 
-	err = shakeServo.Move(90)
+	err = shakeServo.Move(context.TODO(), 90)
 	if err != nil {
 		return err
 	}
@@ -111,7 +112,7 @@ func CloseBox(b board.Board) error {
 	startValue := lSwitch.Value()
 
 	shakeServo := b.Servo("shake")
-	err := shakeServo.Move(110)
+	err := shakeServo.Move(context.TODO(), 110)
 	if err != nil {
 		return err
 	}
@@ -121,7 +122,7 @@ func CloseBox(b board.Board) error {
 		currentValue = lSwitch.Value()
 	}
 
-	err = shakeServo.Move(90)
+	err = shakeServo.Move(context.TODO(), 90)
 	if err != nil {
 		return err
 	}
@@ -130,36 +131,36 @@ func CloseBox(b board.Board) error {
 
 func TiltField(b board.Board) error {
 	tiltServo := b.Servo("tilt")
-	return tiltServo.Move(70)
+	return tiltServo.Move(context.TODO(), 70)
 }
 
 func FlatField(b board.Board) error {
 	tiltServo := b.Servo("tilt")
-	return tiltServo.Move(32)
+	return tiltServo.Move(context.TODO(), 32)
 }
 
 func ReplaceObject(theRobot api.Robot) error {
 	myArm := theRobot.ArmByName("pieceArm")
 	myGripper := theRobot.GripperByName("pieceGripper")
-	err := myGripper.Open()
+	err := myGripper.Open(context.TODO())
 	if err != nil {
 		return err
 	}
 
-	err = myArm.MoveToJointPositions(&pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 	if err != nil {
 		return err
 	}
 
 	toDuckPositions := navigateWx250sToDuck()
 	for _, intPosition := range toDuckPositions {
-		err = myArm.MoveToJointPositions(intPosition)
+		err = myArm.MoveToJointPositions(context.TODO(), intPosition)
 		if err != nil {
 			return err
 		}
 	}
 	// TODO(pl): search pattern, additional shaking, etc if gripper grabs nothing
-	_, err = myGripper.Grab()
+	_, err = myGripper.Grab(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -167,28 +168,28 @@ func ReplaceObject(theRobot api.Robot) error {
 	time.Sleep(1000 * time.Millisecond)
 	fromDuckPositions := navigateWx250sFromDuck()
 	for _, intPosition := range fromDuckPositions {
-		err = myArm.MoveToJointPositions(intPosition)
+		err = myArm.MoveToJointPositions(context.TODO(), intPosition)
 		if err != nil {
 			return err
 		}
 	}
-	err = myGripper.Open()
+	err = myGripper.Open(context.TODO())
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(1000 * time.Millisecond)
-	err = myArm.MoveToJointPositions(&pb.JointPositions{Degrees: []float64{-86, 5, 5, 0, 70, 0}})
+	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{-86, 5, 5, 0, 70, 0}})
 	if err != nil {
 		return err
 	}
 
-	err = myArm.MoveToJointPositions(&pb.JointPositions{Degrees: []float64{-77, 0, 0, 0, 0, 0}})
+	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{-77, 0, 0, 0, 0, 0}})
 	if err != nil {
 		return err
 	}
 
-	return myArm.MoveToJointPositions(&pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	return myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 }
 
 func ResetBoxSteps(theRobot api.Robot, shakes int) error {
