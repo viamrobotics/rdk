@@ -157,8 +157,8 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y int, z float64) (float6
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	//TODO(louise): add unit test
 	if z != 0. {
-		xPx := math.Round((x*params.Fx)/z + params.Ppx)
-		yPx := math.Round((y*params.Fy)/z + params.Ppy)
+		xPx := math.Round((x/z)*params.Fx + params.Ppx)
+		yPx := math.Round((y/z)*params.Fy + params.Ppy)
 		return xPx, yPx
 	}
 	// if depth is zero at this pixel, return negative coordinates so that the cropping to RGB bounds will filter it out
