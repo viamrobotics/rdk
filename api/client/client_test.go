@@ -223,16 +223,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	// stream, err := client.StatusStream(context.Background(), time.Second)
-	// test.That(t, err, test.ShouldBeNil)
-	// _, err = stream.Next()
-	// test.That(t, err, test.ShouldNotBeNil)
-	// test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
-
-	// err = client.DoAction(context.Background(), "unknown")
-	// test.That(t, err, test.ShouldNotBeNil)
-	// test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
-
 	err = client.BaseByName("base1").Stop(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
@@ -287,28 +277,6 @@ func TestClient(t *testing.T) {
 	status, err := client.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
-
-	// dur := 100 * time.Millisecond
-	// start := time.Now()
-	// stream, err = client.StatusStream(context.Background(), dur)
-	// test.That(t, err, test.ShouldBeNil)
-	// for i := 0; i < 3; i++ {
-	// 	nextStatus, err := stream.Next()
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, nextStatus.String(), test.ShouldResemble, emptyStatus.String())
-	// }
-	// test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-	// test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
-
-	// actionName := utils.RandomAlphaString(5)
-	// called := make(chan api.Robot)
-	// actions.RegisterAction(actionName, func(r api.Robot) {
-	// 	called <- r
-	// })
-
-	// err = client.DoAction(context.Background(), actionName)
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, <-called, test.ShouldEqual, injectRobot2)
 
 	err = client.BaseByName("base1").Stop(context.Background())
 	test.That(t, err, test.ShouldBeNil)

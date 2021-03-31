@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -16,8 +15,9 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
+
+var errUnimplemented = errors.New("unimplemented")
 
 type RobotClient struct {
 	conn   *grpc.ClientConn
@@ -144,31 +144,6 @@ func (rc *RobotClient) AddProvider(p api.Provider, c api.Component) {}
 func (rc *RobotClient) Logger() golog.Logger {
 	return nil
 }
-
-// TODO(erd): this is not a part of api.Robot
-func (rc *RobotClient) StatusStream(ctx context.Context, every time.Duration) (*StatusStream, error) {
-	client, err := rc.client.StatusStream(ctx, &pb.StatusStreamRequest{
-		Every: durationpb.New(every),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &StatusStream{client}, nil
-}
-
-type StatusStream struct {
-	client pb.RobotService_StatusStreamClient
-}
-
-func (ss *StatusStream) Next() (*pb.Status, error) {
-	resp, err := ss.client.Recv()
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-var errUnimplemented = errors.New("unimplemented")
 
 type baseClient struct {
 	rc   *RobotClient
@@ -422,12 +397,4 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 func (cc *cameraClient) Close() error {
 	// TODO(erd): this should probably be removed from interface
 	return nil
-}
-
-// TODO(erd): this is not a part of api.Robot
-func (rc *RobotClient) DoAction(ctx context.Context, name string) error {
-	_, err := rc.client.DoAction(ctx, &pb.DoActionRequest{
-		Name: name,
-	})
-	return err
 }
