@@ -136,7 +136,7 @@ func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64
 				// get z distance to meter for unit uniformity
 				z := float64(d) * pixel2meter
 				// get x and y of 3D point
-				xPoint, yPoint, _ := params.PixelToPoint(x, y, z)
+				xPoint, yPoint, _ := params.PixelToPoint(float64(x), float64(y), z)
 				// Get point in PointCloud format
 				pts.Points = append(pts.Points, r3.Vector{xPoint, yPoint, z})
 			}
@@ -212,7 +212,7 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 			// get z distance to meter for unit uniformity
 			z := float64(d) * pixel2meter
 			// get x and y of 3D point
-			xPoint, yPoint, z := params.PixelToPoint(x, y, z)
+			xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
 			// Get point in PointCloud format
 			xInt := int(math.Round(xPoint / pixel2meter))
 			yInt := int(math.Round(yPoint / pixel2meter))
