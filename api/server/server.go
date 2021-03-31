@@ -1,14 +1,17 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"image/jpeg"
 	"time"
 
 	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
+	"google.golang.org/genproto/googleapis/api/httpbody"
 )
 
 type Server struct {
@@ -180,4 +183,45 @@ func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServ
 	}
 
 	return &pb.ControlBoardServoResponse{}, theServo.Move(uint8(req.AngleDeg))
+}
+
+func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
+	camera := s.r.CameraByName(req.Name)
+	if camera == nil {
+		return nil, fmt.Errorf("no camera with name (%s)", req.Name)
+	}
+
+	img, release, err := camera.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+
+	resp := pb.CameraFrameResponse{
+		MimeType: req.MimeType,
+	}
+	var buf bytes.Buffer
+	switch req.MimeType {
+	case "", "image/jpeg":
+		resp.MimeType = "image/jpeg"
+		if err := jpeg.Encode(&buf, img, nil); err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("do not know how to encode %q", req.MimeType)
+	}
+	resp.Frame = buf.Bytes()
+	return &resp, nil
+}
+
+func (s *Server) RenderCameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*httpbody.HttpBody, error) {
+	resp, err := s.CameraFrame(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &httpbody.HttpBody{
+		ContentType: resp.MimeType,
+		Data:        resp.Frame,
+	}, nil
 }
