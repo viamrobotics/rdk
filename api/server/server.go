@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -79,6 +80,9 @@ func (s *Server) ControlBase(ctx context.Context, req *pb.ControlBaseRequest) (*
 		}
 		return &pb.ControlBaseResponse{}, nil
 	case *pb.ControlBaseRequest_Move:
+		if v.Move == nil {
+			return &pb.ControlBaseResponse{}, errors.New("move unspecified")
+		}
 		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
 		if v.Move.Speed != 0 {
 			millisPerSec = v.Move.Speed
@@ -142,7 +146,7 @@ func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperReque
 func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMotorRequest) (*pb.ControlBoardMotorResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.BoardName)
+		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
 	}
 
 	theMotor := b.Motor(req.MotorName)
@@ -167,12 +171,12 @@ func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMoto
 func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServoRequest) (*pb.ControlBoardServoResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.BoardName)
+		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
 	}
 
 	theServo := b.Servo(req.ServoName)
 	if theServo == nil {
-		return nil, fmt.Errorf("unknown Servo: %s", req.ServoName)
+		return nil, fmt.Errorf("unknown servo: %s", req.ServoName)
 	}
 
 	return &pb.ControlBoardServoResponse{}, theServo.Move(uint8(req.AngleDeg))
