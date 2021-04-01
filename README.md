@@ -12,6 +12,7 @@
 * [api](./api) - Robot, Arm, Base, Gripper API and Configuration
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
   * [pi](./board/pi) - raspberry pi library
+* [dist/js](./dist/js) - auto-generated proto/gRPC files for JavaScript based off of `proto` directory
 * [kinematics](./kinematics) - Kinematics library
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
@@ -20,6 +21,7 @@
 * [robot](./robot) - Implementation of ([api](./api))
   * [web](./robot/web) - Web server for using robots
 * [robots](./robots) - Implementations of specific robots, arms, grippers
+* [proto](./proto) - Protocol Buffer files and auto-generated proto/gRPC golang counterparts
 * [rpc](./rpc) - gRPC server utilities
 * [sensor](./sensor) - Various sensor APIs
   * [compass](./sensor/compass) - Compass and ways to use for spinning
