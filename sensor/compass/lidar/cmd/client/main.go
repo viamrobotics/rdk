@@ -13,6 +13,9 @@ import (
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/utils"
 
+	// register
+	_ "go.viam.com/robotcore/lidar/client"
+
 	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/stat"
 )
@@ -51,11 +54,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return errors.New("no suitable lidar device found")
 	}
 
-	return readCompass(ctx, deviceDescs)
+	return readCompass(ctx, deviceDescs, logger)
 }
 
-func readCompass(ctx context.Context, lidarDeviceDescs []lidar.DeviceDescription) (err error) {
-	lidarDevices, err := lidar.CreateDevices(ctx, lidarDeviceDescs)
+func readCompass(ctx context.Context, lidarDeviceDescs []lidar.DeviceDescription, logger golog.Logger) (err error) {
+	lidarDevices, err := lidar.CreateDevices(ctx, lidarDeviceDescs, logger)
 	if err != nil {
 		return err
 	}

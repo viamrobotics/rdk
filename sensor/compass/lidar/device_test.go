@@ -19,14 +19,15 @@ import (
 )
 
 func TestNew(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// unknown type
-	_, err := New(context.Background(), lidar.DeviceDescription{Type: "what"})
+	_, err := New(context.Background(), lidar.DeviceDescription{Type: "what"}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
 	var newFunc func(desc lidar.DeviceDescription) (lidar.Device, error)
 	lidar.RegisterDeviceType(devType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			return newFunc(desc)
 		},
 	})
@@ -38,7 +39,7 @@ func TestNew(t *testing.T) {
 		return nil, newErr
 	}
 
-	_, err = New(context.Background(), desc)
+	_, err = New(context.Background(), desc, logger)
 	test.That(t, err, test.ShouldEqual, newErr)
 
 	injectDev := &inject.LidarDevice{}
@@ -46,7 +47,7 @@ func TestNew(t *testing.T) {
 		return injectDev, nil
 	}
 
-	dev, err := New(context.Background(), desc)
+	dev, err := New(context.Background(), desc, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dev, test.ShouldNotBeNil)
 }

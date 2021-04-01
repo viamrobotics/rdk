@@ -25,7 +25,7 @@ import (
 
 func TestMain(t *testing.T) {
 	lidar.RegisterDeviceType("fail_info", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 			dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 				return nil, errors.New("whoops")
@@ -34,7 +34,7 @@ func TestMain(t *testing.T) {
 		},
 	})
 	lidar.RegisterDeviceType("fail_width", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 			dev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
 				return image.Point{}, errors.New("whoops")
@@ -43,7 +43,7 @@ func TestMain(t *testing.T) {
 		},
 	})
 	lidar.RegisterDeviceType("fail_ang", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 			dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 				return math.NaN(), errors.New("whoops")
@@ -52,7 +52,7 @@ func TestMain(t *testing.T) {
 		},
 	})
 	lidar.RegisterDeviceType("fail_stop", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 			dev.StopFunc = func(ctx context.Context) error {
 				return errors.New("whoops")
@@ -61,7 +61,7 @@ func TestMain(t *testing.T) {
 		},
 	})
 	lidar.RegisterDeviceType("fail_scan", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 			var once bool
 			dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
