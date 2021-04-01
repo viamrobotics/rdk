@@ -226,8 +226,7 @@ helper if you don't need to customize at all
 func RunWeb(ctx context.Context, theRobot *robot.Robot, options Options, logger golog.Logger) error {
 	defer theRobot.Close(context.Background())
 
-	const port = 8080
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
 	if err != nil {
 		return err
 	}
