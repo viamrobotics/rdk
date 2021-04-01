@@ -13,11 +13,19 @@ type AreaViewer struct {
 }
 
 func (av *AreaViewer) Next(ctx context.Context) (image.Image, func(), error) {
-	areaSize := av.Area.Dim()
+	return AreaToImage(av.Area), func() {}, nil
+}
+
+func (av *AreaViewer) Close() error {
+	return nil
+}
+
+func AreaToImage(a *SquareArea) image.Image {
+	areaSize := a.Dim()
 
 	dc := gg.NewContext(areaSize, areaSize)
 
-	av.Area.Mutate(func(area MutableArea) {
+	a.Mutate(func(area MutableArea) {
 		offset := areaSize / 2
 		area.Iterate(func(x, y, _ int) bool {
 			dc.SetColor(color.RGBA{255, 0, 0, 255})
@@ -26,9 +34,5 @@ func (av *AreaViewer) Next(ctx context.Context) (image.Image, func(), error) {
 		})
 	})
 
-	return dc.Image(), func() {}, nil
-}
-
-func (av *AreaViewer) Close() error {
-	return nil
+	return dc.Image()
 }
