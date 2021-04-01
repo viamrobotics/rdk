@@ -16,12 +16,14 @@ type Robot struct {
 	api.Robot
 	ProviderByModelFunc   func(model string) api.Provider
 	AddProviderFunc       func(p api.Provider, c api.Component)
+	RemoteByNameFunc      func(name string) api.Robot
 	ArmByNameFunc         func(name string) api.Arm
 	BaseByNameFunc        func(name string) api.Base
 	GripperByNameFunc     func(name string) api.Gripper
 	CameraByNameFunc      func(name string) gostream.ImageSource
 	LidarDeviceByNameFunc func(name string) lidar.Device
 	BoardByNameFunc       func(name string) board.Board
+	RemoteNamesFunc       func() []string
 	ArmNamesFunc          func() []string
 	GripperNamesFunc      func() []string
 	CameraNamesFunc       func() []string
@@ -47,6 +49,13 @@ func (r *Robot) AddProvider(p api.Provider, c api.Component) {
 		return
 	}
 	r.AddProviderFunc(p, c)
+}
+
+func (r *Robot) RemoteByName(name string) api.Robot {
+	if r.RemoteByNameFunc == nil {
+		return r.Robot.RemoteByName(name)
+	}
+	return r.RemoteByNameFunc(name)
 }
 
 func (r *Robot) ArmByName(name string) api.Arm {
@@ -89,6 +98,13 @@ func (r *Robot) BoardByName(name string) board.Board {
 		return r.Robot.BoardByName(name)
 	}
 	return r.BoardByNameFunc(name)
+}
+
+func (r *Robot) RemoteNames() []string {
+	if r.RemoteNamesFunc == nil {
+		return r.Robot.RemoteNames()
+	}
+	return r.RemoteNamesFunc()
 }
 
 func (r *Robot) ArmNames() []string {

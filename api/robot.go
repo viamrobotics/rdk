@@ -16,6 +16,7 @@ type Robot interface {
 	ProviderByModel(model string) Provider
 	AddProvider(p Provider, c Component)
 
+	RemoteByName(name string) Robot
 	ArmByName(name string) Arm
 	BaseByName(name string) Base
 	GripperByName(name string) Gripper
@@ -23,6 +24,7 @@ type Robot interface {
 	LidarDeviceByName(name string) lidar.Device
 	BoardByName(name string) board.Board
 
+	RemoteNames() []string
 	ArmNames() []string
 	GripperNames() []string
 	CameraNames() []string

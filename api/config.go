@@ -98,7 +98,14 @@ type Component struct {
 	Attributes AttributeMap
 }
 
+type Remote struct {
+	Name    string
+	Address string
+	Prefix  bool
+}
+
 type Config struct {
+	Remotes    []Remote
 	Boards     []board.Config
 	Components []Component
 }
