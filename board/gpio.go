@@ -1,6 +1,7 @@
 package board
 
 import (
+	"context"
 	"fmt"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -30,22 +31,22 @@ type GPIOMotor struct {
 	on        bool
 }
 
-func (m *GPIOMotor) Position() int64 {
-	return 0
+func (m *GPIOMotor) Position(ctx context.Context) (int64, error) {
+	return 0, nil
 }
 
-func (m *GPIOMotor) PositionSupported() bool {
-	return false
+func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
+	return false, nil
 }
 
-func (m *GPIOMotor) Force(force byte) error {
+func (m *GPIOMotor) Force(ctx context.Context, force byte) error {
 	return m.Board.PWMSet(m.PWM, force)
 }
 
-func (m *GPIOMotor) Go(d pb.DirectionRelative, force byte) error {
+func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
-		return m.Off()
+		return m.Off(ctx)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
 		return multierr.Combine(
@@ -65,15 +66,15 @@ func (m *GPIOMotor) Go(d pb.DirectionRelative, force byte) error {
 	return fmt.Errorf("unknown direction %v", d)
 }
 
-func (m *GPIOMotor) GoFor(d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	return fmt.Errorf("not supported")
 }
 
-func (m *GPIOMotor) IsOn() bool {
-	return m.on
+func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
+	return m.on, nil
 }
 
-func (m *GPIOMotor) Off() error {
+func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
 	return multierr.Combine(
 		m.Board.GPIOSet(m.A, false),

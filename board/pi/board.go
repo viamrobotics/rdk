@@ -8,6 +8,7 @@ package pi
 import "C"
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/robotcore/board"
+
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
 func init() {
@@ -65,8 +68,8 @@ type piPigpio struct {
 	logger        golog.Logger
 }
 
-func (pi *piPigpio) GetConfig() board.Config {
-	return pi.cfg
+func (pi *piPigpio) GetConfig(ctx context.Context) (board.Config, error) {
+	return pi.cfg, nil
 }
 
 func (pi *piPigpio) GPIOSet(pin string, high bool) error {
@@ -121,7 +124,7 @@ type piPigpioAnalogReader struct {
 	channel int
 }
 
-func (par *piPigpioAnalogReader) Read() (int, error) {
+func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	return par.pi.AnalogRead(par.channel)
 }
 
@@ -148,7 +151,7 @@ type piPigpioServo struct {
 	pin C.uint
 }
 
-func (s *piPigpioServo) Move(angle uint8) error {
+func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
 	res := C.gpioServo(s.pin, C.uint(val))
 	if res != 0 {
@@ -157,13 +160,13 @@ func (s *piPigpioServo) Move(angle uint8) error {
 	return nil
 }
 
-func (s *piPigpioServo) Current() uint8 {
+func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	if res <= 0 {
 		// this includes, errors, we'll ignore
-		return 0
+		return 0, nil
 	}
-	return uint8(180 * (float64(res) - 500.0) / 2000)
+	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
 func (pi *piPigpio) Servo(name string) board.Servo {
@@ -178,7 +181,7 @@ func (pi *piPigpio) Motor(name string) board.Motor {
 	return pi.motors[name]
 }
 
-func (pi *piPigpio) Close() error {
+func (pi *piPigpio) Close(ctx context.Context) error {
 	if pi.analogEnabled {
 		C.spiClose(C.uint(pi.analogSpi))
 		pi.analogSpi = 0
@@ -189,8 +192,8 @@ func (pi *piPigpio) Close() error {
 	piInstance = nil
 	return nil
 }
-func (pi *piPigpio) Status() (board.Status, error) {
-	return board.CreateStatus(pi)
+func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
+	return board.CreateStatus(ctx, pi)
 }
 
 var (
@@ -221,7 +224,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	i.Tick(high, tick*1000)
 }
 
-func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
+func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 	var err error
 	if piInstance != nil {
 		return nil, fmt.Errorf("can only have 1 piPigpio instance")
@@ -262,7 +265,7 @@ func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel}
-		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ar, ac, logger)
+		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ctx, ar, ac, logger)
 	}
 
 	// setup interrupts
@@ -293,7 +296,7 @@ func NewPigpio(cfg board.Config, logger golog.Logger) (board.Board, error) {
 			return nil, err
 		}
 
-		m, err = board.WrapMotorWithEncoder(piInstance, c, m, logger)
+		m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
 		if err != nil {
 			return nil, err
 		}

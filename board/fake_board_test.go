@@ -10,7 +10,7 @@ import (
 )
 
 func TestFakeRegistry(t *testing.T) {
-	b, err := NewBoard(Config{Model: "fake"}, golog.Global)
+	b, err := NewBoard(context.Background(), Config{Model: "fake"}, golog.Global)
 	assert.Nil(t, err)
 	_, ok := b.(*FakeBoard)
 	assert.True(t, ok)
@@ -40,7 +40,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 	}
 
-	b, err := NewFakeBoard(cfg, golog.Global)
+	b, err := NewFakeBoard(context.Background(), cfg, golog.Global)
 	if err != nil {
 		t.Fatal(err)
 	}
