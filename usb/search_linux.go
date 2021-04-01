@@ -5,7 +5,6 @@ package usb
 import (
 	"bufio"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -31,9 +30,12 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 		}
 		var results []DeviceDescription
 		for _, device := range devices {
-			linkedFile, err := os.Readlink(path.Join(sysPath, device.Name()))
+			linkedFile, err := os.Readlink(filepath.Join(sysPath, device.Name()))
 			if err != nil {
 				continue
+			}
+			if !filepath.IsAbs(linkedFile) {
+				linkedFile = filepath.Join(sysPath, linkedFile)
 			}
 			ueventFile, err := os.Open(filepath.Join(linkedFile, "../uevent"))
 			if err != nil {
