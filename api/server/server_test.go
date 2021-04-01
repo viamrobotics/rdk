@@ -318,6 +318,88 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64, false})
 	})
 
+	t.Run("ArmCurrentPosition", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ArmByNameFunc = func(name string) api.Arm {
+			capName = name
+			return nil
+		}
+
+		_, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, capName, test.ShouldEqual, "arm1")
+
+		injectArm := &inject.Arm{}
+		injectRobot.ArmByNameFunc = func(name string) api.Arm {
+			return injectArm
+		}
+
+		err1 := errors.New("whoops")
+		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, RX: 4, RY: 5, RZ: 6}
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+			return nil, err1
+		}
+
+		_, err = server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+			return pos, nil
+		}
+		resp, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Position, test.ShouldResemble, pos)
+	})
+
+	t.Run("ArmCurrentJointPositions", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ArmByNameFunc = func(name string) api.Arm {
+			capName = name
+			return nil
+		}
+
+		_, err := server.ArmCurrentJointPositions(context.Background(), &pb.ArmCurrentJointPositionsRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, capName, test.ShouldEqual, "arm1")
+
+		injectArm := &inject.Arm{}
+		injectRobot.ArmByNameFunc = func(name string) api.Arm {
+			return injectArm
+		}
+
+		err1 := errors.New("whoops")
+		pos := &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
+		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+			return nil, err1
+		}
+
+		_, err = server.ArmCurrentJointPositions(context.Background(), &pb.ArmCurrentJointPositionsRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+			return pos, nil
+		}
+		resp, err := server.ArmCurrentJointPositions(context.Background(), &pb.ArmCurrentJointPositionsRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Positions, test.ShouldResemble, pos)
+	})
+
 	t.Run("MoveArmToPosition", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -480,6 +562,59 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldEqual, nil)
 		test.That(t, resp.Grabbed, test.ShouldBeTrue)
+	})
+
+	t.Run("BoardStatus", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) board.Board {
+			capName = name
+			return nil
+		}
+
+		_, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) board.Board {
+			return injectBoard
+		}
+
+		err1 := errors.New("whoops")
+		status := &pb.BoardStatus{
+			Motors: map[string]*pb.MotorStatus{
+				"g": {},
+			},
+			Servos: map[string]*pb.ServoStatus{
+				"servo1": {},
+			},
+			Analogs: map[string]*pb.AnalogStatus{
+				"analog1": {},
+			},
+			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+				"encoder": {},
+			},
+		}
+		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
+			return nil, err1
+		}
+		_, err = server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
+			return status, nil
+		}
+		resp, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Status, test.ShouldResemble, status)
 	})
 
 	t.Run("ControlBoardMotor", func(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"image"
+	"runtime/debug"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -50,6 +50,11 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	return rc.conn.Close()
 }
 
+func (rc *RobotClient) RemoteByName(name string) api.Robot {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
 func (rc *RobotClient) ArmByName(name string) api.Arm {
 	return &armClient{rc, name}
 }
@@ -68,6 +73,7 @@ func (rc *RobotClient) CameraByName(name string) gostream.ImageSource {
 
 func (rc *RobotClient) LidarDeviceByName(name string) lidar.Device {
 	// TODO(erd): converge lidar grpc client here
+	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -95,6 +101,11 @@ func (rc *RobotClient) populateNames(ctx context.Context) error {
 	return nil
 }
 
+func (rc *RobotClient) RemoteNames() []string {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
 func (rc *RobotClient) ArmNames() []string {
 	// TODO(erd): copy?
 	return rc.armNames
@@ -106,10 +117,12 @@ func (rc *RobotClient) GripperNames() []string {
 }
 
 func (rc *RobotClient) CameraNames() []string {
+	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (rc *RobotClient) LidarDeviceNames() []string {
+	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -124,6 +137,7 @@ func (rc *RobotClient) BoardNames() []string {
 }
 
 func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
+	debug.PrintStack()
 	return api.Config{}, errUnimplemented
 }
 
@@ -194,6 +208,7 @@ func (bc *baseClient) Close(ctx context.Context) error {
 }
 
 func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
+	debug.PrintStack()
 	return 0, errUnimplemented
 }
 
@@ -203,7 +218,13 @@ type armClient struct {
 }
 
 func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errUnimplemented
+	resp, err := ac.rc.client.ArmCurrentPosition(ctx, &pb.ArmCurrentPositionRequest{
+		Name: ac.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Position, nil
 }
 
 func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
@@ -223,10 +244,17 @@ func (ac *armClient) MoveToJointPositions(ctx context.Context, pos *pb.JointPosi
 }
 
 func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	return nil, errUnimplemented
+	resp, err := ac.rc.client.ArmCurrentJointPositions(ctx, &pb.ArmCurrentJointPositionsRequest{
+		Name: ac.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Positions, nil
 }
 
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+	debug.PrintStack()
 	return errUnimplemented
 }
 
@@ -284,10 +312,12 @@ func (bc *boardClient) Servo(name string) board.Servo {
 }
 
 func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
+	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
+	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
@@ -297,19 +327,18 @@ func (bc *boardClient) Close(ctx context.Context) error {
 }
 
 func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {
+	debug.PrintStack()
 	return board.Config{}, errUnimplemented
 }
 
 func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	status, err := bc.rc.Status(ctx)
+	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
+		Name: bc.name,
+	})
 	if err != nil {
 		return nil, err
 	}
-	boardStatus, ok := status.Boards[bc.name]
-	if !ok {
-		return nil, fmt.Errorf("no board with name (%s)", bc.name)
-	}
-	return boardStatus, nil
+	return resp.Status, nil
 }
 
 type motorClient struct {
@@ -319,6 +348,7 @@ type motorClient struct {
 }
 
 func (mc *motorClient) Force(ctx context.Context, force byte) error {
+	debug.PrintStack()
 	return errUnimplemented
 }
 
@@ -344,18 +374,22 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 }
 
 func (mc *motorClient) Position(ctx context.Context) (int64, error) {
+	debug.PrintStack()
 	return 0, errUnimplemented
 }
 
 func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
+	debug.PrintStack()
 	return false, errUnimplemented
 }
 
 func (mc *motorClient) Off(ctx context.Context) error {
+	debug.PrintStack()
 	return errUnimplemented
 }
 
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
+	debug.PrintStack()
 	return false, errUnimplemented
 }
 
@@ -375,6 +409,7 @@ func (sc *servoClient) Move(ctx context.Context, angle uint8) error {
 }
 
 func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
+	debug.PrintStack()
 	return 0, errUnimplemented
 }
 

@@ -18,6 +18,9 @@ func TestConfigRobot(t *testing.T) {
 		t.Errorf("bad config read %v", cfg)
 	}
 
+	assert.Equal(t, 2, len(cfg.Remotes))
+	assert.Equal(t, Remote{Name: "one", Address: "foo", Prefix: true}, cfg.Remotes[0])
+	assert.Equal(t, Remote{Address: "bar"}, cfg.Remotes[1])
 }
 
 func TestConfig2(t *testing.T) {

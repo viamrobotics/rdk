@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -19,6 +20,7 @@ import (
 )
 
 type Robot struct {
+	remotes      map[string]api.Robot
 	boards       map[string]board.Board
 	arms         map[string]api.Arm
 	grippers     map[string]api.Gripper
@@ -29,6 +31,10 @@ type Robot struct {
 
 	config api.Config
 	logger golog.Logger
+}
+
+func (r *Robot) RemoteByName(name string) api.Robot {
+	return r.remotes[name]
 }
 
 func (r *Robot) BoardByName(name string) board.Board {
@@ -59,6 +65,13 @@ func (r *Robot) ProviderByModel(model string) api.Provider {
 	return r.providers[model]
 }
 
+func (r *Robot) AddRemote(otherR api.Robot, name string) string {
+	if name == "" {
+		name = fmt.Sprintf("remote%d", len(r.remotes))
+	}
+	r.remotes[name] = otherR
+	return name
+}
 func (r *Robot) AddBoard(b board.Board, c board.Config) {
 	if c.Name == "" {
 		c.Name = fmt.Sprintf("board%d", len(r.boards))
@@ -104,6 +117,14 @@ func fixName(c api.Component, whichType api.ComponentType, pos int) api.Componen
 		panic(fmt.Sprintf("different types (%s) != (%s)", whichType, c.Type))
 	}
 	return c
+}
+
+func (r *Robot) RemoteNames() []string {
+	names := []string{}
+	for k := range r.remotes {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (r *Robot) ArmNames() []string {
@@ -198,6 +219,7 @@ func (r *Robot) Logger() golog.Logger {
 
 func NewBlankRobot(logger golog.Logger) *Robot {
 	return &Robot{
+		remotes:      map[string]api.Robot{},
 		boards:       map[string]board.Board{},
 		arms:         map[string]api.Arm{},
 		grippers:     map[string]api.Gripper{},
@@ -212,6 +234,17 @@ func NewBlankRobot(logger golog.Logger) *Robot {
 func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot, error) {
 	r := NewBlankRobot(logger)
 	r.config = cfg
+
+	for _, remote := range cfg.Remotes {
+		robotClient, err := client.NewRobotClient(ctx, remote.Address)
+		if err != nil {
+			return nil, err
+		}
+		name := r.AddRemote(robotClient, remote.Name)
+		if err := r.mergeRemote(ctx, robotClient, name, remote.Prefix); err != nil {
+			return nil, err
+		}
+	}
 
 	for _, c := range cfg.Boards {
 		b, err := board.NewBoard(c, logger)
@@ -279,6 +312,32 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	}
 
 	return r, nil
+}
+
+func (r *Robot) mergeRemote(ctx context.Context, otherR api.Robot, robotName string, prefix bool) error {
+	status, err := otherR.Status(ctx)
+	if err != nil {
+		return err
+	}
+	var prefixName func(name string) string
+	if prefix {
+		prefixName = func(name string) string { return fmt.Sprintf("%s.%s", robotName, name) }
+	} else {
+		prefixName = func(name string) string { return name }
+	}
+	for name := range status.Arms {
+		r.AddArm(otherR.ArmByName(name), api.Component{Name: prefixName(name)})
+	}
+	for name := range status.Bases {
+		r.AddBase(otherR.BaseByName(name), api.Component{Name: prefixName(name)})
+	}
+	for name := range status.Boards {
+		r.AddBoard(otherR.BoardByName(name), board.Config{Name: prefixName(name)})
+	}
+	for name := range status.Grippers {
+		r.AddGripper(otherR.GripperByName(name), api.Component{Name: prefixName(name)})
+	}
+	return nil
 }
 
 func (r *Robot) newProvider(config api.Component) (api.Provider, error) {

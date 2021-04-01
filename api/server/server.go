@@ -103,6 +103,32 @@ func (s *Server) ControlBase(ctx context.Context, req *pb.ControlBaseRequest) (*
 	}
 }
 
+func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
+	arm := s.r.ArmByName(req.Name)
+	if arm == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+	}
+	pos, err := arm.CurrentPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ArmCurrentPositionResponse{Position: pos}, nil
+}
+
+func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurrentJointPositionsRequest) (*pb.ArmCurrentJointPositionsResponse, error) {
+	arm := s.r.ArmByName(req.Name)
+	if arm == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+	}
+	pos, err := arm.CurrentJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ArmCurrentJointPositionsResponse{Positions: pos}, nil
+}
+
 func (s *Server) MoveArmToPosition(ctx context.Context, req *pb.MoveArmToPositionRequest) (*pb.MoveArmToPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
@@ -144,6 +170,20 @@ func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperReque
 	}
 
 	return &pb.ControlGripperResponse{Grabbed: grabbed}, nil
+}
+
+func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
+	b := s.r.BoardByName(req.Name)
+	if b == nil {
+		return nil, fmt.Errorf("no board with name (%s)", req.Name)
+	}
+
+	status, err := b.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BoardStatusResponse{Status: status}, nil
 }
 
 func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMotorRequest) (*pb.ControlBoardMotorResponse, error) {

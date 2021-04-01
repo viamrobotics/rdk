@@ -98,6 +98,22 @@ message MoveBase {
 
 message ControlBaseResponse {}
 
+message ArmCurrentPositionRequest {
+	string name = 1;
+}
+
+message ArmCurrentPositionResponse {
+	ArmPosition position = 1;
+}
+
+message ArmCurrentJointPositionsRequest {
+	string name = 1;
+}
+
+message ArmCurrentJointPositionsResponse {
+	JointPositions positions = 1;
+}
+
 message MoveArmToPositionRequest {
 	string name = 1;
 	ArmPosition to = 2;
@@ -125,6 +141,14 @@ message ControlGripperRequest {
 
 message ControlGripperResponse {
 	bool grabbed = 1;
+}
+
+message BoardStatusRequest {
+	string name = 1;
+}
+
+message BoardStatusResponse {
+	BoardStatus status = 1;
 }
 
 message ControlBoardMotorRequest {
@@ -187,6 +211,18 @@ service RobotService {
 		};	
 	}
 
+	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_position"
+		};	
+	}
+
+	rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_joint_positions"
+		};	
+	}
+
 	rpc MoveArmToPosition(MoveArmToPositionRequest) returns (MoveArmToPositionResponse) {
 		option (google.api.http) = {
 			put: "/v1/arm/{name}/move_to_position"
@@ -202,6 +238,12 @@ service RobotService {
 	rpc ControlGripper(ControlGripperRequest) returns (ControlGripperResponse) {
 		option (google.api.http) = {
 			put: "/v1/gripper/{name}/control"
+		};	
+	}
+
+	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+		option (google.api.http) = {
+			get: "/v1/board/{name}/status"
 		};	
 	}
 

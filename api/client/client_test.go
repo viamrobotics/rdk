@@ -126,6 +126,12 @@ func TestClient(t *testing.T) {
 	}
 	injectArm := &inject.Arm{}
 	var capArmPos *pb.ArmPosition
+	injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
+		return emptyStatus.Arms["arm1"].GridPosition, nil
+	}
+	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		return emptyStatus.Arms["arm1"].JointPositions, nil
+	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
 		capArmPos = ap
 		return nil
@@ -175,6 +181,9 @@ func TestClient(t *testing.T) {
 	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
 		capServoAngle = angle
 		return nil
+	}
+	injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
+		return emptyStatus.Boards["board1"], nil
 	}
 	injectBoard.ServoFunc = func(name string) board.Servo {
 		capServoName = name
@@ -236,6 +245,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
+	_, err = client.ArmByName("arm1").CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
+	_, err = client.ArmByName("arm1").CurrentJointPositions(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+
 	err = client.ArmByName("arm1").MoveToPosition(context.Background(), &pb.ArmPosition{X: 1})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -252,6 +269,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
 	board1 := client.BoardByName("board1")
+
+	_, err = board1.Status(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
 	err = board1.Motor("motor1").Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
@@ -293,7 +315,15 @@ func TestClient(t *testing.T) {
 	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 64, false}) // 64 is hardcoded
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
 
-	pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, RX: 4, RY: 5, RZ: 6}
+	pos, err := client.ArmByName("arm1").CurrentPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
+
+	jp, err := client.ArmByName("arm1").CurrentJointPositions(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
+
+	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, RX: 4, RY: 5, RZ: 6}
 	err = client.ArmByName("arm1").MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())
@@ -318,6 +348,10 @@ func TestClient(t *testing.T) {
 	test.That(t, gripperOpenCalled, test.ShouldBeFalse)
 	test.That(t, gripperGrabCalled, test.ShouldBeTrue)
 	test.That(t, capGripperName, test.ShouldEqual, "gripper2")
+
+	boardStatus, err := client.BoardByName("board1").Status(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, boardStatus.String(), test.ShouldResemble, status.Boards["board1"].String())
 
 	err = client.BoardByName("board1").Motor("motor1").Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 	test.That(t, err, test.ShouldBeNil)
