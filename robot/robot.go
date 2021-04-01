@@ -340,6 +340,9 @@ func (r *Robot) mergeRemote(ctx context.Context, otherR api.Robot, robotName str
 	for name := range status.Grippers {
 		r.AddGripper(otherR.GripperByName(name), api.Component{Name: prefixName(name)})
 	}
+	for name := range status.LidarDevices {
+		r.AddLidar(otherR.LidarDeviceByName(name), api.Component{Name: prefixName(name)})
+	}
 	return nil
 }
 

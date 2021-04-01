@@ -129,6 +129,9 @@ func allSourcesToDisplay(ctx context.Context, theRobot *robot.Robot) ([]gostream
 			continue
 		}
 
+		if err := device.Start(ctx); err != nil {
+			return nil, nil, err
+		}
 		source := lidar.NewImageSource(image.Point{600, 600}, device)
 
 		sources = append(sources, source)
