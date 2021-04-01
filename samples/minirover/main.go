@@ -50,9 +50,9 @@ func dock(r api.Robot) error {
 	logger.Info("docking started")
 	ctx := context.Background()
 
-	cam := r.CameraByName("back-color")
+	cam := r.CameraByName("back")
 	if cam == nil {
-		return fmt.Errorf("no back-color camera")
+		return fmt.Errorf("no back camera")
 	}
 
 	base := r.BaseByName("pierre")

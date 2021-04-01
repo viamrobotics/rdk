@@ -1,141 +1,52 @@
 {
-    "boards" : [
-        { "name" : "local",
-          "model" : "pi",
-          "motors" : [
-              { "name" : "fl-m",
-                "pins" : {
-                    "a" : "38",
-                    "b" : "40",
-                    "pwm" : "11"
-                },
-                "encoder" : "fl-e",
-                "ticksPerRotation" : 250
-              },
-              { "name" : "fr-m",
-                "pins" : {
-                    "a" : "22",
-                    "b" : "32",
-                    "pwm" : "7"
-                },
-                "encoder" : "fr-e",
-                "ticksPerRotation" : 250
-              },
-              { "name" : "bl-m",
-                "pins" : {
-                    "a" : "37",
-                    "b" : "33",
-                    "pwm" : "13"
-                },
-                "encoder" : "bl-e",
-                "ticksPerRotation" : 250
-              },
-              { "name" : "br-m",
-                "pins" : {
-                    "a" : "29",
-                    "b" : "35",
-                    "pwm" : "15"
-                },
-                "encoder" : "br-e",
-                "ticksPerRotation" : 250
-              }
-          ],
-          "digitalInterrupts" : [
-              { "name" : "fl-e",
-                "pin" : "36"
-              },
-              { "name" : "fr-e",
-                "pin" : "18"
-              },
-              { "name" : "bl-e",
-                "pin" : "31"
-              },
-              { "name" : "br-e",
-                "pin" : "10"
-              }
-          ],
-          "servos" : [
-              { "name" : "pan",
-                "pin" : "16" },
-              { "name" : "tilt",
-                "pin" : "12" }
-          ]
-        }
-    ],
     "components" : [
-        { "name" : "pierre",
-          "model" : "four-wheel",
-          "type" : "base",
-          "attributes" : {
-              "board" : "local",
-              "widthMillis" : 600,
-              "wheelCircumferenceMillis" : 470,
-              "spinSlipFactor" : 2.0,
-              "frontLeft" : "fl-m",
-              "frontRight" : "fr-m",
-              "backLeft" : "bl-m",
-              "backRight" : "br-m"
-          }
-        },
-        { "name" : "front-color",
+        { "name" : "front-raw",
           "type" : "camera",
-          "model" : "webcam",
+          "model" : "intel",
+          "host" : "localhost",
+          "port" : 8181,
           "attributes" : {
-	          "hide" : false,
-              "path_pattern" : "usb.0.1.1",
-	          "width" : 1280
-          }
-        },
-        { "name" : "front-depth",
-          "type" : "camera",
-          "model" : "webcam",
-          "attributes" : {
-	          "hide" : false,
-              "format" : "Z16",
-              "path_pattern" : "usb.0.1.1",
-	          "width" : 768
+	          "num" : "1",
+              "hide" : true
           }
         },
         { "name" : "front",
           "type" : "camera",
-          "model" : "depthComposed",
+          "model" : "rotate",
           "attributes" : {
-	          "hide" : true,
-              "color" : "front-color",
-              "depth" : "front-depth",
-              "matrices" : "$load{../../robots/configs/intel515_parameters.json}"
+              "source" : "front-raw"
           }
         },
+
 	    { "name" : "front-overlay",
           "type" : "camera",
           "model" : "overlay",
           "attributes" : {
-              "hide" : true,
               "source" : "front"
           }
         },
-        { "name" : "front-overlay-flipped",
+        { "name" : "back",
           "type" : "camera",
-          "model" : "rotate",
+          "model" : "intel",
+          "host" : "localhost",
+          "port" : 8181,
           "attributes" : {
-              "source" : "front-overlay"
-          }
-        },
-        { "name" : "back-color",
-          "type" : "camera",
-          "model" : "webcam",
-          "attributes" : {
-              "path_pattern" : "usb.0.1.2.*index0",
-              "width" : 640,
-              "debug" : true
+              "num" : "0"
           }
         },
         {
-            "host": "127.0.0.1",
-            "port": 4444,
-            "model": "lidarclient",
             "name": "lidarBase",
-            "type": "lidar"
+            "type": "lidar",
+            "model": "grpc",
+            "host": "127.0.0.1",
+            "port": 4444
+
+        }
+    ],
+    "remotes": [
+        {
+            "name": "pi",
+            "address": "10.237.115.64:8080"
         }
     ]
 }
