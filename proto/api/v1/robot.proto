@@ -26,6 +26,7 @@ message Status {
 	map<string, bool> bases = 2;
 	map<string, bool> grippers = 3;
 	map<string, BoardStatus> boards = 4;
+	map<string, bool> cameras = 5;
 }
 
 message DoActionRequest {
@@ -178,12 +179,13 @@ message ControlBoardServoResponse {}
 message CameraFrameRequest {
 	string name = 1;
 	string mime_type = 2;
-	bytes frame = 3;
 }
 
 message CameraFrameResponse {
 	string mime_type = 1;
-	bytes frame = 2;	
+	bytes frame = 2;
+	int64 dim_x = 3;
+	int64 dim_y = 4;
 }
 
 service RobotService {

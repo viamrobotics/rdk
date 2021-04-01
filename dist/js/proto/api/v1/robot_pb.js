@@ -1406,7 +1406,8 @@ proto.proto.api.v1.Status.toObject = function(includeInstance, msg) {
     armsMap: (f = msg.getArmsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.ArmStatus.toObject) : [],
     basesMap: (f = msg.getBasesMap()) ? f.toObject(includeInstance, undefined) : [],
     grippersMap: (f = msg.getGrippersMap()) ? f.toObject(includeInstance, undefined) : [],
-    boardsMap: (f = msg.getBoardsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.BoardStatus.toObject) : []
+    boardsMap: (f = msg.getBoardsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.BoardStatus.toObject) : [],
+    camerasMap: (f = msg.getCamerasMap()) ? f.toObject(includeInstance, undefined) : []
   };
 
   if (includeInstance) {
@@ -1467,6 +1468,12 @@ proto.proto.api.v1.Status.deserializeBinaryFromReader = function(msg, reader) {
         jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.BoardStatus());
          });
       break;
+    case 5:
+      var value = msg.getCamerasMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readBool, null, "", false);
+         });
+      break;
     default:
       reader.skipField();
       break;
@@ -1511,6 +1518,10 @@ proto.proto.api.v1.Status.serializeBinaryToWriter = function(message, writer) {
   f = message.getBoardsMap(true);
   if (f && f.getLength() > 0) {
     f.serializeBinary(4, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.BoardStatus.serializeBinaryToWriter);
+  }
+  f = message.getCamerasMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(5, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeBool);
   }
 };
 
@@ -1600,6 +1611,28 @@ proto.proto.api.v1.Status.prototype.getBoardsMap = function(opt_noLazyCreate) {
  */
 proto.proto.api.v1.Status.prototype.clearBoardsMap = function() {
   this.getBoardsMap().clear();
+  return this;};
+
+
+/**
+ * map<string, bool> cameras = 5;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,boolean>}
+ */
+proto.proto.api.v1.Status.prototype.getCamerasMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,boolean>} */ (
+      jspb.Message.getMapField(this, 5, opt_noLazyCreate,
+      null));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.proto.api.v1.Status} returns this
+ */
+proto.proto.api.v1.Status.prototype.clearCamerasMap = function() {
+  this.getCamerasMap().clear();
   return this;};
 
 
@@ -6266,8 +6299,7 @@ proto.proto.api.v1.CameraFrameRequest.prototype.toObject = function(opt_includeI
 proto.proto.api.v1.CameraFrameRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    mimeType: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    frame: msg.getFrame_asB64()
+    mimeType: jspb.Message.getFieldWithDefault(msg, 2, "")
   };
 
   if (includeInstance) {
@@ -6312,10 +6344,6 @@ proto.proto.api.v1.CameraFrameRequest.deserializeBinaryFromReader = function(msg
       var value = /** @type {string} */ (reader.readString());
       msg.setMimeType(value);
       break;
-    case 3:
-      var value = /** @type {!Uint8Array} */ (reader.readBytes());
-      msg.setFrame(value);
-      break;
     default:
       reader.skipField();
       break;
@@ -6359,13 +6387,6 @@ proto.proto.api.v1.CameraFrameRequest.serializeBinaryToWriter = function(message
       f
     );
   }
-  f = message.getFrame_asU8();
-  if (f.length > 0) {
-    writer.writeBytes(
-      3,
-      f
-    );
-  }
 };
 
 
@@ -6405,48 +6426,6 @@ proto.proto.api.v1.CameraFrameRequest.prototype.setMimeType = function(value) {
 };
 
 
-/**
- * optional bytes frame = 3;
- * @return {string}
- */
-proto.proto.api.v1.CameraFrameRequest.prototype.getFrame = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 3, ""));
-};
-
-
-/**
- * optional bytes frame = 3;
- * This is a type-conversion wrapper around `getFrame()`
- * @return {string}
- */
-proto.proto.api.v1.CameraFrameRequest.prototype.getFrame_asB64 = function() {
-  return /** @type {string} */ (jspb.Message.bytesAsB64(
-      this.getFrame()));
-};
-
-
-/**
- * optional bytes frame = 3;
- * Note that Uint8Array is not supported on all browsers.
- * @see http://caniuse.com/Uint8Array
- * This is a type-conversion wrapper around `getFrame()`
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.CameraFrameRequest.prototype.getFrame_asU8 = function() {
-  return /** @type {!Uint8Array} */ (jspb.Message.bytesAsU8(
-      this.getFrame()));
-};
-
-
-/**
- * @param {!(string|Uint8Array)} value
- * @return {!proto.proto.api.v1.CameraFrameRequest} returns this
- */
-proto.proto.api.v1.CameraFrameRequest.prototype.setFrame = function(value) {
-  return jspb.Message.setProto3BytesField(this, 3, value);
-};
-
-
 
 
 
@@ -6480,7 +6459,9 @@ proto.proto.api.v1.CameraFrameResponse.prototype.toObject = function(opt_include
 proto.proto.api.v1.CameraFrameResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     mimeType: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    frame: msg.getFrame_asB64()
+    frame: msg.getFrame_asB64(),
+    dimX: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    dimY: jspb.Message.getFieldWithDefault(msg, 4, 0)
   };
 
   if (includeInstance) {
@@ -6525,6 +6506,14 @@ proto.proto.api.v1.CameraFrameResponse.deserializeBinaryFromReader = function(ms
       var value = /** @type {!Uint8Array} */ (reader.readBytes());
       msg.setFrame(value);
       break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDimX(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDimY(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -6565,6 +6554,20 @@ proto.proto.api.v1.CameraFrameResponse.serializeBinaryToWriter = function(messag
   if (f.length > 0) {
     writer.writeBytes(
       2,
+      f
+    );
+  }
+  f = message.getDimX();
+  if (f !== 0) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
+  f = message.getDimY();
+  if (f !== 0) {
+    writer.writeInt64(
+      4,
       f
     );
   }
@@ -6628,6 +6631,42 @@ proto.proto.api.v1.CameraFrameResponse.prototype.getFrame_asU8 = function() {
  */
 proto.proto.api.v1.CameraFrameResponse.prototype.setFrame = function(value) {
   return jspb.Message.setProto3BytesField(this, 2, value);
+};
+
+
+/**
+ * optional int64 dim_x = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.CameraFrameResponse.prototype.getDimX = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.CameraFrameResponse} returns this
+ */
+proto.proto.api.v1.CameraFrameResponse.prototype.setDimX = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+/**
+ * optional int64 dim_y = 4;
+ * @return {number}
+ */
+proto.proto.api.v1.CameraFrameResponse.prototype.getDimY = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.CameraFrameResponse} returns this
+ */
+proto.proto.api.v1.CameraFrameResponse.prototype.setDimY = function(value) {
+  return jspb.Message.setProto3IntField(this, 4, value);
 };
 
 

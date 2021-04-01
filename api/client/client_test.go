@@ -378,7 +378,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 262140)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 	test.That(t, capCameraName, test.ShouldEqual, "camera1")
 
