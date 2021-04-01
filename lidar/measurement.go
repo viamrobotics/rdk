@@ -49,13 +49,13 @@ func (m *Measurement) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &m.data)
 }
 
-func NewMeasurement(angle, distance float64) *Measurement {
-	rad := utils.DegToRad(angle)
-	x, y := utils.RayToUpwardCWCartesian(angle, distance)
+func NewMeasurement(angleDegrees, distance float64) *Measurement {
+	rad := utils.DegToRad(angleDegrees)
+	x, y := utils.RayToUpwardCWCartesian(angleDegrees, distance)
 	return &Measurement{
 		data: measurementData{
 			Angle:    rad,
-			AngleDeg: angle,
+			AngleDeg: angleDegrees,
 			Distance: distance,
 			X:        x,
 			Y:        y,
