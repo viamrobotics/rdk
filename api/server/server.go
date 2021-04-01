@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/draw"
 	"image/jpeg"
 	"time"
 
@@ -237,11 +239,18 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	}
 	defer release()
 
+	bounds := img.Bounds()
 	resp := pb.CameraFrameResponse{
 		MimeType: req.MimeType,
+		DimX:     int64(bounds.Dx()),
+		DimY:     int64(bounds.Dy()),
 	}
 	var buf bytes.Buffer
 	switch req.MimeType {
+	case "image/raw-rgba":
+		imgCopy := image.NewRGBA(bounds)
+		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
+		buf.Write(imgCopy.Pix)
 	case "", "image/jpeg":
 		resp.MimeType = "image/jpeg"
 		if err := jpeg.Encode(&buf, img, nil); err != nil {

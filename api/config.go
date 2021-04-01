@@ -25,6 +25,9 @@ func (am AttributeMap) Has(name string) bool {
 }
 
 func (am AttributeMap) GetString(name string) string {
+	if am == nil {
+		return ""
+	}
 	x := am[name]
 	if x == nil {
 		return ""
@@ -39,6 +42,9 @@ func (am AttributeMap) GetString(name string) string {
 }
 
 func (am AttributeMap) GetInt(name string, def int) int {
+	if am == nil {
+		return def
+	}
 	x, has := am[name]
 	if !has {
 		return def
@@ -59,6 +65,9 @@ func (am AttributeMap) GetInt(name string, def int) int {
 }
 
 func (am AttributeMap) GetFloat64(name string, def float64) float64 {
+	if am == nil {
+		return def
+	}
 	x, has := am[name]
 	if !has {
 		return def
@@ -73,6 +82,9 @@ func (am AttributeMap) GetFloat64(name string, def float64) float64 {
 }
 
 func (am AttributeMap) GetBool(name string, def bool) bool {
+	if am == nil {
+		return def
+	}
 	x, has := am[name]
 	if !has {
 		return def
