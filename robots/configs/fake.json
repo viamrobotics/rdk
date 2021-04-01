@@ -55,6 +55,11 @@
       "model": "fake",
       "name": "camera1",
       "type": "camera"
+    },
+    {
+      "model": "fake",
+      "name": "lidar1",
+      "type": "lidar"
     }
   ]
 }

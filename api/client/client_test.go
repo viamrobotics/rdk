@@ -13,6 +13,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils/inject"
@@ -44,6 +45,12 @@ var emptyStatus = &pb.Status{
 	},
 	Grippers: map[string]bool{
 		"gripper1": true,
+	},
+	Cameras: map[string]bool{
+		"camera1": true,
+	},
+	LidarDevices: map[string]bool{
+		"lidar1": true,
 	},
 	Boards: map[string]*pb.BoardStatus{
 		"board1": {
@@ -94,18 +101,22 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) gostream.ImageSource {
 		return nil
 	}
+	injectRobot1.LidarDeviceByNameFunc = func(name string) lidar.Device {
+		return nil
+	}
 
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
 	var (
-		capBaseName    string
-		capArmName     string
-		capGripperName string
-		capBoardName   string
-		capMotorName   string
-		capServoName   string
-		capCameraName  string
+		capBaseName        string
+		capArmName         string
+		capGripperName     string
+		capBoardName       string
+		capMotorName       string
+		capServoName       string
+		capCameraName      string
+		capLidarDeviceName string
 	)
 	injectBase := &inject.Base{}
 	var baseStopCalled bool
@@ -208,6 +219,36 @@ func TestClient(t *testing.T) {
 	injectRobot2.CameraByNameFunc = func(name string) gostream.ImageSource {
 		capCameraName = name
 		return injectImageSource
+	}
+
+	injectLidarDev := &inject.LidarDevice{}
+	injectLidarDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return map[string]interface{}{"hello": "world"}, nil
+	}
+	injectLidarDev.StartFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectLidarDev.StopFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectLidarDev.CloseFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
+		return lidar.Measurements{lidar.NewMeasurement(2, 40)}, nil
+	}
+	injectLidarDev.RangeFunc = func(ctx context.Context) (int, error) {
+		return 25, nil
+	}
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+		return image.Point{4, 5}, nil
+	}
+	injectLidarDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+		return 5.2, nil
+	}
+	injectRobot2.LidarDeviceByNameFunc = func(name string) lidar.Device {
+		capLidarDeviceName = name
+		return injectLidarDev
 	}
 
 	go gServer1.Serve(listener1)
@@ -381,6 +422,30 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 	test.That(t, capCameraName, test.ShouldEqual, "camera1")
+
+	lidarDev := client.LidarDeviceByName("lidar1")
+	info, err := lidarDev.Info(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, info, test.ShouldResemble, map[string]interface{}{"hello": "world"})
+	err = lidarDev.Start(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = lidarDev.Stop(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	scan, err := lidarDev.Scan(context.Background(), lidar.ScanOptions{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, scan, test.ShouldResemble, lidar.Measurements{lidar.NewMeasurement(2, 40)})
+	devRange, err := lidarDev.Range(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, devRange, test.ShouldEqual, 25)
+	bounds, err := lidarDev.Bounds(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, bounds, test.ShouldResemble, image.Point{4, 5})
+	angRes, err := lidarDev.AngularResolution(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, angRes, test.ShouldEqual, 5.2)
+	err = lidarDev.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capLidarDeviceName, test.ShouldEqual, "lidar1")
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
