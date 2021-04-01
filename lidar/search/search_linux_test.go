@@ -13,13 +13,14 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestDevices(t *testing.T) {
 	deviceType := lidar.DeviceType("somelidar")
 	lidar.RegisterDeviceType(deviceType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
 			return nil, errors.New("not implemented")
 		},
 		USBInfo: &usb.Identifier{

@@ -19,12 +19,15 @@ import (
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/slam"
 	"go.viam.com/robotcore/utils"
-	"google.golang.org/grpc"
+
+	// register
+	_ "go.viam.com/robotcore/lidar/client"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"go.uber.org/multierr"
+	"google.golang.org/grpc"
 )
 
 const fakeDev = "fake"
@@ -143,7 +146,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		compassSensor = sensor
 	}
 
-	lidarDevices, err := lidar.CreateDevices(ctx, args.LidarDevices)
+	lidarDevices, err := lidar.CreateDevices(ctx, args.LidarDevices, logger)
 	if err != nil {
 		return err
 	}
