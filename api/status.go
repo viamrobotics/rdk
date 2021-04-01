@@ -9,11 +9,12 @@ import (
 func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 	var err error
 	s := &pb.Status{
-		Arms:     map[string]*pb.ArmStatus{},
-		Bases:    map[string]bool{},
-		Grippers: map[string]bool{},
-		Boards:   map[string]*pb.BoardStatus{},
-		Cameras:  map[string]bool{},
+		Arms:         map[string]*pb.ArmStatus{},
+		Bases:        map[string]bool{},
+		Grippers:     map[string]bool{},
+		Boards:       map[string]*pb.BoardStatus{},
+		Cameras:      map[string]bool{},
+		LidarDevices: map[string]bool{},
 	}
 
 	for _, name := range r.ArmNames() {
@@ -49,6 +50,10 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 
 	for _, name := range r.CameraNames() {
 		s.Cameras[name] = true
+	}
+
+	for _, name := range r.LidarDeviceNames() {
+		s.LidarDevices[name] = true
 	}
 
 	return s, nil

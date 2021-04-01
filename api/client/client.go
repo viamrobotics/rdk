@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -25,10 +26,12 @@ type RobotClient struct {
 	conn   *grpc.ClientConn
 	client pb.RobotServiceClient
 
-	armNames     []string
-	baseNames    []string
-	gripperNames []string
-	boardNames   []string
+	armNames         []string
+	baseNames        []string
+	gripperNames     []string
+	boardNames       []string
+	cameraNames      []string
+	lidarDeviceNames []string
 
 	activeBackgroundWorkers sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -146,9 +149,7 @@ func (rc *RobotClient) CameraByName(name string) gostream.ImageSource {
 }
 
 func (rc *RobotClient) LidarDeviceByName(name string) lidar.Device {
-	// TODO(erd): converge lidar grpc client here
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return &lidarDeviceClient{rc, name}
 }
 
 func (rc *RobotClient) BoardByName(name string) board.Board {
@@ -173,6 +174,12 @@ func (rc *RobotClient) populateNames(ctx context.Context) error {
 	for name := range status.Boards {
 		rc.boardNames = append(rc.boardNames, name)
 	}
+	for name := range status.Cameras {
+		rc.cameraNames = append(rc.cameraNames, name)
+	}
+	for name := range status.LidarDevices {
+		rc.lidarDeviceNames = append(rc.lidarDeviceNames, name)
+	}
 	return nil
 }
 
@@ -181,34 +188,34 @@ func (rc *RobotClient) RemoteNames() []string {
 	panic(errUnimplemented)
 }
 
+func copyStringSlice(src []string) []string {
+	out := make([]string, len(src))
+	copy(out, src)
+	return out
+}
+
 func (rc *RobotClient) ArmNames() []string {
-	// TODO(erd): copy?
-	return rc.armNames
+	return copyStringSlice(rc.armNames)
 }
 
 func (rc *RobotClient) GripperNames() []string {
-	// TODO(erd): copy?
-	return rc.gripperNames
+	return copyStringSlice(rc.gripperNames)
 }
 
 func (rc *RobotClient) CameraNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(rc.cameraNames)
 }
 
 func (rc *RobotClient) LidarDeviceNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(rc.lidarDeviceNames)
 }
 
 func (rc *RobotClient) BaseNames() []string {
-	// TODO(erd): copy?
-	return rc.baseNames
+	return copyStringSlice(rc.baseNames)
 }
 
 func (rc *RobotClient) BoardNames() []string {
-	// TODO(erd): copy?
-	return rc.boardNames
+	return copyStringSlice(rc.boardNames)
 }
 
 func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
@@ -523,4 +530,91 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 func (cc *cameraClient) Close() error {
 	// TODO(erd): this should probably be removed from interface
 	return nil
+}
+
+type lidarDeviceClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (ldc *lidarDeviceClient) Info(ctx context.Context) (map[string]interface{}, error) {
+	resp, err := ldc.rc.client.LidarInfo(ctx, &pb.LidarInfoRequest{
+		Name: ldc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Info.AsMap(), nil
+}
+
+func (ldc *lidarDeviceClient) Start(ctx context.Context) error {
+	_, err := ldc.rc.client.LidarStart(ctx, &pb.LidarStartRequest{
+		Name: ldc.name,
+	})
+	return err
+}
+
+func (ldc *lidarDeviceClient) Stop(ctx context.Context) error {
+	_, err := ldc.rc.client.LidarStop(ctx, &pb.LidarStopRequest{
+		Name: ldc.name,
+	})
+	return err
+}
+
+func (ldc *lidarDeviceClient) Close(ctx context.Context) error {
+	return nil
+}
+
+func (ldc *lidarDeviceClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+	resp, err := ldc.rc.client.LidarScan(ctx, &pb.LidarScanRequest{
+		Name:     ldc.name,
+		Count:    int32(options.Count),
+		NoFilter: options.NoFilter,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return MeasurementsFromProto(resp.Measurements), nil
+}
+
+func (ldc *lidarDeviceClient) Range(ctx context.Context) (int, error) {
+	resp, err := ldc.rc.client.LidarRange(ctx, &pb.LidarRangeRequest{
+		Name: ldc.name,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(resp.Range), nil
+}
+
+func (ldc *lidarDeviceClient) Bounds(ctx context.Context) (image.Point, error) {
+	resp, err := ldc.rc.client.LidarBounds(ctx, &pb.LidarBoundsRequest{
+		Name: ldc.name,
+	})
+	if err != nil {
+		return image.Point{}, err
+	}
+	return image.Point{int(resp.X), int(resp.Y)}, nil
+}
+
+func (ldc *lidarDeviceClient) AngularResolution(ctx context.Context) (float64, error) {
+	resp, err := ldc.rc.client.LidarAngularResolution(ctx, &pb.LidarAngularResolutionRequest{
+		Name: ldc.name,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.AngularResolution, nil
+}
+
+func MeasurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
+	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
+}
+
+func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
+	ms := make(lidar.Measurements, 0, len(pms))
+	for _, pm := range pms {
+		ms = append(ms, MeasurementFromProto(pm))
+	}
+	return ms
 }

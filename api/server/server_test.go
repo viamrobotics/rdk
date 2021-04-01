@@ -6,12 +6,15 @@ import (
 	"errors"
 	"image"
 	"image/jpeg"
+	"math"
 	"testing"
 	"time"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/api/client"
 	apiserver "go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/testutils/inject"
@@ -50,6 +53,12 @@ var emptyStatus = &pb.StatusResponse{
 		},
 		Grippers: map[string]bool{
 			"gripper1": true,
+		},
+		Cameras: map[string]bool{
+			"camera1": true,
+		},
+		LidarDevices: map[string]bool{
+			"lidar1": true,
 		},
 		Boards: map[string]*pb.BoardStatus{
 			"board1": {
@@ -904,6 +913,144 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 		test.That(t, released, test.ShouldBeTrue)
+	})
+
+	t.Run("Lidar", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.LidarDeviceByNameFunc = func(name string) lidar.Device {
+			capName = name
+			return nil
+		}
+
+		_, err := server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no lidar")
+		test.That(t, capName, test.ShouldEqual, "lidar1")
+
+		err1 := errors.New("whoops")
+
+		device := &inject.LidarDevice{}
+		injectRobot.LidarDeviceByNameFunc = func(name string) lidar.Device {
+			return device
+		}
+
+		device.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, err1
+		}
+		_, err = server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return map[string]interface{}{"hello": true}, nil
+		}
+		infoResp, err := server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, infoResp.GetInfo().AsMap(), test.ShouldResemble, map[string]interface{}{"hello": true})
+
+		device.StartFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.LidarStart(context.Background(), &pb.LidarStartRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.StartFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.LidarStart(context.Background(), &pb.LidarStartRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		device.StopFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.LidarStop(context.Background(), &pb.LidarStopRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.StopFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.LidarStop(context.Background(), &pb.LidarStopRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			return nil, err1
+		}
+		_, err = server.LidarScan(context.Background(), &pb.LidarScanRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		var capOptions lidar.ScanOptions
+		ms := lidar.Measurements{lidar.NewMeasurement(0, 1), lidar.NewMeasurement(1, 2)}
+		device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			capOptions = options
+			return ms, nil
+		}
+		scanResp, err := server.LidarScan(context.Background(), &pb.LidarScanRequest{
+			Name:  "lidar1",
+			Count: 4, NoFilter: true})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, client.MeasurementsFromProto(scanResp.GetMeasurements()), test.ShouldResemble, ms)
+		test.That(t, capOptions, test.ShouldResemble, lidar.ScanOptions{Count: 4, NoFilter: true})
+
+		device.RangeFunc = func(ctx context.Context) (int, error) {
+			return 0, err1
+		}
+		_, err = server.LidarRange(context.Background(), &pb.LidarRangeRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.RangeFunc = func(ctx context.Context) (int, error) {
+			return 5, nil
+		}
+		rangeResp, err := server.LidarRange(context.Background(), &pb.LidarRangeRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rangeResp.GetRange(), test.ShouldEqual, 5)
+
+		device.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+			return image.Point{}, err1
+		}
+		_, err = server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+			return image.Point{4, 5}, nil
+		}
+		boundsResp, err := server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, boundsResp.GetX(), test.ShouldEqual, 4)
+		test.That(t, boundsResp.GetY(), test.ShouldEqual, 5)
+
+		device.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), err1
+		}
+		_, err = server.LidarAngularResolution(context.Background(), &pb.LidarAngularResolutionRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return 6.2, nil
+		}
+		angResp, err := server.LidarAngularResolution(context.Background(), &pb.LidarAngularResolutionRequest{
+			Name: "lidar1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, angResp.GetAngularResolution(), test.ShouldEqual, 6.2)
 	})
 }
 

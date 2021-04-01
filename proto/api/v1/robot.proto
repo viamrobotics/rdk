@@ -3,9 +3,134 @@ option go_package = "go.viam.com/robotcore/proto/api/v1";
 
 package proto.api.v1;
 
+import "google/protobuf/struct.proto";
 import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
 import "google/api/httpbody.proto";
+
+service RobotService {
+	rpc Status(StatusRequest) returns (StatusResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status"
+		};
+	}
+
+	rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status_stream"
+		};
+	}
+
+	rpc DoAction(DoActionRequest) returns (DoActionResponse) {
+		option (google.api.http) = {
+			post: "/v1/do_action"
+		};	
+	}
+
+	rpc ControlBase(ControlBaseRequest) returns (ControlBaseResponse) {
+		option (google.api.http) = {
+			post: "/v1/base/{name}/control"
+		};	
+	}
+
+	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_position"
+		};	
+	}
+
+	rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_joint_positions"
+		};	
+	}
+
+	rpc MoveArmToPosition(MoveArmToPositionRequest) returns (MoveArmToPositionResponse) {
+		option (google.api.http) = {
+			put: "/v1/arm/{name}/move_to_position"
+		};	
+	}
+
+	rpc MoveArmToJointPositions(MoveArmToJointPositionsRequest) returns (MoveArmToJointPositionsResponse) {
+		option (google.api.http) = {
+			put: "/v1/arm/{name}/move_to_joint_position"
+		};	
+	}
+
+	rpc ControlGripper(ControlGripperRequest) returns (ControlGripperResponse) {
+		option (google.api.http) = {
+			put: "/v1/gripper/{name}/control"
+		};	
+	}
+
+	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+		option (google.api.http) = {
+			get: "/v1/board/{name}/status"
+		};	
+	}
+
+	rpc ControlBoardMotor(ControlBoardMotorRequest) returns (ControlBoardMotorResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/motor/{motor_name}/control"
+		};
+	}
+
+	rpc ControlBoardServo(ControlBoardServoRequest) returns (ControlBoardServoResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/servero/{servo_name}/control"
+		};
+	}
+
+	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/frame"
+		};
+	}
+
+	rpc RenderCameraFrame(CameraFrameRequest) returns (google.api.HttpBody) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/render_frame"
+		};
+	}
+
+	// Lidar
+
+	rpc LidarInfo(LidarInfoRequest) returns (LidarInfoResponse) {
+	    option (google.api.http) = {
+			get: "/v1/lidar/{name}/info"
+		};
+	}
+	rpc LidarStart(LidarStartRequest) returns (LidarStartResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/start"
+		};
+	}
+	rpc LidarStop(LidarStopRequest) returns (LidarStopResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/stop"
+		};
+	}
+	rpc LidarScan(LidarScanRequest) returns (LidarScanResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/scan"
+		};
+	}
+	rpc LidarRange(LidarRangeRequest) returns (LidarRangeResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/range"
+		};
+	}
+	rpc LidarBounds(LidarBoundsRequest) returns (LidarBoundsResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/bounds"
+		};
+	}
+	rpc LidarAngularResolution(LidarAngularResolutionRequest) returns (LidarAngularResolutionResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/angular_resolution"
+		};
+	}
+}
 
 message StatusRequest {}
 
@@ -27,6 +152,7 @@ message Status {
 	map<string, bool> grippers = 3;
 	map<string, BoardStatus> boards = 4;
 	map<string, bool> cameras = 5;
+	map<string, bool> lidar_devices = 6;
 }
 
 message DoActionRequest {
@@ -188,88 +314,66 @@ message CameraFrameResponse {
 	int64 dim_y = 4;
 }
 
-service RobotService {
-	rpc Status(StatusRequest) returns (StatusResponse) {
-	    option (google.api.http) = {
-			get: "/v1/status"
-		};
-	}
-
-	rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
-	    option (google.api.http) = {
-			get: "/v1/status_stream"
-		};
-	}
-
-	rpc DoAction(DoActionRequest) returns (DoActionResponse) {
-		option (google.api.http) = {
-			post: "/v1/do_action"
-		};	
-	}
-
-	rpc ControlBase(ControlBaseRequest) returns (ControlBaseResponse) {
-		option (google.api.http) = {
-			post: "/v1/base/{name}/control"
-		};	
-	}
-
-	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
-		option (google.api.http) = {
-			get: "/v1/arm/{name}/current_position"
-		};	
-	}
-
-	rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
-		option (google.api.http) = {
-			get: "/v1/arm/{name}/current_joint_positions"
-		};	
-	}
-
-	rpc MoveArmToPosition(MoveArmToPositionRequest) returns (MoveArmToPositionResponse) {
-		option (google.api.http) = {
-			put: "/v1/arm/{name}/move_to_position"
-		};	
-	}
-
-	rpc MoveArmToJointPositions(MoveArmToJointPositionsRequest) returns (MoveArmToJointPositionsResponse) {
-		option (google.api.http) = {
-			put: "/v1/arm/{name}/move_to_joint_position"
-		};	
-	}
-
-	rpc ControlGripper(ControlGripperRequest) returns (ControlGripperResponse) {
-		option (google.api.http) = {
-			put: "/v1/gripper/{name}/control"
-		};	
-	}
-
-	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
-		option (google.api.http) = {
-			get: "/v1/board/{name}/status"
-		};	
-	}
-
-	rpc ControlBoardMotor(ControlBoardMotorRequest) returns (ControlBoardMotorResponse) {
-		option (google.api.http) = {
-			put: "/v1/board/{board_name}/motor/{motor_name}/control"
-		};
-	}
-
-	rpc ControlBoardServo(ControlBoardServoRequest) returns (ControlBoardServoResponse) {
-		option (google.api.http) = {
-			put: "/v1/board/{board_name}/servero/{servo_name}/control"
-		};
-	}
-
-	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
-		option (google.api.http) = {
-			get: "/v1/camera/{name}/frame"
-		};
-	}
-
-	rpc RenderCameraFrame(CameraFrameRequest) returns (google.api.HttpBody) {
-		option (google.api.http) = {
-			get: "/v1/camera/{name}/render_frame"
-		};
-	}
+message LidarMeasurement  {
+	double angle = 1;
+	double angle_deg = 2;
+	double distance = 3;
+	double x = 4;
+	double y = 5;
 }
+
+message LidarInfoRequest {
+	string name = 1;
+}
+
+message LidarInfoResponse {
+	google.protobuf.Struct info = 1;
+}
+
+message LidarStartRequest {
+	string name = 1;
+}
+
+message LidarStartResponse {}
+
+message LidarStopRequest {
+	string name = 1;
+}
+
+message LidarStopResponse {}
+
+message LidarScanRequest {
+	string name = 1;
+	int32 count = 2;
+	bool no_filter = 3;
+}
+
+message LidarScanResponse {
+	repeated LidarMeasurement measurements = 1;
+}
+
+message LidarRangeRequest {
+	string name = 1;
+}
+
+message LidarRangeResponse {
+	int64 range = 1;
+}
+
+message LidarBoundsRequest {
+	string name = 1;
+}
+
+message LidarBoundsResponse {
+	int64 x = 1;
+	int64 y = 2;
+}
+
+message LidarAngularResolutionRequest {
+	string name = 1;
+}
+
+message LidarAngularResolutionResponse {
+	double angular_resolution = 1;
+}
+
