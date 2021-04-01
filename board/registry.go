@@ -1,12 +1,13 @@
 package board
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
 )
 
-type CreateBoard func(cfg Config, logger golog.Logger) (Board, error)
+type CreateBoard func(ctx context.Context, cfg Config, logger golog.Logger) (Board, error)
 
 var (
 	boardRegistry = map[string]CreateBoard{}
@@ -21,10 +22,10 @@ func RegisterBoard(name string, c CreateBoard) {
 	boardRegistry[name] = c
 }
 
-func NewBoard(cfg Config, logger golog.Logger) (Board, error) {
+func NewBoard(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
 	c, have := boardRegistry[cfg.Model]
 	if !have {
 		return nil, fmt.Errorf("unknown board model: %v", cfg.Model)
 	}
-	return c(cfg, logger)
+	return c(ctx, cfg, logger)
 }

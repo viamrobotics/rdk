@@ -1,6 +1,7 @@
 package board
 
 import (
+	"context"
 	"testing"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -30,6 +31,7 @@ func (b *testGPIOBoard) PWMSet(pin string, dutyCycle byte) error {
 }
 
 func TestMotor1(t *testing.T) {
+	ctx := context.Background()
 	b := &testGPIOBoard{}
 
 	m, err := NewGPIOMotor(b, map[string]string{"a": "1", "b": "2", "pwm": "3"})
@@ -37,38 +39,50 @@ func TestMotor1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Nil(t, m.Off())
+	assert.Nil(t, m.Off(ctx))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, false, b.gpio["2"])
-	assert.False(t, m.IsOn())
+	on, err := m.IsOn(ctx)
+	assert.Nil(t, err)
+	assert.False(t, on)
 
-	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 111))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 111))
 	assert.Equal(t, true, b.gpio["1"])
 	assert.Equal(t, false, b.gpio["2"])
 	assert.Equal(t, byte(111), b.pwm["3"])
-	assert.True(t, m.IsOn())
+	on, err = m.IsOn(ctx)
+	assert.Nil(t, err)
+	assert.True(t, on)
 
-	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
 	assert.Equal(t, byte(112), b.pwm["3"])
-	assert.True(t, m.IsOn())
+	on, err = m.IsOn(ctx)
+	assert.Nil(t, err)
+	assert.True(t, on)
 
-	assert.Nil(t, m.Force(113))
+	assert.Nil(t, m.Force(ctx, 113))
 	assert.Equal(t, byte(113), b.pwm["3"])
 
-	assert.Nil(t, m.Off())
+	assert.Nil(t, m.Off(ctx))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, false, b.gpio["2"])
-	assert.False(t, m.IsOn())
+	on, err = m.IsOn(ctx)
+	assert.Nil(t, err)
+	assert.False(t, on)
 
-	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
-	assert.Nil(t, m.Go(pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 121))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 121))
 	assert.False(t, b.gpio["1"])
 	assert.False(t, b.gpio["2"])
 
-	assert.Equal(t, int64(0), m.Position())
-	assert.False(t, m.PositionSupported())
+	pos, err := m.Position(ctx)
+	assert.Nil(t, err)
+	assert.Equal(t, int64(0), pos)
+	supported, err := m.PositionSupported(ctx)
+	assert.Nil(t, err)
+	assert.False(t, supported)
 }

@@ -250,7 +250,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	}
 
 	for _, c := range cfg.Boards {
-		b, err := board.NewBoard(c, logger)
+		b, err := board.NewBoard(ctx, c, logger)
 		if err != nil {
 			return nil, err
 		}

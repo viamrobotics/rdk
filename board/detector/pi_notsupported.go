@@ -3,6 +3,7 @@
 package detector
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -11,7 +12,7 @@ import (
 )
 
 func init() {
-	board.RegisterBoard("pi", func(cfg board.Config, logger golog.Logger) (board.Board, error) {
+	board.RegisterBoard("pi", func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 		return nil, fmt.Errorf("not running on a pi")
 	})
 }
