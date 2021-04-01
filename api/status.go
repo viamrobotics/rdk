@@ -13,6 +13,7 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 		Bases:    map[string]bool{},
 		Grippers: map[string]bool{},
 		Boards:   map[string]*pb.BoardStatus{},
+		Cameras:  map[string]bool{},
 	}
 
 	for _, name := range r.ArmNames() {
@@ -44,6 +45,10 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 		if err != nil {
 			return s, err
 		}
+	}
+
+	for _, name := range r.CameraNames() {
+		s.Cameras[name] = true
 	}
 
 	return s, nil
