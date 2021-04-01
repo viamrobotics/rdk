@@ -74,7 +74,7 @@ func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return CreateStatus(ctx, b)
 }
 
-func NewFakeBoard(cfg Config, logger golog.Logger) (Board, error) {
+func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
 	var err error
 
 	b := &FakeBoard{
