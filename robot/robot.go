@@ -236,7 +236,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	r.config = cfg
 
 	for _, remote := range cfg.Remotes {
-		robotClient, err := client.NewRobotClient(ctx, remote.Address)
+		robotClient, err := client.NewRobotClient(ctx, remote.Address, logger)
 		if err != nil {
 			return nil, err
 		}

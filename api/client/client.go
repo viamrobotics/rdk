@@ -4,16 +4,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"runtime/debug"
+	"sync"
+	"time"
 
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 	"google.golang.org/grpc"
 )
 
@@ -27,27 +30,99 @@ type RobotClient struct {
 	baseNames    []string
 	gripperNames []string
 	boardNames   []string
+
+	activeBackgroundWorkers sync.WaitGroup
+	cancelBackgroundWorkers func()
+	logger                  golog.Logger
+
+	cachingStatus  bool
+	cachedStatus   *pb.Status
+	cachedStatusMu sync.Mutex
 }
 
-func NewRobotClient(ctx context.Context, address string) (api.Robot, error) {
+type RobotClientOptions struct {
+	RefreshStatusEvery time.Duration
+}
+
+func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (api.Robot, error) {
 	// TODO(erd): address insecure
 	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, err
 	}
 	client := pb.NewRobotServiceClient(conn)
+	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
-		conn:   conn,
-		client: client,
+		conn:                    conn,
+		client:                  client,
+		cancelBackgroundWorkers: cancel,
+		logger:                  logger,
 	}
 	if err := rc.populateNames(ctx); err != nil {
 		return nil, err
 	}
+	if opts.RefreshStatusEvery != 0 {
+		rc.cachingStatus = true
+		rc.activeBackgroundWorkers.Add(1)
+		go func() {
+			defer rc.activeBackgroundWorkers.Done()
+			rc.refreshStatusEvery(closeCtx, opts.RefreshStatusEvery)
+		}()
+	}
 	return rc, nil
 }
 
+func NewRobotClient(ctx context.Context, address string, logger golog.Logger) (api.Robot, error) {
+	return NewRobotClientWithOptions(ctx, address, RobotClientOptions{}, logger)
+}
+
 func (rc *RobotClient) Close(ctx context.Context) error {
+	rc.cancelBackgroundWorkers()
+	rc.activeBackgroundWorkers.Wait()
 	return rc.conn.Close()
+}
+
+func (rc *RobotClient) refreshStatusEvery(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		status, err := rc.status(ctx)
+		if err != nil {
+			rc.logger.Errorw("failed to refresh status", "error", err)
+			continue
+		}
+		rc.storeStatus(status)
+	}
+}
+
+func (rc *RobotClient) storeStatus(status *pb.Status) {
+	if !rc.cachingStatus {
+		return
+	}
+	rc.cachedStatusMu.Lock()
+	rc.cachedStatus = status
+	rc.cachedStatusMu.Unlock()
+}
+
+func (rc *RobotClient) getCachedStatus() *pb.Status {
+	if !rc.cachingStatus {
+		return nil
+	}
+	rc.cachedStatusMu.Lock()
+	defer rc.cachedStatusMu.Unlock()
+	return rc.cachedStatus
 }
 
 func (rc *RobotClient) RemoteByName(name string) api.Robot {
@@ -86,6 +161,7 @@ func (rc *RobotClient) populateNames(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	rc.storeStatus(status)
 	for name := range status.Arms {
 		rc.armNames = append(rc.armNames, name)
 	}
@@ -141,12 +217,19 @@ func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
 	return api.Config{}, errUnimplemented
 }
 
-func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
+func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
 	resp, err := rc.client.Status(ctx, &pb.StatusRequest{})
 	if err != nil {
 		return nil, err
 	}
 	return resp.Status, nil
+}
+
+func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
+	if status := rc.getCachedStatus(); status != nil {
+		return status, nil
+	}
+	return rc.status(ctx)
 }
 
 func (rc *RobotClient) ProviderByModel(model string) api.Provider {
@@ -332,6 +415,13 @@ func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {
 }
 
 func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
+	if status := bc.rc.getCachedStatus(); status != nil {
+		boardStatus, ok := status.Boards[bc.name]
+		if !ok {
+			return nil, fmt.Errorf("no board with name (%s)", bc.name)
+		}
+		return boardStatus, nil
+	}
 	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
 		Name: bc.name,
 	})
