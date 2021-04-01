@@ -334,6 +334,9 @@ func (r *Robot) mergeRemote(ctx context.Context, otherR api.Robot, robotName str
 	for name := range status.Boards {
 		r.AddBoard(otherR.BoardByName(name), board.Config{Name: prefixName(name)})
 	}
+	for name := range status.Cameras {
+		r.AddCamera(otherR.CameraByName(name), api.Component{Name: prefixName(name)})
+	}
 	for name := range status.Grippers {
 		r.AddGripper(otherR.GripperByName(name), api.Component{Name: prefixName(name)})
 	}

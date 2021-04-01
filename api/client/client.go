@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -510,12 +509,14 @@ type cameraClient struct {
 
 func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 	resp, err := cc.rc.client.CameraFrame(ctx, &pb.CameraFrameRequest{
-		Name: cc.name,
+		Name:     cc.name,
+		MimeType: "image/raw-rgba",
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	img, _, err := image.Decode(bytes.NewReader(resp.Frame))
+	img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
+	img.Pix = resp.Frame
 	return img, func() {}, err
 }
 
