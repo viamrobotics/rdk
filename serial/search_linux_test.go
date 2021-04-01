@@ -35,20 +35,18 @@ func TestSearchDevices(t *testing.T) {
 	jetsonPath := filepath.Join(devPathDir, "ttyTHS0")
 	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0666), test.ShouldBeNil)
 
-	dev1Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
 	dev2Root, err := ioutil.TempDir(tempDir1, "")
 	test.That(t, err, test.ShouldBeNil)
 	dev3Root, err := ioutil.TempDir(tempDir1, "")
 	test.That(t, err, test.ShouldBeNil)
-	dev1, err := ioutil.TempDir(dev1Root, "")
+	dev1, err := ioutil.TempDir(tempDir2, "")
 	test.That(t, err, test.ShouldBeNil)
 	dev2, err := ioutil.TempDir(dev2Root, "")
 	test.That(t, err, test.ShouldBeNil)
 	dev3, err := ioutil.TempDir(dev3Root, "")
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, os.WriteFile(filepath.Join(dev1Root, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
 
 	test.That(t, os.Mkdir(filepath.Join(dev1, "tty"), 0700), test.ShouldBeNil)
@@ -56,7 +54,7 @@ func TestSearchDevices(t *testing.T) {
 	test.That(t, os.WriteFile(filepath.Join(dev1, "tty", "one"), []byte("a"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3, "tty", "two"), []byte("b"), 0666), test.ShouldBeNil)
 
-	test.That(t, os.Symlink(dev1, path.Join(tempDir2, filepath.Base(dev1))), test.ShouldBeNil)
+	test.That(t, os.Symlink(filepath.Join("../", filepath.Base(tempDir2), filepath.Base(dev1)), path.Join(tempDir2, filepath.Base(dev1)+"1")), test.ShouldBeNil)
 	test.That(t, os.Symlink(dev3, path.Join(tempDir2, filepath.Base(dev2))), test.ShouldBeNil)
 
 	for i, tc := range []struct {
