@@ -8,6 +8,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
@@ -24,8 +25,8 @@ func From(lidarDevice lidar.Device) compass.RelativeDevice {
 	return &Device{Device: lidarDevice}
 }
 
-func New(ctx context.Context, deviceDesc lidar.DeviceDescription) (compass.RelativeDevice, error) {
-	lidarDevice, err := lidar.CreateDevice(ctx, deviceDesc)
+func New(ctx context.Context, deviceDesc lidar.DeviceDescription, logger golog.Logger) (compass.RelativeDevice, error) {
+	lidarDevice, err := lidar.CreateDevice(ctx, deviceDesc, logger)
 	if err != nil {
 		return nil, err
 	}

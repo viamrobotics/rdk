@@ -10,14 +10,18 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/lidar"
 )
 
-const LidarDeviceType = "fake"
+const LidarDeviceType = ModelName
 
 func init() {
 	lidar.RegisterDeviceType(LidarDeviceType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
+		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
+			if desc.Path == "" {
+				desc.Path = "0"
+			}
 			path := strings.TrimPrefix(desc.Path, "fake-")
 			seed, err := strconv.ParseInt(path, 10, 64)
 			if err != nil {

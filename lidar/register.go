@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 	"go.viam.com/robotcore/usb"
 )
@@ -14,7 +15,7 @@ var registrations = map[DeviceType]DeviceTypeRegistration{}
 var registrationsMu sync.Mutex
 
 type DeviceTypeRegistration struct {
-	New     func(ctx context.Context, desc DeviceDescription) (Device, error)
+	New     func(ctx context.Context, desc DeviceDescription, logger golog.Logger) (Device, error)
 	USBInfo *usb.Identifier
 }
 
@@ -24,15 +25,15 @@ func RegisterDeviceType(deviceType DeviceType, reg DeviceTypeRegistration) {
 	registrationsMu.Unlock()
 }
 
-func CreateDevice(ctx context.Context, desc DeviceDescription) (Device, error) {
+func CreateDevice(ctx context.Context, desc DeviceDescription, logger golog.Logger) (Device, error) {
 	reg, ok := registrations[desc.Type]
 	if !ok {
 		return nil, fmt.Errorf("do not know how to create a %q device", desc.Type)
 	}
-	return reg.New(ctx, desc)
+	return reg.New(ctx, desc, logger)
 }
 
-func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription) ([]Device, error) {
+func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription, logger golog.Logger) ([]Device, error) {
 	var wg sync.WaitGroup
 	wg.Add(len(deviceDescs))
 	devices := make([]Device, len(deviceDescs))
@@ -43,7 +44,7 @@ func CreateDevices(ctx context.Context, deviceDescs []DeviceDescription) ([]Devi
 		go func() {
 			defer wg.Done()
 			i, devDesc := savedI, savedDesc
-			dev, err := CreateDevice(ctx, devDesc)
+			dev, err := CreateDevice(ctx, devDesc, logger)
 			if err != nil {
 				errs[i] = err
 				atomic.AddInt32(&numErrs, 1)
