@@ -11,9 +11,11 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Server struct {
@@ -273,4 +275,119 @@ func (s *Server) RenderCameraFrame(ctx context.Context, req *pb.CameraFrameReque
 		ContentType: resp.MimeType,
 		Data:        resp.Frame,
 	}, nil
+}
+
+func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	info, err := lidarDevice.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+	str, err := structpb.NewStruct(info)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarInfoResponse{Info: str}, nil
+}
+
+func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	err := lidarDevice.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarStartResponse{}, nil
+}
+
+func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	err := lidarDevice.Stop(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarStopResponse{}, nil
+}
+
+func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	opts := ScanOptionsFromProto(req)
+	ms, err := lidarDevice.Scan(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarScanResponse{Measurements: MeasurementsToProto(ms)}, nil
+}
+
+func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	r, err := lidarDevice.Range(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarRangeResponse{Range: int64(r)}, nil
+}
+
+func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	bounds, err := lidarDevice.Bounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
+}
+
+func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
+	lidarDevice := s.r.LidarDeviceByName(req.Name)
+	if lidarDevice == nil {
+		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	}
+	angRes, err := lidarDevice.AngularResolution(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.LidarAngularResolutionResponse{AngularResolution: angRes}, nil
+}
+
+func ScanOptionsFromProto(req *pb.LidarScanRequest) lidar.ScanOptions {
+	return lidar.ScanOptions{
+		Count:    int(req.Count),
+		NoFilter: req.NoFilter,
+	}
+}
+
+func MeasurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
+	x, y := m.Coords()
+	return &pb.LidarMeasurement{
+		Angle:    m.AngleRad(),
+		AngleDeg: m.AngleDeg(),
+		Distance: m.Distance(),
+		X:        x,
+		Y:        y,
+	}
+}
+
+func MeasurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
+	pms := make([]*pb.LidarMeasurement, 0, len(ms))
+	for _, m := range ms {
+		pms = append(pms, MeasurementToProto(m))
+	}
+	return pms
 }
