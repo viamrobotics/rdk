@@ -8,6 +8,7 @@ import (
 	"image/jpeg"
 	"net"
 	"testing"
+	"time"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/server"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils/inject"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
 	"google.golang.org/grpc"
@@ -62,6 +64,7 @@ var emptyStatus = &pb.Status{
 }
 
 func TestClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -215,14 +218,14 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = NewRobotClient(cancelCtx, listener1.Addr().String())
+	_, err = NewRobotClient(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return &pb.Status{}, nil
 	}
-	client, err := NewRobotClient(context.Background(), listener1.Addr().String())
+	client, err := NewRobotClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -293,7 +296,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
-	client, err = NewRobotClient(context.Background(), listener2.Addr().String())
+	client, err = NewRobotClient(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := client.Status(context.Background())
@@ -378,6 +381,53 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 262140)
 	test.That(t, imageReleased, test.ShouldBeTrue)
 	test.That(t, capCameraName, test.ShouldEqual, "camera1")
+
+	err = client.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientRefreshStatus(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	var callCount int
+	calledEnough := make(chan struct{})
+	var shouldError bool
+	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		if shouldError {
+			return nil, errors.New("no more for you")
+		}
+		if callCount > 5 {
+			shouldError = true
+			close(calledEnough)
+		}
+		callCount++
+		return emptyStatus, nil
+	}
+
+	start := time.Now()
+	dur := 100 * time.Millisecond
+	client, err := NewRobotClientWithOptions(
+		context.Background(),
+		listener.Addr().String(),
+		RobotClientOptions{RefreshStatusEvery: dur},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	<-calledEnough
+	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
+	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
+
+	status, err := client.Status(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
