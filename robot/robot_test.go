@@ -147,6 +147,11 @@ func TestConfigRemote(t *testing.T) {
 			"pieceGripper":     true,
 			"foo.pieceGripper": true,
 		},
+		Cameras: map[string]bool{
+			"cameraOver":     true,
+			"foo.cameraOver": true,
+		},
+		LidarDevices: map[string]bool{},
 	}
 
 	test.That(t, status, test.ShouldResemble, expectedStatus)

@@ -9,7 +9,10 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/robots/fake"
+
+	// registration
+	_ "go.viam.com/robotcore/lidar/client"
+	_ "go.viam.com/robotcore/robots/fake"
 
 	// these are the core image things we always want
 	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
@@ -294,7 +297,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 			}
 			r.AddCamera(camera, c)
 		case api.ComponentTypeLidar:
-			lidarDevice, err := r.newLidar(ctx, c)
+			lidarDevice, err := r.newLidar(ctx, c, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -387,17 +390,13 @@ func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
 	return cc(r, config, r.logger)
 }
 
-// TODO(erd): prefer registration pattern
-func (r *Robot) newLidar(ctx context.Context, config api.Component) (lidar.Device, error) {
-	switch config.Model {
-	case lidar.ModelNameClient:
-		return lidar.CreateDevice(ctx, lidar.DeviceDescription{
-			Type: lidar.DeviceTypeClient,
-			Path: fmt.Sprintf("%s:%d", config.Host, config.Port),
-		})
-	case fake.ModelName:
-		return fake.NewLidar(), nil
-	default:
-		return nil, fmt.Errorf("unknown lidar model: %s", config.Model)
+func (r *Robot) newLidar(ctx context.Context, config api.Component, logger golog.Logger) (lidar.Device, error) {
+	var path string
+	if config.Host != "" {
+		path = fmt.Sprintf("%s:%d", config.Host, config.Port)
 	}
+	return lidar.CreateDevice(ctx, lidar.DeviceDescription{
+		Type: lidar.DeviceType(config.Model),
+		Path: path,
+	}, logger)
 }

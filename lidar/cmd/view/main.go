@@ -14,6 +14,9 @@ import (
 	"go.viam.com/robotcore/slam"
 	"go.viam.com/robotcore/utils"
 
+	// register
+	_ "go.viam.com/robotcore/lidar/client"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
@@ -67,12 +70,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
 	}
 
-	return viewLidar(ctx, int(argsParsed.Port), argsParsed.LidarDevices, argsParsed.SaveToDisk)
+	return viewLidar(ctx, int(argsParsed.Port), argsParsed.LidarDevices, argsParsed.SaveToDisk, logger)
 }
 
-func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescription, saveToDisk string) (err error) {
+func viewLidar(ctx context.Context, port int, deviceDescs []lidar.DeviceDescription, saveToDisk string, logger golog.Logger) (err error) {
 	// setup lidar devices
-	lidarDevices, err := lidar.CreateDevices(ctx, deviceDescs)
+	lidarDevices, err := lidar.CreateDevices(ctx, deviceDescs, logger)
 	if err != nil {
 		return err
 	}
