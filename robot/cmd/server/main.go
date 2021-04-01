@@ -33,16 +33,20 @@ var logger = golog.NewDevelopmentLogger("robot_server")
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool   `flag:"noAutoTile,usage=disable auto tiling"`
-	CPUProfile string `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool   `flag:"webprofile,usage=include profiler in http server"`
+	ConfigFile string            `flag:"0,required,usage=robot config file"`
+	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
+	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
+	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
+	}
+	if argsParsed.Port == 0 {
+		argsParsed.Port = 8080
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -74,6 +78,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
+	options.Port = int(argsParsed.Port)
 
 	return web.RunWeb(ctx, myRobot, options, logger)
 }
