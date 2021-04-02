@@ -9,7 +9,7 @@ import (
 	"net"
 	"testing"
 
-	"go.uber.org/zap/zaptest/observer"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -22,6 +22,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
+	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 )
 
@@ -80,47 +81,41 @@ func TestMain(t *testing.T) {
 		logger = tLogger
 	}
 
-	lidar.RegisterDeviceType("fail_info", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	api.RegisterLidarDevice("fail_info", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_ang", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_stop", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.StopFunc = func(ctx context.Context) error {
+			return errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_scan", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		var once bool
+		dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			if once {
 				return nil, errors.New("whoops")
 			}
-			return dev, nil
-		},
+			once = true
+			return lidar.Measurements{}, nil
+		}
+		return dev, nil
 	})
-	lidar.RegisterDeviceType("fail_ang", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-				return math.NaN(), errors.New("whoops")
-			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_stop", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.StopFunc = func(ctx context.Context) error {
-				return errors.New("whoops")
-			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_scan", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			var once bool
-			dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-				if once {
-					return nil, errors.New("whoops")
-				}
-				once = true
-				return lidar.Measurements{}, nil
-			}
-			return dev, nil
-		},
-	})
+	host := listener.Addr().(*net.TCPAddr).IP.String()
+	port := listener.Addr().(*net.TCPAddr).Port
 	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{
 		// parsing
 		{"no args", nil, "no suitable", assignLogger, nil, nil},
@@ -128,11 +123,11 @@ func TestMain(t *testing.T) {
 		{"bad device", []string{"--device=foo"}, "format", assignLogger, nil, nil},
 
 		// reading
-		{"bad device type", []string{"--device=foo,blah"}, "do not know how", assignLogger, nil, nil},
-		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", assignLogger, nil, nil},
-		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", assignLogger, nil, nil},
-		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", assignLogger, nil, nil},
-		{"normal", []string{fmt.Sprintf("--device=grpc,%s", listener.Addr())}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+		{"bad device type", []string{"--device=type=lidar,model=foo,host=blah"}, "unknown lidar model", assignLogger, nil, nil},
+		{"bad device info", []string{"--device=type=lidar,model=fail_info,host=zero"}, "whoops", assignLogger, nil, nil},
+		{"bad device ang res", []string{"--device=type=lidar,model=fail_ang,host=zero"}, "whoops", assignLogger, nil, nil},
+		{"bad device stop", []string{"--device=type=lidar,model=fail_stop,host=zero"}, "whoops", assignLogger, nil, nil},
+		{"normal", []string{fmt.Sprintf("--device=type=lidar,model=grpc,host=%s,port=%d", host, port)}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 			assignLogger(t, tLogger, exec)
 			exec.ExpectIters(t, 2)
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {

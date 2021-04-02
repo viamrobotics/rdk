@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	api.RegisterArm("wx250s", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+	api.RegisterArm("wx250s", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
 		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock, logger)
 	})
 }

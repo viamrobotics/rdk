@@ -2,19 +2,31 @@ package lidar
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"runtime"
 	"sort"
 	"sync"
 	"sync/atomic"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/mat"
 )
+
+const ModelName = "lidar"
+
+func init() {
+	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+		return New(ctx, config, logger)
+	})
+}
 
 type Device struct {
 	lidar.Device
@@ -25,13 +37,27 @@ func From(lidarDevice lidar.Device) compass.RelativeDevice {
 	return &Device{Device: lidarDevice}
 }
 
-func New(ctx context.Context, deviceDesc lidar.DeviceDescription, logger golog.Logger) (compass.RelativeDevice, error) {
-	lidarDevice, err := lidar.CreateDevice(ctx, deviceDesc, logger)
+func New(ctx context.Context, config api.Component, logger golog.Logger) (compass.RelativeDevice, error) {
+	lidarType := config.Attributes.GetString("type")
+	f := api.LidarDeviceLookup(lidarType)
+	if f == nil {
+		return nil, fmt.Errorf("unknown lidar model: %s", lidarType)
+	}
+	lidarDevice, err := f(ctx, nil, config, logger)
 	if err != nil {
 		return nil, err
 	}
-
+	if err := lidarDevice.Start(ctx); err != nil {
+		return nil, err
+	}
 	return &Device{Device: lidarDevice}, nil
+}
+
+func (d *Device) Close(ctx context.Context) (err error) {
+	defer func() {
+		err = multierr.Combine(err, d.Device.Close(ctx))
+	}()
+	return d.Device.Stop(ctx) // because we started it
 }
 
 func (d *Device) clone() *Device {

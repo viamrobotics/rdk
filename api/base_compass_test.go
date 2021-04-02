@@ -1,4 +1,4 @@
-package compass_test
+package api_test
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
 )
 
@@ -19,15 +18,15 @@ func TestAugmentReduce(t *testing.T) {
 	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
-	test.That(t, compass.BaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
+	test.That(t, api.BaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
 
 	comp := &inject.Compass{}
-	aug := compass.BaseWithCompass(dev, comp, logger)
+	aug := api.BaseWithCompass(dev, comp, logger)
 	test.That(t, aug, test.ShouldNotEqual, dev)
 	var baseDev *api.Base = nil
 	test.That(t, aug, test.ShouldImplement, baseDev)
 
-	test.That(t, compass.ReduceBase(aug), test.ShouldEqual, dev)
+	test.That(t, api.ReduceBase(aug), test.ShouldEqual, dev)
 }
 
 func TestDeviceWithCompass(t *testing.T) {
@@ -37,7 +36,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		return 600, nil
 	}
 	comp := &inject.Compass{}
-	aug := compass.BaseWithCompass(dev, comp, logger)
+	aug := api.BaseWithCompass(dev, comp, logger)
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0

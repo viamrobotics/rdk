@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	api.RegisterArm("eva", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+	api.RegisterArm("eva", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
 		return NewEva(config.Host, config.Attributes, logger)
 	})
 }

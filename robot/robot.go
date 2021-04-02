@@ -2,6 +2,7 @@ package robot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.viam.com/robotcore/api"
@@ -9,10 +10,14 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/sensor"
 
 	// registration
 	_ "go.viam.com/robotcore/lidar/client"
 	_ "go.viam.com/robotcore/robots/fake"
+	_ "go.viam.com/robotcore/sensor/compass/client"
+	_ "go.viam.com/robotcore/sensor/compass/gy511"
+	_ "go.viam.com/robotcore/sensor/compass/lidar"
 
 	// these are the core image things we always want
 	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
@@ -30,6 +35,7 @@ type Robot struct {
 	cameras      map[string]gostream.ImageSource
 	lidarDevices map[string]lidar.Device
 	bases        map[string]api.Base
+	sensors      map[string]sensor.Device
 	providers    map[string]api.Provider
 
 	config api.Config
@@ -62,6 +68,10 @@ func (r *Robot) CameraByName(name string) gostream.ImageSource {
 
 func (r *Robot) LidarDeviceByName(name string) lidar.Device {
 	return r.lidarDevices[name]
+}
+
+func (r *Robot) SensorByName(name string) sensor.Device {
+	return r.sensors[name]
 }
 
 func (r *Robot) ProviderByModel(model string) api.Provider {
@@ -102,6 +112,10 @@ func (r *Robot) AddLidar(device lidar.Device, c api.Component) {
 func (r *Robot) AddBase(b api.Base, c api.Component) {
 	c = fixName(c, api.ComponentTypeBase, len(r.bases))
 	r.bases[c.Name] = b
+}
+func (r *Robot) AddSensor(s sensor.Device, c api.Component) {
+	c = fixName(c, api.ComponentTypeSensor, len(r.sensors))
+	r.sensors[c.Name] = s
 }
 func (r *Robot) AddProvider(p api.Provider, c api.Component) {
 	if c.Name == "" {
@@ -173,6 +187,14 @@ func (r *Robot) BoardNames() []string {
 	return names
 }
 
+func (r *Robot) SensorNames() []string {
+	names := []string{}
+	for k := range r.sensors {
+		names = append(names, k)
+	}
+	return names
+}
+
 func (r *Robot) Close(ctx context.Context) error {
 	for _, x := range r.arms {
 		x.Close(ctx)
@@ -200,9 +222,14 @@ func (r *Robot) Close(ctx context.Context) error {
 
 	for _, x := range r.boards {
 		if err := x.Close(ctx); err != nil {
-			r.logger.Error("error closing boar", "error", err)
+			r.logger.Error("error closing board", "error", err)
 		}
+	}
 
+	for _, x := range r.sensors {
+		if err := x.Close(ctx); err != nil {
+			r.logger.Error("error closing sensor", "error", err)
+		}
 	}
 
 	return nil
@@ -229,6 +256,7 @@ func NewBlankRobot(logger golog.Logger) *Robot {
 		cameras:      map[string]gostream.ImageSource{},
 		lidarDevices: map[string]lidar.Device{},
 		bases:        map[string]api.Base{},
+		sensors:      map[string]sensor.Device{},
 		providers:    map[string]api.Provider{},
 		logger:       logger,
 	}
@@ -260,7 +288,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	for _, c := range cfg.Components {
 		switch c.Type {
 		case api.ComponentTypeProvider:
-			p, err := r.newProvider(c)
+			p, err := r.newProvider(ctx, c)
 			if err != nil {
 				return nil, err
 			}
@@ -273,35 +301,44 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 		case api.ComponentTypeProvider:
 			// hanlded above
 		case api.ComponentTypeBase:
-			b, err := r.newBase(c)
+			b, err := r.newBase(ctx, c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddBase(b, c)
 		case api.ComponentTypeArm:
-			a, err := r.newArm(c)
+			a, err := r.newArm(ctx, c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddArm(a, c)
 		case api.ComponentTypeGripper:
-			g, err := r.newGripper(c)
+			g, err := r.newGripper(ctx, c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddGripper(g, c)
 		case api.ComponentTypeCamera:
-			camera, err := r.newCamera(c)
+			camera, err := r.newCamera(ctx, c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddCamera(camera, c)
 		case api.ComponentTypeLidar:
-			lidarDevice, err := r.newLidar(ctx, c, logger)
+			lidarDevice, err := r.newLidarDevice(ctx, c)
 			if err != nil {
 				return nil, err
 			}
 			r.AddLidar(lidarDevice, c)
+		case api.ComponentTypeSensor:
+			if c.SubType == "" {
+				return nil, errors.New("sensor component requires subtype")
+			}
+			sensorDevice, err := r.newSensor(ctx, c, sensor.DeviceType(c.SubType))
+			if err != nil {
+				return nil, err
+			}
+			r.AddSensor(sensorDevice, c)
 		default:
 			return nil, fmt.Errorf("unknown component type: %v", c.Type)
 		}
@@ -346,57 +383,65 @@ func (r *Robot) mergeRemote(ctx context.Context, otherR api.Robot, robotName str
 	for name := range status.LidarDevices {
 		r.AddLidar(otherR.LidarDeviceByName(name), api.Component{Name: prefixName(name)})
 	}
+	for name := range status.Sensors {
+		r.AddSensor(otherR.SensorByName(name), api.Component{Name: prefixName(name)})
+	}
 	return nil
 }
 
-func (r *Robot) newProvider(config api.Component) (api.Provider, error) {
-	pf := api.ProviderLookup(config.Model)
-	if pf == nil {
+func (r *Robot) newProvider(ctx context.Context, config api.Component) (api.Provider, error) {
+	f := api.ProviderLookup(config.Model)
+	if f == nil {
 		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
 	}
-	return pf(r, config, r.logger)
+	return f(ctx, r, config, r.logger)
 }
 
-func (r *Robot) newBase(config api.Component) (api.Base, error) {
+func (r *Robot) newBase(ctx context.Context, config api.Component) (api.Base, error) {
 	f := api.BaseLookup(config.Model)
 	if f == nil {
 		return nil, fmt.Errorf("unknown base model: %s", config.Model)
 	}
-	return f(r, config, r.logger)
+	return f(ctx, r, config, r.logger)
 }
 
-func (r *Robot) newArm(config api.Component) (api.Arm, error) {
+func (r *Robot) newArm(ctx context.Context, config api.Component) (api.Arm, error) {
 	f := api.ArmLookup(config.Model)
 	if f == nil {
 		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
 	}
 
-	return f(r, config, r.logger)
+	return f(ctx, r, config, r.logger)
 }
 
-func (r *Robot) newGripper(config api.Component) (api.Gripper, error) {
+func (r *Robot) newGripper(ctx context.Context, config api.Component) (api.Gripper, error) {
 	f := api.GripperLookup(config.Model)
 	if f == nil {
 		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
 	}
-	return f(r, config, r.logger)
+	return f(ctx, r, config, r.logger)
 }
 
-func (r *Robot) newCamera(config api.Component) (gostream.ImageSource, error) {
-	cc := api.CameraLookup(config.Model)
-	if cc == nil {
+func (r *Robot) newCamera(ctx context.Context, config api.Component) (gostream.ImageSource, error) {
+	f := api.CameraLookup(config.Model)
+	if f == nil {
 		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
 	}
-	return cc(r, config, r.logger)
+	return f(ctx, r, config, r.logger)
 }
 
-func (r *Robot) newLidar(ctx context.Context, config api.Component, logger golog.Logger) (lidar.Device, error) {
-	var path string
-	if config.Host != "" {
-		path = fmt.Sprintf("%s:%d", config.Host, config.Port)
+func (r *Robot) newLidarDevice(ctx context.Context, config api.Component) (lidar.Device, error) {
+	f := api.LidarDeviceLookup(config.Model)
+	if f == nil {
+		return nil, fmt.Errorf("unknown lidar model: %s", config.Model)
 	}
-	return lidar.CreateDevice(ctx, lidar.DeviceDescription{
-		Type: lidar.DeviceType(config.Model),
-		Path: path,
-	}, logger)
+	return f(ctx, r, config, r.logger)
+}
+
+func (r *Robot) newSensor(ctx context.Context, config api.Component, sensorType sensor.DeviceType) (sensor.Device, error) {
+	f := api.SensorLookup(sensorType, config.Model)
+	if f == nil {
+		return nil, fmt.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
+	}
+	return f(ctx, r, config, r.logger)
 }

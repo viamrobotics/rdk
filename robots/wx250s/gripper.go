@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("wx250s", func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper("wx250s", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
 		return NewGripper(config.Attributes, getProviderOrCreate(r).moveLock, logger)
 	})
 }

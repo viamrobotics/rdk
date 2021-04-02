@@ -7,6 +7,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/sensor"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -23,6 +24,7 @@ type Robot struct {
 	CameraByNameFunc      func(name string) gostream.ImageSource
 	LidarDeviceByNameFunc func(name string) lidar.Device
 	BoardByNameFunc       func(name string) board.Board
+	SensorByNameFunc      func(name string) sensor.Device
 	RemoteNamesFunc       func() []string
 	ArmNamesFunc          func() []string
 	GripperNamesFunc      func() []string
@@ -30,6 +32,7 @@ type Robot struct {
 	LidarDeviceNamesFunc  func() []string
 	BaseNamesFunc         func() []string
 	BoardNamesFunc        func() []string
+	SensorNamesFunc       func() []string
 	GetConfigFunc         func(ctx context.Context) (api.Config, error)
 	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
@@ -100,6 +103,13 @@ func (r *Robot) BoardByName(name string) board.Board {
 	return r.BoardByNameFunc(name)
 }
 
+func (r *Robot) SensorByName(name string) sensor.Device {
+	if r.SensorByNameFunc == nil {
+		return r.Robot.SensorByName(name)
+	}
+	return r.SensorByNameFunc(name)
+}
+
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
 		return r.Robot.RemoteNames()
@@ -147,6 +157,13 @@ func (r *Robot) BoardNames() []string {
 		return r.Robot.BoardNames()
 	}
 	return r.BoardNamesFunc()
+}
+
+func (r *Robot) SensorNames() []string {
+	if r.SensorNamesFunc == nil {
+		return r.Robot.SensorNames()
+	}
+	return r.SensorNamesFunc()
 }
 
 func (r *Robot) GetConfig(ctx context.Context) (api.Config, error) {
