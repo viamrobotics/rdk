@@ -129,3 +129,18 @@ func TestMeasurementFromCoord(t *testing.T) {
 	m2 := MeasurementFromCoord(-7.071067811865475, 7.071067811865475)
 	test.That(t, m2, test.ShouldResemble, NewMeasurement(315, 10))
 }
+
+func TestMeasurementsClosestToDegree(t *testing.T) {
+	ms := Measurements{
+		NewMeasurement(50, 1),
+		NewMeasurement(55, 1),
+		NewMeasurement(60, 1),
+	}
+
+	m := ms.ClosestToDegree(51)
+	test.That(t, 50.0, test.ShouldAlmostEqual, m.AngleDeg())
+
+	m = ms.ClosestToDegree(57.2)
+	test.That(t, 55.0, test.ShouldAlmostEqual, m.AngleDeg())
+
+}

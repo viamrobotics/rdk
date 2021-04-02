@@ -60,18 +60,31 @@ func dock(r api.Robot) error {
 		return fmt.Errorf("no pierre")
 	}
 
+	theLidar := r.LidarDeviceByName("lidarOnBase")
+	if theLidar == nil {
+		return fmt.Errorf("no lidar lidarOnBase")
+	}
+
 	for tries := 0; tries < 5; tries++ {
+
+		ms, err := theLidar.Scan(context.Background(), lidar.ScanOptions{})
+		if err != nil {
+			return err
+		}
+		back := ms.ClosestToDegree(180)
+		logger.Debugf("distance to back: %#v", back)
+
+		if back.Distance() < .55 {
+			logger.Info("docking close enough")
+			return nil
+		}
+
 		x, y, err := dockNextMoveCompute(ctx, cam)
 		if err != nil {
 			logger.Infof("failed to compute, will try again: %s", err)
 			continue
 		}
 		logger.Debugf("x: %v y: %v\n", x, y)
-		if y > .35 {
-			// we're close enough?
-			logger.Info("docking close enough")
-			return nil
-		}
 
 		angle := x * -15
 		logger.Debugf("turning %v degrees", angle)
