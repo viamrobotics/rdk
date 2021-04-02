@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"github.com/disintegration/imaging"
 )
@@ -161,4 +162,43 @@ func (i *Image) Rotate(amount int) *Image {
 	}
 
 	return i2
+}
+
+var (
+	sobelX = [3][3]int{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}
+	sobelY = [3][3]int{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}
+)
+
+func SobelFilter(dm *DepthMap) GradientField {
+	width, height := dm.Width(), dm.Height()
+	// taking a gradient will remove a pixel from all sides of the image
+	gf := NewEmptyGradientField(width-2, height-2)
+	for y := 1; y < height-1; y++ {
+		for x := 1; x < width-1; x++ {
+			var sX, sY int
+			xRange, yRange := [3]int{-1, 0, 1}, [3]int{-1, 0, 1}
+			// apply the Sobel Filter over a 3x3 square around the pixel
+			// TODO(bijan) Gotta find a matrix library to use for Go
+			for i, dx := range xRange {
+				for j, dy := range yRange {
+					sX += sobelX[i][j] * int(dm.GetDepth(x+dx, y+dy))
+					sY += sobelY[i][j] * int(dm.GetDepth(x+dx, y+dy))
+				}
+			}
+			mag, dir := getMagnitudeAndDirection(sX, sY)
+			gf.Set(x-1, y-1, Gradient{mag, dir})
+		}
+	}
+	return gf
+
+}
+
+func getMagnitudeAndDirection(x, y int) (float64, float64) {
+	mag := math.Sqrt(float64(x*x + y*y))
+	// get direction - make angle so that it is between [0, 2pi] rather than [-pi, pi]
+	dir := math.Atan2(float64(y), float64(x))
+	if dir < 0. {
+		dir += 2. * math.Pi
+	}
+	return mag, dir
 }
