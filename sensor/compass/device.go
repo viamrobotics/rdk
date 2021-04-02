@@ -7,6 +7,11 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+const (
+	DeviceType         = "compass"
+	RelativeDeviceType = "relative_compass"
+)
+
 type Device interface {
 	sensor.Device
 	Heading(ctx context.Context) (float64, error)

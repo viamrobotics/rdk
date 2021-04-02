@@ -18,19 +18,19 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("intel", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
 	})
 	api.RegisterCamera("eliot", api.CameraLookup("intel"))
 
-	api.RegisterCamera("url", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("url", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
 		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 	})
 
-	api.RegisterCamera("file", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth")}, nil
 	})
 }

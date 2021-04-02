@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
+	"go.viam.com/robotcore/sensor/compass"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -390,4 +391,85 @@ func MeasurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 		pms = append(pms, MeasurementToProto(m))
 	}
 	return pms
+}
+
+func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
+	sensorDevice := s.r.SensorByName(req.Name)
+	if sensorDevice == nil {
+		return nil, fmt.Errorf("no sensor with name (%s)", req.Name)
+	}
+	readings, err := sensorDevice.Readings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	readingsP := make([]*structpb.Value, 0, len(readings))
+	for _, r := range readings {
+		v, err := structpb.NewValue(r)
+		if err != nil {
+			return nil, err
+		}
+		readingsP = append(readingsP, v)
+	}
+	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
+}
+
+func (s *Server) compassByName(name string) (compass.Device, error) {
+	sensorDevice := s.r.SensorByName(name)
+	if sensorDevice == nil {
+		return nil, fmt.Errorf("no sensor with name (%s)", name)
+	}
+	sensorType := api.GetSensorDeviceType(sensorDevice)
+	if sensorType != compass.DeviceType && sensorType != compass.RelativeDeviceType {
+		return nil, fmt.Errorf("unexpected sensor type %q", sensorType)
+	}
+	return sensorDevice.(compass.Device), nil
+}
+
+func (s *Server) CompassHeading(ctx context.Context, req *pb.CompassHeadingRequest) (*pb.CompassHeadingResponse, error) {
+	compassDevice, err := s.compassByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	heading, err := compassDevice.Heading(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.CompassHeadingResponse{Heading: heading}, nil
+}
+
+func (s *Server) CompassStartCalibration(ctx context.Context, req *pb.CompassStartCalibrationRequest) (*pb.CompassStartCalibrationResponse, error) {
+	compassDevice, err := s.compassByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if err := compassDevice.StartCalibration(ctx); err != nil {
+		return nil, err
+	}
+	return &pb.CompassStartCalibrationResponse{}, nil
+}
+
+func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStopCalibrationRequest) (*pb.CompassStopCalibrationResponse, error) {
+	compassDevice, err := s.compassByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if err := compassDevice.StopCalibration(ctx); err != nil {
+		return nil, err
+	}
+	return &pb.CompassStopCalibrationResponse{}, nil
+}
+
+func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*pb.CompassMarkResponse, error) {
+	compassDevice, err := s.compassByName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	rel, ok := compassDevice.(compass.RelativeDevice)
+	if !ok {
+		return &pb.CompassMarkResponse{}, nil
+	}
+	if err := rel.Mark(ctx); err != nil {
+		return nil, err
+	}
+	return &pb.CompassMarkResponse{}, nil
 }

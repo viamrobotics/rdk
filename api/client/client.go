@@ -14,6 +14,8 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/sensor/compass"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -32,6 +34,9 @@ type RobotClient struct {
 	boardNames       []string
 	cameraNames      []string
 	lidarDeviceNames []string
+	sensorNames      []string
+
+	sensorTypes map[string]sensor.DeviceType
 
 	activeBackgroundWorkers sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -57,6 +62,7 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	rc := &RobotClient{
 		conn:                    conn,
 		client:                  client,
+		sensorTypes:             map[string]sensor.DeviceType{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
 	}
@@ -156,6 +162,19 @@ func (rc *RobotClient) BoardByName(name string) board.Board {
 	return &boardClient{rc, name}
 }
 
+func (rc *RobotClient) SensorByName(name string) sensor.Device {
+	sensorType := rc.sensorTypes[name]
+	sc := &sensorClient{rc, name}
+	switch sensorType {
+	case compass.DeviceType:
+		return &compassClient{sc}
+	case compass.RelativeDeviceType:
+		return &relativeCompassClient{&compassClient{sc}}
+	default:
+		return sc
+	}
+}
+
 func (rc *RobotClient) populateNames(ctx context.Context) error {
 	status, err := rc.Status(ctx)
 	if err != nil {
@@ -179,6 +198,10 @@ func (rc *RobotClient) populateNames(ctx context.Context) error {
 	}
 	for name := range status.LidarDevices {
 		rc.lidarDeviceNames = append(rc.lidarDeviceNames, name)
+	}
+	for name, sensorStatus := range status.Sensors {
+		rc.sensorNames = append(rc.sensorNames, name)
+		rc.sensorTypes[name] = sensor.DeviceType(sensorStatus.Type)
 	}
 	return nil
 }
@@ -216,6 +239,10 @@ func (rc *RobotClient) BaseNames() []string {
 
 func (rc *RobotClient) BoardNames() []string {
 	return copyStringSlice(rc.boardNames)
+}
+
+func (rc *RobotClient) SensorNames() []string {
+	return copyStringSlice(rc.sensorNames)
 }
 
 func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
@@ -617,4 +644,75 @@ func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
 		ms = append(ms, MeasurementFromProto(pm))
 	}
 	return ms
+}
+
+type sensorClient struct {
+	rc   *RobotClient
+	name string
+}
+
+func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
+	resp, err := sc.rc.client.SensorReadings(ctx, &pb.SensorReadingsRequest{
+		Name: sc.name,
+	})
+	if err != nil {
+		return nil, err
+	}
+	readings := make([]interface{}, 0, len(resp.Readings))
+	for _, r := range resp.Readings {
+		readings = append(readings, r.AsInterface())
+	}
+	return readings, nil
+}
+
+func (sc *sensorClient) Close(ctx context.Context) error {
+	// TODO(erd): this should probably be removed from interface
+	return nil
+}
+
+type compassClient struct {
+	*sensorClient
+}
+
+func (cc *compassClient) Readings(ctx context.Context) ([]interface{}, error) {
+	heading, err := cc.Heading(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{heading}, nil
+}
+
+func (cc *compassClient) Heading(ctx context.Context) (float64, error) {
+	resp, err := cc.rc.client.CompassHeading(ctx, &pb.CompassHeadingRequest{
+		Name: cc.name,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.Heading, nil
+}
+
+func (cc *compassClient) StartCalibration(ctx context.Context) error {
+	_, err := cc.rc.client.CompassStartCalibration(ctx, &pb.CompassStartCalibrationRequest{
+		Name: cc.name,
+	})
+	return err
+}
+
+func (cc *compassClient) StopCalibration(ctx context.Context) error {
+	_, err := cc.rc.client.CompassStopCalibration(ctx, &pb.CompassStopCalibrationRequest{
+		Name: cc.name,
+	})
+	return err
+}
+
+type relativeCompassClient struct {
+	*compassClient
+}
+
+func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
+	_, err := rcc.rc.client.CompassMark(ctx, &pb.CompassMarkRequest{
+		Name: rcc.name,
+	})
+	return err
 }

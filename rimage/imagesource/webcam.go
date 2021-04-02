@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("webcam", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("webcam", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewWebcamSource(config.Attributes, logger)
 	})
 

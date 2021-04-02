@@ -16,6 +16,8 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/golog"
@@ -51,6 +53,14 @@ var emptyStatus = &pb.Status{
 	},
 	LidarDevices: map[string]bool{
 		"lidar1": true,
+	},
+	Sensors: map[string]*pb.SensorStatus{
+		"compass1": {
+			Type: compass.DeviceType,
+		},
+		"compass2": {
+			Type: compass.RelativeDeviceType,
+		},
 	},
 	Boards: map[string]*pb.BoardStatus{
 		"board1": {
@@ -104,6 +114,9 @@ func TestClient(t *testing.T) {
 	injectRobot1.LidarDeviceByNameFunc = func(name string) lidar.Device {
 		return nil
 	}
+	injectRobot1.SensorByNameFunc = func(name string) sensor.Device {
+		return nil
+	}
 
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
@@ -117,6 +130,7 @@ func TestClient(t *testing.T) {
 		capServoName       string
 		capCameraName      string
 		capLidarDeviceName string
+		capSensorName      string
 	)
 	injectBase := &inject.Base{}
 	var baseStopCalled bool
@@ -251,6 +265,43 @@ func TestClient(t *testing.T) {
 		return injectLidarDev
 	}
 
+	injectCompassDev := &inject.Compass{}
+	injectRelCompassDev := &inject.RelativeCompass{}
+	injectRobot2.SensorByNameFunc = func(name string) sensor.Device {
+		capSensorName = name
+		if name == "compass2" {
+			return injectRelCompassDev
+		}
+		return injectCompassDev
+	}
+	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		return []interface{}{1.2, 2.3}, nil
+	}
+	injectCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
+		return 4.5, nil
+	}
+	injectCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectRelCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		return []interface{}{1.2, 2.3}, nil
+	}
+	injectRelCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
+		return 4.5, nil
+	}
+	injectRelCompassDev.MarkFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectRelCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
+		return nil
+	}
+	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
+		return nil
+	}
+
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
@@ -332,6 +383,11 @@ func TestClient(t *testing.T) {
 	_, _, err = client.CameraByName("camera1").Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+
+	sensorDevice := client.SensorByName("sensor1")
+	_, err = sensorDevice.Readings(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -446,6 +502,40 @@ func TestClient(t *testing.T) {
 	err = lidarDev.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capLidarDeviceName, test.ShouldEqual, "lidar1")
+
+	sensorDev := client.SensorByName("compass1")
+	test.That(t, sensorDev, test.ShouldImplement, (*compass.Device)(nil))
+	test.That(t, sensorDev, test.ShouldNotImplement, (*compass.RelativeDevice)(nil))
+	readings, err := sensorDev.Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
+	compassDev := sensorDev.(compass.Device)
+	heading, err := compassDev.Heading(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, heading, test.ShouldEqual, 4.5)
+	err = compassDev.StartCalibration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = compassDev.StopCalibration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capSensorName, test.ShouldEqual, "compass1")
+
+	sensorDev = client.SensorByName("compass2")
+	test.That(t, sensorDev, test.ShouldImplement, (*compass.Device)(nil))
+	test.That(t, sensorDev, test.ShouldImplement, (*compass.RelativeDevice)(nil))
+	readings, err = sensorDev.Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
+	compassRelDev := sensorDev.(compass.RelativeDevice)
+	heading, err = compassRelDev.Heading(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, heading, test.ShouldEqual, 4.5)
+	err = compassRelDev.StartCalibration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = compassRelDev.StopCalibration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = compassRelDev.Mark(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

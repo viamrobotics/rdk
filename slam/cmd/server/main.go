@@ -12,6 +12,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	pb "go.viam.com/robotcore/proto/slam/v1"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/rpc"
@@ -19,9 +20,6 @@ import (
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/slam"
 	"go.viam.com/robotcore/utils"
-
-	// register
-	_ "go.viam.com/robotcore/lidar/client"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -43,11 +41,11 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         utils.NetPortFlag         `flag:"0"`
-	BaseType     baseTypeFlag              `flag:"base-type,default=,usage=type of mobile base"`
-	LidarDevices []lidar.DeviceDescription `flag:"lidar,usage=lidar devices"`
-	LidarOffsets []slam.DeviceOffset       `flag:"lidar-offset,usage=lidar device offets relative to first"`
-	Compass      string                    `flag:"compass,usage=compass device"`
+	Port         utils.NetPortFlag   `flag:"0"`
+	BaseType     baseTypeFlag        `flag:"base-type,default=,usage=type of mobile base"`
+	LidarDevices []api.Component     `flag:"lidar,usage=lidar devices"`
+	LidarOffsets []slam.DeviceOffset `flag:"lidar-offset,usage=lidar device offets relative to first"`
+	Compass      api.Component       `flag:"compass,usage=compass device"`
 }
 
 type baseTypeFlag string
@@ -85,20 +83,32 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if argsParsed.Port == 0 {
 		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
+	for _, comp := range argsParsed.LidarDevices {
+		if comp.Type != api.ComponentTypeLidar {
+			return errors.New("only lidar components can be in lidar flag")
+		}
+	}
+	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != api.ComponentTypeSensor || argsParsed.Compass.SubType != compass.DeviceType) {
+		return errors.New("compass flag must be a sensor component")
+	}
 
 	if len(argsParsed.LidarDevices) == 0 {
 		argsParsed.LidarDevices = search.Devices()
 		if len(argsParsed.LidarDevices) != 0 {
 			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
-			for _, desc := range argsParsed.LidarDevices {
-				logger.Debugf("%s (%s)", desc.Type, desc.Path)
+			for _, comp := range argsParsed.LidarDevices {
+				logger.Debug(comp)
 			}
 		}
 	}
 
 	if len(argsParsed.LidarDevices) == 0 {
 		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
-			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
+			api.Component{
+				Type:  api.ComponentTypeLidar,
+				Host:  "0",
+				Model: string(lidar.DeviceTypeFake),
+			})
 	}
 
 	if len(argsParsed.LidarDevices) == 0 {
@@ -137,19 +147,30 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		return fmt.Errorf("do not know how to make a %q base", args.BaseType)
 	}
 
-	var compassSensor compass.Device
-	if args.Compass != "" {
-		sensor, err := compass.NewClient(ctx, args.Compass)
-		if err != nil {
-			return err
-		}
-		compassSensor = sensor
+	components := args.LidarDevices
+	if args.Compass.Type != "" {
+		components = append(components, args.Compass)
 	}
 
-	lidarDevices, err := lidar.CreateDevices(ctx, args.LidarDevices, logger)
+	r, err := robot.NewRobot(ctx, api.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}
+	lidarNames := r.LidarDeviceNames()
+	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
+	for _, name := range lidarNames {
+		lidarDevices = append(lidarDevices, r.LidarDeviceByName(name))
+	}
+	var compassSensor compass.Device
+	if args.Compass.Type != "" {
+		var ok bool
+		sensorDevice := r.SensorByName(r.SensorNames()[0])
+		compassSensor, ok = sensorDevice.(compass.Device)
+		if !ok {
+			return fmt.Errorf("expected to get a compasss but got a %T", sensorDevice)
+		}
+	}
+
 	for _, lidarDev := range lidarDevices {
 		if err := lidarDev.Start(ctx); err != nil {
 			return err
@@ -170,14 +191,14 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		if err != nil {
 			return err
 		}
-		bestResDesc := args.LidarDevices[bestResDeviceNum]
-		logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResDesc.Path, bestRes)
+		bestResComp := args.LidarDevices[bestResDeviceNum]
+		logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResComp, bestRes)
 		compassSensor = compasslidar.From(bestResDevice)
 	}
 
 	if compassSensor != nil {
 		if _, isFake := baseDevice.(*fake.Base); !isFake {
-			baseDevice = compass.BaseWithCompass(baseDevice, compassSensor, logger)
+			baseDevice = api.BaseWithCompass(baseDevice, compassSensor, logger)
 		}
 	}
 

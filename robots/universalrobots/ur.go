@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	api.RegisterArm("ur", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+	api.RegisterArm("ur", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
 		return URArmConnect(config.Host, logger)
 	})
 }

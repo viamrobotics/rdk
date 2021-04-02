@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper(ModelName, func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper(ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
 		return &Gripper{}, nil
 	})
 }

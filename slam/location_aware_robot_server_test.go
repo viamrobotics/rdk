@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/test"
@@ -97,7 +97,7 @@ func TestServer(t *testing.T) {
 			headingCount++
 			return math.NaN(), nil
 		}
-		baseWithCompass := compass.BaseWithCompass(injectBase, theCompass, th.logger)
+		baseWithCompass := api.BaseWithCompass(injectBase, theCompass, th.logger)
 		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
 			return nil

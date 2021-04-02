@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/serial"
 
@@ -18,6 +20,14 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
+
+const ModelName = "gy511"
+
+func init() {
+	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+		return New(ctx, config.Host, logger)
+	})
+}
 
 type Device struct {
 	mu            sync.Mutex

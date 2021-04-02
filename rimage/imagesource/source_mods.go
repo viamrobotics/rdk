@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("rotate", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("rotate", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.GetString("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
@@ -25,7 +25,7 @@ func init() {
 		return &RotateImageDepthSource{source}, nil
 	})
 
-	api.RegisterCamera("resize", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("resize", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.GetString("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {

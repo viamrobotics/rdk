@@ -1755,5 +1755,405 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.lidarAngularResolution =
 };
 
 
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.SensorReadingsRequest,
+ *   !proto.proto.api.v1.SensorReadingsResponse>}
+ */
+const methodDescriptor_RobotService_SensorReadings = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/SensorReadings',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.SensorReadingsRequest,
+  proto.proto.api.v1.SensorReadingsResponse,
+  /**
+   * @param {!proto.proto.api.v1.SensorReadingsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.SensorReadingsResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.SensorReadingsRequest,
+ *   !proto.proto.api.v1.SensorReadingsResponse>}
+ */
+const methodInfo_RobotService_SensorReadings = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.SensorReadingsResponse,
+  /**
+   * @param {!proto.proto.api.v1.SensorReadingsRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.SensorReadingsResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.SensorReadingsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.SensorReadingsResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.SensorReadingsResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.sensorReadings =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/SensorReadings',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_SensorReadings,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.SensorReadingsRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.SensorReadingsResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.sensorReadings =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/SensorReadings',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_SensorReadings);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CompassHeadingRequest,
+ *   !proto.proto.api.v1.CompassHeadingResponse>}
+ */
+const methodDescriptor_RobotService_CompassHeading = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CompassHeading',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CompassHeadingRequest,
+  proto.proto.api.v1.CompassHeadingResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassHeadingRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassHeadingResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassHeadingRequest,
+ *   !proto.proto.api.v1.CompassHeadingResponse>}
+ */
+const methodInfo_RobotService_CompassHeading = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassHeadingResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassHeadingRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassHeadingResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassHeadingRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassHeadingResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassHeadingResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.compassHeading =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassHeading',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassHeading,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassHeadingRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.CompassHeadingResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.compassHeading =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassHeading',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassHeading);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CompassStartCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStartCalibrationResponse>}
+ */
+const methodDescriptor_RobotService_CompassStartCalibration = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CompassStartCalibration',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CompassStartCalibrationRequest,
+  proto.proto.api.v1.CompassStartCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStartCalibrationResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassStartCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStartCalibrationResponse>}
+ */
+const methodInfo_RobotService_CompassStartCalibration = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassStartCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStartCalibrationResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassStartCalibrationResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassStartCalibrationResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.compassStartCalibration =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassStartCalibration',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassStartCalibration,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassStartCalibrationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.CompassStartCalibrationResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.compassStartCalibration =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassStartCalibration',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassStartCalibration);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CompassStopCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStopCalibrationResponse>}
+ */
+const methodDescriptor_RobotService_CompassStopCalibration = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CompassStopCalibration',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CompassStopCalibrationRequest,
+  proto.proto.api.v1.CompassStopCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStopCalibrationResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassStopCalibrationRequest,
+ *   !proto.proto.api.v1.CompassStopCalibrationResponse>}
+ */
+const methodInfo_RobotService_CompassStopCalibration = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassStopCalibrationResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassStopCalibrationResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassStopCalibrationResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassStopCalibrationResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.compassStopCalibration =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassStopCalibration',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassStopCalibration,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassStopCalibrationRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.CompassStopCalibrationResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.compassStopCalibration =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassStopCalibration',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassStopCalibration);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.CompassMarkRequest,
+ *   !proto.proto.api.v1.CompassMarkResponse>}
+ */
+const methodDescriptor_RobotService_CompassMark = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CompassMark',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.CompassMarkRequest,
+  proto.proto.api.v1.CompassMarkResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassMarkRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassMarkResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.CompassMarkRequest,
+ *   !proto.proto.api.v1.CompassMarkResponse>}
+ */
+const methodInfo_RobotService_CompassMark = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.CompassMarkResponse,
+  /**
+   * @param {!proto.proto.api.v1.CompassMarkRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.CompassMarkResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassMarkRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.CompassMarkResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.CompassMarkResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.compassMark =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassMark',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassMark,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.CompassMarkRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.CompassMarkResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.compassMark =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/CompassMark',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_CompassMark);
+};
+
+
 module.exports = proto.proto.api.v1;
 

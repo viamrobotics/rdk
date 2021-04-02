@@ -130,6 +130,33 @@ service RobotService {
 			get: "/v1/lidar/{name}/angular_resolution"
 		};
 	}
+
+	rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
+		option (google.api.http) = {
+			get: "/v1/sensors/sensor/{name}/readings"
+		};	
+	}
+
+	rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
+	    option (google.api.http) = {
+			get: "/v1/sensors/compass/{name}/heading"
+		};
+	}
+	rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/start_calibration"
+		};
+	}
+	rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/stop_calibration"
+		};
+	}
+	rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/mark"
+		};
+	}
 }
 
 message StatusRequest {}
@@ -153,6 +180,7 @@ message Status {
 	map<string, BoardStatus> boards = 4;
 	map<string, bool> cameras = 5;
 	map<string, bool> lidar_devices = 6;
+	map<string, SensorStatus> sensors = 7;
 }
 
 message DoActionRequest {
@@ -205,6 +233,10 @@ message AnalogStatus {
 
 message DigitalInterruptStatus {
 	int64 value = 1;
+}
+
+message SensorStatus {
+	string type = 1;
 }
 
 message ControlBaseRequest {
@@ -377,3 +409,37 @@ message LidarAngularResolutionResponse {
 	double angular_resolution = 1;
 }
 
+
+message SensorReadingsRequest {
+	string name = 1;
+}
+
+message SensorReadingsResponse {
+	repeated google.protobuf.Value readings = 1;
+}
+
+message CompassHeadingRequest {
+	string name = 1;
+}
+
+message CompassHeadingResponse {
+	double heading = 1;
+}
+
+message CompassStartCalibrationRequest {
+	string name = 1;
+}
+
+message CompassStartCalibrationResponse {}
+
+message CompassStopCalibrationRequest {
+	string name = 1;
+}
+
+message CompassStopCalibrationResponse {}
+
+message CompassMarkRequest {
+	string name = 1;
+}
+
+message CompassMarkResponse {}

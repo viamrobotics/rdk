@@ -8,7 +8,9 @@ import (
 	"net"
 	"testing"
 
-	pb "go.viam.com/robotcore/proto/sensor/compass/v1"
+	"go.viam.com/robotcore/api/server"
+	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
@@ -26,11 +28,44 @@ func TestMain(t *testing.T) {
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
+	injectRobot1 := &inject.Robot{}
 	gServer2 := grpc.NewServer()
+	injectRobot2 := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
+	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
+
+	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		return &pb.Status{
+			Sensors: map[string]*pb.SensorStatus{
+				"sensor1": {
+					Type: compass.DeviceType,
+				},
+			},
+		}, nil
+	}
+	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		return &pb.Status{
+			Sensors: map[string]*pb.SensorStatus{
+				"sensor1": {
+					Type: compass.DeviceType,
+				},
+			},
+		}, nil
+	}
+
 	injectDev1 := &inject.Compass{}
 	injectDev2 := &inject.Compass{}
-	pb.RegisterCompassServiceServer(gServer1, compass.NewServer(injectDev1))
-	pb.RegisterCompassServiceServer(gServer2, compass.NewServer(injectDev2))
+	injectRobot1.SensorByNameFunc = func(name string) sensor.Device {
+		return injectDev1
+	}
+	injectRobot2.SensorByNameFunc = func(name string) sensor.Device {
+		return injectDev2
+	}
+
+	go gServer1.Serve(listener1)
+	defer gServer2.Stop()
+	go gServer2.Serve(listener2)
+	defer gServer2.Stop()
 
 	injectDev1.HeadingFunc = func(ctx context.Context) (float64, error) {
 		return math.NaN(), errors.New("whoops")

@@ -1,4 +1,4 @@
-package compass
+package api
 
 import (
 	"context"
@@ -6,18 +6,18 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 )
 
-func BaseWithCompass(device api.Base, cmp Device, logger golog.Logger) api.Base {
+func BaseWithCompass(device Base, cmp compass.Device, logger golog.Logger) Base {
 	if cmp == nil {
 		return device
 	}
 	return baseDeviceWithCompass{device, cmp, logger}
 }
 
-func ReduceBase(b api.Base) api.Base {
+func ReduceBase(b Base) Base {
 	x, ok := b.(baseDeviceWithCompass)
 	if ok {
 		return x.Base
@@ -26,20 +26,20 @@ func ReduceBase(b api.Base) api.Base {
 }
 
 type baseDeviceWithCompass struct {
-	api.Base
-	compass Device
+	Base
+	compass compass.Device
 	logger  golog.Logger
 }
 
 func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-	rel, _ := wc.compass.(RelativeDevice)
+	rel, _ := wc.compass.(compass.RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
 			return err
 		}
 	}
 	for {
-		startHeading, err := MedianHeading(ctx, wc.compass)
+		startHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 			return err
 		}
 		time.Sleep(1 * time.Second)
-		endHeading, err := MedianHeading(ctx, wc.compass)
+		endHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return err
 		}

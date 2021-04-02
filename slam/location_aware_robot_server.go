@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"math"
 
+	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
 	"go.uber.org/multierr"
@@ -57,7 +57,7 @@ func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.Calibrat
 	}()
 	step := 10.0
 	for i := 0.0; i < 360; i += step {
-		if err := compass.ReduceBase(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
+		if err := api.ReduceBase(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
 			return nil, err
 		}
 	}

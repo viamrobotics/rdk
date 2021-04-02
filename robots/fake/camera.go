@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("fake", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("fake", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return &Camera{}, nil
 	})
 }

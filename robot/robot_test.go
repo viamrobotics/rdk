@@ -151,7 +151,24 @@ func TestConfigRemote(t *testing.T) {
 			"cameraOver":     true,
 			"foo.cameraOver": true,
 		},
-		LidarDevices: map[string]bool{},
+		LidarDevices: map[string]bool{
+			"lidar1":     true,
+			"foo.lidar1": true,
+		},
+		Sensors: map[string]*pb.SensorStatus{
+			"compass1": {
+				Type: "compass",
+			},
+			"foo.compass1": {
+				Type: "compass",
+			},
+			"compass2": {
+				Type: "relative_compass",
+			},
+			"foo.compass2": {
+				Type: "relative_compass",
+			},
+		},
 	}
 
 	test.That(t, status, test.ShouldResemble, expectedStatus)

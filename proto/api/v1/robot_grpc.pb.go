@@ -40,6 +40,11 @@ type RobotServiceClient interface {
 	LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error)
 	LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error)
 	LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error)
+	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
+	CompassHeading(ctx context.Context, in *CompassHeadingRequest, opts ...grpc.CallOption) (*CompassHeadingResponse, error)
+	CompassStartCalibration(ctx context.Context, in *CompassStartCalibrationRequest, opts ...grpc.CallOption) (*CompassStartCalibrationResponse, error)
+	CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error)
+	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
 }
 
 type robotServiceClient struct {
@@ -262,6 +267,51 @@ func (c *robotServiceClient) LidarAngularResolution(ctx context.Context, in *Lid
 	return out, nil
 }
 
+func (c *robotServiceClient) SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error) {
+	out := new(SensorReadingsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/SensorReadings", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) CompassHeading(ctx context.Context, in *CompassHeadingRequest, opts ...grpc.CallOption) (*CompassHeadingResponse, error) {
+	out := new(CompassHeadingResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CompassHeading", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) CompassStartCalibration(ctx context.Context, in *CompassStartCalibrationRequest, opts ...grpc.CallOption) (*CompassStartCalibrationResponse, error) {
+	out := new(CompassStartCalibrationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CompassStartCalibration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error) {
+	out := new(CompassStopCalibrationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CompassStopCalibration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error) {
+	out := new(CompassMarkResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CompassMark", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -287,6 +337,11 @@ type RobotServiceServer interface {
 	LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error)
 	LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error)
 	LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error)
+	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
+	CompassHeading(context.Context, *CompassHeadingRequest) (*CompassHeadingResponse, error)
+	CompassStartCalibration(context.Context, *CompassStartCalibrationRequest) (*CompassStartCalibrationResponse, error)
+	CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error)
+	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -356,6 +411,21 @@ func (UnimplementedRobotServiceServer) LidarBounds(context.Context, *LidarBounds
 }
 func (UnimplementedRobotServiceServer) LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarAngularResolution not implemented")
+}
+func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
+}
+func (UnimplementedRobotServiceServer) CompassHeading(context.Context, *CompassHeadingRequest) (*CompassHeadingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompassHeading not implemented")
+}
+func (UnimplementedRobotServiceServer) CompassStartCalibration(context.Context, *CompassStartCalibrationRequest) (*CompassStartCalibrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompassStartCalibration not implemented")
+}
+func (UnimplementedRobotServiceServer) CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompassStopCalibration not implemented")
+}
+func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CompassMark not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -751,6 +821,96 @@ func _RobotService_LidarAngularResolution_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_SensorReadings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SensorReadingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).SensorReadings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/SensorReadings",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).SensorReadings(ctx, req.(*SensorReadingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_CompassHeading_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompassHeadingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).CompassHeading(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/CompassHeading",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).CompassHeading(ctx, req.(*CompassHeadingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_CompassStartCalibration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompassStartCalibrationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).CompassStartCalibration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/CompassStartCalibration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).CompassStartCalibration(ctx, req.(*CompassStartCalibrationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_CompassStopCalibration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompassStopCalibrationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).CompassStopCalibration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/CompassStopCalibration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).CompassStopCalibration(ctx, req.(*CompassStopCalibrationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_CompassMark_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompassMarkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).CompassMark(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/CompassMark",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).CompassMark(ctx, req.(*CompassMarkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -837,6 +997,26 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LidarAngularResolution",
 			Handler:    _RobotService_LidarAngularResolution_Handler,
+		},
+		{
+			MethodName: "SensorReadings",
+			Handler:    _RobotService_SensorReadings_Handler,
+		},
+		{
+			MethodName: "CompassHeading",
+			Handler:    _RobotService_CompassHeading_Handler,
+		},
+		{
+			MethodName: "CompassStartCalibration",
+			Handler:    _RobotService_CompassStartCalibration_Handler,
+		},
+		{
+			MethodName: "CompassStopCalibration",
+			Handler:    _RobotService_CompassStopCalibration_Handler,
+		},
+		{
+			MethodName: "CompassMark",
+			Handler:    _RobotService_CompassMark_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
