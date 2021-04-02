@@ -17,6 +17,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
@@ -1051,6 +1052,201 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, angResp.GetAngularResolution(), test.ShouldEqual, 6.2)
+	})
+
+	t.Run("Sensor", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			capName = name
+			return nil
+		}
+
+		_, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, capName, test.ShouldEqual, "compass1")
+
+		err1 := errors.New("whoops")
+
+		device := &inject.Compass{}
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			return device
+		}
+
+		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return nil, err1
+		}
+		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return []interface{}{1.2, 2.3}, nil
+		}
+		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		readings := make([]interface{}, 0, len(resp.Readings))
+		for _, r := range resp.Readings {
+			readings = append(readings, r.AsInterface())
+		}
+		test.That(t, readings, test.ShouldResemble, []interface{}{1.2, 2.3})
+	})
+
+	t.Run("Compass", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			capName = name
+			return nil
+		}
+
+		_, err := server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, capName, test.ShouldEqual, "compass1")
+
+		type someSensor struct {
+			sensor.Device
+		}
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			return someSensor{}
+		}
+		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass3",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected sensor type")
+
+		err1 := errors.New("whoops")
+
+		device := &inject.Compass{}
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			return device
+		}
+
+		device.HeadingFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), err1
+		}
+		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.HeadingFunc = func(ctx context.Context) (float64, error) {
+			return 1.2, nil
+		}
+		resp, err := server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Heading, test.ShouldResemble, 1.2)
+
+		device.StartCalibrationFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.StartCalibrationFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		device.StopCalibrationFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.StopCalibrationFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		relDevice := &inject.RelativeCompass{}
+		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
+			return relDevice
+		}
+
+		relDevice.HeadingFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), err1
+		}
+		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		relDevice.HeadingFunc = func(ctx context.Context) (float64, error) {
+			return 1.2, nil
+		}
+		resp, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Heading, test.ShouldResemble, 1.2)
+
+		relDevice.StartCalibrationFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		relDevice.StartCalibrationFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		relDevice.StopCalibrationFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		relDevice.StopCalibrationFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		relDevice.MarkFunc = func(ctx context.Context) error {
+			return err1
+		}
+		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		relDevice.MarkFunc = func(ctx context.Context) error {
+			return nil
+		}
+		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldBeNil)
 	})
 }
 

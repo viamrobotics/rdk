@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
+	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
 		return &Base{}, nil
 	})
 }

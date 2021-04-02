@@ -36,7 +36,7 @@ func TestFourWheelBase1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = CreateFourWheelBase(r, api.Component{}, golog.Global)
+	_, err = CreateFourWheelBase(context.Background(), r, api.Component{}, golog.Global)
 	assert.NotNil(t, err)
 
 	cfg := api.Component{
@@ -50,7 +50,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	basebase, err := CreateFourWheelBase(r, cfg, golog.Global)
+	basebase, err := CreateFourWheelBase(context.Background(), r, cfg, golog.Global)
 	if err != nil {
 		t.Fatal(err)
 	}

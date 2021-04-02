@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	api.RegisterArm("fake", func(r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+	api.RegisterArm("fake", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
 		return NewArm(), nil
 	})
 }

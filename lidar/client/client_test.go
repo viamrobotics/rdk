@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/client"
@@ -45,9 +46,11 @@ func TestClient(t *testing.T) {
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 
-	_, err = lidar.CreateDevice(context.Background(), lidar.DeviceDescription{
-		Type: client.DeviceTypeClient,
-		Path: listener1.Addr().String(),
+	f := api.LidarDeviceLookup(client.ModelNameClient)
+	test.That(t, f, test.ShouldNotBeNil)
+	_, err = f(context.Background(), nil, api.Component{
+		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
+		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no lidar")
@@ -61,13 +64,15 @@ func TestClient(t *testing.T) {
 		return injectDev
 	}
 
-	dev, err := lidar.CreateDevice(context.Background(), lidar.DeviceDescription{
-		Type: client.DeviceTypeClient,
-		Path: listener2.Addr().String(),
+	dev, err := f(context.Background(), nil, api.Component{
+		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
+		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	info, err := dev.Info(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info, test.ShouldResemble, infoM)
+
+	test.That(t, dev.Close(context.Background()), test.ShouldBeNil)
 }

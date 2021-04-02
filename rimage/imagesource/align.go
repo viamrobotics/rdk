@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthComposed", func(r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("depthComposed", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.GetString("color")

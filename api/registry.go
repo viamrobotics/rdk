@@ -1,24 +1,31 @@
 package api
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/sensor"
 )
 
-type CreateProvider func(r Robot, config Component, logger golog.Logger) (Provider, error)
-type CreateCamera func(r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error)
-type CreateArm func(r Robot, config Component, logger golog.Logger) (Arm, error)
-type CreateGripper func(r Robot, config Component, logger golog.Logger) (Gripper, error)
-type CreateBase func(r Robot, config Component, logger golog.Logger) (Base, error)
+type CreateProvider func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Provider, error)
+type CreateCamera func(ctx context.Context, r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error)
+type CreateArm func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Arm, error)
+type CreateGripper func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Gripper, error)
+type CreateBase func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Base, error)
+type CreateLidarDevice func(ctx context.Context, r Robot, config Component, logger golog.Logger) (lidar.Device, error)
+type CreateSensor func(ctx context.Context, r Robot, config Component, logger golog.Logger) (sensor.Device, error)
 
 var (
-	cameraRegistry   = map[string]CreateCamera{}
-	armRegistry      = map[string]CreateArm{}
-	gripperRegistry  = map[string]CreateGripper{}
-	providerRegistry = map[string]CreateProvider{}
-	baseRegistry     = map[string]CreateBase{}
+	cameraRegistry      = map[string]CreateCamera{}
+	armRegistry         = map[string]CreateArm{}
+	gripperRegistry     = map[string]CreateGripper{}
+	providerRegistry    = map[string]CreateProvider{}
+	baseRegistry        = map[string]CreateBase{}
+	lidarDeviceRegistry = map[string]CreateLidarDevice{}
+	sensorRegistry      = map[sensor.DeviceType]map[string]CreateSensor{}
 )
 
 func RegisterCamera(model string, f CreateCamera) {
@@ -61,6 +68,25 @@ func RegisterBase(model string, f CreateBase) {
 	baseRegistry[model] = f
 }
 
+func RegisterLidarDevice(model string, f CreateLidarDevice) {
+	_, old := lidarDeviceRegistry[model]
+	if old {
+		panic(fmt.Errorf("trying to register two lidar devices with same model %s", model))
+	}
+	lidarDeviceRegistry[model] = f
+}
+
+func RegisterSensor(sensorType sensor.DeviceType, model string, f CreateSensor) {
+	if _, ok := sensorRegistry[sensorType]; !ok {
+		sensorRegistry[sensorType] = map[string]CreateSensor{}
+	}
+	_, old := sensorRegistry[sensorType][model]
+	if old {
+		panic(fmt.Errorf("trying to register two sensors with same model %s", model))
+	}
+	sensorRegistry[sensorType][model] = f
+}
+
 func CameraLookup(model string) CreateCamera {
 	return cameraRegistry[model]
 }
@@ -79,4 +105,16 @@ func ProviderLookup(model string) CreateProvider {
 
 func BaseLookup(model string) CreateBase {
 	return baseRegistry[model]
+}
+
+func LidarDeviceLookup(model string) CreateLidarDevice {
+	return lidarDeviceRegistry[model]
+}
+
+func SensorLookup(sensorType sensor.DeviceType, model string) CreateSensor {
+	subTyped, ok := sensorRegistry[sensorType]
+	if !ok {
+		return nil
+	}
+	return subTyped[model]
 }

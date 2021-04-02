@@ -156,7 +156,7 @@ func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
-func CreateFourWheelBase(r api.Robot, config api.Component, logger golog.Logger) (api.Base, error) {
+func CreateFourWheelBase(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Base, error) {
 	board := r.BoardByName(config.Attributes.GetString("board"))
 	if board == nil {
 		return nil, fmt.Errorf("need a board for four-wheel, named (%v)", config.Attributes["board"])

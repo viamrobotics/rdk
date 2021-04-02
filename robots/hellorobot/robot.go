@@ -1,6 +1,7 @@
 package hellorobot
 
 import (
+	"context"
 	"errors"
 
 	"github.com/edaniels/golog"
@@ -16,7 +17,7 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	api.RegisterProvider(ModelName, func(r api.Robot, config api.Component, logger golog.Logger) (api.Provider, error) {
+	api.RegisterProvider(ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Provider, error) {
 		return New()
 	})
 }

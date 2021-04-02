@@ -7,6 +7,7 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/sensor/compass"
@@ -21,33 +22,34 @@ import (
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// unknown type
-	_, err := New(context.Background(), lidar.DeviceDescription{Type: "what"}, logger)
+	_, err := New(context.Background(), api.Component{Attributes: api.AttributeMap{"type": "what"}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
-	var newFunc func(desc lidar.DeviceDescription) (lidar.Device, error)
-	lidar.RegisterDeviceType(devType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			return newFunc(desc)
-		},
+	var newFunc func(config api.Component) (lidar.Device, error)
+	api.RegisterLidarDevice(string(devType), func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		return newFunc(config)
 	})
 
-	desc := lidar.DeviceDescription{Type: devType, Path: "somewhere"}
+	config := api.Component{Host: "somewhere", Attributes: api.AttributeMap{"type": string(devType)}}
 	newErr := errors.New("woof")
-	newFunc = func(innerDesc lidar.DeviceDescription) (lidar.Device, error) {
-		test.That(t, innerDesc, test.ShouldResemble, desc)
+	newFunc = func(innerConfig api.Component) (lidar.Device, error) {
+		test.That(t, innerConfig, test.ShouldResemble, config)
 		return nil, newErr
 	}
 
-	_, err = New(context.Background(), desc, logger)
+	_, err = New(context.Background(), config, logger)
 	test.That(t, err, test.ShouldEqual, newErr)
 
 	injectDev := &inject.LidarDevice{}
-	newFunc = func(innerDesc lidar.DeviceDescription) (lidar.Device, error) {
+	newFunc = func(config api.Component) (lidar.Device, error) {
 		return injectDev, nil
 	}
+	injectDev.StartFunc = func(ctx context.Context) error {
+		return nil
+	}
 
-	dev, err := New(context.Background(), desc, logger)
+	dev, err := New(context.Background(), config, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dev, test.ShouldNotBeNil)
 }

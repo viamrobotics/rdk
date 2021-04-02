@@ -6,6 +6,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/sensor"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -23,6 +24,7 @@ type Robot interface {
 	CameraByName(name string) gostream.ImageSource
 	LidarDeviceByName(name string) lidar.Device
 	BoardByName(name string) board.Board
+	SensorByName(name string) sensor.Device
 
 	RemoteNames() []string
 	ArmNames() []string
@@ -31,6 +33,7 @@ type Robot interface {
 	LidarDeviceNames() []string
 	BaseNames() []string
 	BoardNames() []string
+	SensorNames() []string
 
 	// this is allowed to be partial or empty
 	GetConfig(ctx context.Context) (Config, error)

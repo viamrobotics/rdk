@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("robotiq", func(r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper("robotiq", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
 		return NewGripper(context.TODO(), config.Host, logger)
 	})
 }
