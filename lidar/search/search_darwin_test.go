@@ -1,24 +1,19 @@
 package search
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestDevices(t *testing.T) {
 	deviceType := lidar.DeviceType("somelidar")
 	lidar.RegisterDeviceType(deviceType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			return nil, errors.New("not implemented")
-		},
 		USBInfo: &usb.Identifier{
 			Vendor:  0x10c4,
 			Product: 0xea60,
@@ -27,12 +22,17 @@ func TestDevices(t *testing.T) {
 
 	for i, tc := range []struct {
 		Output   string
-		Expected []lidar.DeviceDescription
+		Expected []api.Component
 	}{
 		{"", nil},
 		{"text", nil},
-		{out1, []lidar.DeviceDescription{
-			{Type: deviceType, Path: "/dev/tty.usbserial-0001"}},
+		{out1, []api.Component{
+			{
+				Type:  api.ComponentTypeLidar,
+				Host:  "/dev/tty.usbserial-0001",
+				Model: string(deviceType),
+			},
+		},
 		},
 		{out2, nil},
 		{out3, nil},

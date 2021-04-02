@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -12,23 +13,29 @@ import (
 )
 
 const ModelNameClient = "grpc"
-const DeviceTypeClient = lidar.DeviceType("grpc")
+const DeviceTypeClient = lidar.DeviceType(ModelNameClient)
 
 func init() {
-	lidar.RegisterDeviceType(DeviceTypeClient, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription, logger golog.Logger) (lidar.Device, error) {
-			robotClient, err := apiclient.NewRobotClient(ctx, desc.Path, logger)
-			if err != nil {
-				return nil, err
-			}
-			names := robotClient.LidarDeviceNames()
-			if len(names) == 0 {
-				return nil, errors.New("no lidar devices found")
-			}
-			lidarDevice := robotClient.LidarDeviceByName(names[0])
-			return &wrappedLidarDevice{lidarDevice, robotClient}, nil
-		},
+	api.RegisterLidarDevice(ModelNameClient, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		address := config.Host
+		if config.Port != 0 {
+			address = fmt.Sprintf("%s:%d", address, config.Port)
+		}
+		return NewClient(ctx, address, logger)
 	})
+}
+
+func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Device, error) {
+	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
+	if err != nil {
+		return nil, err
+	}
+	names := robotClient.LidarDeviceNames()
+	if len(names) == 0 {
+		return nil, errors.New("no lidar devices found")
+	}
+	lidarDevice := robotClient.LidarDeviceByName(names[0])
+	return &wrappedLidarDevice{lidarDevice, robotClient}, nil
 }
 
 type wrappedLidarDevice struct {

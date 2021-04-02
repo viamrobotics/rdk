@@ -12,14 +12,14 @@
     {
       "host": "127.0.0.1",
       "port": 4444,
-      "model": "lidarclient",
+      "model": "grpc",
       "name": "lidarBase",
       "type": "lidar"
     },
     {
       "host": "127.0.0.1",
       "port": 4445,
-      "model": "lidarclient",
+      "model": "grpc",
       "name": "lidarTop",
       "type": "lidar"
     },
@@ -29,6 +29,14 @@
       "name": "cameraTop",
       "port": 8181,
       "type": "camera"
+    },
+    {
+      "host": "127.0.0.1",
+      "port": 4446,
+      "model": "grpc",
+      "name": "compass",
+      "type": "sensor",
+      "subtype": "compass"
     }
   ]
 }
