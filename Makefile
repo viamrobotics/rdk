@@ -49,3 +49,6 @@ python-macos:
 
 piserver:
 	go build -tags=pi -o server robot/cmd/server/main.go
+
+boat: samples/boat1/cmd.go
+	go build -tags=pi -o boat samples/boat1/cmd.go
