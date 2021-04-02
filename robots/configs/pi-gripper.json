@@ -7,7 +7,7 @@
                 "pins" : {
                     "a" : "11",
                     "b" : "13",
-                    "pwm" : "7"
+                    "pwm" : "18"
                 },
                 "encoder" : "encoder",
                 "encoderB" : "encoder-b",
@@ -24,7 +24,7 @@
           ],
           "digitalInterrupts" : [
               { "name" : "encoder",
-                "pin" : "18"
+                "pin" : "15"
               },
               { "name" : "encoder-b",
                 "pin" : "16"
