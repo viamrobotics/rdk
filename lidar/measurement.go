@@ -29,6 +29,21 @@ func (ms Measurements) Less(i, j int) bool {
 	return false
 }
 
+func (ms Measurements) ClosestToDegree(degree float64) *Measurement {
+	var best *Measurement
+	bestDiff := 10000.0
+
+	for _, m := range ms {
+		diff := utils.AngleDiffDeg(degree, m.data.AngleDeg)
+		if diff < bestDiff {
+			bestDiff = diff
+			best = m
+		}
+	}
+
+	return best
+}
+
 type Measurement struct {
 	data measurementData
 }
