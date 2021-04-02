@@ -1,9 +1,16 @@
 package rimage
 
 import (
+	"container/list"
 	"fmt"
 	"image"
 	"image/color"
+	"math"
+	"sort"
+
+	"github.com/gonum/floats"
+	"github.com/gonum/stat"
+	"gonum.org/v1/gonum/mat"
 
 	"github.com/disintegration/imaging"
 )
@@ -161,4 +168,281 @@ func (i *Image) Rotate(amount int) *Image {
 	}
 
 	return i2
+}
+
+type EdgeDetector interface {
+	// Edge image with varying intensity
+	DetectEdges(*Image, ...float64) *image.Gray
+	// Edge binary image
+	GetEdgeMap(*Image, ...float64) *Image
+}
+
+type CannyEdgeDetector struct {
+	HighRatio, LowRatio float64
+	PreprocessImage     bool
+}
+
+func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
+	return &CannyEdgeDetector{0.8, 0.33, false}
+}
+
+func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) *image.Gray {
+	var err error
+	var mag, direction, nms *mat.Dense
+	var low, high float64
+	var edges *image.Gray
+
+	_, _, mag, direction, err = ForwardGradient(img, blur, cd.PreprocessImage)
+	if err != nil {
+		panic(err)
+	}
+	nms, err = GradientNonMaximumSuppressionC8(mag, direction)
+	if err != nil {
+		panic(err)
+	}
+	low, high, err = GetHysteresisThresholds(mag, nms, cd.HighRatio, cd.LowRatio)
+	if err != nil {
+		panic(err)
+	}
+	edges, err = EdgeHysteresisFiltering(mag, low, high)
+	if err != nil {
+		panic(err)
+	}
+	return edges
+}
+
+func Luminance(aColor Color) float64 {
+	r, g, b := aColor.RGB255()
+
+	// need to convert uint32 to float64
+	return 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+
+}
+
+// ForwardGradient computes the forward gradients in X and Y direction of an image in the Lab space
+// Returns: gradient in x direction, gradient in y direction, its magnitude and direction at each pixel in a dense mat
+func ForwardGradient(img *Image, blur float64, preprocess bool) (*mat.Dense, *mat.Dense, *mat.Dense, *mat.Dense, error) {
+	if preprocess {
+		img = ConvertImage(imaging.Blur(img, blur))
+	}
+	// allocate output matrices
+	gradX := mat.NewDense(img.Height(), img.Width(), nil)
+	gradY := mat.NewDense(img.Height(), img.Width(), nil)
+	magX := mat.NewDense(img.Height(), img.Width(), nil)
+	magY := mat.NewDense(img.Height(), img.Width(), nil)
+	mag := mat.NewDense(img.Height(), img.Width(), nil)
+	direction := mat.NewDense(img.Height(), img.Width(), nil)
+	// Compute forward gradient in X direction and its square for magnitude
+	for y := 0; y < img.Bounds().Max.Y; y++ {
+		for x := 0; x < img.Bounds().Max.X-1; x++ {
+			c0 := Luminance(img.GetXY(x, y))
+			c1 := Luminance(img.GetXY(x+1, y))
+			d := c1 - c0
+			gradX.Set(y, x, d)
+
+			magX.Set(y, x, d*d)
+
+		}
+	}
+	// Compute forward gradient in Y direction and its square
+	for x := 0; x < img.Bounds().Max.X; x++ {
+		for y := 0; y < img.Bounds().Max.Y-1; y++ {
+			c0 := Luminance(img.GetXY(x, y))
+			c1 := Luminance(img.GetXY(x, y+1))
+			d := c1 - c0
+			gradY.Set(y, x, d)
+			magY.Set(y, x, d*d)
+		}
+	}
+	// squared norm of forward gradient
+	mag.Add(magX, magY)
+	// magnitude of forward gradient
+	mag.Apply(func(i, j int, v float64) float64 { return math.Sqrt(v) }, mag)
+	// get direction of gradient at each pixel
+	for x := 0; x < img.Bounds().Max.X; x++ {
+		for y := 0; y < img.Bounds().Max.Y; y++ {
+			gx := gradX.At(y, x)
+			gy := gradY.At(y, x)
+			if gx != 0 {
+				direction.Set(y, x, math.Atan2(gy, gx))
+			} else {
+				direction.Set(y, x, 0)
+			}
+		}
+	}
+
+	return gradX, gradY, mag, direction, nil
+}
+
+type PixelCoords struct {
+	I, J int
+}
+
+// isPixelCoordsInList takes a List and looks for an element in it. If found it will
+// return true, otherwise false
+func isPixelCoordsInList(currentList list.List, val PixelCoords) bool {
+	for e := currentList.Front(); e != nil; e = e.Next() {
+		coords := e.Value.(PixelCoords)
+		if coords == val {
+			return true
+		}
+	}
+	return false
+}
+
+// GradientNonMaximumSuppressionC8 computes the non maximal suppression of edges in Connectivity 8
+// For each pixel, it checks if at least one the two pixels in the current gradient direction has a greater magnitude
+// than the current pixel
+func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, error) {
+	r, c := mag.Dims()
+	nms := mat.NewDense(r, c, nil)
+	for j := 1; j < c-1; j++ {
+		for i := 1; i < r-1; i++ {
+			angle := direction.At(i, j)
+			// for easier calculation, get positive angle value
+			if angle < 0 {
+				angle = angle + math.Pi
+			}
+			// Compute bin of gradient direction at current pixel
+			rangle := int(math.Round(angle / (math.Pi / 4)))
+			// Compare pixel values in the gradient direction with current pixel value
+			magVal := mag.At(i, j)
+			cond1 := (rangle%4 == 0 || rangle == 4) && (mag.At(i, j-1) > magVal || mag.At(i, j+1) > magVal)
+			cond2 := rangle%4 == 1 && (mag.At(i-1, j+1) > magVal || mag.At(i+1, j-1) > magVal)
+			cond3 := rangle%4 == 2 && (mag.At(i-1, j) > magVal || mag.At(i+1, j) > magVal)
+			cond4 := rangle%4 == 3 && (mag.At(i-1, j-1) > magVal || mag.At(i+1, j+1) > magVal)
+			// if current pixel value if greater than the ones in the gradient direction, current pixel is a local
+			// maximum
+			if !(cond1 || cond2 || cond3 || cond4) {
+				nms.Set(i, j, mag.At(i, j))
+			}
+		}
+	}
+
+	return nms, nil
+
+}
+
+// GetHysteresisThresholds computes the low and high thresholds for the Canny Hysteresis Edge Thresholding
+/* John Canny said in his paper "A Computational Approach to Edge Detection" that "The ratio of the
+* high to low threshold in the implementation is in the range two or three to one."
+* So, in this implementation, we should choose tlow ~= 0.5 or 0.33333.
+* A good value for thigh is around 0.8
+ */
+func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (float64, float64, error) {
+	var low, high float64
+	x := make([]float64, len(mag.RawMatrix().Data))
+	r, c := mag.Dims()
+	// Get gradient magnitude values as a slice of float64 to compute the histogram
+	copy1 := copy(x, mag.RawMatrix().Data)
+
+	if copy1 == 0 {
+		err := fmt.Errorf("the slice copy was not achieved")
+		return 0, 0, err
+	}
+	sort.Float64s(x)
+	// Compute histogram of magnitude image
+	max := floats.Max(x)
+	// Get one bin per possible pixel value
+	nBins := int(math.Round(max))
+	// Increase the maximum divider so that the maximum value of x is contained
+	// within the last bucket.
+	max++
+	// Create histogram dividers
+	dividers := make([]float64, nBins+1)
+	floats.Span(dividers, 0, max)
+	hist := stat.Histogram(nil, dividers, x, nil)
+
+	// Remove zeros values from histogram
+	hist = hist[1:]
+	// Non Zero Pixels in mag
+	nNonZero := floats.Sum(hist)
+	// Compute high threshold
+	high = nNonZero * ratioHigh * 100 / float64(r*c)
+	// Compute low threshold
+	low = high*ratioLow + 0.5
+
+	return low, high, nil
+}
+
+/* GetConnectivity8Neighbors return the pixel coordinates of the neighbors of a pixel (i,j) in connectivity 8;
+Returns only the pixel within the image bounds.
+* Connectivity 8 :
+*  .   .   .
+*  .   o   .
+*  .   .   .
+*/
+func GetConnectivity8Neighbors(i, j, r, c int) []PixelCoords {
+	neighbors := make([]PixelCoords, 0)
+	if i-1 > 0 && j-1 > 0 {
+		neighbors = append(neighbors, PixelCoords{i - 1, j - 1})
+	}
+	if i-1 > 0 {
+		neighbors = append(neighbors, PixelCoords{i - 1, j})
+	}
+	if i-1 > 0 && j+1 < c {
+		neighbors = append(neighbors, PixelCoords{i - 1, j + 1})
+	}
+	if j-1 > 0 {
+		neighbors = append(neighbors, PixelCoords{i, j - 1})
+	}
+	if j+1 < c {
+		neighbors = append(neighbors, PixelCoords{i, j + 1})
+	}
+	if i+1 < r && j-1 > 0 {
+		neighbors = append(neighbors, PixelCoords{i + 1, j - 1})
+	}
+	if i+1 < r {
+		neighbors = append(neighbors, PixelCoords{i + 1, j})
+	}
+	if i+1 < r && j+1 < c {
+		neighbors = append(neighbors, PixelCoords{i + 1, j + 1})
+	}
+	return neighbors
+}
+
+/* EdgeHysteresisFiltering performs the Non Maximum Suppressed edges hysteresis filtering
+Every pixel whose value is above high is preserved.
+Any pixel whose value falls into [low, high] and that is connected to a high value pixel is preserved as well
+All pixel whose value is below low is set to zero
+This allows to remove weak edges but preserves edges that are strong or partially strong
+*/
+func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, error) {
+	r, c := mag.Dims()
+	//filteredEdges := mat.NewDense(r, c, nil)
+	queue := list.New()
+	edges := image.NewGray(image.Rect(0, 0, c, r))
+	// Keep edge pixels with strong gradient value
+	for j := 0; j < c; j++ {
+		for i := 0; i < r; i++ {
+			if mag.At(i, j) > high {
+				coords := PixelCoords{i, j}
+				queue.PushBack(coords)
+			}
+		}
+	}
+	// Keep edge pixels with weak gradient value next to an edge pixel with a strong value
+	lastIterationQueue := queue
+	for lastIterationQueue.Len() > 0 {
+		newKeep := list.New()
+		// Iterate through list and print its contents.
+		for e := lastIterationQueue.Front(); e != nil; e = e.Next() {
+			coords := e.Value.(PixelCoords)
+			neighbors := GetConnectivity8Neighbors(coords.I, coords.J, r, c)
+			for _, nb := range neighbors {
+				if mag.At(nb.I, nb.J) > low && !isPixelCoordsInList(*queue, nb) {
+					newKeep.PushBack(nb)
+					queue.PushBack(nb)
+
+				}
+			}
+		}
+		lastIterationQueue = newKeep
+	}
+	// Fill out image
+	for e := queue.Front(); e != nil; e = e.Next() {
+		coords := e.Value.(PixelCoords)
+		edges.Set(coords.J, coords.I, color.Gray{255})
+	}
+	return edges, nil
 }
