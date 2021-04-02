@@ -185,3 +185,23 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 		ConvertImage(&yuvImg)
 	}
 }
+
+func TestCannyDeriche(t *testing.T) {
+	imgOriginal, err := ReadImageFromFile("data/canny_test_1.jpg")
+	img := ConvertImage(imgOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gtOriginal, err2 := ReadImageFromFile("data/test_canny.png")
+	gt := ConvertImage(gtOriginal)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+
+	cannyDetector := NewCannyDericheEdgeDetector()
+	edges := cannyDetector.DetectEdges(img, 0.5)
+
+	assert.Equal(t, len(edges.Pix), len(gt.data))
+
+}
