@@ -5,8 +5,8 @@
           "motors" : [
               { "name" : "port",
                 "pins" : {
-                    "a" : "11",
-                    "b" : "13",
+                    "a" : "13",
+                    "b" : "11",
                     "pwm" : "15"
                 },
                 "encoder" : "port-encoder",
@@ -61,7 +61,7 @@
                 "pin" : "29"
               },
               { "name" : "starboard-encoder",
-                "pin" : "31"
+                "pin" : "32"
               }
           ]
         }

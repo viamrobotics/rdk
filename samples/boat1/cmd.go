@@ -7,6 +7,8 @@ import (
 	"log"
 	"time"
 
+	_ "go.viam.com/robotcore/board/detector"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -27,7 +29,7 @@ type Boat struct {
 	theBoard        board.Board
 	starboard, port board.Motor
 
-	throttle, direction board.DigitalInterrupt
+	throttle, direction, mode board.DigitalInterrupt
 }
 
 func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
@@ -71,7 +73,19 @@ func (b *Boat) StartRC() {
 	go func() {
 		for {
 
-			port := 285 * (float64(b.throttle.Value()) / 90)
+			time.Sleep(10 * time.Millisecond)
+
+			mode := b.mode.Value()
+			if mode == 0 {
+				continue
+			}
+
+			motorDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+			if mode == 2 {
+				motorDirection = board.FlipDirection(motorDirection)
+			}
+
+			port := 600 * (float64(b.throttle.Value()) / 90)
 			starboard := port
 
 			direction := b.direction.Value()
@@ -90,8 +104,8 @@ func (b *Boat) StartRC() {
 				err = b.Stop(context.Background())
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(context.TODO(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, starboard, 0),
-					b.port.GoFor(context.TODO(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, port, 0),
+					b.starboard.GoFor(context.TODO(), motorDirection, starboard, 0),
+					b.port.GoFor(context.TODO(), motorDirection, port, 0),
 				)
 			}
 
@@ -99,7 +113,6 @@ func (b *Boat) StartRC() {
 				log.Print(err)
 			}
 
-			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 }
@@ -120,9 +133,10 @@ func NewBoat(robot *robot.Robot) (*Boat, error) {
 
 	b.throttle = b.theBoard.DigitalInterrupt("throttle")
 	b.direction = b.theBoard.DigitalInterrupt("direction")
+	b.mode = b.theBoard.DigitalInterrupt("mode")
 
-	if b.throttle == nil || b.direction == nil {
-		return nil, fmt.Errorf("need a throttle and direction")
+	if b.throttle == nil || b.direction == nil || b.mode == nil {
+		return nil, fmt.Errorf("need a throttle and direction and mode")
 	}
 
 	return b, nil
