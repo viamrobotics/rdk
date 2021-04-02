@@ -191,7 +191,7 @@ func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
 
 func (vg *GripperV1) hasPressure(ctx context.Context) (bool, error) {
 	p, err := vg.readPressure(ctx)
-	return p < 1000, err
+	return p < 750, err
 }
 
 // return hasPressure, current
