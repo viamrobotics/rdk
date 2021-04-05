@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/disintegration/imaging"
+	"gonum.org/v1/gonum/mat"
 )
 
 // return avg color, avg distances to avg color
@@ -165,38 +166,70 @@ func (i *Image) Rotate(amount int) *Image {
 }
 
 var (
-	sobelX = [3][3]int{{-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1}}
-	sobelY = [3][3]int{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}
+	sobelX = [3][3]int{{1, 0, -1}, {2, 0, -2}, {1, 0, -1}}
+	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
 )
 
-func SobelFilter(dm *DepthMap) GradientField {
+func SobelFilterGrad(dm *DepthMap) GradientField {
 	width, height := dm.Width(), dm.Height()
 	// taking a gradient will remove a pixel from all sides of the image
-	gf := NewEmptyGradientField(width-2, height-2)
+	g := make([]Gradient, 0, (width-2)*(height-2))
 	for y := 1; y < height-1; y++ {
 		for x := 1; x < width-1; x++ {
-			var sX, sY int
-			xRange, yRange := [3]int{-1, 0, 1}, [3]int{-1, 0, 1}
 			// apply the Sobel Filter over a 3x3 square around the pixel
-			// TODO(bijan) Gotta find a matrix library to use for Go
+			sX, sY := 0, 0
+			xRange, yRange := [3]int{-1, 0, 1}, [3]int{-1, 0, 1}
 			for i, dx := range xRange {
 				for j, dy := range yRange {
-					sX += sobelX[i][j] * int(dm.GetDepth(x+dx, y+dy))
-					sY += sobelY[i][j] * int(dm.GetDepth(x+dx, y+dy))
+					d := int(dm.GetDepth(x+dx, y+dy))
+					// rows are height j, columns are width i
+					sX += sobelX[j][i] * d
+					sY += sobelY[j][i] * d
 				}
 			}
-			mag, dir := getMagnitudeAndDirection(sX, sY)
-			gf.Set(x-1, y-1, Gradient{mag, dir})
+			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
+			g = append(g, Gradient{mag, dir})
 		}
 	}
+	gf := GradientField{width - 2, height - 2, g}
 	return gf
 
 }
 
-func getMagnitudeAndDirection(x, y int) (float64, float64) {
-	mag := math.Sqrt(float64(x*x + y*y))
+var (
+	sobelXMat = mat.NewDense(3, 3, []float64{1, 0, -1, 2, 0, -2, 1, 0, -1})
+	sobelYMat = mat.NewDense(3, 3, []float64{1, 2, 1, 0, 0, 0, -1, -2, -1})
+)
+
+func SobelFilterMat(dm *DepthMap) (*mat.Dense, *mat.Dense) {
+	width, height := dm.Width(), dm.Height()
+	depths := mat.NewDense(height, width, dm.ConvertTo64())
+	magSlice := make([]float64, 0, (width-2)*(height-2))
+	dirSlice := make([]float64, 0, (width-2)*(height-2))
+	// taking a gradient will remove a pixel from all sides of the image
+	for y := 1; y < height-1; y++ {
+		for x := 1; x < width-1; x++ {
+			// apply the Sobel Filter over a 3x3 square around the pixel
+			sX, sY := mat.NewDense(3, 3, nil), mat.NewDense(3, 3, nil)
+			d := depths.Slice(y-1, y+2, x-1, x+2)
+			sX.MulElem(sobelXMat, d)
+			sY.MulElem(sobelYMat, d)
+			sumX, sumY := mat.Sum(sX), mat.Sum(sY)
+			mag, dir := getMagnitudeAndDirection(sumX, sumY)
+			magSlice = append(magSlice, mag)
+			dirSlice = append(dirSlice, dir)
+		}
+	}
+	magnitudes := mat.NewDense(height-2, width-2, magSlice)
+	directions := mat.NewDense(height-2, width-2, dirSlice)
+	return magnitudes, directions
+
+}
+
+func getMagnitudeAndDirection(x, y float64) (float64, float64) {
+	mag := math.Sqrt(x*x + y*y)
 	// get direction - make angle so that it is between [0, 2pi] rather than [-pi, pi]
-	dir := math.Atan2(float64(y), float64(x))
+	dir := math.Atan2(y, x)
 	if dir < 0. {
 		dir += 2. * math.Pi
 	}

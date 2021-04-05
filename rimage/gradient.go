@@ -1,8 +1,11 @@
 package rimage
 
 import (
+	"fmt"
 	"image"
 	"math"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 type Gradient struct {
@@ -49,7 +52,7 @@ func (gf *GradientField) Set(x, y int, val Gradient) {
 	gf.data[gf.kxy(x, y)] = val
 }
 
-func NewEmptyGradientField(width, height int) GradientField {
+func MakeEmptyGradientField(width, height int) GradientField {
 	gf := GradientField{
 		width:  width,
 		height: height,
@@ -57,6 +60,22 @@ func NewEmptyGradientField(width, height int) GradientField {
 	}
 
 	return gf
+}
+
+func MakeGradientFieldFromMat(magnitude, direction *mat.Dense) (*GradientField, error) {
+	magH, magW := magnitude.Dims()
+	dirH, dirW := direction.Dims()
+	if magW != dirW && magH != dirH {
+		return nil, fmt.Errorf("cannot make GradientField from two matrices of different sizes (%v,%v), (%v,%v).", magW, magH, dirW, dirH)
+	}
+	gf := MakeEmptyGradientField(dirW, dirH)
+	for x := 0; x < dirW; x++ {
+		for y := 0; y < dirH; y++ {
+			gf.Set(x, y, Gradient{magnitude.At(y, x), direction.At(y, x)}) // in mat.Dense, indexing is (row, column)
+		}
+	}
+
+	return &gf, nil
 }
 
 func (gf *GradientField) ToPrettyPicture() image.Image {
