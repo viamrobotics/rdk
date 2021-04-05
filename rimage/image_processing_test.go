@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"os"
 	"testing"
 
@@ -186,7 +187,7 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 	}
 }
 
-func TestCannyDeriche(t *testing.T) {
+func TestCanny(t *testing.T) {
 	imgOriginal, err := ReadImageFromFile("data/canny_test_1.jpg")
 	img := ConvertImage(imgOriginal)
 	if err != nil {
@@ -200,8 +201,64 @@ func TestCannyDeriche(t *testing.T) {
 	}
 
 	cannyDetector := NewCannyDericheEdgeDetector()
-	edges := cannyDetector.DetectEdges(img, 0.5)
+	edges := ConvertImage(cannyDetector.DetectEdges(img, 0.5))
 
-	assert.Equal(t, len(edges.Pix), len(gt.data))
+	assert.Equal(t, len(edges.data), len(gt.data))
+	assert.Equal(t, edges.data, gt.data)
 
+}
+
+func TestCannyBlocks(t *testing.T) {
+	imgOriginal, err := ReadImageFromFile("data/edge_test_image.png")
+	img := ConvertImage(imgOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gtGradient, err2 := ReadImageFromFile("data/edge_test_gradient.png")
+	gtGrad := ConvertImage(gtGradient)
+	if err2 != nil {
+		t.Fatal(err2)
+	}
+	gtNonMaxSup, err3 := ReadImageFromFile("data/edge_test_nms.png")
+	gtNms := ConvertImage(gtNonMaxSup)
+	if err3 != nil {
+		t.Fatal(err3)
+	}
+	// Compute forward gradient
+	_, _, mag, direction, _ := ForwardGradient(img, 0., false)
+	magData := mag.RawMatrix().Data
+
+	magDataInt := make([]Color, 0)
+	for idx := 0; idx < len(magData); idx++ {
+		//c:= uint64(math.Floor(magData[idx]))
+		magDataInt = append(magDataInt, NewColor(uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx]))))
+	}
+	magOut := Image{
+		data:   magDataInt,
+		width:  gtGrad.Width(),
+		height: gtGrad.Height(),
+	}
+
+	// Test ForwardGradient value
+	assert.Equal(t, len(magOut.data), len(gtGrad.data))
+	assert.Equal(t, magOut.data, gtGrad.data)
+
+	// NMS
+	nms, _ := GradientNonMaximumSuppressionC8(mag, direction)
+	nmsData := nms.RawMatrix().Data
+
+	nmsDataInt := make([]Color, 0)
+	for idx := 0; idx < len(magData); idx++ {
+		//c:= uint64(math.Floor(magData[idx]))
+		nmsDataInt = append(nmsDataInt, NewColor(uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx]))))
+	}
+	nmsOut := Image{
+		data:   nmsDataInt,
+		width:  gtGrad.Width(),
+		height: gtGrad.Height(),
+	}
+	// Test NMS values
+	assert.Equal(t, len(nmsOut.data), len(gtNms.data))
+	assert.Equal(t, nmsOut.data, gtNms.data)
 }
