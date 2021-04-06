@@ -46,8 +46,7 @@ func TestAcesCLF(t *testing.T) {
 		theta := utils.RadToDeg(laserMessage.Theta)
 
 		for pos, distance := range laserMessage.RangeReadings {
-			// TODO(erh): this is probbaly wrong
-			// TODO(erd): this is definitely wrong
+			// TODO(erh): this is possibly wrong?
 			angleDegrees := pos
 
 			if distance > 4 {
