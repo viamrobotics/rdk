@@ -3,26 +3,41 @@ package kinematics
 import (
 	"math"
 	"testing"
-	"fmt"
+	//~ "fmt"
 
 	"github.com/edaniels/test"
 	//~ "gonum.org/v1/gonum/num/dualquat"
 	//~ "gonum.org/v1/gonum/num/quat"
+	//~ "gonum.org/v1/gonum/mat"
 	"go.viam.com/robotcore/testutils"
 	//~ "go.viam.com/robotcore/kinematics/kinmath"
 )
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+	// Test fake 5DOF arm
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Confirm end effector starts at 300, 0, 360.25
+	m.ForwardPosition()
+	expect := []float64{300, 0, 360.25, 0, 0, 0}
+	actual := m.Get6dPosition(0)
+	
+	//~ fmt.Println(actual)
+	
+	if floatDelta(expect, actual) > 0.00001 {
+		t.Fatalf("Starting 6d position incorrect")
+	}
+	
+	// Test the 6dof arm we actually have
+	m, err = ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
 	m.ForwardPosition()
-	expect := []float64{365, 0, 360.25, 0, 0, 0}
-	actual := m.Get6dPosition(0)
-	
-	fmt.Println(actual)
+	expect = []float64{365, 0, 360.25, 0, 0, 0}
+	actual = m.Get6dPosition(0)
 	
 	if floatDelta(expect, actual) > 0.00001 {
 		t.Fatalf("Starting 6d position incorrect")
@@ -57,11 +72,22 @@ func floatDelta(l1, l2 []float64) float64{
 }
 
 func TestJacobian(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
-	
+	newPos := []float64{0, 0, 0, 0, 0}
+	//~ newPos := []float64{0, 0, 0, 1.5708, 0}
+	m.SetPosition(newPos)
 	m.ForwardPosition()
-	m.CalculateJacobian()
 	
-	fmt.Println(m.GetJacobian())
+	//~ actual := m.Get6dPosition(0)
+	//~ fmt.Println("test actual start", actual)
+	
+	//~ m.CalculateJacobian()
+	
+	//~ j := m.GetJacobian()
+	
+	//~ j2 := mat.NewDense(5,8, j.Raw())
+	//~ fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
+	//~ fmt.Printf("jac = %v", fc)
+	//~ fmt.Println("")
 }

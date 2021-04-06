@@ -61,11 +61,15 @@ func (k *Arm) GetForwardPosition() api.ArmPosition {
 
 // Sets a new goal position
 // Uses ZYX euler rotation order
+// Takes DEGREES and converts to radians
 func (k *Arm) SetForwardPosition(pos api.ArmPosition) error {
+	pos.Rx *= math.Pi/180
+	pos.Ry *= math.Pi/180
+	pos.Rz *= math.Pi/180
 	transform := kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
-	transform.SetX(pos.X)
-	transform.SetY(pos.Y)
-	transform.SetZ(pos.Z)
+	transform.SetX(pos.X/2)
+	transform.SetY(pos.Y/2)
+	transform.SetZ(pos.Z/2)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()

@@ -60,9 +60,6 @@ func (t *Transform) GetOut() *Frame {
 
 func (t *Transform) ForwardPosition() {
 	t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
-	//~ fmt.Println(t.t.Quat)
-	
-	//~ t.out.i.x = t.x.Mult(t.in.i.x)
 }
 
 //
