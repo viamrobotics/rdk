@@ -69,11 +69,8 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 	// discard directves
 	for {
 		line, eof, err := r.readLine()
-		if err != nil {
+		if err != nil || eof {
 			return err
-		}
-		if eof {
-			return nil
 		}
 		if line[0] != '#' {
 			break
@@ -82,20 +79,13 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 
 	for {
 		line, eof, err := r.readLine()
-		if err != nil {
+		if err != nil || eof {
 			return err
-		}
-		if eof {
-			return nil
 		}
 
 		res, err := r.processLine(line)
 		if err != nil {
 			return err
-		}
-
-		if res == nil {
-			continue
 		}
 
 		err = f(res)
