@@ -3,26 +3,25 @@
 package search
 
 import (
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 )
 
-func Devices() ([]lidar.DeviceDescription, error) {
-	usbDevices, err := usb.SearchDevices(
+func Devices() []api.Component {
+	usbDevices := usb.SearchDevices(
 		usb.NewSearchFilter("IOUserSerial", "usbserial-"),
 		func(vendorID, productID int) bool {
 			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
 		})
-	if err != nil {
-		return nil, err
-	}
-	lidarDeviceDecss := make([]lidar.DeviceDescription, 0, len(usbDevices))
+	var lidarComponents []api.Component
 	for _, dev := range usbDevices {
 		devType := lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
-		lidarDeviceDecss = append(lidarDeviceDecss, lidar.DeviceDescription{
-			Type: devType,
-			Path: dev.Path,
+		lidarComponents = append(lidarComponents, api.Component{
+			Type:  api.ComponentTypeLidar,
+			Host:  dev.Path,
+			Model: string(devType),
 		})
 	}
-	return lidarDeviceDecss, nil
+	return lidarComponents
 }

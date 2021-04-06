@@ -29,6 +29,21 @@ func (ms Measurements) Less(i, j int) bool {
 	return false
 }
 
+func (ms Measurements) ClosestToDegree(degree float64) *Measurement {
+	var best *Measurement
+	bestDiff := 10000.0
+
+	for _, m := range ms {
+		diff := utils.AngleDiffDeg(degree, m.data.AngleDeg)
+		if diff < bestDiff {
+			bestDiff = diff
+			best = m
+		}
+	}
+
+	return best
+}
+
 type Measurement struct {
 	data measurementData
 }
@@ -49,13 +64,13 @@ func (m *Measurement) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &m.data)
 }
 
-func NewMeasurement(angle, distance float64) *Measurement {
-	rad := utils.DegToRad(angle)
-	x, y := utils.RayToUpwardCWCartesian(angle, distance)
+func NewMeasurement(angleDegrees, distance float64) *Measurement {
+	rad := utils.DegToRad(angleDegrees)
+	x, y := utils.RayToUpwardCWCartesian(angleDegrees, distance)
 	return &Measurement{
 		data: measurementData{
 			Angle:    rad,
-			AngleDeg: angle,
+			AngleDeg: angleDegrees,
 			Distance: distance,
 			X:        x,
 			Y:        y,

@@ -28,15 +28,17 @@
 	          "hide" : true,
               "color" : "front-color",
               "depth" : "front-depth",
-              "make" : "intel515"
+              "make" : "intel515",
+              "debug" : false,
+              "matrices" : "$load{intel515_parameters.json}"
           }
         },
-	{ "name" : "front-overlay",
-          "type" : "camera",
-          "model" : "overlay",
-          "attributes" : {
-              "source" : "front"
-          }
+        { "name" : "front-overlay",
+              "type" : "camera",
+              "model" : "overlay",
+              "attributes" : {
+                  "source" : "front"
+              }
         }
 
     ]

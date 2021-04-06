@@ -2,6 +2,6 @@
 
 package serial
 
-func SearchDevices(filter SearchFilter) ([]DeviceDescription, error) {
+func SearchDevices(filter SearchFilter) []DeviceDescription {
 	return nil
 }

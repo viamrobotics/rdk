@@ -1,50 +1,47 @@
 package board
 
-type PostProcess func(raw int64) int64
+import (
+	"context"
 
-type Direction int
-
-const (
-	DirNone     = Direction(0)
-	DirForward  = Direction(1)
-	DirBackward = Direction(2)
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
-func DirectionFromString(s string) Direction {
-	if len(s) == 0 {
-		return DirNone
+type PostProcess func(raw int64) int64
+
+func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
+	switch d {
+	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
+		return pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
+		return pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	}
 
-	if s[0] == 'f' {
-		return DirForward
-	}
-
-	if s[0] == 'b' {
-		return DirBackward
-	}
-
-	return DirNone
+	return d
 }
 
 type Motor interface {
-	Force(force byte) error
+	Force(ctx context.Context, force byte) error
 
-	Go(d Direction, force byte) error
+	Go(ctx context.Context, d pb.DirectionRelative, force byte) error
 
-	GoFor(d Direction, rpm float64, rotations float64) error
+	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
 
-	Off() error
-	IsOn() bool
+	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
+	Position(ctx context.Context) (int64, error)
+	PositionSupported(ctx context.Context) (bool, error)
+
+	Off(ctx context.Context) error
+	IsOn(ctx context.Context) (bool, error)
 }
 
 type Servo interface {
 	// moves to that angle (0-180)
-	Move(angle uint8) error
-	Current() uint8
+	Move(ctx context.Context, angle uint8) error
+	Current(ctx context.Context) (uint8, error)
 }
 
 type AnalogReader interface {
-	Read() (int, error)
+	Read(ctx context.Context) (int, error)
 }
 
 type Board interface {
@@ -55,15 +52,21 @@ type Board interface {
 	AnalogReader(name string) AnalogReader
 	DigitalInterrupt(name string) DigitalInterrupt
 
-	Close() error
+	Close(ctx context.Context) error
 
-	GetConfig() Config
+	GetConfig(ctx context.Context) (Config, error)
+
+	// should use CreateStatus in most cases
+	Status(ctx context.Context) (*pb.BoardStatus, error)
 }
 
 type DigitalInterrupt interface {
 	Config() DigitalInterruptConfig
 	Value() int64
-	Tick()
-	AddCallback(c chan int64)
+
+	// nanos is from an arbitrary point in time, but always increasing and always needs to be accurate
+	// using time.Now().UnixNano() would be acceptable, but not required
+	Tick(high bool, nanos uint64)
+	AddCallback(c chan bool)
 	AddPostProcess(pp PostProcess)
 }

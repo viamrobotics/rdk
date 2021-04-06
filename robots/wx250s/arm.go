@@ -1,6 +1,7 @@
 package wx250s
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"strconv"
@@ -16,7 +17,14 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
+
+func init() {
+	api.RegisterArm("wx250s", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock, logger)
+	})
+}
 
 // SleepAngles are the angles we go to to prepare to turn off torque
 var SleepAngles = map[string]float64{
@@ -41,6 +49,7 @@ var OffAngles = map[string]float64{
 type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
+	logger   golog.Logger
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -54,7 +63,7 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
+func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (api.Arm, error) {
 	servos, err := findServos(attributes.GetString("usbPort"), attributes.GetString("baudRate"), attributes.GetString("armServoCount"))
 	if err != nil {
 		return nil, err
@@ -74,21 +83,22 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex) (api.Arm, error) {
 			"Wrist_rot":   {servos[7]},
 		},
 		moveLock: mutex,
+		logger:   logger,
 	}
 
-	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4)
+	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
-func (a *Arm) CurrentPosition() (api.ArmPosition, error) {
-	return api.ArmPosition{}, fmt.Errorf("wx250s dosn't support kinematics")
+func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	return nil, fmt.Errorf("wx250s dosn't support kinematics")
 }
 
-func (a *Arm) MoveToPosition(c api.ArmPosition) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	return fmt.Errorf("wx250s dosn't support kinematics")
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
-func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return fmt.Errorf("passed in too many positions")
 	}
@@ -106,22 +116,22 @@ func (a *Arm) MoveToJointPositions(jp api.JointPositions) error {
 }
 
 // CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics
-func (a *Arm) CurrentJointPositions() (api.JointPositions, error) {
-	return api.JointPositions{}, nil
+func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	return &pb.JointPositions{}, nil
 }
 
-func (a *Arm) JointMoveDelta(joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
 // Close will get the arm ready to be turned off
-func (a *Arm) Close() {
+func (a *Arm) Close(ctx context.Context) {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
 	angles, err := a.GetAllAngles()
 	if err != nil {
-		golog.Global.Errorf("failed to get angles: %s", err)
+		a.logger.Errorf("failed to get angles: %s", err)
 	}
 	alreadyAtSleep := true
 	for _, joint := range a.JointOrder() {
@@ -132,16 +142,16 @@ func (a *Arm) Close() {
 	if !alreadyAtSleep {
 		err = a.HomePosition()
 		if err != nil {
-			golog.Global.Errorf("Home position error: %s", err)
+			a.logger.Errorf("Home position error: %s", err)
 		}
 	}
 	err = a.SleepPosition()
 	if err != nil {
-		golog.Global.Errorf("Sleep pos error: %s", err)
+		a.logger.Errorf("Sleep pos error: %s", err)
 	}
 	err = a.TorqueOff()
 	if err != nil {
-		golog.Global.Errorf("Torque off error: %s", err)
+		a.logger.Errorf("Torque off error: %s", err)
 	}
 }
 
@@ -262,7 +272,7 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 
 	err := servo.GoalAndTrack(pos, block, a.GetServos(jointName)...)
 	if err != nil {
-		golog.Global.Errorf("%s jointTo error: %s", jointName, err)
+		a.logger.Errorf("%s jointTo error: %s", jointName, err)
 	}
 }
 
@@ -323,7 +333,7 @@ func setServoDefaults(newServo *servo.Servo) error {
 	// Set some nice-to-have settings
 	//~ 	err := newServo.SetMovingThreshold(0)
 	//~ 	if err != nil {
-	//~ 		golog.Global.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+	//~ 		logger.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
 	//~ 	}
 	err := newServo.SetPGain(2800)
 	if err != nil {
