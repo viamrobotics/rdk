@@ -30,7 +30,7 @@ func CreateCombinedIKSolver(models []*Model) *CombinedIK {
 	models[1].SetSeed(1)
 	ik.solvers = append(ik.solvers, CreateJacobianIKSolver(models[1]))
 	for i := 2; i < len(models); i++ {
-		models[i].SetSeed(int64(i))
+		models[i].SetSeed(int64(i * 1000))
 		ik.solvers = append(ik.solvers, CreateNloptIKSolver(models[i]))
 	}
 	for i, solver := range ik.solvers {
@@ -103,8 +103,8 @@ func (ik *CombinedIK) Solve() bool {
 			ik.Halt()
 			ik.Mdl.SetPosition(ik.solvers[myRT.ID].GetMdl().GetPosition())
 			ik.Mdl.ForwardPosition()
+			//~ fmt.Println("solved by", myRT.ID)
 		}
 	}
 	return myRT.Success
-	//~ return ik.solvers[1].Solve()
 }
