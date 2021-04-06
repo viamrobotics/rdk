@@ -9,7 +9,56 @@ import (
 	"unicode"
 )
 
-// reader for the CLF log file format
+// reader for CLF (CARMEN Logfile) log files
+// see http://carmen.sourceforge.net/logger_playback.html
+/* Common example
+# CARMEN Logfile
+# file format is one message per line
+# message_name [message contents] ipc_timestamp ipc_hostname logger_timestamp
+# message formats defined    : PARAM SYNC ODOM RAWLASER1 RAWLASER2 RAWLASER3 RAWLASER4
+#                              ROBOTLASER1 ROBOTLASER2
+# old message formats defined: FLASER RLASER LASER3 LASER4
+# PARAM param_name param_value
+# SYNC tagname
+# ODOM x y theta tv rv accel
+# TRUEPOS true_x true_y true_theta odom_x odom_y odom_theta
+# RAWLASER1 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] num_remissions [remission values]
+# RAWLASER2 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] num_remissions [remission values]
+# RAWLASER3 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] num_remissions [remission values]
+# RAWLASER4 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] num_remissions [remission values]
+# ROBOTLASER1 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] laser_pose_x laser_pose_y laser_pose_theta
+#   robot_pose_x robot_pose_y robot_pose_theta
+#   laser_tv laser_rv forward_safety_dist side_safety_dist
+# ROBOTLASER2 laser_type start_angle field_of_view angular_resolution
+#   maximum_range accuracy remission_mode
+#   num_readings [range_readings] laser_pose_x laser_pose_y laser_pose_theta
+#   robot_pose_x robot_pose_y robot_pose_theta
+#   laser_tv laser_rv forward_safety_dist side_safety_dist
+# NMEAGGA gpsnr utc latitude lat_orient longitude long_orient gps_quality
+#   num_satellites hdop sea_level alititude geo_sea_level geo_sep data_age
+# NMEARMC gpsnr validity utc latitude lat_orient longitude long_orient
+#   speed course variation var_dir date
+*/
+/* Common messages (http://carmen.sourceforge.net/doc/binary__loggerplayback.html)
+RAWLASER messages, which correspond to the raw laser information obtained by the laser driver
+ODOM messages, which correspond to the odometry information provided by the base
+ROBOTLASER messages, which is the merges message of odometry and laser data.
+TRUEPOS message, which provides ground truth information (in case the simulator is used).
+NMEAGGA message, which provides the position estimate of the gps
+NMEARMC message, which provides the ground speed information of the gps
+PARAM message, contain the parameters of the ini file as well as updated parameters
+SYNC message
+*/
 type CLFReader struct {
 	format       []string
 	messageTypes map[string][]string
@@ -119,9 +168,10 @@ func (r *CLFReader) processLine(line string) (map[string]interface{}, error) {
 	return m, nil
 }
 
-func (r *CLFReader) Process(reader *bufio.Reader, f func(data map[string]interface{}) error) error {
+func (r *CLFReader) Process(reader io.Reader, f func(data map[string]interface{}) error) error {
+	bufReader := bufio.NewReader(reader)
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := bufReader.ReadString('\n')
 		if err == io.EOF {
 			return nil
 		} else if err != nil {
