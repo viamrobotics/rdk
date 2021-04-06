@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
+
 	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -173,6 +174,8 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 	nc := m.Jacobian.NumCols()
 	// gonum.mat and mgl64.MatMxN use reversed raw data schemes
 	denseJac := mat.NewDense(nr, nc, m.Jacobian.Raw())
+
+	// Non-SVD is not as good. Don't use it.
 	if doSvd {
 
 		m.InvJacobian = mgl64.NewMatrix(nc, nr)
@@ -224,18 +227,18 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			// TODO(pl): Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}
 
-	} else {
-		n := m.GetOperationalDof() * 6
-		trans := mat.NewDense(nc, nr, m.Jacobian.Raw())
-		dampingMatrix := mat.NewDense(n, n, mgl64.IdentN(nil, n).Mul(nil, lambda*lambda).Raw())
-		var m1, m2, m3, invJ mat.Dense
-		m1.Mul(denseJac, trans)
-		m2.Add(&m1, dampingMatrix)
-		m3.Inverse(&m2)
-		invJ.Mul(trans, &m3)
-		rawIJ := invJ.RawMatrix()
+		//~ } else {
+		//~ n := m.GetOperationalDof() * 6
+		//~ trans := mat.NewDense(nc, nr, m.Jacobian.Raw())
+		//~ dampingMatrix := mat.NewDense(n, n, mgl64.IdentN(nil, n).Mul(nil, lambda*lambda).Raw())
+		//~ var m1, m2, m3, invJ mat.Dense
+		//~ m1.Mul(denseJac, trans)
+		//~ m2.Add(&m1, dampingMatrix)
+		//~ m3.Inverse(&m2)
+		//~ invJ.Mul(trans, &m3)
+		//~ rawIJ := invJ.RawMatrix()
 
-		m.InvJacobian = mgl64.NewMatrixFromData(rawIJ.Data, rawIJ.Rows, rawIJ.Cols)
+		//~ m.InvJacobian = mgl64.NewMatrixFromData(rawIJ.Data, rawIJ.Rows, rawIJ.Cols)
 	}
 }
 
