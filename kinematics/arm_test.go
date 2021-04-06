@@ -1,44 +1,43 @@
 package kinematics
 
-//~ import (
+import (
 	//~ "fmt"
-	//~ "testing"
+	"testing"
 
-	//~ "github.com/edaniels/test"
-	//~ "go.viam.com/robotcore/api"
-	//~ "go.viam.com/robotcore/kinematics/kinmath"
-	//~ "go.viam.com/robotcore/testutils"
-//~ )
+	"github.com/edaniels/test"
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/testutils"
+)
 
-//~ // This should test all of the kinematics functions
-//~ func TestCombinedIKinematics(t *testing.T) {
-	//~ evaArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
-	//~ test.That(t, err, test.ShouldBeNil)
-		//evaArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/eva.json"), 1)
-		//test.That(t, err, test.ShouldBeNil)
+const ToSolve = 100
 
-	//~ evaArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
+// This should test all of the kinematics functions
+func TestCombinedIKinematics(t *testing.T) {
+	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s.json"), 4)
+	test.That(t, err, test.ShouldBeNil)
+	wxArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
 
-	//~ // Test ability to arrive at a small X shift ahead
-	//~ pos := api.ArmPosition{-46.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
-	//~ err = evaArm.SetForwardPosition(pos)
-	//~ test.That(t, err, test.ShouldBeNil)
+	// Test ability to arrive at a small X shift ahead
+	pos := api.ArmPosition{-46.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
+	err = wxArm.SetForwardPosition(pos)
+	test.That(t, err, test.ShouldBeNil)
 
-	//~ // Test a larger X axis movement
+	// Test a larger movement- currently does not find with 4 cores but will with 8
 	//~ pos = api.ArmPosition{-66.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
-	//~ err = evaArm.SetForwardPosition(pos)
+	//~ err = wxArm.SetForwardPosition(pos)
 	//~ test.That(t, err, test.ShouldBeNil)
 
-	//~ // Test we are able to solve random valid positions from other random valid positions
+	// Test we are able to solve random valid positions from other random valid positions
+	// Used for benchmarking solve rate
 	//~ solved := 0
-	//~ for i := 0; i < 100; i++ {
+	//~ for i := 0; i < ToSolve; i++ {
 		//~ fmt.Println(i)
-		//~ jPos := evaArm.Model.RandomJointPositions()
-		//~ evaArm.Model.SetPosition(jPos)
-		//~ rPos := evaArm.GetForwardPosition()
-		//~ startPos := evaArm.Model.RandomJointPositions()
-		//~ evaArm.Model.SetPosition(startPos)
-		//~ err = evaArm.SetForwardPosition(rPos)
+		//~ jPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(jPos)
+		//~ rPos := wxArm.GetForwardPosition()
+		//~ startPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(startPos)
+		//~ err = wxArm.SetForwardPosition(rPos)
 		//~ if err == nil {
 			//~ solved++
 		//~ } else {
@@ -47,38 +46,58 @@ package kinematics
 			//~ fmt.Println(err)
 		//~ }
 	//~ }
-	//~ fmt.Println("solved: ", solved)
-//~ }
+	//~ fmt.Println("combined solved: ", solved)
+}
 
-//~ func TestNloptIKinematics(t *testing.T) {
-	//~ wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
-	//~ test.That(t, err, test.ShouldBeNil)
-	//~ ik := CreateNloptIKSolver(wxArm.Model)
-	//~ wxArm.ik = ik
+func TestNloptIKinematics(t *testing.T) {
+	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1)
+	test.That(t, err, test.ShouldBeNil)
+	ik := CreateNloptIKSolver(wxArm.Model)
+	wxArm.ik = ik
 
-	//~ pos := api.ArmPosition{1, -368, 355, 0, 0, 0}
-	//~ transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
-	//~ transform.SetX(pos.X)
-	//~ transform.SetY(pos.Y)
-	//~ transform.SetZ(pos.Z)
+	pos := api.ArmPosition{80, -370, 355, 15, 0, 0}
+	err = wxArm.SetForwardPosition(pos)
+	test.That(t, err, test.ShouldBeNil)
+	
+	// Used for benchmarking solve rate
+	//~ solved := 0
+	//~ for i := 0; i < ToSolve; i++ {
+		//~ jPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(jPos)
+		//~ rPos := wxArm.GetForwardPosition()
+		//~ startPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(startPos)
+		//~ err = wxArm.SetForwardPosition(rPos)
+		//~ if err == nil {
+			//~ solved++
 
-	//~ ik.AddGoal(transform, 0)
-	//~ solved := ik.Solve()
-	//~ test.That(t, solved, test.ShouldBeTrue)
-//~ }
+		//~ }
+	//~ }
+	//~ fmt.Println("nlopt solved: ", solved)
+}
 
-//~ func TestJacobianIKinematics(t *testing.T) {
-//~ 	wxArm, err := NewRobot(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), 1)
-//~ 	test.That(t, err, test.ShouldBeNil)
-//~ 	ik := kinematics.CreateJacobianIKSolver(wxArm.Model)
+func TestJacobianIKinematics(t *testing.T) {
+	wxArm, err := NewArm(nil, testutils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1)
+	test.That(t, err, test.ShouldBeNil)
+	ik := CreateJacobianIKSolver(wxArm.Model)
+	wxArm.ik = ik
 
-//~ 	pos := Position{1, -370, 355, 0, 0, 0}
-//~ 	transform := kinmath.NewTransformFromRotation(pos.Rx, pos.Ry, pos.Rz)
-//~ 	transform.SetX(pos.X)
-//~ 	transform.SetY(pos.Y)
-//~ 	transform.SetZ(pos.Z)
-
-//~ 	ik.AddGoal(transform, 0)
-//~ 	solved := ik.Solve()
-//~ 	test.That(t, solved, test.ShouldBeTrue)
-//~ }
+	pos := api.ArmPosition{80, -370, 355, 15, 0, 0}
+	err = wxArm.SetForwardPosition(pos)
+	test.That(t, err, test.ShouldBeNil)
+	
+	// Used for benchmarking solve rate
+	//~ solved := 0
+	//~ for i := 0; i < ToSolve; i++ {
+		//~ jPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(jPos)
+		//~ rPos := wxArm.GetForwardPosition()
+		//~ startPos := wxArm.Model.RandomJointPositions()
+		//~ wxArm.Model.SetPosition(startPos)
+		//~ err = wxArm.SetForwardPosition(rPos)
+		//~ if err == nil {
+			//~ solved++
+		//~ }
+	//~ }
+	//~ fmt.Println("jacob solved: ", solved)
+}
