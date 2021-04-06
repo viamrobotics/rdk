@@ -1180,7 +1180,8 @@ func TestServer(t *testing.T) {
 		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
 			Name: "compass1",
 		})
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not relative")
 
 		relDevice := &inject.RelativeCompass{}
 		injectRobot.SensorByNameFunc = func(name string) sensor.Device {

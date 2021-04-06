@@ -466,7 +466,7 @@ func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*
 	}
 	rel, ok := compassDevice.(compass.RelativeDevice)
 	if !ok {
-		return &pb.CompassMarkResponse{}, nil
+		return nil, errors.New("compass is not relative")
 	}
 	if err := rel.Mark(ctx); err != nil {
 		return nil, err
