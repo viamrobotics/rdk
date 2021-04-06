@@ -5,39 +5,44 @@ package usb
 import (
 	"bufio"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-var sysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
+var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
 
 type SearchFilter struct{}
 
-func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) ([]DeviceDescription, error) {
-	searchPath := func(sysPath string) ([]DeviceDescription, error) {
+func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+	if includeDevice == nil {
+		return nil
+	}
+	searchPath := func(sysPath string) []DeviceDescription {
 		devicesDir, err := os.Open(sysPath)
 		if err != nil {
-			return nil, nil
+			return nil
 		}
 		defer devicesDir.Close()
 		devices, err := devicesDir.Readdir(0)
 		if err != nil {
-			return nil, nil
+			return nil
 		}
 		var results []DeviceDescription
 		for _, device := range devices {
-			linkedFile, err := os.Readlink(path.Join(sysPath, device.Name()))
+			linkedFile, err := os.Readlink(filepath.Join(sysPath, device.Name()))
 			if err != nil {
 				continue
 			}
-			ueventFile, err := os.Open(filepath.Join(sysPath, linkedFile, "../uevent"))
+			if !filepath.IsAbs(linkedFile) {
+				linkedFile = filepath.Join(sysPath, linkedFile)
+			}
+			ueventFile, err := os.Open(filepath.Join(linkedFile, "../uevent"))
 			if err != nil {
 				continue
 			}
 			defer ueventFile.Close()
-			ttyFile, err := os.Open(filepath.Join(sysPath, linkedFile, "./tty"))
+			ttyFile, err := os.Open(filepath.Join(linkedFile, "./tty"))
 			if err != nil {
 				continue
 			}
@@ -87,15 +92,11 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				})
 			}
 		}
-		return results, nil
+		return results
 	}
 	var allDevices []DeviceDescription
-	for _, sysPath := range sysPaths {
-		devices, err := searchPath(sysPath)
-		if err != nil {
-			return nil, err
-		}
-		allDevices = append(allDevices, devices...)
+	for _, sysPath := range SysPaths {
+		allDevices = append(allDevices, searchPath(sysPath)...)
 	}
-	return allDevices, nil
+	return allDevices
 }

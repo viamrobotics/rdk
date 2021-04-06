@@ -35,8 +35,7 @@ func TestColorSegment1(t *testing.T) {
 			}
 			b := clusters[y]
 
-			diff := a.Distance(b)
-			diffs = append(diffs, ColorDiff{a, b, diff})
+			diffs.Add(a, b)
 		}
 	}
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	pb "go.viam.com/robotcore/proto/slam/v1"
+
 	"github.com/edaniels/test"
 )
 
@@ -11,17 +13,17 @@ func TestDirectionFromXY(t *testing.T) {
 	for i, tc := range []struct {
 		x, y                  int
 		viewWidth, viewHeight int
-		expected              Direction
+		expected              pb.Direction
 	}{
-		{0, 0, 0, 0, DirectionRight}, // bogus for views with area < 0
-		{0, 0, 2, 2, DirectionUp},
-		{1, 0, 2, 2, DirectionDown},
-		{0, 1, 2, 2, DirectionLeft},
-		{1, 1, 2, 2, DirectionRight},
-		{200, 200, 800, 600, DirectionUp},
-		{700, 200, 800, 600, DirectionDown},
-		{5, 301, 800, 600, DirectionLeft},
-		{450, 301, 800, 600, DirectionRight},
+		{0, 0, 0, 0, pb.Direction_DIRECTION_RIGHT}, // bogus for views with area < 0
+		{0, 0, 2, 2, pb.Direction_DIRECTION_UP},
+		{1, 0, 2, 2, pb.Direction_DIRECTION_DOWN},
+		{0, 1, 2, 2, pb.Direction_DIRECTION_LEFT},
+		{1, 1, 2, 2, pb.Direction_DIRECTION_RIGHT},
+		{200, 200, 800, 600, pb.Direction_DIRECTION_UP},
+		{700, 200, 800, 600, pb.Direction_DIRECTION_DOWN},
+		{5, 301, 800, 600, pb.Direction_DIRECTION_LEFT},
+		{450, 301, 800, 600, pb.Direction_DIRECTION_RIGHT},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			dir := DirectionFromXY(tc.x, tc.y, tc.viewWidth, tc.viewHeight)

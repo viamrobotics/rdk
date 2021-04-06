@@ -7,27 +7,27 @@
                 "pins" : {
                     "a" : "11",
                     "b" : "13",
-                    "pwm" : "7"
+                    "pwm" : "18"
                 },
                 "encoder" : "encoder",
+                "encoderB" : "encoder-b",
                 "ticksPerRotation" : 100
               }
           ],
           "analogs" : [
               { "name" : "current",
-                "pin" : "0"
-              },
-              { "name" : "pressure",
                 "pin" : "1"
               },
-              { "name" : "limit",
-                "pin" : "2"
+              { "name" : "pressure",
+                "pin" : "0"
               }
           ],
           "digitalInterrupts" : [
               { "name" : "encoder",
-                "pin" : "16",
-                "mode" : "falling"
+                "pin" : "15"
+              },
+              { "name" : "encoder-b",
+                "pin" : "16"
               }
           ]
         }

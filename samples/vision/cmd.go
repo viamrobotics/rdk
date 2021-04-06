@@ -23,6 +23,7 @@ import (
 var (
 	xFlag, yFlag *int
 	debug        *bool
+	logger       = golog.NewDevelopmentLogger("vision")
 )
 
 func _getOutputfile() string {
@@ -47,7 +48,7 @@ func shapeWalkLine(img *rimage.Image, startX, startY int) error {
 		hsv := img.Get(p)
 
 		diff := init.Distance(hsv)
-		golog.Global.Debugf("%v %v %v\n", p, hsv, diff)
+		logger.Debugf("%v %v %v\n", p, hsv, diff)
 
 		if diff > 12 {
 			init = hsv
@@ -89,7 +90,7 @@ func view(img *rimage.Image) error {
 
 	imgs := []image.Image{img}
 
-	remoteView.SetOnClickHandler(func(x, y int) {
+	remoteView.SetOnClickHandler(func(x, y int, _ gostream.ClientResponder) {
 		if x < 0 || y < 0 {
 			return
 		}
@@ -103,7 +104,7 @@ func view(img *rimage.Image) error {
 			x, y,
 			color.String())
 
-		walked, err := segmentation.ShapeWalk(img, p, segmentation.ShapeWalkOptions{Debug: *debug})
+		walked, err := segmentation.ShapeWalk(img, p, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
 		if err != nil {
 			panic(err)
 		}
@@ -113,9 +114,9 @@ func view(img *rimage.Image) error {
 		imgs[0] = dc.Image()
 	})
 
-	server := gostream.NewViewServer(5555, remoteView, golog.Global)
+	server := gostream.NewViewServer(5555, remoteView, logger)
 	if err := server.Start(); err != nil {
-		golog.Global.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
@@ -166,7 +167,7 @@ func main() {
 
 	switch prog {
 	case "shapeWalkEntire":
-		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug})
+		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
 		if err == nil {
 			err = rimage.WriteImageToFile(_getOutputfile(), out)
 			if err != nil {

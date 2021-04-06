@@ -92,6 +92,7 @@ func SquareInt(n int) int {
 // a coordinate system where the center is x,y=0,0 and
 // zero degrees is pointing up. This is helpful for visualzing
 // measurement devices that scan clockwise.
+// ray is in degrees
 // 0°   -  (0,increasing) // Up
 // 90°  -  (increasing, 0) // Right
 // 180° -  (0, decreasing) // Down

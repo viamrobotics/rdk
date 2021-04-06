@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/pointcloud"
 )
 
-func NewSquareArea(sizeMeters int, unitsPerMeter int) (*SquareArea, error) {
-	cloud := pointcloud.New()
+func NewSquareArea(sizeMeters int, unitsPerMeter int, logger golog.Logger) (*SquareArea, error) {
+	cloud := pointcloud.New(logger)
 	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
-func NewSquareAreaFromFile(fn string, sizeMeters int, unitsPerMeter int) (*SquareArea, error) {
-	cloud, err := pointcloud.NewFromFile(fn)
+func NewSquareAreaFromFile(fn string, sizeMeters int, unitsPerMeter int, logger golog.Logger) (*SquareArea, error) {
+	cloud, err := pointcloud.NewFromFile(fn, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +52,8 @@ func (sa *SquareArea) PointCloud() *pointcloud.PointCloud {
 	return sa.cloud
 }
 
-func (sa *SquareArea) BlankCopy() (*SquareArea, error) {
-	area, err := NewSquareArea(sa.sizeMeters, sa.unitsPerMeter)
+func (sa *SquareArea) BlankCopy(logger golog.Logger) (*SquareArea, error) {
+	area, err := NewSquareArea(sa.sizeMeters, sa.unitsPerMeter, logger)
 	if err != nil {
 		return nil, err
 	}

@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"go.uber.org/zap/zaptest/observer"
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/robots/fake"
@@ -25,62 +25,57 @@ import (
 )
 
 func TestMain(t *testing.T) {
-	lidar.RegisterDeviceType("fail_info", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+	api.RegisterLidarDevice("fail_info", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_width", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+			return image.Point{}, errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_ang", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
+			return math.NaN(), errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_stop", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		dev.StopFunc = func(ctx context.Context) error {
+			return errors.New("whoops")
+		}
+		return dev, nil
+	})
+	api.RegisterLidarDevice("fail_scan", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+		var once bool
+		dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+			if once {
 				return nil, errors.New("whoops")
 			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_width", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-				return image.Point{}, errors.New("whoops")
-			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_ang", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
-				return math.NaN(), errors.New("whoops")
-			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_stop", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			dev.StopFunc = func(ctx context.Context) error {
-				return errors.New("whoops")
-			}
-			return dev, nil
-		},
-	})
-	lidar.RegisterDeviceType("fail_scan", lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-			var once bool
-			dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-				if once {
-					return nil, errors.New("whoops")
-				}
-				once = true
-				return lidar.Measurements{}, nil
-			}
-			return dev, nil
-		},
+			once = true
+			return lidar.Measurements{}, nil
+		}
+		return dev, nil
 	})
 
 	temp, err := ioutil.TempFile("", "*.las")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	before := func(t *testing.T, tLogger golog.Logger) {
+	prevPort := defaultPort
+	defer func() {
+		defaultPort = prevPort
+	}()
+
+	before := func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
 		logger = tLogger
 		randomPort, err := utils.TryReserveRandomPort()
 		test.That(t, err, test.ShouldBeNil)
@@ -104,15 +99,18 @@ func TestMain(t *testing.T) {
 		{"bad device", []string{"--device=foo"}, "format", before, nil, nil},
 
 		// viewing
-		{"bad device type", []string{"--device=foo,blah"}, "do not know how", before, nil, nil},
-		{"bad device info", []string{"--device=fail_info,zero"}, "whoops", before, nil, nil},
-		{"bad device width", []string{"--device=fail_width,zero", "--save=somewhere"}, "whoops", before, nil, nil},
-		{"bad device ang res", []string{"--device=fail_ang,zero"}, "whoops", before, nil, nil},
-		{"bad device stop", []string{"--device=fail_stop,zero"}, "whoops", before, nil, nil},
+		{"bad device type", []string{"--device=type=lidar,model=foo,host=blah"}, "unknown lidar model", before, nil, nil},
+		{"bad device info", []string{"--device=type=lidar,model=fail_info,host=zero"}, "whoops", before, nil, nil},
+		{"bad device width", []string{"--device=type=lidar,model=fail_width,host=zero", "--save=somewhere"}, "whoops", before, nil, nil},
+		{"bad device ang res", []string{"--device=type=lidar,model=fail_ang,host=zero"}, "whoops", before, nil, nil},
+		{"bad device stop", []string{"--device=type=lidar,model=fail_stop,host=zero"}, "whoops", before, nil, nil},
 		{"bad save path", []string{"--save=/"}, "is a directory", before, nil, nil},
-		{"heading", nil, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+		{"heading", nil, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			before(t, tLogger, exec)
+			exec.ExpectIters(t, 2)
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal(t)
-			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.WaitIters(t)
 			exec.QuitSignal(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
@@ -120,20 +118,27 @@ func TestMain(t *testing.T) {
 			test.That(t, logs.FilterMessageSnippet("marked").All(), test.ShouldHaveLength, 2)
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"heading fail", []string{"--device=fail_scan,zero"}, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+		{"heading fail", []string{"--device=type=lidar,model=fail_scan,host=zero"}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			before(t, tLogger, exec)
+			exec.ExpectIters(t, 2)
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
 			exec.QuitSignal(t)
-			testutils.WaitOrFail(ctx, t, 2*time.Second)
+			exec.WaitIters(t)
 			exec.QuitSignal(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("failed").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 			test.That(t, len(logs.FilterMessageSnippet("error marking").All()), test.ShouldBeGreaterThanOrEqualTo, 1)
 		}},
-		{"saving", []string{"--save=" + temp.Name()}, "", before, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			testutils.WaitOrFail(ctx, t, 2*time.Second)
+		{"saving", []string{"--save=" + temp.Name()}, "", func(t *testing.T, tLogger golog.Logger, exec *testutils.ContextualMainExecution) {
+			before(t, tLogger, exec)
+			exec.ExpectIters(t, 2)
+		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
+			exec.WaitIters(t)
 			testPort(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
-			pc, err := pointcloud.NewFromFile(temp.Name())
+			logger := golog.NewTestLogger(t)
+			pc, err := pointcloud.NewFromFile(temp.Name(), logger)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, pc.Size(), test.ShouldNotBeZeroValue)
 		}},

@@ -504,6 +504,15 @@ func TestColorHSVDistanceRandom1(t *testing.T) {
 	_assertCloseHex(t, "#9cb7ab", "#adc3c5", 1.11)  // shiny
 	_assertCloseHex(t, "#899d96", "#adc3c5", 1.125) // shiny
 
+	_assertNotCloseHex(t, "#958f8f", "#2b2928", 3)   // gray vs black
+	_assertNotCloseHex(t, "#5e5b5b", "#2b2928", 3)   // gray vs black
+	_assertNotCloseHex(t, "#3d3c3c", "#2b2928", 1.0) // pretty dark gray vs black
+
+	_assertNotCloseHex(t, "#807c79", "#5f5b5a", 1.05)
+
+	_assertCloseHex(t, "#4b494c", "#423c3a", 1.25)
+
+	_assertCloseHex(t, "#202320", "#262626", .8)
 }
 
 func TestColorConvert(t *testing.T) {

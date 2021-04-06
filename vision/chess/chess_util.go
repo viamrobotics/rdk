@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
 )
 
@@ -27,8 +28,8 @@ func warpColorAndDepthToChess(img *rimage.ImageWithDepth, corners []image.Point)
 }
 
 // returns point in a1, a8, h1, h8 order
-func findChessCorners(img *rimage.ImageWithDepth) (image.Image, []image.Point, error) {
-	return FindChessCornersPinkCheat(img)
+func findChessCorners(img *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
+	return FindChessCornersPinkCheat(img, logger)
 }
 
 func getMinChessCorner(chess string) image.Point {

@@ -5,18 +5,19 @@ import (
 	"testing"
 	//~ "fmt"
 
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
-	//~ "gonum.org/v1/gonum/num/dualquat"
-	//~ "gonum.org/v1/gonum/num/quat"
-	//~ "gonum.org/v1/gonum/mat"
+
 	"go.viam.com/robotcore/testutils"
-	//~ "go.viam.com/robotcore/kinematics/kinmath"
 )
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
+	logger := golog.NewTestLogger(t)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25

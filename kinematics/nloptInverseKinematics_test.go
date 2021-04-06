@@ -5,15 +5,18 @@ import (
 	//~ "fmt"
 	"math"
 
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/testutils"
 )
 
 func TestCreateNloptIKSolver(t *testing.T) {
-	m, err := ParseJSONFile(testutils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+  logger := golog.NewTestLogger(t)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(m)
+	ik := CreateNloptIKSolver(m, logger)
 
 	pos := Position{170, 0, 180, 0, 0, 0}
 	transform := kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)

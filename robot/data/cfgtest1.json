@@ -1,6 +1,7 @@
 {
     "components" : [
-        { "type" : "camera",
+        { "name" : "c1",
+          "type" : "camera",
           "model" : "url",
           "attributes" : {
               "color" : "http://placehold.it/120x120&text=image1",

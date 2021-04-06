@@ -2,10 +2,8 @@
 
 package search
 
-import (
-	"go.viam.com/robotcore/lidar"
-)
+import "go.viam.com/robotcore/api"
 
-func Devices() ([]lidar.DeviceDescription, error) {
-	return nil, nil
+func Devices() []api.Component {
+	return nil
 }

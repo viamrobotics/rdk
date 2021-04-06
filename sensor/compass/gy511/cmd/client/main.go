@@ -5,18 +5,18 @@ import (
 	"errors"
 	"time"
 
-	"go.uber.org/multierr"
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/sensor/compass/gy511"
 	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
-var logger = golog.Global
+var logger = golog.NewDevelopmentLogger("gy511_client")
 
 func main() {
-	utils.ContextualMainQuit(mainWithArgs)
+	utils.ContextualMainQuit(mainWithArgs, logger)
 }
 
 // Arguments for the command.
@@ -24,16 +24,13 @@ type Arguments struct {
 	Calibrate bool `flag:"calibrate,usage=calibrate compass"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
 
-	devices, err := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
-	if err != nil {
-		return err
-	}
+	devices := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
 	if len(devices) == 0 {
 		return errors.New("no suitable device found")
 	}
@@ -66,6 +63,7 @@ func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription,
 	var once bool
 	for {
 		err := func() error {
+			defer utils.ContextMainIterFunc(ctx)()
 			if !once {
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()

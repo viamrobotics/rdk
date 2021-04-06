@@ -27,6 +27,13 @@
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+# gRPC
+dist/js/google/*
+!dist/js/google/api
+dist/js/gapic/
+dist/js/grafeas/
+dist/js/storage/
+
 # Test data
 coverage.txt
 slam/data/*new*
@@ -45,3 +52,4 @@ vision/chess/out
 /data/
 out/
 ./minirover2
+.idea/*

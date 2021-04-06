@@ -3,21 +3,19 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
-	"math"
 	"os"
-	"os/signal"
 	"runtime"
-	"strconv"
 	"strings"
-	"syscall"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
+	pb "go.viam.com/robotcore/proto/slam/v1"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
+	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/slam"
@@ -27,132 +25,113 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"go.uber.org/multierr"
+	"google.golang.org/grpc"
 )
 
 const fakeDev = "fake"
 
 func main() {
-	params, err := parseFlags()
-	if err != nil {
-		flag.Usage()
-		os.Exit(1)
-	}
-
-	if err := runSlam(params); err != nil {
-		golog.Global.Fatal(err)
-	}
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
-type runParams struct {
-	port           int
-	baseType       string
-	deviceDescs    []lidar.DeviceDescription
-	deviceOffests  []slam.DeviceOffset
-	compassAddress string
+var (
+	defaultPort = 5555
+	logger      = golog.NewDevelopmentLogger("slam_server")
+)
+
+// Arguments for the command.
+type Arguments struct {
+	Port         utils.NetPortFlag   `flag:"0"`
+	BaseType     baseTypeFlag        `flag:"base-type,default=,usage=type of mobile base"`
+	LidarDevices []api.Component     `flag:"lidar,usage=lidar devices"`
+	LidarOffsets []slam.DeviceOffset `flag:"lidar-offset,usage=lidar device offets relative to first"`
+	Compass      api.Component       `flag:"compass,usage=compass device"`
 }
 
-const lidarFlagName = "lidar"
+type baseTypeFlag string
 
-func parseFlags() (runParams, error) {
-	var baseType string
-	var lidarAddressFlags utils.StringFlags
-	var compassAddressFlag string
-	var lidarOffsetFlags utils.StringFlags
+func (btf *baseTypeFlag) String() string {
+	return string(*btf)
+}
+
+func (btf *baseTypeFlag) Set(val string) error {
+	if val != "" {
+		*btf = baseTypeFlag(val)
+		return nil
+	}
 	hostname, err := os.Hostname()
 	if err != nil {
-		return runParams{}, err
+		return err
 	}
 	if runtime.GOOS == "linux" && strings.Contains(hostname, "stretch") {
-		flag.StringVar(&baseType, "base-type", "hello", "type of mobile base")
+		*btf = "hello"
 	} else {
-		flag.StringVar(&baseType, "base-type", fakeDev, "type of mobile base")
+		*btf = fakeDev
 	}
-	flag.Var(&lidarAddressFlags, "lidar", "lidar devices")
-	flag.StringVar(&compassAddressFlag, "compass", "", "compass devices")
-	flag.Var(&lidarOffsetFlags, "lidar-offset", "lidar device offets relative to first")
-	flag.Parse()
-
-	var deviceOffests []slam.DeviceOffset
-	for _, flags := range lidarOffsetFlags {
-		if flags == "" {
-			return runParams{}, errors.New("offset format is angle,x,y")
-		}
-		split := strings.Split(flags, ",")
-		if len(split) != 3 {
-			return runParams{}, errors.New("offset format is angle,x,y")
-		}
-		angle, err := strconv.ParseFloat(split[0], 64)
-		if err != nil {
-			return runParams{}, err
-		}
-		distX, err := strconv.ParseFloat(split[1], 64)
-		if err != nil {
-			return runParams{}, err
-		}
-		distY, err := strconv.ParseFloat(split[2], 64)
-		if err != nil {
-			return runParams{}, err
-		}
-		deviceOffests = append(deviceOffests, slam.DeviceOffset{angle, distX, distY})
-	}
-
-	deviceDescs, err := search.Devices()
-	if err != nil {
-		golog.Global.Debugw("error searching for lidar devices", "error", err)
-	}
-	if len(deviceDescs) != 0 {
-		golog.Global.Debugf("detected %d lidar devices", len(deviceDescs))
-		for _, desc := range deviceDescs {
-			golog.Global.Debugf("%s (%s)", desc.Type, desc.Path)
-		}
-	}
-	if len(lidarOffsetFlags) == 0 && len(deviceDescs) == 0 {
-		deviceDescs = append(deviceDescs,
-			lidar.DeviceDescription{Type: lidar.DeviceTypeFake, Path: "0"})
-	}
-	if len(lidarAddressFlags) != 0 {
-		deviceDescs, err = lidar.ParseDeviceFlags(lidarFlagName, lidarAddressFlags)
-		if err != nil {
-			return runParams{}, err
-		}
-	}
-
-	if len(deviceDescs) == 0 {
-		return runParams{}, errors.New("no device descriptions parsed")
-	}
-
-	if len(deviceOffests) != 0 && len(deviceOffests) >= len(deviceDescs) {
-		return runParams{}, fmt.Errorf("can only have up to %d device offsets", len(deviceDescs)-1)
-	}
-
-	port := 5555
-	if flag.NArg() >= 1 {
-		portParsed, err := strconv.ParseInt(flag.Arg(1), 10, 32)
-		if err != nil {
-			return runParams{}, err
-		}
-		port = int(portParsed)
-	}
-
-	return runParams{
-		port:           port,
-		baseType:       baseType,
-		deviceDescs:    deviceDescs,
-		deviceOffests:  deviceOffests,
-		compassAddress: compassAddressFlag,
-	}, nil
+	return nil
 }
 
-func runSlam(params runParams) (err error) {
+func (btf *baseTypeFlag) Get() interface{} {
+	return string(*btf)
+}
+
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	var argsParsed Arguments
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
+	}
+	if argsParsed.Port == 0 {
+		argsParsed.Port = utils.NetPortFlag(defaultPort)
+	}
+	for _, comp := range argsParsed.LidarDevices {
+		if comp.Type != api.ComponentTypeLidar {
+			return errors.New("only lidar components can be in lidar flag")
+		}
+	}
+	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != api.ComponentTypeSensor || argsParsed.Compass.SubType != compass.DeviceType) {
+		return errors.New("compass flag must be a sensor component")
+	}
+
+	if len(argsParsed.LidarDevices) == 0 {
+		argsParsed.LidarDevices = search.Devices()
+		if len(argsParsed.LidarDevices) != 0 {
+			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
+			for _, comp := range argsParsed.LidarDevices {
+				logger.Debug(comp)
+			}
+		}
+	}
+
+	if len(argsParsed.LidarDevices) == 0 {
+		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
+			api.Component{
+				Type:  api.ComponentTypeLidar,
+				Host:  "0",
+				Model: string(lidar.DeviceTypeFake),
+			})
+	}
+
+	if len(argsParsed.LidarDevices) == 0 {
+		return errors.New("no lidar devices found")
+	}
+
+	if len(argsParsed.LidarOffsets) != 0 && len(argsParsed.LidarOffsets) >= len(argsParsed.LidarDevices) {
+		return fmt.Errorf("can only have up to %d lidar device offsets", len(argsParsed.LidarDevices)-1)
+	}
+
+	return runSlam(ctx, argsParsed, logger)
+}
+
+func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err error) {
 	areaSizeMeters := 50
 	unitsPerMeter := 100 // cm
-	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter)
+	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter, logger)
 	if err != nil {
 		return err
 	}
 
 	var baseDevice api.Base
-	switch params.baseType {
+	switch args.BaseType {
 	case fakeDev:
 		baseDevice = &fake.Base{}
 	case "hello":
@@ -165,28 +144,42 @@ func runSlam(params runParams) (err error) {
 			return err
 		}
 	default:
-		return fmt.Errorf("do not know how to make a %q base", params.baseType)
+		return fmt.Errorf("do not know how to make a %q base", args.BaseType)
 	}
 
-	var compassSensor compass.Device
-	if params.compassAddress != "" {
-		sensor, err := compass.NewWSDevice(context.Background(), params.compassAddress)
-		if err != nil {
-			return err
-		}
-		compassSensor = sensor
+	components := args.LidarDevices
+	if args.Compass.Type != "" {
+		components = append(components, args.Compass)
 	}
 
-	lidarDevices, err := lidar.CreateDevices(context.Background(), params.deviceDescs)
+	r, err := robot.NewRobot(ctx, api.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}
+	lidarNames := r.LidarDeviceNames()
+	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
+	for _, name := range lidarNames {
+		lidarDevices = append(lidarDevices, r.LidarDeviceByName(name))
+	}
+	var compassSensor compass.Device
+	if args.Compass.Type != "" {
+		var ok bool
+		sensorDevice := r.SensorByName(r.SensorNames()[0])
+		compassSensor, ok = sensorDevice.(compass.Device)
+		if !ok {
+			return fmt.Errorf("expected to get a compasss but got a %T", sensorDevice)
+		}
+	}
+
 	for _, lidarDev := range lidarDevices {
-		info, infoErr := lidarDev.Info(context.Background())
+		if err := lidarDev.Start(ctx); err != nil {
+			return err
+		}
+		info, infoErr := lidarDev.Info(ctx)
 		if infoErr != nil {
 			return infoErr
 		}
-		golog.Global.Infow("device", "info", info)
+		logger.Infow("device", "info", info)
 		dev := lidarDev
 		defer func() {
 			err = multierr.Combine(err, dev.Stop(context.Background()))
@@ -194,35 +187,29 @@ func runSlam(params runParams) (err error) {
 	}
 
 	if compassSensor == nil {
-		bestResolution := math.MaxFloat64
-		bestResolutionDeviceNum := 0
-		for i, lidarDev := range lidarDevices {
-			angRes, err := lidarDev.AngularResolution(context.Background())
-			if err != nil {
-				return err
-			}
-			if angRes < bestResolution {
-				bestResolution = angRes
-				bestResolutionDeviceNum = i
-			}
+		bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidarDevices)
+		if err != nil {
+			return err
 		}
-		bestResolutionDevice := lidarDevices[bestResolutionDeviceNum]
-		desc := params.deviceDescs[bestResolutionDeviceNum]
-		golog.Global.Debugf("using lidar %q as a relative compass with angular resolution %f", desc.Path, bestResolution)
-		compassSensor = compasslidar.From(bestResolutionDevice)
+		bestResComp := args.LidarDevices[bestResDeviceNum]
+		logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResComp, bestRes)
+		compassSensor = compasslidar.From(bestResDevice)
 	}
 
 	if compassSensor != nil {
-		baseDevice = compass.BaseWithCompass(baseDevice, compassSensor)
+		if _, isFake := baseDevice.(*fake.Base); !isFake {
+			baseDevice = api.BaseWithCompass(baseDevice, compassSensor, logger)
+		}
 	}
 
 	lar, err := slam.NewLocationAwareRobot(
-		context.Background(),
+		ctx,
 		baseDevice,
 		area,
 		lidarDevices,
-		params.deviceOffests,
+		args.LidarOffsets,
 		compassSensor,
+		logger,
 	)
 	if err != nil {
 		return err
@@ -241,33 +228,65 @@ func runSlam(params runParams) (err error) {
 	if err != nil {
 		return err
 	}
-	lar.RegisterCommands(remoteView.CommandRegistry())
 
 	clientWidth := 800
 	clientHeight := 600
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	rpcServer, err := rpc.NewServer()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, rpcServer.Stop())
+	}()
+	if err := rpcServer.RegisterServiceServer(
+		ctx,
+		&pb.SlamService_ServiceDesc,
+		slam.NewLocationAwareRobotServer(lar),
+		pb.RegisterSlamServiceHandlerFromEndpoint,
+	); err != nil {
+		return err
+	}
+
 	go func() {
-		<-c
-		cancelFunc()
+		if err := rpcServer.Start(); err != nil {
+			logger.Errorw("error starting", "error", err)
+		}
 	}()
 
-	remoteView.SetOnClickHandler(func(x, y int) {
-		golog.Global.Debugw("click", "x", x, "y", y)
-		resp, err := lar.HandleClick(cancelCtx, x, y, clientWidth, clientHeight)
+	grpcConn, err := grpc.DialContext(ctx, rpcServer.InternalAddr().String(), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, grpcConn.Close())
+	}()
+	slamClient := pb.NewSlamServiceClient(grpcConn)
+
+	remoteView.SetOnDataHandler(func(data []byte, responder gostream.ClientResponder) {
+		// TODO(erd): gostream should provide a context baesd on client but this is
+		// fine for now
+		resp, err := rpc.CallClientMethodLineJSON(ctx, slamClient, data)
 		if err != nil {
-			remoteView.SendTextToAll(err.Error())
+			responder.SendText(err.Error())
+			return
+		}
+		responder.SendText(string(resp))
+	})
+
+	remoteView.SetOnClickHandler(func(x, y int, responder gostream.ClientResponder) {
+		logger.Debugw("click", "x", x, "y", y)
+		resp, err := lar.HandleClick(ctx, x, y, clientWidth, clientHeight)
+		if err != nil {
+			responder.SendText(err.Error())
 			return
 		}
 		if resp != "" {
-			remoteView.SendTextToAll(resp)
+			responder.SendText(resp)
 		}
 	})
 
-	server := gostream.NewViewServer(params.port, remoteView, golog.Global)
+	server := gostream.NewViewServer(int(args.Port), remoteView, logger)
 	if err := server.Start(); err != nil {
 		return err
 	}
@@ -277,10 +296,12 @@ func runSlam(params runParams) (err error) {
 	started := make(chan struct{})
 	go func() {
 		close(started)
-		gostream.StreamNamedSource(cancelCtx, robotViewMatSource, "robot perspective", remoteView)
+		gostream.StreamNamedSource(ctx, robotViewMatSource, "robot perspective", remoteView)
 	}()
 	<-started
-	gostream.StreamNamedSource(cancelCtx, worldViewMatSource, "world (published)", remoteView)
+
+	utils.ContextMainReadyFunc(ctx)()
+	gostream.StreamNamedSource(ctx, worldViewMatSource, "world (published)", remoteView)
 
 	return server.Stop(context.Background())
 }

@@ -1,10 +1,12 @@
 package board
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +15,7 @@ type testReader struct {
 	stop bool
 }
 
-func (t *testReader) Read() (int, error) {
+func (t *testReader) Read(ctx context.Context) (int, error) {
 	if t.stop {
 		return 0, ErrStopReading
 	}
@@ -29,18 +31,21 @@ func TestAnalogSmoother1(t *testing.T) {
 	}
 	defer func() { testReader.stop = true }()
 
-	as := AnalogSmoother{
-		Raw:               &testReader,
+	logger := golog.NewTestLogger(t)
+	tmp := AnalogSmootherWrap(context.Background(), &testReader, AnalogConfig{}, logger)
+	_, ok := tmp.(*AnalogSmoother)
+	assert.False(t, ok)
+
+	as := AnalogSmootherWrap(context.Background(), &testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
-	}
-	as.Start()
-
-	assert.Equal(t, 100, as.data.NumSamples())
+	}, logger)
+	_, ok = as.(*AnalogSmoother)
+	assert.True(t, ok)
 
 	time.Sleep(200 * time.Millisecond)
 
-	v, err := as.Read()
+	v, err := as.Read(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

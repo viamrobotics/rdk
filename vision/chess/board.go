@@ -23,11 +23,11 @@ type Board struct {
 	logger golog.Logger
 }
 
-func FindAndWarpBoardFromFilesRoot(root string) (*Board, error) {
-	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz")
+func FindAndWarpBoardFromFilesRoot(root string, logger golog.Logger) (*Board, error) {
+	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz", logger)
 }
 
-func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
+func FindAndWarpBoardFromFiles(colorFN, depthFN string, logger golog.Logger) (*Board, error) {
 	img, err := rimage.NewImageWithDepth(colorFN, depthFN)
 	if err != nil {
 		return nil, err
@@ -35,11 +35,11 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string) (*Board, error) {
 
 	img.Depth.Smooth()
 
-	return FindAndWarpBoard(img)
+	return FindAndWarpBoard(img, logger)
 }
 
-func FindAndWarpBoard(img *rimage.ImageWithDepth) (*Board, error) {
-	_, corners, err := findChessCorners(img)
+func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, error) {
+	_, corners, err := findChessCorners(img, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func FindAndWarpBoard(img *rimage.ImageWithDepth) (*Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Board{a, edges, golog.Global}, nil
+	return &Board{a, edges, logger}, nil
 }
 
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {

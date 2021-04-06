@@ -3,11 +3,13 @@ package pointcloud
 import (
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	pc := New()
+	logger := golog.NewTestLogger(t)
+	pc := New(logger)
 	p0 := NewBasicPoint(0, 0, 0)
 	test.That(t, pc.Set(p0), test.ShouldBeNil)
 	pAt := pc.At(0, 0, 0)

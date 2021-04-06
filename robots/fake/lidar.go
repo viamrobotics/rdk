@@ -10,23 +10,27 @@ import (
 	"strings"
 	"sync"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
+
+	"github.com/edaniels/golog"
 )
 
-const LidarDeviceType = "fake"
+const LidarDeviceType = ModelName
 
 func init() {
-	lidar.RegisterDeviceType(LidarDeviceType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			path := strings.TrimPrefix(desc.Path, "fake-")
-			seed, err := strconv.ParseInt(path, 10, 64)
-			if err != nil {
-				return nil, err
-			}
-			device := NewLidar()
-			device.SetSeed(seed)
-			return device, nil
-		},
+	api.RegisterLidarDevice(LidarDeviceType, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		if config.Host == "" {
+			config.Host = "0"
+		}
+		host := strings.TrimPrefix(config.Host, "fake-")
+		seed, err := strconv.ParseInt(host, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		device := NewLidar()
+		device.SetSeed(seed)
+		return device, nil
 	})
 }
 

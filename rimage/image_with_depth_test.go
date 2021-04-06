@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,6 +51,7 @@ func TestPCRoundTrip(t *testing.T) {
 }
 
 func TestPC3(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +59,7 @@ func TestPC3(t *testing.T) {
 
 	os.MkdirAll("out", 0775)
 
-	pc, err := iwd.ToPointCloud()
+	pc, err := iwd.ToPointCloud(logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,4 +69,61 @@ func TestPC3(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+func TestImageWithDepthFromImages(t *testing.T) {
+	iwd, err := NewImageWithDepthFromImages("data/shelf_color.png", "data/shelf_grayscale.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.MkdirAll("out", 0775)
+
+	err = iwd.WriteTo("out/shelf.both.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestImageToDepthMap(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// convert to gray16 image
+	depthImage := iwd.Depth.ToGray16Picture()
+	// convert back
+	dmFromImage := imageToDepthMap(depthImage)
+	// tests
+	assert.Equal(t, dmFromImage.Height(), iwd.Depth.Height())
+	assert.Equal(t, dmFromImage.Width(), iwd.Depth.Width())
+	assert.Equal(t, dmFromImage, iwd.Depth)
+}
+
+func TestConvertToDepthMap(t *testing.T) {
+	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// convert to gray16 image
+	depthImage := iwd.Depth.ToGray16Picture()
+
+	// case 1
+	dm1, err := ConvertImageToDepthMap(iwd)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, dm1, iwd.Depth)
+	// case 2
+	dm2, err := ConvertImageToDepthMap(depthImage)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, dm2, iwd.Depth)
+	// default - should return error
+	badType := iwd.Color
+	dm3, err := ConvertImageToDepthMap(badType)
+	if dm3 != nil {
+		t.Errorf("expected error for image type %T, got err = %v", badType, err)
+	}
 }

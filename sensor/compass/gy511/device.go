@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/serial"
 
@@ -19,12 +21,21 @@ import (
 	"go.uber.org/multierr"
 )
 
+const ModelName = "gy511"
+
+func init() {
+	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+		return New(ctx, config.Host, logger)
+	})
+}
+
 type Device struct {
-	mu          sync.Mutex
-	rwc         io.ReadWriteCloser
-	heading     atomic.Value
-	calibrating bool
-	closeCh     chan struct{}
+	mu            sync.Mutex
+	rwc           io.ReadWriteCloser
+	heading       atomic.Value
+	calibrating   bool
+	closeCh       chan struct{}
+	activeWorkers sync.WaitGroup
 }
 
 const headingWindow = 100
@@ -57,17 +68,28 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev compass.Dev
 
 	d.closeCh = make(chan struct{})
 	ma := movingaverage.New(headingWindow)
-	go func() {
-		readHeading := func() (float64, error) {
-			line, _, err := buf.ReadLine()
-			if err != nil {
-				return math.NaN(), err
-			}
-			if len(line) == 0 {
-				return math.NaN(), nil
-			}
-			return strconv.ParseFloat(string(line), 64)
+	readHeading := func() (float64, error) {
+		line, _, err := buf.ReadLine()
+		if err != nil {
+			return math.NaN(), err
 		}
+		if len(line) == 0 {
+			return math.NaN(), nil
+		}
+		return strconv.ParseFloat(string(line), 64)
+	}
+	heading, err := readHeading()
+	if err != nil {
+		return nil, err
+	}
+	if !math.IsNaN(heading) {
+		ma.Add(heading)
+		d.heading.Store(ma.Avg())
+	}
+
+	d.activeWorkers.Add(1)
+	go func() {
+		defer d.activeWorkers.Done()
 		for {
 			select {
 			case <-d.closeCh:
@@ -124,7 +146,9 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 
 func (d *Device) Close(ctx context.Context) error {
 	close(d.closeCh)
-	return d.rwc.Close()
+	err := d.rwc.Close()
+	d.activeWorkers.Wait()
+	return err
 }
 
 // RawDevice demonstrates the binary protocol used to talk to a GY511
@@ -133,7 +157,11 @@ type RawDevice struct {
 	mu          sync.Mutex
 	calibrating bool
 	heading     float64
-	fail        bool
+	failAfter   int
+}
+
+func NewRawDevice() *RawDevice {
+	return &RawDevice{failAfter: -1}
 }
 
 func (rd *RawDevice) SetHeading(heading float64) {
@@ -142,9 +170,9 @@ func (rd *RawDevice) SetHeading(heading float64) {
 	rd.mu.Unlock()
 }
 
-func (rd *RawDevice) SetFail(fail bool) {
+func (rd *RawDevice) SetFailAfter(after int) {
 	rd.mu.Lock()
-	rd.fail = fail
+	rd.failAfter = after
 	rd.mu.Unlock()
 }
 
@@ -153,11 +181,13 @@ func (rd *RawDevice) Read(p []byte) (int, error) {
 		return 0, errors.New("expected read data to be non-empty")
 	}
 	rd.mu.Lock()
-	fail := rd.fail
-	rd.mu.Unlock()
-	if fail {
+	failAfter := rd.failAfter
+	if failAfter == 0 {
+		rd.mu.Unlock()
 		return 0, errors.New("read fail")
 	}
+	rd.failAfter--
+	rd.mu.Unlock()
 	if rd.calibrating {
 		return 0, nil
 	}
@@ -178,11 +208,13 @@ func (rd *RawDevice) Write(p []byte) (int, error) {
 		return 0, errors.New("write data must be one byte")
 	}
 	rd.mu.Lock()
-	fail := rd.fail
-	rd.mu.Unlock()
-	if fail {
+	failAfter := rd.failAfter
+	if failAfter == 0 {
+		rd.mu.Unlock()
 		return 0, errors.New("write fail")
 	}
+	rd.failAfter--
+	rd.mu.Unlock()
 	c := p[0]
 	switch c {
 	case '0':

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/chess"
 
+	"github.com/edaniels/golog"
 	"github.com/tonyOreglia/glee/pkg/position"
 )
 
@@ -87,6 +88,7 @@ func TestInit(t *testing.T) {
 }
 */
 func TestOneMove(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	state := boardStateGuesser{}
 
 	fns, err := filepath.Glob("data/e2e4/board-*.png")
@@ -99,7 +101,7 @@ func TestOneMove(t *testing.T) {
 		fmt.Println(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
-		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)
+		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, logger)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -4,141 +4,194 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"image"
 	"log"
-	"math"
 	"time"
+
+	"github.com/erh/egoutil"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
+	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/robot/web"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/vision/segmentation"
 
-	"github.com/edaniels/golog"
+	_ "go.viam.com/robotcore/board/detector"
+	_ "go.viam.com/robotcore/rimage/imagesource"
+
 	"go.uber.org/multierr"
+
+	"go.opencensus.io/trace"
 )
 
 const (
 	PanCenter  = 94
 	TiltCenter = 113
-
-	WheelCircumferenceMillis = math.Pi * 150
 )
+
+var logger = golog.NewDevelopmentLogger("minirover")
+
+func init() {
+	actions.RegisterAction("dock", func(r api.Robot) {
+		err := dock(r)
+		if err != nil {
+			logger.Errorf("error docking: %s", err)
+		}
+	})
+}
+
+func dock(r api.Robot) error {
+	logger.Info("docking started")
+	ctx := context.Background()
+
+	cam := r.CameraByName("back")
+	if cam == nil {
+		return fmt.Errorf("no back camera")
+	}
+
+	base := r.BaseByName("pierre")
+	if base == nil {
+		return fmt.Errorf("no pierre")
+	}
+
+	theLidar := r.LidarDeviceByName("lidarOnBase")
+	if theLidar == nil {
+		return fmt.Errorf("no lidar lidarOnBase")
+	}
+
+	for tries := 0; tries < 5; tries++ {
+
+		ms, err := theLidar.Scan(context.Background(), lidar.ScanOptions{})
+		if err != nil {
+			return err
+		}
+		back := ms.ClosestToDegree(180)
+		logger.Debugf("distance to back: %#v", back)
+
+		if back.Distance() < .55 {
+			logger.Info("docking close enough")
+			return nil
+		}
+
+		x, y, err := dockNextMoveCompute(ctx, cam)
+		if err != nil {
+			logger.Infof("failed to compute, will try again: %s", err)
+			continue
+		}
+		logger.Debugf("x: %v y: %v\n", x, y)
+
+		angle := x * -15
+		logger.Debugf("turning %v degrees", angle)
+		err = base.Spin(ctx, angle, 10, true)
+		if err != nil {
+			return err
+		}
+
+		amount := 100.0 - (100.0 * y)
+		logger.Debugf("moved %v millis", amount)
+		err = base.MoveStraight(ctx, int(-1*amount), 50, true)
+		if err != nil {
+			return err
+		}
+
+		tries = 0
+	}
+
+	return fmt.Errorf("failed to dock")
+}
+
+// return delta x, delta y, error
+func dockNextMoveCompute(ctx context.Context, cam gostream.ImageSource) (float64, float64, error) {
+	ctx, span := trace.StartSpan(ctx, "dockNextMoveCompute")
+	defer span.End()
+
+	logger.Debugf("dock - next")
+	img, closer, err := cam.Next(ctx)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer closer()
+
+	logger.Debugf("dock - convert")
+	ri := rimage.ConvertImage(img)
+
+	logger.Debugf("dock - findBlack")
+	p, _, err := findBlack(ctx, ri, nil)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	logger.Debugf("black: %v", p)
+
+	x := 2 * float64((ri.Width()/2)-p.X) / float64(ri.Width())
+	y := 2 * float64((ri.Height()/2)-p.Y) / float64(ri.Height())
+	return x, y, nil
+}
+
+func findTopInSegment(img *segmentation.SegmentedImage, segment int) image.Point {
+	mid := img.Width() / 2
+	for y := 0; y < img.Height(); y++ {
+		for x := mid; x < img.Width(); x++ {
+			p := image.Point{x, y}
+			s := img.GetSegment(p)
+			if s == segment {
+				return p
+			}
+
+			p = image.Point{mid - (x - mid), y}
+			s = img.GetSegment(p)
+			if s == segment {
+				return p
+			}
+
+		}
+	}
+	return image.Point{0, 0}
+}
+
+func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (image.Point, image.Image, error) {
+	_, span := trace.StartSpan(ctx, "findBlack")
+	defer span.End()
+
+	for x := 1; x < img.Width(); x += 3 {
+		for y := 1; y < img.Height(); y += 3 {
+			c := img.GetXY(x, y)
+			if c.Distance(rimage.Black) > 1 {
+				continue
+			}
+
+			x, err := segmentation.ShapeWalk(img,
+				image.Point{x, y},
+				segmentation.ShapeWalkOptions{
+					SkipCleaning: true,
+					//Debug: true,
+				},
+				logger,
+			)
+			if err != nil {
+				return image.Point{}, nil, err
+			}
+
+			if x.PixelsInSegmemnt(1) > 10000 {
+				return findTopInSegment(x, 1), x, nil
+			}
+		}
+	}
+
+	return image.Point{}, nil, fmt.Errorf("no black found")
+}
 
 // ------
 
 type Rover struct {
-	theBoard board.Board
-
-	fl, fr, bl, br board.Motor
-	pan, tilt      board.Servo
-}
-
-func (r *Rover) Close(ctx context.Context) error {
-	return r.Stop(ctx)
-}
-
-func (r *Rover) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	if distanceMillis == 0 && block {
-		return fmt.Errorf("cannot block unless you have a distance")
-	}
-
-	if distanceMillis != 0 && millisPerSec <= 0 {
-		return fmt.Errorf("if distanceMillis is set, millisPerSec has to be positive")
-	}
-
-	var d board.Direction = board.DirForward
-	if distanceMillis < 0 || millisPerSec < 0 {
-		d = board.DirBackward
-		distanceMillis = utils.AbsInt(distanceMillis)
-		millisPerSec = math.Abs(millisPerSec)
-	}
-
-	var err error
-	rotations := float64(distanceMillis) / WheelCircumferenceMillis
-
-	rotationsPerSec := millisPerSec / WheelCircumferenceMillis
-	rpm := 60 * rotationsPerSec
-
-	err = multierr.Combine(
-		r.fl.GoFor(d, rpm, rotations),
-		r.fr.GoFor(d, rpm, rotations),
-		r.bl.GoFor(d, rpm, rotations),
-		r.br.GoFor(d, rpm, rotations),
-	)
-
-	if err != nil {
-		return multierr.Combine(err, r.Stop(ctx))
-	}
-
-	if !block {
-		return nil
-	}
-
-	return r.waitForMotorsToStop()
-}
-
-func (r *Rover) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-
-	if speed < 120 {
-		speed = 120
-	}
-
-	var a, b board.Direction = board.DirForward, board.DirBackward
-	if angleDeg < 0 {
-		a, b = board.DirBackward, board.DirForward
-	}
-
-	rotations := math.Abs(angleDeg / 5.0)
-
-	rpm := float64(speed) // TODO(erh): fix me
-	err := multierr.Combine(
-		r.fl.GoFor(a, rpm, rotations),
-		r.fr.GoFor(b, rpm, rotations),
-		r.bl.GoFor(a, rpm, rotations),
-		r.br.GoFor(b, rpm, rotations),
-	)
-
-	if err != nil {
-		return multierr.Combine(err, r.Stop(ctx))
-	}
-
-	if !block {
-		return nil
-	}
-
-	return r.waitForMotorsToStop()
-}
-
-func (r *Rover) waitForMotorsToStop() error {
-	for {
-		time.Sleep(10 * time.Millisecond)
-
-		if r.fl.IsOn() ||
-			r.fr.IsOn() ||
-			r.bl.IsOn() ||
-			r.br.IsOn() {
-			continue
-		}
-
-		break
-	}
-
-	return nil
-}
-
-func (r *Rover) Stop(ctx context.Context) error {
-	return multierr.Combine(
-		r.fl.Off(),
-		r.fr.Off(),
-		r.bl.Off(),
-		r.br.Off(),
-	)
-}
-
-func (r *Rover) WidthMillis(ctx context.Context) (int, error) {
-	return 600, nil
+	theBoard  board.Board
+	pan, tilt board.Servo
 }
 
 func (r *Rover) neckCenter() error {
@@ -150,12 +203,12 @@ func (r *Rover) neckOffset(left int) error {
 }
 
 func (r *Rover) neckPosition(pan, tilt uint8) error {
-	golog.Global.Debugf("neckPosition to %v %v", pan, tilt)
-	return multierr.Combine(r.pan.Move(pan), r.tilt.Move(tilt))
+	logger.Debugf("neckPosition to %v %v", pan, tilt)
+	return multierr.Combine(r.pan.Move(context.TODO(), pan), r.tilt.Move(context.TODO(), tilt))
 }
 
 func (r *Rover) Ready(theRobot api.Robot) error {
-	golog.Global.Debugf("minirover2 Ready called")
+	logger.Debugf("minirover2 Ready called")
 	cam := theRobot.CameraByName("front")
 	if cam == nil {
 		return fmt.Errorf("no camera named front")
@@ -170,19 +223,19 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 				func() {
 					img, release, err := cam.Next(context.Background())
 					if err != nil {
-						golog.Global.Debugf("error from camera %s", err)
+						logger.Debugf("error from camera %s", err)
 						return
 					}
 					defer release()
 					pc := rimage.ConvertToImageWithDepth(img)
 					if pc.Depth == nil {
-						golog.Global.Warnf("no depth data")
+						logger.Warnf("no depth data")
 						depthErr = true
 						return
 					}
 					err = pc.WriteTo(fmt.Sprintf("data/rover-centering-%d.both.gz", time.Now().Unix()))
 					if err != nil {
-						golog.Global.Debugf("error writing %s", err)
+						logger.Debugf("error writing %s", err)
 					}
 				}()
 				if depthErr {
@@ -195,17 +248,8 @@ func (r *Rover) Ready(theRobot api.Robot) error {
 	return nil
 }
 
-func NewRover(theBoard board.Board) (*Rover, error) {
+func NewRover(r api.Robot, theBoard board.Board) (*Rover, error) {
 	rover := &Rover{theBoard: theBoard}
-	rover.fl = theBoard.Motor("fl-m")
-	rover.fr = theBoard.Motor("fr-m")
-	rover.bl = theBoard.Motor("bl-m")
-	rover.br = theBoard.Motor("br-m")
-
-	if rover.fl == nil || rover.fr == nil || rover.bl == nil || rover.br == nil {
-		return nil, fmt.Errorf("missing a motor for minirover2")
-	}
-
 	rover.pan = theBoard.Servo("pan")
 	rover.tilt = theBoard.Servo("tilt")
 
@@ -241,7 +285,24 @@ func NewRover(theBoard board.Board) (*Rover, error) {
 		}
 	}
 
-	golog.Global.Debug("rover ready")
+	theLidar := r.LidarDeviceByName("lidarBase")
+	if false && theLidar != nil {
+		go func() {
+			for {
+				time.Sleep(time.Second)
+
+				ms, err := theLidar.Scan(context.Background(), lidar.ScanOptions{})
+				if err != nil {
+					logger.Infof("theLidar scan failed: %s", err)
+					continue
+				}
+
+				logger.Debugf("fowrad distance %#v", ms[0])
+			}
+		}()
+	}
+
+	logger.Debug("rover ready")
 
 	return rover, nil
 }
@@ -256,28 +317,32 @@ func main() {
 func realMain() error {
 	flag.Parse()
 
+	exp := egoutil.NewNiceLoggingSpanExporter()
+	trace.RegisterExporter(exp)
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
 	cfg, err := api.ReadConfig("samples/minirover/config.json")
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robot.NewRobot(context.Background(), cfg)
+	myRobot, err := robot.NewRobot(context.Background(), cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close(context.Background())
 
-	rover, err := NewRover(myRobot.BoardByName("local"))
+	rover, err := NewRover(myRobot, myRobot.BoardByName("local"))
 	if err != nil {
 		return err
 	}
-
-	myRobot.AddBase(rover, api.Component{Name: "minirover"})
-
 	err = rover.Ready(myRobot)
 	if err != nil {
 		return err
 	}
 
-	return web.RunWeb(myRobot, web.NewOptions())
+	options := web.NewOptions()
+	options.AutoTile = false
+	options.Pprof = true
+	return web.RunWeb(context.Background(), myRobot, options, logger)
 }

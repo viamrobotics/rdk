@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/edaniels/golog"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -16,9 +17,10 @@ type PointCloud struct {
 	minX, maxX int
 	minY, maxY int
 	minZ, maxZ int
+	logger     golog.Logger
 }
 
-func New() *PointCloud {
+func New(logger golog.Logger) *PointCloud {
 	return &PointCloud{
 		points: map[key]Point{},
 		minX:   math.MaxInt64,
@@ -27,6 +29,7 @@ func New() *PointCloud {
 		maxX:   math.MinInt64,
 		maxY:   math.MinInt64,
 		maxZ:   math.MinInt64,
+		logger: logger,
 	}
 }
 

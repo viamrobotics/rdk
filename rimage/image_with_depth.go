@@ -149,6 +149,24 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 	return BothWriteToFile(i, fn)
 }
 
+func NewImageWithDepthFromImages(colorFN, depthFN string) (*ImageWithDepth, error) {
+	img, err := NewImageFromFile(colorFN)
+	if err != nil {
+		return nil, err
+	}
+
+	depthImg, err := ReadImageFromFile(depthFN)
+	if err != nil {
+		return nil, err
+	}
+	dm, err := ConvertImageToDepthMap(depthImg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImageWithDepth{img, dm}, nil
+}
+
 func NewImageWithDepth(colorFN, depthFN string) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
@@ -166,6 +184,38 @@ func NewImageWithDepth(colorFN, depthFN string) (*ImageWithDepth, error) {
 	}
 
 	return &ImageWithDepth{img, dm}, nil
+}
+
+func imageToDepthMap(img image.Image) *DepthMap {
+	bounds := img.Bounds()
+
+	width, height := bounds.Dx(), bounds.Dy()
+
+	// TODO(erd): handle non realsense Z16 devices better
+	// realsense seems to rotate
+	dm := NewEmptyDepthMap(width, height)
+
+	grayImg := img.(*image.Gray16)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			i := grayImg.PixOffset(x, y)
+			z := uint16(grayImg.Pix[i+0])<<8 | uint16(grayImg.Pix[i+1])
+			dm.Set(x, y, Depth(z))
+		}
+	}
+
+	return &dm
+}
+
+func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
+	switch ii := img.(type) {
+	case *ImageWithDepth:
+		return ii.Depth, nil
+	case *image.Gray16:
+		return imageToDepthMap(ii), nil
+	default:
+		return nil, fmt.Errorf("don't know how to make DepthMap from %T", img)
+	}
 }
 
 func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {

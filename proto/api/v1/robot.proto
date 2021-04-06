@@ -1,0 +1,445 @@
+syntax = "proto3";
+option go_package = "go.viam.com/robotcore/proto/api/v1";
+
+package proto.api.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
+import "google/api/annotations.proto";
+import "google/api/httpbody.proto";
+
+service RobotService {
+	rpc Status(StatusRequest) returns (StatusResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status"
+		};
+	}
+
+	rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
+	    option (google.api.http) = {
+			get: "/v1/status_stream"
+		};
+	}
+
+	rpc DoAction(DoActionRequest) returns (DoActionResponse) {
+		option (google.api.http) = {
+			post: "/v1/do_action"
+		};	
+	}
+
+	rpc ControlBase(ControlBaseRequest) returns (ControlBaseResponse) {
+		option (google.api.http) = {
+			post: "/v1/base/{name}/control"
+		};	
+	}
+
+	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_position"
+		};	
+	}
+
+	rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/current_joint_positions"
+		};	
+	}
+
+	rpc MoveArmToPosition(MoveArmToPositionRequest) returns (MoveArmToPositionResponse) {
+		option (google.api.http) = {
+			put: "/v1/arm/{name}/move_to_position"
+		};	
+	}
+
+	rpc MoveArmToJointPositions(MoveArmToJointPositionsRequest) returns (MoveArmToJointPositionsResponse) {
+		option (google.api.http) = {
+			put: "/v1/arm/{name}/move_to_joint_position"
+		};	
+	}
+
+	rpc ControlGripper(ControlGripperRequest) returns (ControlGripperResponse) {
+		option (google.api.http) = {
+			put: "/v1/gripper/{name}/control"
+		};	
+	}
+
+	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+		option (google.api.http) = {
+			get: "/v1/board/{name}/status"
+		};	
+	}
+
+	rpc ControlBoardMotor(ControlBoardMotorRequest) returns (ControlBoardMotorResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/motor/{motor_name}/control"
+		};
+	}
+
+	rpc ControlBoardServo(ControlBoardServoRequest) returns (ControlBoardServoResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/servero/{servo_name}/control"
+		};
+	}
+
+	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/frame"
+		};
+	}
+
+	rpc RenderCameraFrame(CameraFrameRequest) returns (google.api.HttpBody) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/render_frame"
+		};
+	}
+
+	// Lidar
+
+	rpc LidarInfo(LidarInfoRequest) returns (LidarInfoResponse) {
+	    option (google.api.http) = {
+			get: "/v1/lidar/{name}/info"
+		};
+	}
+	rpc LidarStart(LidarStartRequest) returns (LidarStartResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/start"
+		};
+	}
+	rpc LidarStop(LidarStopRequest) returns (LidarStopResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/stop"
+		};
+	}
+	rpc LidarScan(LidarScanRequest) returns (LidarScanResponse) {
+		option (google.api.http) = {
+			post: "/v1/lidar/{name}/scan"
+		};
+	}
+	rpc LidarRange(LidarRangeRequest) returns (LidarRangeResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/range"
+		};
+	}
+	rpc LidarBounds(LidarBoundsRequest) returns (LidarBoundsResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/bounds"
+		};
+	}
+	rpc LidarAngularResolution(LidarAngularResolutionRequest) returns (LidarAngularResolutionResponse) {
+		option (google.api.http) = {
+			get: "/v1/lidar/{name}/angular_resolution"
+		};
+	}
+
+	rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
+		option (google.api.http) = {
+			get: "/v1/sensors/sensor/{name}/readings"
+		};	
+	}
+
+	rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
+	    option (google.api.http) = {
+			get: "/v1/sensors/compass/{name}/heading"
+		};
+	}
+	rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/start_calibration"
+		};
+	}
+	rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/stop_calibration"
+		};
+	}
+	rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
+		option (google.api.http) = {
+			post: "/v1/sensors/compass/{name}/mark"
+		};
+	}
+}
+
+message StatusRequest {}
+
+message StatusStreamRequest {
+	google.protobuf.Duration every = 1;
+}
+
+message StatusResponse {
+	Status status = 1;
+}
+
+message StatusStreamResponse {
+	Status status = 1;
+}
+
+message Status {
+	map<string, ArmStatus> arms = 1;
+	map<string, bool> bases = 2;
+	map<string, bool> grippers = 3;
+	map<string, BoardStatus> boards = 4;
+	map<string, bool> cameras = 5;
+	map<string, bool> lidar_devices = 6;
+	map<string, SensorStatus> sensors = 7;
+}
+
+message DoActionRequest {
+	string name = 1;
+}
+
+message DoActionResponse {}
+
+message ArmStatus {
+	ArmPosition   grid_position = 1;
+	JointPositions joint_positions = 2;
+}
+
+message ArmPosition {
+	// meters of the end effector from the base
+	double x = 1;
+	double y = 2;
+	double z = 3;
+
+	// angular orientation about each axis, in degrees
+	double r_x = 4;
+	double r_y = 5;
+	double r_z = 6;
+}
+
+message JointPositions {
+	repeated double degrees = 1;
+}
+
+message BoardStatus {
+	map<string, MotorStatus> motors = 1;
+	map<string, ServoStatus> servos = 2;
+	map<string, AnalogStatus> analogs = 3;
+	map<string, DigitalInterruptStatus> digital_interrupts = 4;
+}
+
+message MotorStatus {
+	bool on = 1;
+	bool position_supported = 2;
+	int64 position = 3;
+}
+
+message ServoStatus {
+	uint32 angle = 1;
+}
+
+message AnalogStatus {
+	int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+	int64 value = 1;
+}
+
+message SensorStatus {
+	string type = 1;
+}
+
+message ControlBaseRequest {
+	string name = 1;
+	oneof action {
+		bool stop = 2;
+		MoveBase move = 3;
+	}
+}
+
+message MoveBase {
+	double speed = 1;
+	oneof option {
+		int64 straight_distance_millis = 2;
+		double spin_angle_deg = 3;
+	}
+}
+
+message ControlBaseResponse {}
+
+message ArmCurrentPositionRequest {
+	string name = 1;
+}
+
+message ArmCurrentPositionResponse {
+	ArmPosition position = 1;
+}
+
+message ArmCurrentJointPositionsRequest {
+	string name = 1;
+}
+
+message ArmCurrentJointPositionsResponse {
+	JointPositions positions = 1;
+}
+
+message MoveArmToPositionRequest {
+	string name = 1;
+	ArmPosition to = 2;
+}
+
+message MoveArmToPositionResponse {}
+
+message MoveArmToJointPositionsRequest {
+	string name = 1;
+	JointPositions to = 2;
+}
+
+message MoveArmToJointPositionsResponse {}
+
+enum ControlGripperAction {
+	CONTROL_GRIPPER_ACTION_UNSPECIFIED = 0;
+	CONTROL_GRIPPER_ACTION_OPEN = 1;
+	CONTROL_GRIPPER_ACTION_GRAB = 2;
+}
+
+message ControlGripperRequest {
+	string name = 1;
+	ControlGripperAction action = 2;
+}
+
+message ControlGripperResponse {
+	bool grabbed = 1;
+}
+
+message BoardStatusRequest {
+	string name = 1;
+}
+
+message BoardStatusResponse {
+	BoardStatus status = 1;
+}
+
+message ControlBoardMotorRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	double speed = 3;
+	double rotations = 4;
+	DirectionRelative direction = 5; 
+}
+
+enum DirectionRelative {
+	DIRECTION_RELATIVE_UNSPECIFIED = 0;
+	DIRECTION_RELATIVE_FORWARD = 1;
+	DIRECTION_RELATIVE_BACKWARD = 2;
+}
+
+message ControlBoardMotorResponse {}
+
+message ControlBoardServoRequest {
+	string board_name = 1;
+	string servo_name = 2;
+	uint32 angle_deg = 3;
+}
+
+message ControlBoardServoResponse {}
+
+message CameraFrameRequest {
+	string name = 1;
+	string mime_type = 2;
+}
+
+message CameraFrameResponse {
+	string mime_type = 1;
+	bytes frame = 2;
+	int64 dim_x = 3;
+	int64 dim_y = 4;
+}
+
+message LidarMeasurement  {
+	double angle = 1;
+	double angle_deg = 2;
+	double distance = 3;
+	double x = 4;
+	double y = 5;
+}
+
+message LidarInfoRequest {
+	string name = 1;
+}
+
+message LidarInfoResponse {
+	google.protobuf.Struct info = 1;
+}
+
+message LidarStartRequest {
+	string name = 1;
+}
+
+message LidarStartResponse {}
+
+message LidarStopRequest {
+	string name = 1;
+}
+
+message LidarStopResponse {}
+
+message LidarScanRequest {
+	string name = 1;
+	int32 count = 2;
+	bool no_filter = 3;
+}
+
+message LidarScanResponse {
+	repeated LidarMeasurement measurements = 1;
+}
+
+message LidarRangeRequest {
+	string name = 1;
+}
+
+message LidarRangeResponse {
+	int64 range = 1;
+}
+
+message LidarBoundsRequest {
+	string name = 1;
+}
+
+message LidarBoundsResponse {
+	int64 x = 1;
+	int64 y = 2;
+}
+
+message LidarAngularResolutionRequest {
+	string name = 1;
+}
+
+message LidarAngularResolutionResponse {
+	double angular_resolution = 1;
+}
+
+
+message SensorReadingsRequest {
+	string name = 1;
+}
+
+message SensorReadingsResponse {
+	repeated google.protobuf.Value readings = 1;
+}
+
+message CompassHeadingRequest {
+	string name = 1;
+}
+
+message CompassHeadingResponse {
+	double heading = 1;
+}
+
+message CompassStartCalibrationRequest {
+	string name = 1;
+}
+
+message CompassStartCalibrationResponse {}
+
+message CompassStopCalibrationRequest {
+	string name = 1;
+}
+
+message CompassStopCalibrationResponse {}
+
+message CompassMarkRequest {
+	string name = 1;
+}
+
+message CompassMarkResponse {}

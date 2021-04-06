@@ -5,17 +5,18 @@ import (
 	"math"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test1(t *testing.T) {
-
+	logger := golog.NewTestLogger(t)
 	data, err := ioutil.ReadFile("data/test1.raw")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	state, err := readRobotStateMessage(data)
+	state, err := readRobotStateMessage(data, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -49,3 +49,55 @@ func (c *Compass) Close(ctx context.Context) error {
 	}
 	return c.CloseFunc(ctx)
 }
+
+type RelativeCompass struct {
+	compass.RelativeDevice
+	ReadingsFunc         func(ctx context.Context) ([]interface{}, error)
+	HeadingFunc          func(ctx context.Context) (float64, error)
+	StartCalibrationFunc func(ctx context.Context) error
+	StopCalibrationFunc  func(ctx context.Context) error
+	MarkFunc             func(ctx context.Context) error
+	CloseFunc            func(ctx context.Context) error
+}
+
+func (rc *RelativeCompass) Readings(ctx context.Context) ([]interface{}, error) {
+	if rc.ReadingsFunc == nil {
+		return rc.RelativeDevice.Readings(ctx)
+	}
+	return rc.ReadingsFunc(ctx)
+}
+
+func (rc *RelativeCompass) Heading(ctx context.Context) (float64, error) {
+	if rc.HeadingFunc == nil {
+		return rc.RelativeDevice.Heading(ctx)
+	}
+	return rc.HeadingFunc(ctx)
+}
+
+func (rc *RelativeCompass) StartCalibration(ctx context.Context) error {
+	if rc.StartCalibrationFunc == nil {
+		return rc.RelativeDevice.StartCalibration(ctx)
+	}
+	return rc.StartCalibrationFunc(ctx)
+}
+
+func (rc *RelativeCompass) StopCalibration(ctx context.Context) error {
+	if rc.StopCalibrationFunc == nil {
+		return rc.RelativeDevice.StopCalibration(ctx)
+	}
+	return rc.StopCalibrationFunc(ctx)
+}
+
+func (rc *RelativeCompass) Mark(ctx context.Context) error {
+	if rc.MarkFunc == nil {
+		return rc.RelativeDevice.Mark(ctx)
+	}
+	return rc.MarkFunc(ctx)
+}
+
+func (rc *RelativeCompass) Close(ctx context.Context) error {
+	if rc.CloseFunc == nil {
+		return rc.RelativeDevice.Close(ctx)
+	}
+	return rc.CloseFunc(ctx)
+}

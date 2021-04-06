@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/testutils"
 )
 
 type MultipleImageTestDebugger struct {
-	T      *testing.T
 	name   string
 	glob   string
 	inroot string
@@ -26,6 +27,7 @@ type MultipleImageTestDebugger struct {
 	currentFile string
 
 	pendingImages int32
+	logger        golog.Logger
 }
 
 func (d *MultipleImageTestDebugger) currentImgConfigFile() string {
@@ -67,16 +69,17 @@ func (d *MultipleImageTestDebugger) addImageCell(f string) {
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(d *MultipleImageTestDebugger, fn string, img image.Image) error
+	Process(t *testing.T, d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
 }
 
 func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
 
-	d := MultipleImageTestDebugger{}
-	d.T = t
+	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.glob = glob
-	d.inroot = filepath.Join(os.Getenv("HOME"), "/Dropbox/echolabs_data/", prefix)
-	d.name = strings.Replace(prefix, "/", "-", 100)
+	d.inroot = testutils.LargeFileTestPath(prefix)
+	d.name = prefix + "-" + t.Name()
+	d.name = strings.Replace(d.name, "/", "-", 100)
+	d.name = strings.Replace(d.name, " ", "-", 100)
 
 	var err error
 	d.out, err = filepath.Abs("out")
@@ -91,7 +94,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleIma
 	return d
 }
 
-func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor) error {
+func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) error {
 	files, err := filepath.Glob(filepath.Join(d.inroot, d.glob))
 	if err != nil {
 		return err
@@ -106,7 +109,7 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 				break
 			}
 
-			golog.Global.Debugf("sleeping for pending images %d", pending)
+			d.logger.Debugf("sleeping for pending images %d", pending)
 
 			time.Sleep(time.Duration(50*pending) * time.Millisecond)
 		}
@@ -122,9 +125,9 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 		numFiles++
 
 		d.currentFile = f
-		golog.Global.Debug(f)
+		d.logger.Debug(f)
 
-		cont := d.T.Run(f, func(t *testing.T) {
+		cont := t.Run(f, func(t *testing.T) {
 			img, err := ReadImageFromFile(f)
 			if err != nil {
 				t.Fatal(err)
@@ -134,7 +137,8 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 			d.html.WriteString("<tr>")
 			d.GotDebugImage(img, "raw")
 
-			err = x.Process(d, f, img)
+			logger := golog.NewTestLogger(t)
+			err = x.Process(t, d, f, img, logger)
 			if err != nil {
 				t.Fatalf("error processing file %s : %s", f, err)
 			}
@@ -148,14 +152,14 @@ func (d *MultipleImageTestDebugger) Process(x MultipleImageTestDebuggerProcessor
 	}
 
 	if numFiles == 0 {
-		d.T.Skip("no input files")
+		t.Skip("no input files")
 		return nil
 	}
 
 	d.html.WriteString("</table></body></html>")
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
-	golog.Global.Debug(htmlOutFile)
+	d.logger.Debug(htmlOutFile)
 
 	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
 }

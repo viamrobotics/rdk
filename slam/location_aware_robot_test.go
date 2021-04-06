@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/gostream"
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
@@ -21,8 +23,8 @@ type testHarness struct {
 	baseDevice   *fake.Base
 	area         *SquareArea
 	lidarDev     *inject.LidarDevice
-	cmdReg       gostream.CommandRegistry
 	scansPerCull int
+	logger       golog.Logger
 }
 
 func (th *testHarness) ResetPos() {
@@ -39,8 +41,9 @@ func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter int) *testHarnes
 }
 
 func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter int) *testHarness {
+	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(meters, unitsPerMeter)
+	area, err := NewSquareArea(meters, unitsPerMeter, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
@@ -56,6 +59,7 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -64,22 +68,20 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 	larBot.cullInterval = 3
 	scansPerCull := larBot.cullInterval / int(larBot.updateInterval/time.Millisecond)
 
-	cmdReg := gostream.NewCommandRegistry()
-	larBot.RegisterCommands(cmdReg)
-
 	return &testHarness{
 		larBot,
 		baseDevice,
 		area,
 		injectLidarDev,
-		cmdReg,
 		scansPerCull,
+		logger,
 	}
 }
 
 func TestNewLocationAwareRobot(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
-	area, err := NewSquareArea(10, 100)
+	area, err := NewSquareArea(10, 100, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{}
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
@@ -93,6 +95,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -108,6 +111,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldWrap, err1)
 
@@ -126,6 +130,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		[]lidar.Device{injectLidarDev},
 		nil,
 		nil,
+		logger,
 	)
 	test.That(t, err, test.ShouldWrap, err1)
 }
@@ -164,14 +169,14 @@ func TestMove(t *testing.T) {
 	intPtr := func(v int) *int {
 		return &v
 	}
-	dirPtr := func(v Direction) *Direction {
+	dirPtr := func(v pb.Direction) *pb.Direction {
 		return &v
 	}
 
 	for _, tc := range []struct {
 		desc             string
 		amountMillis     *int
-		rotateTo         *Direction
+		rotateTo         *pb.Direction
 		err              string
 		deltaX           int
 		deltaY           int
@@ -179,45 +184,45 @@ func TestMove(t *testing.T) {
 		pre              func(th *testHarness)
 	}{
 		{"do nothing", nil, nil, "", 0, 0, 0, nil},
-		{"rotate up", nil, dirPtr(DirectionUp), "", 0, 0, 0, nil},
-		{"rotate down", nil, dirPtr(DirectionDown), "", 0, 0, 180, nil},
-		{"rotate left", nil, dirPtr(DirectionLeft), "", 0, 0, 270, nil},
-		{"rotate right", nil, dirPtr(DirectionRight), "", 0, 0, 90, nil},
+		{"rotate up", nil, dirPtr(pb.Direction_DIRECTION_UP), "", 0, 0, 0, nil},
+		{"rotate down", nil, dirPtr(pb.Direction_DIRECTION_DOWN), "", 0, 0, 180, nil},
+		{"rotate left", nil, dirPtr(pb.Direction_DIRECTION_LEFT), "", 0, 0, 270, nil},
+		{"rotate right", nil, dirPtr(pb.Direction_DIRECTION_RIGHT), "", 0, 0, 90, nil},
 		{"move forward", intPtr(100), nil, "", 0, 10, 0, nil},
 		{"move backward", intPtr(-100), nil, "", 0, -10, 0, nil},
 		{"move forward too far", intPtr(10000), nil, "stuck", 0, 0, 0, nil},
 		{"move backward too far", intPtr(-10000), nil, "stuck", 0, 0, 0, nil},
-		{"rotate down and move forward", intPtr(200), dirPtr(DirectionDown), "", 0, -20, 180, nil},
-		{"rotate right and move forward", intPtr(200), dirPtr(DirectionRight), "", 20, 0, 90, nil},
-		{"rotate left and move forward", intPtr(200), dirPtr(DirectionLeft), "", -20, 0, 270, nil},
-		{"rotate down and move backward", intPtr(-200), dirPtr(DirectionDown), "", 0, 20, 180, nil},
-		{"rotate right and move backward", intPtr(-200), dirPtr(DirectionRight), "", -20, 0, 90, nil},
-		{"rotate left and move backward", intPtr(-200), dirPtr(DirectionLeft), "", 20, 0, 270, nil},
-		{"rotate down and move forward too far", intPtr(20000), dirPtr(DirectionDown), "stuck", 0, 0, 0, nil},
-		{"rotate right and move forward too far", intPtr(20000), dirPtr(DirectionRight), "stuck", 0, 0, 0, nil},
-		{"rotate left and move forward too far", intPtr(20000), dirPtr(DirectionLeft), "stuck", 0, 0, 0, nil},
-		{"cannot collide up", intPtr(200), dirPtr(DirectionUp), "collide", 0, 0, 0, func(th *testHarness) {
+		{"rotate down and move forward", intPtr(200), dirPtr(pb.Direction_DIRECTION_DOWN), "", 0, -20, 180, nil},
+		{"rotate right and move forward", intPtr(200), dirPtr(pb.Direction_DIRECTION_RIGHT), "", 20, 0, 90, nil},
+		{"rotate left and move forward", intPtr(200), dirPtr(pb.Direction_DIRECTION_LEFT), "", -20, 0, 270, nil},
+		{"rotate down and move backward", intPtr(-200), dirPtr(pb.Direction_DIRECTION_DOWN), "", 0, 20, 180, nil},
+		{"rotate right and move backward", intPtr(-200), dirPtr(pb.Direction_DIRECTION_RIGHT), "", -20, 0, 90, nil},
+		{"rotate left and move backward", intPtr(-200), dirPtr(pb.Direction_DIRECTION_LEFT), "", 20, 0, 270, nil},
+		{"rotate down and move forward too far", intPtr(20000), dirPtr(pb.Direction_DIRECTION_DOWN), "stuck", 0, 0, 0, nil},
+		{"rotate right and move forward too far", intPtr(20000), dirPtr(pb.Direction_DIRECTION_RIGHT), "stuck", 0, 0, 0, nil},
+		{"rotate left and move forward too far", intPtr(20000), dirPtr(pb.Direction_DIRECTION_LEFT), "stuck", 0, 0, 0, nil},
+		{"cannot collide up", intPtr(200), dirPtr(pb.Direction_DIRECTION_UP), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
 				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY+((th.bot.baseDeviceWidthUnits/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide down", intPtr(200), dirPtr(DirectionDown), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide down", intPtr(200), dirPtr(pb.Direction_DIRECTION_DOWN), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
 				test.That(t, area.Set(th.bot.basePosX, th.bot.basePosY-((th.bot.baseDeviceWidthUnits/2)+1), 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide left", intPtr(200), dirPtr(DirectionLeft), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide left", intPtr(200), dirPtr(pb.Direction_DIRECTION_LEFT), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
 				test.That(t, area.Set(th.bot.basePosX-((th.bot.baseDeviceWidthUnits/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
-		{"cannot collide right", intPtr(200), dirPtr(DirectionRight), "collide", 0, 0, 0, func(th *testHarness) {
+		{"cannot collide right", intPtr(200), dirPtr(pb.Direction_DIRECTION_RIGHT), "collide", 0, 0, 0, func(th *testHarness) {
 			th.bot.presentViewArea.Mutate(func(area MutableArea) {
 				test.That(t, area.Set(th.bot.basePosX+((th.bot.baseDeviceWidthUnits/2)+1), th.bot.basePosY, 3), test.ShouldBeNil)
 			})
 		}},
-		{"unknown direction", intPtr(200), dirPtr("ouch"), "do not know how", 0, 0, 0, nil},
-		{"moving fails", intPtr(200), dirPtr(DirectionRight), "whoops", 0, 0, 0, func(th *testHarness) {
+		{"unknown direction", intPtr(200), dirPtr(pb.Direction_DIRECTION_UNSPECIFIED), "do not know how", 0, 0, 0, nil},
+		{"moving fails", intPtr(200), dirPtr(pb.Direction_DIRECTION_RIGHT), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
 			injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 				return 600, nil
@@ -503,7 +508,7 @@ func TestScanAndStore(t *testing.T) {
 
 func testUpdate(t *testing.T, internal bool) {
 	th := newTestHarness(t)
-	area, err := th.area.BlankCopy()
+	area, err := th.area.BlankCopy(th.logger)
 	test.That(t, err, test.ShouldBeNil)
 	device := &inject.LidarDevice{}
 	err1 := errors.New("whoops")
@@ -856,7 +861,7 @@ func testUpdate(t *testing.T, internal bool) {
 				}
 				devices = append(devices, device)
 			}
-			area, err := th.area.BlankCopy()
+			area, err := th.area.BlankCopy(th.logger)
 			test.That(t, err, test.ShouldBeNil)
 			if internal {
 				err = th.bot.scanAndStore(context.Background(), devices, area)
@@ -1108,7 +1113,7 @@ func TestRobotActive(t *testing.T) {
 		}
 
 		moveAmount := 20
-		moveDir := DirectionLeft
+		moveDir := pb.Direction_DIRECTION_LEFT
 		test.That(t, th.bot.Move(context.Background(), &moveAmount, &moveDir), test.ShouldBeNil)
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, (cullTTL-1)*th.scansPerCull)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
@@ -1148,4 +1153,32 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, actual, test.ShouldHaveLength, 2*(cullTTL-1)*th.scansPerCull)
 		test.That(t, actual, test.ShouldResemble, expected)
 	})
+}
+
+func TestDeviceOffsetFlag(t *testing.T) {
+	type MyStruct struct {
+		Offset DeviceOffset `flag:"offset"`
+	}
+	var myStruct MyStruct
+	err := utils.ParseFlags([]string{"main", "--offset=foo"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
+
+	err = utils.ParseFlags([]string{"main", "--offset=false,2.3,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,false,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,2.3,false"}, &myStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+	err = utils.ParseFlags([]string{"main", "--offset=1.2,2.3,4.5"}, &myStruct)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, myStruct.Offset.Angle, test.ShouldEqual, 1.2)
+	test.That(t, myStruct.Offset.DistanceX, test.ShouldEqual, 2.3)
+	test.That(t, myStruct.Offset.DistanceY, test.ShouldEqual, 4.5)
 }

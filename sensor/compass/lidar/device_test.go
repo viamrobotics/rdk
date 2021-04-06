@@ -7,46 +7,49 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"gonum.org/v1/gonum/mat"
 )
 
 func TestNew(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	// unknown type
-	_, err := New(context.Background(), lidar.DeviceDescription{Type: "what"})
+	_, err := New(context.Background(), api.Component{Attributes: api.AttributeMap{"type": "what"}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
-	var newFunc func(desc lidar.DeviceDescription) (lidar.Device, error)
-	lidar.RegisterDeviceType(devType, lidar.DeviceTypeRegistration{
-		New: func(ctx context.Context, desc lidar.DeviceDescription) (lidar.Device, error) {
-			return newFunc(desc)
-		},
+	var newFunc func(config api.Component) (lidar.Device, error)
+	api.RegisterLidarDevice(string(devType), func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+		return newFunc(config)
 	})
 
-	desc := lidar.DeviceDescription{Type: devType, Path: "somewhere"}
+	config := api.Component{Host: "somewhere", Attributes: api.AttributeMap{"type": string(devType)}}
 	newErr := errors.New("woof")
-	newFunc = func(innerDesc lidar.DeviceDescription) (lidar.Device, error) {
-		test.That(t, innerDesc, test.ShouldResemble, desc)
+	newFunc = func(innerConfig api.Component) (lidar.Device, error) {
+		test.That(t, innerConfig, test.ShouldResemble, config)
 		return nil, newErr
 	}
 
-	_, err = New(context.Background(), desc)
+	_, err = New(context.Background(), config, logger)
 	test.That(t, err, test.ShouldEqual, newErr)
 
 	injectDev := &inject.LidarDevice{}
-	newFunc = func(innerDesc lidar.DeviceDescription) (lidar.Device, error) {
+	newFunc = func(config api.Component) (lidar.Device, error) {
 		return injectDev, nil
 	}
+	injectDev.StartFunc = func(ctx context.Context) error {
+		return nil
+	}
 
-	dev, err := New(context.Background(), desc)
+	dev, err := New(context.Background(), config, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, dev, test.ShouldNotBeNil)
 }
@@ -162,7 +165,8 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with angular resolution failing", func(t *testing.T) {
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
+		logger := golog.NewTestLogger(t)
+		pointCloud, err := pointcloud.NewFromFile(utils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()
@@ -191,7 +195,8 @@ func TestHeading(t *testing.T) {
 	})
 
 	t.Run("with mark", func(t *testing.T) {
-		pointCloud, err := pointcloud.NewFromFile(testutils.ResolveFile("pointcloud/data/test.las"))
+		logger := golog.NewTestLogger(t)
+		pointCloud, err := pointcloud.NewFromFile(utils.ResolveFile("pointcloud/data/test.las"), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		mat2, err := pointCloud.ToVec2Matrix()

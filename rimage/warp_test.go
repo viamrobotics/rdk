@@ -151,7 +151,7 @@ func TestWarpSmall1(t *testing.T) {
 	outputSize := image.Point{100, 100}
 	x := WarpImage(img, GetPerspectiveTransform(
 		[]image.Point{{0, 170}, {0, 0}, {223, 0}, {223, 170}},
-		arrayToPoints([]image.Point{{0, 0}, {outputSize.X - 1, outputSize.Y - 1}}),
+		ArrayToPoints([]image.Point{{0, 0}, {outputSize.X - 1, outputSize.Y - 1}}),
 	), outputSize)
 
 	err = WriteImageToFile("out/warpsmall1.png", x)

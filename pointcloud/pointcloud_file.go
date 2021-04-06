@@ -11,10 +11,10 @@ import (
 	"github.com/jblindsay/lidario"
 )
 
-func NewFromFile(fn string) (*PointCloud, error) {
+func NewFromFile(fn string, logger golog.Logger) (*PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":
-		return NewFromLASFile(fn)
+		return NewFromLASFile(fn, logger)
 	default:
 		return nil, fmt.Errorf("do not know how to read file %q", fn)
 	}
@@ -22,7 +22,7 @@ func NewFromFile(fn string) (*PointCloud, error) {
 
 const pointValueDataTag = "rc|pv"
 
-func NewFromLASFile(fn string) (*PointCloud, error) {
+func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func NewFromLASFile(fn string) (*PointCloud, error) {
 		}
 	}
 
-	pc := New()
+	pc := New(logger)
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
 		if err != nil {
@@ -51,7 +51,7 @@ func NewFromLASFile(fn string) (*PointCloud, error) {
 		if x < minExactFloat64Integer || x > maxExactFloat64Integer ||
 			y < minExactFloat64Integer || y > maxExactFloat64Integer ||
 			z < minExactFloat64Integer || z > maxExactFloat64Integer {
-			golog.Global.Warnf("potential floating point lossiness for LAS point",
+			logger.Warnf("potential floating point lossiness for LAS point",
 				"point", data, "range", fmt.Sprintf("[%d,%d]", minExactFloat64Integer, maxExactFloat64Integer))
 		}
 		pToSet := NewBasicPoint(int(x), int(y), int(z))
@@ -84,7 +84,7 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 	defer func() {
 		if !successful {
 			if err := lf.Close(); err != nil {
-				golog.Global.Debug(err)
+				pc.logger.Debug(err)
 			}
 		}
 	}()

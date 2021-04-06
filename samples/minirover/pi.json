@@ -1,0 +1,83 @@
+{
+    "boards" : [
+        { "name" : "local",
+          "model" : "pi",
+          "motors" : [
+              { "name" : "fl-m",
+                "pins" : {
+                    "a" : "38",
+                    "b" : "40",
+                    "pwm" : "11"
+                },
+                "encoder" : "fl-e",
+                "ticksPerRotation" : 250
+              },
+              { "name" : "fr-m",
+                "pins" : {
+                    "a" : "22",
+                    "b" : "32",
+                    "pwm" : "7"
+                },
+                "encoder" : "fr-e",
+                "ticksPerRotation" : 250
+              },
+              { "name" : "bl-m",
+                "pins" : {
+                    "a" : "37",
+                    "b" : "33",
+                    "pwm" : "13"
+                },
+                "encoder" : "bl-e",
+                "ticksPerRotation" : 250
+              },
+              { "name" : "br-m",
+                "pins" : {
+                    "a" : "29",
+                    "b" : "35",
+                    "pwm" : "15"
+                },
+                "encoder" : "br-e",
+                "ticksPerRotation" : 250
+              }
+          ],
+          "digitalInterrupts" : [
+              { "name" : "fl-e",
+                "pin" : "36"
+              },
+              { "name" : "fr-e",
+                "pin" : "18"
+              },
+              { "name" : "bl-e",
+                "pin" : "31"
+              },
+              { "name" : "br-e",
+                "pin" : "10"
+              }
+          ],
+          "servos" : [
+              { "name" : "pan",
+                "pin" : "16" },
+              { "name" : "tilt",
+                "pin" : "12" }
+          ]
+        }
+    ],
+    "components" : [
+        { "name" : "pierre",
+          "model" : "four-wheel",
+          "type" : "base",
+          "attributes" : {
+              "board" : "local",
+              "widthMillis" : 600,
+              "wheelCircumferenceMillis" : 470,
+              "spinSlipFactor" : 2.0,
+              "frontLeft" : "fl-m",
+              "frontRight" : "fr-m",
+              "backLeft" : "bl-m",
+              "backRight" : "br-m"
+          }
+        }
+    ]
+}
+
+

@@ -5,23 +5,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot"
 )
 
-func randomWalkIncrement(ctx context.Context, theRobot *robot.Robot) error {
+func init() {
+	RegisterAction("RandomWalk", RandomWalk)
+}
 
-	if len(theRobot.Bases) == 0 {
-		return fmt.Errorf("no bases, can't drive")
+func setup(theRobot api.Robot) (api.Base, gostream.ImageSource, error) {
+	baseNames := theRobot.BaseNames()
+	if len(baseNames) == 0 {
+		return nil, nil, fmt.Errorf("no bases, can't drive")
 	}
 
-	if len(theRobot.Cameras) == 0 {
-		return fmt.Errorf("no cameras, can't drive")
+	cameraNames := theRobot.CameraNames()
+	if len(cameraNames) == 0 {
+		return nil, nil, fmt.Errorf("no cameras, can't drive")
 	}
 
-	raw, release, err := theRobot.Cameras[0].Next(ctx)
+	return theRobot.BaseByName(baseNames[0]), theRobot.CameraByName(cameraNames[0]), nil
+}
+
+func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
+
+	base, camera, err := setup(theRobot)
+	if err != nil {
+		return err
+	}
+
+	raw, release, err := camera.Next(ctx)
 	if err != nil {
 		return err
 	}
@@ -34,14 +49,14 @@ func randomWalkIncrement(ctx context.Context, theRobot *robot.Robot) error {
 	pc, err = pc.CropToDepthData()
 
 	if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
-		golog.Global.Debugf("error getting depth info: %s, backing up", err)
-		return theRobot.Bases[0].MoveStraight(ctx, -200, 60, true)
+		theRobot.Logger().Debugf("error getting depth info: %s, backing up", err)
+		return base.MoveStraight(ctx, -200, 60, true)
 	}
 
-	_, points := roverWalk(pc, false)
+	_, points := roverWalk(pc, false, theRobot.Logger())
 	if points < 200 {
-		golog.Global.Debugf("safe to move forward")
-		return theRobot.Bases[0].MoveStraight(ctx, 200, 50, true)
+		theRobot.Logger().Debugf("safe to move forward")
+		return base.MoveStraight(ctx, 200, 50, true)
 	}
 
 	fn := fmt.Sprintf("data/rover-cannot-walk-%d.both.gz", time.Now().Unix())
@@ -50,20 +65,20 @@ func randomWalkIncrement(ctx context.Context, theRobot *robot.Robot) error {
 		return err
 	}
 
-	golog.Global.Debugf("not safe, let's spin, wrote debug img to: %s", fn)
-	return theRobot.Bases[0].Spin(ctx, -15, 60, true)
+	theRobot.Logger().Debugf("not safe, let's spin, wrote debug img to: %s", fn)
+	return base.Spin(ctx, -15, 60, true)
 }
 
-func RandomWalk(theRobot *robot.Robot, numSeconds int64) {
-	defer func() { golog.Global.Debugf("RandomWalk done") }()
+func RandomWalk(theRobot api.Robot) {
+	defer func() { theRobot.Logger().Debugf("RandomWalk done") }()
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(numSeconds))
+	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(60))
 	defer cancelFunc()
 	for {
 		err := randomWalkIncrement(ctx, theRobot)
 
 		if err != nil {
-			golog.Global.Debugf("error doing random walk, trying again: %s", err)
+			theRobot.Logger().Debugf("error doing random walk, trying again: %s", err)
 			time.Sleep(2000 * time.Millisecond)
 			continue
 		}

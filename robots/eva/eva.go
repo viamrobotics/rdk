@@ -2,6 +2,7 @@ package eva
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,11 +12,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
+	pb "go.viam.com/robotcore/proto/api/v1"
+
+	"github.com/edaniels/golog"
 )
+
+func init() {
+	api.RegisterArm("eva", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return NewEva(config.Host, config.Attributes, logger)
+	})
+}
 
 type evaData struct {
 	// map[estop:false]
@@ -50,26 +58,27 @@ type eva struct {
 	sessionToken string
 
 	moveLock sync.Mutex
+	logger   golog.Logger
 }
 
-func (e *eva) CurrentJointPositions() (api.JointPositions, error) {
+func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot()
 	if err != nil {
-		return api.JointPositions{}, err
+		return &pb.JointPositions{}, err
 	}
 	return api.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-func (e *eva) CurrentPosition() (api.ArmPosition, error) {
-	return api.ArmPosition{}, fmt.Errorf("eva low level doesn't support kinematics")
+func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
+	return nil, fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToPosition(pos api.ArmPosition) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	return fmt.Errorf("eva low level doesn't support kinematics")
 }
 
-func (e *eva) MoveToJointPositions(newPositions api.JointPositions) error {
-	radians := newPositions.Radians()
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
+	radians := api.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(radians)
 	if err == nil {
@@ -101,11 +110,11 @@ func (e *eva) doMoveJoints(joints []float64) error {
 	return e.apiControlGoTo(joints, true)
 }
 
-func (e *eva) JointMoveDelta(joint int, amount float64) error {
+func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("not done yet")
 }
 
-func (e *eva) Close() {
+func (e *eva) Close(ctx context.Context) {
 
 }
 func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {
@@ -232,7 +241,7 @@ func (e *eva) apiControlGoTo(joints []float64, block bool) error {
 	}
 
 	if block {
-		golog.Global.Debugf("i don't know how to block")
+		e.logger.Debugf("i don't know how to block")
 		time.Sleep(1000 * time.Millisecond)
 	}
 	return nil
@@ -245,15 +254,16 @@ func (e *eva) apiLock() error {
 func (e *eva) apiUnlock() {
 	err := e.apiRequest("DELETE", "controls/lock", nil, true, nil)
 	if err != nil {
-		golog.Global.Debugf("eva unlock failed: %s", err)
+		e.logger.Debugf("eva unlock failed: %s", err)
 	}
 }
 
-func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
+func NewEva(host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, error) {
 	e := &eva{
 		host:    host,
 		version: "v1",
 		token:   attrs.GetString("token"),
+		logger:  logger,
 	}
 
 	name, err := e.apiName()
@@ -261,7 +271,7 @@ func NewEva(host string, attrs api.AttributeMap) (api.Arm, error) {
 		return nil, err
 	}
 
-	golog.Global.Debugf("connected to eva: %v", name)
+	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4)
+	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4, logger)
 }
