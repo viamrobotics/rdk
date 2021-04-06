@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/edaniels/golog"
-	"github.com/lucasb-eyer/go-colorful"
-
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
@@ -189,18 +189,36 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	} else if (s1 < .25 && v1 < .25) || (s2 < .25 && v2 < .25) {
 		section = 2
 		// we're in the bottom left quadrat
-		wh /= 5
+		wv *= 3.0
+		wh /= 20
 		ws /= 2
-	} else if (s1 < .3 && v1 < .35) || (s2 < .3 && v2 < .35) {
-		section = 3
-		// bottom left bigger quadrant
-		wh /= 2.5
 	} else if s1 < .10 || s2 < .10 {
-		section = 4
+		section = 3
 		// we're in the very light range
 		wh *= .06 * (v1 + v2) * ((s1 + s2) * 5)
 		ws *= 1.15
-		wv *= 1.54
+		wv *= 1.65
+
+		if s1 > .1 || s2 > .2 {
+			wh *= 2
+		}
+		dd = math.Sqrt(.95 + s1 + s2)
+		wh *= dd
+	} else if (s1 < .3 && v1 < .345) || (s2 < .3 && v2 < .35) {
+		section = 4
+		// bottom left bigger quadrant
+		ac = _ratioOffFrom135(v1-v2, s1-s2)
+		wh /= 2.5
+		ws *= 1.1
+		if v1 < .25 && v2 < .25 {
+			wh /= 2
+		}
+		if ac < .5 {
+			wh *= 1.25
+		}
+		dd = math.Pow(1.5-v1-v2, 2)
+		wh *= dd
+
 	} else if s1 < .19 && s2 < .19 {
 		section = 5
 		// we're in the light range
@@ -257,12 +275,12 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		golog.Global.Debugf("%v -- %v", c, b)
-		golog.Global.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
-		golog.Global.Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
-		golog.Global.Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
+		rlog.Logger.Debugf("%v -- %v", c, b)
+		rlog.Logger.Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
+		rlog.Logger.Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
+		rlog.Logger.Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
+		rlog.Logger.Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
+		rlog.Logger.Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
 	}
 	return res
 }

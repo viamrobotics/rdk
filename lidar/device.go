@@ -25,11 +25,6 @@ const (
 	DeviceTypeFake    = "fake"
 )
 
-type DeviceDescription struct {
-	Type DeviceType
-	Path string
-}
-
 type ScanOptions struct {
 	Count    int
 	NoFilter bool

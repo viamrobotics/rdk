@@ -7,6 +7,11 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+const (
+	DeviceType         = "compass"
+	RelativeDeviceType = "relative_compass"
+)
+
 type Device interface {
 	sensor.Device
 	Heading(ctx context.Context) (float64, error)
@@ -17,18 +22,6 @@ type Device interface {
 type RelativeDevice interface {
 	Device
 	Mark(ctx context.Context) error
-}
-
-type DeviceType string
-
-const (
-	DeviceTypeUnknown = "unknown"
-	DeviceTypeFake    = "fake"
-)
-
-type DeviceDescription struct {
-	Type DeviceType
-	Path string
 }
 
 func MedianHeading(ctx context.Context, device Device) (float64, error) {

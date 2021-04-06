@@ -1,4 +1,14 @@
 {
+  "remotes": [
+    {
+      "name": "one",
+      "address": "foo",
+      "prefix": true
+    },
+    {
+      "address": "bar"
+    }
+  ],
   "components": [
     {
       "host": "10.237.115.238",

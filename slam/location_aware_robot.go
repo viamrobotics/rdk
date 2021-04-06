@@ -6,24 +6,21 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
+	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
-
-// relative to first device
-type DeviceOffset struct {
-	Angle                float64
-	DistanceX, DistanceY float64
-}
 
 type LocationAwareRobot struct {
 	started              bool
@@ -45,8 +42,8 @@ type LocationAwareRobot struct {
 	compassSensor compass.Device
 
 	clientZoom          float64
-	clientClickMode     string
-	clientLidarViewMode string
+	clientClickMode     pb.ClickMode
+	clientLidarViewMode pb.LidarViewMode
 
 	activeWorkers   sync.WaitGroup
 	serverMu        sync.Mutex
@@ -56,6 +53,7 @@ type LocationAwareRobot struct {
 	updateInterval time.Duration
 	cullInterval   int
 	updateHook     func(culled bool)
+	logger         golog.Logger
 }
 
 func NewLocationAwareRobot(
@@ -65,6 +63,7 @@ func NewLocationAwareRobot(
 	devices []lidar.Device,
 	deviceOffsets []DeviceOffset,
 	compassSensor compass.Device,
+	logger golog.Logger,
 ) (*LocationAwareRobot, error) {
 	baseDeviceWidth, err := baseDevice.WidthMillis(ctx)
 	if err != nil {
@@ -87,7 +86,7 @@ func NewLocationAwareRobot(
 		devBounds = append(devBounds, bounds)
 	}
 
-	presentViewArea, err := area.BlankCopy()
+	presentViewArea, err := area.BlankCopy(logger)
 	if err != nil {
 		return nil, err
 	}
@@ -107,12 +106,13 @@ func NewLocationAwareRobot(
 		compassSensor: compassSensor,
 
 		clientZoom:          1,
-		clientClickMode:     clientClickModeInfo,
-		clientLidarViewMode: clientLidarViewModeStored,
+		clientClickMode:     pb.ClickMode_CLICK_MODE_INFO,
+		clientLidarViewMode: pb.LidarViewMode_LIDAR_VIEW_MODE_STORED,
 		closeCh:             make(chan struct{}),
 
 		updateInterval: defaultUpdateInterval,
 		cullInterval:   defaultCullInterval,
+		logger:         logger,
 	}
 	robot.baseDeviceWidthUnits = robot.millimetersToMeasuredUnit(baseDeviceWidth)
 
@@ -165,7 +165,7 @@ func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
 }
 
-func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *Direction) (err error) {
+func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *pb.Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
@@ -173,17 +173,17 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 
 	currentOrientation := lar.orientation()
 	if rotateTo != nil {
-		golog.Global.Debugw("request to rotate", "dir", *rotateTo)
+		lar.logger.Debugw("request to rotate", "dir", *rotateTo)
 		from := currentOrientation
 		var to float64
 		switch *rotateTo {
-		case DirectionUp:
+		case pb.Direction_DIRECTION_UP:
 			to = 0
-		case DirectionRight:
+		case pb.Direction_DIRECTION_RIGHT:
 			to = 90
-		case DirectionDown:
+		case pb.Direction_DIRECTION_DOWN:
 			to = 180
-		case DirectionLeft:
+		case pb.Direction_DIRECTION_LEFT:
 			to = 270
 		default:
 			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
@@ -263,7 +263,7 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64,
 	return nil
 }
 
-func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir Direction) error {
+func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir pb.Direction) error {
 	return lar.Move(ctx, nil, &dir)
 }
 
@@ -399,7 +399,7 @@ func (lar *LocationAwareRobot) newPresentView() error {
 	}
 
 	// allocate new presentView
-	newArea, err := lar.presentViewArea.BlankCopy()
+	newArea, err := lar.presentViewArea.BlankCopy(lar.logger)
 	if err != nil {
 		return err
 	}
@@ -510,11 +510,11 @@ func (lar *LocationAwareRobot) updateLoop() {
 					}()
 				}
 				if err := lar.update(cancelCtx); err != nil {
-					golog.Global.Debugw("error updating", "error", err)
+					lar.logger.Debugw("error updating", "error", err)
 				}
 				if (count+1)%lar.cullInterval == 0 {
 					if err := lar.cull(); err != nil {
-						golog.Global.Debugw("error culling", "error", err)
+						lar.logger.Debugw("error culling", "error", err)
 					}
 					culled = true
 					count = 0
@@ -586,4 +586,53 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 
 func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea) {
 	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
+}
+
+// relative to first device
+type DeviceOffset struct {
+	Angle                float64
+	DistanceX, DistanceY float64
+}
+
+func (do *DeviceOffset) String() string {
+	return fmt.Sprintf("%#v", do)
+}
+
+func (do *DeviceOffset) Set(val string) error {
+	parsed, err := parseDevicOffsetFlag(val)
+	if err != nil {
+		return err
+	}
+	*do = parsed
+	return nil
+}
+
+func (do *DeviceOffset) Get() interface{} {
+	return do
+}
+
+// parseDevicOffsetFlag parses a lidar offset flag from command line arguments.
+func parseDevicOffsetFlag(flag string) (DeviceOffset, error) {
+	split := strings.Split(flag, ",")
+	if len(split) != 3 {
+		return DeviceOffset{}, errors.New("wrong offset format; use angle,x,y")
+	}
+	angle, err := strconv.ParseFloat(split[0], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+	distX, err := strconv.ParseFloat(split[1], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+	distY, err := strconv.ParseFloat(split[2], 64)
+	if err != nil {
+		return DeviceOffset{}, err
+	}
+
+	return DeviceOffset{
+		Angle:     angle,
+		DistanceX: distX,
+		DistanceY: distY,
+	}, nil
 }

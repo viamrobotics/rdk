@@ -1,6 +1,7 @@
 package universalrobots
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -9,10 +10,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/api"
+	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
+
+func init() {
+	api.RegisterArm("ur", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
+		return URArmConnect(config.Host, logger)
+	})
+}
 
 type URArm struct {
 	mu       sync.Mutex
@@ -23,18 +32,18 @@ type URArm struct {
 	logger   golog.Logger
 }
 
-func (arm *URArm) Close() {
+func (arm *URArm) Close(ctx context.Context) {
 	// TODO(erh): stop thread
 	// TODO(erh): close socket
 }
 
-func URArmConnect(host string) (*URArm, error) {
+func URArmConnect(host string, logger golog.Logger) (*URArm, error) {
 	conn, err := net.Dial("tcp", host+":30001")
 	if err != nil {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, debug: false, haveData: false, logger: golog.Global}
+	arm := &URArm{conn: conn, debug: false, haveData: false, logger: logger}
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
@@ -66,7 +75,7 @@ func (arm *URArm) State() RobotState {
 	return arm.state
 }
 
-func (arm *URArm) CurrentJointPositions() (api.JointPositions, error) {
+func (arm *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state := arm.State()
 	for _, j := range state.Joints {
@@ -75,12 +84,12 @@ func (arm *URArm) CurrentJointPositions() (api.JointPositions, error) {
 	return api.JointPositionsFromRadians(radians), nil
 }
 
-func (arm *URArm) CurrentPosition() (api.ArmPosition, error) {
+func (arm *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := arm.State().CartesianInfo
 	return api.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
-func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
+func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	if joint < 0 || joint > 5 {
 		return fmt.Errorf("invalid joint")
 	}
@@ -93,14 +102,14 @@ func (arm *URArm) JointMoveDelta(joint int, amount float64) error {
 
 	radians[joint] += amount
 
-	return arm.MoveToJointPositionRadians(radians)
+	return arm.MoveToJointPositionRadians(ctx, radians)
 }
 
-func (arm *URArm) MoveToJointPositions(joints api.JointPositions) error {
-	return arm.MoveToJointPositionRadians(joints.Radians())
+func (arm *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
+	return arm.MoveToJointPositionRadians(ctx, api.JointPositionsToRadians(joints))
 }
 
-func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
+func (arm *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	if len(radians) != 6 {
 		return fmt.Errorf("need 6 joints")
 	}
@@ -159,13 +168,13 @@ func (arm *URArm) MoveToJointPositionRadians(radians []float64) error {
 
 }
 
-func (arm *URArm) MoveToPosition(pos api.ArmPosition) error {
+func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	x := pos.X
 	y := pos.Y
 	z := pos.Z
-	rx := pos.RxRadians()
-	ry := pos.RyRadians()
-	rz := pos.RzRadians()
+	rx := utils.DegToRad(pos.RX)
+	ry := utils.DegToRad(pos.RY)
+	rz := utils.DegToRad(pos.RZ)
 
 	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
 
@@ -243,7 +252,7 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 
 		switch buf[0] {
 		case 16:
-			state, err := readRobotStateMessage(buf[1:])
+			state, err := readRobotStateMessage(buf[1:], arm.logger)
 			if err != nil {
 				panic(err)
 			}
@@ -267,7 +276,7 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			err := readURRobotMessage(buf)
+			err := readURRobotMessage(buf, arm.logger)
 			if err != nil {
 				panic(err)
 			}
