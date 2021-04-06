@@ -1,10 +1,9 @@
 package kinematics
 
 import (
-	"fmt"
+	//~ "fmt"
 	//~ "math"
 	"github.com/go-gl/mathgl/mgl64"
-	"gonum.org/v1/gonum/mat"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
@@ -99,14 +98,14 @@ func (ik *JacobianIK) Solve() bool {
 			}
 
 			ik.Mdl.CalculateJacobian()
-			
+
 			ik.Mdl.CalculateJacobianInverse(0, ik.svd)
 			invJ := ik.Mdl.GetJacobianInverse()
-			
+
 			dq := invJ.MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
-			
+
 			q = ik.Mdl.Step(q, dq)
-			
+
 			q = ik.Mdl.Normalize(q)
 
 			ik.Mdl.SetPosition(q)
@@ -136,9 +135,9 @@ func (ik *JacobianIK) Solve() bool {
 	return false
 }
 
-func printMat(m *mgl64.MatMxN, name string){
-	j2 := mat.NewDense(m.NumRows(),m.NumCols(), m.Transpose(nil).Raw())
-	fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
-	fmt.Printf("%s = %v", name, fc)
-	fmt.Println("")
-}
+//~ func printMat(m *mgl64.MatMxN, name string) {
+//~ j2 := mat.NewDense(m.NumRows(), m.NumCols(), m.Transpose(nil).Raw())
+//~ fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
+//~ fmt.Printf("%s = %v", name, fc)
+//~ fmt.Println("")
+//~ }

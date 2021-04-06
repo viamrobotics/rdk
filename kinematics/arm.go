@@ -67,13 +67,13 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 // Uses ZYX euler rotation order
 // Takes DEGREES and converts to radians
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	pos.Rx *= math.Pi/180
-	pos.Ry *= math.Pi/180
-	pos.Rz *= math.Pi/180
+	pos.RX *= math.Pi / 180
+	pos.RY *= math.Pi / 180
+	pos.RZ *= math.Pi / 180
 	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
-	transform.SetX(pos.X/2)
-	transform.SetY(pos.Y/2)
-	transform.SetZ(pos.Z/2)
+	transform.SetX(pos.X / 2)
+	transform.SetY(pos.Y / 2)
+	transform.SetZ(pos.Z / 2)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
