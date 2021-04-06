@@ -36,7 +36,8 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 	ik.epsilon = 0.0001
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 5
+	//~ floatEpsilon := ik.epsilon * ik.epsilon * 0.1
+	ik.maxIterations = 50000
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -59,12 +60,12 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*8)
+		dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
 
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
 			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
-			dxIdx := goal.EffectorID * 8
+			dxIdx := goal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
@@ -80,28 +81,19 @@ func CreateNloptIKSolver(mdl *Model) *NloptIK {
 			j2 = j2.Mul(j2, -2)
 
 			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
-			//~ fmt.Println("grad2", grad2)
-			//~ fmt.Println("dx", dx)
-			
-			//~ fmt.Println("j2", j2)
-			//~ fmt.Println("j2 R", j2.NumCols())
-			//~ dxv := mgl64.NewVecNFromData(dx)
-			//~ fmt.Println("mul", j2.MulNx1(dxv, dxv))
-			//~ fmt.Println("dxv", dxv)
-			//~ fmt.Println("dxv size", dxv.Size())
 			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
 			for i, v := range gradient2 {
 				gradient[i] = v
-				// Do some rounding on large (>2^16) numbers because of floating point inprecision
+				// Do some rounding on large (>2^15) numbers because of floating point inprecision
 				// Shouldn't matter since these values should converge to zero
 				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
 				// Then this might be your culprit
-				if math.Abs(v) > 65535 {
+				if math.Abs(v) > 32768 {
 					gradient[i] = math.Round(v)
 				}
 			}
 		}
-		//~ fmt.Println(SquaredNorm(dx))
+		
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
 			return SquaredNorm(dx)
@@ -159,8 +151,10 @@ func (ik *NloptIK) Halt() {
 
 func (ik *NloptIK) Solve() bool {
 	ik.halt = false
+	ik.iterations = 0
 	origJointPos := ik.Mdl.GetPosition()
 	for ik.iterations < ik.maxIterations && !ik.halt {
+		ik.iterations++
 		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
 		if err != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
@@ -175,7 +169,6 @@ func (ik *NloptIK) Solve() bool {
 			ik.Mdl.SetPosition(angles)
 			return true
 		}
-
 		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 	}
 	ik.Mdl.SetPosition(origJointPos)
