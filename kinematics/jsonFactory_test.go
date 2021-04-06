@@ -1,10 +1,10 @@
 package kinematics
 
 //~ import (
-	//~ "testing"
+//~ "testing"
 
-	//~ "github.com/edaniels/test"
-	//~ "go.viam.com/robotcore/testutils"
+//~ "github.com/edaniels/test"
+//~ "go.viam.com/robotcore/testutils"
 //~ )
 
 //~ // Tests that yml files are properly parsed and correctly loaded into the model
@@ -12,10 +12,10 @@ package kinematics
 //~ // since that will be caught by tests to the actual kinematics
 //~ // So we'll just check that we read in the right number of joints
 //~ func TestParseJSONFile(t *testing.T) {
-	//~ model, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
-	//~ test.That(t, err, test.ShouldBeNil)
+//~ model, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+//~ test.That(t, err, test.ShouldBeNil)
 
-	//~ if len(model.Joints) != 6 {
-		//~ t.Fatalf("Incorrect number of joints loaded")
-	//~ }
+//~ if len(model.Joints) != 6 {
+//~ t.Fatalf("Incorrect number of joints loaded")
+//~ }
 //~ }

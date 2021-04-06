@@ -11,7 +11,6 @@ import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
-
 	//~ "go.viam.com/robotcore/kinematics"
 	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 )
@@ -32,9 +31,9 @@ type Joint struct {
 	positionDD  []float64
 	SpatialMat  *mgl64.MatMxN
 	//~ v           *spatial.MotionVector
-	wraparound  []bool
-	descriptor  graph.Edge
-	transform   *Transform
+	wraparound []bool
+	descriptor graph.Edge
+	transform  *Transform
 }
 
 func NewJoint(dPos, dVel int) *Joint {
@@ -101,11 +100,11 @@ func (j *Joint) ForwardPosition() {
 }
 
 func (j *Joint) ForwardVelocity() {
-	
+
 	AllRotAxes := j.GetRotationAxes()
 	axis := -1
 	// Only one DOF should have nonzero velocity
-	for i, v := range(j.positionD){
+	for i, v := range j.positionD {
 		if v > 0 {
 			axis = AllRotAxes[i]
 			break
@@ -115,7 +114,7 @@ func (j *Joint) ForwardVelocity() {
 	if axis >= 0 {
 		velQuat = dualquat.Number{deriv(velQuat.Real)[axis], quat.Number{}}
 	}
-	
+
 	j.transform.out.v = dualquat.Mul(j.transform.in.v, velQuat)
 }
 
@@ -182,8 +181,8 @@ func (j *Joint) GetRotationVector() quat.Number {
 // The ints contained therein will be 0, 1, or 2 corresponding to the index of which derivative to use
 func (j *Joint) GetRotationAxes() []int {
 	var axes []int
-	for i := 0; i < 3; i++{
-		if j.SpatialMat.At(i, 0) > 0{
+	for i := 0; i < 3; i++ {
+		if j.SpatialMat.At(i, 0) > 0 {
 			axes = append(axes, i)
 		}
 	}
@@ -193,12 +192,11 @@ func (j *Joint) GetRotationAxes() []int {
 // PointAtZ returns the quat about which to rotate to point this joint's axis at Z
 // We use mgl64 Quats for this, because they have the function conveniently built in
 func (j *Joint) PointAtZ() dualquat.Number {
-	zAxis := mgl64.Vec3{0,0,1}
+	zAxis := mgl64.Vec3{0, 0, 1}
 	rotVec := mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
 	zGlQuat := mgl64.QuatBetweenVectors(rotVec, zAxis)
 	return dualquat.Number{quat.Number{zGlQuat.W, zGlQuat.V.X(), zGlQuat.V.Y(), zGlQuat.V.Z()}, quat.Number{}}
 }
-
 
 func (j *Joint) GetOperationalVelocity() dualquat.Number {
 	return j.transform.out.v
@@ -208,11 +206,11 @@ func (j *Joint) GetOperationalVelocity() dualquat.Number {
 func (j *Joint) SetPosition(pos []float64) {
 	j.position = pos
 	angle := pos[0] + j.offset[0]
-	
+
 	r1 := dualquat.Number{Real: j.GetRotationVector()}
 	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
 	r1.Real.Real += math.Cos(angle / 2)
-	
+
 	j.transform.t.Quat = r1
 
 }

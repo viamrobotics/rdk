@@ -11,9 +11,9 @@ import (
 
 type Transform struct {
 	//~ Element
-	in         *Frame
-	out        *Frame
-	t          *kinmath.QuatTrans
+	in  *Frame
+	out *Frame
+	t   *kinmath.QuatTrans
 	//~ x          spatial.PlueckerTransform
 	descriptor graph.Edge
 	name       string
