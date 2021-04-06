@@ -355,27 +355,28 @@ func parseCLFOldLaserMessage(messageType CLFMessageType, parts []string) (*CLFOl
 		}
 		readings = append(readings, reading)
 	}
-	x, err := strconv.ParseFloat(parts[0], 64)
+	after := 1 + numReadings
+	x, err := strconv.ParseFloat(parts[after], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing x: %w", err)
 	}
-	y, err := strconv.ParseFloat(parts[1], 64)
+	y, err := strconv.ParseFloat(parts[after+1], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing y: %w", err)
 	}
-	theta, err := strconv.ParseFloat(parts[2], 64)
+	theta, err := strconv.ParseFloat(parts[after+2], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing theta: %w", err)
 	}
-	odomX, err := strconv.ParseFloat(parts[0], 64)
+	odomX, err := strconv.ParseFloat(parts[after+3], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing odom_x: %w", err)
 	}
-	odomY, err := strconv.ParseFloat(parts[1], 64)
+	odomY, err := strconv.ParseFloat(parts[after+4], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing odom_y: %w", err)
 	}
-	odomTheta, err := strconv.ParseFloat(parts[2], 64)
+	odomTheta, err := strconv.ParseFloat(parts[after+5], 64)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing odom_theta: %w", err)
 	}
