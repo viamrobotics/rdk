@@ -26,7 +26,7 @@ func NewFrame() *Frame {
 	f.IsBody = false
 	f.i.t = kinmath.NewQuatTrans()
 	f.selfcollision = make(map[*Frame]bool)
-	f.v = dualquat.Number{quat.Number{Real: 1},quat.Number{}}
+	f.v = dualquat.Number{quat.Number{Real: 1}, quat.Number{}}
 	return &f
 }
 
