@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"bufio"
 	"os"
 	"testing"
 
@@ -25,12 +24,10 @@ func TestCLF(t *testing.T) {
 	}
 	defer f.Close()
 
-	r := bufio.NewReader(f)
-
 	clf := CLFReader{}
 
 	numLines := 0
-	err = clf.Process(r, func(data map[string]interface{}) error {
+	err = clf.Process(f, func(data map[string]interface{}) error {
 		numLines++
 		v, ok := data["x"]
 		if ok {
