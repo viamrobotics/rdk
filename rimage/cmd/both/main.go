@@ -6,15 +6,15 @@ import (
 	"os"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/rimage"
 )
+
+var logger = golog.NewDevelopmentLogger("rimage_both")
 
 func main() {
 	err := realMain(os.Args[1:])
 	if err != nil {
-		golog.Global.Info(err)
-		os.Exit(-1)
+		logger.Fatal(err)
 	}
 }
 
@@ -24,6 +24,19 @@ func merge(flags *flag.FlagSet) error {
 	}
 
 	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2))
+	if err != nil {
+		return err
+	}
+
+	return img.WriteTo(flags.Arg(3))
+}
+
+func combineRGBAndZ16(flags *flag.FlagSet) error {
+	if flags.NArg() < 4 {
+		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out>")
+	}
+
+	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2))
 	if err != nil {
 		return err
 	}
@@ -41,7 +54,7 @@ func toLas(flags *flag.FlagSet) error {
 		return err
 	}
 
-	pc, err := img.ToPointCloud()
+	pc, err := img.ToPointCloud(logger)
 	if err != nil {
 		return err
 	}
@@ -65,6 +78,8 @@ func realMain(args []string) error {
 	switch cmd {
 	case "merge":
 		return merge(flags)
+	case "combineRGBAndZ16":
+		return combineRGBAndZ16(flags)
 	case "to-las":
 		return toLas(flags)
 	default:

@@ -35,7 +35,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
-func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int) image.Point {
+func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int, logger golog.Logger) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
 	best := cnts[xQ+yQ*2]
@@ -51,7 +51,7 @@ func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts
 	maxCheckForGreen := img.Height() / 25
 
 	if debug {
-		golog.Global.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
+		logger.Debugf("xQ: %d yQ: %d xWalk: %d ywalk: %d maxCheckForGreen: %d\n", xQ, yQ, xWalk, yWalk, maxCheckForGreen)
 	}
 
 	for i := 0; i < 50; i++ {
@@ -83,7 +83,7 @@ func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts
 	return myCenter
 }
 
-func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth) (image.Image, []image.Point, error) {
+func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
 	img := ii.Color
 	dc := gg.NewContext(img.Width(), img.Height())
 	redLittleCircles := []image.Point{}
@@ -109,7 +109,7 @@ func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth) (image.Image, []image.
 				if y == 127 && x > 250 && x < 350 {
 					temp, _ := colorful.MakeColor(data)
 					h, s, v := temp.Hsv()
-					golog.Global.Debugf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
+					logger.Debugf("  --  %d %d %v  h: %v s: %v v: %v isPink: %v\n", x, y, data, h, s, v, isPink(data))
 					redLittleCircles = append(redLittleCircles, p)
 				}
 			}
@@ -117,10 +117,10 @@ func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth) (image.Image, []image.
 		}
 	}
 
-	a1Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 0, 0)
-	a8Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 1, 0)
-	h1Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 0, 1)
-	h8Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 1, 1)
+	a1Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 0, 0, logger)
+	a8Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 1, 0, logger)
+	h1Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 0, 1, logger)
+	h8Corner := FindChessCornersPinkCheatInQuadrant(img, dc, cnts, 1, 1, logger)
 
 	/*
 		if false {

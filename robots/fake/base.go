@@ -1,6 +1,17 @@
 package fake
 
-import "context"
+import (
+	"context"
+
+	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/api"
+)
+
+func init() {
+	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
+		return &Base{}, nil
+	})
+}
 
 // tracks in CM
 type Base struct {

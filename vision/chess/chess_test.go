@@ -4,18 +4,19 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/segmentation"
 )
 
-type P func(*rimage.ImageWithDepth) (image.Image, []image.Point, error)
+type P func(d *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error)
 
 type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn string, img image.Image) error {
-	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img))
+func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err
 	}
@@ -40,7 +41,7 @@ func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn
 			}
 		}
 
-		res, err := segmentation.ShapeWalkMultiple(warped.Color, starts, swOptions)
+		res, err := segmentation.ShapeWalkMultiple(warped.Color, starts, swOptions, logger)
 		if err != nil {
 			return err
 		}
@@ -86,7 +87,7 @@ func (dd ChessImageProcessDebug) Process(d *rimage.MultipleImageTestDebugger, fn
 
 func TestChessCheatRed1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*")
-	err := d.Process(&ChessImageProcessDebug{FindChessCornersPinkCheat})
+	err := d.Process(t, &ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)
 	}

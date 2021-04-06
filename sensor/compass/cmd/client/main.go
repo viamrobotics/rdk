@@ -4,16 +4,16 @@ import (
 	"context"
 	"time"
 
-	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/sensor/compass/client"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
-var logger = golog.Global
+var logger = golog.NewDevelopmentLogger("compass_client")
 
 func main() {
-	utils.ContextualMain(mainWithArgs)
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 // Arguments for the command.
@@ -21,17 +21,17 @@ type Arguments struct {
 	DeviceAddress string `flag:"device,required,usage=device address"`
 }
 
-func mainWithArgs(ctx context.Context, args []string) error {
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
 
-	return readCompass(ctx, argsParsed.DeviceAddress)
+	return readCompass(ctx, argsParsed.DeviceAddress, logger)
 }
 
-func readCompass(ctx context.Context, deviceAddress string) error {
-	sensor, err := compass.NewWSDevice(ctx, deviceAddress)
+func readCompass(ctx context.Context, deviceAddress string, logger golog.Logger) error {
+	sensor, err := client.New(ctx, deviceAddress, logger)
 	if err != nil {
 		return err
 	}
@@ -49,6 +49,7 @@ func readCompass(ctx context.Context, deviceAddress string) error {
 	var once bool
 	for {
 		cont := func() bool {
+			defer utils.ContextMainIterFunc(ctx)()
 			if !once {
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()

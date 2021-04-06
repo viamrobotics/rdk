@@ -1,8 +1,10 @@
 package hellorobot
 
 import (
+	"context"
 	"errors"
 
+	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 
 	"go.viam.com/robotcore/api"
@@ -15,10 +17,14 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
+	api.RegisterProvider(ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Provider, error) {
+		return New()
+	})
 }
 
 type Robot struct {
 	robotObj *python.PyObject
+	logger   golog.Logger
 }
 
 func checkPythonErr() error {
@@ -53,21 +59,6 @@ func (r *Robot) Ready(theRobot api.Robot) error {
 	return nil
 }
 
-func (r *Robot) Startup() error {
-	r.robotObj.CallMethod("startup")
-	return checkPythonErr()
-}
-
-func (r *Robot) Stop() error {
-	r.robotObj.CallMethod("stop")
-	return checkPythonErr()
-}
-
-func (r *Robot) Home() error {
-	r.robotObj.CallMethod("home")
-	return checkPythonErr()
-}
-
 func (r *Robot) pushCommand() error {
 	r.robotObj.CallMethod("push_command")
 	return checkPythonErr()
@@ -76,14 +67,4 @@ func (r *Robot) pushCommand() error {
 func (r *Robot) Base() (*Base, error) {
 	base := r.robotObj.GetAttrString("base")
 	return &Base{robot: r, baseObj: base}, checkPythonErr()
-}
-
-func (r *Robot) Arm() (*Arm, error) {
-	arm := r.robotObj.GetAttrString("arm")
-	return &Arm{robot: r, armObj: arm}, checkPythonErr()
-}
-
-func (r *Robot) Compass() (*Compass, error) {
-	pimu := r.robotObj.GetAttrString("pimu")
-	return &Compass{robot: r, pimuObj: pimu}, checkPythonErr()
 }

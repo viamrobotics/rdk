@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"fmt"
 	"image"
 	"math"
 
@@ -64,6 +65,24 @@ func PointDistance(a, b image.Point) float64 {
 	x := utils.SquareInt(b.X - a.X)
 	x += utils.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
+}
+
+func ArrayToPoints(pts []image.Point) []image.Point {
+	if len(pts) == 4 {
+		return pts
+	}
+
+	if len(pts) == 2 {
+		r := image.Rectangle{pts[0], pts[1]}
+		return []image.Point{
+			r.Min,
+			{r.Max.X, r.Min.Y},
+			r.Max,
+			{r.Min.X, r.Max.Y},
+		}
+	}
+
+	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
 }
 
 func PointAngle(a, b image.Point) float64 {
