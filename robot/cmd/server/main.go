@@ -5,9 +5,11 @@ import (
 	"os"
 	"runtime/pprof"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
+	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/utils"
 
 	// These are the robot pieces we want by default
@@ -70,6 +72,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
+	rpcDialer := rpc.NewCachedDialer()
+	defer func() {
+		err = multierr.Combine(err, rpcDialer.Close())
+	}()
+	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 	myRobot, err := robot.NewRobot(ctx, cfg, logger)
 	if err != nil {
 		return err

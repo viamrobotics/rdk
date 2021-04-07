@@ -16,6 +16,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
@@ -586,4 +587,43 @@ func TestClientRefreshStatus(t *testing.T) {
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientDialerOption(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		return emptyStatus, nil
+	}
+
+	td := &trackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := NewRobotClient(ctx, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	client2, err := NewRobotClient(ctx, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, td.dialCalled, test.ShouldEqual, 2)
+
+	err = client1.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	err = client2.Close(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
+type trackingDialer struct {
+	rpc.Dialer
+	dialCalled int
+}
+
+func (td *trackingDialer) Dial(ctx context.Context, target string, opts ...grpc.DialOption) (rpc.ClientConn, error) {
+	td.dialCalled++
+	return td.Dialer.Dial(ctx, target, opts...)
 }

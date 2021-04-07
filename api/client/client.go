@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 
@@ -25,7 +26,7 @@ import (
 var errUnimplemented = errors.New("unimplemented")
 
 type RobotClient struct {
-	conn   *grpc.ClientConn
+	conn   rpc.ClientConn
 	client pb.RobotServiceClient
 
 	armNames         []string
@@ -53,7 +54,14 @@ type RobotClientOptions struct {
 
 func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (api.Robot, error) {
 	// TODO(erd): address insecure
-	conn, err := grpc.DialContext(ctx, address, grpc.WithInsecure(), grpc.WithBlock())
+	var conn rpc.ClientConn
+	var err error
+	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
+	if dialer := rpc.ContextDialer(ctx); dialer != nil {
+		conn, err = dialer.Dial(ctx, address, dialOpts...)
+	} else {
+		conn, err = grpc.DialContext(ctx, address, dialOpts...)
+	}
 	if err != nil {
 		return nil, err
 	}
