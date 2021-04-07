@@ -12,7 +12,7 @@ type Motor struct {
 	ForceFunc             func(ctx context.Context, force byte) error
 	GoFunc                func(ctx context.Context, d pb.DirectionRelative, force byte) error
 	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
-	PositionFunc          func(ctx context.Context) (int64, error)
+	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
 	OffFunc               func(ctx context.Context) error
 	IsOnFunc              func(ctx context.Context) (bool, error)
@@ -39,7 +39,7 @@ func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, 
 	return m.GoForFunc(ctx, d, rpm, rotations)
 }
 
-func (m *Motor) Position(ctx context.Context) (int64, error) {
+func (m *Motor) Position(ctx context.Context) (float64, error) {
 	if m.PositionFunc == nil {
 		return m.Motor.Position(ctx)
 	}

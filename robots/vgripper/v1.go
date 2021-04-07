@@ -3,12 +3,12 @@ package vgripper
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -28,7 +28,7 @@ type GripperV1 struct {
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
-	encoderGap int64
+	encoderGap float64
 
 	defaultSpeed byte
 
@@ -62,21 +62,21 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger
 	}
 
 	// pick a direction and move till it stops
-	sideA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	posA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 	if err != nil {
 		return nil, err
 	}
 
-	sideB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+	posB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 	if err != nil {
 		return nil, err
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, fmt.Errorf("pressure same open and closed, something is wrong encoer: %d %d", sideA, sideB)
+		return nil, fmt.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
 	}
 
-	vg.encoderGap = utils.AbsInt64(sideB - sideA)
+	vg.encoderGap = math.Abs(posB - posA)
 
 	if hasPressureA {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
@@ -181,8 +181,8 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
-func (vg *GripperV1) encoderSame(a, b int64) bool {
-	return utils.AbsInt64(b-a) < 5
+func (vg *GripperV1) encoderSame(a, b float64) bool {
+	return math.Abs(b-a) < 5
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
@@ -209,7 +209,7 @@ func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, current int
 	return
 }
 
-func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb.DirectionRelative) (int64, bool, error) {
+func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb.DirectionRelative) (float64, bool, error) {
 	defer func() {
 		err := vg.Stop(ctx)
 		if err != nil {
