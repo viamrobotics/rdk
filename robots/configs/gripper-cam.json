@@ -20,7 +20,6 @@
         { "name" : "depth-pretty-awkward",
           "type" : "camera",
           "model" : "depthToPretty",
-          "host" : "127.0.0.1",
           "attributes" : {
               "source" : "depth",
               "hide" : true
