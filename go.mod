@@ -51,7 +51,7 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210309000541-ec5252857a38
-	gobot.io/x/gobot v1.15.0 // indirect
+	gobot.io/x/gobot v1.15.0
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
