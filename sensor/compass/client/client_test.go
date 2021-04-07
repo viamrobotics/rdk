@@ -96,8 +96,15 @@ func TestClient(t *testing.T) {
 
 	test.That(t, compassDev.Close(context.Background()), test.ShouldBeNil)
 
+	injectRelDev := &inject.RelativeCompass{}
+	injectRelDev.HeadingFunc = func(ctx context.Context) (float64, error) {
+		return 5.2, nil
+	}
+	injectRelDev.MarkFunc = func(ctx context.Context) error {
+		return nil
+	}
 	injectRobot3.SensorByNameFunc = func(name string) sensor.Device {
-		return injectDev
+		return injectRelDev
 	}
 
 	dev, err = f(context.Background(), nil, api.Component{
