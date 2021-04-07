@@ -125,21 +125,21 @@ func TestMotorEncoderHall(t *testing.T) {
 
 	pos, err := motor.Position(context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), pos)
+	assert.Equal(t, 0.0, pos)
 
 	encoderA.Tick(true, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
 	pos, err = motor.Position(context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, int64(-1), pos)
+	assert.Equal(t, -.01, pos)
 
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
 	time.Sleep(20 * time.Millisecond)
 	pos, err = motor.Position(context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), pos)
+	assert.Equal(t, 0.0, pos)
 
 	encoderB.Tick(false, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
@@ -147,7 +147,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	time.Sleep(210 * time.Millisecond)
 	pos, err = motor.Position(context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, int64(1), pos)
+	assert.Equal(t, .01, pos)
 
 }
 
