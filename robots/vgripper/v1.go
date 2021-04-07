@@ -30,7 +30,7 @@ type GripperV1 struct {
 
 	openPos, closePos float64
 
-	defaultSpeed byte
+	defaultSpeed, holdingPressure byte
 
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
@@ -39,11 +39,12 @@ type GripperV1 struct {
 func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (*GripperV1, error) {
 
 	vg := &GripperV1{
-		motor:        theBoard.Motor("g"),
-		current:      theBoard.AnalogReader("current"),
-		pressure:     theBoard.AnalogReader("pressure"),
-		defaultSpeed: 64,
-		logger:       logger,
+		motor:           theBoard.Motor("g"),
+		current:         theBoard.AnalogReader("current"),
+		pressure:        theBoard.AnalogReader("pressure"),
+		defaultSpeed:    64,
+		holdingPressure: 16,
+		logger:          logger,
 	}
 
 	if vg.motor == nil {
@@ -144,9 +145,9 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure {
-			// don't turn motor off, keep pressure being applied
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			return true, nil
+			err := vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
+			return true, err
 		}
 
 		total += msPer
@@ -177,7 +178,7 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 }
 
 func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < .05
+	return math.Abs(b-a) < .18
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
@@ -186,7 +187,7 @@ func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
 
 func (vg *GripperV1) hasPressure(ctx context.Context) (bool, error) {
 	p, err := vg.readPressure(ctx)
-	return p < 750, err
+	return p < 900, err
 }
 
 // return hasPressure, current
@@ -247,7 +248,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			if err != nil {
 				return -1, false, err
 			}
-			time.Sleep(2500 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 			return now, hasPressure, err
 		}
 		last = now
