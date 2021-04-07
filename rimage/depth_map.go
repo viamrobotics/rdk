@@ -54,16 +54,6 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-func (dm *DepthMap) ConvertTo64() []float64 {
-	newar := make([]float64, len(dm.data))
-	var v Depth
-	var i int
-	for i, v = range dm.data {
-		newar[i] = float64(v)
-	}
-	return newar
-}
-
 func (dm *DepthMap) Smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
