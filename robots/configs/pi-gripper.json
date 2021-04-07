@@ -11,7 +11,7 @@
                 },
                 "encoder" : "encoder",
                 "encoderB" : "encoder-b",
-                "ticksPerRotation" : 100
+                "ticksPerRotation" : 500
               }
           ],
           "analogs" : [

@@ -28,7 +28,7 @@ type GripperV1 struct {
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
-	encoderGap float64
+	openPos, closePos float64
 
 	defaultSpeed byte
 
@@ -76,97 +76,92 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger
 		return nil, fmt.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
 	}
 
-	vg.encoderGap = math.Abs(posB - posA)
-
 	if hasPressureA {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		vg.openPos = posB
+		vg.closePos = posA
 	} else {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+		vg.openPos = posA
+		vg.closePos = posB
+
 	}
 
 	return vg, vg.Open(ctx)
 }
 
 func (vg *GripperV1) Open(ctx context.Context) error {
-	_, _, err := vg.moveInDirectionTillWontMoveMore(ctx, vg.openDirection)
-	return err
-	/*
-		err := vg.motor.Go(vg.openDirection, vg.defaultSpeed)
+	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultSpeed)
+	if err != nil {
+		return err
+	}
+
+	msPer := 10
+	total := 0
+	for {
+		time.Sleep(time.Duration(msPer) * time.Millisecond)
+		now, err := vg.motor.Position(ctx)
 		if err != nil {
 			return err
 		}
-
-		msPer := 10
-		total := 0
-		for {
-			time.Sleep(time.Duration(msPer) * time.Millisecond)
-			now, err := vg.readPotentiometer()
-			if err != nil {
-				return err
-			}
-			if vg.potentiometerSame(now, vg.potentiometerOpen) {
-				return vg.Stop()
-			}
-
-			total += msPer
-			if total > 5000 {
-				err = vg.Stop()
-				return fmt.Errorf("open timed out, wanted: %d at: %d stop error: %s", vg.potentiometerOpen, now, err)
-			}
+		if vg.encoderSame(now, vg.openPos) {
+			return vg.Stop(ctx)
 		}
-	*/
+
+		total += msPer
+		if total > 5000 {
+			err = vg.Stop(ctx)
+			return fmt.Errorf("open timed out, wanted: %f at: %f stop error: %s", vg.openPos, now, err)
+		}
+	}
 }
 
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
-	_, _, err := vg.moveInDirectionTillWontMoveMore(ctx, vg.closeDirection)
-	return false, err
+	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultSpeed)
+	if err != nil {
+		return false, err
+	}
 
-	/*
-		err := vg.motor.Go(vg.closeDirection, vg.defaultSpeed)
+	msPer := 10
+	total := 0
+	for {
+		time.Sleep(time.Duration(msPer) * time.Millisecond)
+		now, err := vg.motor.Position(ctx)
 		if err != nil {
 			return false, err
 		}
 
-		msPer := 10
-		total := 0
-		for {
-			time.Sleep(time.Duration(msPer) * time.Millisecond)
-			now, err := vg.readPotentiometer()
-			if err != nil {
-				return false, err
-			}
-
-			if vg.potentiometerSame(now, vg.potentiometerClosed) {
-				// we fully closed
-				return false, vg.Stop()
-			}
-
-			pressure, err := vg.hasPressure()
-			if err != nil {
-				return false, err
-			}
-
-			if pressure {
-				// don't turn motor off, keep pressure being applied
-				return true, nil
-			}
-
-			total += msPer
-			if total > 5000 {
-				err = vg.Stop()
-				if err != nil {
-					return false, err
-				}
-				pressureRaw, err := vg.readPressure()
-				if err != nil {
-					return false, err
-				}
-				return false, fmt.Errorf("close timed out, wanted: %d at: %d pressure: %d", vg.potentiometerOpen, now, pressureRaw)
-			}
+		if vg.encoderSame(now, vg.closePos) {
+			// we are fully closed
+			return false, vg.Stop(ctx)
 		}
-	*/
+
+		pressure, err := vg.hasPressure(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		if pressure {
+			// don't turn motor off, keep pressure being applied
+			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
+			return true, nil
+		}
+
+		total += msPer
+		if total > 5000 {
+			err = vg.Stop(ctx)
+			if err != nil {
+				return false, err
+			}
+			pressureRaw, err := vg.readPressure(ctx)
+			if err != nil {
+				return false, err
+			}
+			return false, fmt.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw)
+		}
+	}
 }
 
 func (vg *GripperV1) Close(ctx context.Context) error {
@@ -182,7 +177,7 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 }
 
 func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < 5
+	return math.Abs(b-a) < .05
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
