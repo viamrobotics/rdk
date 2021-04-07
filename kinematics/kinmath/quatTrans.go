@@ -2,13 +2,13 @@ package kinmath
 
 import (
 	"math"
-	//~ "fmt"
+
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// Defines  to perform rigid QuatTransations in 3d
+// Defines functions to perform rigid QuatTransformations in 3d
 type QuatTrans struct {
 	Quat dualquat.Number
 }
@@ -50,11 +50,6 @@ func (m *QuatTrans) Rotation() quat.Number {
 // Translation returns the translation quaternion
 func (m *QuatTrans) Translation() quat.Number {
 	return m.Quat.Dual
-}
-
-// Set a whole new dual quaternion
-func (m *QuatTrans) SetQuat(Quat dualquat.Number) {
-	m.Quat = Quat
 }
 
 // Set X translation

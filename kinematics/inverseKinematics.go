@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
