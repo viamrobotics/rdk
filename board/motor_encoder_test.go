@@ -132,7 +132,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	pos, err = motor.Position(context.Background())
 	assert.Nil(t, err)
-	assert.Equal(t, -.01, pos)
+	assert.InEpsilon(t, -.01, pos, .00001)
 
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
