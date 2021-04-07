@@ -1,16 +1,14 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
 	"go.viam.com/robotcore/kinematics/kinmath"
 	"go.viam.com/robotcore/utils"
-	//~ "gonum.org/v1/gonum/num/dualquat"
-	//~ "gonum.org/v1/gonum/num/quat"
+
+	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 )
 
 type Position struct {
