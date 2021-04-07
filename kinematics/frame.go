@@ -2,15 +2,13 @@ package kinematics
 
 import (
 	"go.viam.com/robotcore/kinematics/kinmath"
-	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
+
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
 
 // TODO(pl): add more descriptive field names once I work out what they ought to be
 type Frame struct {
-
-	//~ a spatial.MotionVector
 	i             Transform
 	v             dualquat.Number
 	IsWorld       bool
@@ -41,6 +39,7 @@ func (f *Frame) SetVertexDescriptor(newID int64) {
 // ForwardPosition does nothing in a frame- it is handled by *Transform
 // Why is it here? Because we need it to implement Element.
 // That said, we can probably completely remove Element in the future
+// TODO(pl): Remove Element
 func (f *Frame) ForwardPosition() {
 }
 
