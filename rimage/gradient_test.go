@@ -39,7 +39,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			mag, dir := getMagnitudeAndDirection(float64(x), float64(y))
-			vf.Set(x, y, PolarVec{mag, dir})
+			vf.Set(x, y, Vec2D{mag, dir})
 		}
 	}
 	// turn into mat.Dense
@@ -73,13 +73,13 @@ func TestSobelFilter(t *testing.T) {
 	assert.Equal(t, dm.Width()-2, gradients.Width())
 	// reminder: left-handed coordinate system. +x is right, +y is down.
 	// (223,100) is right edge of circle
-	assert.Equal(t, 0., gradients.GetPolarVec(223, 100).Direction())
+	assert.Equal(t, 0., gradients.GetVec2D(223, 100).Direction())
 	// (149,173) is bottom edge of circle
-	assert.Equal(t, math.Pi/2., gradients.GetPolarVec(149, 173).Direction())
+	assert.Equal(t, math.Pi/2., gradients.GetVec2D(149, 173).Direction())
 	// (76,100) is left edge of circle
-	assert.Equal(t, math.Pi, gradients.GetPolarVec(76, 100).Direction())
+	assert.Equal(t, math.Pi, gradients.GetVec2D(76, 100).Direction())
 	// (149,26) is top edge of circle
-	assert.Equal(t, 3.*math.Pi/2., gradients.GetPolarVec(149, 26).Direction())
+	assert.Equal(t, 3.*math.Pi/2., gradients.GetVec2D(149, 26).Direction())
 
 	img := gradients.ToPrettyPicture()
 	err = writePicture(img, "out/circle_gradient.png")

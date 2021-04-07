@@ -8,23 +8,28 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type PolarVec struct {
+// Vec2D represents the gradient of an image at a point.
+// The gradient has both a magnitude and direction.
+// Magnitude has values (0, infinity) and direction is [0, 2pi)
+type Vec2D struct {
 	magnitude float64
 	direction float64
 }
 
+// VectorField2D stores all the gradient vectors of the image
+// allowing one to retrieve the gradient for any given (x,y) point
 type VectorField2D struct {
 	width  int
 	height int
 
-	data []PolarVec
+	data []Vec2D
 }
 
-func (g PolarVec) Magnitude() float64 {
+func (g Vec2D) Magnitude() float64 {
 	return g.magnitude
 }
 
-func (g PolarVec) Direction() float64 {
+func (g Vec2D) Direction() float64 {
 	return g.direction
 }
 
@@ -40,15 +45,15 @@ func (vf *VectorField2D) Height() int {
 	return vf.height
 }
 
-func (vf *VectorField2D) Get(p image.Point) PolarVec {
+func (vf *VectorField2D) Get(p image.Point) Vec2D {
 	return vf.data[vf.kxy(p.X, p.Y)]
 }
 
-func (vf *VectorField2D) GetPolarVec(x, y int) PolarVec {
+func (vf *VectorField2D) GetVec2D(x, y int) Vec2D {
 	return vf.data[vf.kxy(x, y)]
 }
 
-func (vf *VectorField2D) Set(x, y int, val PolarVec) {
+func (vf *VectorField2D) Set(x, y int, val Vec2D) {
 	vf.data[vf.kxy(x, y)] = val
 }
 
@@ -56,49 +61,54 @@ func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	vf := VectorField2D{
 		width:  width,
 		height: height,
-		data:   make([]PolarVec, width*height),
+		data:   make([]Vec2D, width*height),
 	}
 
 	return vf
 }
 
+// Get all the magnitudes of the gradient in the image as a mat.Dense
 func (vf *VectorField2D) MagnitudeField() *mat.Dense {
 	h, w := vf.Height(), vf.Width()
 	mag := make([]float64, 0, h*w)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			mag = append(mag, vf.GetPolarVec(x, y).Magnitude())
+			mag = append(mag, vf.GetVec2D(x, y).Magnitude())
 		}
 	}
 	return mat.NewDense(h, w, mag)
 }
 
+// Get all the directions of the gradient in the image as a mat.Dense
 func (vf *VectorField2D) DirectionField() *mat.Dense {
 	h, w := vf.Height(), vf.Width()
 	dir := make([]float64, 0, h*w)
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			dir = append(dir, vf.GetPolarVec(x, y).Direction())
+			dir = append(dir, vf.GetVec2D(x, y).Direction())
 		}
 	}
 	return mat.NewDense(h, w, dir)
 }
 
+// With a mat.Dense of both the magnitude and direction of the gradients of an image,
+// return a pointer to a VectorField2D
 func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, error) {
 	magH, magW := magnitude.Dims()
 	dirH, dirW := direction.Dims()
 	if magW != dirW && magH != dirH {
 		return nil, fmt.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH)
 	}
-	g := make([]PolarVec, 0, dirW*dirH)
+	g := make([]Vec2D, 0, dirW*dirH)
 	for y := 0; y < dirH; y++ {
 		for x := 0; x < dirW; x++ {
-			g = append(g, PolarVec{magnitude.At(y, x), direction.At(y, x)}) // in mat.Dense, indexing is (row, column)
+			g = append(g, Vec2D{magnitude.At(y, x), direction.At(y, x)}) // in mat.Dense, indexing is (row, column)
 		}
 	}
 	return &VectorField2D{dirW, dirH, g}, nil
 }
 
+// ToPrettyPicture creates a picture of the direction that the gradients point to in the original image.
 func (vf *VectorField2D) ToPrettyPicture() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, vf.Width(), vf.Height()))
 	for x := 0; x < vf.Width(); x++ {
@@ -126,7 +136,7 @@ var (
 func SobelFilter(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
 	// taking a gradient will remove a pixel from all sides of the image
-	g := make([]PolarVec, 0, (width-2)*(height-2))
+	g := make([]Vec2D, 0, (width-2)*(height-2))
 	for y := 1; y < height-1; y++ {
 		for x := 1; x < width-1; x++ {
 			// apply the Sobel Filter over a 3x3 square around each pixel
@@ -141,7 +151,7 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 				}
 			}
 			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
-			g = append(g, PolarVec{mag, dir})
+			g = append(g, Vec2D{mag, dir})
 		}
 	}
 	vf := VectorField2D{width - 2, height - 2, g}
