@@ -31,7 +31,7 @@ type GPIOMotor struct {
 	on        bool
 }
 
-func (m *GPIOMotor) Position(ctx context.Context) (int64, error) {
+func (m *GPIOMotor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
