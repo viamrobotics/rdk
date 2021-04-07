@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math/rand"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -75,8 +74,6 @@ func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	m.tree.SetEdge(edge)
 	return edge
 }
-
-//~ func (m *Model) Leaves() []graph.Node{
 
 // Generate a list of radian joint positions that are random but valid for each joint
 func (m *Model) RandomJointPositions() []float64 {

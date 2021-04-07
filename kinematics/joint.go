@@ -4,15 +4,11 @@ import (
 	"math"
 	"math/rand"
 
-	//~ "fmt"
-
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
-	//~ "go.viam.com/robotcore/kinematics"
-	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 )
 
 // TODO(pl): initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
@@ -30,10 +26,9 @@ type Joint struct {
 	positionD   []float64
 	positionDD  []float64
 	SpatialMat  *mgl64.MatMxN
-	//~ v           *spatial.MotionVector
-	wraparound []bool
-	descriptor graph.Edge
-	transform  *Transform
+	wraparound  []bool
+	descriptor  graph.Edge
+	transform   *Transform
 }
 
 func NewJoint(dPos, dVel int) *Joint {
@@ -48,8 +43,6 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.positionD = make([]float64, dVel)
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
-	//~ j.v = &spatial.MotionVector{}
-	//~ j.v.SetZero()
 
 	return &j
 }
@@ -101,12 +94,12 @@ func (j *Joint) ForwardPosition() {
 
 func (j *Joint) ForwardVelocity() {
 
-	AllRotAxes := j.GetRotationAxes()
+	allRotAxes := j.GetRotationAxes()
 	axis := -1
 	// Only one DOF should have nonzero velocity
 	for i, v := range j.positionD {
 		if v > 0 {
-			axis = AllRotAxes[i]
+			axis = allRotAxes[i]
 			break
 		}
 	}
@@ -191,6 +184,7 @@ func (j *Joint) GetRotationAxes() []int {
 
 // PointAtZ returns the quat about which to rotate to point this joint's axis at Z
 // We use mgl64 Quats for this, because they have the function conveniently built in
+
 func (j *Joint) PointAtZ() dualquat.Number {
 	zAxis := mgl64.Vec3{0, 0, 1}
 	rotVec := mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}

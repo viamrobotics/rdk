@@ -1,9 +1,8 @@
 package kinematics
 
 import (
-	"testing"
-	//~ "fmt"
 	"math"
+	"testing"
 
 	"go.viam.com/robotcore/utils"
 

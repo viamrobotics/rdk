@@ -1,14 +1,12 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"log"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
 
-	//~ "go.viam.com/robotcore/kinematics/kinmath/spatial"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -67,9 +65,8 @@ func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
 	return m.Joints[idx].GetOperationalVelocity()
 }
 
-// Bit of a weird thing we use this for
-// The quat in the transform actually describes the axis of an axis angle
-// So we want to get the direction the axis is pointing in
+// See the following wikipedia page for the formulas used here
+// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
 func QuatToEuler(q quat.Number) []float64 {
 	w := q.Real
 	x := q.Imag
@@ -110,10 +107,9 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 
 // This used to support multiple end effectors
 // Removed that support when quaternions were added
-// because nothing we have has multiple end effectors, and I didn't need to worry about it
+// because nothing we have has multiple end effectors
 // Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
-	//~ inWorldFrame := true
 
 	m.Jacobian = mgl64.NewMatrix(6, m.GetDof())
 
@@ -121,7 +117,7 @@ func (m *Model) CalculateJacobian() {
 	q.Real.Real = 1
 
 	m.ForwardPosition()
-	EEPosition := m.GetOperationalPosition(0).Quat
+	eePosition := m.GetOperationalPosition(0).Quat
 	// Take the partial derivative of each degree of freedom
 	// We want to see how much things change when each DOF changes
 	for i := 0; i < m.GetDof(); i++ {
@@ -130,29 +126,27 @@ func (m *Model) CalculateJacobian() {
 		m.SetVelocity(vel)
 		m.ForwardVelocity()
 
-		EEVelocity := m.GetOperationalVelocity(0)
+		eeVelocity := m.GetOperationalVelocity(0)
 
-		endRot := EEPosition.Real
-		endTrans := quat.Scale(2.0, quat.Mul(EEPosition.Dual, quat.Conj(endRot)))
+		endRot := eePosition.Real
+		endTrans := quat.Scale(2.0, quat.Mul(eePosition.Dual, quat.Conj(endRot)))
 
 		// Change in XYZ position
-		dEndTrans := quat.Mul(quat.Sub(quat.Scale(2.0, EEVelocity.Dual), quat.Mul(endTrans, EEVelocity.Real)), quat.Conj(endRot))
+		dEndTrans := quat.Mul(quat.Sub(quat.Scale(2.0, eeVelocity.Dual), quat.Mul(endTrans, eeVelocity.Real)), quat.Conj(endRot))
 
 		orientDs := deriv(endRot)
-		orientDx := quat.Mul(quat.Conj(orientDs[0]), EEVelocity.Real).Real
-		orientDy := quat.Mul(quat.Conj(orientDs[1]), EEVelocity.Real).Real
-		orientDz := quat.Mul(quat.Conj(orientDs[2]), EEVelocity.Real).Real
+		orientDx := quat.Mul(quat.Conj(orientDs[0]), eeVelocity.Real).Real
+		orientDy := quat.Mul(quat.Conj(orientDs[1]), eeVelocity.Real).Real
+		orientDz := quat.Mul(quat.Conj(orientDs[2]), eeVelocity.Real).Real
 
 		jacQuat := dualquat.Number{quat.Number{0, orientDx, orientDy, orientDz}, dEndTrans}
 
-		//~ m.Jacobian.Set(0, i, jacQuat.Real.Real)
-		m.Jacobian.Set(3, i, jacQuat.Real.Imag)
-		m.Jacobian.Set(4, i, jacQuat.Real.Jmag)
-		m.Jacobian.Set(5, i, jacQuat.Real.Kmag)
-		//~ m.Jacobian.Set(4, i, jacQuat.Dual.Real)
 		m.Jacobian.Set(0, i, jacQuat.Dual.Imag/2)
 		m.Jacobian.Set(1, i, jacQuat.Dual.Jmag/2)
 		m.Jacobian.Set(2, i, jacQuat.Dual.Kmag/2)
+		m.Jacobian.Set(3, i, jacQuat.Real.Imag)
+		m.Jacobian.Set(4, i, jacQuat.Real.Jmag)
+		m.Jacobian.Set(5, i, jacQuat.Real.Kmag)
 
 		//~ for j := 0; j < m.GetOperationalDof(); j++ {
 		//~ if inWorldFrame {
@@ -172,7 +166,7 @@ func (m *Model) CalculateJacobian() {
 func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 	nr := m.Jacobian.NumRows()
 	nc := m.Jacobian.NumCols()
-	// gonum.mat and mgl64.MatMxN use reversed raw data schemes
+	// gonum.mat and mgl64.MatMxN use reversed raw data schemes- loading a matrix this way results in a transposition
 	denseJac := mat.NewDense(nr, nc, m.Jacobian.Raw())
 
 	// Non-SVD is not as good. Don't use it.
@@ -210,19 +204,12 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			r, _ := matU.Dims()
 			c, _ := matV.Dims()
 
-			//~ fmt.Println("r", r)
-			//~ fmt.Println("c", c)
-
 			colV := mgl64.NewMatrixFromData(mat.Col(nil, j, matV), c, 1)
-			//~ fmt.Println("colV", colV)
 			colU := mgl64.NewMatrixFromData(mat.Col(nil, j, matU), 1, r)
-			//~ fmt.Println("colU", colU)
 
 			colV.Mul(colV, svdLambda)
 			colV.MulMxN(colV, colU)
-			//~ fmt.Println("colV-T", colV)
 			colV = colV.Transpose(mgl64.NewMatrix(r, c))
-			//~ fmt.Println("colV-add", colV)
 			m.InvJacobian.Add(m.InvJacobian, colV)
 			// TODO(pl): Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}

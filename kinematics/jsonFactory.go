@@ -122,9 +122,6 @@ func ParseJSONFile(filename string, logger golog.Logger) (*Model, error) {
 		fixedT.t.SetX(fixed.Translation.X / 2)
 		fixedT.t.SetY(fixed.Translation.Y / 2)
 		fixedT.t.SetZ(fixed.Translation.Z / 2)
-
-		//~ fixedT.x.Translation = fixedT.t.Translation()
-		//~ fixedT.x.Rotation = fixedT.t.Rotation()
 	}
 
 	// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"

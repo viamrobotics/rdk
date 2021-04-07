@@ -1,10 +1,9 @@
 package kinematics
 
 import (
-	//~ "fmt"
-	//~ "math"
-	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
+
+	"github.com/go-gl/mathgl/mgl64"
 )
 
 type JacobianIK struct {
@@ -115,7 +114,6 @@ func (ik *JacobianIK) Solve() bool {
 			}
 		}
 		if jointMut < len(origJointPos) {
-			//~ fmt.Println("mutating!")
 			var mutJointPos []float64
 			mutJointPos = append(mutJointPos, origJointPos...)
 			mutJointPos[jointMut] += jointAmt
@@ -127,7 +125,6 @@ func (ik *JacobianIK) Solve() bool {
 				jointMut++
 			}
 		} else {
-			//~ fmt.Println("setting random!")
 			ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 		}
 	}

@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math"
 
 	"github.com/edaniels/golog"
@@ -101,8 +100,6 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		}
 		return SquaredNorm(dx)
 	}
-	//~ nloptMinFunc := func(x, gradient []float64) float64 {
-
 	errCheck(opt.SetFtolAbs(floatEpsilon), logger)
 	errCheck(opt.SetFtolRel(floatEpsilon), logger)
 	errCheck(opt.SetLowerBounds(ik.lowerBound), logger)

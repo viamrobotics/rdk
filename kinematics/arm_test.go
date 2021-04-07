@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	//~ "fmt"
+	"runtime"
 	"testing"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -16,11 +16,12 @@ const ToSolve = 100
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	wxArm, err := NewArm(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 4, logger)
+	nCPU := runtime.NumCPU()
+	wxArm, err := NewArm(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 	wxArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
 
-	// Test ability to arrive at a small X shift ahead
+	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
 		X:  -46.445827416798814,
 		Y:  -133.99229347583582,
@@ -32,17 +33,17 @@ func TestCombinedIKinematics(t *testing.T) {
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Test a larger movement- currently does not find with 4 cores but will with 8
-	//~ pos = &pb.ArmPosition{
-	//~	X:  -66.445827416798814,
-	//~	Y:  -133.99229347583582,
-	//~	Z:  372.4849299627513,
-	//~	RX: -178.88747811107424,
-	//~	RY: -33.160094626838045,
-	//~	RZ: -111.02282693533935,
-	//~}
-	//~ err = wxArm.SetForwardPosition(pos)
-	//~ test.That(t, err, test.ShouldBeNil)
+	// Test moving forward 20 in X direction from previous position
+	pos = &pb.ArmPosition{
+		X:  -66.445827416798814,
+		Y:  -133.99229347583582,
+		Z:  372.4849299627513,
+		RX: -178.88747811107424,
+		RY: -33.160094626838045,
+		RZ: -111.02282693533935,
+	}
+	err = wxArm.SetForwardPosition(pos)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
