@@ -33,7 +33,7 @@ func writePicture(img image.Image, p string) error {
 	return nil
 }
 
-func TestVectorFieldToDense(t *testing.T) {
+func TestVectorFieldToDenseAndBack(t *testing.T) {
 	width, height := 200, 100
 	vf := MakeEmptyVectorField2D(width, height)
 	for x := 0; x < width; x++ {
@@ -42,6 +42,7 @@ func TestVectorFieldToDense(t *testing.T) {
 			vf.Set(x, y, PolarVec{mag, dir})
 		}
 	}
+	// turn into mat.Dense
 	magMat := vf.MagnitudeField()
 	dirMat := vf.DirectionField()
 	for x := 0; x < width; x++ {
@@ -51,6 +52,12 @@ func TestVectorFieldToDense(t *testing.T) {
 			assert.Equal(t, vf.Get(p).Direction(), dirMat.At(y, x))
 		}
 	}
+	// turn back into VectorField2D
+	vf2, err := VectorField2DFromDense(magMat, dirMat)
+	if err != nil {
+		t.Error(err)
+	}
+	assert.Equal(t, &vf, vf2)
 
 }
 
