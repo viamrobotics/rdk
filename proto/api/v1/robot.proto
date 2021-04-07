@@ -220,7 +220,7 @@ message BoardStatus {
 message MotorStatus {
 	bool on = 1;
 	bool position_supported = 2;
-	int64 position = 3;
+	double position = 3;
 }
 
 message ServoStatus {

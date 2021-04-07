@@ -15,7 +15,9 @@ format: goformat
 setup:
 	bash etc/setup.sh
 
-build: buf build-web
+build: buf build-web build-go
+
+build-go:
 	go build $(TAGS) ./...
 
 build-web:

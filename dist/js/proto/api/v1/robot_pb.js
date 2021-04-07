@@ -3413,7 +3413,7 @@ proto.proto.api.v1.MotorStatus.toObject = function(includeInstance, msg) {
   var f, obj = {
     on: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
     positionSupported: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-    position: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    position: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -3459,7 +3459,7 @@ proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader = function(msg, reade
       msg.setPositionSupported(value);
       break;
     case 3:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setPosition(value);
       break;
     default:
@@ -3506,8 +3506,8 @@ proto.proto.api.v1.MotorStatus.serializeBinaryToWriter = function(message, write
     );
   }
   f = message.getPosition();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeDouble(
       3,
       f
     );
@@ -3552,11 +3552,11 @@ proto.proto.api.v1.MotorStatus.prototype.setPositionSupported = function(value) 
 
 
 /**
- * optional int64 position = 3;
+ * optional double position = 3;
  * @return {number}
  */
 proto.proto.api.v1.MotorStatus.prototype.getPosition = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
 };
 
 
@@ -3565,7 +3565,7 @@ proto.proto.api.v1.MotorStatus.prototype.getPosition = function() {
  * @return {!proto.proto.api.v1.MotorStatus} returns this
  */
 proto.proto.api.v1.MotorStatus.prototype.setPosition = function(value) {
-  return jspb.Message.setProto3IntField(this, 3, value);
+  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 

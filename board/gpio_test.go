@@ -81,7 +81,7 @@ func TestMotor1(t *testing.T) {
 
 	pos, err := m.Position(ctx)
 	assert.Nil(t, err)
-	assert.Equal(t, int64(0), pos)
+	assert.Equal(t, 0.0, pos)
 	supported, err := m.PositionSupported(ctx)
 	assert.Nil(t, err)
 	assert.False(t, supported)

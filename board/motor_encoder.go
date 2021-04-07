@@ -72,8 +72,8 @@ type encodedMotor struct {
 	logger            golog.Logger
 }
 
-func (m *encodedMotor) Position(ctx context.Context) (int64, error) {
-	return m.curPosition, nil
+func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
+	return float64(m.curPosition) / float64(m.cfg.TicksPerRotation), nil
 }
 
 func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {

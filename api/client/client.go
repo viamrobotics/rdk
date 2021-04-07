@@ -496,7 +496,7 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	return err
 }
 
-func (mc *motorClient) Position(ctx context.Context) (int64, error) {
+func (mc *motorClient) Position(ctx context.Context) (float64, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
 }
