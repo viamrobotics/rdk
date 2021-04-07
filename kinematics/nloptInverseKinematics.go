@@ -88,7 +88,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				// Shouldn't matter since these values should converge to zero
 				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
 				// Then this might be your culprit
-				if math.Abs(v) > 32768 {
+				if math.Abs(v) > 1<<15 {
 					gradient[i] = math.Round(v)
 				}
 			}
