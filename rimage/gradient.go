@@ -84,7 +84,7 @@ func (vf *VectorField2D) DirectionField() *mat.Dense {
 	return mat.NewDense(h, w, dir)
 }
 
-func MakeVectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, error) {
+func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, error) {
 	magH, magW := magnitude.Dims()
 	dirH, dirW := direction.Dims()
 	if magW != dirW && magH != dirH {
