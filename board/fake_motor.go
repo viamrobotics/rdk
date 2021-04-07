@@ -11,7 +11,7 @@ type FakeMotor struct {
 	d     pb.DirectionRelative
 }
 
-func (m *FakeMotor) Position(ctx context.Context) (int64, error) {
+func (m *FakeMotor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 

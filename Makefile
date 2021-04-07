@@ -1,15 +1,24 @@
 
+BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+
+TAGS = $(shell sh etc/gotags.sh)
+
+binsetup:
+	mkdir -p ${BIN_OUTPUT_PATH}
+
 goformat:
 	gofmt -s -w .
 
 format: goformat
-	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils arduino -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
+	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
 
 setup:
 	bash etc/setup.sh
 
-build: buf build-web
-	go build ./...
+build: buf build-web build-go
+
+build-go:
+	go build $(TAGS) ./...
 
 build-web:
 	cd robot/web/frontend && npm install && npx webpack
@@ -35,7 +44,7 @@ test:
 	go test ./...
 
 testpi:
-	sudo go test -tags pi -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... go.viam.com/robotcore/board/pi
+	sudo go test $(TAGS) -coverprofile=coverage.txt -covermode=atomic -coverpkg=./... go.viam.com/robotcore/board/pi
 
 dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
@@ -47,5 +56,9 @@ python-macos:
 	sudo mkdir -p /usr/local/lib/pkgconfig
 	sudo cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
 
-piserver:
-	go build -tags=pi -o server robot/cmd/server/main.go
+server:
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server robot/cmd/server/main.go
+
+boat: samples/boat1/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
+

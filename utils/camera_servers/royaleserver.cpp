@@ -135,6 +135,9 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // signal we have one and only 1 camera
+    CameraState::get()->cameras.push_back(0);
+
     auto status = cameraDevice->initialize();
     if (status != CameraStatus::SUCCESS) {
         cerr << "Cannot initialize the camera device, error string : "
@@ -159,9 +162,6 @@ int main(int argc, char** argv) {
         cerr << "Error starting the capturing" << endl;
         return 1;
     }
-
-    CameraState::get()->cameras.push_back(
-        0);  // signal we have one and only 1 camera
 
     std::cout << "Starting to listen on port: " << port << std::endl;
 

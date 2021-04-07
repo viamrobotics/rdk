@@ -72,8 +72,8 @@ type encodedMotor struct {
 	logger            golog.Logger
 }
 
-func (m *encodedMotor) Position(ctx context.Context) (int64, error) {
-	return m.curPosition, nil
+func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
+	return float64(m.curPosition) / float64(m.cfg.TicksPerRotation), nil
 }
 
 func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {
@@ -304,17 +304,21 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 		return m.Off(ctx)
 	}
 
+	m.rpmMonitorStart(ctx)
+
 	if rotations < 0 {
 		rotations *= -1
 		d = FlipDirection(d)
 	}
 
 	if rotations == 0 {
-		// users probably shouldn't do this, maybe we shouldn't support, but...
-		return m.Go(ctx, d, 16) // force of 16 is random
+		oldRpm := m.desiredRPM
+		m.desiredRPM = rpm
+		if oldRpm > 0 && d == m.curDirection {
+			return nil
+		}
+		return m.doGo(ctx, d, 16) // force of 16 is random
 	}
-
-	m.rpmMonitorStart(ctx)
 
 	numTicks := int64(rotations * float64(m.cfg.TicksPerRotation))
 

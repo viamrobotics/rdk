@@ -54,6 +54,7 @@
           status.basesMap = rawSatusObj.basesMap;
           status.grippersMap = rawSatusObj.grippersMap;
           status.boardsMap = rawSatusObj.boardsMap;
+          status.camerasMap = rawSatusObj.camerasMap;
 
           status.armsMap = fixArms(status.armsMap);
 
@@ -348,11 +349,14 @@
         </table>
       </div> <!-- end boards -->
 
+      Camera Frames
+      <ul>
+        <li v-for="(cam,x) in status.camerasMap">
+          <a :href="'/api/v1/camera/' + cam[0] + '/render_frame'">${cam[0]}</a>
+        </li>
+      </ul>
       <div>${res}</div>
     </div> <!-- end vue app -->
-
-    
-
     
   </body>
 </html>

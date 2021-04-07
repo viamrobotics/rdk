@@ -27,7 +27,8 @@ type Motor interface {
 	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
 
 	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
-	Position(ctx context.Context) (int64, error)
+	// the unit is rotations so that it can be used for relative GoFor commands
+	Position(ctx context.Context) (float64, error)
 	PositionSupported(ctx context.Context) (bool, error)
 
 	Off(ctx context.Context) error

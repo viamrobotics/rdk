@@ -11,15 +11,15 @@
                 },
                 "encoder" : "encoder",
                 "encoderB" : "encoder-b",
-                "ticksPerRotation" : 100
+                "ticksPerRotation" : 500
               }
           ],
           "analogs" : [
               { "name" : "current",
-                "pin" : "0"
+                "pin" : "1"
               },
               { "name" : "pressure",
-                "pin" : "1"
+                "pin" : "0"
               }
           ],
           "digitalInterrupts" : [
