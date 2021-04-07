@@ -67,10 +67,7 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 // Uses ZYX euler rotation order
 // Takes DEGREES and converts to radians
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	pos.RX *= math.Pi / 180
-	pos.RY *= math.Pi / 180
-	pos.RZ *= math.Pi / 180
-	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
+	transform := kinmath.NewQuatTransFromRotation(pos.RX * math.Pi / 180, pos.RY * math.Pi / 180, pos.RZ * math.Pi / 180)
 	transform.SetX(pos.X / 2)
 	transform.SetY(pos.Y / 2)
 	transform.SetZ(pos.Z / 2)
