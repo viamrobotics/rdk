@@ -33,25 +33,46 @@ func writePicture(img image.Image, p string) error {
 	return nil
 }
 
-func TestSobelFilterGrad(t *testing.T) {
-	// circle.png is 300x200, circle is 150 pixels in diameter, centered at (150,100)
+func TestVectorFieldToDense(t *testing.T) {
+	width, height := 200, 100
+	vf := MakeEmptyVectorField2D(width, height)
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			mag, dir := getMagnitudeAndDirection(float64(x), float64(y))
+			vf.Set(x, y, PolarVec{mag, dir})
+		}
+	}
+	magMat := vf.MagnitudeField()
+	dirMat := vf.DirectionField()
+	for x := 0; x < width; x++ {
+		for y := 0; y < height; y++ {
+			p := image.Point{x, y}
+			assert.Equal(t, vf.Get(p).Magnitude(), magMat.At(y, x))
+			assert.Equal(t, vf.Get(p).Direction(), dirMat.At(y, x))
+		}
+	}
+
+}
+
+func TestSobelFilter(t *testing.T) {
+	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := loadPictureConvertToDM("data/circle.png")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gradients := SobelFilterGrad(dm)
+	gradients := SobelFilter(dm)
 	assert.Equal(t, dm.Height()-2, gradients.Height())
 	assert.Equal(t, dm.Width()-2, gradients.Width())
 	// reminder: left-handed coordinate system. +x is right, +y is down.
-	// (223,100) should have direction 0 degrees
-	assert.Equal(t, 0., gradients.GetGradient(223, 100).Direction())
-	// (149,173) should have direction 90 degrees
-	assert.Equal(t, math.Pi/2., gradients.GetGradient(149, 173).Direction())
-	// (76,100) should have direction 180 degrees
-	assert.Equal(t, math.Pi, gradients.GetGradient(76, 100).Direction())
-	// (149,26) should have direction 270 degrees
-	assert.Equal(t, 3.*math.Pi/2., gradients.GetGradient(149, 26).Direction())
+	// (223,100) is right edge of circle
+	assert.Equal(t, 0., gradients.GetPolarVec(223, 100).Direction())
+	// (149,173) is bottom edge of circle
+	assert.Equal(t, math.Pi/2., gradients.GetPolarVec(149, 173).Direction())
+	// (76,100) is left edge of circle
+	assert.Equal(t, math.Pi, gradients.GetPolarVec(76, 100).Direction())
+	// (149,26) is top edge of circle
+	assert.Equal(t, 3.*math.Pi/2., gradients.GetPolarVec(149, 26).Direction())
 
 	img := gradients.ToPrettyPicture()
 	err = writePicture(img, "out/circle_gradient.png")
@@ -61,52 +82,12 @@ func TestSobelFilterGrad(t *testing.T) {
 
 }
 
-func TestSobelFilterMat(t *testing.T) {
-	// circle.png is 300x200, circle is 150 pixels in diameter, centered at (150,100)
-	dm, err := loadPictureConvertToDM("data/circle.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mags, dirs := SobelFilterMat(dm)
-	magH, magW := mags.Dims()
-	assert.Equal(t, dm.Height()-2, magH)
-	assert.Equal(t, dm.Width()-2, magW)
-	// reminder: left-handed coordinate system. +x is right, +y is down.
-	// for mat.Dense, y coorindate is first, then x coodinate.
-	// (223,100) should have direction 0 degrees
-	assert.Equal(t, 0., dirs.At(100, 223))
-	// (149,173) should have direction 90 degrees
-	assert.Equal(t, math.Pi/2., dirs.At(173, 149))
-	// (76,100) should have direction 180 degrees
-	assert.Equal(t, math.Pi, dirs.At(100, 76))
-	// (149,26) should have direction 270 degrees
-	assert.Equal(t, 3.*math.Pi/2., dirs.At(26, 149))
-
-	gradients, err := MakeGradientFieldFromMat(mags, dirs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	img := gradients.ToPrettyPicture()
-	err = writePicture(img, "out/circle_gradient.png")
-}
-
-func BenchmarkSobelFilterGrad(b *testing.B) {
+func BenchmarkSobelFilter(b *testing.B) {
 	dm, err := loadPictureConvertToDM("data/shelf_grayscale.png")
 	if err != nil {
 		b.Fatal(err)
 	}
 	for i := 0; i < b.N; i++ {
-		_ = SobelFilterGrad(dm)
-	}
-}
-
-func BenchmarkSobelFilterMat(b *testing.B) {
-	dm, err := loadPictureConvertToDM("data/shelf_grayscale.png")
-	if err != nil {
-		b.Fatal(err)
-	}
-	for i := 0; i < b.N; i++ {
-		_, _ = SobelFilterMat(dm)
+		_ = SobelFilter(dm)
 	}
 }
