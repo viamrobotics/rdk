@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"fmt"
 	"runtime"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/edaniels/test"
 )
 
-const ToSolve = 100
+const toSolve = 100
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
@@ -47,27 +48,35 @@ func TestCombinedIKinematics(t *testing.T) {
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
+}
+func BenchCombinedIKinematics(t *testing.B) {
+	logger := golog.NewDevelopmentLogger("combinedBenchmark")
+	nCPU := runtime.NumCPU()
+	wxArm, err := NewArm(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), nCPU, logger)
+	if err != nil {
+		t.Fatal("Failed to initialize arm")
+	}
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
-	//~ solved := 0
-	//~ for i := 0; i < ToSolve; i++ {
-	//~ fmt.Println(i)
-	//~ jPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(jPos)
-	//~ rPos := wxArm.GetForwardPosition()
-	//~ startPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(startPos)
-	//~ err = wxArm.SetForwardPosition(rPos)
-	//~ if err == nil {
-	//~ solved++
-	//~ } else {
-	//~ fmt.Println("from: ", startPos)
-	//~ fmt.Println("to: ", jPos)
-	//~ fmt.Println(err)
-	//~ }
-	//~ }
-	//~ fmt.Println("combined solved: ", solved)
+	solved := 0
+	for i := 0; i < toSolve; i++ {
+		fmt.Println(i)
+		jPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(jPos)
+		rPos := wxArm.GetForwardPosition()
+		startPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(startPos)
+		err = wxArm.SetForwardPosition(rPos)
+		if err == nil {
+			solved++
+			//~ } else {
+			//~ fmt.Println("from: ", startPos)
+			//~ fmt.Println("to: ", jPos)
+			//~ fmt.Println(err)
+		}
+	}
+	fmt.Println("combined solved: ", solved)
 }
 
 func TestNloptIKinematics(t *testing.T) {
@@ -87,21 +96,31 @@ func TestNloptIKinematics(t *testing.T) {
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func BenchNloptIKinematics(t *testing.B) {
+	logger := golog.NewDevelopmentLogger("nloptBenchmark")
+	wxArm, err := NewArm(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
+	if err != nil {
+		t.Fatal("Failed to initialize arm")
+	}
+	ik := CreateNloptIKSolver(wxArm.Model, logger)
+	wxArm.ik = ik
 
 	// Used for benchmarking solve rate
-	//~ solved := 0
-	//~ for i := 0; i < ToSolve; i++ {
-	//~ jPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(jPos)
-	//~ rPos := wxArm.GetForwardPosition()
-	//~ startPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(startPos)
-	//~ err = wxArm.SetForwardPosition(rPos)
-	//~ if err == nil {
-	//~ solved++
-	//~ }
-	//~ }
-	//~ fmt.Println("nlopt solved: ", solved)
+	solved := 0
+	for i := 0; i < toSolve; i++ {
+		jPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(jPos)
+		rPos := wxArm.GetForwardPosition()
+		startPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(startPos)
+		err = wxArm.SetForwardPosition(rPos)
+		if err == nil {
+			solved++
+		}
+	}
+	fmt.Println("nlopt solved: ", solved)
 }
 
 func TestJacobianIKinematics(t *testing.T) {
@@ -111,22 +130,32 @@ func TestJacobianIKinematics(t *testing.T) {
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
 
-	pos := &pb.ArmPosition{X: 80, Y: -370, Z: 355, RX: 15, RY: 0, RZ: 0}
+	pos := &pb.ArmPosition{X: 350, Y: 10, Z: 355, RX: 0, RY: 0, RZ: 0}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func BenchJacobianIKinematics(t *testing.B) {
+	logger := golog.NewDevelopmentLogger("jacobianBenchmark")
+	wxArm, err := NewArm(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
+	if err != nil {
+		t.Fatal("Failed to initialize arm")
+	}
+	ik := CreateJacobianIKSolver(wxArm.Model)
+	wxArm.ik = ik
 
 	// Used for benchmarking solve rate
-	//~ solved := 0
-	//~ for i := 0; i < ToSolve; i++ {
-	//~ jPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(jPos)
-	//~ rPos := wxArm.GetForwardPosition()
-	//~ startPos := wxArm.Model.RandomJointPositions()
-	//~ wxArm.Model.SetPosition(startPos)
-	//~ err = wxArm.SetForwardPosition(rPos)
-	//~ if err == nil {
-	//~ solved++
-	//~ }
-	//~ }
-	//~ fmt.Println("jacob solved: ", solved)
+	solved := 0
+	for i := 0; i < toSolve; i++ {
+		jPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(jPos)
+		rPos := wxArm.GetForwardPosition()
+		startPos := wxArm.Model.RandomJointPositions()
+		wxArm.Model.SetPosition(startPos)
+		err = wxArm.SetForwardPosition(rPos)
+		if err == nil {
+			solved++
+		}
+	}
+	fmt.Println("jacob solved: ", solved)
 }
