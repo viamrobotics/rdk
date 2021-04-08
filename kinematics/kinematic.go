@@ -295,6 +295,7 @@ func deriv(q quat.Number) []quat.Number {
 
 	var quatD []quat.Number
 
+	// qNorm is non-zero if our joint has a non-zero rotation
 	if qNorm > 0 {
 		b := math.Sin(qNorm) / qNorm
 		c := (math.Cos(qNorm) / (qNorm * qNorm)) - (math.Sin(qNorm) / (qNorm * qNorm * qNorm))
