@@ -367,30 +367,30 @@ Returns only the pixel within the image bounds.
 *  .   .   .
 */
 func GetConnectivity8Neighbors(i, j, r, c int) []PixelCoords {
-	neighbors := make([]PixelCoords, 8)
+	neighbors := make([]PixelCoords, 0, 8)
 	if i-1 > 0 && j-1 > 0 {
-		neighbors[0] = PixelCoords{i - 1, j - 1}
+		neighbors = append(neighbors, PixelCoords{i - 1, j - 1})
 	}
 	if i-1 > 0 {
-		neighbors[1] = PixelCoords{i - 1, j}
+		neighbors = append(neighbors, PixelCoords{i - 1, j})
 	}
 	if i-1 > 0 && j+1 < c {
-		neighbors[2] = PixelCoords{i - 1, j + 1}
+		neighbors = append(neighbors, PixelCoords{i - 1, j + 1})
 	}
 	if j-1 > 0 {
-		neighbors[3] = PixelCoords{i, j - 1}
+		neighbors = append(neighbors, PixelCoords{i, j - 1})
 	}
 	if j+1 < c {
-		neighbors[4] = PixelCoords{i, j + 1}
+		neighbors = append(neighbors, PixelCoords{i, j + 1})
 	}
 	if i+1 < r && j-1 > 0 {
-		neighbors[5] = PixelCoords{i + 1, j - 1}
+		neighbors = append(neighbors, PixelCoords{i + 1, j - 1})
 	}
 	if i+1 < r {
-		neighbors[6] = PixelCoords{i + 1, j}
+		neighbors = append(neighbors, PixelCoords{i + 1, j})
 	}
 	if i+1 < r && j+1 < c {
-		neighbors[7] = PixelCoords{i + 1, j + 1}
+		neighbors = append(neighbors, PixelCoords{i + 1, j + 1})
 	}
 	return neighbors
 }
