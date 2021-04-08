@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -17,8 +18,8 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(m, logger)
 
-	pos := Position{170, 0, 180, 0, 0, 0}
-	transform := kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	pos := pb.ArmPosition{X: 170, Y: 0, Z: 180, RX: 0, RY: 0, RZ: 0}
+	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
 	transform.SetX(pos.X)
 	transform.SetY(pos.Y)
 	transform.SetZ(pos.Z)
@@ -30,8 +31,8 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	solved := ik.Solve()
 	test.That(t, solved, test.ShouldBeTrue)
 
-	pos = Position{-46.445827416798814, -133.99229347583582, 372.4849299627513, -178.88747811107424, -33.160094626838045, -111.02282693533935}
-	transform = kinmath.NewQuatTransFromRotation(pos.Rx*math.Pi/180, pos.Ry*math.Pi/180, pos.Rz*math.Pi/180)
+	pos = pb.ArmPosition{X: -46.445827416798814, Y: -133.99229347583582, Z: 372.4849299627513, RX: -178.88747811107424, RY: -33.160094626838045, RZ: -111.02282693533935}
+	transform = kinmath.NewQuatTransFromRotation(pos.RX*math.Pi/180, pos.RY*math.Pi/180, pos.RZ*math.Pi/180)
 	transform.SetX(pos.X / 2)
 	transform.SetY(pos.Y / 2)
 	transform.SetZ(pos.Z / 2)
