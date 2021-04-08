@@ -1,14 +1,15 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"log"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
+
 	"gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // ForwardPosition will update the model state to have the correct 6d position given its joint angles
@@ -26,7 +27,7 @@ func (m *Model) ForwardVelocity() {
 }
 
 // GetOperationalPosition will return the position of the given end effector ID (usually 0) and its euler angles
-func (m *Model) GetOperationalPosition(idx int) *kinmath.Transform {
+func (m *Model) GetOperationalPosition(idx int) *kinmath.QuatTrans {
 	return m.Nodes[m.Leaves[idx]].i.t
 }
 
@@ -41,20 +42,48 @@ func (m *Model) GetJacobianInverse() *mgl64.MatMxN {
 func (m *Model) Get6dPosition(idx int) []float64 {
 	var pose6d []float64
 
-	mat := m.GetOperationalPosition(idx).Matrix()
+	endTransform := m.GetOperationalPosition(idx)
+	quat := endTransform.Quat
+	cartQuat := dualquat.Mul(quat, dualquat.Conj(quat))
 	// Get xyz position
-	pose6d = append(pose6d, mat.At(0, 3))
-	pose6d = append(pose6d, mat.At(1, 3))
-	pose6d = append(pose6d, mat.At(2, 3))
+	pose6d = append(pose6d, cartQuat.Dual.Imag)
+	pose6d = append(pose6d, cartQuat.Dual.Jmag)
+	pose6d = append(pose6d, cartQuat.Dual.Kmag)
 
 	// Get euler angles
-	pose6d = append(pose6d, MatToEuler(mat)...)
+	pose6d = append(pose6d, QuatToEuler(quat.Real)...)
 	return pose6d
 }
 
-// GetOperationalVelocity will return the velocity vector of the given end effector ID (usually 0)
-func (m *Model) GetOperationalVelocity(idx int) spatial.MotionVector {
-	return m.Nodes[m.Leaves[idx]].GetVelocityVector()
+// GetOperationalVelocity will return the velocity quaternion of the given end effector ID (usually 0)
+func (m *Model) GetOperationalVelocity(idx int) dualquat.Number {
+	return m.Nodes[m.Leaves[idx]].GetVelocity()
+}
+
+// GetJointOperationalVelocity will return the velocity quaternion of the given joint
+func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
+	return m.Joints[idx].GetOperationalVelocity()
+}
+
+// See the following wikipedia page for the formulas used here
+// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
+func QuatToEuler(q quat.Number) []float64 {
+	w := q.Real
+	x := q.Imag
+	y := q.Jmag
+	z := q.Kmag
+
+	var angles []float64
+
+	angles = append(angles, math.Atan2(2*(w*x+y*z), 1-2*(x*x+y*y)))
+	angles = append(angles, math.Asin(2*(w*y-x*z)))
+	angles = append(angles, math.Atan2(2*(w*z+y*x), 1-2*(y*y+z*z)))
+
+	for i := range angles {
+
+		angles[i] *= 180 / math.Pi
+	}
+	return angles
 }
 
 func MatToEuler(mat mgl64.Mat4) []float64 {
@@ -76,48 +105,65 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
+// This used to support multiple end effectors
+// Removed that support when quaternions were added
+// because nothing we have has multiple end effectors
+// Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
-	inWorldFrame := true
 
-	m.Jacobian = mgl64.NewMatrix(m.GetOperationalDof()*6, m.GetDof())
+	m.Jacobian = mgl64.NewMatrix(6, m.GetDof())
 
+	q := dualquat.Number{}
+	q.Real.Real = 1
+
+	m.ForwardPosition()
+	eePosition := m.GetOperationalPosition(0).Quat
+	// Take the partial derivative of each degree of freedom
+	// We want to see how much things change when each DOF changes
 	for i := 0; i < m.GetDof(); i++ {
-		fakeVel := make([]float64, m.GetDof())
-		for j := 0; j < m.GetDof(); j++ {
-			if i == j {
-				fakeVel[j] = 1
-			}
-		}
-		m.SetVelocity(fakeVel)
+		vel := make([]float64, m.GetDof())
+		vel[i] = 1
+		m.SetVelocity(vel)
 		m.ForwardVelocity()
 
-		for j := 0; j < m.GetOperationalDof(); j++ {
-			if inWorldFrame {
-				j1 := m.GetOperationalPosition(j).Linear().Mul3x1(m.GetOperationalVelocity(j).Linear)
-				m.Jacobian.Set(j*6, i, j1.X())
-				m.Jacobian.Set(j*6+1, i, j1.Y())
-				m.Jacobian.Set(j*6+2, i, j1.Z())
-				j2 := m.GetOperationalPosition(j).Linear().Mul3x1(m.GetOperationalVelocity(j).Angular)
-				m.Jacobian.Set(j*6+3, i, j2.X())
-				m.Jacobian.Set(j*6+4, i, j2.Y())
-				m.Jacobian.Set(j*6+5, i, j2.Z())
-			}
-		}
+		eeVelocity := m.GetOperationalVelocity(0)
+
+		endRot := eePosition.Real
+		endTrans := quat.Scale(2.0, quat.Mul(eePosition.Dual, quat.Conj(endRot)))
+
+		// Change in XYZ position
+		dEndTrans := quat.Mul(quat.Sub(quat.Scale(2.0, eeVelocity.Dual), quat.Mul(endTrans, eeVelocity.Real)), quat.Conj(endRot))
+
+		orientDs := deriv(endRot)
+		orientDx := quat.Mul(quat.Conj(orientDs[0]), eeVelocity.Real).Real
+		orientDy := quat.Mul(quat.Conj(orientDs[1]), eeVelocity.Real).Real
+		orientDz := quat.Mul(quat.Conj(orientDs[2]), eeVelocity.Real).Real
+
+		jacQuat := dualquat.Number{quat.Number{0, orientDx, orientDy, orientDz}, dEndTrans}
+
+		m.Jacobian.Set(0, i, jacQuat.Dual.Imag/2)
+		m.Jacobian.Set(1, i, jacQuat.Dual.Jmag/2)
+		m.Jacobian.Set(2, i, jacQuat.Dual.Kmag/2)
+		m.Jacobian.Set(3, i, jacQuat.Real.Imag)
+		m.Jacobian.Set(4, i, jacQuat.Real.Jmag)
+		m.Jacobian.Set(5, i, jacQuat.Real.Kmag)
 	}
 }
 
 func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
+	nr := m.Jacobian.NumRows()
+	nc := m.Jacobian.NumCols()
+	// gonum.mat and mgl64.MatMxN use reversed raw data schemes- loading a matrix this way results in a transposition
+	denseJac := mat.NewDense(nr, nc, m.Jacobian.Raw())
 
+	// Non-SVD is not as good. Don't use it.
 	if doSvd {
-		nr := m.Jacobian.NumRows()
-		nc := m.Jacobian.NumCols()
 
-		m.InvJacobian = mgl64.NewMatrix(nr, nc)
-		m.InvJacobian.Zero(nr, nc)
+		m.InvJacobian = mgl64.NewMatrix(nc, nr)
+		m.InvJacobian.Zero(nc, nr)
 
-		svdMat := mat.NewDense(nr, nc, m.Jacobian.Raw())
 		var svd mat.SVD
-		ok := svd.Factorize(svdMat, mat.SVDFull)
+		ok := svd.Factorize(denseJac, mat.SVDFull)
 		if !ok {
 			// This should never happen I hope? RL doesn't have error handling on this step so we're probably good
 			log.Fatal("failed to factorize matrix")
@@ -143,20 +189,34 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			svd.VTo(matV)
 
 			r, _ := matU.Dims()
+			c, _ := matV.Dims()
 
-			colV := mgl64.NewMatrixFromData(mat.Col(nil, j, matV), r, 1)
+			colV := mgl64.NewMatrixFromData(mat.Col(nil, j, matV), c, 1)
 			colU := mgl64.NewMatrixFromData(mat.Col(nil, j, matU), 1, r)
 
 			colV.Mul(colV, svdLambda)
 			colV.MulMxN(colV, colU)
-			colV = colV.Transpose(mgl64.NewMatrix(r, r))
+			colV = colV.Transpose(mgl64.NewMatrix(r, c))
 			m.InvJacobian.Add(m.InvJacobian, colV)
 			// TODO(pl): Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}
-
-		//~ } else {
-		// Not done, do not use. Missing matrix inversion, etc
-		//~ m.Jacobian.Transpose().MulMxN(nil, m.Jacobian.Transpose().MulMxN(nil, m.Jacobian).Add(nil, mgl64.IdentN(nil, m.GetOperationalDof() * 6).Mul(nil, lambda * lambda)))
+	} else {
+		// This implements the Dampened Least Squares algorithm, which does not work overly well.
+		// Do not recommend using this- use the Singular Value Decomposition method above
+		// But it's here if you need it
+		n := m.GetOperationalDof() * 6
+		trans := mat.NewDense(nc, nr, m.Jacobian.Raw())
+		dampingMatrix := mat.NewDense(n, n, mgl64.IdentN(nil, n).Mul(nil, lambda*lambda).Raw())
+		var m1, m2, m3, invJ mat.Dense
+		m1.Mul(denseJac, trans)
+		m2.Add(&m1, dampingMatrix)
+		err := m3.Inverse(&m2)
+		if err != nil {
+			log.Fatal("failed to invert DLS matrix")
+		}
+		invJ.Mul(trans, &m3)
+		rawIJ := invJ.RawMatrix()
+		m.InvJacobian = mgl64.NewMatrixFromData(rawIJ.Data, rawIJ.Rows, rawIJ.Cols)
 	}
 }
 
@@ -175,8 +235,6 @@ func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
 			angle2 := angles[j]
 			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
 				// These angles are complementary
-
-				// THIS IS BUGGY BUT WHY
 				origAngles := m.GetPosition()
 				origAnglesBak := m.GetPosition()
 				origTransform := m.GetOperationalPosition(0).Clone()
@@ -215,4 +273,41 @@ func (m *Model) Step(posvec, dpos []float64) []float64 {
 		k += joint.GetDof()
 	}
 	return posvec2
+}
+
+// deriv will compute D(q), the derivative of q = e^w with respect to w
+// Note that for prismatic joints, this will need to be expanded to dual quaternions
+func deriv(q quat.Number) []quat.Number {
+	w := quat.Log(q)
+
+	qNorm := math.Sqrt(w.Imag*w.Imag + w.Jmag*w.Jmag + w.Kmag*w.Kmag)
+	// qNorm hits a singularity every 2pi
+	// But if we flip the axis we get the same rotation but away from a singularity
+
+	var quatD []quat.Number
+
+	// qNorm is non-zero if our joint has a non-zero rotation
+	if qNorm > 0 {
+		b := math.Sin(qNorm) / qNorm
+		c := (math.Cos(qNorm) / (qNorm * qNorm)) - (math.Sin(qNorm) / (qNorm * qNorm * qNorm))
+
+		quatD = append(quatD, quat.Number{Real: -1 * w.Imag * b,
+			Imag: b + w.Imag*w.Imag*c,
+			Jmag: w.Imag * w.Jmag * c,
+			Kmag: w.Imag * w.Kmag * c})
+		quatD = append(quatD, quat.Number{Real: -1 * w.Jmag * b,
+			Imag: w.Jmag * w.Imag * c,
+			Jmag: b + w.Jmag*w.Jmag*c,
+			Kmag: w.Jmag * w.Kmag * c})
+		quatD = append(quatD, quat.Number{Real: -1 * w.Kmag * b,
+			Imag: w.Kmag * w.Imag * c,
+			Jmag: w.Kmag * w.Jmag * c,
+			Kmag: b + w.Kmag*w.Kmag*c})
+
+	} else {
+		quatD = append(quatD, quat.Number{0, 1, 0, 0})
+		quatD = append(quatD, quat.Number{0, 0, 1, 0})
+		quatD = append(quatD, quat.Number{0, 0, 0, 1})
+	}
+	return quatD
 }
