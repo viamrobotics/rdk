@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics/kinmath"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -65,11 +66,15 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 
 // Sets a new goal position
 // Uses ZYX euler rotation order
+// Takes degrees as input and converts to radians for kinematics use
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := kinmath.NewTransformFromRotation(pos.RX, pos.RY, pos.RZ)
-	transform.SetX(pos.X)
-	transform.SetY(pos.Y)
-	transform.SetZ(pos.Z)
+	transform := kinmath.NewQuatTransFromRotation(utils.DegToRad(pos.RX), utils.DegToRad(pos.RY), utils.DegToRad(pos.RZ))
+
+	// Spatial displacements represented in dual quaternions have their distances divided by two
+	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
+	transform.SetX(pos.X / 2)
+	transform.SetY(pos.Y / 2)
+	transform.SetZ(pos.Z / 2)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
@@ -94,7 +99,7 @@ func (k *Arm) modelJointsPosition() []float64 {
 func (k *Arm) SetJointPositions(angles []float64) {
 	radAngles := make([]float64, len(angles))
 	for i, angle := range angles {
-		radAngles[i] = angle * math.Pi / 180
+		radAngles[i] = utils.DegToRad(angle)
 	}
 	k.Model.SetPosition(radAngles)
 }

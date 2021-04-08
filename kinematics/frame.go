@@ -2,23 +2,15 @@ package kinematics
 
 import (
 	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
-	//~ "gonum.org/v1/gonum/graph/simple"
+
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // TODO(pl): add more descriptive field names once I work out what they ought to be
 type Frame struct {
-	//~ Element
-	a spatial.MotionVector
-	//~ c spatial.MotionVector
-	//~ f spatial.ForceVector
-	//~ i              spatial.RigidBodyInertia
-	//~ iA             spatial.ArticulatedBodyInertia
-	//~ pA spatial.ForceVector
-	i Transform
-	v spatial.MotionVector
-	//~ x              spatial.PlueckerTransform
-	//~ descriptor    simple.Node
+	i             Transform
+	v             dualquat.Number
 	IsWorld       bool
 	IsBody        bool
 	id            int64
@@ -30,8 +22,9 @@ func NewFrame() *Frame {
 	f := Frame{}
 	f.IsWorld = false
 	f.IsBody = false
-	f.i.t = kinmath.NewTransform()
+	f.i.t = kinmath.NewQuatTrans()
 	f.selfcollision = make(map[*Frame]bool)
+	f.v = dualquat.Number{quat.Number{Real: 1}, quat.Number{}}
 	return &f
 }
 
@@ -44,12 +37,15 @@ func (f *Frame) SetVertexDescriptor(newID int64) {
 }
 
 // ForwardPosition does nothing in a frame- it is handled by *Transform
-// Why is it here? Because Robotics Library has it
+// Why is it here? Because we need it to implement Element.
+// That said, we can probably completely remove Element in the future
+// TODO(pl): Remove Element
 func (f *Frame) ForwardPosition() {
 }
+
 func (f *Frame) ForwardVelocity() {
 }
 
-func (f *Frame) GetVelocityVector() spatial.MotionVector {
+func (f *Frame) GetVelocity() dualquat.Number {
 	return f.v
 }

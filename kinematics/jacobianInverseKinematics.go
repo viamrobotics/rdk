@@ -1,9 +1,11 @@
 package kinematics
 
 import (
-	//~ "fmt"
-	"github.com/go-gl/mathgl/mgl64"
 	"go.viam.com/robotcore/kinematics/kinmath"
+
+	"github.com/edaniels/golog"
+	"github.com/go-gl/mathgl/mgl64"
+	"gonum.org/v1/gonum/mat"
 )
 
 type JacobianIK struct {
@@ -25,8 +27,8 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	return &ik
 }
 
-func (ik *JacobianIK) AddGoal(trans *kinmath.Transform, effectorID int) {
-	newtrans := &kinmath.Transform{}
+func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
+	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
@@ -89,11 +91,9 @@ func (ik *JacobianIK) Solve() bool {
 
 			// Check if q is valid for our desired position
 			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
-
 				ik.Mdl.SetPosition(qNorm)
 				qNorm = ik.Mdl.ZeroInlineRotation(qNorm)
 				if ik.Mdl.IsValid(qNorm) {
-
 					return true
 				}
 			}
@@ -101,13 +101,13 @@ func (ik *JacobianIK) Solve() bool {
 			ik.Mdl.CalculateJacobian()
 
 			ik.Mdl.CalculateJacobianInverse(0, ik.svd)
+			invJ := ik.Mdl.GetJacobianInverse()
 
-			dq := ik.Mdl.GetJacobianInverse().MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
+			dq := invJ.MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
 
 			q = ik.Mdl.Step(q, dq)
-			qNorm = ik.Mdl.Normalize(q)
 
-			ik.Mdl.SetPosition(qNorm)
+			q = ik.Mdl.Normalize(q)
 
 			ik.Mdl.SetPosition(q)
 
@@ -116,7 +116,6 @@ func (ik *JacobianIK) Solve() bool {
 			}
 		}
 		if jointMut < len(origJointPos) {
-			//~ fmt.Println("mutating!")
 			var mutJointPos []float64
 			mutJointPos = append(mutJointPos, origJointPos...)
 			mutJointPos[jointMut] += jointAmt
@@ -128,10 +127,15 @@ func (ik *JacobianIK) Solve() bool {
 				jointMut++
 			}
 		} else {
-			//~ fmt.Println("setting random!")
 			ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 		}
 	}
 	ik.Mdl.SetPosition(origJointPos)
 	return false
+}
+
+func PrintMat(m *mgl64.MatMxN, name string, logger golog.Logger) {
+	j2 := mat.NewDense(m.NumRows(), m.NumCols(), m.Transpose(nil).Raw())
+	fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
+	logger.Debugf("%s = %v", name, fc)
 }
