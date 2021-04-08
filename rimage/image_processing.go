@@ -185,27 +185,30 @@ func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 	return &CannyEdgeDetector{0.8, 0.33, false}
 }
 
-func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) *image.Gray {
+func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
 
-	_, _, mag, direction, err := ForwardGradient(img, blur, cd.preprocessImage)
+	imgGradient, err := ForwardGradient(img, blur, cd.preprocessImage)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	nms, err := GradientNonMaximumSuppressionC8(mag, direction)
+	nms, err := GradientNonMaximumSuppressionC8(imgGradient.Magnitude, imgGradient.Direction)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	low, high, err := GetHysteresisThresholds(mag, nms, cd.highRatio, cd.lowRatio)
+	low, high, err := GetHysteresisThresholds(imgGradient.Magnitude, nms, cd.highRatio, cd.lowRatio)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	edges, err := EdgeHysteresisFiltering(mag, low, high)
+	edges, err := EdgeHysteresisFiltering(imgGradient.Magnitude, low, high)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return edges
+	return edges, nil
 }
 
+// Luminance compute the luminance value from the R,G and B values.
+// It is defined as 0.299*R + 0.587*G + 0.114*B
+// Formula from : https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale - luma coding
 func Luminance(aColor Color) float64 {
 	r, g, b := aColor.RGB255()
 
@@ -214,9 +217,15 @@ func Luminance(aColor Color) float64 {
 
 }
 
+type ImageGradient struct {
+	GradX, GradY         *mat.Dense
+	Magnitude, Direction *mat.Dense
+}
+
 // ForwardGradient computes the forward gradients in X and Y direction of an image in the Lab space
-// Returns: gradient in x direction, gradient in y direction, its magnitude and direction at each pixel in a dense mat
-func ForwardGradient(img *Image, blur float64, preprocess bool) (*mat.Dense, *mat.Dense, *mat.Dense, *mat.Dense, error) {
+// Returns: gradient in x direction, gradient in y direction, its magnitude and direction at each pixel in a dense mat,
+// and an error
+func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, error) {
 	if preprocess {
 		img = ConvertImage(imaging.Blur(img, blur))
 	}
@@ -266,7 +275,7 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (*mat.Dense, *ma
 		}
 	}
 
-	return gradX, gradY, mag, direction, nil
+	return ImageGradient{gradX, gradY, mag, direction}, nil
 }
 
 type MatrixPixelPoint struct {
