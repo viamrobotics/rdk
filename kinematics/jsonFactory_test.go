@@ -7,58 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
-	"github.com/go-gl/mathgl/mgl64"
 )
-
-// Tests orientation setting
-func TestSetOrient(t *testing.T) {
-	trans := NewTransform()
-	o1 := [6]float64{0, 0, 0, 0, 0, 0}
-	o2 := [6]float64{45, 45, 70, 0, 0, 0}
-	o3 := [6]float64{0, 0, 0, 1, 2, 3}
-	o4 := [6]float64{60, -30, 40, 4, 5, 6}
-
-	m2 := mgl64.Mat3FromRows(mgl64.Vec3{0.241845, -0.493453, 0.835473},
-		mgl64.Vec3{0.664463, 0.711691, 0.228002},
-		mgl64.Vec3{-0.707107, 0.500000, 0.500000})
-
-	m4 := mgl64.Mat3FromRows(mgl64.Vec3{0.663414, -0.653101, 0.365159},
-		mgl64.Vec3{0.556670, 0.104687, -0.824111},
-		mgl64.Vec3{0.500000, 0.750000, 0.433013})
-
-	setOrient(o1, trans)
-	if !trans.t.Mat.ApproxEqual(mgl64.Ident4()) {
-		t.Fatalf("Zero Orientation not producing identity matrix")
-	}
-
-	trans = NewTransform()
-	setOrient(o2, trans)
-	if !trans.t.Mat.Col(3).ApproxEqual(mgl64.Vec4{0, 0, 0, 1}) {
-		t.Fatalf("o2 translation incorrect")
-	}
-	if !trans.t.Mat.Mat3().ApproxEqualThreshold(m2, 0.000001) {
-		t.Fatalf("o2 rotation incorrect")
-	}
-
-	trans = NewTransform()
-	setOrient(o3, trans)
-	if !trans.t.Mat.Col(3).ApproxEqual(mgl64.Vec4{1, 2, 3, 1}) {
-		t.Fatalf("o3 translation incorrect")
-	}
-	if !trans.t.Mat.Mat3().ApproxEqual(mgl64.Ident3()) {
-		t.Fatalf("o3 rotation incorrect")
-	}
-
-	trans = NewTransform()
-	setOrient(o4, trans)
-	if !trans.t.Mat.Col(3).ApproxEqual(mgl64.Vec4{4, 5, 6, 1}) {
-		t.Fatalf("o4 translation incorrect")
-	}
-	if !trans.t.Mat.Mat3().ApproxEqualThreshold(m4, 0.000001) {
-		t.Fatalf("o4 rotation incorrect")
-	}
-
-}
 
 // Tests that yml files are properly parsed and correctly loaded into the model
 // Should not need to actually test the contained rotation/translation values
@@ -66,10 +15,16 @@ func TestSetOrient(t *testing.T) {
 // So we'll just check that we read in the right number of joints
 func TestParseJSONFile(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	model, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
+	model, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	if len(model.Joints) != 6 {
+		t.Fatalf("Incorrect number of joints loaded for wx250s")
+	}
+	model, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	if len(model.Joints) != 5 {
 		t.Fatalf("Incorrect number of joints loaded")
 	}
 }

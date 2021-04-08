@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math"
 
 	"github.com/edaniels/golog"
@@ -33,9 +32,12 @@ func errCheck(err error, logger golog.Logger) {
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik := &NloptIK{logger: logger}
 	ik.Mdl = mdl
+	// How close we want to get to the goal
 	ik.epsilon = 0.0001
+	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 500000
+	//~ floatEpsilon := ik.epsilon * ik.epsilon * 0.1
+	ik.maxIterations = 50000
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -63,7 +65,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
 			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
-			dxIdx := goal.EffectorID * 6
+			dxIdx := goal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
@@ -75,31 +77,29 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 			ik.Mdl.CalculateJacobian()
 			j := ik.Mdl.GetJacobian()
 			grad2 := mgl64.NewVecN(len(dx))
-			j2 := j.Transpose(mgl64.NewMatrix(j.NumRowCols()))
+			j2 := j.Transpose(mgl64.NewMatrix(j.NumCols(), j.NumRows()))
 			j2 = j2.Mul(j2, -2)
 
-			//~ // Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
+			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
 			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
 			for i, v := range gradient2 {
 				gradient[i] = v
-				// Do some rounding on large (>2^16) numbers because of floating point inprecision
+				// Do some rounding on large (>2^15) numbers because of floating point inprecision
 				// Shouldn't matter since these values should converge to zero
 				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
 				// Then this might be your culprit
-				if math.Abs(v) > 65535 {
+				if math.Abs(v) > 1<<15 {
 					gradient[i] = math.Round(v)
 				}
 			}
 		}
-		//~ fmt.Println(SquaredNorm(dx))
+
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
 			return SquaredNorm(dx)
 		}
 		return SquaredNorm(dx)
 	}
-	//~ nloptMinFunc := func(x, gradient []float64) float64 {
-
 	errCheck(opt.SetFtolAbs(floatEpsilon), logger)
 	errCheck(opt.SetFtolRel(floatEpsilon), logger)
 	errCheck(opt.SetLowerBounds(ik.lowerBound), logger)
@@ -113,8 +113,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-func (ik *NloptIK) AddGoal(trans *kinmath.Transform, effectorID int) {
-	newtrans := &kinmath.Transform{}
+func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
+	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 }
@@ -149,8 +149,10 @@ func (ik *NloptIK) Halt() {
 
 func (ik *NloptIK) Solve() bool {
 	ik.halt = false
+	ik.iterations = 0
 	origJointPos := ik.Mdl.GetPosition()
 	for ik.iterations < ik.maxIterations && !ik.halt {
+		ik.iterations++
 		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
 		if err != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
@@ -165,7 +167,6 @@ func (ik *NloptIK) Solve() bool {
 			ik.Mdl.SetPosition(angles)
 			return true
 		}
-
 		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
 	}
 	ik.Mdl.SetPosition(origJointPos)

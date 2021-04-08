@@ -4,14 +4,11 @@ import (
 	"math"
 	"math/rand"
 
-	//~ "fmt"
-
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
-
-	//~ "go.viam.com/robotcore/kinematics"
-	"go.viam.com/robotcore/kinematics/kinmath/spatial"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // TODO(pl): initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
@@ -19,7 +16,17 @@ import (
 
 // TODO(pl): Maybe we want to make this an interface which different joint types implement
 // TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
+
+type Axis int
+
+const (
+	Xaxis Axis = iota
+	Yaxis
+	Zaxis
+)
+
 type Joint struct {
+	axes        []Axis
 	dofPosition int
 	dofVelocity int
 	max         []float64
@@ -29,7 +36,6 @@ type Joint struct {
 	positionD   []float64
 	positionDD  []float64
 	SpatialMat  *mgl64.MatMxN
-	v           *spatial.MotionVector
 	wraparound  []bool
 	descriptor  graph.Edge
 	transform   *Transform
@@ -47,8 +53,6 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.positionD = make([]float64, dVel)
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
-	j.v = &spatial.MotionVector{}
-	j.v.SetZero()
 
 	return &j
 }
@@ -97,9 +101,24 @@ func (j *Joint) ForwardPosition() {
 	j.transform.ForwardPosition()
 }
 
+// Note that this currently only works for 1DOF revolute joints
+// Will need to be updated for ball joints
 func (j *Joint) ForwardVelocity() {
-	j.transform.out.v = j.transform.x.MultMV(j.transform.in.v)
-	j.transform.out.v.AddMV(j.v)
+
+	axis := -1
+	// Only one DOF should have nonzero velocity for standard revolute joints
+	// If this is not the joint for which we are calculating the Jacobial, all positionD will be 0
+	for i, v := range j.positionD {
+		if v > 0 {
+			axis = int(j.axes[i])
+		}
+	}
+	velQuat := j.transform.t.Quat
+	if axis >= 0 {
+		velQuat = dualquat.Number{deriv(velQuat.Real)[axis], quat.Number{}}
+	}
+
+	j.transform.out.v = dualquat.Mul(j.transform.in.v, velQuat)
 }
 
 func (j *Joint) GetDof() int {
@@ -157,9 +176,35 @@ func (j *Joint) GetOut() *Frame {
 
 // GetRotationVector will return about which axes this joint will rotate and how much
 // Should be normalized to [0,1] for each axis
-// So, returns a 3-element slice representing rotation around x,y,z axes
-func (j *Joint) GetRotationVector() mgl64.Vec3 {
-	return mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
+func (j *Joint) GetRotationVector() quat.Number {
+	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
+}
+
+// SetAxesFromSpatial will note the
+func (j *Joint) SetAxesFromSpatial() {
+	if j.SpatialMat.At(0, 0) > 0 {
+		j.axes = append(j.axes, Xaxis)
+	}
+	if j.SpatialMat.At(1, 0) > 0 {
+		j.axes = append(j.axes, Yaxis)
+	}
+	if j.SpatialMat.At(2, 0) > 0 {
+		j.axes = append(j.axes, Zaxis)
+	}
+}
+
+// PointAtZ returns the quat about which to rotate to point this joint's axis at Z
+// We use mgl64 Quats for this, because they have the function conveniently built in
+
+func (j *Joint) PointAtZ() dualquat.Number {
+	zAxis := mgl64.Vec3{0, 0, 1}
+	rotVec := mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
+	zGlQuat := mgl64.QuatBetweenVectors(rotVec, zAxis)
+	return dualquat.Number{quat.Number{zGlQuat.W, zGlQuat.V.X(), zGlQuat.V.Y(), zGlQuat.V.Z()}, quat.Number{}}
+}
+
+func (j *Joint) GetOperationalVelocity() dualquat.Number {
+	return j.transform.out.v
 }
 
 // SetPosition will set the joint's position in RADIANS
@@ -167,16 +212,17 @@ func (j *Joint) SetPosition(pos []float64) {
 	j.position = pos
 	angle := pos[0] + j.offset[0]
 
-	j.transform.t.SetMatrix(mgl64.HomogRotate3D(angle, j.GetRotationVector()))
-	//~ j.transform.x.Rotation = j.transform.t.Linear().Transpose()
-	j.transform.x.Rotation = j.transform.t.Linear()
+	r1 := dualquat.Number{Real: j.GetRotationVector()}
+	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
+	r1.Real.Real += math.Cos(angle / 2)
+
+	j.transform.t.Quat = r1
+
 }
 
 // SetVelocity will set the joint's velocity
 func (j *Joint) SetVelocity(vel []float64) {
 	j.positionD = vel
-	motionVec := j.SpatialMat.MulNx1(mgl64.NewVecN(0), mgl64.NewVecNFromData(vel))
-	j.v = spatial.NewMVFromVecN(motionVec)
 }
 
 // Clamp ensures that all values are between a given range
@@ -205,6 +251,8 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 	for i := range posvec {
 		posvec2[i] = posvec[i] + dpos[i]
 	}
+	// Note- clamping should be disabled for now. We are better able to solve IK if the joints are mathematically
+	// allowed to spin freely. Normalization and validity checking will prevent limits from being exceeded.
 	//~ posvec2 = j.Clamp(posvec2)
 	return posvec2
 }

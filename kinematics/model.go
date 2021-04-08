@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math/rand"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -76,8 +75,6 @@ func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	return edge
 }
 
-//~ func (m *Model) Leaves() []graph.Node{
-
 // Generate a list of radian joint positions that are random but valid for each joint
 func (m *Model) RandomJointPositions() []float64 {
 	var jointPos []float64
@@ -101,6 +98,7 @@ func (m *Model) GetOperationalDof() int {
 }
 
 // GetDof returns the sum of Dof from all joints- Should sum to the total degrees of freedom for the robot
+// In other words, if the robot consists of a 6dof arm and an additional 4dof arm, this will return 10
 func (m *Model) GetDof() int {
 	dof := 0
 	for _, joint := range m.Joints {
