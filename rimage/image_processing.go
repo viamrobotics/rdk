@@ -301,7 +301,7 @@ func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, err
 			rangle := int(math.Round(angle/(math.Pi/4) + 0.5))
 			// Compare pixel values in the gradient direction with current pixel value
 			magVal := mag.At(i, j)
-			cond1 := (rangle%4 == 0 || rangle == 4) && (mag.At(i, j-1) > magVal || mag.At(i, j+1) > magVal)
+			cond1 := (rangle%4 == 0) && (mag.At(i, j-1) > magVal || mag.At(i, j+1) > magVal)
 			cond2 := rangle%4 == 1 && (mag.At(i-1, j+1) > magVal || mag.At(i+1, j-1) > magVal)
 			cond3 := rangle%4 == 2 && (mag.At(i-1, j) > magVal || mag.At(i+1, j) > magVal)
 			cond4 := rangle%4 == 3 && (mag.At(i-1, j-1) > magVal || mag.At(i+1, j+1) > magVal)
