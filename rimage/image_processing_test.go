@@ -200,7 +200,8 @@ func TestCanny(t *testing.T) {
 	}
 
 	cannyDetector := NewCannyDericheEdgeDetector()
-	edges := ConvertImage(cannyDetector.DetectEdges(img, 0.5))
+	edgesMat, _ := cannyDetector.DetectEdges(img, 0.5)
+	edges := ConvertImage(edgesMat)
 	assert.Equal(t, len(edges.data), len(gt.data))
 	assert.Equal(t, edges.data, gt.data)
 
@@ -224,8 +225,8 @@ func TestCannyBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Compute forward gradient
-	_, _, mag, direction, _ := ForwardGradient(img, 0., false)
-	magData := mag.RawMatrix().Data
+	imgGradient, _ := ForwardGradient(img, 0., false)
+	magData := imgGradient.Magnitude.RawMatrix().Data
 	magDataInt := make([]Color, len(magData))
 	for idx := 0; idx < len(magData); idx++ {
 		magDataInt[idx] = NewColor(uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])))
@@ -237,7 +238,7 @@ func TestCannyBlocks(t *testing.T) {
 	}
 
 	// NMS
-	nms, _ := GradientNonMaximumSuppressionC8(mag, direction)
+	nms, _ := GradientNonMaximumSuppressionC8(imgGradient.Magnitude, imgGradient.Direction)
 	nmsData := nms.RawMatrix().Data
 	nmsDataInt := make([]Color, len(nmsData))
 	for idx := 0; idx < len(magData); idx++ {
