@@ -269,13 +269,13 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (*mat.Dense, *ma
 	return gradX, gradY, mag, direction, nil
 }
 
-type PixelCoords struct {
+type MatrixPixelPoint struct {
 	I, J int
 }
 
 // isPixelCoordsInList takes a List and looks for an element in it. If found it will
 // return true, otherwise false
-func isPixelCoordsInSlice(currentList []PixelCoords, val PixelCoords) bool {
+func isPixelCoordsInSlice(currentList []MatrixPixelPoint, val MatrixPixelPoint) bool {
 	for _, coords := range currentList {
 		if coords == val {
 			return true
@@ -366,31 +366,31 @@ Returns only the pixel within the image bounds.
 *  .   o   .
 *  .   .   .
 */
-func GetConnectivity8Neighbors(i, j, r, c int) []PixelCoords {
-	neighbors := make([]PixelCoords, 0, 8)
+func GetConnectivity8Neighbors(i, j, r, c int) []MatrixPixelPoint {
+	neighbors := make([]MatrixPixelPoint, 0, 8)
 	if i-1 > 0 && j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i - 1, j - 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i - 1, j - 1})
 	}
 	if i-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i - 1, j})
+		neighbors = append(neighbors, MatrixPixelPoint{i - 1, j})
 	}
 	if i-1 > 0 && j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i - 1, j + 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i - 1, j + 1})
 	}
 	if j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i, j - 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i, j - 1})
 	}
 	if j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i, j + 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i, j + 1})
 	}
 	if i+1 < r && j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i + 1, j - 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i + 1, j - 1})
 	}
 	if i+1 < r {
-		neighbors = append(neighbors, PixelCoords{i + 1, j})
+		neighbors = append(neighbors, MatrixPixelPoint{i + 1, j})
 	}
 	if i+1 < r && j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i + 1, j + 1})
+		neighbors = append(neighbors, MatrixPixelPoint{i + 1, j + 1})
 	}
 	return neighbors
 }
@@ -403,37 +403,37 @@ This allows to remove weak edges but preserves edges that are strong or partiall
 */
 func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, error) {
 	r, c := mag.Dims()
-	queue := make([]PixelCoords, 0)
+	visited := map[MatrixPixelPoint]bool{}
 	edges := image.NewGray(image.Rect(0, 0, c, r))
 	// Keep edge pixels with strong gradient value
 	for j := 0; j < c; j++ {
 		for i := 0; i < r; i++ {
 			if mag.At(i, j) > high {
-				coords := PixelCoords{i, j}
-				queue = append(queue, coords)
+				coords := MatrixPixelPoint{i, j}
+				visited[coords] = true
 			}
 		}
 	}
 	// Keep edge pixels with weak gradient value next to an edge pixel with a strong value
-	lastIterationQueue := queue
+	lastIterationQueue := visited
 	for len(lastIterationQueue) > 0 {
-		newKeep := make([]PixelCoords, 0)
+		newKeep := map[MatrixPixelPoint]bool{}
 		// Iterate through list and print its contents.
-		for _, coords := range lastIterationQueue {
-			//coords := e.Value.(PixelCoords)
+		for coords, _ := range lastIterationQueue {
+			//coords := e.Value.(MatrixPixelPoint)
 			neighbors := GetConnectivity8Neighbors(coords.I, coords.J, r, c)
 			for _, nb := range neighbors {
-				if mag.At(nb.I, nb.J) > low && !isPixelCoordsInSlice(queue, nb) {
-					newKeep = append(newKeep, nb)
-					queue = append(queue, nb)
-
+				isPixelVisited := visited[nb]
+				if mag.At(nb.I, nb.J) > low && !isPixelVisited {
+					newKeep[nb] = true
+					visited[nb] = true
 				}
 			}
 		}
 		lastIterationQueue = newKeep
 	}
 	// Fill out image
-	for _, coords := range queue {
+	for coords, _ := range visited {
 		edges.Set(coords.J, coords.I, color.Gray{255})
 	}
 	return edges, nil
