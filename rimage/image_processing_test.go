@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/lucasb-eyer/go-colorful"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCanny1(t *testing.T) {
@@ -183,5 +183,85 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		ConvertImage(&yuvImg)
+	}
+}
+
+func TestCanny(t *testing.T) {
+	imgOriginal, err := ReadImageFromFile("data/canny_test_1.jpg")
+	img := ConvertImage(imgOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gtOriginal, err := ReadImageFromFile("data/test_canny.png")
+	gt := ConvertImage(gtOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cannyDetector := NewCannyDericheEdgeDetector()
+	edgesMat, _ := cannyDetector.DetectEdges(img, 0.5)
+	edges := ConvertImage(edgesMat)
+	assert.Equal(t, len(edges.data), len(gt.data))
+	assert.Equal(t, edges.data, gt.data)
+
+}
+
+func TestCannyBlocks(t *testing.T) {
+	// load test image and GT
+	imgOriginal, err := ReadImageFromFile("data/edge_test_image.png")
+	img := ConvertImage(imgOriginal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gtGradient, err := ReadImageFromFile("data/edge_test_gradient.png")
+	gtGrad := ConvertImage(gtGradient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gtNonMaxSup, err := ReadImageFromFile("data/edge_test_nms.png")
+	gtNms := ConvertImage(gtNonMaxSup)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Compute forward gradient
+	imgGradient, _ := ForwardGradient(img, 0., false)
+	magData := imgGradient.Magnitude.RawMatrix().Data
+	magDataInt := make([]Color, len(magData))
+	for idx := 0; idx < len(magData); idx++ {
+		magDataInt[idx] = NewColor(uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])), uint8(math.Round(magData[idx])))
+	}
+	magOut := Image{
+		data:   magDataInt,
+		width:  gtGrad.Width(),
+		height: gtGrad.Height(),
+	}
+
+	// NMS
+	nms, _ := GradientNonMaximumSuppressionC8(imgGradient.Magnitude, imgGradient.Direction)
+	nmsData := nms.RawMatrix().Data
+	nmsDataInt := make([]Color, len(nmsData))
+	for idx := 0; idx < len(magData); idx++ {
+		nmsDataInt[idx] = NewColor(uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])), uint8(math.Round(nmsData[idx])))
+	}
+	nmsOut := Image{
+		data:   nmsDataInt,
+		width:  gtGrad.Width(),
+		height: gtGrad.Height(),
+	}
+
+	// run tests
+	var tests = []struct {
+		testName        string
+		dataOut, dataGT []Color
+	}{
+		{"gradient", magOut.data, gtGrad.data},
+		{"nms", nmsOut.data, gtNms.data},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			assert.Equal(t, len(tt.dataOut), len(tt.dataGT))
+			assert.Equal(t, tt.dataOut, tt.dataOut)
+		})
 	}
 }
