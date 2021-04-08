@@ -3,7 +3,9 @@ package kinematics
 import (
 	"go.viam.com/robotcore/kinematics/kinmath"
 
+	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
+	"gonum.org/v1/gonum/mat"
 )
 
 type JacobianIK struct {
@@ -132,9 +134,8 @@ func (ik *JacobianIK) Solve() bool {
 	return false
 }
 
-//~ func printMat(m *mgl64.MatMxN, name string) {
-//~ j2 := mat.NewDense(m.NumRows(), m.NumCols(), m.Transpose(nil).Raw())
-//~ fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
-//~ fmt.Printf("%s = %v", name, fc)
-//~ fmt.Println("")
-//~ }
+func PrintMat(m *mgl64.MatMxN, name string, logger golog.Logger) {
+	j2 := mat.NewDense(m.NumRows(), m.NumCols(), m.Transpose(nil).Raw())
+	fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())
+	logger.Debugf("%s = %v", name, fc)
+}

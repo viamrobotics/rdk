@@ -147,19 +147,6 @@ func (m *Model) CalculateJacobian() {
 		m.Jacobian.Set(3, i, jacQuat.Real.Imag)
 		m.Jacobian.Set(4, i, jacQuat.Real.Jmag)
 		m.Jacobian.Set(5, i, jacQuat.Real.Kmag)
-
-		//~ for j := 0; j < m.GetOperationalDof(); j++ {
-		//~ if inWorldFrame {
-		//~ j1 := m.GetOperationalPosition(j).Rotation().Mul3x1(m.GetOperationalVelocity(j).Linear)
-		//~ m.Jacobian.Set(j*6, i, j1.X())
-		//~ m.Jacobian.Set(j*6+1, i, j1.Y())
-		//~ m.Jacobian.Set(j*6+2, i, j1.Z())
-		//~ j2 := m.GetOperationalPosition(j).Rotation().Mul3x1(m.GetOperationalVelocity(j).Angular)
-		//~ m.Jacobian.Set(j*6+3, i, j2.X())
-		//~ m.Jacobian.Set(j*6+4, i, j2.Y())
-		//~ m.Jacobian.Set(j*6+5, i, j2.Z())
-		//~ }
-		//~ }
 	}
 }
 
@@ -213,19 +200,23 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 			m.InvJacobian.Add(m.InvJacobian, colV)
 			// TODO(pl): Settle on one matrix implementation rather than swapping between gonum/mat and mgl64/MatMxN
 		}
-
-		//~ } else {
-		//~ n := m.GetOperationalDof() * 6
-		//~ trans := mat.NewDense(nc, nr, m.Jacobian.Raw())
-		//~ dampingMatrix := mat.NewDense(n, n, mgl64.IdentN(nil, n).Mul(nil, lambda*lambda).Raw())
-		//~ var m1, m2, m3, invJ mat.Dense
-		//~ m1.Mul(denseJac, trans)
-		//~ m2.Add(&m1, dampingMatrix)
-		//~ m3.Inverse(&m2)
-		//~ invJ.Mul(trans, &m3)
-		//~ rawIJ := invJ.RawMatrix()
-
-		//~ m.InvJacobian = mgl64.NewMatrixFromData(rawIJ.Data, rawIJ.Rows, rawIJ.Cols)
+	} else {
+		// This implements the Dampened Least Squares algorithm, which does not work overly well.
+		// Do not recommend using this- use the Singular Value Decomposition method above
+		// But it's here if you need it
+		n := m.GetOperationalDof() * 6
+		trans := mat.NewDense(nc, nr, m.Jacobian.Raw())
+		dampingMatrix := mat.NewDense(n, n, mgl64.IdentN(nil, n).Mul(nil, lambda*lambda).Raw())
+		var m1, m2, m3, invJ mat.Dense
+		m1.Mul(denseJac, trans)
+		m2.Add(&m1, dampingMatrix)
+		err := m3.Inverse(&m2)
+		if err != nil {
+			log.Fatal("failed to invert DLS matrix")
+		}
+		invJ.Mul(trans, &m3)
+		rawIJ := invJ.RawMatrix()
+		m.InvJacobian = mgl64.NewMatrixFromData(rawIJ.Data, rawIJ.Rows, rawIJ.Cols)
 	}
 }
 
