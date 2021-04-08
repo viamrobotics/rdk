@@ -1,18 +1,16 @@
 package rimage
 
 import (
-	"container/list"
 	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"sort"
 
+	"github.com/disintegration/imaging"
 	"github.com/gonum/floats"
 	"github.com/gonum/stat"
 	"gonum.org/v1/gonum/mat"
-
-	"github.com/disintegration/imaging"
 )
 
 // return avg color, avg distances to avg color
@@ -171,15 +169,16 @@ func (i *Image) Rotate(amount int) *Image {
 }
 
 type EdgeDetector interface {
-	// Edge image with varying intensity
+	// DetectEdges detects edges in the given image represented in a grayscale image
+	// returns either a map of edges with magnitude or probability or a binary image
 	DetectEdges(*Image, ...float64) *image.Gray
 	// Edge binary image
 	GetEdgeMap(*Image, ...float64) *Image
 }
 
 type CannyEdgeDetector struct {
-	HighRatio, LowRatio float64
-	PreprocessImage     bool
+	highRatio, lowRatio float64
+	preprocessImage     bool
 }
 
 func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
@@ -187,24 +186,20 @@ func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 }
 
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) *image.Gray {
-	var err error
-	var mag, direction, nms *mat.Dense
-	var low, high float64
-	var edges *image.Gray
 
-	_, _, mag, direction, err = ForwardGradient(img, blur, cd.PreprocessImage)
+	_, _, mag, direction, err := ForwardGradient(img, blur, cd.preprocessImage)
 	if err != nil {
 		panic(err)
 	}
-	nms, err = GradientNonMaximumSuppressionC8(mag, direction)
+	nms, err := GradientNonMaximumSuppressionC8(mag, direction)
 	if err != nil {
 		panic(err)
 	}
-	low, high, err = GetHysteresisThresholds(mag, nms, cd.HighRatio, cd.LowRatio)
+	low, high, err := GetHysteresisThresholds(mag, nms, cd.highRatio, cd.lowRatio)
 	if err != nil {
 		panic(err)
 	}
-	edges, err = EdgeHysteresisFiltering(mag, low, high)
+	edges, err := EdgeHysteresisFiltering(mag, low, high)
 	if err != nil {
 		panic(err)
 	}
@@ -280,9 +275,8 @@ type PixelCoords struct {
 
 // isPixelCoordsInList takes a List and looks for an element in it. If found it will
 // return true, otherwise false
-func isPixelCoordsInList(currentList list.List, val PixelCoords) bool {
-	for e := currentList.Front(); e != nil; e = e.Next() {
-		coords := e.Value.(PixelCoords)
+func isPixelCoordsInSlice(currentList []PixelCoords, val PixelCoords) bool {
+	for _, coords := range currentList {
 		if coords == val {
 			return true
 		}
@@ -304,7 +298,7 @@ func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, err
 				angle = angle + math.Pi
 			}
 			// Compute bin of gradient direction at current pixel
-			rangle := int(math.Round(angle / (math.Pi / 4)))
+			rangle := int(math.Round(angle/(math.Pi/4) + 0.5))
 			// Compare pixel values in the gradient direction with current pixel value
 			magVal := mag.At(i, j)
 			cond1 := (rangle%4 == 0 || rangle == 4) && (mag.At(i, j-1) > magVal || mag.At(i, j+1) > magVal)
@@ -373,30 +367,30 @@ Returns only the pixel within the image bounds.
 *  .   .   .
 */
 func GetConnectivity8Neighbors(i, j, r, c int) []PixelCoords {
-	neighbors := make([]PixelCoords, 0)
+	neighbors := make([]PixelCoords, 8)
 	if i-1 > 0 && j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i - 1, j - 1})
+		neighbors[0] = PixelCoords{i - 1, j - 1}
 	}
 	if i-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i - 1, j})
+		neighbors[1] = PixelCoords{i - 1, j}
 	}
 	if i-1 > 0 && j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i - 1, j + 1})
+		neighbors[2] = PixelCoords{i - 1, j + 1}
 	}
 	if j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i, j - 1})
+		neighbors[3] = PixelCoords{i, j - 1}
 	}
 	if j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i, j + 1})
+		neighbors[4] = PixelCoords{i, j + 1}
 	}
 	if i+1 < r && j-1 > 0 {
-		neighbors = append(neighbors, PixelCoords{i + 1, j - 1})
+		neighbors[5] = PixelCoords{i + 1, j - 1}
 	}
 	if i+1 < r {
-		neighbors = append(neighbors, PixelCoords{i + 1, j})
+		neighbors[6] = PixelCoords{i + 1, j}
 	}
 	if i+1 < r && j+1 < c {
-		neighbors = append(neighbors, PixelCoords{i + 1, j + 1})
+		neighbors[7] = PixelCoords{i + 1, j + 1}
 	}
 	return neighbors
 }
@@ -409,30 +403,29 @@ This allows to remove weak edges but preserves edges that are strong or partiall
 */
 func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, error) {
 	r, c := mag.Dims()
-	//filteredEdges := mat.NewDense(r, c, nil)
-	queue := list.New()
+	queue := make([]PixelCoords, 0)
 	edges := image.NewGray(image.Rect(0, 0, c, r))
 	// Keep edge pixels with strong gradient value
 	for j := 0; j < c; j++ {
 		for i := 0; i < r; i++ {
 			if mag.At(i, j) > high {
 				coords := PixelCoords{i, j}
-				queue.PushBack(coords)
+				queue = append(queue, coords)
 			}
 		}
 	}
 	// Keep edge pixels with weak gradient value next to an edge pixel with a strong value
 	lastIterationQueue := queue
-	for lastIterationQueue.Len() > 0 {
-		newKeep := list.New()
+	for len(lastIterationQueue) > 0 {
+		newKeep := make([]PixelCoords, 0)
 		// Iterate through list and print its contents.
-		for e := lastIterationQueue.Front(); e != nil; e = e.Next() {
-			coords := e.Value.(PixelCoords)
+		for _, coords := range lastIterationQueue {
+			//coords := e.Value.(PixelCoords)
 			neighbors := GetConnectivity8Neighbors(coords.I, coords.J, r, c)
 			for _, nb := range neighbors {
-				if mag.At(nb.I, nb.J) > low && !isPixelCoordsInList(*queue, nb) {
-					newKeep.PushBack(nb)
-					queue.PushBack(nb)
+				if mag.At(nb.I, nb.J) > low && !isPixelCoordsInSlice(queue, nb) {
+					newKeep = append(newKeep, nb)
+					queue = append(queue, nb)
 
 				}
 			}
@@ -440,8 +433,7 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 		lastIterationQueue = newKeep
 	}
 	// Fill out image
-	for e := queue.Front(); e != nil; e = e.Next() {
-		coords := e.Value.(PixelCoords)
+	for _, coords := range queue {
 		edges.Set(coords.J, coords.I, color.Gray{255})
 	}
 	return edges, nil
