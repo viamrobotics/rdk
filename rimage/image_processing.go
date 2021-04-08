@@ -273,17 +273,6 @@ type MatrixPixelPoint struct {
 	I, J int
 }
 
-// isPixelCoordsInList takes a List and looks for an element in it. If found it will
-// return true, otherwise false
-func isPixelCoordsInSlice(currentList []MatrixPixelPoint, val MatrixPixelPoint) bool {
-	for _, coords := range currentList {
-		if coords == val {
-			return true
-		}
-	}
-	return false
-}
-
 // GradientNonMaximumSuppressionC8 computes the non maximal suppression of edges in Connectivity 8
 // For each pixel, it checks if at least one the two pixels in the current gradient direction has a greater magnitude
 // than the current pixel
@@ -419,7 +408,7 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 	for len(lastIterationQueue) > 0 {
 		newKeep := map[MatrixPixelPoint]bool{}
 		// Iterate through list and print its contents.
-		for coords, _ := range lastIterationQueue {
+		for coords := range lastIterationQueue {
 			//coords := e.Value.(MatrixPixelPoint)
 			neighbors := GetConnectivity8Neighbors(coords.I, coords.J, r, c)
 			for _, nb := range neighbors {
@@ -433,7 +422,7 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 		lastIterationQueue = newKeep
 	}
 	// Fill out image
-	for coords, _ := range visited {
+	for coords := range visited {
 		edges.Set(coords.J, coords.I, color.Gray{255})
 	}
 	return edges, nil
