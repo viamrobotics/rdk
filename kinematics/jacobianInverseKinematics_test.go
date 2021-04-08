@@ -5,17 +5,12 @@ import (
 	"testing"
 
 	"go.viam.com/robotcore/kinematics/kinmath"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
-
-type Position struct {
-	X, Y, Z float64 // millimeters distance of the end effector from the base
-
-	Rx, Ry, Rz float64 // angular orientation about each axis, in degrees
-}
 
 func TestCreateJacIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -25,12 +20,12 @@ func TestCreateJacIKSolver(t *testing.T) {
 	m.SetPosition([]float64{1, 0, 0, 0, 0, 1})
 	m.ForwardPosition()
 
-	pos := Position{360, 0, 360.25, 15, 0, 0}
-	pos.Rx *= math.Pi / 180
-	pos.Ry *= math.Pi / 180
-	pos.Rz *= math.Pi / 180
+	pos := pb.ArmPosition{X: 360, Y: 0, Z: 360.25, RX: 15, RY: 0, RZ: 0}
+	pos.RX *= math.Pi / 180
+	pos.RY *= math.Pi / 180
+	pos.RZ *= math.Pi / 180
 
-	transform := kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
 	transform.SetX(pos.X / 2)
 	transform.SetY(pos.Y / 2)
 	transform.SetZ(pos.Z / 2)
