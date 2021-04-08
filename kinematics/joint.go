@@ -16,7 +16,17 @@ import (
 
 // TODO(pl): Maybe we want to make this an interface which different joint types implement
 // TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
+
+type Axis int
+
+const (
+	Xaxis Axis = iota
+	Yaxis
+	Zaxis
+)
+
 type Joint struct {
+	axes        []Axis
 	dofPosition int
 	dofVelocity int
 	max         []float64
@@ -89,18 +99,18 @@ func Distance(q1, q2 []float64) float64 {
 
 func (j *Joint) ForwardPosition() {
 	j.transform.ForwardPosition()
-	//t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
 }
 
+// Note that this currently only works for 1DOF revolute joints
+// Will need to be updated for ball joints
 func (j *Joint) ForwardVelocity() {
 
-	allRotAxes := j.GetRotationAxes()
 	axis := -1
-	// Only one DOF should have nonzero velocity
+	// Only one DOF should have nonzero velocity for standard revolute joints
+	// If this is not the joint for which we are calculating the Jacobial, all positionD will be 0
 	for i, v := range j.positionD {
 		if v > 0 {
-			axis = allRotAxes[i]
-			break
+			axis = int(j.axes[i])
 		}
 	}
 	velQuat := j.transform.t.Quat
@@ -170,16 +180,17 @@ func (j *Joint) GetRotationVector() quat.Number {
 	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
 }
 
-// GetRotationAxes will return a list of length GetDofPosition() with the axis for each DOF
-// The ints contained therein will be 0, 1, or 2 corresponding to the index of which derivative to use
-func (j *Joint) GetRotationAxes() []int {
-	var axes []int
-	for i := 0; i < 3; i++ {
-		if j.SpatialMat.At(i, 0) > 0 {
-			axes = append(axes, i)
-		}
+// SetAxesFromSpatial will note the
+func (j *Joint) SetAxesFromSpatial() {
+	if j.SpatialMat.At(0, 0) > 0 {
+		j.axes = append(j.axes, Xaxis)
 	}
-	return axes
+	if j.SpatialMat.At(1, 0) > 0 {
+		j.axes = append(j.axes, Yaxis)
+	}
+	if j.SpatialMat.At(2, 0) > 0 {
+		j.axes = append(j.axes, Zaxis)
+	}
 }
 
 // PointAtZ returns the quat about which to rotate to point this joint's axis at Z

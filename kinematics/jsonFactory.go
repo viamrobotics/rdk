@@ -145,6 +145,7 @@ func ParseJSONFile(filename string, logger golog.Logger) (*Model, error) {
 			rev.SpatialMat.Set(0, 0, joint.Axis.X)
 			rev.SpatialMat.Set(1, 0, joint.Axis.Y)
 			rev.SpatialMat.Set(2, 0, joint.Axis.Z)
+			rev.SetAxesFromSpatial()
 
 			rev.SetName("joint" + strconv.Itoa(joint.ID))
 		} else {
