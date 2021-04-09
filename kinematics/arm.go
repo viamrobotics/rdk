@@ -122,9 +122,6 @@ func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	k.SetJointPositions(curPos.Degrees)
 	pos := k.GetForwardPosition()
 
-	pos.X /= 1000
-	pos.Y /= 1000
-	pos.Z /= 1000
 	return pos, nil
 
 }
@@ -142,10 +139,6 @@ func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 }
 
 func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	pos.X *= 1000
-	pos.Y *= 1000
-	pos.Z *= 1000
-
 	err := k.SetForwardPosition(pos)
 	if err != nil {
 		return err
@@ -153,5 +146,5 @@ func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 
 	joints := &pb.JointPositions{Degrees: k.modelJointsPosition()}
 
-	return k.real.MoveToJointPositions(ctx, joints)
+	return k.MoveToJointPositions(ctx, joints)
 }
