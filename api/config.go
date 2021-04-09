@@ -108,10 +108,7 @@ type Component struct {
 	Host string
 	Port int
 
-	Type ComponentType
-	// TODO(erd): Don't love this but also against doing e.g. sensor/compass
-	// as a hack within ComponentType. Doing so makes ComponentType a weak
-	// type that doesn't have proper equality.
+	Type    ComponentType
 	SubType string
 	Model   string
 
