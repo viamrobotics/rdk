@@ -148,8 +148,8 @@ func (base *fourWheelBase) Stop(ctx context.Context) error {
 	)
 }
 
-func (base *fourWheelBase) Close(ctx context.Context) error {
-	return base.Stop(ctx)
+func (base *fourWheelBase) Close() error {
+	return base.Stop(context.Background())
 }
 
 func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {

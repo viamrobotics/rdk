@@ -51,8 +51,8 @@ func (b *Base) Stop(ctx context.Context) error {
 	return checkPythonErr()
 }
 
-func (b *Base) Close(ctx context.Context) error {
-	return b.Stop(ctx)
+func (b *Base) Close() error {
+	return b.Stop(context.Background())
 }
 
 const baseTranslateSpeed = 1.0 / 6 // m/sec

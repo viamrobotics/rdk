@@ -9,7 +9,9 @@ import (
 )
 
 func init() {
-	RegisterBoard("fake", NewFakeBoard)
+	RegisterBoard("fake", func(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
+		return NewFakeBoard(ctx, cfg, logger)
+	})
 }
 
 type fakeServo struct {
@@ -62,10 +64,6 @@ func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	return b.digitals[name]
 }
 
-func (b *FakeBoard) Close(ctx context.Context) error {
-	return nil
-}
-
 func (b *FakeBoard) GetConfig(ctx context.Context) (Config, error) {
 	return b.cfg, nil
 }
@@ -74,7 +72,7 @@ func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return CreateStatus(ctx, b)
 }
 
-func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
+func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBoard, error) {
 	var err error
 
 	b := &FakeBoard{

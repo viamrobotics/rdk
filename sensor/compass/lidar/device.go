@@ -53,11 +53,11 @@ func New(ctx context.Context, config api.Component, logger golog.Logger) (compas
 	return &Device{Device: lidarDevice}, nil
 }
 
-func (d *Device) Close(ctx context.Context) (err error) {
+func (d *Device) Close() (err error) {
 	defer func() {
-		err = multierr.Combine(err, d.Device.Close(ctx))
+		err = multierr.Combine(err, utils.TryClose(d.Device))
 	}()
-	return d.Device.Stop(ctx) // because we started it
+	return d.Device.Stop(context.Background()) // because we started it
 }
 
 func (d *Device) clone() *Device {
