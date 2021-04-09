@@ -50,13 +50,17 @@ type RobotClient struct {
 
 type RobotClientOptions struct {
 	RefreshStatusEvery time.Duration
+	Secure             bool
 }
 
 func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (api.Robot, error) {
-	// TODO(erd): address insecure
 	var conn rpc.ClientConn
 	var err error
-	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
+	dialOpts := []grpc.DialOption{grpc.WithBlock()}
+	// if this is secure, there's no way via RobotClientOptions to set credentials
+	if !opts.Secure {
+		dialOpts = append(dialOpts, grpc.WithInsecure())
+	}
 	if dialer := rpc.ContextDialer(ctx); dialer != nil {
 		conn, err = dialer.Dial(ctx, address, dialOpts...)
 	} else {
