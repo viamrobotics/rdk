@@ -48,9 +48,9 @@ func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, milli
 	return d, rpm, rotations
 }
 
-func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	if distanceMillis == 0 && block {
-		return fmt.Errorf("cannot block unless you have a distance")
+		return 0, fmt.Errorf("cannot block unless you have a distance")
 	}
 
 	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
@@ -58,15 +58,18 @@ func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	for _, m := range base.allMotors {
 		err := m.GoFor(ctx, d, rpm, rotations)
 		if err != nil {
-			return multierr.Combine(err, base.Stop(ctx))
+			// TODO(erh): return how much it actually moved
+			return 0, multierr.Combine(err, base.Stop(ctx))
 		}
 	}
 
 	if !block {
-		return nil
+		// TODO(erh): return how much it actually moved
+		return distanceMillis, nil
 	}
 
-	return base.waitForMotorsToStop(ctx)
+	// TODO(erh): return how much it actually moved
+	return distanceMillis, base.waitForMotorsToStop(ctx)
 }
 
 // return left direction, rpm, rotations
@@ -87,7 +90,7 @@ func (base *fourWheelBase) spinMath(angleDeg float64, speed int) (pb.DirectionRe
 	return leftDirection, rpm, rotations
 }
 
-func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
+func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 	leftDirection, rpm, rotations := base.spinMath(angleDeg, speed)
 	rightDirection := board.FlipDirection(leftDirection)
 
@@ -99,14 +102,16 @@ func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, speed int
 	)
 
 	if err != nil {
-		return multierr.Combine(err, base.Stop(ctx))
+		return math.NaN(), multierr.Combine(err, base.Stop(ctx))
 	}
 
 	if !block {
-		return nil
+		// TODO(erh): return how much it actually spun
+		return angleDeg, nil
 	}
 
-	return base.waitForMotorsToStop(ctx)
+	// TODO(erh): return how much it actually spun
+	return angleDeg, base.waitForMotorsToStop(ctx)
 }
 
 func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {

@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/draw"
 	"image/jpeg"
+	"math"
 	"time"
 
 	"go.viam.com/robotcore/api"
@@ -97,9 +98,23 @@ func (s *Server) ControlBase(ctx context.Context, req *pb.ControlBaseRequest) (*
 		}
 		switch o := v.Move.Option.(type) {
 		case *pb.MoveBase_StraightDistanceMillis:
-			return &pb.ControlBaseResponse{}, base.MoveStraight(ctx, int(o.StraightDistanceMillis), millisPerSec, false)
+			moved, err := base.MoveStraight(ctx, int(o.StraightDistanceMillis), millisPerSec, false)
+			if err != nil {
+				if moved == 0 {
+					return nil, err
+				}
+				return &pb.ControlBaseResponse{Success: false, Error: err.Error(), Result: &pb.ControlBaseResponse_StraightDistanceMillis{StraightDistanceMillis: int64(moved)}}, nil
+			}
+			return &pb.ControlBaseResponse{Success: true, Result: &pb.ControlBaseResponse_StraightDistanceMillis{StraightDistanceMillis: int64(moved)}}, nil
 		case *pb.MoveBase_SpinAngleDeg:
-			return &pb.ControlBaseResponse{}, base.Spin(ctx, o.SpinAngleDeg, 64, false)
+			spun, err := base.Spin(ctx, o.SpinAngleDeg, 64, false)
+			if err != nil {
+				if math.IsNaN(spun) || spun == 0 {
+					return nil, err
+				}
+				return &pb.ControlBaseResponse{Success: false, Error: err.Error(), Result: &pb.ControlBaseResponse_SpinAngleDeg{SpinAngleDeg: spun}}, nil
+			}
+			return &pb.ControlBaseResponse{Success: true, Result: &pb.ControlBaseResponse_SpinAngleDeg{SpinAngleDeg: spun}}, nil
 		default:
 			return nil, fmt.Errorf("unknown move %T", o)
 		}

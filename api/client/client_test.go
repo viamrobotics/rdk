@@ -141,14 +141,14 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capBaseMoveArgs []interface{}
-	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 		capBaseMoveArgs = []interface{}{distanceMillis, millisPerSec, block}
-		return nil
+		return distanceMillis, nil
 	}
 	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 		capBaseSpinArgs = []interface{}{angleDeg, speed, block}
-		return nil
+		return angleDeg, nil
 	}
 	injectRobot2.BaseByNameFunc = func(name string) api.Base {
 		capBaseName = name
@@ -333,11 +333,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	err = client.BaseByName("base1").MoveStraight(context.Background(), 0, 0, false)
+	_, err = client.BaseByName("base1").MoveStraight(context.Background(), 5, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	err = client.BaseByName("base1").Spin(context.Background(), 0, 0, false)
+	_, err = client.BaseByName("base1").Spin(context.Background(), 5.2, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
@@ -407,15 +407,17 @@ func TestClient(t *testing.T) {
 	test.That(t, baseStopCalled, test.ShouldBeTrue)
 	test.That(t, capBaseName, test.ShouldEqual, "base1")
 
-	err = client.BaseByName("base2").MoveStraight(context.Background(), 5, 6.2, false)
+	moved, err := client.BaseByName("base2").MoveStraight(context.Background(), 5, 6.2, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseMoveArgs, test.ShouldResemble, []interface{}{5, 6.2, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base2")
+	test.That(t, moved, test.ShouldEqual, 5)
 
-	err = client.BaseByName("base3").Spin(context.Background(), 7.2, 33, false)
+	spun, err := client.BaseByName("base3").Spin(context.Background(), 7.2, 33, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 64, false}) // 64 is hardcoded
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
+	test.That(t, spun, test.ShouldEqual, 7.2)
 
 	pos, err := client.ArmByName("arm1").CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)

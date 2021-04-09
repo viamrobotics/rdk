@@ -40,9 +40,9 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			i++
-			return nil
+			return 2.4, nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -57,9 +57,9 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("off by under third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			i++
-			return nil
+			return 2.4, nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -74,9 +74,9 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("off by over third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			i++
-			return nil
+			return 2.4, nil
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			if i == 0 {
@@ -90,28 +90,28 @@ func TestDeviceWithCompass(t *testing.T) {
 	})
 
 	t.Run("error getting heading", func(t *testing.T) {
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
-			return nil
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+			return angleDeg, nil
 		}
 		err1 := errors.New("oh no")
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
-			return 0, err1
+			return math.NaN(), err1
 		}
 		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
+		test.That(t, ang, test.ShouldEqual, 0)
 	})
 
 	t.Run("error spinning", func(t *testing.T) {
 		err1 := errors.New("oh no")
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
-			return err1
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+			return 2.4, err1
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		ang, _, err := api.DoMove(context.Background(), api.Move{AngleDeg: 10}, aug)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-		test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
+		test.That(t, ang, test.ShouldEqual, 2.4)
 	})
 }
