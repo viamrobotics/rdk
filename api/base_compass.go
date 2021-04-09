@@ -31,33 +31,37 @@ type baseDeviceWithCompass struct {
 	logger  golog.Logger
 }
 
-func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
+func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 	rel, _ := wc.compass.(compass.RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
-			return err
+			return math.NaN(), err
 		}
 	}
+	origAngleDeg := angleDeg
+	var totalSpin float64
 	for {
 		startHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
-			return err
+			return totalSpin, err
 		}
 		wc.logger.Debugf("start heading %f", startHeading)
-		if err := wc.Base.Spin(ctx, angleDeg, speed, block); err != nil {
-			return err
+		spun, err := wc.Base.Spin(ctx, angleDeg, speed, block)
+		totalSpin += spun
+		if err != nil {
+			return totalSpin, err
 		}
 		time.Sleep(1 * time.Second)
 		endHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
-			return err
+			return totalSpin, err
 		}
 		wc.logger.Debugf("end heading %f", endHeading)
 		actual := utils.AngleDiffDeg(startHeading, endHeading)
 		offBy := math.Abs(math.Abs(angleDeg) - actual)
 		wc.logger.Debugf("off by %f", offBy)
 		if offBy < 1 {
-			return nil
+			return origAngleDeg, nil
 		}
 		if actual > angleDeg {
 			offBy *= -1

@@ -257,11 +257,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown move")
 
 		var capArgs []interface{}
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return err1
+			return 2, err1
 		}
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		resp, err := server.ControlBase(ctx, &pb.ControlBaseRequest{
 			Name: "base1",
 			Action: &pb.ControlBaseRequest_Move{
 				Move: &pb.MoveBase{
@@ -271,14 +271,17 @@ func TestServer(t *testing.T) {
 				},
 			},
 		})
-		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 500.0, false})
+		test.That(t, resp.Success, test.ShouldBeFalse)
+		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
+		test.That(t, resp.GetStraightDistanceMillis(), test.ShouldEqual, 2)
 
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return nil
+			return distanceMillis, nil
 		}
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
 			Name: "base1",
 			Action: &pb.ControlBaseRequest_Move{
 				Move: &pb.MoveBase{
@@ -291,12 +294,14 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 2.3, false})
+		test.That(t, resp.Success, test.ShouldBeTrue)
+		test.That(t, resp.GetStraightDistanceMillis(), test.ShouldEqual, 1)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			capArgs = []interface{}{ctx, angleDeg, speed, block}
-			return err1
+			return 2.2, err1
 		}
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
 			Name: "base1",
 			Action: &pb.ControlBaseRequest_Move{
 				Move: &pb.MoveBase{
@@ -306,14 +311,17 @@ func TestServer(t *testing.T) {
 				},
 			},
 		})
-		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64, false})
+		test.That(t, resp.Success, test.ShouldBeFalse)
+		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
+		test.That(t, resp.GetSpinAngleDeg(), test.ShouldEqual, 2.2)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			capArgs = []interface{}{ctx, angleDeg, speed, block}
-			return nil
+			return angleDeg, nil
 		}
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
 			Name: "base1",
 			Action: &pb.ControlBaseRequest_Move{
 				Move: &pb.MoveBase{
@@ -326,6 +334,8 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64, false})
+		test.That(t, resp.Success, test.ShouldBeTrue)
+		test.That(t, resp.GetSpinAngleDeg(), test.ShouldEqual, 4.5)
 	})
 
 	t.Run("ArmCurrentPosition", func(t *testing.T) {

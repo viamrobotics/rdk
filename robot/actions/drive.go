@@ -50,13 +50,15 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 
 	if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
 		theRobot.Logger().Debugf("error getting depth info: %s, backing up", err)
-		return base.MoveStraight(ctx, -200, 60, true)
+		_, err := base.MoveStraight(ctx, -200, 60, true)
+		return err
 	}
 
 	_, points := roverWalk(pc, false, theRobot.Logger())
 	if points < 200 {
 		theRobot.Logger().Debugf("safe to move forward")
-		return base.MoveStraight(ctx, 200, 50, true)
+		_, err := base.MoveStraight(ctx, 200, 50, true)
+		return err
 	}
 
 	fn := fmt.Sprintf("data/rover-cannot-walk-%d.both.gz", time.Now().Unix())
@@ -66,7 +68,8 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 	}
 
 	theRobot.Logger().Debugf("not safe, let's spin, wrote debug img to: %s", fn)
-	return base.Spin(ctx, -15, 60, true)
+	_, err = base.Spin(ctx, -15, 60, true)
+	return err
 }
 
 func RandomWalk(theRobot api.Robot) {

@@ -28,18 +28,24 @@ type Base struct {
 	baseObj *python.PyObject
 }
 
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	if millisPerSec != 0 {
 		b.robot.logger.Info("Base.MoveStraight does not support speed")
 	}
-	return b.TranslateBy(float64(distanceMillis)/1000, block)
+	if err := b.TranslateBy(float64(distanceMillis)/1000, block); err != nil {
+		return 0, err
+	}
+	return distanceMillis, nil
 }
 
-func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 	if speed != 0 {
 		b.robot.logger.Info("Base.Spin does not support speed")
 	}
-	return b.RotateBy(angleDeg, block)
+	if err := b.RotateBy(angleDeg, block); err != nil {
+		return math.NaN(), err
+	}
+	return angleDeg, nil
 }
 
 func (b *Base) WidthMillis(ctx context.Context) (int, error) {

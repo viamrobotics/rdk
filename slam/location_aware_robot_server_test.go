@@ -77,12 +77,12 @@ func TestServer(t *testing.T) {
 		th.bot.baseDevice = injectBase
 		spinCount := 0
 		spinErr := errors.New("nospin")
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 			if spinCount == 2 {
-				return spinErr
+				return 2.4, spinErr
 			}
 			spinCount++
-			return nil
+			return angleDeg, nil
 		}
 
 		_, err = server.Calibrate(context.Background(), &pb.CalibrateRequest{})
@@ -99,8 +99,8 @@ func TestServer(t *testing.T) {
 		}
 		baseWithCompass := api.BaseWithCompass(injectBase, theCompass, th.logger)
 		th.bot.baseDevice = baseWithCompass
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
-			return nil
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+			return angleDeg, nil
 		}
 		_, err = server.Calibrate(context.Background(), &pb.CalibrateRequest{})
 		test.That(t, err, test.ShouldBeNil)
@@ -594,8 +594,8 @@ func TestHandleClick(t *testing.T) {
 		}
 		larBot.baseDevice = injectBase
 		err1 := errors.New("whoops")
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			return err1
+		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+			return 2, err1
 		}
 		_, err := larBot.HandleClick(context.Background(), 1, 2, 3, 4)
 		test.That(t, err, test.ShouldWrap, err1)

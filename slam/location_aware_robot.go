@@ -228,8 +228,22 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 		// supported yet in core.
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
-	if _, _, err := api.DoMove(ctx, move, lar.baseDevice); err != nil {
+	spun, moved, err := api.DoMove(ctx, move, lar.baseDevice)
+	if err != nil {
 		return err
+	}
+	if spun != move.AngleDeg {
+		newOrientation = utils.ModAngDeg(currentOrientation + spun)
+	}
+	if moved != move.DistanceMillis {
+		// this can easily fail if newOrientation is not divisible by 90
+		// can only work if you can be at any orientation. this is an accepted
+		// failure that breaks the algorithm for now.
+		calcP, err := lar.calculateMove(newOrientation, moved)
+		if err != nil {
+			return err
+		}
+		newX, newY = calcP.X, calcP.Y
 	}
 	lar.basePosX = newX
 	lar.basePosY = newY

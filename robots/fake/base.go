@@ -17,12 +17,12 @@ func init() {
 type Base struct {
 }
 
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	return nil
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+	return distanceMillis, nil
 }
 
-func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-	return nil
+func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+	return angleDeg, nil
 }
 
 func (b *Base) WidthMillis(ctx context.Context) (int, error) {

@@ -255,7 +255,14 @@ message MoveBase {
 	}
 }
 
-message ControlBaseResponse {}
+message ControlBaseResponse {
+	bool success = 1;
+	string error = 2;
+	oneof result {
+		int64 straight_distance_millis = 3;
+		double spin_angle_deg = 4;
+	}	
+}
 
 message ArmCurrentPositionRequest {
 	string name = 1;

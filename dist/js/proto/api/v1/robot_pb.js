@@ -46,6 +46,7 @@ goog.exportSymbol('proto.proto.api.v1.CompassStopCalibrationResponse', null, glo
 goog.exportSymbol('proto.proto.api.v1.ControlBaseRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.ControlBaseRequest.ActionCase', null, global);
 goog.exportSymbol('proto.proto.api.v1.ControlBaseResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.ControlBaseResponse.ResultCase', null, global);
 goog.exportSymbol('proto.proto.api.v1.ControlBoardMotorRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.ControlBoardMotorResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.ControlBoardServoRequest', null, global);
@@ -478,7 +479,7 @@ if (goog.DEBUG && !COMPILED) {
  * @constructor
  */
 proto.proto.api.v1.ControlBaseResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.proto.api.v1.ControlBaseResponse.oneofGroups_);
 };
 goog.inherits(proto.proto.api.v1.ControlBaseResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
@@ -4597,6 +4598,32 @@ proto.proto.api.v1.MoveBase.prototype.hasSpinAngleDeg = function() {
 
 
 
+/**
+ * Oneof group definitions for this message. Each group defines the field
+ * numbers belonging to that group. When of these fields' value is set, all
+ * other fields in the group are cleared. During deserialization, if multiple
+ * fields are encountered for a group, only the last value seen will be kept.
+ * @private {!Array<!Array<number>>}
+ * @const
+ */
+proto.proto.api.v1.ControlBaseResponse.oneofGroups_ = [[3,4]];
+
+/**
+ * @enum {number}
+ */
+proto.proto.api.v1.ControlBaseResponse.ResultCase = {
+  RESULT_NOT_SET: 0,
+  STRAIGHT_DISTANCE_MILLIS: 3,
+  SPIN_ANGLE_DEG: 4
+};
+
+/**
+ * @return {proto.proto.api.v1.ControlBaseResponse.ResultCase}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.getResultCase = function() {
+  return /** @type {proto.proto.api.v1.ControlBaseResponse.ResultCase} */(jspb.Message.computeOneofCase(this, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0]));
+};
+
 
 
 if (jspb.Message.GENERATE_TO_OBJECT) {
@@ -4628,7 +4655,10 @@ proto.proto.api.v1.ControlBaseResponse.prototype.toObject = function(opt_include
  */
 proto.proto.api.v1.ControlBaseResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-
+    success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    straightDistanceMillis: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    spinAngleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0)
   };
 
   if (includeInstance) {
@@ -4665,6 +4695,22 @@ proto.proto.api.v1.ControlBaseResponse.deserializeBinaryFromReader = function(ms
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setSuccess(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setError(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setStraightDistanceMillis(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setSpinAngleDeg(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -4694,6 +4740,142 @@ proto.proto.api.v1.ControlBaseResponse.prototype.serializeBinary = function() {
  */
 proto.proto.api.v1.ControlBaseResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
+  f = message.getSuccess();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+  f = message.getError();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = /** @type {number} */ (jspb.Message.getField(message, 3));
+  if (f != null) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
+  f = /** @type {number} */ (jspb.Message.getField(message, 4));
+  if (f != null) {
+    writer.writeDouble(
+      4,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool success = 1;
+ * @return {boolean}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.getSuccess = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.setSuccess = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional string error = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.getError = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.setError = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional int64 straight_distance_millis = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.getStraightDistanceMillis = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.setStraightDistanceMillis = function(value) {
+  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.clearStraightDistanceMillis = function() {
+  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.hasStraightDistanceMillis = function() {
+  return jspb.Message.getField(this, 3) != null;
+};
+
+
+/**
+ * optional double spin_angle_deg = 4;
+ * @return {number}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.getSpinAngleDeg = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.setSpinAngleDeg = function(value) {
+  return jspb.Message.setOneofField(this, 4, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], value);
+};
+
+
+/**
+ * Clears the field making it undefined.
+ * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.clearSpinAngleDeg = function() {
+  return jspb.Message.setOneofField(this, 4, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.v1.ControlBaseResponse.prototype.hasSpinAngleDeg = function() {
+  return jspb.Message.getField(this, 4) != null;
 };
 
 

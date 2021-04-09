@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	_ "go.viam.com/robotcore/board/detector"
@@ -32,7 +33,7 @@ type Boat struct {
 	throttle, direction, mode board.DigitalInterrupt
 }
 
-func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if distanceMillis < 0 {
 		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
@@ -40,21 +41,22 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	}
 
 	if block {
-		return fmt.Errorf("boat can't block for move straight yet")
+		return 0, fmt.Errorf("boat can't block for move straight yet")
 	}
 
 	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
 	rotations := float64(distanceMillis) / millisPerRotation
 
-	return multierr.Combine(
+	// TODO(erh): return how much it actually moved
+	return distanceMillis, multierr.Combine(
 		b.starboard.GoFor(ctx, dir, speed, rotations),
 		b.port.GoFor(ctx, dir, speed, rotations),
 	)
 
 }
 
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-	return fmt.Errorf("boat can't spin yet")
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+	return math.NaN(), fmt.Errorf("boat can't spin yet")
 }
 
 func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
