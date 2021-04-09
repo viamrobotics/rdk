@@ -122,10 +122,11 @@ func TestFourWheelBase1(t *testing.T) {
 	assert.Nil(t, base.Close())
 
 	t.Run("go no block", func(t *testing.T) {
-		err := base.MoveStraight(ctx, 10000, 1000, false)
+		moved, err := base.MoveStraight(ctx, 10000, 1000, false)
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, moved, 10000)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
@@ -149,10 +150,11 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.MoveStraight(ctx, 10000, 1000, true)
+		moved, err := base.MoveStraight(ctx, 10000, 1000, true)
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, moved, 10000)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
@@ -176,10 +178,11 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 
 	t.Run("spin no block", func(t *testing.T) {
-		err := base.Spin(ctx, 5, 5, false)
+		spun, err := base.Spin(ctx, 5, 5, false)
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, spun, float64(5))
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
@@ -203,10 +206,11 @@ func TestFourWheelBase1(t *testing.T) {
 			}
 		}()
 
-		err := base.Spin(ctx, 5, 5, true)
+		spun, err := base.Spin(ctx, 5, 5, true)
 		if err != nil {
 			t.Fatal(err)
 		}
+		assert.Equal(t, spun, float64(5))
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())

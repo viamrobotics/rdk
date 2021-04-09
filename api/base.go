@@ -2,12 +2,11 @@ package api
 
 import (
 	"context"
-	"math"
 )
 
 type Base interface {
-	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
-	Spin(ctx context.Context, angleDeg float64, speed int, block bool) error
+	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
+	Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error)
 	Stop(ctx context.Context) error
 	WidthMillis(ctx context.Context) (int, error)
 }
@@ -20,20 +19,24 @@ type Move struct {
 }
 
 func DoMove(ctx context.Context, move Move, device Base) (float64, int, error) {
+	var spunAmout float64
 	if move.AngleDeg != 0 {
 		// TODO(erh): speed is wrong
-		if err := device.Spin(ctx, move.AngleDeg, int(move.MillisPerSec), move.Block); err != nil {
-			// TODO(erd): Spin should report amount spun if errored
-			return math.NaN(), 0, err
+		spun, err := device.Spin(ctx, move.AngleDeg, int(move.MillisPerSec), move.Block)
+		if err != nil {
+			return spun, 0, err
 		}
+		spunAmout = spun
 	}
 
+	var movedAmount int
 	if move.DistanceMillis != 0 {
-		if err := device.MoveStraight(ctx, move.DistanceMillis, move.MillisPerSec, move.Block); err != nil {
-			// TODO(erd): MoveStraight should report amount moved if errored
-			return move.AngleDeg, 0, err
+		moved, err := device.MoveStraight(ctx, move.DistanceMillis, move.MillisPerSec, move.Block)
+		if err != nil {
+			return spunAmout, moved, err
 		}
+		movedAmount = moved
 	}
 
-	return move.AngleDeg, move.DistanceMillis, nil
+	return spunAmout, movedAmount, nil
 }

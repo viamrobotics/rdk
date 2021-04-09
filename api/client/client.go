@@ -292,8 +292,8 @@ type baseClient struct {
 	name string
 }
 
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	_, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
+func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+	resp, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
 		Name: bc.name,
 		Action: &pb.ControlBaseRequest_Move{
 			Move: &pb.MoveBase{
@@ -304,11 +304,18 @@ func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, mill
 			},
 		},
 	})
-	return err
+	if err != nil {
+		return 0, err
+	}
+	moved := int(resp.GetStraightDistanceMillis())
+	if resp.Success {
+		return moved, nil
+	}
+	return moved, errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, block bool) error {
-	_, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+	resp, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
 		Name: bc.name,
 		Action: &pb.ControlBaseRequest_Move{
 			Move: &pb.MoveBase{
@@ -319,7 +326,14 @@ func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, blo
 			},
 		},
 	})
-	return err
+	if err != nil {
+		return math.NaN(), err
+	}
+	spun := resp.GetSpinAngleDeg()
+	if resp.Success {
+		return spun, nil
+	}
+	return spun, errors.New(resp.Error)
 }
 
 func (bc *baseClient) Stop(ctx context.Context) error {
