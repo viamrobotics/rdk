@@ -57,7 +57,7 @@ func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.Calibrat
 	}()
 	step := 10.0
 	for i := 0.0; i < 360; i += step {
-		if err := api.ReduceBase(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
+		if _, err := api.ReduceBase(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
 			return nil, err
 		}
 	}

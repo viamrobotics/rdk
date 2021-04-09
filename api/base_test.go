@@ -3,7 +3,6 @@ package api_test
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 
 	"go.viam.com/robotcore/api"
@@ -23,21 +22,21 @@ func TestDoMove(t *testing.T) {
 	test.That(t, dist, test.ShouldEqual, 0)
 
 	err1 := errors.New("oh no")
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-		return err1
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+		return 2, err1
 	}
 
 	m := api.Move{DistanceMillis: 1}
 	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 	test.That(t, ang, test.ShouldEqual, 0)
-	test.That(t, dist, test.ShouldEqual, 0)
+	test.That(t, dist, test.ShouldEqual, 2)
 
-	dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+	dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 		test.That(t, distanceMillis, test.ShouldEqual, m.DistanceMillis)
 		test.That(t, millisPerSec, test.ShouldEqual, m.MillisPerSec)
 		test.That(t, block, test.ShouldEqual, m.Block)
-		return nil
+		return distanceMillis, nil
 	}
 	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
@@ -50,21 +49,21 @@ func TestDoMove(t *testing.T) {
 	test.That(t, ang, test.ShouldEqual, 0)
 	test.That(t, dist, test.ShouldEqual, m.DistanceMillis)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
-		return err1
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		return 2.2, err1
 	}
 
 	m = api.Move{AngleDeg: 10}
 	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
-	test.That(t, math.IsNaN(ang), test.ShouldBeTrue)
+	test.That(t, ang, test.ShouldEqual, 2.2)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) error {
+	dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
 		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
 		test.That(t, speed, test.ShouldEqual, m.MillisPerSec)
 		test.That(t, block, test.ShouldEqual, m.Block)
-		return nil
+		return angleDeg, nil
 	}
 
 	m = api.Move{AngleDeg: 10}
@@ -86,14 +85,14 @@ func TestDoMove(t *testing.T) {
 	test.That(t, dist, test.ShouldEqual, m.DistanceMillis)
 
 	t.Run("if rotation succeeds but moving straight fails, report rotation", func(t *testing.T) {
-		dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			return err1
+		dev.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+			return 2, err1
 		}
 
 		m = api.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
 		ang, dist, err = api.DoMove(context.Background(), m, dev)
 		test.That(t, errors.Is(err, err1), test.ShouldBeTrue)
 		test.That(t, ang, test.ShouldEqual, m.AngleDeg)
-		test.That(t, dist, test.ShouldEqual, 0)
+		test.That(t, dist, test.ShouldEqual, 2)
 	})
 }
