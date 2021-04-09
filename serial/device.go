@@ -15,8 +15,6 @@ type DeviceType string
 
 const (
 	DeviceTypeUnknown = "unknown"
-
-	// TODO(erd): refactor to registration pattern
 	DeviceTypeArduino = "arduino"
 	DeviceTypeJetson  = "nvidia-jetson"
 )
