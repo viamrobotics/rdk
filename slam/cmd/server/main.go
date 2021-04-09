@@ -263,9 +263,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	}()
 	slamClient := pb.NewSlamServiceClient(grpcConn)
 
-	remoteView.SetOnDataHandler(func(data []byte, responder gostream.ClientResponder) {
-		// TODO(erd): gostream should provide a context baesd on client but this is
-		// fine for now
+	remoteView.SetOnDataHandler(func(ctx context.Context, data []byte, responder gostream.ClientResponder) {
 		resp, err := rpc.CallClientMethodLineJSON(ctx, slamClient, data)
 		if err != nil {
 			responder.SendText(err.Error())
@@ -274,7 +272,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		responder.SendText(string(resp))
 	})
 
-	remoteView.SetOnClickHandler(func(x, y int, responder gostream.ClientResponder) {
+	remoteView.SetOnClickHandler(func(ctx context.Context, x, y int, responder gostream.ClientResponder) {
 		logger.Debugw("click", "x", x, "y", y)
 		resp, err := lar.HandleClick(ctx, x, y, clientWidth, clientHeight)
 		if err != nil {

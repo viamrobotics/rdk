@@ -90,7 +90,7 @@ func view(img *rimage.Image) error {
 
 	imgs := []image.Image{img}
 
-	remoteView.SetOnClickHandler(func(x, y int, _ gostream.ClientResponder) {
+	remoteView.SetOnClickHandler(func(ctx context.Context, x, y int, _ gostream.ClientResponder) {
 		if x < 0 || y < 0 {
 			return
 		}

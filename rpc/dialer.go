@@ -119,7 +119,6 @@ func (rc *reffedConn) Close() error {
 	return err
 }
 
-// TODO(erd): maybe move to utils; maybe not
 type RefCountedValue interface {
 	Ref() interface{}
 	Deref() (unreferenced bool)

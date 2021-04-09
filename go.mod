@@ -10,7 +10,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20210330134119-3f2367cdd603
+	github.com/edaniels/gostream v0.0.0-20210409151622-7dff6175faa1
 	github.com/edaniels/test v0.0.0-20210217200115-75fc4288dde0
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
@@ -21,7 +21,7 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
 	github.com/golangci/golangci-lint v1.38.0
-	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82 // indirect
+	github.com/gonum/floats v0.0.0-20181209220543-c233463c7e82
 	github.com/gonum/integrate v0.0.0-20181209220457-a422b5c0fdf2 // indirect
 	github.com/gonum/internal v0.0.0-20181124074243-f884aa714029 // indirect
 	github.com/gonum/stat v0.0.0-20181125101827-41a0da705a5b

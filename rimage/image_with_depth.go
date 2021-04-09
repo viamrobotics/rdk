@@ -190,9 +190,6 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	bounds := img.Bounds()
 
 	width, height := bounds.Dx(), bounds.Dy()
-
-	// TODO(erd): handle non realsense Z16 devices better
-	// realsense seems to rotate
 	dm := NewEmptyDepthMap(width, height)
 
 	grayImg := img.(*image.Gray16)

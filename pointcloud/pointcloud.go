@@ -141,7 +141,7 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, er
 	return m, err
 }
 
-// TODO(erd): intermediate, lazy structure that is not dense floats?
 func (cloud *PointCloud) DenseZ(zIdx int) (*mat.Dense, error) {
+	// would be nice if this was lazy and not dense
 	return newDensePivotFromCloud(cloud, 2, zIdx)
 }
