@@ -175,9 +175,8 @@
               }
           })
 
-          // TODO(erd): make duration configurable
           const streamReq = new robotApi.StatusStreamRequest();
-          streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000));
+          streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
           const statusStream = robotService.statusStream(streamReq);
           statusStream.on('data', function(response) {
             updateStatus(response.getStatus());

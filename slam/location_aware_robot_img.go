@@ -95,8 +95,8 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	dc.SetLineWidth(3)
 	dc.Stroke()
 
-	// TODO(erd): any way to get a submatrix? may need to segment each one
-	// if this starts going slower. fast as long as there are not many points
+	// If this starts going slower, will need a more optimal way of asking
+	// for a sub-area; it's fast as long as there are not many points
 	for _, area := range areas {
 		area.Mutate(func(area MutableArea) {
 			area.Iterate(func(x, y, _ int) bool {
