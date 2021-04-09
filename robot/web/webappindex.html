@@ -103,10 +103,18 @@
                       consumeClientCall(robotService.moveArmToJointPositions(req));
                   },
                   armHome : function(name) {
-                      const req = new robotApi.MoveArmToPositionRequest();
+                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      var old = arm.getJointPositions();
+                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newList = newPosition.getDegreesList();
+                      for (var i = 0; i < newList.length; i++) {
+                        newList[i] = 0;
+                      }
+                      newPosition.setDegreesList(newList);
+                      const req = new robotApi.MoveArmToJointPositionsRequest();
                       req.setName(name);
-                      req.setTo(new robotApi.ArmPosition());
-                      consumeClientCall(robotService.moveArmToPosition(req));
+                      req.setTo(newPosition);
+                      consumeClientCall(robotService.moveArmToJointPositions(req));
                   },
                   gripperAction : function(name, action) {
                       const req = new robotApi.ControlGripperRequest();
