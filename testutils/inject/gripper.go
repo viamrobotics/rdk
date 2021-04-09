@@ -4,13 +4,14 @@ import (
 	"context"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/utils"
 )
 
 type Gripper struct {
 	api.Gripper
 	OpenFunc  func(ctx context.Context) error
 	GrabFunc  func(ctx context.Context) (bool, error)
-	CloseFunc func(ctx context.Context) error
+	CloseFunc func() error
 }
 
 func (g *Gripper) Open(ctx context.Context) error {
@@ -27,9 +28,9 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return g.GrabFunc(ctx)
 }
 
-func (g *Gripper) Close(ctx context.Context) error {
+func (g *Gripper) Close() error {
 	if g.CloseFunc == nil {
-		return g.Gripper.Close(ctx)
+		return utils.TryClose(g.Gripper)
 	}
-	return g.CloseFunc(ctx)
+	return g.CloseFunc()
 }

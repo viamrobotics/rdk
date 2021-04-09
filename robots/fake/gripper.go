@@ -20,7 +20,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 	return nil
 }
 
-func (g *Gripper) Close(ctx context.Context) error {
+func (g *Gripper) Close() error {
 	return nil
 }
 

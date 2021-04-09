@@ -28,9 +28,6 @@ type Arm struct {
 	joints   *pb.JointPositions
 }
 
-func (a *Arm) Close(ctx context.Context) {
-}
-
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return a.position, nil
 }

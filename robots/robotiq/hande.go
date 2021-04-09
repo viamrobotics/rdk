@@ -154,7 +154,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 	return err
 }
 
-func (g *Gripper) Close(ctx context.Context) error {
+func (g *Gripper) Close() error {
 	_, err := g.SetPos(g.closeLimit)
 	return err
 }
@@ -191,7 +191,7 @@ func (g *Gripper) Calibrate(ctx context.Context) error {
 	}
 	g.openLimit = x[4:]
 
-	err = g.Close(ctx)
+	err = g.Close()
 	if err != nil {
 		return err
 	}

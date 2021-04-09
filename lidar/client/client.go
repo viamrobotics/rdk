@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/lidar"
 )
@@ -40,12 +40,9 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.
 
 type wrappedLidarDevice struct {
 	lidar.Device
-	robotClient api.Robot
+	robotClient *client.RobotClient
 }
 
-func (wld *wrappedLidarDevice) Close(ctx context.Context) (err error) {
-	defer func() {
-		err = multierr.Combine(err, wld.robotClient.Close(ctx))
-	}()
-	return wld.Device.Close(ctx)
+func (wld *wrappedLidarDevice) Close() error {
+	return wld.robotClient.Close()
 }

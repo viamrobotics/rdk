@@ -53,11 +53,11 @@ type RobotClientOptions struct {
 	Secure             bool
 }
 
-func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (api.Robot, error) {
+func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
 	var conn rpc.ClientConn
 	var err error
 	dialOpts := []grpc.DialOption{grpc.WithBlock()}
-	// if this is secure, there's no way via RobotClientOptions to set credentials
+	// if this is secure, there's no way via RobotClientOptions to set credentials yet
 	if !opts.Secure {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	}
@@ -92,11 +92,11 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	return rc, nil
 }
 
-func NewRobotClient(ctx context.Context, address string, logger golog.Logger) (api.Robot, error) {
+func NewRobotClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
 	return NewRobotClientWithOptions(ctx, address, RobotClientOptions{}, logger)
 }
 
-func (rc *RobotClient) Close(ctx context.Context) error {
+func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 	return rc.conn.Close()
@@ -330,11 +330,6 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
-func (bc *baseClient) Close(ctx context.Context) error {
-	// TODO(erd): this should probably be removed from interface
-	return nil
-}
-
 func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
@@ -386,9 +381,6 @@ func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amount float
 	return errUnimplemented
 }
 
-// TODO(erd): this should probably be removed from interface
-func (ac *armClient) Close(ctx context.Context) {}
-
 type gripperClient struct {
 	rc   *RobotClient
 	name string
@@ -411,11 +403,6 @@ func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.Grabbed, nil
-}
-
-func (gc *gripperClient) Close(ctx context.Context) error {
-	// TODO(erd): this should probably be removed from interface
-	return nil
 }
 
 type boardClient struct {
@@ -447,11 +434,6 @@ func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
 func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-func (bc *boardClient) Close(ctx context.Context) error {
-	// TODO(erd): this should probably be removed from interface
-	return nil
 }
 
 func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {
@@ -567,7 +549,6 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (cc *cameraClient) Close() error {
-	// TODO(erd): this should probably be removed from interface
 	return nil
 }
 
@@ -598,10 +579,6 @@ func (ldc *lidarDeviceClient) Stop(ctx context.Context) error {
 		Name: ldc.name,
 	})
 	return err
-}
-
-func (ldc *lidarDeviceClient) Close(ctx context.Context) error {
-	return nil
 }
 
 func (ldc *lidarDeviceClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
@@ -675,11 +652,6 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 		readings = append(readings, r.AsInterface())
 	}
 	return readings, nil
-}
-
-func (sc *sensorClient) Close(ctx context.Context) error {
-	// TODO(erd): this should probably be removed from interface
-	return nil
 }
 
 type compassClient struct {

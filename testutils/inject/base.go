@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/utils"
 )
 
 type Base struct {
@@ -12,7 +13,7 @@ type Base struct {
 	SpinFunc         func(ctx context.Context, angleDeg float64, speed int, block bool) error
 	WidthMillisFunc  func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
-	CloseFunc        func(ctx context.Context) error
+	CloseFunc        func() error
 }
 
 func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
@@ -43,9 +44,9 @@ func (b *Base) Stop(ctx context.Context) error {
 	return b.StopFunc(ctx)
 }
 
-func (b *Base) Close(ctx context.Context) error {
+func (b *Base) Close() error {
 	if b.CloseFunc == nil {
-		return b.Base.Close(ctx)
+		return utils.TryClose(b.Base)
 	}
-	return b.CloseFunc(ctx)
+	return b.CloseFunc()
 }

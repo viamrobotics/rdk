@@ -32,9 +32,10 @@ type URArm struct {
 	logger   golog.Logger
 }
 
-func (arm *URArm) Close(ctx context.Context) {
+func (arm *URArm) Close() error {
 	// TODO(erh): stop thread
 	// TODO(erh): close socket
+	return nil
 }
 
 func URArmConnect(host string, logger golog.Logger) (*URArm, error) {

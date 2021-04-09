@@ -44,6 +44,4 @@ type Arm interface {
 	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
 	JointMoveDelta(ctx context.Context, joint int, amount float64) error // TODO(erh): make it clear the units
-
-	Close(ctx context.Context)
 }

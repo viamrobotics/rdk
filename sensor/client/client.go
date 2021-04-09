@@ -5,8 +5,7 @@ import (
 	"errors"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/sensor"
 )
@@ -25,16 +24,13 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Senso
 
 type SensorClient struct {
 	sensor.Device
-	robotClient api.Robot
+	robotClient *client.RobotClient
 }
 
 func (sc *SensorClient) Wrapped() sensor.Device {
 	return sc.Device
 }
 
-func (sc *SensorClient) Close(ctx context.Context) (err error) {
-	defer func() {
-		err = multierr.Combine(err, sc.robotClient.Close(ctx))
-	}()
-	return sc.Device.Close(ctx)
+func (sc *SensorClient) Close() error {
+	return sc.robotClient.Close()
 }

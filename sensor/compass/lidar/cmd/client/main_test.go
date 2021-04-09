@@ -58,7 +58,7 @@ func TestMain(t *testing.T) {
 	injectDev.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
-	injectDev.CloseFunc = func(ctx context.Context) error {
+	injectDev.CloseFunc = func() error {
 		return nil
 	}
 	injectDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {

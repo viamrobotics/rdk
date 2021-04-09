@@ -119,7 +119,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 	})
 
-	assert.Nil(t, base.Close(ctx))
+	assert.Nil(t, base.Close())
 
 	t.Run("go no block", func(t *testing.T) {
 		err := base.MoveStraight(ctx, 10000, 1000, false)
