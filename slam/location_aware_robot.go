@@ -223,9 +223,6 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	}
 
 	defer func() {
-		// TODO(erd): how to handle new view if moving errors?
-		// Need to know if we spun or moved at all but that's not fully
-		// supported yet in core.
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
 	spun, moved, err := api.DoMove(ctx, move, lar.baseDevice)
