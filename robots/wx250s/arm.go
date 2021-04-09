@@ -332,11 +332,28 @@ func (a *Arm) WaitForMovement() error {
 
 func setServoDefaults(newServo *servo.Servo) error {
 	// Set some nice-to-have settings
-	//~ 	err := newServo.SetMovingThreshold(0)
-	//~ 	if err != nil {
-	//~ 		logger.Fatalf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
-	//~ 	}
-	err := newServo.SetPGain(2800)
+	//~ err := newServo.SetMovingThreshold(0)
+	//~ newServo.SetMovingThreshold(0)
+	//~ if err != nil {
+	//~ return fmt.Errorf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+	//~ }
+	dm, err := newServo.DriveMode()
+	if err != nil {
+		return fmt.Errorf("error DriveMode servo %d: %v", newServo.ID, err)
+	}
+	if dm == 4 {
+		err = newServo.SetDriveMode(0)
+		if err != nil {
+			return fmt.Errorf("error SetDriveMode0 servo %d: %v", newServo.ID, err)
+		}
+	}
+	if dm == 5 {
+		err = newServo.SetDriveMode(1)
+		if err != nil {
+			return fmt.Errorf("error DriveMode1 servo %d: %v", newServo.ID, err)
+		}
+	}
+	err = newServo.SetPGain(2800)
 	if err != nil {
 		return fmt.Errorf("error SetPGain servo %d: %v", newServo.ID, err)
 	}
