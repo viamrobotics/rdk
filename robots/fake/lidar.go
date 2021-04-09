@@ -81,8 +81,8 @@ func (l *Lidar) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (l *Lidar) Close(ctx context.Context) error {
-	return l.Stop(ctx)
+func (l *Lidar) Close() error {
+	return l.Stop(context.Background())
 }
 
 func (l *Lidar) Range(ctx context.Context) (int, error) {

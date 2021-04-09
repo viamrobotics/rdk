@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/edaniels/gostream"
+	"go.viam.com/robotcore/utils"
 )
 
 type ImageSource struct {
@@ -22,7 +23,7 @@ func (is *ImageSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 func (is *ImageSource) Close() error {
 	if is.CloseFunc == nil {
-		return is.ImageSource.Close()
+		return utils.TryClose(is.ImageSource)
 	}
 	return is.CloseFunc()
 }

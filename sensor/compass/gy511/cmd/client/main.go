@@ -44,7 +44,7 @@ func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription,
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, sensor.Close(ctx))
+		err = multierr.Combine(err, sensor.Close())
 	}()
 
 	if calibrate {

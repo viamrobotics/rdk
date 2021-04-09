@@ -181,7 +181,7 @@ func (pi *piPigpio) Motor(name string) board.Motor {
 	return pi.motors[name]
 }
 
-func (pi *piPigpio) Close(ctx context.Context) error {
+func (pi *piPigpio) Close() error {
 	if pi.analogEnabled {
 		C.spiClose(C.uint(pi.analogSpi))
 		pi.analogSpi = 0

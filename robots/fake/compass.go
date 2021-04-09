@@ -25,7 +25,7 @@ func (c *Compass) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{1.2}, nil
 }
 
-func (c *Compass) Close(ctx context.Context) error {
+func (c *Compass) Close() error {
 	return nil
 }
 

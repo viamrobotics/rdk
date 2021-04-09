@@ -40,7 +40,7 @@ type Device struct {
 
 const headingWindow = 100
 
-func New(ctx context.Context, path string, logger golog.Logger) (dev compass.Device, err error) {
+func New(ctx context.Context, path string, logger golog.Logger) (dev *Device, err error) {
 	rwc, err := serial.OpenDevice(path)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (d *Device) Heading(ctx context.Context) (float64, error) {
 	return d.heading.Load().(float64), nil
 }
 
-func (d *Device) Close(ctx context.Context) error {
+func (d *Device) Close() error {
 	close(d.closeCh)
 	err := d.rwc.Close()
 	d.activeWorkers.Wait()

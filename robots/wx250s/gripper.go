@@ -95,7 +95,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 }
 
 // closes the connection, not the gripper
-func (g *Gripper) Close(ctx context.Context) error {
+func (g *Gripper) Close() error {
 	err := g.jServo.SetTorqueEnable(false)
 	return err
 }

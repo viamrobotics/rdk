@@ -56,7 +56,7 @@ func TestConfigFake(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Close(context.Background()); err != nil {
+	if err := r.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -176,11 +176,11 @@ func TestConfigRemote(t *testing.T) {
 	cancel()
 	<-webDone
 
-	if err := r.Close(context.Background()); err != nil {
+	if err := r.Close(); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := r2.Close(context.Background()); err != nil {
+	if err := r2.Close(); err != nil {
 		t.Fatal(err)
 	}
 }
