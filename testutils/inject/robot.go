@@ -8,6 +8,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -36,7 +37,7 @@ type Robot struct {
 	GetConfigFunc         func(ctx context.Context) (api.Config, error)
 	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
-	CloseFunc             func(ctx context.Context) error
+	CloseFunc             func() error
 }
 
 func (r *Robot) ProviderByModel(model string) api.Provider {
@@ -187,9 +188,9 @@ func (r *Robot) Logger() golog.Logger {
 	return r.LoggerFunc()
 }
 
-func (r *Robot) Close(ctx context.Context) error {
+func (r *Robot) Close() error {
 	if r.CloseFunc == nil {
-		return r.Robot.Close(ctx)
+		return utils.TryClose(r.Robot)
 	}
-	return r.CloseFunc(ctx)
+	return r.CloseFunc()
 }

@@ -53,8 +53,6 @@ type Board interface {
 	AnalogReader(name string) AnalogReader
 	DigitalInterrupt(name string) DigitalInterrupt
 
-	Close(ctx context.Context) error
-
 	GetConfig(ctx context.Context) (Config, error)
 
 	// should use CreateStatus in most cases

@@ -165,8 +165,8 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	}
 }
 
-func (vg *GripperV1) Close(ctx context.Context) error {
-	return vg.Stop(ctx)
+func (vg *GripperV1) Close() error {
+	return vg.Stop(context.Background())
 }
 
 func (vg *GripperV1) Stop(ctx context.Context) error {

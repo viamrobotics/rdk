@@ -65,8 +65,8 @@ func (b *Boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Off(ctx), b.port.Off(ctx))
 }
 
-func (b *Boat) Close(ctx context.Context) error {
-	return b.Stop(ctx)
+func (b *Boat) Close() error {
+	return b.Stop(context.Background())
 }
 
 func (b *Boat) StartRC() {
@@ -161,7 +161,7 @@ func realMain() error {
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close(context.Background())
+	defer myRobot.Close()
 
 	boat, err := NewBoat(myRobot)
 	if err != nil {

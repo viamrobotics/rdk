@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/lidar/client"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
@@ -74,5 +75,5 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info, test.ShouldResemble, infoM)
 
-	test.That(t, dev.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, utils.TryClose(dev), test.ShouldBeNil)
 }

@@ -114,9 +114,10 @@ func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) err
 	return fmt.Errorf("not done yet")
 }
 
-func (e *eva) Close(ctx context.Context) {
-
+func (e *eva) Close() error {
+	return nil
 }
+
 func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {
 	return e.apiRequestLower(method, path, payload, auth, out, true)
 }

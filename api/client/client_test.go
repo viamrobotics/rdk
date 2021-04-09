@@ -20,6 +20,7 @@ import (
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -246,7 +247,7 @@ func TestClient(t *testing.T) {
 	injectLidarDev.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
-	injectLidarDev.CloseFunc = func(ctx context.Context) error {
+	injectLidarDev.CloseFunc = func() error {
 		return nil
 	}
 	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
@@ -390,7 +391,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 
-	err = client.Close(context.Background())
+	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
@@ -500,7 +501,7 @@ func TestClient(t *testing.T) {
 	angRes, err := lidarDev.AngularResolution(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, angRes, test.ShouldEqual, 5.2)
-	err = lidarDev.Close(context.Background())
+	err = utils.TryClose(lidarDev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capLidarDeviceName, test.ShouldEqual, "lidar1")
 
@@ -538,7 +539,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
-	err = client.Close(context.Background())
+	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -585,7 +586,7 @@ func TestClientRefreshStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	err = client.Close(context.Background())
+	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -612,9 +613,9 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.dialCalled, test.ShouldEqual, 2)
 
-	err = client1.Close(context.Background())
+	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)
-	err = client2.Close(context.Background())
+	err = client2.Close()
 	test.That(t, err, test.ShouldBeNil)
 }
 

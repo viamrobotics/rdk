@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/utils"
 
 	// registration
 	_ "go.viam.com/robotcore/lidar/client"
@@ -195,40 +196,46 @@ func (r *Robot) SensorNames() []string {
 	return names
 }
 
-func (r *Robot) Close(ctx context.Context) error {
+func (r *Robot) Close() error {
 	for _, x := range r.arms {
-		x.Close(ctx)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing arm: %w", err)
+		}
 	}
 
 	for _, x := range r.grippers {
-		x.Close(ctx)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing gripper: %w", err)
+		}
 	}
 
 	for _, x := range r.cameras {
-		x.Close()
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing camera: %w", err)
+		}
 	}
 
 	for _, x := range r.lidarDevices {
-		if err := x.Close(ctx); err != nil {
-			r.logger.Error("error closing lidar device", "error", err)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing lidar: %w", err)
 		}
 	}
 
 	for _, x := range r.bases {
-		if err := x.Close(ctx); err != nil {
-			r.logger.Error("error closing base device", "error", err)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing base: %w", err)
 		}
 	}
 
 	for _, x := range r.boards {
-		if err := x.Close(ctx); err != nil {
-			r.logger.Error("error closing board", "error", err)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing board: %w", err)
 		}
 	}
 
 	for _, x := range r.sensors {
-		if err := x.Close(ctx); err != nil {
-			r.logger.Error("error closing sensor", "error", err)
+		if err := utils.TryClose(x); err != nil {
+			return fmt.Errorf("error closing sensor: %w", err)
 		}
 	}
 

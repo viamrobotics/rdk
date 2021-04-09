@@ -175,7 +175,7 @@ func TestMotorEncoderWrap(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
 
-	b.(*FakeBoard).digitals["a"] = &BasicDigitalInterrupt{}
+	b.digitals["a"] = &BasicDigitalInterrupt{}
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	assert.Nil(t, err)
 	_, ok := m.(*encodedMotor)

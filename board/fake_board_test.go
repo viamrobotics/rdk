@@ -44,7 +44,6 @@ func TestFakeBoard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer b.Close(context.Background())
 
 	assert.Nil(t, b.Servo("s1").Move(context.Background(), 15))
 

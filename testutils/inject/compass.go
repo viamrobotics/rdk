@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 )
 
 type Compass struct {
@@ -12,7 +13,7 @@ type Compass struct {
 	HeadingFunc          func(ctx context.Context) (float64, error)
 	StartCalibrationFunc func(ctx context.Context) error
 	StopCalibrationFunc  func(ctx context.Context) error
-	CloseFunc            func(ctx context.Context) error
+	CloseFunc            func() error
 }
 
 func (c *Compass) Readings(ctx context.Context) ([]interface{}, error) {
@@ -43,11 +44,11 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 	return c.StopCalibrationFunc(ctx)
 }
 
-func (c *Compass) Close(ctx context.Context) error {
+func (c *Compass) Close() error {
 	if c.CloseFunc == nil {
-		return c.Device.Close(ctx)
+		return utils.TryClose(c.Device)
 	}
-	return c.CloseFunc(ctx)
+	return c.CloseFunc()
 }
 
 type RelativeCompass struct {
@@ -57,7 +58,7 @@ type RelativeCompass struct {
 	StartCalibrationFunc func(ctx context.Context) error
 	StopCalibrationFunc  func(ctx context.Context) error
 	MarkFunc             func(ctx context.Context) error
-	CloseFunc            func(ctx context.Context) error
+	CloseFunc            func() error
 }
 
 func (rc *RelativeCompass) Readings(ctx context.Context) ([]interface{}, error) {
@@ -95,9 +96,9 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 	return rc.MarkFunc(ctx)
 }
 
-func (rc *RelativeCompass) Close(ctx context.Context) error {
+func (rc *RelativeCompass) Close() error {
 	if rc.CloseFunc == nil {
-		return rc.RelativeDevice.Close(ctx)
+		return utils.TryClose(rc.RelativeDevice)
 	}
-	return rc.CloseFunc(ctx)
+	return rc.CloseFunc()
 }

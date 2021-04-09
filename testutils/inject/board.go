@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 )
 
 type Board struct {
@@ -13,7 +14,7 @@ type Board struct {
 	ServoFunc            func(name string) board.Servo
 	AnalogReaderFunc     func(name string) board.AnalogReader
 	DigitalInterruptFunc func(name string) board.DigitalInterrupt
-	CloseFunc            func(ctx context.Context) error
+	CloseFunc            func() error
 	GetConfigFunc        func(ctx context.Context) (board.Config, error)
 	StatusFunc           func(ctx context.Context) (*pb.BoardStatus, error)
 }
@@ -46,11 +47,11 @@ func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
 	return b.DigitalInterruptFunc(name)
 }
 
-func (b *Board) Close(ctx context.Context) error {
+func (b *Board) Close() error {
 	if b.CloseFunc == nil {
-		return b.Board.Close(ctx)
+		return utils.TryClose(b.Board)
 	}
-	return b.CloseFunc(ctx)
+	return b.CloseFunc()
 }
 
 func (b *Board) GetConfig(ctx context.Context) (board.Config, error) {

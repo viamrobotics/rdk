@@ -33,6 +33,6 @@ func (b *Base) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (b *Base) Close(ctx context.Context) error {
+func (b *Base) Close() error {
 	return nil
 }

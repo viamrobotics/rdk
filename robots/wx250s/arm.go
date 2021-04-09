@@ -125,7 +125,7 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) err
 }
 
 // Close will get the arm ready to be turned off
-func (a *Arm) Close(ctx context.Context) {
+func (a *Arm) Close() error {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
@@ -153,6 +153,7 @@ func (a *Arm) Close(ctx context.Context) {
 	if err != nil {
 		a.logger.Errorf("Torque off error: %s", err)
 	}
+	return nil
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position

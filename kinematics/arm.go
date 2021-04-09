@@ -43,8 +43,8 @@ func NewArm(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm
 	return &Arm{real, models[0], ik, 0}, nil
 }
 
-func (k *Arm) Close(ctx context.Context) {
-	k.real.Close(ctx) // TODO(erh): who owns this?
+func (k *Arm) Close() error {
+	return utils.TryClose(k.real) // TODO(erh): who owns this?
 }
 
 // Returns the end effector's current Position

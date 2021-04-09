@@ -9,7 +9,6 @@ type Device interface {
 	Info(ctx context.Context) (map[string]interface{}, error)
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
-	Close(ctx context.Context) error
 	// assumes the device is in a fixed point for the duration
 	// of the scan
 	Scan(ctx context.Context, options ScanOptions) (Measurements, error)

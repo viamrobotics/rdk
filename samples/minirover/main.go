@@ -330,7 +330,7 @@ func realMain() error {
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close(context.Background())
+	defer myRobot.Close()
 
 	rover, err := NewRover(myRobot, myRobot.BoardByName("local"))
 	if err != nil {

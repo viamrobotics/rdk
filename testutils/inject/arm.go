@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 )
 
 type Arm struct {
@@ -14,7 +15,7 @@ type Arm struct {
 	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.JointPositions) error
 	CurrentJointPositionsFunc func(ctx context.Context) (*pb.JointPositions, error)
 	JointMoveDeltaFunc        func(ctx context.Context, joint int, amount float64) error
-	CloseFunc                 func(ctx context.Context)
+	CloseFunc                 func() error
 }
 
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
@@ -52,10 +53,9 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) err
 	return a.JointMoveDeltaFunc(ctx, joint, amount)
 }
 
-func (a *Arm) Close(ctx context.Context) {
+func (a *Arm) Close() error {
 	if a.CloseFunc == nil {
-		a.Arm.Close(ctx)
-		return
+		return utils.TryClose(a.Arm)
 	}
-	a.CloseFunc(ctx)
+	return a.CloseFunc()
 }

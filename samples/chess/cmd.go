@@ -479,7 +479,7 @@ func main() {
 		panic(err)
 	}
 	defer func() {
-		if err := myRobot.Close(context.Background()); err != nil {
+		if err := myRobot.Close(); err != nil {
 			panic(err)
 		}
 	}()

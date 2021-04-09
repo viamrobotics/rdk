@@ -79,7 +79,7 @@ func TestDevice(t *testing.T) {
 		readings, err := dev.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings, test.ShouldResemble, []interface{}{5.0})
-		test.That(t, dev.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, dev.Close(), test.ShouldBeNil)
 	})
 
 	t.Run("failing to make device", func(t *testing.T) {
@@ -109,6 +109,6 @@ func TestDevice(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readings, test.ShouldHaveLength, 1)
 		test.That(t, math.IsNaN(readings[0].(float64)), test.ShouldBeFalse)
-		test.That(t, dev.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, dev.Close(), test.ShouldBeNil)
 	})
 }

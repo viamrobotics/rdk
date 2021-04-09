@@ -12,6 +12,7 @@ import (
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
@@ -94,7 +95,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, heading, test.ShouldEqual, 5.2)
 
-	test.That(t, compassDev.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, utils.TryClose(compassDev), test.ShouldBeNil)
 
 	injectRelDev := &inject.RelativeCompass{}
 	injectRelDev.HeadingFunc = func(ctx context.Context) (float64, error) {
@@ -122,5 +123,5 @@ func TestClient(t *testing.T) {
 
 	test.That(t, compassRelDev.Mark(context.Background()), test.ShouldBeNil)
 
-	test.That(t, compassRelDev.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, utils.TryClose(compassRelDev), test.ShouldBeNil)
 }

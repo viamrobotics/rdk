@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
@@ -54,24 +54,18 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Devi
 
 type wrappedCompassDevice struct {
 	compass.Device
-	robotClient api.Robot
+	robotClient *client.RobotClient
 }
 
-func (wcd *wrappedCompassDevice) Close(ctx context.Context) (err error) {
-	defer func() {
-		err = multierr.Combine(err, wcd.robotClient.Close(ctx))
-	}()
-	return wcd.Device.Close(ctx)
+func (wcd *wrappedCompassDevice) Close() error {
+	return wcd.robotClient.Close()
 }
 
 type wrappedRelativeCompassDevice struct {
 	compass.RelativeDevice
-	robotClient api.Robot
+	robotClient *client.RobotClient
 }
 
-func (wrcd *wrappedRelativeCompassDevice) Close(ctx context.Context) (err error) {
-	defer func() {
-		err = multierr.Combine(err, wrcd.robotClient.Close(ctx))
-	}()
-	return wrcd.RelativeDevice.Close(ctx)
+func (wrcd *wrappedRelativeCompassDevice) Close() error {
+	return wrcd.robotClient.Close()
 }

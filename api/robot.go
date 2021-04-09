@@ -42,7 +42,6 @@ type Robot interface {
 	Status(ctx context.Context) (*pb.Status, error)
 
 	Logger() golog.Logger
-	Close(ctx context.Context) error
 }
 
 type Provider interface {
