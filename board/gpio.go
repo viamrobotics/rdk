@@ -18,9 +18,9 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig) (Motor, error) {
 	var m Motor
 	var err error
 	pins := mc.Pins
-	
+
 	// For now we'll determine whether something is a stepper motor by pin count
-	if len(pins) < 5{
+	if len(pins) < 5 {
 		m = &GPIOMotor{
 			b,
 			pins["a"],
@@ -28,9 +28,9 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig) (Motor, error) {
 			pins["pwm"],
 			false,
 		}
-	}else{
+	} else {
 		m, err = NewStepperMotor(b, pins, mc)
-		if err != nil{
+		if err != nil {
 			return nil, err
 		}
 	}
