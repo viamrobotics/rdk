@@ -45,8 +45,13 @@ type Cache interface {
 }
 
 func NewCache(config *Config) (Cache, error) {
-	cacheDir := DefaultCachePath
-	if config.configDir != "" {
+	var cacheDir string
+	if config.Cache == "" {
+		cacheDir = DefaultCachePath
+	} else {
+		cacheDir = config.Cache
+	}
+	if !filepath.IsAbs(cacheDir) && config.configDir != "" {
 		cacheDir = filepath.Join(config.configDir, cacheDir)
 	}
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
@@ -56,7 +61,11 @@ func NewCache(config *Config) (Cache, error) {
 	if config.Root == "" {
 		artifactsRoot = filepath.Join(config.configDir, cacheDir, "data")
 	} else {
-		artifactsRoot = filepath.Join(config.configDir, config.Root)
+		if filepath.IsAbs(config.Root) {
+			artifactsRoot = config.Root
+		} else {
+			artifactsRoot = filepath.Join(config.configDir, config.Root)
+		}
 	}
 	if err := os.MkdirAll(artifactsRoot, 0755); err != nil {
 		return nil, err

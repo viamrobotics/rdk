@@ -55,6 +55,8 @@ jobs:
 
     - name: Test
       run: |
+        mv .artifact.json .artifact.json.bak
+        mv .artifact.test.json .artifact.json
         make cover
 
     - name: Upload coverage to Codecov
