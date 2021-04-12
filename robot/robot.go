@@ -276,7 +276,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	for _, remote := range cfg.Remotes {
 		robotClient, err := client.NewRobotClient(ctx, remote.Address, logger)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", remote.Address, err)
 		}
 		name := r.AddRemote(robotClient, remote.Name)
 		if err := r.mergeRemote(ctx, robotClient, name, remote.Prefix); err != nil {

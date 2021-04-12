@@ -28,7 +28,7 @@ func init() {
 func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Device, error) {
 	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
 	}
 	names := robotClient.LidarDeviceNames()
 	if len(names) == 0 {
