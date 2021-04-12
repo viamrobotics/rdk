@@ -99,6 +99,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 }
 
 type Config struct {
+	Cache     string       `json:"cache"`
 	Root      string       `json:"root"`
 	Store     StoreConfig  `json:"store"`
 	Tree      TreeNodeTree `json:"tree"`
