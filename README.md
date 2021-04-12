@@ -89,9 +89,18 @@ Some guidelines on using these:
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files.
 1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
-### Testing with Dropbox
+### Testing with artifacts
 
-In order to run all tests, you must have $HOME/Dropbox set up with echolabs_data in it.
+In order to add test artifacts, you need to do the following:
+
+```
+# get GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
+go install go.viam.com/robotcore/artifact/cmd/artifact
+# place new artifacts in artifact_data
+artifact export
+git add .artifact.tree.json
+# commit the file at some point
+```
 
 ### Testing from Github Actions
 

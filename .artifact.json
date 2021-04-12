@@ -1,0 +1,8 @@
+{
+    "root": "artifact_data",
+    "store":
+    {
+        "type": "google_storage",
+        "bucket": "viam-artifacts"
+    }
+}
