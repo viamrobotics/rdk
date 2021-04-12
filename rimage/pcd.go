@@ -26,6 +26,10 @@ func _scale(x, max int) float32 {
 	return res - .5
 }
 func (iwd *ImageWithDepth) ToPCD(out io.Writer) error {
+	if iwd.Depth == nil {
+		return fmt.Errorf("no depth data")
+	}
+
 	if iwd.Depth.Width() != iwd.Color.Width() ||
 		iwd.Depth.Height() != iwd.Color.Height() {
 		return fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
