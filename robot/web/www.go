@@ -15,6 +15,7 @@ import (
 	apiserver "go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/rpc"
@@ -141,8 +142,37 @@ func allSourcesToDisplay(ctx context.Context, theRobot *robot.Robot) ([]gostream
 	return sources, names, nil
 }
 
+type pcdHandler struct {
+	app *robotWebApp
+}
+
+func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+	camName := pat.Param(r, "name")
+	cam := h.app.theRobot.CameraByName(camName)
+	if cam == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	img, closer, err := cam.Next(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error reading camera: %s", err), http.StatusInternalServerError)
+		return
+	}
+	defer closer()
+
+	iwd := rimage.ConvertToImageWithDepth(img)
+	err = iwd.ToPCD(w)
+	if err != nil {
+		h.app.logger.Debugf("error converting to pcd: %s", err)
+		http.Error(w, fmt.Sprintf("error writing pcd: %s", err), http.StatusInternalServerError)
+		return
+	}
+}
+
 // returns a closer func to be called when done
-func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, options Options, logger golog.Logger) (func(), error) {
+func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, options Options, logger golog.Logger) (func(), error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, err
@@ -182,6 +212,7 @@ func InstallWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 		return nil, err
 	}
 
+	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveFile("robot/web/frontend/dist")))))
 	mux.Handle(pat.New("/"), app)
 
@@ -252,7 +283,7 @@ func RunWeb(ctx context.Context, theRobot *robot.Robot, options Options, logger 
 	}
 
 	mux := goji.NewMux()
-	webCloser, err := InstallWeb(ctx, mux, theRobot, options, logger)
+	webCloser, err := installWeb(ctx, mux, theRobot, options, logger)
 	if err != nil {
 		return err
 	}

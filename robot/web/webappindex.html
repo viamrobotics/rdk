@@ -179,6 +179,12 @@
                       }
                       req.setMove(moveBase);
                       consumeClientCall(robotService.controlBase(req));
+                  },
+                  renderPCD : function(cameraName) {
+                      initPCDIfNeeded();
+
+                      pcdLoad("/cameras/" + cameraName + "/data.pcd");
+                      
                   }
               }
           })
@@ -197,6 +203,62 @@
             console.log("done streaming robot status");
           });
       }
+
+      pcdGlobal = null;
+      
+      function initPCDIfNeeded() {
+          if (pcdGlobal) {
+              return
+          }
+
+          console.log("initing pcd");
+          
+          pcdGlobal = {
+              scene : new THREE.Scene(),
+              camera : new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .1, 2000 ),
+              renderer : new THREE.WebGLRenderer(),
+          };
+
+          pcdGlobal.renderer.setSize( window.innerWidth / 2, window.innerHeight / 2 );
+          document.getElementById("pcd").appendChild(pcdGlobal.renderer.domElement);
+          
+          pcdGlobal.controls = new orbitLib.OrbitControls( pcdGlobal.camera, pcdGlobal.renderer.domElement );
+          pcdGlobal.camera.position.set( 0, 0, 1 );
+          pcdGlobal.controls.update();
+
+          console.log("pcd init done");
+      }
+
+      function pcdAnimate() {
+	      pcdGlobal.renderer.render( pcdGlobal.scene, pcdGlobal.camera );
+          pcdGlobal.controls.update();
+          requestAnimationFrame( pcdAnimate );
+      }
+      
+      function pcdLoad(path) {
+          var loader = new pcdLib.PCDLoader();
+
+          loader.load(
+              path,
+              
+	          // called when the resource is loaded
+	          function ( mesh ) {
+                  pcdGlobal.scene.clear();
+		          pcdGlobal.scene.add( mesh );
+                  pcdAnimate();
+	          },
+	          // called when loading is in progresses
+	          function ( xhr ) {
+		          //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+	          },
+	          // called when loading has errors
+	          function ( error ) {
+		          console.log(error);
+	          }
+          );
+          
+      }
+
       
     </script>
   </head>
@@ -356,14 +418,27 @@
         </table>
       </div> <!-- end boards -->
 
-      Camera Frames
-      <ul>
-        <li v-for="(cam,x) in status.camerasMap">
-          <a :href="'/api/v1/camera/' + cam[0] + '/render_frame'">${cam[0]}</a>
-        </li>
-      </ul>
+      <table border="1">
+        <tr>
+          <th colspan="3">
+            Cameras
+          </th>
+        </tr>
+        <tr>
+          <th>Name</th>
+          <th>Frame</th>
+          <th>PCD</th>
+        </tr>
+        <tr v-for="(cam,x) in status.camerasMap">
+          <td>${cam[0]}</td>
+          <td><a :href="'/api/v1/camera/' + cam[0] + '/render_frame'">frame</a></td>
+          <td><button v-on:click="renderPCD(cam[0])">GO</button></td>
+        </tr>
+      </table>
       <div>${res}</div>
     </div> <!-- end vue app -->
+
+    <div id="pcd"/>
     
   </body>
 </html>
