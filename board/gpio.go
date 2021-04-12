@@ -14,13 +14,25 @@ type GPIOBoard interface {
 	PWMSet(pin string, dutyCycle byte) error
 }
 
-func NewGPIOMotor(b GPIOBoard, pins map[string]string) (*GPIOMotor, error) {
-	m := &GPIOMotor{
-		b,
-		pins["a"],
-		pins["b"],
-		pins["pwm"],
-		false,
+func NewGPIOMotor(b GPIOBoard, mc MotorConfig) (Motor, error) {
+	var m Motor
+	var err error
+	pins := mc.Pins
+	
+	// For now we'll determine whether something is a stepper motor by pin count
+	if len(pins) < 5{
+		m = &GPIOMotor{
+			b,
+			pins["a"],
+			pins["b"],
+			pins["pwm"],
+			false,
+		}
+	}else{
+		m, err = NewStepperMotor(b, pins, mc)
+		if err != nil{
+			return nil, err
+		}
 	}
 	return m, nil
 }

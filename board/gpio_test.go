@@ -34,7 +34,7 @@ func TestMotor1(t *testing.T) {
 	ctx := context.Background()
 	b := &testGPIOBoard{}
 
-	m, err := NewGPIOMotor(b, map[string]string{"a": "1", "b": "2", "pwm": "3"})
+	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}})
 	if err != nil {
 		t.Fatal(err)
 	}

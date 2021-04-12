@@ -291,7 +291,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	piInstance.motors = map[string]board.Motor{}
 	for _, c := range cfg.Motors {
 		var m board.Motor
-		m, err = board.NewGPIOMotor(piInstance, c.Pins)
+		m, err = board.NewGPIOMotor(piInstance, c)
 		if err != nil {
 			return nil, err
 		}
