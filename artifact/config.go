@@ -39,7 +39,7 @@ func searchConfig() (string, error) {
 			return "", err
 		}
 
-		next := filepath.Join(wdAbs, "..")
+		next := filepath.Join(path, "..")
 		if next == path {
 			return "", nil
 		}
