@@ -3,9 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path"
+	"runtime"
 	"strings"
+
+	"github.com/edaniels/golog"
 )
 
 type AttributeConverter func(val interface{}) (interface{}, error)
@@ -69,6 +74,56 @@ func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
 	return sub, true, err
 }
 
+func createRequest(cloudCfg CloudConfig) (*http.Request, error) {
+	if cloudCfg.Path == "" {
+		cloudCfg.Path = "https://app.viam.com/api/json1/config"
+	}
+
+	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
+	golog.Global.Debugf("reading config from %s", url)
+
+	r, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request for %s : %w", url, err)
+	}
+	r.Header.Set("Secret", cloudCfg.Secret)
+
+	userInfo := map[string]interface{}{}
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+	userInfo["host"] = hostname
+	userInfo["os"] = runtime.GOOS
+
+	userInfoBytes, err := json.Marshal(userInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	r.Header.Set("User-Info", string(userInfoBytes))
+
+	return r, nil
+}
+
+func ReadConfigFromCloud(cloudCfg CloudConfig) (Config, error) {
+	cfg := Config{}
+
+	r, err := createRequest(cloudCfg)
+	if err != nil {
+		return cfg, err
+	}
+
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		return cfg, err
+	}
+	defer resp.Body.Close()
+
+	return ReadConfigFromReader("", resp.Body)
+}
+
+// TODO(erh): should make this return a *Config (and all downstream)
 func ReadConfig(fn string) (Config, error) {
 	cfg := Config{}
 
@@ -78,10 +133,20 @@ func ReadConfig(fn string) (Config, error) {
 	}
 	defer file.Close()
 
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&cfg)
+	return ReadConfigFromReader(fn, file)
+}
+
+func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
+	cfg := Config{}
+
+	decoder := json.NewDecoder(r)
+	err := decoder.Decode(&cfg)
 	if err != nil {
 		return cfg, err
+	}
+
+	if cfg.Cloud.ID != "" {
+		return ReadConfigFromCloud(cfg.Cloud)
 	}
 
 	for idx, c := range cfg.Components {
@@ -90,7 +155,7 @@ func ReadConfig(fn string) (Config, error) {
 			if ok {
 				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
 				loaded := false
-				v, loaded, err = loadSubFromFile(fn, s)
+				v, loaded, err := loadSubFromFile(originalPath, s)
 				if err != nil {
 					return cfg, err
 				}

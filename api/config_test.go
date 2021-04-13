@@ -152,3 +152,18 @@ func TestParseComponentFlag(t *testing.T) {
 		"one": "two",
 	})
 }
+
+func TestCreateCloudRequest(t *testing.T) {
+	cfg := CloudConfig{
+		ID:     "a",
+		Secret: "b",
+		Path:   "c",
+	}
+	r, err := createRequest(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
+	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
+}
