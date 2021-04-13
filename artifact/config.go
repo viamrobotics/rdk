@@ -129,7 +129,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, rawConfig); err != nil {
 		return err
 	}
-	c.Config = rawConfig.Cache
+	c.Cache = rawConfig.Cache
 	c.Root = rawConfig.Root
 
 	if rawConfig.Store != nil {
