@@ -10,8 +10,10 @@ import (
 	"strings"
 )
 
-const DefaultConfigName = ".artifact.json"
-const DefaultTreeName = ".artifact.tree.json"
+const (
+	DefaultConfigName = ".artifact.json"
+	DefaultTreeName   = ".artifact.tree.json"
+)
 
 func LoadConfig() (*Config, error) {
 	configPath, err := searchConfig()

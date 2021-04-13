@@ -12,13 +12,23 @@ import (
 	"sync"
 )
 
+// DefaultCachePath is the default relative location to store all cached
+// files (by hash).
 const DefaultCachePath = ".artifact"
 
+// the global cache singleton is used in all contexts where
+// a config or cache are not explicitly created
 var (
 	globalCacheSingleton   Cache
 	globalCacheSingletonMu sync.Mutex
 )
 
+// GlobalCache returns a cache to be used globally based
+// on an automatically discovered configuration file. It errors
+// if initial creation fails. It is not auto init()'d because
+// right now a config file is required and would cause it to
+// fail in some contexts if this were an independent tool in
+// its own repository.
 func GlobalCache() (Cache, error) {
 	globalCacheSingletonMu.Lock()
 	defer globalCacheSingletonMu.Unlock()
@@ -36,15 +46,39 @@ func GlobalCache() (Cache, error) {
 	return globalCacheSingleton, nil
 }
 
+// A Cache is similar to a store in functionality but
+// it also has capabilities to refer to artifacts
+// by their designated path name and not by a hash.
+// In addition, it understands how to update the
+// underlying stores that the cache is based off of as
+// well as the user visible, versioned assets.
 type Cache interface {
 	Store
+
+	// NewPath returns where a user visible asset would belong
 	NewPath(to string) string
+
+	// Ensure guarantees that a user visible path is populated with
+	// the cached artifact. This can error if the path is unknown
+	// or a failure happens retrieving it from underlying Store.
 	Ensure(path string) (string, error)
+
+	// Clean makes sure that the user visible assets reflect 1:1
+	// the versioned assets in the tree.
 	Clean() error
+
+	// WriteThroughUser makes sure that the user visible assets not
+	// yet versioned are added to the tree and "written through" to
+	// any stores responsible for caching.
 	WriteThroughUser() error
+
+	// Close must be called in order to clean up any in use resources.
 	Close() error
 }
 
+// NewCache returns a new cache based on the given config. It
+// ensures that directory structures and stores are accessible
+// in advance.
 func NewCache(config *Config) (Cache, error) {
 	var cacheDir string
 	if config.Cache == "" {
