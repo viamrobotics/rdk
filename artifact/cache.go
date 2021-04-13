@@ -59,7 +59,7 @@ func NewCache(config *Config) (Cache, error) {
 	}
 	var artifactsRoot string
 	if config.Root == "" {
-		artifactsRoot = filepath.Join(config.configDir, cacheDir, "data")
+		artifactsRoot = filepath.Join(cacheDir, "data")
 	} else {
 		if filepath.IsAbs(config.Root) {
 			artifactsRoot = config.Root
