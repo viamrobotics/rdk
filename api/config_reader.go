@@ -16,9 +16,10 @@ import (
 type AttributeConverter func(val interface{}) (interface{}, error)
 
 type registered struct {
-	comptype    ComponentType
-	model, attr string
-	f           AttributeConverter
+	comptype ComponentType
+	model    string
+	attr     string
+	f        AttributeConverter
 }
 
 var (
@@ -142,7 +143,7 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&cfg)
 	if err != nil {
-		return cfg, err
+		return cfg, fmt.Errorf("cannot parse config %w", err)
 	}
 
 	if cfg.Cloud.ID != "" {
@@ -155,7 +156,7 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 			if ok {
 				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
 				loaded := false
-				v, loaded, err := loadSubFromFile(originalPath, s)
+				v, loaded, err = loadSubFromFile(originalPath, s)
 				if err != nil {
 					return cfg, err
 				}
@@ -168,7 +169,7 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 			if r != nil {
 				n, err := r.f(v)
 				if err != nil {
-					return cfg, err
+					return cfg, fmt.Errorf("error fixing type for (%s, %s, %s) %w", c.Type, c.Model, k, err)
 				}
 				cfg.Components[idx].Attributes[k] = n
 			}
