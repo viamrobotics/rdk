@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
 
@@ -117,7 +118,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			alignCurrentlyWriting = true
 			go func() {
 				defer func() { alignCurrentlyWriting = false }()
-				fn := fmt.Sprintf("data/align-test-%d.both.gz", time.Now().Unix())
+				fn := artifact.MustNewPath(fmt.Sprintf("rimage/imagesource/align-test-%d.both.gz", time.Now().Unix()))
 				err := ii.WriteTo(fn)
 				if err != nil {
 					dc.logger.Debugf("error writing debug file: %s", err)

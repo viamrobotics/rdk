@@ -101,13 +101,16 @@ func TestRobotNext(t *testing.T) {
 
 	t.Run("precomputed", func(t *testing.T) {
 		getDataFileName := func(testName string) string {
+			artifact.Path(fmt.Sprintf("slam/%s.png", testName)) // attempt to load it
 			return artifact.MustPath(fmt.Sprintf("slam/%s.png", testName))
 		}
 		getNewDataFileName := func(testName string) string {
-			return artifact.MustPath(fmt.Sprintf("slam/%s_new.png", testName))
+			// vcs ignored
+			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
 		}
 		getDiffDataFileName := func(testName string) string {
-			return artifact.MustPath(fmt.Sprintf("slam/%s_diff.png", testName))
+			// vcs ignored
+			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
 		}
 
 		for _, tc := range []struct {
