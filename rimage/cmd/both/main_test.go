@@ -4,6 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,13 +20,13 @@ func TestBothMain(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	out := "out/board1.both.gz"
-	err := realMain([]string{"merge", "../../data/board1.png", "../../data/board1.dat.gz", out})
+	err := realMain([]string{"merge", artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), out})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	out3 := "out/shelf.both.gz"
-	err = realMain([]string{"combineRGBAndZ16", "../../data/shelf_color.png", "../../data/shelf_grayscale.png", out3})
+	err = realMain([]string{"combineRGBAndZ16", artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), out3})
 	if err != nil {
 		t.Fatal(err)
 	}

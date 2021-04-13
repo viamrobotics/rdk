@@ -5,11 +5,12 @@ import (
 	"image"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
 
 func TestRotateSource(t *testing.T) {
-	pc, err := rimage.NewImageWithDepth("../data/board1.png", "../data/board1.dat.gz")
+	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,7 @@ func TestRotateSource(t *testing.T) {
 }
 
 func BenchmarkRotate(b *testing.B) {
-	pc, err := rimage.NewImageWithDepth("../data/board1.png", "../data/board1.dat.gz")
+	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
 	if err != nil {
 		b.Fatal(err)
 	}
