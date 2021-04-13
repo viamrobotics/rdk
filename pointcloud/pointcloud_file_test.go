@@ -8,13 +8,15 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestNewFromFile(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cloud, err := NewFromFile("data/test.las", logger)
+	cloud, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	numPoints := cloud.Size()
 	test.That(t, numPoints, test.ShouldEqual, 8413)

@@ -4,12 +4,14 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPC1(t *testing.T) {
-	pc, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +28,7 @@ func TestPC1(t *testing.T) {
 }
 
 func TestPCRoundTrip(t *testing.T) {
-	pc, err := NewImageWithDepth("data/board1.png", "data/board1.dat.gz")
+	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +54,7 @@ func TestPCRoundTrip(t *testing.T) {
 
 func TestPC3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +74,7 @@ func TestPC3(t *testing.T) {
 }
 
 func TestImageWithDepthFromImages(t *testing.T) {
-	iwd, err := NewImageWithDepthFromImages("data/shelf_color.png", "data/shelf_grayscale.png")
+	iwd, err := NewImageWithDepthFromImages(artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestImageWithDepthFromImages(t *testing.T) {
 }
 
 func TestImageToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +103,7 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}

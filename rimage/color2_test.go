@@ -4,10 +4,12 @@ import (
 	"image"
 	"os"
 	"testing"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func TestColorSegment1(t *testing.T) {
-	img, err := NewImageFromFile("data/chess-segment1.png")
+	img, err := NewImageFromFile(artifact.MustPath("rimage/chess-segment1.png"))
 	if err != nil {
 		t.Fatal(err)
 	}

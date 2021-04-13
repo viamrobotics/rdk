@@ -4,11 +4,13 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCLF(t *testing.T) {
-	f, err := os.Open("data/aces_sample.clf")
+	f, err := os.Open(artifact.MustPath("utils/aces_sample.clf"))
 	if err != nil {
 		t.Fatal(err)
 	}

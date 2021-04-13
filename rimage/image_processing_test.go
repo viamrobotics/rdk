@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +23,7 @@ func TestCanny2(t *testing.T) {
 }
 
 func doCannyTest(t *testing.T, root string) {
-	img, err := NewImageFromFile(fmt.Sprintf("data/%s.png", root))
+	img, err := NewImageFromFile(artifact.MustPath(fmt.Sprintf("rimage/%s.png", root)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +90,7 @@ func doCannyTest(t *testing.T, root string) {
 }
 
 func BenchmarkConvertImage(b *testing.B) {
-	img, err := ReadImageFromFile("data/canny1.png")
+	img, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -148,7 +150,7 @@ func imageToYCbCr(dst *image.YCbCr, src image.Image) {
 }
 
 func TestConvertYCbCr(t *testing.T) {
-	orig, err := ReadImageFromFile("data/canny1.png")
+	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +173,7 @@ func TestConvertYCbCr(t *testing.T) {
 }
 
 func BenchmarkConvertImageYCbCr(b *testing.B) {
-	orig, err := ReadImageFromFile("data/canny1.png")
+	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -187,13 +189,16 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 }
 
 func TestCanny(t *testing.T) {
-	imgOriginal, err := ReadImageFromFile("data/canny_test_1.jpg")
+	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	img := ConvertImage(imgOriginal)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	gtOriginal, err := ReadImageFromFile("data/test_canny.png")
+	gtOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/test_canny.png"))
 	gt := ConvertImage(gtOriginal)
 	if err != nil {
 		t.Fatal(err)
@@ -209,17 +214,20 @@ func TestCanny(t *testing.T) {
 
 func TestCannyBlocks(t *testing.T) {
 	// load test image and GT
-	imgOriginal, err := ReadImageFromFile("data/edge_test_image.png")
+	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_image.png"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	img := ConvertImage(imgOriginal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gtGradient, err := ReadImageFromFile("data/edge_test_gradient.png")
+	gtGradient, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"))
 	gtGrad := ConvertImage(gtGradient)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gtNonMaxSup, err := ReadImageFromFile("data/edge_test_nms.png")
+	gtNonMaxSup, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"))
 	gtNms := ConvertImage(gtNonMaxSup)
 	if err != nil {
 		t.Fatal(err)
