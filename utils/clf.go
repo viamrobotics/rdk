@@ -217,7 +217,7 @@ func parseBaseMessage(messageType CLFMessageType, parts []string) (CLFBaseMessag
 		return CLFBaseMessage{}, errors.New("malformed message; expected timestamp/host info at end")
 	}
 	if len(parts) == 2 {
-		// some weird unaccapted format that we will accept (see data/aces_samples.clf)
+		// some weird unaccapted format that we will accept (see artifact_data/aces_samples.clf)
 		loggerTimestamp, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
 			return CLFBaseMessage{}, fmt.Errorf("error parsing logger_timestamp: %w", err)
