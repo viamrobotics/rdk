@@ -10,6 +10,7 @@
 ## Packages
 
 * [api](./api) - Robot, Arm, Base, Gripper API and Configuration
+* [artifact](./artifact) - test/large file storage package
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
   * [pi](./board/pi) - raspberry pi library
 * [dist/js](./dist/js) - auto-generated proto/gRPC files for JavaScript based off of `proto` directory
