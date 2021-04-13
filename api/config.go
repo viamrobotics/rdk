@@ -181,10 +181,17 @@ type Remote struct {
 	Prefix  bool
 }
 
+type CloudConfig struct {
+	ID     string
+	Secret string
+	Path   string // optional, defaults to viam cloud otherwise
+}
+
 type Config struct {
 	Remotes    []Remote
 	Boards     []board.Config
 	Components []Component
+	Cloud      CloudConfig
 }
 
 func (c Config) FindComponent(name string) *Component {
