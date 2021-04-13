@@ -121,6 +121,7 @@ func (c *Config) Lookup(path string) (*TreeNode, error) {
 
 func (c *Config) UnmarshalJSON(data []byte) error {
 	rawConfig := &struct {
+		Cache string           `json:"cache"`
 		Root  string           `json:"root"`
 		Store *json.RawMessage `json:"store"`
 		Tree  TreeNodeTree     `json:"tree"`
@@ -128,6 +129,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, rawConfig); err != nil {
 		return err
 	}
+	c.Config = rawConfig.Cache
 	c.Root = rawConfig.Root
 
 	if rawConfig.Store != nil {
