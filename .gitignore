@@ -52,3 +52,7 @@ slam/data/*diff*
 out/
 .idea/*
 bin/
+
+# artifact
+.artifact
+artifact_data

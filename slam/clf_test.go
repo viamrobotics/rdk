@@ -7,16 +7,16 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 )
 
 // http://ais.informatik.uni-freiburg.de/slamevaluation/index.php
 
 func TestAcesCLF(t *testing.T) {
-	fn := testutils.LargeFileTestPath("slam/aces.clf")
+	fn := artifact.MustPath("slam/aces.clf")
 	f, err := os.Open(fn)
 	if err != nil {
 		t.Fatal(err)

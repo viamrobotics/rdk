@@ -3,6 +3,7 @@ module go.viam.com/robotcore
 go 1.16
 
 require (
+	cloud.google.com/go/storage v1.10.0
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
@@ -58,6 +59,7 @@ require (
 	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197 // indirect
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
+	google.golang.org/api v0.36.0
 	google.golang.org/genproto v0.0.0-20210224155714-063164c882e6
 	google.golang.org/grpc v1.36.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
