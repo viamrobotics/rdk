@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/gostream"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
 
@@ -61,7 +62,7 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 		return err
 	}
 
-	fn := fmt.Sprintf("data/rover-cannot-walk-%d.both.gz", time.Now().Unix())
+	fn := artifact.MustNewPath(fmt.Sprintf("robot/actions/rover-cannot-walk-%d.both.gz", time.Now().Unix()))
 	err = pc.WriteTo(fn)
 	if err != nil {
 		return err

@@ -5,12 +5,7 @@ import (
 )
 
 func Path(to string) (string, error) {
-	config, err := LoadConfig()
-	if err != nil {
-		return "", err
-	}
-
-	cache, err := NewCache(config)
+	cache, err := GlobalCache()
 	if err != nil {
 		return "", err
 	}
@@ -23,6 +18,22 @@ func Path(to string) (string, error) {
 
 func MustPath(to string) string {
 	resolved, err := Path(to)
+	if err != nil {
+		panic(err)
+	}
+	return resolved
+}
+
+func NewPath(to string) (string, error) {
+	cache, err := GlobalCache()
+	if err != nil {
+		return "", err
+	}
+	return cache.NewPath(to), nil
+}
+
+func MustNewPath(to string) string {
+	resolved, err := NewPath(to)
 	if err != nil {
 		panic(err)
 	}

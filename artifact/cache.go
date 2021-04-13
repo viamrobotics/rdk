@@ -38,6 +38,7 @@ func GlobalCache() (Cache, error) {
 
 type Cache interface {
 	Store
+	NewPath(to string) string
 	Ensure(path string) (string, error)
 	Clean() error
 	WriteThroughUser() error
@@ -139,6 +140,10 @@ func (s *cachedStore) store(hash string, data []byte) error {
 	return s.cache.Store(hash, bytes.NewReader(data))
 }
 
+func (s *cachedStore) NewPath(to string) string {
+	return filepath.Join(s.rootDir, to)
+}
+
 func (s *cachedStore) Ensure(path string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -146,8 +151,7 @@ func (s *cachedStore) Ensure(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("path not in config: %q", path)
 	}
-	dstPath := filepath.Join(s.rootDir, path)
-	return s.ensureNode(node, dstPath)
+	return s.ensureNode(node, s.NewPath(path))
 
 }
 

@@ -10,8 +10,8 @@
             "name": "cameraOver",
             "type": "camera",
             "attributes": {
-                "color": "vision/chess/data/board3.png",
-                "depth": "vision/chess/data/board3.dat.gz"
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz"
             }
         },
         {
