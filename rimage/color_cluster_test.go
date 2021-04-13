@@ -3,10 +3,12 @@ package rimage
 import (
 	"os"
 	"testing"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {
-	img, err := NewImageFromFile("data/" + fn)
+	img, err := NewImageFromFile(artifact.MustPath("rimage/" + fn))
 	if err != nil {
 		t.Fatal(err)
 	}

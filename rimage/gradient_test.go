@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.viam.com/robotcore/artifact"
 )
 
 func loadPictureConvertToDM(p string) (*DepthMap, error) {
@@ -63,7 +64,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 
 func TestSobelFilter(t *testing.T) {
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
-	dm, err := loadPictureConvertToDM("data/circle.png")
+	dm, err := loadPictureConvertToDM(artifact.MustPath("rimage/circle.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +91,7 @@ func TestSobelFilter(t *testing.T) {
 }
 
 func BenchmarkSobelFilter(b *testing.B) {
-	dm, err := loadPictureConvertToDM("data/shelf_grayscale.png")
+	dm, err := loadPictureConvertToDM(artifact.MustPath("rimage/shelf_grayscale.png"))
 	if err != nil {
 		b.Fatal(err)
 	}

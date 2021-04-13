@@ -1,14 +1,13 @@
 package pointcloudsegmentation
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
-	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
 )
@@ -29,7 +28,10 @@ func TestSegmentPlane(t *testing.T) {
 	//Principal Point         : 542.078, 398.016
 	//Focal Length            : 734.938, 735.516
 	// get depth map
-	rgbd, err := rimage.BothReadFromFile("data/align-test-1615172036.both.gz")
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	m := rgbd.Depth
 	//rgb := rgbd.Color
 
@@ -70,7 +72,10 @@ func TestSegmentPlane(t *testing.T) {
 
 func TestDepthMapToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	rgbd, err := rimage.BothReadFromFile("data/align-test-1615172036.both.gz")
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	m := rgbd.Depth
 	//rgb := rgbd.Color
 
@@ -90,7 +95,10 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
-	rgbd, err := rimage.BothReadFromFile("data/align-test-1615172036.both.gz")
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	m := rgbd.Depth
 	rgb := rgbd.Color
 	h, w := rgb.Height(), rgb.Width()
@@ -104,7 +112,6 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	// Select depth range
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(6000)
 	// Get 3D Points
-	fmt.Println(os.Getwd())
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
 	if err != nil {
 		t.Fatal(err)

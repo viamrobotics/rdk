@@ -5,13 +5,15 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	data, err := ioutil.ReadFile("data/test1.raw")
+	data, err := ioutil.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
 	if err != nil {
 		t.Fatal(err)
 	}

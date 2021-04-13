@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func TestTraining1(t *testing.T) {
@@ -22,22 +24,22 @@ func TestTraining1(t *testing.T) {
 		return
 	}
 
-	w1, err := store.StoreImageFromDisk(ctx, "data/white1.png", []string{"white"})
+	w1, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/white1.png"), []string{"white"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	w2, err := store.StoreImageFromDisk(ctx, "data/white2.png", []string{"white"})
+	w2, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/white2.png"), []string{"white"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b1, err := store.StoreImageFromDisk(ctx, "data/black1.png", []string{"black"})
+	b1, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/black1.png"), []string{"black"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	b2, err := store.StoreImageFromDisk(ctx, "data/black2.png", []string{"black"})
+	b2, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/black2.png"), []string{"black"})
 	if err != nil {
 		t.Fatal(err)
 	}

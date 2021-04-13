@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/rimage"
@@ -100,13 +101,13 @@ func TestRobotNext(t *testing.T) {
 
 	t.Run("precomputed", func(t *testing.T) {
 		getDataFileName := func(testName string) string {
-			return utils.ResolveFile(fmt.Sprintf("slam/data/%s.png", testName))
+			return artifact.MustPath(fmt.Sprintf("slam/%s.png", testName))
 		}
 		getNewDataFileName := func(testName string) string {
-			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
+			return artifact.MustPath(fmt.Sprintf("slam/%s_new.png", testName))
 		}
 		getDiffDataFileName := func(testName string) string {
-			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
+			return artifact.MustPath(fmt.Sprintf("slam/%s_diff.png", testName))
 		}
 
 		for _, tc := range []struct {

@@ -8,11 +8,13 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func TestDepthMap1(t *testing.T) {
-	m, err := ParseDepthMap("data/board2.dat.gz")
+	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,7 @@ func TestDepthMap1(t *testing.T) {
 }
 
 func TestDepthMap2(t *testing.T) {
-	m, err := ParseDepthMap("data/board2.dat.gz")
+	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +99,7 @@ func TestDepthMap2(t *testing.T) {
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
-	m, err := ParseDepthMap("data/depthformat2.dat.gz")
+	m, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +140,7 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
-	iwd, err := NewImageWithDepth("data/board2.png", "data/board2.dat.gz")
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +225,7 @@ func TestSubImage(t *testing.T) {
 }
 
 func BenchmarkDepthMapRotate90(b *testing.B) {
-	dm, err := ParseDepthMap("data/depthformat2.dat.gz")
+	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -237,7 +239,7 @@ func BenchmarkDepthMapRotate90(b *testing.B) {
 }
 
 func BenchmarkDepthMapRotate180(b *testing.B) {
-	dm, err := ParseDepthMap("data/depthformat2.dat.gz")
+	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	if err != nil {
 		b.Fatal(err)
 	}

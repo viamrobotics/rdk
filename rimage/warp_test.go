@@ -5,8 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"go.viam.com/robotcore/artifact"
 
+	"github.com/stretchr/testify/assert"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -50,7 +51,7 @@ func TestWarp1(t *testing.T) {
 }
 
 func TestWarp2(t *testing.T) {
-	img, err := NewImageFromFile("data/canny1.png")
+	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +83,7 @@ func TestWarp2(t *testing.T) {
 }
 
 func BenchmarkWarp(b *testing.B) {
-	img, err := NewImageFromFile("data/canny1.png")
+	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func TestWarpInvert(t *testing.T) {
 func TestWarpSmall1(t *testing.T) {
 	// this is mostly making sure this test actually runs
 	// as it requires a non-standard matrix invert
-	img, err := ReadImageFromFile("data/warpsmall1.jpg")
+	img, err := ReadImageFromFile(artifact.MustPath("rimage/warpsmall1.jpg"))
 	if err != nil {
 		t.Fatal(err)
 	}
