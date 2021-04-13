@@ -21,7 +21,6 @@ func newFileSystemStore(config *fileSystemStoreConfig) (*fileSystemStore, error)
 }
 
 type fileSystemStore struct {
-	// cache?
 	dir string
 }
 
@@ -38,7 +37,7 @@ func (s *fileSystemStore) Contains(hash string) error {
 	return NewErrArtifactNotFoundHash(hash)
 }
 
-func (s *fileSystemStore) pathToHash(hash string) string {
+func (s *fileSystemStore) pathToHashFile(hash string) string {
 	return filepath.Join(s.dir, hash)
 }
 
@@ -46,11 +45,11 @@ func (s *fileSystemStore) Load(hash string) (io.ReadCloser, error) {
 	if err := s.Contains(hash); err != nil {
 		return nil, err
 	}
-	return os.Open(s.pathToHash(hash))
+	return os.Open(s.pathToHashFile(hash))
 }
 
 func (s *fileSystemStore) Store(hash string, r io.Reader) (err error) {
-	path := s.pathToHash(hash)
+	path := s.pathToHashFile(hash)
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
