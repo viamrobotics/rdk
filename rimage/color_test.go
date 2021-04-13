@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"go.viam.com/robotcore/artifact"
 
 	"github.com/lucasb-eyer/go-colorful"
+	"github.com/stretchr/testify/assert"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {
@@ -388,7 +389,7 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 		t.Fatalf("harbinger2 and other are too close %f\n", distance)
 	}
 
-	allColors, err := readColorsFromFile("data/hsvdistancechess3.txt")
+	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess3.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +412,7 @@ func TestColorHSVDistanceChess4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	allColors, err := readColorsFromFile("data/hsvdistancechess4.txt")
+	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess4.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,7 +430,7 @@ func TestColorHSVDistanceChess4(t *testing.T) {
 }
 
 func TestColorHSVDistanceChess5(t *testing.T) {
-	allColors, err := readColorsFromFile("data/hsvdistancechess5.txt")
+	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess5.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
