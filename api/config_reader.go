@@ -84,16 +84,16 @@ func createRequest(cloudCfg CloudConfig) (*http.Request, error) {
 
 	r, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request for %s : %s", url, err)
+		return nil, fmt.Errorf("error creating request for %s : %w", url, err)
 	}
 	r.Header.Set("Secret", cloudCfg.Secret)
 
 	userInfo := map[string]interface{}{}
-	temp, err := os.Hostname()
+	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
-	userInfo["host"] = temp
+	userInfo["host"] = hostname
 	userInfo["os"] = runtime.GOOS
 
 	userInfoBytes, err := json.Marshal(userInfo)
@@ -123,6 +123,7 @@ func ReadConfigFromCloud(cloudCfg CloudConfig) (Config, error) {
 	return ReadConfigFromReader("", resp.Body)
 }
 
+// TODO(erh): should make this return a *Config (and all downstream)
 func ReadConfig(fn string) (Config, error) {
 	cfg := Config{}
 

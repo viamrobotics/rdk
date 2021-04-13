@@ -181,6 +181,9 @@ type Remote struct {
 	Prefix  bool
 }
 
+// configuration for how to fetch the actual config from a cloud source
+// the cloud source could be anything that supports http
+// url is constructed as $Path?id=ID and secret is put in a http header
 type CloudConfig struct {
 	ID     string
 	Secret string
