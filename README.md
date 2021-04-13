@@ -89,9 +89,9 @@ Some guidelines on using these:
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files.
 1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
-### Testing with artifacts
+### Testing with big data
 
-In order to add test artifacts, you need to do the following:
+Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull down with git and is typically not needed except for certain tests. In order to add large data test artifacts, you need to do the following:
 
 ```
 # get GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
