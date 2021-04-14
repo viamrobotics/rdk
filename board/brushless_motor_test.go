@@ -36,11 +36,11 @@ func TestBrushlessMotor(t *testing.T) {
 	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50.0, 40.0))
 	steps, err := m.Position(ctx)
 	assert.Nil(t, err)
-	assert.Equal(t, 160.0, steps)
+	assert.Equal(t, 0.005, steps)
 
 	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 50.0, 20.0))
 	steps, err = m.Position(ctx)
 	assert.Nil(t, err)
-	assert.Equal(t, 80.0, steps)
+	assert.Equal(t, 0.015, steps)
 
 }
