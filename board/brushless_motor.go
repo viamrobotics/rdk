@@ -12,14 +12,16 @@ import (
 	"go.uber.org/multierr"
 )
 
-const minute = 1 * time.Minute
-const defaultRPM = 60
+var (
+	minute     = 1 * time.Minute
+	defaultRPM = 60.0
+)
 
 func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*BrushlessMotor, error) {
 
 	// Wait is the number of MICROseconds between each step to give the desired RPM
 
-	stop := make(map[int](chan bool))
+	commandChan := make(chan brushlessMotorCmd)
 
 	// Technically you can have the two jumpers set to keep ENA and ENB always-on on a dual H-bridge
 	// Note that this may cause unwanted heat buildup on the H-bridge, so we require PWM control
@@ -29,24 +31,24 @@ func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logg
 	// being controlled via the timing of the ABCD pins. Otherwise we risk partial steps and getting the
 	// motor coils into a bad state.
 	m := &BrushlessMotor{
-		cfg:    mc,
-		Board:  b,
-		A:      pins["a"],
-		B:      pins["b"],
-		C:      pins["c"],
-		D:      pins["d"],
-		PWMs:   []string{pins["pwm"]},
-		on:     false,
-		stop:   stop,
-		logger: logger,
-		nextID: 0,
+		cfg:      mc,
+		Board:    b,
+		A:        pins["a"],
+		B:        pins["b"],
+		C:        pins["c"],
+		D:        pins["d"],
+		PWMs:     []string{pins["pwm"]},
+		on:       false,
+		commands: commandChan,
+		logger:   logger,
 	}
-	if len(pins) == 6 {
+	if _, ok := pins["pwmb"]; ok {
 		// The two PWM inputs can be controlled by one pin whose output is forked, above, or two individual pins
 		// Benefit of two individual pins is that the H-bridge can be plugged directly into a Pi without
 		// the use of a breadboard
 		m.PWMs = append(m.PWMs, pins["pwmb"])
 	}
+
 	return m, nil
 }
 
@@ -61,6 +63,15 @@ func stepSequence() [][]bool {
 	}
 }
 
+// Brushless motors are managed separately by an independent thread
+// We need a way to pass motor commands to that thread
+type brushlessMotorCmd struct {
+	d     pb.DirectionRelative
+	wait  time.Duration
+	steps int
+	cont  bool
+}
+
 type BrushlessMotor struct {
 	cfg        MotorConfig
 	Board      GPIOBoard
@@ -68,15 +79,15 @@ type BrushlessMotor struct {
 	A, B, C, D string
 	steps      int
 	on         bool
-	stop       map[int]chan bool
+	startedMgr bool
+	commands   chan brushlessMotorCmd
 	logger     golog.Logger
-	nextID     int
 }
 
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
 //           This should eventually be a supported feature.
 func (m *BrushlessMotor) Position(ctx context.Context) (float64, error) {
-	return float64(m.steps / m.cfg.TicksPerRotation), nil
+	return float64(m.steps) / float64(m.cfg.TicksPerRotation), nil
 }
 
 func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
@@ -129,99 +140,25 @@ func (m *BrushlessMotor) step(ctx context.Context, d pb.DirectionRelative, wait 
 
 // Use this to launch a goroutine that will rotate in a direction while listening on a channel for Off()
 func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return m.Off(ctx)
-	}
-	if m.on {
-		err := m.Off(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	err := m.turnOn(ctx)
-	if err != nil {
-		return err
-	}
-
-	thisID := m.nextID
-	m.stop[thisID] = make(chan bool)
-	m.nextID++
+	m.motorManagerStart(ctx)
 
 	wait := time.Duration(float64(minute.Microseconds())/(float64(m.cfg.TicksPerRotation)*defaultRPM)) * time.Microsecond
 
-	// Turn in the specified direction until something says not to
-	go func() {
-		for {
-			done := false
-			select {
-			case <-m.stop[thisID]:
-				done = true
-			default:
-				err := m.step(ctx, d, wait)
-				if err != nil {
-					m.logger.Warnf("error performing gofor step: %s", err)
-				}
-			}
-			if done {
-				break
-			}
-		}
-		err := m.powerOff(ctx)
-		if err != nil {
-			m.logger.Warnf("error turning off: %s", err)
-		}
-		delete(m.stop, thisID)
-	}()
+	m.commands <- brushlessMotorCmd{d: d, wait: wait, cont: true}
+
 	return nil
 }
 
 // Turn in the given direction the given number of times at the given speed. Does not block
 func (m *BrushlessMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	// Set our wait time off of the specified RPM
-	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
-		return m.Off(ctx)
-	}
-	if m.on {
-		err := m.Off(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	err := m.turnOn(ctx)
-	if err != nil {
-		return err
-	}
-
-	thisID := m.nextID
-	m.stop[thisID] = make(chan bool)
-	m.nextID++
+	m.motorManagerStart(ctx)
 
 	wait := time.Duration(float64(minute.Microseconds())/(float64(m.cfg.TicksPerRotation)*rpm)) * time.Microsecond
 	steps := int(math.Abs(rotations * float64(m.cfg.TicksPerRotation)))
 
-	go func() {
-		// Rotate the specified number of rotations. We step in increments of 4.
-		for i := steps; i > 0; i -= 4 {
-			done := false
-			select {
-			case <-m.stop[thisID]:
-				done = true
-			default:
-				err := m.step(ctx, d, wait)
-				if err != nil {
-					m.logger.Warnf("error performing gofor step: %s", err)
-				}
-			}
-			if done {
-				break
-			}
-		}
-		err := m.powerOff(ctx)
-		if err != nil {
-			m.logger.Warnf("error turning off: %s", err)
-		}
-		delete(m.stop, thisID)
-	}()
+	m.commands <- brushlessMotorCmd{d: d, wait: wait, steps: steps, cont: false}
+
 	return nil
 }
 
@@ -229,43 +166,83 @@ func (m *BrushlessMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
-// Turn on power to the motor
-func (m *BrushlessMotor) turnOn(ctx context.Context) error {
-	m.on = true
+// Turn power to the motor on or off
+func (m *BrushlessMotor) turnOnOrOff(ctx context.Context, turnOn bool) error {
 	var err error
 
-	for _, pwmPin := range m.PWMs {
-		err = multierr.Combine(
-			err,
-			m.Board.GPIOSet(pwmPin, true),
-		)
-	}
-	return err
-}
-
-// Turn off power to the motor without sending stop signals to channels
-func (m *BrushlessMotor) powerOff(ctx context.Context) error {
-	m.on = false
-	var err error
-
-	for _, pwmPin := range m.PWMs {
-		err = multierr.Combine(
-			err,
-			m.Board.GPIOSet(pwmPin, false),
-		)
+	if turnOn {
+		// Don't turn on if we're already on
+		if !m.on {
+			m.on = true
+			for _, pwmPin := range m.PWMs {
+				err = multierr.Combine(
+					err,
+					m.Board.GPIOSet(pwmPin, true),
+				)
+			}
+		}
+	} else {
+		if m.on {
+			m.on = false
+			for _, pwmPin := range m.PWMs {
+				err = multierr.Combine(
+					err,
+					m.Board.GPIOSet(pwmPin, false),
+				)
+			}
+		}
 	}
 	return err
 }
 
 // Turn off power to the motor and stop all movement
 func (m *BrushlessMotor) Off(ctx context.Context) error {
-	m.stopRunningThreads(ctx)
-	return m.powerOff(ctx)
+	if m.on {
+		return m.turnOnOrOff(ctx, false)
+	}
+	return nil
 }
 
-// Tell all running threads to stop movement. Does not turn off torque.
-func (m *BrushlessMotor) stopRunningThreads(ctx context.Context) {
-	for k := range m.stop {
-		m.stop[k] <- true
+func (m *BrushlessMotor) motorManager(ctx context.Context) {
+	var err error
+	if m.startedMgr {
+		return
 	}
+	m.startedMgr = true
+
+	motorCmd := brushlessMotorCmd{}
+
+	for {
+		// Check to see if we have any new commands, without blocking
+		select {
+		case motorCmd = <-m.commands:
+		default:
+		}
+
+		// Perform one set of steps, then check again for new commands
+		if motorCmd.d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED || (!motorCmd.cont && motorCmd.steps <= 0) {
+			err = m.Off(ctx)
+			if err != nil {
+				m.logger.Warnf("error turning off: %s", err)
+			}
+		} else {
+			err = m.turnOnOrOff(ctx, true)
+			if err != nil {
+				m.logger.Warnf("error turning on: %s", err)
+			}
+			err = m.step(ctx, motorCmd.d, motorCmd.wait)
+			if err != nil {
+				m.logger.Warnf("error performing gofor step: %s", err)
+			}
+			// TODO(pl): remember what step we're on so we can do one at a time instead of 4
+			motorCmd.steps -= 4
+		}
+	}
+}
+
+func (m *BrushlessMotor) motorManagerStart(ctx context.Context) {
+	if m.startedMgr {
+		return
+	}
+	go m.motorManager(ctx)
 }
