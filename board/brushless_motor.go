@@ -124,8 +124,8 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			// Waiting between each setStep() call is the best way to adjust motor speed.
 			// See the comment above in NewBrushlessMotor() for why to not use PWM.
 			timer := time.NewTimer(wait)
-			defer timer.Stop()
 			<-timer.C
+			timer.Stop()
 		}
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		for i := len(seq) - 1; i >= 0; i-- {
@@ -134,8 +134,8 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			}
 			m.steps--
 			timer := time.NewTimer(wait)
-			defer timer.Stop()
 			<-timer.C
+			timer.Stop()
 		}
 	}
 	return nil
@@ -234,7 +234,7 @@ func (m *BrushlessMotor) motorManager(ctx context.Context) {
 			if err = m.turnOnOrOff(true); err != nil {
 				m.logger.Warnf("error turning on: %s", err)
 			}
-			if err = m.step(motorCmd.d, motorCmd.wait);err != nil {
+			if err = m.step(motorCmd.d, motorCmd.wait); err != nil {
 				m.logger.Warnf("error performing step: %s", err)
 			}
 			// TODO(pl): remember what step we're on so we can do one at a time instead of 4
@@ -252,6 +252,7 @@ func (m *BrushlessMotor) motorManagerStart(ctx context.Context) {
 
 func (m *BrushlessMotor) Close() {
 	close(m.done)
-	m.turnOnOrOff(false)
+	if err := m.turnOnOrOff(false); err != nil {
+		m.logger.Warnf("error turning on: %s", err)
+	}
 }
-
