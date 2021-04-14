@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestStepperMotor(t *testing.T) {
+func TestBrushlessMotor(t *testing.T) {
 	ctx := context.Background()
 	b := &testGPIOBoard{}
 	logger := golog.NewTestLogger(t)
