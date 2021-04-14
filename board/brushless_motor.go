@@ -250,9 +250,7 @@ func (m *BrushlessMotor) motorManagerStart(ctx context.Context) {
 	go m.motorManager(ctx)
 }
 
-func (m *BrushlessMotor) Close() {
+func (m *BrushlessMotor) Close() error {
 	close(m.done)
-	if err := m.turnOnOrOff(false); err != nil {
-		m.logger.Warnf("error turning on: %s", err)
-	}
+	return m.turnOnOrOff(false)
 }
