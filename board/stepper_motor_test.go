@@ -6,14 +6,16 @@ import (
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	b := &testGPIOBoard{}
+	logger := golog.NewTestLogger(t)
 
-	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4", "pwm": "5"}, TicksPerRotation: 200})
+	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4", "pwm": "5"}, TicksPerRotation: 200}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
