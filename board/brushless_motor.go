@@ -15,7 +15,7 @@ import (
 const minute = 1 * time.Minute
 const defaultRPM = 60
 
-func NewStepperMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*StepperMotor, error) {
+func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*BrushlessMotor, error) {
 
 	// Wait is the number of MICROseconds between each step to give the desired RPM
 
@@ -28,7 +28,7 @@ func NewStepperMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger
 	// Since we step manually, these should not be actually used for PWM, with motor speed instead
 	// being controlled via the timing of the ABCD pins. Otherwise we risk partial steps and getting the
 	// motor coils into a bad state.
-	m := &StepperMotor{
+	m := &BrushlessMotor{
 		cfg:    mc,
 		Board:  b,
 		A:      pins["a"],
@@ -61,7 +61,7 @@ func stepSequence() [][]bool {
 	}
 }
 
-type StepperMotor struct {
+type BrushlessMotor struct {
 	cfg        MotorConfig
 	Board      GPIOBoard
 	PWMs       []string
@@ -75,20 +75,20 @@ type StepperMotor struct {
 
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
 //           This should eventually be a supported feature.
-func (m *StepperMotor) Position(ctx context.Context) (float64, error) {
+func (m *BrushlessMotor) Position(ctx context.Context) (float64, error) {
 	return float64(m.steps / m.cfg.TicksPerRotation), nil
 }
 
-func (m *StepperMotor) PositionSupported(ctx context.Context) (bool, error) {
+func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
 // TODO(pl): Implement this feature once we have a driver board allowing PWM control
-func (m *StepperMotor) Force(ctx context.Context, force byte) error {
+func (m *BrushlessMotor) Force(ctx context.Context, force byte) error {
 	return fmt.Errorf("force not supported for stepper motors on dual H-bridges")
 }
 
-func (m *StepperMotor) setStep(ctx context.Context, pins []bool) error {
+func (m *BrushlessMotor) setStep(ctx context.Context, pins []bool) error {
 	return multierr.Combine(
 		m.Board.GPIOSet(m.A, pins[0]),
 		m.Board.GPIOSet(m.B, pins[1]),
@@ -98,7 +98,7 @@ func (m *StepperMotor) setStep(ctx context.Context, pins []bool) error {
 }
 
 // This will power on the motor if necessary, and make one full step sequence (4 steps) in the specified direction
-func (m *StepperMotor) step(ctx context.Context, d pb.DirectionRelative, wait time.Duration) error {
+func (m *BrushlessMotor) step(ctx context.Context, d pb.DirectionRelative, wait time.Duration) error {
 	seq := stepSequence()
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
@@ -111,7 +111,7 @@ func (m *StepperMotor) step(ctx context.Context, d pb.DirectionRelative, wait ti
 			}
 			m.steps++
 			// time.Sleep between each setStep() call is the best way to adjust motor speed
-			// See the comment above in NewStepperMotor() for why to not use PWM
+			// See the comment above in NewBrushlessMotor() for why to not use PWM
 			time.Sleep(wait)
 		}
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
@@ -128,7 +128,7 @@ func (m *StepperMotor) step(ctx context.Context, d pb.DirectionRelative, wait ti
 }
 
 // Use this to launch a goroutine that will rotate in a direction while listening on a channel for Off()
-func (m *StepperMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
+func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return m.Off(ctx)
 	}
@@ -176,7 +176,7 @@ func (m *StepperMotor) Go(ctx context.Context, d pb.DirectionRelative, force byt
 }
 
 // Turn in the given direction the given number of times at the given speed. Does not block
-func (m *StepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *BrushlessMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	// Set our wait time off of the specified RPM
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return m.Off(ctx)
@@ -225,12 +225,12 @@ func (m *StepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	return nil
 }
 
-func (m *StepperMotor) IsOn(ctx context.Context) (bool, error) {
+func (m *BrushlessMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
 // Turn on power to the motor
-func (m *StepperMotor) turnOn(ctx context.Context) error {
+func (m *BrushlessMotor) turnOn(ctx context.Context) error {
 	m.on = true
 	var err error
 
@@ -244,7 +244,7 @@ func (m *StepperMotor) turnOn(ctx context.Context) error {
 }
 
 // Turn off power to the motor without sending stop signals to channels
-func (m *StepperMotor) powerOff(ctx context.Context) error {
+func (m *BrushlessMotor) powerOff(ctx context.Context) error {
 	m.on = false
 	var err error
 
@@ -258,13 +258,13 @@ func (m *StepperMotor) powerOff(ctx context.Context) error {
 }
 
 // Turn off power to the motor and stop all movement
-func (m *StepperMotor) Off(ctx context.Context) error {
+func (m *BrushlessMotor) Off(ctx context.Context) error {
 	m.stopRunningThreads(ctx)
 	return m.powerOff(ctx)
 }
 
 // Tell all running threads to stop movement. Does not turn off torque.
-func (m *StepperMotor) stopRunningThreads(ctx context.Context) {
+func (m *BrushlessMotor) stopRunningThreads(ctx context.Context) {
 	for k := range m.stop {
 		m.stop[k] <- true
 	}
