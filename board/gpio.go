@@ -17,23 +17,18 @@ type GPIOBoard interface {
 
 func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, error) {
 	var m Motor
-	var err error
 	pins := mc.Pins
 
 	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
 	if _, ok := pins["c"]; ok {
-		m, err = NewBrushlessMotor(b, pins, mc, logger)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		m = &GPIOMotor{
-			b,
-			pins["a"],
-			pins["b"],
-			pins["pwm"],
-			false,
-		}
+		return NewBrushlessMotor(b, pins, mc, logger)
+	}
+	m = &GPIOMotor{
+		b,
+		pins["a"],
+		pins["b"],
+		pins["pwm"],
+		false,
 	}
 	return m, nil
 }
