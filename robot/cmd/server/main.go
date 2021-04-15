@@ -24,8 +24,8 @@ import (
 	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
 	_ "go.viam.com/robotcore/robots/universalrobots" // for an arm
 	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
-	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
 	_ "go.viam.com/robotcore/robots/vx300s"          // for arm and gripper
+	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
 
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
