@@ -338,9 +338,8 @@ func setServoDefaults(newServo *servo.Servo) error {
 		return err
 	}
 	err = newServo.SetMovingThreshold(0)
-	newServo.SetMovingThreshold(0)
 	if err != nil {
-		return fmt.Errorf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
+		return fmt.Errorf("error SetMovingThreshold servo %d: %v", newServo.ID, err)
 	}
 	dm, err := newServo.DriveMode()
 	if err != nil {
