@@ -17,6 +17,7 @@ import (
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -296,43 +297,31 @@ type baseClient struct {
 }
 
 func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	resp, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
-		Name: bc.name,
-		Action: &pb.ControlBaseRequest_Move{
-			Move: &pb.MoveBase{
-				Speed: millisPerSec,
-				Option: &pb.MoveBase_StraightDistanceMillis{
-					StraightDistanceMillis: int64(distanceMillis),
-				},
-			},
-		},
+	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+		Name:           bc.name,
+		MillisPerSec:   millisPerSec,
+		DistanceMillis: int64(distanceMillis),
 	})
 	if err != nil {
 		return 0, err
 	}
-	moved := int(resp.GetStraightDistanceMillis())
+	moved := int(resp.DistanceMillis)
 	if resp.Success {
 		return moved, nil
 	}
 	return moved, errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-	resp, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
-		Name: bc.name,
-		Action: &pb.ControlBaseRequest_Move{
-			Move: &pb.MoveBase{
-				Speed: float64(speed),
-				Option: &pb.MoveBase_SpinAngleDeg{
-					SpinAngleDeg: angleDeg,
-				},
-			},
-		},
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
+		Name:       bc.name,
+		AngleDeg:   angleDeg,
+		DegsPerSec: degsPerSec,
 	})
 	if err != nil {
 		return math.NaN(), err
 	}
-	spun := resp.GetSpinAngleDeg()
+	spun := resp.AngleDeg
 	if resp.Success {
 		return spun, nil
 	}
@@ -340,9 +329,8 @@ func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, blo
 }
 
 func (bc *baseClient) Stop(ctx context.Context) error {
-	_, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
-		Name:   bc.name,
-		Action: &pb.ControlBaseRequest_Stop{Stop: true},
+	_, err := bc.rc.client.BaseStop(ctx, &pb.BaseStopRequest{
+		Name: bc.name,
 	})
 	return err
 }
@@ -368,7 +356,7 @@ func (ac *armClient) CurrentPosition(ctx context.Context) (*pb.ArmPosition, erro
 }
 
 func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	_, err := ac.rc.client.MoveArmToPosition(ctx, &pb.MoveArmToPositionRequest{
+	_, err := ac.rc.client.ArmMoveToPosition(ctx, &pb.ArmMoveToPositionRequest{
 		Name: ac.name,
 		To:   c,
 	})
@@ -376,7 +364,7 @@ func (ac *armClient) MoveToPosition(ctx context.Context, c *pb.ArmPosition) erro
 }
 
 func (ac *armClient) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
-	_, err := ac.rc.client.MoveArmToJointPositions(ctx, &pb.MoveArmToJointPositionsRequest{
+	_, err := ac.rc.client.ArmMoveToJointPositions(ctx, &pb.ArmMoveToJointPositionsRequest{
 		Name: ac.name,
 		To:   pos,
 	})
@@ -404,17 +392,15 @@ type gripperClient struct {
 }
 
 func (gc *gripperClient) Open(ctx context.Context) error {
-	_, err := gc.rc.client.ControlGripper(ctx, &pb.ControlGripperRequest{
-		Name:   gc.name,
-		Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN,
+	_, err := gc.rc.client.GripperOpen(ctx, &pb.GripperOpenRequest{
+		Name: gc.name,
 	})
 	return err
 }
 
 func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
-	resp, err := gc.rc.client.ControlGripper(ctx, &pb.ControlGripperRequest{
-		Name:   gc.name,
-		Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB,
+	resp, err := gc.rc.client.GripperGrab(ctx, &pb.GripperGrabRequest{
+		Name: gc.name,
 	})
 	if err != nil {
 		return false, err
@@ -481,28 +467,28 @@ type motorClient struct {
 	motorName string
 }
 
-func (mc *motorClient) Force(ctx context.Context, force byte) error {
+func (mc *motorClient) Power(ctx context.Context, power byte) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
-	_, err := mc.rc.client.ControlBoardMotor(ctx, &pb.ControlBoardMotorRequest{
+func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
+	_, err := mc.rc.client.BoardMotorGo(ctx, &pb.BoardMotorGoRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 		Direction: d,
-		Speed:     float64(force),
+		Power:     utils.ScaleByteToUInt32(power),
 	})
 	return err
 }
 
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
-	_, err := mc.rc.client.ControlBoardMotor(ctx, &pb.ControlBoardMotorRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Direction: d,
-		Speed:     rpm,
-		Rotations: rotations,
+func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+	_, err := mc.rc.client.BoardMotorGoFor(ctx, &pb.BoardMotorGoForRequest{
+		BoardName:   mc.boardName,
+		MotorName:   mc.motorName,
+		Direction:   d,
+		Rpm:         rpm,
+		Revolutions: revolutions,
 	})
 	return err
 }
@@ -533,11 +519,11 @@ type servoClient struct {
 	servoName string
 }
 
-func (sc *servoClient) Move(ctx context.Context, angle uint8) error {
-	_, err := sc.rc.client.ControlBoardServo(ctx, &pb.ControlBoardServoRequest{
+func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
+	_, err := sc.rc.client.BoardServoMove(ctx, &pb.BoardServoMoveRequest{
 		BoardName: sc.boardName,
 		ServoName: sc.servoName,
-		AngleDeg:  uint32(angle),
+		AngleDeg:  uint32(angleDeg),
 	})
 	return err
 }

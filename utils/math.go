@@ -88,6 +88,16 @@ func SquareInt(n int) int {
 	return n * n
 }
 
+// Scales a uint32 down to a byte
+func ScaleUInt32ToByte(n uint32) byte {
+	return byte(float64(math.MaxUint8) * (float64(n) / float64(math.MaxUint32)))
+}
+
+// Scales a byte up to a uint32
+func ScaleByteToUInt32(n byte) uint32 {
+	return uint32(float64(math.MaxUint32) * (float64(n) / float64(math.MaxUint8)))
+}
+
 // RayToUpwardCWCartesian returns coordinates based off of
 // a coordinate system where the center is x,y=0,0 and
 // zero degrees is pointing up. This is helpful for visualzing
