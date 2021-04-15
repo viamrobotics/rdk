@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"os"
 	"runtime/pprof"
 
@@ -25,6 +29,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
 	"go.opencensus.io/trace"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
@@ -33,12 +39,73 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
+type netLogger struct {
+	hostname string
+	cfg      api.CloudConfig
+}
+
+func (nl *netLogger) Enabled(zapcore.Level) bool {
+	return true
+}
+
+func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
+	panic(1)
+}
+
+func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return ce.AddCore(e, nl)
+}
+
+func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
+	x := map[string]interface{}{
+		"id":     nl.cfg.ID,
+		"host":   nl.hostname,
+		"log":    e,
+		"fields": f,
+	}
+
+	js, err := json.Marshal(x)
+	if err != nil {
+		return err
+	}
+
+	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
+	if err != nil {
+		return fmt.Errorf("error creating log request %w", err)
+	}
+	r.Header.Set("Secret", nl.cfg.Secret)
+
+	resp, err := http.DefaultClient.Do(r)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
+}
+
+func (nl *netLogger) Sync() error {
+	return nil
+}
+
+func addCloudLogger(logger golog.Logger, cfg api.CloudConfig) (golog.Logger, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+	l := logger.Desugar()
+	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, &netLogger{hostname, cfg})
+	}))
+	return l.Sugar(), nil
+}
+
 // Arguments for the command.
 type Arguments struct {
 	ConfigFile string            `flag:"0,required,usage=robot config file"`
 	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
 	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
 	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
+	LogURL     string            `flag:"logurl,usage=url to log messages to"`
 	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
 }
 
@@ -70,6 +137,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	cfg, err := api.ReadConfig(argsParsed.ConfigFile)
 	if err != nil {
 		return err
+	}
+
+	if cfg.Cloud.LogPath != "" {
+		logger, err = addCloudLogger(logger, cfg.Cloud)
+		if err != nil {
+			return err
+		}
 	}
 
 	rpcDialer := rpc.NewCachedDialer()
