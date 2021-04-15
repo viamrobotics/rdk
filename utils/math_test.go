@@ -164,6 +164,22 @@ func TestMinMax(t *testing.T) {
 	assert.Equal(t, uint8(4), MinUint8(5, 4))
 }
 
+func TestScaleUInt32ToByte(t *testing.T) {
+	assert.Equal(t, byte(0), ScaleUInt32ToByte(0))
+	assert.Equal(t, byte(math.MaxUint8/math.MaxUint32), ScaleUInt32ToByte(1))
+	assert.Equal(t, byte(math.MaxUint8/math.MaxUint32), ScaleUInt32ToByte(2))
+	assert.Equal(t, byte(math.MaxUint8), ScaleUInt32ToByte(math.MaxUint32))
+	assert.Equal(t, byte(math.MaxUint8/2), ScaleUInt32ToByte(math.MaxUint32/2))
+}
+
+func TestScaleByteToUInt32(t *testing.T) {
+	assert.Equal(t, uint32(0), ScaleByteToUInt32(0))
+	assert.Equal(t, uint32(math.MaxUint32/math.MaxUint8), ScaleByteToUInt32(1))
+	assert.Equal(t, uint32((math.MaxUint32/math.MaxUint8)*2), ScaleByteToUInt32(2))
+	assert.Equal(t, uint32(math.MaxUint32), ScaleByteToUInt32(byte(math.MaxUint8)))
+	assert.Equal(t, uint32(0x7f7f7f7f), ScaleByteToUInt32(byte(math.MaxUint8/2)))
+}
+
 func TestRayToUpwardCWCartesian(t *testing.T) {
 	tt := func(angle, distance, X, Y float64) {
 		x, y := RayToUpwardCWCartesian(angle, 1)
