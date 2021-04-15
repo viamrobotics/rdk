@@ -123,9 +123,7 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			m.steps++
 			// Waiting between each setStep() call is the best way to adjust motor speed.
 			// See the comment above in NewBrushlessMotor() for why to not use PWM.
-			timer := time.NewTimer(wait)
-			<-timer.C
-			timer.Stop()
+			time.Sleep(wait)
 		}
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		for i := len(seq) - 1; i >= 0; i-- {
@@ -133,9 +131,7 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 				return err
 			}
 			m.steps--
-			timer := time.NewTimer(wait)
-			<-timer.C
-			timer.Stop()
+			time.Sleep(wait)
 		}
 	}
 	return nil
@@ -143,7 +139,7 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 
 // Use this to launch a goroutine that will rotate in a direction while listening on a channel for Off().
 func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
-	m.motorManagerStart(ctx)
+	m.motorManagerStart()
 
 	wait := time.Duration(float64(minute.Microseconds())/(float64(m.cfg.TicksPerRotation)*defaultRPM)) * time.Microsecond
 
@@ -155,7 +151,7 @@ func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, force b
 // Turn in the given direction the given number of times at the given speed. Does not block.
 func (m *BrushlessMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	// Set our wait time off of the specified RPM
-	m.motorManagerStart(ctx)
+	m.motorManagerStart()
 
 	wait := time.Duration(float64(minute.Microseconds())/(float64(m.cfg.TicksPerRotation)*rpm)) * time.Microsecond
 	steps := int(math.Abs(rotations * float64(m.cfg.TicksPerRotation)))
@@ -173,28 +169,18 @@ func (m *BrushlessMotor) IsOn(ctx context.Context) (bool, error) {
 func (m *BrushlessMotor) turnOnOrOff(turnOn bool) error {
 	var err error
 
-	if turnOn {
-		// Don't turn on if we're already on.
-		if !m.on {
-			m.on = true
-			for _, pwmPin := range m.PWMs {
-				err = multierr.Combine(
-					err,
-					m.Board.GPIOSet(pwmPin, true),
-				)
-			}
+	if turnOn != m.on {
+		for _, pwmPin := range m.PWMs {
+			err = multierr.Combine(
+				err,
+				m.Board.GPIOSet(pwmPin, turnOn),
+			)
 		}
-	} else {
-		if m.on {
-			m.on = false
-			for _, pwmPin := range m.PWMs {
-				err = multierr.Combine(
-					err,
-					m.Board.GPIOSet(pwmPin, false),
-				)
-			}
+		if err == nil {
+			m.on = turnOn
 		}
 	}
+
 	return err
 }
 
@@ -206,7 +192,7 @@ func (m *BrushlessMotor) Off(ctx context.Context) error {
 	return nil
 }
 
-func (m *BrushlessMotor) motorManager(ctx context.Context) {
+func (m *BrushlessMotor) motorManager() {
 	var err error
 	if m.startedMgr {
 		return
@@ -227,27 +213,31 @@ func (m *BrushlessMotor) motorManager(ctx context.Context) {
 
 		// Perform one set of steps, then check again for new commands.
 		if motorCmd.d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED || (!motorCmd.cont && motorCmd.steps <= 0) {
-			if err = m.Off(ctx); err != nil {
+			if err = m.Off(context.Background()); err != nil {
 				m.logger.Warnf("error turning off: %s", err)
 			}
 		} else {
 			if err = m.turnOnOrOff(true); err != nil {
 				m.logger.Warnf("error turning on: %s", err)
+				// If we couldn't turn on for some reason, we'll wait a moment then try the whole thing over again
+				time.Sleep(500 * time.Millisecond)
+				continue
 			}
 			if err = m.step(motorCmd.d, motorCmd.wait); err != nil {
 				m.logger.Warnf("error performing step: %s", err)
+			} else {
+				// TODO(pl): remember what step we're on so we can do one at a time instead of 4
+				motorCmd.steps -= 4
 			}
-			// TODO(pl): remember what step we're on so we can do one at a time instead of 4
-			motorCmd.steps -= 4
 		}
 	}
 }
 
-func (m *BrushlessMotor) motorManagerStart(ctx context.Context) {
+func (m *BrushlessMotor) motorManagerStart() {
 	if m.startedMgr {
 		return
 	}
-	go m.motorManager(ctx)
+	go m.motorManager()
 }
 
 func (m *BrushlessMotor) Close() error {
