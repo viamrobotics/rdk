@@ -19,7 +19,7 @@ func init() {
 		if b == nil {
 			return nil, fmt.Errorf("viam gripper requires a board called local")
 		}
-		return NewGripperV1(context.TODO(), b, logger)
+		return NewGripperV1(context.TODO(), b, config.Attributes.GetInt("pressureLimit", 800), logger)
 	})
 }
 
@@ -32,11 +32,13 @@ type GripperV1 struct {
 
 	defaultSpeed, holdingPressure byte
 
+	pressureLimit int
+
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
 }
 
-func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (*GripperV1, error) {
+func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
 
 	vg := &GripperV1{
 		motor:           theBoard.Motor("g"),
@@ -44,6 +46,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, logger golog.Logger
 		pressure:        theBoard.AnalogReader("pressure"),
 		defaultSpeed:    64,
 		holdingPressure: 16,
+		pressureLimit:   pressureLimit,
 		logger:          logger,
 	}
 
@@ -187,7 +190,7 @@ func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
 
 func (vg *GripperV1) hasPressure(ctx context.Context) (bool, error) {
 	p, err := vg.readPressure(ctx)
-	return p < 900, err
+	return p < vg.pressureLimit, err
 }
 
 // return hasPressure, current
