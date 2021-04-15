@@ -38,9 +38,9 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	return distanceMillis, nil
 }
 
-func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-	if speed != 0 {
-		b.robot.logger.Info("Base.Spin does not support speed")
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	if degsPerSec != 0 {
+		b.robot.logger.Info("Base.Spin does not support degsPerSec")
 	}
 	if err := b.RotateBy(angleDeg, block); err != nil {
 		return math.NaN(), err

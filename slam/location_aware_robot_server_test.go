@@ -77,7 +77,7 @@ func TestServer(t *testing.T) {
 		th.bot.baseDevice = injectBase
 		spinCount := 0
 		spinErr := errors.New("nospin")
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			if spinCount == 2 {
 				return 2.4, spinErr
 			}
@@ -99,7 +99,7 @@ func TestServer(t *testing.T) {
 		}
 		baseWithCompass := api.BaseWithCompass(injectBase, theCompass, th.logger)
 		th.bot.baseDevice = baseWithCompass
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			return angleDeg, nil
 		}
 		_, err = server.Calibrate(context.Background(), &pb.CalibrateRequest{})
