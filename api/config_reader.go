@@ -75,9 +75,12 @@ func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
 	return sub, true, err
 }
 
-func createRequest(cloudCfg CloudConfig) (*http.Request, error) {
+func createRequest(cloudCfg *CloudConfig) (*http.Request, error) {
 	if cloudCfg.Path == "" {
 		cloudCfg.Path = "https://app.viam.com/api/json1/config"
+	}
+	if cloudCfg.LogPath == "" {
+		cloudCfg.LogPath = "https://app.viam.com/api/json1/log"
 	}
 
 	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
@@ -110,7 +113,7 @@ func createRequest(cloudCfg CloudConfig) (*http.Request, error) {
 func ReadConfigFromCloud(cloudCfg CloudConfig) (Config, error) {
 	cfg := Config{}
 
-	r, err := createRequest(cloudCfg)
+	r, err := createRequest(&cloudCfg)
 	if err != nil {
 		return cfg, err
 	}
@@ -121,7 +124,9 @@ func ReadConfigFromCloud(cloudCfg CloudConfig) (Config, error) {
 	}
 	defer resp.Body.Close()
 
-	return ReadConfigFromReader("", resp.Body)
+	cfg, err = ReadConfigFromReader("", resp.Body)
+	cfg.Cloud = cloudCfg
+	return cfg, err
 }
 
 // TODO(erh): should make this return a *Config (and all downstream)
