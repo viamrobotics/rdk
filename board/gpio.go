@@ -39,25 +39,25 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (m *GPIOMotor) Force(ctx context.Context, force byte) error {
-	return m.Board.PWMSet(m.PWM, force)
+func (m *GPIOMotor) Power(ctx context.Context, power byte) error {
+	return m.Board.PWMSet(m.PWM, power)
 }
 
-func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
+func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, force),
+			m.Board.PWMSet(m.PWM, power),
 			m.Board.GPIOSet(m.A, true),
 			m.Board.GPIOSet(m.B, false),
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.on = true
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, force),
+			m.Board.PWMSet(m.PWM, power),
 			m.Board.GPIOSet(m.A, false),
 			m.Board.GPIOSet(m.B, true),
 		)
@@ -66,7 +66,7 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) 
 	return fmt.Errorf("unknown direction %v", d)
 }
 
-func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	return fmt.Errorf("not supported")
 }
 

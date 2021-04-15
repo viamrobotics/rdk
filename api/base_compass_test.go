@@ -40,7 +40,7 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			i++
 			return 2.4, nil
 		}
@@ -57,7 +57,7 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("off by under third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			i++
 			return 2.4, nil
 		}
@@ -74,7 +74,7 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("off by over third", func(t *testing.T) {
 		i := 0
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			i++
 			return 2.4, nil
 		}
@@ -90,7 +90,7 @@ func TestDeviceWithCompass(t *testing.T) {
 	})
 
 	t.Run("error getting heading", func(t *testing.T) {
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			return angleDeg, nil
 		}
 		err1 := errors.New("oh no")
@@ -104,7 +104,7 @@ func TestDeviceWithCompass(t *testing.T) {
 
 	t.Run("error spinning", func(t *testing.T) {
 		err1 := errors.New("oh no")
-		dev.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			return 2.4, err1
 		}
 		comp.HeadingFunc = func(ctx context.Context) (float64, error) {
