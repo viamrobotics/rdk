@@ -46,7 +46,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, degs
 			return totalSpin, err
 		}
 		wc.logger.Debugf("start heading %f", startHeading)
-		spun, err := wc.Base.Spin(ctx, angleDeg, speed, block)
+		spun, err := wc.Base.Spin(ctx, angleDeg, degsPerSec, block)
 		totalSpin += spun
 		if err != nil {
 			return totalSpin, err

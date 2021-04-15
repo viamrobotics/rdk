@@ -305,7 +305,7 @@ message BaseMoveStraightResponse {
 
 message BaseSpinRequest {
 	string name = 1;
-	int64 angle_deg = 2;
+	double angle_deg = 2;
 	double degs_per_sec = 3;
 }
 
@@ -333,7 +333,9 @@ message GripperGrabRequest {
 	string name = 1;
 }
 
-message GripperGrabResponse {}
+message GripperGrabResponse {
+	bool grabbed = 1;
+}
 
 // Camera
 
@@ -484,7 +486,7 @@ message BoardMotorGoForResponse {}
 message BoardServoMoveRequest {
 	string board_name = 1;
 	string servo_name = 2;
-	uint32 angle_deg = 3;
+	uint32 angle_deg = 3; // (0-180)
 }
 
 message BoardServoMoveResponse {}
@@ -529,15 +531,8 @@ message CompassMarkRequest {
 
 message CompassMarkResponse {}
 
-
 enum DirectionRelative {
 	DIRECTION_RELATIVE_UNSPECIFIED = 0;
 	DIRECTION_RELATIVE_FORWARD = 1;
 	DIRECTION_RELATIVE_BACKWARD = 2;
 }
-
-
-
-
-
-

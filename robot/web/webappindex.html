@@ -85,10 +85,10 @@
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPosition[setter](newPosition[getter]() + amount);
-                      const req = new robotApi.MoveArmToPositionRequest();
+                      const req = new robotApi.ArmMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      consumeClientCall(robotService.moveArmToPosition(req));
+                      consumeClientCall(robotService.armMoveToPosition(req));
                   },
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
@@ -97,10 +97,10 @@
                       var newList = newPosition.getDegreesList();
                       newList[field] += amount;
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.MoveArmToJointPositionsRequest();
+                      const req = new robotApi.ArmMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      consumeClientCall(robotService.moveArmToJointPositions(req));
+                      consumeClientCall(robotService.armMoveToJointPositions(req));
                   },
                   armHome : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
@@ -111,44 +111,52 @@
                         newList[i] = 0;
                       }
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.MoveArmToJointPositionsRequest();
+                      const req = new robotApi.ArmMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      consumeClientCall(robotService.moveArmToJointPositions(req));
+                      consumeClientCall(robotService.armMoveToJointPositions(req));
                   },
                   gripperAction : function(name, action) {
-                      const req = new robotApi.ControlGripperRequest();
-                      req.setName(name);
+                      let req;
                       switch (action) {
                         case 'open':
-                          req.setAction(robotApi.ControlGripperAction.CONTROL_GRIPPER_ACTION_OPEN);
+                          req = new robotApi.GripperOpenRequest();
+                          req.setName(name);
+                          consumeClientCall(robotService.gripperOpen(req));
                           break;
                         case 'grab':
-                          req.setAction(robotApi.ControlGripperAction.CONTROL_GRIPPER_ACTION_GRAB);
+                          req = new robotApi.GripperGrabRequest();
+                          req.setName(name);
+                          consumeClientCall(robotService.gripperGrab(req));
                           break;
                       }
-                      consumeClientCall(robotService.controlGripper(req));
                   },
                   servoMove : function(idx, servoIdx, amount) {
                       const [boardName, boardValue] = theData.status.boardsMap[idx];
                       const [servoName, servoValue] = boardValue.servosMap[servoIdx];
                       var angle = servoValue.angle + amount;
-                      const req = new robotApi.ControlBoardServoRequest();
+                      const req = new robotApi.BoardServoMoveRequest();
                       req.setBoardName(boardName);
                       req.setServoName(servoName);
                       req.setAngleDeg(angle);
-                      consumeClientCall(robotService.controlBoardServo(req));
+                      consumeClientCall(robotService.boardServoMove(req));
                   },
                   motorButton: function(board, motor, cmd) {
-                      const req = new robotApi.ControlBoardMotorRequest();
+                      let req;
+                      if (cmd.r) {
+                        req = new robotApi.BoardMotorGoForRequest();
+                        req.setRevolutions(cmd.r);
+                        if (cmd.s) {
+                          req.setRpm(cmd.s);
+                        }
+                      } else {
+                        req = new robotApi.BoardMotorGoRequest();
+                        if (cmd.s) {
+                          req.setPower(cmd.s);
+                        }
+                      }
                       req.setBoardName(board);
                       req.setMotorName(motor);
-                      if (cmd.s) {
-                        req.setSpeed(cmd.s);
-                      }
-                      if (cmd.r) {
-                        req.setRotations(cmd.r);
-                      }
                       switch (cmd.d) {
                         case 'backward':
                           req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_BACKWARD);
@@ -157,7 +165,11 @@
                           req.setDirection(robotApi.DirectionRelative.DIRECTION_RELATIVE_FORWARD);
                           break;
                       }
-                      consumeClientCall(robotService.controlBoardMotor(req));
+                      if (cmd.r) {
+                        consumeClientCall(robotService.boardMotorGoFor(req));
+                      } else {
+                        consumeClientCall(robotService.boardMotorGo(req));
+                      }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
@@ -165,20 +177,23 @@
                       consumeClientCall(robotService.doAction(req));
                   },
                   baseAction : function(name, action, amount) {
-                      const req = new robotApi.ControlBaseRequest();
-                      req.setName(name);
-                      const moveBase = new robotApi.MoveBase();
-                      moveBase.setSpeed(document.getElementById("speed").value)
+                      let req;
                       switch (action) {
                         case 'straight':
-                          moveBase.setStraightDistanceMillis(document.getElementById("distance").value * amount);
+                          req = new robotApi.BaseMoveStraightRequest();
+                          req.setName(name);
+                          req.setMillisPerSec(document.getElementById("speed").value)
+                          req.setDistanceMillis(document.getElementById("distance").value * amount);
                           break;
+                          consumeClientCall(robotService.baseMove(req));
                         case 'angle':
-                          moveBase.setSpinAngleDeg(amount);
+                          req = new robotApi.BaseSpinRequest();
+                          req.setName(name);
+                          req.setDegsPerSec(document.getElementById("speed").value)
+                          req.setAngleDeg(amount);
+                          consumeClientCall(robotService.baseSpin(req));
                           break;
                       }
-                      req.setMove(moveBase);
-                      consumeClientCall(robotService.controlBase(req));
                   },
                   renderPCD : function(cameraName) {
                       initPCDIfNeeded();

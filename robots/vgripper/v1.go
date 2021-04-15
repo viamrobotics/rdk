@@ -247,7 +247,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
-			err := vg.motor.Force(ctx, 128)
+			err := vg.motor.Power(ctx, 128)
 			if err != nil {
 				return -1, false, err
 			}

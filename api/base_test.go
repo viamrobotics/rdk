@@ -61,7 +61,7 @@ func TestDoMove(t *testing.T) {
 
 	dev.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 		test.That(t, angleDeg, test.ShouldEqual, m.AngleDeg)
-		test.That(t, speed, test.ShouldEqual, m.MillisPerSec)
+		test.That(t, degsPerSec, test.ShouldEqual, m.DegsPerSec)
 		test.That(t, block, test.ShouldEqual, m.Block)
 		return angleDeg, nil
 	}
@@ -72,13 +72,13 @@ func TestDoMove(t *testing.T) {
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = api.Move{AngleDeg: 10, Block: true, MillisPerSec: 5}
+	m = api.Move{AngleDeg: 10, Block: true, DegsPerSec: 5}
 	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)
 	test.That(t, dist, test.ShouldEqual, 0)
 
-	m = api.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, MillisPerSec: 5}
+	m = api.Move{DistanceMillis: 2, AngleDeg: 10, Block: true, DegsPerSec: 5}
 	ang, dist, err = api.DoMove(context.Background(), m, dev)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ang, test.ShouldEqual, m.AngleDeg)

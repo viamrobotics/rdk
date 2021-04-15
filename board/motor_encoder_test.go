@@ -42,7 +42,7 @@ func TestMotorEncoder1(t *testing.T) {
 	// when we go forward things work
 	assert.Nil(t, motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 16))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
-	assert.Equal(t, byte(16), real.force)
+	assert.Equal(t, byte(16), real.power)
 
 	// stop
 	assert.Nil(t, motor.Off(context.Background()))
@@ -51,11 +51,11 @@ func TestMotorEncoder1(t *testing.T) {
 	// now test basic control
 	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
-	assert.Less(t, byte(0), real.force)
+	assert.Less(t, byte(0), real.power)
 
 	time.Sleep(20 * time.Millisecond)
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, byte(255), real.force)
+	assert.Equal(t, byte(255), real.power)
 
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
@@ -66,10 +66,10 @@ func TestMotorEncoder1(t *testing.T) {
 	// when we're in the middle of a GoFor and then call Go, don't turn off
 	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
-	assert.Less(t, byte(0), real.force)
+	assert.Less(t, byte(0), real.power)
 
 	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, byte(255), real.force)
+	assert.Equal(t, byte(255), real.power)
 
 	// we didn't hit the set point
 	encoder.ticks(99, nowNanosTest())
@@ -83,7 +83,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	// we should still be moving at the previous force
 	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, byte(64), real.force)
+	assert.Equal(t, byte(64), real.power)
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 
 	assert.Nil(t, motor.Off(context.Background()))
@@ -91,11 +91,11 @@ func TestMotorEncoder1(t *testing.T) {
 	// same thing, but backwards
 	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 1000, 1))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)
-	assert.Less(t, byte(0), real.force)
+	assert.Less(t, byte(0), real.power)
 
 	time.Sleep(20 * time.Millisecond)
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, byte(255), real.force)
+	assert.Equal(t, byte(255), real.power)
 
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)

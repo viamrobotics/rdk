@@ -4859,7 +4859,7 @@ proto.proto.api.v1.BaseSpinRequest.prototype.toObject = function(opt_includeInst
 proto.proto.api.v1.BaseSpinRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    angleDeg: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    angleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
     degsPerSec: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
@@ -4902,7 +4902,7 @@ proto.proto.api.v1.BaseSpinRequest.deserializeBinaryFromReader = function(msg, r
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setAngleDeg(value);
       break;
     case 3:
@@ -4946,8 +4946,8 @@ proto.proto.api.v1.BaseSpinRequest.serializeBinaryToWriter = function(message, w
     );
   }
   f = message.getAngleDeg();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeDouble(
       2,
       f
     );
@@ -4981,11 +4981,11 @@ proto.proto.api.v1.BaseSpinRequest.prototype.setName = function(value) {
 
 
 /**
- * optional int64 angle_deg = 2;
+ * optional double angle_deg = 2;
  * @return {number}
  */
 proto.proto.api.v1.BaseSpinRequest.prototype.getAngleDeg = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
@@ -4994,7 +4994,7 @@ proto.proto.api.v1.BaseSpinRequest.prototype.getAngleDeg = function() {
  * @return {!proto.proto.api.v1.BaseSpinRequest} returns this
  */
 proto.proto.api.v1.BaseSpinRequest.prototype.setAngleDeg = function(value) {
-  return jspb.Message.setProto3IntField(this, 2, value);
+  return jspb.Message.setProto3FloatField(this, 2, value);
 };
 
 
@@ -5830,7 +5830,7 @@ proto.proto.api.v1.GripperGrabResponse.prototype.toObject = function(opt_include
  */
 proto.proto.api.v1.GripperGrabResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-
+    grabbed: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
   };
 
   if (includeInstance) {
@@ -5867,6 +5867,10 @@ proto.proto.api.v1.GripperGrabResponse.deserializeBinaryFromReader = function(ms
     }
     var field = reader.getFieldNumber();
     switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setGrabbed(value);
+      break;
     default:
       reader.skipField();
       break;
@@ -5896,6 +5900,31 @@ proto.proto.api.v1.GripperGrabResponse.prototype.serializeBinary = function() {
  */
 proto.proto.api.v1.GripperGrabResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
+  f = message.getGrabbed();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool grabbed = 1;
+ * @return {boolean}
+ */
+proto.proto.api.v1.GripperGrabResponse.prototype.getGrabbed = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.GripperGrabResponse} returns this
+ */
+proto.proto.api.v1.GripperGrabResponse.prototype.setGrabbed = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
 };
 
 
