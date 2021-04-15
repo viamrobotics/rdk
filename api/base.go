@@ -22,7 +22,6 @@ type Move struct {
 func DoMove(ctx context.Context, move Move, device Base) (float64, int, error) {
 	var spunAmout float64
 	if move.AngleDeg != 0 {
-		// TODO(erh): speed is wrong
 		spun, err := device.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
 		if err != nil {
 			return spun, 0, err
