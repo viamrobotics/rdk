@@ -318,86 +318,6 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.doAction =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.ControlBaseRequest,
- *   !proto.proto.api.v1.ControlBaseResponse>}
- */
-const methodDescriptor_RobotService_ControlBase = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/ControlBase',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.ControlBaseRequest,
-  proto.proto.api.v1.ControlBaseResponse,
-  /**
-   * @param {!proto.proto.api.v1.ControlBaseRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.ControlBaseResponse.deserializeBinary
-);
-
-
-/**
- * @const
- * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.ControlBaseRequest,
- *   !proto.proto.api.v1.ControlBaseResponse>}
- */
-const methodInfo_RobotService_ControlBase = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.ControlBaseResponse,
-  /**
-   * @param {!proto.proto.api.v1.ControlBaseRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.v1.ControlBaseResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.v1.ControlBaseRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ControlBaseResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ControlBaseResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.v1.RobotServiceClient.prototype.controlBase =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBase',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_ControlBase,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.v1.ControlBaseRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.v1.ControlBaseResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.controlBase =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBase',
-      request,
-      metadata || {},
-      methodDescriptor_RobotService_ControlBase);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ArmCurrentPositionRequest,
  *   !proto.proto.api.v1.ArmCurrentPositionResponse>}
  */
@@ -472,6 +392,86 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.armCurrentPosition =
       request,
       metadata || {},
       methodDescriptor_RobotService_ArmCurrentPosition);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ArmMoveToPositionRequest,
+ *   !proto.proto.api.v1.ArmMoveToPositionResponse>}
+ */
+const methodDescriptor_RobotService_ArmMoveToPosition = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ArmMoveToPosition',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ArmMoveToPositionRequest,
+  proto.proto.api.v1.ArmMoveToPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmMoveToPositionRequest,
+ *   !proto.proto.api.v1.ArmMoveToPositionResponse>}
+ */
+const methodInfo_RobotService_ArmMoveToPosition = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmMoveToPositionResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmMoveToPositionResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmMoveToPositionResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.armMoveToPosition =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ArmMoveToPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ArmMoveToPosition,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ArmMoveToPositionResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.armMoveToPosition =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ArmMoveToPosition',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ArmMoveToPosition);
 };
 
 
@@ -558,480 +558,480 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.armCurrentJointPositions 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.MoveArmToPositionRequest,
- *   !proto.proto.api.v1.MoveArmToPositionResponse>}
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsRequest,
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsResponse>}
  */
-const methodDescriptor_RobotService_MoveArmToPosition = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/MoveArmToPosition',
+const methodDescriptor_RobotService_ArmMoveToJointPositions = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ArmMoveToJointPositions',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.MoveArmToPositionRequest,
-  proto.proto.api.v1.MoveArmToPositionResponse,
+  proto.proto.api.v1.ArmMoveToJointPositionsRequest,
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse,
   /**
-   * @param {!proto.proto.api.v1.MoveArmToPositionRequest} request
+   * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinary
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.MoveArmToPositionRequest,
- *   !proto.proto.api.v1.MoveArmToPositionResponse>}
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsRequest,
+ *   !proto.proto.api.v1.ArmMoveToJointPositionsResponse>}
  */
-const methodInfo_RobotService_MoveArmToPosition = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.MoveArmToPositionResponse,
+const methodInfo_RobotService_ArmMoveToJointPositions = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse,
   /**
-   * @param {!proto.proto.api.v1.MoveArmToPositionRequest} request
+   * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinary
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.MoveArmToPositionRequest} request The
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MoveArmToPositionResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmMoveToJointPositionsResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MoveArmToPositionResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmMoveToJointPositionsResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.moveArmToPosition =
+proto.proto.api.v1.RobotServiceClient.prototype.armMoveToJointPositions =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/MoveArmToPosition',
+      '/proto.api.v1.RobotService/ArmMoveToJointPositions',
       request,
       metadata || {},
-      methodDescriptor_RobotService_MoveArmToPosition,
+      methodDescriptor_RobotService_ArmMoveToJointPositions,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.MoveArmToPositionRequest} request The
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.MoveArmToPositionResponse>}
+ * @return {!Promise<!proto.proto.api.v1.ArmMoveToJointPositionsResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.moveArmToPosition =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.armMoveToJointPositions =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/MoveArmToPosition',
+      '/proto.api.v1.RobotService/ArmMoveToJointPositions',
       request,
       metadata || {},
-      methodDescriptor_RobotService_MoveArmToPosition);
+      methodDescriptor_RobotService_ArmMoveToJointPositions);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.MoveArmToJointPositionsRequest,
- *   !proto.proto.api.v1.MoveArmToJointPositionsResponse>}
+ *   !proto.proto.api.v1.BaseMoveStraightRequest,
+ *   !proto.proto.api.v1.BaseMoveStraightResponse>}
  */
-const methodDescriptor_RobotService_MoveArmToJointPositions = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/MoveArmToJointPositions',
+const methodDescriptor_RobotService_BaseMoveStraight = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BaseMoveStraight',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.MoveArmToJointPositionsRequest,
-  proto.proto.api.v1.MoveArmToJointPositionsResponse,
+  proto.proto.api.v1.BaseMoveStraightRequest,
+  proto.proto.api.v1.BaseMoveStraightResponse,
   /**
-   * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} request
+   * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinary
+  proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.MoveArmToJointPositionsRequest,
- *   !proto.proto.api.v1.MoveArmToJointPositionsResponse>}
+ *   !proto.proto.api.v1.BaseMoveStraightRequest,
+ *   !proto.proto.api.v1.BaseMoveStraightResponse>}
  */
-const methodInfo_RobotService_MoveArmToJointPositions = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.MoveArmToJointPositionsResponse,
+const methodInfo_RobotService_BaseMoveStraight = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseMoveStraightResponse,
   /**
-   * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} request
+   * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinary
+  proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} request The
+ * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MoveArmToJointPositionsResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseMoveStraightResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MoveArmToJointPositionsResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseMoveStraightResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.moveArmToJointPositions =
+proto.proto.api.v1.RobotServiceClient.prototype.baseMoveStraight =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/MoveArmToJointPositions',
+      '/proto.api.v1.RobotService/BaseMoveStraight',
       request,
       metadata || {},
-      methodDescriptor_RobotService_MoveArmToJointPositions,
+      methodDescriptor_RobotService_BaseMoveStraight,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} request The
+ * @param {!proto.proto.api.v1.BaseMoveStraightRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.MoveArmToJointPositionsResponse>}
+ * @return {!Promise<!proto.proto.api.v1.BaseMoveStraightResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.moveArmToJointPositions =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.baseMoveStraight =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/MoveArmToJointPositions',
+      '/proto.api.v1.RobotService/BaseMoveStraight',
       request,
       metadata || {},
-      methodDescriptor_RobotService_MoveArmToJointPositions);
+      methodDescriptor_RobotService_BaseMoveStraight);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.ControlGripperRequest,
- *   !proto.proto.api.v1.ControlGripperResponse>}
+ *   !proto.proto.api.v1.BaseSpinRequest,
+ *   !proto.proto.api.v1.BaseSpinResponse>}
  */
-const methodDescriptor_RobotService_ControlGripper = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/ControlGripper',
+const methodDescriptor_RobotService_BaseSpin = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BaseSpin',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.ControlGripperRequest,
-  proto.proto.api.v1.ControlGripperResponse,
+  proto.proto.api.v1.BaseSpinRequest,
+  proto.proto.api.v1.BaseSpinResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlGripperRequest} request
+   * @param {!proto.proto.api.v1.BaseSpinRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlGripperResponse.deserializeBinary
+  proto.proto.api.v1.BaseSpinResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.ControlGripperRequest,
- *   !proto.proto.api.v1.ControlGripperResponse>}
+ *   !proto.proto.api.v1.BaseSpinRequest,
+ *   !proto.proto.api.v1.BaseSpinResponse>}
  */
-const methodInfo_RobotService_ControlGripper = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.ControlGripperResponse,
+const methodInfo_RobotService_BaseSpin = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseSpinResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlGripperRequest} request
+   * @param {!proto.proto.api.v1.BaseSpinRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlGripperResponse.deserializeBinary
+  proto.proto.api.v1.BaseSpinResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.ControlGripperRequest} request The
+ * @param {!proto.proto.api.v1.BaseSpinRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ControlGripperResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseSpinResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ControlGripperResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseSpinResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.controlGripper =
+proto.proto.api.v1.RobotServiceClient.prototype.baseSpin =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlGripper',
+      '/proto.api.v1.RobotService/BaseSpin',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlGripper,
+      methodDescriptor_RobotService_BaseSpin,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.ControlGripperRequest} request The
+ * @param {!proto.proto.api.v1.BaseSpinRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.ControlGripperResponse>}
+ * @return {!Promise<!proto.proto.api.v1.BaseSpinResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.controlGripper =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.baseSpin =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlGripper',
+      '/proto.api.v1.RobotService/BaseSpin',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlGripper);
+      methodDescriptor_RobotService_BaseSpin);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.BoardStatusRequest,
- *   !proto.proto.api.v1.BoardStatusResponse>}
+ *   !proto.proto.api.v1.BaseStopRequest,
+ *   !proto.proto.api.v1.BaseStopResponse>}
  */
-const methodDescriptor_RobotService_BoardStatus = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/BoardStatus',
+const methodDescriptor_RobotService_BaseStop = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BaseStop',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.BoardStatusRequest,
-  proto.proto.api.v1.BoardStatusResponse,
+  proto.proto.api.v1.BaseStopRequest,
+  proto.proto.api.v1.BaseStopResponse,
   /**
-   * @param {!proto.proto.api.v1.BoardStatusRequest} request
+   * @param {!proto.proto.api.v1.BaseStopRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.BoardStatusResponse.deserializeBinary
+  proto.proto.api.v1.BaseStopResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.BoardStatusRequest,
- *   !proto.proto.api.v1.BoardStatusResponse>}
+ *   !proto.proto.api.v1.BaseStopRequest,
+ *   !proto.proto.api.v1.BaseStopResponse>}
  */
-const methodInfo_RobotService_BoardStatus = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.BoardStatusResponse,
+const methodInfo_RobotService_BaseStop = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BaseStopResponse,
   /**
-   * @param {!proto.proto.api.v1.BoardStatusRequest} request
+   * @param {!proto.proto.api.v1.BaseStopRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.BoardStatusResponse.deserializeBinary
+  proto.proto.api.v1.BaseStopResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.BoardStatusRequest} request The
+ * @param {!proto.proto.api.v1.BaseStopRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardStatusResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BaseStopResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardStatusResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BaseStopResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.boardStatus =
+proto.proto.api.v1.RobotServiceClient.prototype.baseStop =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardStatus',
+      '/proto.api.v1.RobotService/BaseStop',
       request,
       metadata || {},
-      methodDescriptor_RobotService_BoardStatus,
+      methodDescriptor_RobotService_BaseStop,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.BoardStatusRequest} request The
+ * @param {!proto.proto.api.v1.BaseStopRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.BoardStatusResponse>}
+ * @return {!Promise<!proto.proto.api.v1.BaseStopResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.boardStatus =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.baseStop =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/BoardStatus',
+      '/proto.api.v1.RobotService/BaseStop',
       request,
       metadata || {},
-      methodDescriptor_RobotService_BoardStatus);
+      methodDescriptor_RobotService_BaseStop);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.ControlBoardMotorRequest,
- *   !proto.proto.api.v1.ControlBoardMotorResponse>}
+ *   !proto.proto.api.v1.GripperOpenRequest,
+ *   !proto.proto.api.v1.GripperOpenResponse>}
  */
-const methodDescriptor_RobotService_ControlBoardMotor = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/ControlBoardMotor',
+const methodDescriptor_RobotService_GripperOpen = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GripperOpen',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.ControlBoardMotorRequest,
-  proto.proto.api.v1.ControlBoardMotorResponse,
+  proto.proto.api.v1.GripperOpenRequest,
+  proto.proto.api.v1.GripperOpenResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlBoardMotorRequest} request
+   * @param {!proto.proto.api.v1.GripperOpenRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlBoardMotorResponse.deserializeBinary
+  proto.proto.api.v1.GripperOpenResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.ControlBoardMotorRequest,
- *   !proto.proto.api.v1.ControlBoardMotorResponse>}
+ *   !proto.proto.api.v1.GripperOpenRequest,
+ *   !proto.proto.api.v1.GripperOpenResponse>}
  */
-const methodInfo_RobotService_ControlBoardMotor = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.ControlBoardMotorResponse,
+const methodInfo_RobotService_GripperOpen = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GripperOpenResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlBoardMotorRequest} request
+   * @param {!proto.proto.api.v1.GripperOpenRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlBoardMotorResponse.deserializeBinary
+  proto.proto.api.v1.GripperOpenResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.ControlBoardMotorRequest} request The
+ * @param {!proto.proto.api.v1.GripperOpenRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ControlBoardMotorResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GripperOpenResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ControlBoardMotorResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GripperOpenResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.controlBoardMotor =
+proto.proto.api.v1.RobotServiceClient.prototype.gripperOpen =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBoardMotor',
+      '/proto.api.v1.RobotService/GripperOpen',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlBoardMotor,
+      methodDescriptor_RobotService_GripperOpen,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.ControlBoardMotorRequest} request The
+ * @param {!proto.proto.api.v1.GripperOpenRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.ControlBoardMotorResponse>}
+ * @return {!Promise<!proto.proto.api.v1.GripperOpenResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.controlBoardMotor =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gripperOpen =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBoardMotor',
+      '/proto.api.v1.RobotService/GripperOpen',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlBoardMotor);
+      methodDescriptor_RobotService_GripperOpen);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.ControlBoardServoRequest,
- *   !proto.proto.api.v1.ControlBoardServoResponse>}
+ *   !proto.proto.api.v1.GripperGrabRequest,
+ *   !proto.proto.api.v1.GripperGrabResponse>}
  */
-const methodDescriptor_RobotService_ControlBoardServo = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/ControlBoardServo',
+const methodDescriptor_RobotService_GripperGrab = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/GripperGrab',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.ControlBoardServoRequest,
-  proto.proto.api.v1.ControlBoardServoResponse,
+  proto.proto.api.v1.GripperGrabRequest,
+  proto.proto.api.v1.GripperGrabResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlBoardServoRequest} request
+   * @param {!proto.proto.api.v1.GripperGrabRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlBoardServoResponse.deserializeBinary
+  proto.proto.api.v1.GripperGrabResponse.deserializeBinary
 );
 
 
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.ControlBoardServoRequest,
- *   !proto.proto.api.v1.ControlBoardServoResponse>}
+ *   !proto.proto.api.v1.GripperGrabRequest,
+ *   !proto.proto.api.v1.GripperGrabResponse>}
  */
-const methodInfo_RobotService_ControlBoardServo = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.ControlBoardServoResponse,
+const methodInfo_RobotService_GripperGrab = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.GripperGrabResponse,
   /**
-   * @param {!proto.proto.api.v1.ControlBoardServoRequest} request
+   * @param {!proto.proto.api.v1.GripperGrabRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.ControlBoardServoResponse.deserializeBinary
+  proto.proto.api.v1.GripperGrabResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.v1.ControlBoardServoRequest} request The
+ * @param {!proto.proto.api.v1.GripperGrabRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ControlBoardServoResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.GripperGrabResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ControlBoardServoResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.GripperGrabResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.controlBoardServo =
+proto.proto.api.v1.RobotServiceClient.prototype.gripperGrab =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBoardServo',
+      '/proto.api.v1.RobotService/GripperGrab',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlBoardServo,
+      methodDescriptor_RobotService_GripperGrab,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.ControlBoardServoRequest} request The
+ * @param {!proto.proto.api.v1.GripperGrabRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.ControlBoardServoResponse>}
+ * @return {!Promise<!proto.proto.api.v1.GripperGrabResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.controlBoardServo =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.gripperGrab =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/ControlBoardServo',
+      '/proto.api.v1.RobotService/GripperGrab',
       request,
       metadata || {},
-      methodDescriptor_RobotService_ControlBoardServo);
+      methodDescriptor_RobotService_GripperGrab);
 };
 
 
@@ -1118,16 +1118,16 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.cameraFrame =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.proto.api.v1.CameraRenderFrameRequest,
  *   !proto.google.api.HttpBody>}
  */
-const methodDescriptor_RobotService_RenderCameraFrame = new grpc.web.MethodDescriptor(
-  '/proto.api.v1.RobotService/RenderCameraFrame',
+const methodDescriptor_RobotService_CameraRenderFrame = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/CameraRenderFrame',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.v1.CameraFrameRequest,
+  proto.proto.api.v1.CameraRenderFrameRequest,
   google_api_httpbody_pb.HttpBody,
   /**
-   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -1140,13 +1140,13 @@ const methodDescriptor_RobotService_RenderCameraFrame = new grpc.web.MethodDescr
 /**
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
- *   !proto.proto.api.v1.CameraFrameRequest,
+ *   !proto.proto.api.v1.CameraRenderFrameRequest,
  *   !proto.google.api.HttpBody>}
  */
-const methodInfo_RobotService_RenderCameraFrame = new grpc.web.AbstractClientBase.MethodInfo(
+const methodInfo_RobotService_CameraRenderFrame = new grpc.web.AbstractClientBase.MethodInfo(
   google_api_httpbody_pb.HttpBody,
   /**
-   * @param {!proto.proto.api.v1.CameraFrameRequest} request
+   * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
@@ -1157,7 +1157,7 @@ const methodInfo_RobotService_RenderCameraFrame = new grpc.web.AbstractClientBas
 
 
 /**
- * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
@@ -1166,32 +1166,32 @@ const methodInfo_RobotService_RenderCameraFrame = new grpc.web.AbstractClientBas
  * @return {!grpc.web.ClientReadableStream<!proto.google.api.HttpBody>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.v1.RobotServiceClient.prototype.renderCameraFrame =
+proto.proto.api.v1.RobotServiceClient.prototype.cameraRenderFrame =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.v1.RobotService/RenderCameraFrame',
+      '/proto.api.v1.RobotService/CameraRenderFrame',
       request,
       metadata || {},
-      methodDescriptor_RobotService_RenderCameraFrame,
+      methodDescriptor_RobotService_CameraRenderFrame,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.v1.CameraFrameRequest} request The
+ * @param {!proto.proto.api.v1.CameraRenderFrameRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
  * @return {!Promise<!proto.google.api.HttpBody>}
  *     Promise that resolves to the response
  */
-proto.proto.api.v1.RobotServicePromiseClient.prototype.renderCameraFrame =
+proto.proto.api.v1.RobotServicePromiseClient.prototype.cameraRenderFrame =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.v1.RobotService/RenderCameraFrame',
+      '/proto.api.v1.RobotService/CameraRenderFrame',
       request,
       metadata || {},
-      methodDescriptor_RobotService_RenderCameraFrame);
+      methodDescriptor_RobotService_CameraRenderFrame);
 };
 
 
@@ -1752,6 +1752,326 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.lidarAngularResolution =
       request,
       metadata || {},
       methodDescriptor_RobotService_LidarAngularResolution);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.BoardStatusRequest,
+ *   !proto.proto.api.v1.BoardStatusResponse>}
+ */
+const methodDescriptor_RobotService_BoardStatus = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BoardStatus',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.BoardStatusRequest,
+  proto.proto.api.v1.BoardStatusResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardStatusRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardStatusResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardStatusRequest,
+ *   !proto.proto.api.v1.BoardStatusResponse>}
+ */
+const methodInfo_RobotService_BoardStatus = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardStatusResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardStatusRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardStatusResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardStatusRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardStatusResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardStatusResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.boardStatus =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardStatus',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardStatus,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardStatusRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.BoardStatusResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.boardStatus =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardStatus',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardStatus);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.BoardMotorGoRequest,
+ *   !proto.proto.api.v1.BoardMotorGoResponse>}
+ */
+const methodDescriptor_RobotService_BoardMotorGo = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BoardMotorGo',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.BoardMotorGoRequest,
+  proto.proto.api.v1.BoardMotorGoResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardMotorGoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardMotorGoResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardMotorGoRequest,
+ *   !proto.proto.api.v1.BoardMotorGoResponse>}
+ */
+const methodInfo_RobotService_BoardMotorGo = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardMotorGoResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardMotorGoRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardMotorGoResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardMotorGoRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGo =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardMotorGo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardMotorGo,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardMotorGoRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.BoardMotorGoResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGo =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardMotorGo',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardMotorGo);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.BoardMotorGoForRequest,
+ *   !proto.proto.api.v1.BoardMotorGoForResponse>}
+ */
+const methodDescriptor_RobotService_BoardMotorGoFor = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BoardMotorGoFor',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.BoardMotorGoForRequest,
+  proto.proto.api.v1.BoardMotorGoForResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardMotorGoForRequest,
+ *   !proto.proto.api.v1.BoardMotorGoForResponse>}
+ */
+const methodInfo_RobotService_BoardMotorGoFor = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardMotorGoForResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorGoForResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorGoForResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.boardMotorGoFor =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardMotorGoFor',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardMotorGoFor,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardMotorGoForRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.BoardMotorGoForResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorGoFor =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardMotorGoFor',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardMotorGoFor);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.BoardServoMoveRequest,
+ *   !proto.proto.api.v1.BoardServoMoveResponse>}
+ */
+const methodDescriptor_RobotService_BoardServoMove = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/BoardServoMove',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.BoardServoMoveRequest,
+  proto.proto.api.v1.BoardServoMoveResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardServoMoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardServoMoveResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.BoardServoMoveRequest,
+ *   !proto.proto.api.v1.BoardServoMoveResponse>}
+ */
+const methodInfo_RobotService_BoardServoMove = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.BoardServoMoveResponse,
+  /**
+   * @param {!proto.proto.api.v1.BoardServoMoveRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.BoardServoMoveResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardServoMoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardServoMoveResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardServoMoveResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.boardServoMove =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardServoMove',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardServoMove,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.BoardServoMoveRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.BoardServoMoveResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.boardServoMove =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/BoardServoMove',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_BoardServoMove);
 };
 
 

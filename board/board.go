@@ -20,14 +20,14 @@ func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 }
 
 type Motor interface {
-	Force(ctx context.Context, force byte) error
+	Power(ctx context.Context, power byte) error
 
-	Go(ctx context.Context, d pb.DirectionRelative, force byte) error
+	Go(ctx context.Context, d pb.DirectionRelative, power byte) error
 
-	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
+	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
 
 	// this is only supported if you have an encocder, return will be garbage if PositionSupported is false
-	// the unit is rotations so that it can be used for relative GoFor commands
+	// the unit is revolutions so that it can be used for relative GoFor commands
 	Position(ctx context.Context) (float64, error)
 	PositionSupported(ctx context.Context) (bool, error)
 

@@ -228,7 +228,7 @@ func TestMove(t *testing.T) {
 				return 600, nil
 			}
 			th.bot.baseDevice = injectBase
-			injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+			injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 				return 2.4, errors.New("whoops")
 			}
 			injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {

@@ -297,7 +297,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Success, test.ShouldBeTrue)
 		test.That(t, resp.GetStraightDistanceMillis(), test.ShouldEqual, 1)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			capArgs = []interface{}{ctx, angleDeg, speed, block}
 			return 2.2, err1
 		}
@@ -317,7 +317,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
 		test.That(t, resp.GetSpinAngleDeg(), test.ShouldEqual, 2.2)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			capArgs = []interface{}{ctx, angleDeg, speed, block}
 			return angleDeg, nil
 		}

@@ -21,7 +21,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	return distanceMillis, nil
 }
 
-func (b *Base) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	return angleDeg, nil
 }
 

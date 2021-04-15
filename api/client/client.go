@@ -317,7 +317,7 @@ func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, mill
 	return moved, errors.New(resp.Error)
 }
 
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	resp, err := bc.rc.client.ControlBase(ctx, &pb.ControlBaseRequest{
 		Name: bc.name,
 		Action: &pb.ControlBaseRequest_Move{
@@ -481,12 +481,12 @@ type motorClient struct {
 	motorName string
 }
 
-func (mc *motorClient) Force(ctx context.Context, force byte) error {
+func (mc *motorClient) Power(ctx context.Context, power byte) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
+func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
 	_, err := mc.rc.client.ControlBoardMotor(ctx, &pb.ControlBoardMotorRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
@@ -496,13 +496,13 @@ func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, force byt
 	return err
 }
 
-func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	_, err := mc.rc.client.ControlBoardMotor(ctx, &pb.ControlBoardMotorRequest{
-		BoardName: mc.boardName,
-		MotorName: mc.motorName,
-		Direction: d,
-		Speed:     rpm,
-		Rotations: rotations,
+		BoardName:   mc.boardName,
+		MotorName:   mc.motorName,
+		Direction:   d,
+		Speed:       rpm,
+		Revolutions: revolutions,
 	})
 	return err
 }

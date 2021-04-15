@@ -146,7 +146,7 @@ func TestClient(t *testing.T) {
 		return distanceMillis, nil
 	}
 	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 		capBaseSpinArgs = []interface{}{angleDeg, speed, block}
 		return angleDeg, nil
 	}
