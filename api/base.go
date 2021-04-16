@@ -6,23 +6,23 @@ import (
 
 type Base interface {
 	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
-	Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error)
+	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
 	Stop(ctx context.Context) error
 	WidthMillis(ctx context.Context) (int, error)
 }
 
 type Move struct {
 	DistanceMillis int
-	AngleDeg       float64
 	MillisPerSec   float64
+	AngleDeg       float64
+	DegsPerSec     float64
 	Block          bool
 }
 
 func DoMove(ctx context.Context, move Move, device Base) (float64, int, error) {
 	var spunAmout float64
 	if move.AngleDeg != 0 {
-		// TODO(erh): speed is wrong
-		spun, err := device.Spin(ctx, move.AngleDeg, int(move.MillisPerSec), move.Block)
+		spun, err := device.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
 		if err != nil {
 			return spun, 0, err
 		}

@@ -90,7 +90,7 @@ func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 }
 
 func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
-	//logger.Debugf("PWMSetBcom %d -> %d", bcom, dutyCycle)
+	//pi.logger.Debugf("PWMSetBcom %d -> %d", bcom, dutyCycle)
 	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
 	if res != 0 {
 		return fmt.Errorf("pwm set fail %d", res)
@@ -239,7 +239,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	}
 
 	// setup
-	piInstance = &piPigpio{cfg: cfg}
+	piInstance = &piPigpio{cfg: cfg, logger: logger}
 	resCode = C.gpioInitialise()
 	if resCode < 0 {
 		return nil, fmt.Errorf("gpioInitialise failed with code: %d", resCode)

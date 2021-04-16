@@ -62,7 +62,7 @@ func TestMotor1(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, on)
 
-	assert.Nil(t, m.Force(ctx, 113))
+	assert.Nil(t, m.Power(ctx, 113))
 	assert.Equal(t, byte(113), b.pwm["3"])
 
 	assert.Nil(t, m.Off(ctx))

@@ -72,8 +72,8 @@ func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int,
 	return distanceMillis, base.waitForMotorsToStop(ctx)
 }
 
-// return left direction, rpm, rotations
-func (base *fourWheelBase) spinMath(angleDeg float64, speed int) (pb.DirectionRelative, float64, float64) {
+// return left direction, rpm, revolutions
+func (base *fourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.DirectionRelative, float64, float64) {
 	leftDirection := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	if angleDeg < 0 {
 		leftDirection = board.FlipDirection(leftDirection)
@@ -81,24 +81,23 @@ func (base *fourWheelBase) spinMath(angleDeg float64, speed int) (pb.DirectionRe
 	}
 
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
-	rotations := wheelTravel / float64(base.wheelCircumferenceMillis)
+	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
 
-	// TODO(erh): spin use speed "correctly"
-	// for now, assume we want to turn in 1 seconds
-	rpm := rotations * 60
+	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
+	rpm := revolutions * degsPerSec * 30 / math.Pi
 
-	return leftDirection, rpm, rotations
+	return leftDirection, rpm, revolutions
 }
 
-func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-	leftDirection, rpm, rotations := base.spinMath(angleDeg, speed)
+func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+	leftDirection, rpm, revolutions := base.spinMath(angleDeg, degsPerSec)
 	rightDirection := board.FlipDirection(leftDirection)
 
 	err := multierr.Combine(
-		base.frontLeft.GoFor(ctx, leftDirection, rpm, rotations),
-		base.frontRight.GoFor(ctx, rightDirection, rpm, rotations),
-		base.backLeft.GoFor(ctx, leftDirection, rpm, rotations),
-		base.backRight.GoFor(ctx, rightDirection, rpm, rotations),
+		base.frontLeft.GoFor(ctx, leftDirection, rpm, revolutions),
+		base.frontRight.GoFor(ctx, rightDirection, rpm, revolutions),
+		base.backLeft.GoFor(ctx, leftDirection, rpm, revolutions),
+		base.backRight.GoFor(ctx, rightDirection, rpm, revolutions),
 	)
 
 	if err != nil {

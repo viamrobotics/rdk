@@ -2,14 +2,12 @@ package actions
 
 import (
 	"image"
-	"image/color"
 	"strings"
 	"testing"
 
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/segmentation"
 
-	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 )
 
@@ -51,14 +49,18 @@ type ChargeDebug struct {
 }
 
 func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
-	img = imaging.Rotate(img, 180, color.Black)
-	d.GotDebugImage(img, "rotated")
+	iwd := rimage.ConvertToImageWithDepth(img).Rotate(180)
+	d.GotDebugImage(iwd, "rotated")
 
-	m2, err := segmentation.ShapeWalkEntireDebug(rimage.ConvertImage(img), segmentation.ShapeWalkOptions{}, logger)
+	m2, err := segmentation.ShapeWalkEntireDebug(iwd.Color, segmentation.ShapeWalkOptions{}, logger)
 	if err != nil {
 		return err
 	}
 	d.GotDebugImage(m2, "segments")
+
+	if iwd.Depth != nil {
+		d.GotDebugImage(iwd.Depth.ToPrettyPicture(0, 10000), "depth")
+	}
 
 	return nil
 }
