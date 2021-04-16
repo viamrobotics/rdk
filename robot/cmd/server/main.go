@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -90,6 +89,11 @@ func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 func (nl *netLogger) addToQueue(x interface{}) {
 	nl.toLogMutex.Lock()
 	defer nl.toLogMutex.Unlock()
+
+	if len(nl.toLog) > 20000 {
+		// TODO(erh): sample?
+		nl.toLog = nl.toLog[1:]
+	}
 	nl.toLog = append(nl.toLog, x)
 }
 
@@ -119,7 +123,7 @@ func (nl *netLogger) backgroundThread() {
 		err := nl.Sync()
 		if err != nil {
 			// fall back to regular logging
-			log.Println(err)
+			golog.Global.Infof("error logging to network: %s", err)
 		}
 	}
 }
