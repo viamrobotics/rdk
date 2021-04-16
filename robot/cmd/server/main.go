@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
@@ -40,9 +42,23 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
+func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	nl := &netLogger{hostname: hostname, cfg: config}
+	go nl.backgroundThread()
+	return nl, nil
+}
+
 type netLogger struct {
 	hostname string
 	cfg      api.CloudConfig
+
+	toLogMutex sync.Mutex
+	toLog      []interface{}
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -58,6 +74,7 @@ func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 }
 
 func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
+	// TODO(erh): should we put a _id uuid on here so we don't log twice?
 	x := map[string]interface{}{
 		"id":     nl.cfg.ID,
 		"host":   nl.hostname,
@@ -65,6 +82,22 @@ func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 		"fields": f,
 	}
 
+	nl.addToQueue(x)
+	return nil
+}
+
+func (nl *netLogger) addToQueue(x interface{}) {
+	nl.toLogMutex.Lock()
+	defer nl.toLogMutex.Unlock()
+
+	if len(nl.toLog) > 20000 {
+		// TODO(erh): sample?
+		nl.toLog = nl.toLog[1:]
+	}
+	nl.toLog = append(nl.toLog, x)
+}
+
+func (nl *netLogger) writeToServer(x interface{}) error {
 	js, err := json.Marshal(x)
 	if err != nil {
 		return err
@@ -84,18 +117,57 @@ func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	return nil
 }
 
+func (nl *netLogger) backgroundThread() {
+	for {
+		time.Sleep(100 * time.Millisecond)
+		err := nl.Sync()
+		if err != nil {
+			// fall back to regular logging
+			golog.Global.Infof("error logging to network: %s", err)
+		}
+	}
+}
+
 func (nl *netLogger) Sync() error {
-	return nil
+	// TODO(erh): batch writes
+
+	for {
+		x := func() interface{} {
+			nl.toLogMutex.Lock()
+			defer nl.toLogMutex.Unlock()
+
+			if len(nl.toLog) == 0 {
+				return nil
+			}
+
+			x := nl.toLog[0]
+			nl.toLog = nl.toLog[1:]
+
+			return x
+		}()
+
+		if x == nil {
+			return nil
+		}
+
+		err := nl.writeToServer(x)
+		if err != nil {
+			nl.addToQueue(x) // we'll try again later
+			return err
+		}
+
+	}
+
 }
 
 func addCloudLogger(logger golog.Logger, cfg api.CloudConfig) (golog.Logger, error) {
-	hostname, err := os.Hostname()
+	nl, err := NewNetLogger(cfg)
 	if err != nil {
 		return nil, err
 	}
 	l := logger.Desugar()
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return zapcore.NewTee(c, &netLogger{hostname, cfg})
+		return zapcore.NewTee(c, nl)
 	}))
 	return l.Sugar(), nil
 }
