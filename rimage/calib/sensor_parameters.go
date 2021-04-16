@@ -67,6 +67,9 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.I
 }
 
 func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
+	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
+	// All points now in Color frame
+	depthPoints := TransformAlignedImageToPointCloud(newImgWithDepth)
 	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorIntrinsicsExtrinsics")
 }
 
@@ -190,7 +193,6 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 
 // change coordinate system of depth map to be in same coordinate system as color image
 // then crop both images
-// TODO(bijan): make this use matrix multiplication rather than loops
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
 		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
@@ -232,4 +234,27 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	outmap = outmap.SubImage(crop)
 	outcol := img.Color.SubImage(crop)
 	return &rimage.ImageWithDepth{&outcol, &outmap}, nil
+}
+
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformAlignedImageToPointCloud(iwd *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+	// color and depth images need to already be aligned, check dimensions
+	// They are also aligned to the color frame
+	if iwd.Depth.Width() != iwd.Color.Width() ||
+		iwd.Depth.Height() != iwd.Color.Height() {
+		return nil, fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
+			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
+	}
+	pc := pointcloud.New(logger)
+
+	for y := 0; y < iwd.Depth.Height(); y++ {
+		for x := 0; x < iwd.Depth.Width(); x++ {
+			r, g, b := iwd.Color.GetXY(x, y).RGB255()
+			px, py, pz := dcie.ColorCamera.PixelToPoint(x, y, iwd.Depth.GetDepth(x, y))
+			err := pc.Set(pointcloud.NewColoredPoint(px, py, int(pz), color.NRGBA{r, g, b, 255}))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 }

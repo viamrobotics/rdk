@@ -5,7 +5,7 @@ import (
 )
 
 type Vec3 struct {
-	X, Y, Z int
+	X, Y, Z float64
 }
 
 type Point interface {

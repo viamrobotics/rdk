@@ -14,21 +14,21 @@ type PointCloud struct {
 	points     map[key]Point
 	hasColor   bool
 	hasValue   bool
-	minX, maxX int
-	minY, maxY int
-	minZ, maxZ int
+	minX, maxX float64
+	minY, maxY float64
+	minZ, maxZ float64
 	logger     golog.Logger
 }
 
 func New(logger golog.Logger) *PointCloud {
 	return &PointCloud{
 		points: map[key]Point{},
-		minX:   math.MaxInt64,
-		minY:   math.MaxInt64,
-		minZ:   math.MaxInt64,
-		maxX:   math.MinInt64,
-		maxY:   math.MinInt64,
-		maxZ:   math.MinInt64,
+		minX:   math.MaxFloat64,
+		minY:   math.MaxFloat64,
+		minZ:   math.MaxFloat64,
+		maxX:   -math.MaxFloat64,
+		maxY:   -math.MaxFloat64,
+		maxZ:   -math.MaxFloat64,
 		logger: logger,
 	}
 }
@@ -42,14 +42,18 @@ func (cloud *PointCloud) At(x, y, z int) Point {
 }
 
 const (
-	maxExactFloat64Integer = 1 << 53
-	minExactFloat64Integer = -maxExactFloat64Integer
+	maxPreciseFloat64 = math.Pow(2, 33) - 1.0
+	minPreciseFloat64 = -math.Pow(2, 33) + 1.0
 )
 
 func newOutOfRangeErr(dim string, val int) error {
-	return fmt.Errorf("%s component (%d) is out of range [%d,%d]", dim, val, minExactFloat64Integer, maxExactFloat64Integer)
+	return fmt.Errorf("%s component (%d) is out of range [%d,%d]", dim, val, minPreciseFloat64, maxPreciseFloat64)
 }
 
+func outOfRange(x float64) bool {
+	// to always have at least 6 decimal places of precision, Abs(x) cannot be greater than 2^33 - 1
+	return ((math.Float64bits(x) >> 52) & 0b001111100000) != 0
+}
 func (cloud *PointCloud) Set(p Point) error {
 	cloud.points[key(p.Position())] = p
 	if p.HasColor() {
@@ -59,13 +63,13 @@ func (cloud *PointCloud) Set(p Point) error {
 		cloud.hasValue = true
 	}
 	v := p.Position()
-	if v.X > maxExactFloat64Integer || v.X < minExactFloat64Integer {
+	if outOfRange(v.X) {
 		return newOutOfRangeErr("x", v.X)
 	}
-	if v.Y > maxExactFloat64Integer || v.Y < minExactFloat64Integer {
+	if outOfRange(v.Y) {
 		return newOutOfRangeErr("y", v.Y)
 	}
-	if v.Z > maxExactFloat64Integer || v.Z < minExactFloat64Integer {
+	if outOfRange(v.Z) {
 		return newOutOfRangeErr("z", v.Z)
 	}
 	if v.X > cloud.maxX {
@@ -90,7 +94,7 @@ func (cloud *PointCloud) Set(p Point) error {
 	return nil
 }
 
-func (cloud *PointCloud) Unset(x, y, z int) {
+func (cloud *PointCloud) Unset(x, y, z float64) {
 	delete(cloud.points, key{x, y, z})
 }
 
