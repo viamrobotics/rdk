@@ -31,7 +31,7 @@ type baseDeviceWithCompass struct {
 	logger  golog.Logger
 }
 
-func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
+func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	rel, _ := wc.compass.(compass.RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
@@ -46,7 +46,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, spee
 			return totalSpin, err
 		}
 		wc.logger.Debugf("start heading %f", startHeading)
-		spun, err := wc.Base.Spin(ctx, angleDeg, speed, block)
+		spun, err := wc.Base.Spin(ctx, angleDeg, degsPerSec, block)
 		totalSpin += spun
 		if err != nil {
 			return totalSpin, err

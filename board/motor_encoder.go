@@ -61,7 +61,7 @@ type encodedMotor struct {
 	// TODO(erh): check thread safety on this
 	desiredRPM float64 // <= 0 means thread should do nothing
 
-	lastForce    byte
+	lastPower    byte
 	curDirection pb.DirectionRelative
 	setPoint     int64
 
@@ -92,26 +92,26 @@ func (m *encodedMotor) setRegulated(b bool) {
 	}
 }
 
-func (m *encodedMotor) Force(ctx context.Context, force byte) error {
-	m.desiredRPM = 0 // if we're setting force manually, don't control RPM
-	return m.setForce(ctx, force)
+func (m *encodedMotor) Power(ctx context.Context, power byte) error {
+	m.desiredRPM = 0 // if we're setting power manually, don't control RPM
+	return m.setPower(ctx, power)
 }
 
-func (m *encodedMotor) setForce(ctx context.Context, force byte) error {
-	m.lastForce = force
-	return m.real.Force(ctx, force)
+func (m *encodedMotor) setPower(ctx context.Context, power byte) error {
+	m.lastPower = power
+	return m.real.Power(ctx, power)
 }
 
-func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, force byte) error {
+func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
 	m.setRegulated(false) // user wants direct control, so we stop trying to control the world
-	m.desiredRPM = 0      // if we're setting force manually, don't control RPM
-	return m.doGo(ctx, d, force)
+	m.desiredRPM = 0      // if we're setting power manually, don't control RPM
+	return m.doGo(ctx, d, power)
 }
 
-func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, force byte) error {
-	m.lastForce = force
+func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, power byte) error {
+	m.lastPower = power
 	m.curDirection = d
-	return m.real.Go(ctx, d, force)
+	return m.real.Go(ctx, d, power)
 }
 
 func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
@@ -257,39 +257,39 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context) {
 				currentRPM = 0
 			}
 
-			var newForce byte
+			var newPower byte
 
 			if currentRPM == 0 {
-				newForce = m.lastForce + 16
-				if newForce < 16 {
-					newForce = 255
+				newPower = m.lastPower + 16
+				if newPower < 16 {
+					newPower = 255
 				}
 			} else {
 				dOverC := m.desiredRPM / currentRPM
 				if dOverC > 2 {
 					dOverC = 2
 				}
-				neededForce := float64(m.lastForce) * dOverC
+				neededPower := float64(m.lastPower) * dOverC
 
-				if neededForce < 8 {
-					neededForce = 8
-				} else if neededForce > 255 {
-					neededForce = 255
+				if neededPower < 8 {
+					neededPower = 8
+				} else if neededPower > 255 {
+					neededPower = 255
 				}
 
-				neededForce = (float64(m.lastForce) + neededForce) / 2 // slow down ramps
+				neededPower = (float64(m.lastPower) + neededPower) / 2 // slow down ramps
 
-				newForce = byte(neededForce)
+				newPower = byte(neededPower)
 			}
 
-			if newForce != m.lastForce {
+			if newPower != m.lastPower {
 				if rpmDebug {
-					m.logger.Debugf("current rpm: %0.1f force: %v newForce: %v desiredRPM: %0.1f",
-						currentRPM, m.lastForce, newForce, m.desiredRPM)
+					m.logger.Debugf("current rpm: %0.1f power: %v newPower: %v desiredRPM: %0.1f",
+						currentRPM, m.lastPower, newPower, m.desiredRPM)
 				}
-				err := m.setForce(ctx, newForce)
+				err := m.setPower(ctx, newPower)
 				if err != nil {
-					m.logger.Warnf("rpm regulator cannot set force %s", err)
+					m.logger.Warnf("rpm regulator cannot set power %s", err)
 				}
 			}
 		}
@@ -299,28 +299,28 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context) {
 	}
 }
 
-func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
+func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return m.Off(ctx)
 	}
 
 	m.rpmMonitorStart(ctx)
 
-	if rotations < 0 {
-		rotations *= -1
+	if revolutions < 0 {
+		revolutions *= -1
 		d = FlipDirection(d)
 	}
 
-	if rotations == 0 {
+	if revolutions == 0 {
 		oldRpm := m.desiredRPM
 		m.desiredRPM = rpm
 		if oldRpm > 0 && d == m.curDirection {
 			return nil
 		}
-		return m.doGo(ctx, d, 16) // force of 16 is random
+		return m.doGo(ctx, d, 16) // power of 16 is random
 	}
 
-	numTicks := int64(rotations * float64(m.cfg.TicksPerRotation))
+	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 		m.setPoint = m.curPosition + numTicks

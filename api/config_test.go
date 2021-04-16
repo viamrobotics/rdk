@@ -159,7 +159,7 @@ func TestCreateCloudRequest(t *testing.T) {
 		Secret: "b",
 		Path:   "c",
 	}
-	r, err := createRequest(cfg)
+	r, err := createRequest(&cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

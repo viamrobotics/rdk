@@ -27,15 +27,17 @@ service RobotService {
 		};	
 	}
 
-	rpc ControlBase(ControlBaseRequest) returns (ControlBaseResponse) {
-		option (google.api.http) = {
-			post: "/v1/base/{name}/control"
-		};	
-	}
+	// Arm
 
 	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
 		option (google.api.http) = {
 			get: "/v1/arm/{name}/current_position"
+		};	
+	}
+
+	rpc ArmMoveToPosition(ArmMoveToPositionRequest) returns (ArmMoveToPositionResponse) {
+		option (google.api.http) = {
+			put: "/v1/arm/{name}/move_to_position"
 		};	
 	}
 
@@ -45,41 +47,47 @@ service RobotService {
 		};	
 	}
 
-	rpc MoveArmToPosition(MoveArmToPositionRequest) returns (MoveArmToPositionResponse) {
+	rpc ArmMoveToJointPositions(ArmMoveToJointPositionsRequest) returns (ArmMoveToJointPositionsResponse) {
 		option (google.api.http) = {
-			put: "/v1/arm/{name}/move_to_position"
+			put: "/v1/arm/{name}/move_to_joint_positions"
 		};	
 	}
 
-	rpc MoveArmToJointPositions(MoveArmToJointPositionsRequest) returns (MoveArmToJointPositionsResponse) {
+	// Base
+
+	rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
 		option (google.api.http) = {
-			put: "/v1/arm/{name}/move_to_joint_position"
+			post: "/v1/base/{name}/move_straight"
 		};	
 	}
 
-	rpc ControlGripper(ControlGripperRequest) returns (ControlGripperResponse) {
+	rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
 		option (google.api.http) = {
-			put: "/v1/gripper/{name}/control"
+			post: "/v1/base/{name}/spin"
 		};	
 	}
 
-	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+	rpc BaseStop(BaseStopRequest) returns (BaseStopResponse) {
 		option (google.api.http) = {
-			get: "/v1/board/{name}/status"
+			post: "/v1/base/{name}/stop"
 		};	
 	}
 
-	rpc ControlBoardMotor(ControlBoardMotorRequest) returns (ControlBoardMotorResponse) {
+	// Gripper
+
+	rpc GripperOpen(GripperOpenRequest) returns (GripperOpenResponse) {
 		option (google.api.http) = {
-			put: "/v1/board/{board_name}/motor/{motor_name}/control"
-		};
+			put: "/v1/gripper/{name}/open"
+		};	
 	}
 
-	rpc ControlBoardServo(ControlBoardServoRequest) returns (ControlBoardServoResponse) {
+	rpc GripperGrab(GripperGrabRequest) returns (GripperGrabResponse) {
 		option (google.api.http) = {
-			put: "/v1/board/{board_name}/servero/{servo_name}/control"
-		};
+			put: "/v1/gripper/{name}/grab"
+		};	
 	}
+
+	// Camera
 
 	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
 		option (google.api.http) = {
@@ -87,7 +95,7 @@ service RobotService {
 		};
 	}
 
-	rpc RenderCameraFrame(CameraFrameRequest) returns (google.api.HttpBody) {
+	rpc CameraRenderFrame(CameraRenderFrameRequest) returns (google.api.HttpBody) {
 		option (google.api.http) = {
 			get: "/v1/camera/{name}/render_frame"
 		};
@@ -131,11 +139,45 @@ service RobotService {
 		};
 	}
 
+	// Board
+
+	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+		option (google.api.http) = {
+			get: "/v1/board/{name}/status"
+		};	
+	}
+
+	// Motor
+
+	rpc BoardMotorGo(BoardMotorGoRequest) returns (BoardMotorGoResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/motor/{motor_name}/go"
+		};
+	}
+
+	rpc BoardMotorGoFor(BoardMotorGoForRequest) returns (BoardMotorGoForResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/motor/{motor_name}/go_for"
+		};
+	}
+
+	// Servo
+
+	rpc BoardServoMove(BoardServoMoveRequest) returns (BoardServoMoveResponse) {
+		option (google.api.http) = {
+			put: "/v1/board/{board_name}/servero/{servo_name}/move"
+		};
+	}
+
+	// Sensor
+
 	rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
 		option (google.api.http) = {
 			get: "/v1/sensors/sensor/{name}/readings"
 		};	
 	}
+
+	// Compass
 
 	rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
 	    option (google.api.http) = {
@@ -143,15 +185,20 @@ service RobotService {
 		};
 	}
 	rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
+
 		option (google.api.http) = {
 			post: "/v1/sensors/compass/{name}/start_calibration"
 		};
 	}
+
 	rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
 		option (google.api.http) = {
 			post: "/v1/sensors/compass/{name}/stop_calibration"
 		};
 	}
+
+	// Relative Compass
+
 	rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
 		option (google.api.http) = {
 			post: "/v1/sensors/compass/{name}/mark"
@@ -189,6 +236,8 @@ message DoActionRequest {
 
 message DoActionResponse {}
 
+// Arm
+
 message ArmStatus {
 	ArmPosition   grid_position = 1;
 	JointPositions joint_positions = 2;
@@ -210,60 +259,6 @@ message JointPositions {
 	repeated double degrees = 1;
 }
 
-message BoardStatus {
-	map<string, MotorStatus> motors = 1;
-	map<string, ServoStatus> servos = 2;
-	map<string, AnalogStatus> analogs = 3;
-	map<string, DigitalInterruptStatus> digital_interrupts = 4;
-}
-
-message MotorStatus {
-	bool on = 1;
-	bool position_supported = 2;
-	double position = 3;
-}
-
-message ServoStatus {
-	uint32 angle = 1;
-}
-
-message AnalogStatus {
-	int32 value = 1;
-}
-
-message DigitalInterruptStatus {
-	int64 value = 1;
-}
-
-message SensorStatus {
-	string type = 1;
-}
-
-message ControlBaseRequest {
-	string name = 1;
-	oneof action {
-		bool stop = 2;
-		MoveBase move = 3;
-	}
-}
-
-message MoveBase {
-	double speed = 1;
-	oneof option {
-		int64 straight_distance_millis = 2;
-		double spin_angle_deg = 3;
-	}
-}
-
-message ControlBaseResponse {
-	bool success = 1;
-	string error = 2;
-	oneof result {
-		int64 straight_distance_millis = 3;
-		double spin_angle_deg = 4;
-	}	
-}
-
 message ArmCurrentPositionRequest {
 	string name = 1;
 }
@@ -280,68 +275,76 @@ message ArmCurrentJointPositionsResponse {
 	JointPositions positions = 1;
 }
 
-message MoveArmToPositionRequest {
+message ArmMoveToPositionRequest {
 	string name = 1;
 	ArmPosition to = 2;
 }
 
-message MoveArmToPositionResponse {}
+message ArmMoveToPositionResponse {}
 
-message MoveArmToJointPositionsRequest {
+message ArmMoveToJointPositionsRequest {
 	string name = 1;
 	JointPositions to = 2;
 }
 
-message MoveArmToJointPositionsResponse {}
+message ArmMoveToJointPositionsResponse {}
 
-enum ControlGripperAction {
-	CONTROL_GRIPPER_ACTION_UNSPECIFIED = 0;
-	CONTROL_GRIPPER_ACTION_OPEN = 1;
-	CONTROL_GRIPPER_ACTION_GRAB = 2;
-}
+// Base
 
-message ControlGripperRequest {
+message BaseMoveStraightRequest {
 	string name = 1;
-	ControlGripperAction action = 2;
+	int64 distance_millis = 2;
+	double millis_per_sec = 3;
 }
 
-message ControlGripperResponse {
+message BaseMoveStraightResponse {
+	bool success = 1;
+	string error = 2;
+	int64 distance_millis = 3;
+}
+
+message BaseSpinRequest {
+	string name = 1;
+	double angle_deg = 2;
+	double degs_per_sec = 3;
+}
+
+message BaseSpinResponse {
+	bool success = 1;
+	string error = 2;
+	double angle_deg = 3;
+}
+
+message BaseStopRequest {
+	string name = 1;
+}
+
+message BaseStopResponse {}
+
+// Gripper
+
+message GripperOpenRequest {
+	string name = 1;
+}
+
+message GripperOpenResponse {}
+
+message GripperGrabRequest {
+	string name = 1;
+}
+
+message GripperGrabResponse {
 	bool grabbed = 1;
 }
 
-message BoardStatusRequest {
-	string name = 1;
-}
-
-message BoardStatusResponse {
-	BoardStatus status = 1;
-}
-
-message ControlBoardMotorRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	double speed = 3;
-	double rotations = 4;
-	DirectionRelative direction = 5; 
-}
-
-enum DirectionRelative {
-	DIRECTION_RELATIVE_UNSPECIFIED = 0;
-	DIRECTION_RELATIVE_FORWARD = 1;
-	DIRECTION_RELATIVE_BACKWARD = 2;
-}
-
-message ControlBoardMotorResponse {}
-
-message ControlBoardServoRequest {
-	string board_name = 1;
-	string servo_name = 2;
-	uint32 angle_deg = 3;
-}
-
-message ControlBoardServoResponse {}
+// Camera
 
 message CameraFrameRequest {
+	string name = 1;
+	string mime_type = 2;
+}
+
+message CameraRenderFrameRequest {
 	string name = 1;
 	string mime_type = 2;
 }
@@ -352,6 +355,8 @@ message CameraFrameResponse {
 	int64 dim_x = 3;
 	int64 dim_y = 4;
 }
+
+// Lidar
 
 message LidarMeasurement  {
 	double angle = 1;
@@ -416,6 +421,77 @@ message LidarAngularResolutionResponse {
 	double angular_resolution = 1;
 }
 
+// Board
+
+message BoardStatus {
+	map<string, MotorStatus> motors = 1;
+	map<string, ServoStatus> servos = 2;
+	map<string, AnalogStatus> analogs = 3;
+	map<string, DigitalInterruptStatus> digital_interrupts = 4;
+}
+
+message MotorStatus {
+	bool on = 1;
+	bool position_supported = 2;
+	double position = 3;
+}
+
+message ServoStatus {
+	uint32 angle = 1;
+}
+
+message AnalogStatus {
+	int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+	int64 value = 1;
+}
+
+message SensorStatus {
+	string type = 1;
+}
+
+message BoardStatusRequest {
+	string name = 1;
+}
+
+message BoardStatusResponse {
+	BoardStatus status = 1;
+}
+
+// Motor
+
+message BoardMotorGoRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	DirectionRelative direction = 3; 
+	uint32 power = 4;
+}
+
+message BoardMotorGoResponse {}
+
+message BoardMotorGoForRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	DirectionRelative direction = 3;
+	double rpm = 4;
+	double revolutions = 5;
+}
+
+message BoardMotorGoForResponse {}
+
+// Servo
+
+message BoardServoMoveRequest {
+	string board_name = 1;
+	string servo_name = 2;
+	uint32 angle_deg = 3; // (0-180)
+}
+
+message BoardServoMoveResponse {}
+
+// Sensor
 
 message SensorReadingsRequest {
 	string name = 1;
@@ -424,6 +500,8 @@ message SensorReadingsRequest {
 message SensorReadingsResponse {
 	repeated google.protobuf.Value readings = 1;
 }
+
+// Compass
 
 message CompassHeadingRequest {
 	string name = 1;
@@ -445,8 +523,16 @@ message CompassStopCalibrationRequest {
 
 message CompassStopCalibrationResponse {}
 
+// Relative Compass
+
 message CompassMarkRequest {
 	string name = 1;
 }
 
 message CompassMarkResponse {}
+
+enum DirectionRelative {
+	DIRECTION_RELATIVE_UNSPECIFIED = 0;
+	DIRECTION_RELATIVE_FORWARD = 1;
+	DIRECTION_RELATIVE_BACKWARD = 2;
+}

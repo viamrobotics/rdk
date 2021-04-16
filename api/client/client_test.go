@@ -146,8 +146,8 @@ func TestClient(t *testing.T) {
 		return distanceMillis, nil
 	}
 	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-		capBaseSpinArgs = []interface{}{angleDeg, speed, block}
+	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+		capBaseSpinArgs = []interface{}{angleDeg, degsPerSec, block}
 		return angleDeg, nil
 	}
 	injectRobot2.BaseByNameFunc = func(name string) api.Base {
@@ -415,7 +415,7 @@ func TestClient(t *testing.T) {
 
 	spun, err := client.BaseByName("base3").Spin(context.Background(), 7.2, 33, false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 64, false}) // 64 is hardcoded
+	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 33.0, false})
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
 	test.That(t, spun, test.ShouldEqual, 7.2)
 

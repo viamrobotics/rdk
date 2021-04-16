@@ -185,9 +185,10 @@ type Remote struct {
 // the cloud source could be anything that supports http
 // url is constructed as $Path?id=ID and secret is put in a http header
 type CloudConfig struct {
-	ID     string
-	Secret string
-	Path   string // optional, defaults to viam cloud otherwise
+	ID      string
+	Secret  string
+	Path    string // optional, defaults to viam cloud otherwise
+	LogPath string // optional, defaults to viam cloud otherwise
 }
 
 type Config struct {

@@ -1,0 +1,305 @@
+{
+   "model": {
+      "manufacturer": "Trossen Robotics",
+      "name": "vx300s",
+      "framecount": 8,
+      "bodies": [
+         {
+            "id": 0,
+            "ignores": [
+               1
+            ]
+         },
+         {
+            "id": 1,
+            "ignores": [
+               0,
+               2
+            ]
+         },
+         {
+            "id": 2,
+            "ignores": [
+               1,
+               3
+            ]
+         },
+         {
+            "id": 3,
+            "ignores": [
+               2,
+               4
+            ]
+         },
+         {
+            "id": 4,
+            "ignores": [
+               3,
+               5,
+               6
+            ]
+         },
+         {
+            "id": 5,
+            "ignores": [
+               4,
+               6
+            ]
+         },
+         {
+            "id": 6,
+            "ignores": [
+               4,
+               5
+            ]
+         }
+      ],
+      "fixeds": [
+         {
+            "id": 0,
+            "frame": {
+               "a": "world",
+               "b": "body0"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 1,
+            "frame": {
+               "a": "body0",
+               "b": "frame0"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 2,
+            "frame": {
+               "a": "frame1",
+               "b": "body1"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 126.75
+            }
+         },
+         {
+            "id": 3,
+            "frame": {
+               "a": "frame2",
+               "b": "body2"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 60,
+               "y": 0,
+               "z": 300
+            }
+         },
+         {
+            "id": 4,
+            "frame": {
+               "a": "frame3",
+               "b": "body3"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 5,
+            "frame": {
+               "a": "frame4",
+               "b": "body4"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 300,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 6,
+            "frame": {
+               "a": "frame5",
+               "b": "body5"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 7,
+            "frame": {
+               "a": "frame6",
+               "b": "body6"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 70,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": 8,
+            "frame": {
+               "a": "body6",
+               "b": "frame7"
+            },
+            "rotation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         }
+      ],
+      "joints": [
+         {
+            "id": 0,
+            "type": "revolute",
+            "frame": {
+               "a": "frame0",
+               "b": "frame1"
+            },
+            "axis": {
+               "x": 0,
+               "y": 0,
+               "z": 1
+            },
+            "max": 179,
+            "min": -179
+         },
+         {
+            "id": 1,
+            "type": "revolute",
+            "frame": {
+               "a": "body1",
+               "b": "frame2"
+            },
+            "axis": {
+               "x": 0,
+               "y": 1,
+               "z": 0
+            },
+            "max": 114,
+            "min": -108
+         },
+         {
+            "id": 2,
+            "type": "revolute",
+            "frame": {
+               "a": "body2",
+               "b": "frame3"
+            },
+            "axis": {
+               "x": 0,
+               "y": 1,
+               "z": 0
+            },
+            "max": 92,
+            "min": -123
+         },
+         {
+            "id": 3,
+            "type": "revolute",
+            "frame": {
+               "a": "body3",
+               "b": "frame4"
+            },
+            "axis": {
+               "x": 1,
+               "y": 0,
+               "z": 0
+            },
+            "max": 179,
+            "min": -179
+         },
+         {
+            "id": 4,
+            "type": "revolute",
+            "frame": {
+               "a": "body4",
+               "b": "frame5"
+            },
+            "axis": {
+               "x": 0,
+               "y": 1,
+               "z": 0
+            },
+            "max": 123,
+            "min": -100
+         },
+         {
+            "id": 5,
+            "type": "revolute",
+            "frame": {
+               "a": "body5",
+               "b": "frame6"
+            },
+            "axis": {
+               "x": 1,
+               "y": 0,
+               "z": 0
+            },
+            "max": 179,
+            "min": -179
+         }
+      ]
+   }
+}

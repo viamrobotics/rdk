@@ -28,13 +28,30 @@ goog.exportSymbol('proto.proto.api.v1.ArmCurrentJointPositionsRequest', null, gl
 goog.exportSymbol('proto.proto.api.v1.ArmCurrentJointPositionsResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.ArmCurrentPositionRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.ArmCurrentPositionResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.ArmMoveToJointPositionsRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.ArmMoveToJointPositionsResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.ArmMoveToPositionRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.ArmMoveToPositionResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.ArmPosition', null, global);
 goog.exportSymbol('proto.proto.api.v1.ArmStatus', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseMoveStraightRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseMoveStraightResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseSpinRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseSpinResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseStopRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BaseStopResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardMotorGoForRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardMotorGoForResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardMotorGoRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardMotorGoResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardServoMoveRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.BoardServoMoveResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.BoardStatus', null, global);
 goog.exportSymbol('proto.proto.api.v1.BoardStatusRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.BoardStatusResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.CameraFrameRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.CameraFrameResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.CameraRenderFrameRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.CompassHeadingRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.CompassHeadingResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.CompassMarkRequest', null, global);
@@ -43,21 +60,14 @@ goog.exportSymbol('proto.proto.api.v1.CompassStartCalibrationRequest', null, glo
 goog.exportSymbol('proto.proto.api.v1.CompassStartCalibrationResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.CompassStopCalibrationRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.CompassStopCalibrationResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBaseRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBaseRequest.ActionCase', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBaseResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBaseResponse.ResultCase', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBoardMotorRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBoardMotorResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBoardServoRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlBoardServoResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlGripperAction', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlGripperRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.ControlGripperResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.DigitalInterruptStatus', null, global);
 goog.exportSymbol('proto.proto.api.v1.DirectionRelative', null, global);
 goog.exportSymbol('proto.proto.api.v1.DoActionRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.DoActionResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.GripperGrabRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.GripperGrabResponse', null, global);
+goog.exportSymbol('proto.proto.api.v1.GripperOpenRequest', null, global);
+goog.exportSymbol('proto.proto.api.v1.GripperOpenResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.JointPositions', null, global);
 goog.exportSymbol('proto.proto.api.v1.LidarAngularResolutionRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.LidarAngularResolutionResponse', null, global);
@@ -75,12 +85,6 @@ goog.exportSymbol('proto.proto.api.v1.LidarStartResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.LidarStopRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.LidarStopResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.MotorStatus', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveArmToJointPositionsRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveArmToJointPositionsResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveArmToPositionRequest', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveArmToPositionResponse', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveBase', null, global);
-goog.exportSymbol('proto.proto.api.v1.MoveBase.OptionCase', null, global);
 goog.exportSymbol('proto.proto.api.v1.SensorReadingsRequest', null, global);
 goog.exportSymbol('proto.proto.api.v1.SensorReadingsResponse', null, global);
 goog.exportSymbol('proto.proto.api.v1.SensorStatus', null, global);
@@ -310,195 +314,6 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.BoardStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.BoardStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.BoardStatus.displayName = 'proto.proto.api.v1.BoardStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.MotorStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.MotorStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.MotorStatus.displayName = 'proto.proto.api.v1.MotorStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.ServoStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.ServoStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.ServoStatus.displayName = 'proto.proto.api.v1.ServoStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.AnalogStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.AnalogStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.AnalogStatus.displayName = 'proto.proto.api.v1.AnalogStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.DigitalInterruptStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.DigitalInterruptStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.DigitalInterruptStatus.displayName = 'proto.proto.api.v1.DigitalInterruptStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.SensorStatus = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
-};
-goog.inherits(proto.proto.api.v1.SensorStatus, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.SensorStatus.displayName = 'proto.proto.api.v1.SensorStatus';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.ControlBaseRequest = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.proto.api.v1.ControlBaseRequest.oneofGroups_);
-};
-goog.inherits(proto.proto.api.v1.ControlBaseRequest, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.ControlBaseRequest.displayName = 'proto.proto.api.v1.ControlBaseRequest';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.MoveBase = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.proto.api.v1.MoveBase.oneofGroups_);
-};
-goog.inherits(proto.proto.api.v1.MoveBase, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.MoveBase.displayName = 'proto.proto.api.v1.MoveBase';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
-proto.proto.api.v1.ControlBaseResponse = function(opt_data) {
-  jspb.Message.initialize(this, opt_data, 0, -1, null, proto.proto.api.v1.ControlBaseResponse.oneofGroups_);
-};
-goog.inherits(proto.proto.api.v1.ControlBaseResponse, jspb.Message);
-if (goog.DEBUG && !COMPILED) {
-  /**
-   * @public
-   * @override
-   */
-  proto.proto.api.v1.ControlBaseResponse.displayName = 'proto.proto.api.v1.ControlBaseResponse';
-}
-/**
- * Generated by JsPbCodeGenerator.
- * @param {Array=} opt_data Optional initial data array, typically from a
- * server response, or constructed directly in Javascript. The array is used
- * in place and becomes part of the constructed object. It is not cloned.
- * If no data is provided, the constructed object will be empty, but still
- * valid.
- * @extends {jspb.Message}
- * @constructor
- */
 proto.proto.api.v1.ArmCurrentPositionRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
@@ -583,16 +398,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.MoveArmToPositionRequest = function(opt_data) {
+proto.proto.api.v1.ArmMoveToPositionRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.MoveArmToPositionRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.ArmMoveToPositionRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.MoveArmToPositionRequest.displayName = 'proto.proto.api.v1.MoveArmToPositionRequest';
+  proto.proto.api.v1.ArmMoveToPositionRequest.displayName = 'proto.proto.api.v1.ArmMoveToPositionRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -604,16 +419,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.MoveArmToPositionResponse = function(opt_data) {
+proto.proto.api.v1.ArmMoveToPositionResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.MoveArmToPositionResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.ArmMoveToPositionResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.MoveArmToPositionResponse.displayName = 'proto.proto.api.v1.MoveArmToPositionResponse';
+  proto.proto.api.v1.ArmMoveToPositionResponse.displayName = 'proto.proto.api.v1.ArmMoveToPositionResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -625,16 +440,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest = function(opt_data) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.MoveArmToJointPositionsRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.ArmMoveToJointPositionsRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.MoveArmToJointPositionsRequest.displayName = 'proto.proto.api.v1.MoveArmToJointPositionsRequest';
+  proto.proto.api.v1.ArmMoveToJointPositionsRequest.displayName = 'proto.proto.api.v1.ArmMoveToJointPositionsRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -646,16 +461,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse = function(opt_data) {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.MoveArmToJointPositionsResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.ArmMoveToJointPositionsResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.MoveArmToJointPositionsResponse.displayName = 'proto.proto.api.v1.MoveArmToJointPositionsResponse';
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse.displayName = 'proto.proto.api.v1.ArmMoveToJointPositionsResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -667,16 +482,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlGripperRequest = function(opt_data) {
+proto.proto.api.v1.BaseMoveStraightRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlGripperRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseMoveStraightRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlGripperRequest.displayName = 'proto.proto.api.v1.ControlGripperRequest';
+  proto.proto.api.v1.BaseMoveStraightRequest.displayName = 'proto.proto.api.v1.BaseMoveStraightRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -688,16 +503,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlGripperResponse = function(opt_data) {
+proto.proto.api.v1.BaseMoveStraightResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlGripperResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseMoveStraightResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlGripperResponse.displayName = 'proto.proto.api.v1.ControlGripperResponse';
+  proto.proto.api.v1.BaseMoveStraightResponse.displayName = 'proto.proto.api.v1.BaseMoveStraightResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -709,16 +524,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.BoardStatusRequest = function(opt_data) {
+proto.proto.api.v1.BaseSpinRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.BoardStatusRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseSpinRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.BoardStatusRequest.displayName = 'proto.proto.api.v1.BoardStatusRequest';
+  proto.proto.api.v1.BaseSpinRequest.displayName = 'proto.proto.api.v1.BaseSpinRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -730,16 +545,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.BoardStatusResponse = function(opt_data) {
+proto.proto.api.v1.BaseSpinResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.BoardStatusResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseSpinResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.BoardStatusResponse.displayName = 'proto.proto.api.v1.BoardStatusResponse';
+  proto.proto.api.v1.BaseSpinResponse.displayName = 'proto.proto.api.v1.BaseSpinResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -751,16 +566,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlBoardMotorRequest = function(opt_data) {
+proto.proto.api.v1.BaseStopRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlBoardMotorRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseStopRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlBoardMotorRequest.displayName = 'proto.proto.api.v1.ControlBoardMotorRequest';
+  proto.proto.api.v1.BaseStopRequest.displayName = 'proto.proto.api.v1.BaseStopRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -772,16 +587,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlBoardMotorResponse = function(opt_data) {
+proto.proto.api.v1.BaseStopResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlBoardMotorResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.BaseStopResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlBoardMotorResponse.displayName = 'proto.proto.api.v1.ControlBoardMotorResponse';
+  proto.proto.api.v1.BaseStopResponse.displayName = 'proto.proto.api.v1.BaseStopResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -793,16 +608,16 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlBoardServoRequest = function(opt_data) {
+proto.proto.api.v1.GripperOpenRequest = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlBoardServoRequest, jspb.Message);
+goog.inherits(proto.proto.api.v1.GripperOpenRequest, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlBoardServoRequest.displayName = 'proto.proto.api.v1.ControlBoardServoRequest';
+  proto.proto.api.v1.GripperOpenRequest.displayName = 'proto.proto.api.v1.GripperOpenRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -814,16 +629,58 @@ if (goog.DEBUG && !COMPILED) {
  * @extends {jspb.Message}
  * @constructor
  */
-proto.proto.api.v1.ControlBoardServoResponse = function(opt_data) {
+proto.proto.api.v1.GripperOpenResponse = function(opt_data) {
   jspb.Message.initialize(this, opt_data, 0, -1, null, null);
 };
-goog.inherits(proto.proto.api.v1.ControlBoardServoResponse, jspb.Message);
+goog.inherits(proto.proto.api.v1.GripperOpenResponse, jspb.Message);
 if (goog.DEBUG && !COMPILED) {
   /**
    * @public
    * @override
    */
-  proto.proto.api.v1.ControlBoardServoResponse.displayName = 'proto.proto.api.v1.ControlBoardServoResponse';
+  proto.proto.api.v1.GripperOpenResponse.displayName = 'proto.proto.api.v1.GripperOpenResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.GripperGrabRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.GripperGrabRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.GripperGrabRequest.displayName = 'proto.proto.api.v1.GripperGrabRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.GripperGrabResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.GripperGrabResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.GripperGrabResponse.displayName = 'proto.proto.api.v1.GripperGrabResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -845,6 +702,27 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.proto.api.v1.CameraFrameRequest.displayName = 'proto.proto.api.v1.CameraFrameRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.CameraRenderFrameRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.CameraRenderFrameRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.CameraRenderFrameRequest.displayName = 'proto.proto.api.v1.CameraRenderFrameRequest';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -1181,6 +1059,300 @@ if (goog.DEBUG && !COMPILED) {
    * @override
    */
   proto.proto.api.v1.LidarAngularResolutionResponse.displayName = 'proto.proto.api.v1.LidarAngularResolutionResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardStatus.displayName = 'proto.proto.api.v1.BoardStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.MotorStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.MotorStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.MotorStatus.displayName = 'proto.proto.api.v1.MotorStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.ServoStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.ServoStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.ServoStatus.displayName = 'proto.proto.api.v1.ServoStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.AnalogStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.AnalogStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.AnalogStatus.displayName = 'proto.proto.api.v1.AnalogStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.DigitalInterruptStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.DigitalInterruptStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.DigitalInterruptStatus.displayName = 'proto.proto.api.v1.DigitalInterruptStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.SensorStatus = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.SensorStatus, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.SensorStatus.displayName = 'proto.proto.api.v1.SensorStatus';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardStatusRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardStatusRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardStatusRequest.displayName = 'proto.proto.api.v1.BoardStatusRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardStatusResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardStatusResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardStatusResponse.displayName = 'proto.proto.api.v1.BoardStatusResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardMotorGoRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardMotorGoRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardMotorGoRequest.displayName = 'proto.proto.api.v1.BoardMotorGoRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardMotorGoResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardMotorGoResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardMotorGoResponse.displayName = 'proto.proto.api.v1.BoardMotorGoResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardMotorGoForRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardMotorGoForRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardMotorGoForRequest.displayName = 'proto.proto.api.v1.BoardMotorGoForRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardMotorGoForResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardMotorGoForResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardMotorGoForResponse.displayName = 'proto.proto.api.v1.BoardMotorGoForResponse';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardServoMoveRequest = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardServoMoveRequest, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardServoMoveRequest.displayName = 'proto.proto.api.v1.BoardServoMoveRequest';
+}
+/**
+ * Generated by JsPbCodeGenerator.
+ * @param {Array=} opt_data Optional initial data array, typically from a
+ * server response, or constructed directly in Javascript. The array is used
+ * in place and becomes part of the constructed object. It is not cloned.
+ * If no data is provided, the constructed object will be empty, but still
+ * valid.
+ * @extends {jspb.Message}
+ * @constructor
+ */
+proto.proto.api.v1.BoardServoMoveResponse = function(opt_data) {
+  jspb.Message.initialize(this, opt_data, 0, -1, null, null);
+};
+goog.inherits(proto.proto.api.v1.BoardServoMoveResponse, jspb.Message);
+if (goog.DEBUG && !COMPILED) {
+  /**
+   * @public
+   * @override
+   */
+  proto.proto.api.v1.BoardServoMoveResponse.displayName = 'proto.proto.api.v1.BoardServoMoveResponse';
 }
 /**
  * Generated by JsPbCodeGenerator.
@@ -3164,1737 +3336,6 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.BoardStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.BoardStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.BoardStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    motorsMap: (f = msg.getMotorsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.MotorStatus.toObject) : [],
-    servosMap: (f = msg.getServosMap()) ? f.toObject(includeInstance, proto.proto.api.v1.ServoStatus.toObject) : [],
-    analogsMap: (f = msg.getAnalogsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.AnalogStatus.toObject) : [],
-    digitalInterruptsMap: (f = msg.getDigitalInterruptsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.DigitalInterruptStatus.toObject) : []
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.BoardStatus}
- */
-proto.proto.api.v1.BoardStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.BoardStatus;
-  return proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.BoardStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.BoardStatus}
- */
-proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = msg.getMotorsMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.MotorStatus());
-         });
-      break;
-    case 2:
-      var value = msg.getServosMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.ServoStatus());
-         });
-      break;
-    case 3:
-      var value = msg.getAnalogsMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.AnalogStatus());
-         });
-      break;
-    case 4:
-      var value = msg.getDigitalInterruptsMap();
-      reader.readMessage(value, function(message, reader) {
-        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.DigitalInterruptStatus());
-         });
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.BoardStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.BoardStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.BoardStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getMotorsMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.MotorStatus.serializeBinaryToWriter);
-  }
-  f = message.getServosMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(2, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.ServoStatus.serializeBinaryToWriter);
-  }
-  f = message.getAnalogsMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter);
-  }
-  f = message.getDigitalInterruptsMap(true);
-  if (f && f.getLength() > 0) {
-    f.serializeBinary(4, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter);
-  }
-};
-
-
-/**
- * map<string, MotorStatus> motors = 1;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>}
- */
-proto.proto.api.v1.BoardStatus.prototype.getMotorsMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>} */ (
-      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
-      proto.proto.api.v1.MotorStatus));
-};
-
-
-/**
- * Clears values from the map. The map will be non-null.
- * @return {!proto.proto.api.v1.BoardStatus} returns this
- */
-proto.proto.api.v1.BoardStatus.prototype.clearMotorsMap = function() {
-  this.getMotorsMap().clear();
-  return this;};
-
-
-/**
- * map<string, ServoStatus> servos = 2;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>}
- */
-proto.proto.api.v1.BoardStatus.prototype.getServosMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>} */ (
-      jspb.Message.getMapField(this, 2, opt_noLazyCreate,
-      proto.proto.api.v1.ServoStatus));
-};
-
-
-/**
- * Clears values from the map. The map will be non-null.
- * @return {!proto.proto.api.v1.BoardStatus} returns this
- */
-proto.proto.api.v1.BoardStatus.prototype.clearServosMap = function() {
-  this.getServosMap().clear();
-  return this;};
-
-
-/**
- * map<string, AnalogStatus> analogs = 3;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.proto.api.v1.AnalogStatus>}
- */
-proto.proto.api.v1.BoardStatus.prototype.getAnalogsMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.proto.api.v1.AnalogStatus>} */ (
-      jspb.Message.getMapField(this, 3, opt_noLazyCreate,
-      proto.proto.api.v1.AnalogStatus));
-};
-
-
-/**
- * Clears values from the map. The map will be non-null.
- * @return {!proto.proto.api.v1.BoardStatus} returns this
- */
-proto.proto.api.v1.BoardStatus.prototype.clearAnalogsMap = function() {
-  this.getAnalogsMap().clear();
-  return this;};
-
-
-/**
- * map<string, DigitalInterruptStatus> digital_interrupts = 4;
- * @param {boolean=} opt_noLazyCreate Do not create the map if
- * empty, instead returning `undefined`
- * @return {!jspb.Map<string,!proto.proto.api.v1.DigitalInterruptStatus>}
- */
-proto.proto.api.v1.BoardStatus.prototype.getDigitalInterruptsMap = function(opt_noLazyCreate) {
-  return /** @type {!jspb.Map<string,!proto.proto.api.v1.DigitalInterruptStatus>} */ (
-      jspb.Message.getMapField(this, 4, opt_noLazyCreate,
-      proto.proto.api.v1.DigitalInterruptStatus));
-};
-
-
-/**
- * Clears values from the map. The map will be non-null.
- * @return {!proto.proto.api.v1.BoardStatus} returns this
- */
-proto.proto.api.v1.BoardStatus.prototype.clearDigitalInterruptsMap = function() {
-  this.getDigitalInterruptsMap().clear();
-  return this;};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.MotorStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MotorStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MotorStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.MotorStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    on: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    positionSupported: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-    position: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MotorStatus}
- */
-proto.proto.api.v1.MotorStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MotorStatus;
-  return proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.MotorStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MotorStatus}
- */
-proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setOn(value);
-      break;
-    case 2:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setPositionSupported(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setPosition(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.MotorStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MotorStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MotorStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.MotorStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getOn();
-  if (f) {
-    writer.writeBool(
-      1,
-      f
-    );
-  }
-  f = message.getPositionSupported();
-  if (f) {
-    writer.writeBool(
-      2,
-      f
-    );
-  }
-  f = message.getPosition();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      3,
-      f
-    );
-  }
-};
-
-
-/**
- * optional bool on = 1;
- * @return {boolean}
- */
-proto.proto.api.v1.MotorStatus.prototype.getOn = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.proto.api.v1.MotorStatus} returns this
- */
-proto.proto.api.v1.MotorStatus.prototype.setOn = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 1, value);
-};
-
-
-/**
- * optional bool position_supported = 2;
- * @return {boolean}
- */
-proto.proto.api.v1.MotorStatus.prototype.getPositionSupported = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.proto.api.v1.MotorStatus} returns this
- */
-proto.proto.api.v1.MotorStatus.prototype.setPositionSupported = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 2, value);
-};
-
-
-/**
- * optional double position = 3;
- * @return {number}
- */
-proto.proto.api.v1.MotorStatus.prototype.getPosition = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.MotorStatus} returns this
- */
-proto.proto.api.v1.MotorStatus.prototype.setPosition = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ServoStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ServoStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ServoStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ServoStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    angle: jspb.Message.getFieldWithDefault(msg, 1, 0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ServoStatus}
- */
-proto.proto.api.v1.ServoStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ServoStatus;
-  return proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ServoStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ServoStatus}
- */
-proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {number} */ (reader.readUint32());
-      msg.setAngle(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ServoStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ServoStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ServoStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ServoStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getAngle();
-  if (f !== 0) {
-    writer.writeUint32(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional uint32 angle = 1;
- * @return {number}
- */
-proto.proto.api.v1.ServoStatus.prototype.getAngle = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ServoStatus} returns this
- */
-proto.proto.api.v1.ServoStatus.prototype.setAngle = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.AnalogStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.AnalogStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.AnalogStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.AnalogStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    value: jspb.Message.getFieldWithDefault(msg, 1, 0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.AnalogStatus}
- */
-proto.proto.api.v1.AnalogStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.AnalogStatus;
-  return proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.AnalogStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.AnalogStatus}
- */
-proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {number} */ (reader.readInt32());
-      msg.setValue(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.AnalogStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.AnalogStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getValue();
-  if (f !== 0) {
-    writer.writeInt32(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional int32 value = 1;
- * @return {number}
- */
-proto.proto.api.v1.AnalogStatus.prototype.getValue = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.AnalogStatus} returns this
- */
-proto.proto.api.v1.AnalogStatus.prototype.setValue = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.DigitalInterruptStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.DigitalInterruptStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.DigitalInterruptStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.DigitalInterruptStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    value: jspb.Message.getFieldWithDefault(msg, 1, 0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.DigitalInterruptStatus}
- */
-proto.proto.api.v1.DigitalInterruptStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.DigitalInterruptStatus;
-  return proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.DigitalInterruptStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.DigitalInterruptStatus}
- */
-proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setValue(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.DigitalInterruptStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.DigitalInterruptStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getValue();
-  if (f !== 0) {
-    writer.writeInt64(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional int64 value = 1;
- * @return {number}
- */
-proto.proto.api.v1.DigitalInterruptStatus.prototype.getValue = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.DigitalInterruptStatus} returns this
- */
-proto.proto.api.v1.DigitalInterruptStatus.prototype.setValue = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.SensorStatus.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.SensorStatus.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.SensorStatus} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.SensorStatus.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    type: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.SensorStatus}
- */
-proto.proto.api.v1.SensorStatus.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.SensorStatus;
-  return proto.proto.api.v1.SensorStatus.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.SensorStatus} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.SensorStatus}
- */
-proto.proto.api.v1.SensorStatus.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setType(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.SensorStatus.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.SensorStatus.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.SensorStatus} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.SensorStatus.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getType();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string type = 1;
- * @return {string}
- */
-proto.proto.api.v1.SensorStatus.prototype.getType = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.SensorStatus} returns this
- */
-proto.proto.api.v1.SensorStatus.prototype.setType = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-
-/**
- * Oneof group definitions for this message. Each group defines the field
- * numbers belonging to that group. When of these fields' value is set, all
- * other fields in the group are cleared. During deserialization, if multiple
- * fields are encountered for a group, only the last value seen will be kept.
- * @private {!Array<!Array<number>>}
- * @const
- */
-proto.proto.api.v1.ControlBaseRequest.oneofGroups_ = [[2,3]];
-
-/**
- * @enum {number}
- */
-proto.proto.api.v1.ControlBaseRequest.ActionCase = {
-  ACTION_NOT_SET: 0,
-  STOP: 2,
-  MOVE: 3
-};
-
-/**
- * @return {proto.proto.api.v1.ControlBaseRequest.ActionCase}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.getActionCase = function() {
-  return /** @type {proto.proto.api.v1.ControlBaseRequest.ActionCase} */(jspb.Message.computeOneofCase(this, proto.proto.api.v1.ControlBaseRequest.oneofGroups_[0]));
-};
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBaseRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBaseRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBaseRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    stop: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
-    move: (f = msg.getMove()) && proto.proto.api.v1.MoveBase.toObject(includeInstance, f)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBaseRequest}
- */
-proto.proto.api.v1.ControlBaseRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBaseRequest;
-  return proto.proto.api.v1.ControlBaseRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBaseRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBaseRequest}
- */
-proto.proto.api.v1.ControlBaseRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    case 2:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setStop(value);
-      break;
-    case 3:
-      var value = new proto.proto.api.v1.MoveBase;
-      reader.readMessage(value,proto.proto.api.v1.MoveBase.deserializeBinaryFromReader);
-      msg.setMove(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBaseRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBaseRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBaseRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = /** @type {boolean} */ (jspb.Message.getField(message, 2));
-  if (f != null) {
-    writer.writeBool(
-      2,
-      f
-    );
-  }
-  f = message.getMove();
-  if (f != null) {
-    writer.writeMessage(
-      3,
-      f,
-      proto.proto.api.v1.MoveBase.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * optional string name = 1;
- * @return {string}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBaseRequest} returns this
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional bool stop = 2;
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.getStop = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.proto.api.v1.ControlBaseRequest} returns this
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.setStop = function(value) {
-  return jspb.Message.setOneofField(this, 2, proto.proto.api.v1.ControlBaseRequest.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the field making it undefined.
- * @return {!proto.proto.api.v1.ControlBaseRequest} returns this
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.clearStop = function() {
-  return jspb.Message.setOneofField(this, 2, proto.proto.api.v1.ControlBaseRequest.oneofGroups_[0], undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.hasStop = function() {
-  return jspb.Message.getField(this, 2) != null;
-};
-
-
-/**
- * optional MoveBase move = 3;
- * @return {?proto.proto.api.v1.MoveBase}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.getMove = function() {
-  return /** @type{?proto.proto.api.v1.MoveBase} */ (
-    jspb.Message.getWrapperField(this, proto.proto.api.v1.MoveBase, 3));
-};
-
-
-/**
- * @param {?proto.proto.api.v1.MoveBase|undefined} value
- * @return {!proto.proto.api.v1.ControlBaseRequest} returns this
-*/
-proto.proto.api.v1.ControlBaseRequest.prototype.setMove = function(value) {
-  return jspb.Message.setOneofWrapperField(this, 3, proto.proto.api.v1.ControlBaseRequest.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.proto.api.v1.ControlBaseRequest} returns this
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.clearMove = function() {
-  return this.setMove(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseRequest.prototype.hasMove = function() {
-  return jspb.Message.getField(this, 3) != null;
-};
-
-
-
-/**
- * Oneof group definitions for this message. Each group defines the field
- * numbers belonging to that group. When of these fields' value is set, all
- * other fields in the group are cleared. During deserialization, if multiple
- * fields are encountered for a group, only the last value seen will be kept.
- * @private {!Array<!Array<number>>}
- * @const
- */
-proto.proto.api.v1.MoveBase.oneofGroups_ = [[2,3]];
-
-/**
- * @enum {number}
- */
-proto.proto.api.v1.MoveBase.OptionCase = {
-  OPTION_NOT_SET: 0,
-  STRAIGHT_DISTANCE_MILLIS: 2,
-  SPIN_ANGLE_DEG: 3
-};
-
-/**
- * @return {proto.proto.api.v1.MoveBase.OptionCase}
- */
-proto.proto.api.v1.MoveBase.prototype.getOptionCase = function() {
-  return /** @type {proto.proto.api.v1.MoveBase.OptionCase} */(jspb.Message.computeOneofCase(this, proto.proto.api.v1.MoveBase.oneofGroups_[0]));
-};
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.MoveBase.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MoveBase.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MoveBase} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.MoveBase.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    speed: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0),
-    straightDistanceMillis: jspb.Message.getFieldWithDefault(msg, 2, 0),
-    spinAngleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MoveBase}
- */
-proto.proto.api.v1.MoveBase.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MoveBase;
-  return proto.proto.api.v1.MoveBase.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.MoveBase} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MoveBase}
- */
-proto.proto.api.v1.MoveBase.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setSpeed(value);
-      break;
-    case 2:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setStraightDistanceMillis(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setSpinAngleDeg(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.MoveBase.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MoveBase.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MoveBase} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.MoveBase.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getSpeed();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      1,
-      f
-    );
-  }
-  f = /** @type {number} */ (jspb.Message.getField(message, 2));
-  if (f != null) {
-    writer.writeInt64(
-      2,
-      f
-    );
-  }
-  f = /** @type {number} */ (jspb.Message.getField(message, 3));
-  if (f != null) {
-    writer.writeDouble(
-      3,
-      f
-    );
-  }
-};
-
-
-/**
- * optional double speed = 1;
- * @return {number}
- */
-proto.proto.api.v1.MoveBase.prototype.getSpeed = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.MoveBase} returns this
- */
-proto.proto.api.v1.MoveBase.prototype.setSpeed = function(value) {
-  return jspb.Message.setProto3FloatField(this, 1, value);
-};
-
-
-/**
- * optional int64 straight_distance_millis = 2;
- * @return {number}
- */
-proto.proto.api.v1.MoveBase.prototype.getStraightDistanceMillis = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.MoveBase} returns this
- */
-proto.proto.api.v1.MoveBase.prototype.setStraightDistanceMillis = function(value) {
-  return jspb.Message.setOneofField(this, 2, proto.proto.api.v1.MoveBase.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the field making it undefined.
- * @return {!proto.proto.api.v1.MoveBase} returns this
- */
-proto.proto.api.v1.MoveBase.prototype.clearStraightDistanceMillis = function() {
-  return jspb.Message.setOneofField(this, 2, proto.proto.api.v1.MoveBase.oneofGroups_[0], undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.MoveBase.prototype.hasStraightDistanceMillis = function() {
-  return jspb.Message.getField(this, 2) != null;
-};
-
-
-/**
- * optional double spin_angle_deg = 3;
- * @return {number}
- */
-proto.proto.api.v1.MoveBase.prototype.getSpinAngleDeg = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.MoveBase} returns this
- */
-proto.proto.api.v1.MoveBase.prototype.setSpinAngleDeg = function(value) {
-  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.MoveBase.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the field making it undefined.
- * @return {!proto.proto.api.v1.MoveBase} returns this
- */
-proto.proto.api.v1.MoveBase.prototype.clearSpinAngleDeg = function() {
-  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.MoveBase.oneofGroups_[0], undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.MoveBase.prototype.hasSpinAngleDeg = function() {
-  return jspb.Message.getField(this, 3) != null;
-};
-
-
-
-/**
- * Oneof group definitions for this message. Each group defines the field
- * numbers belonging to that group. When of these fields' value is set, all
- * other fields in the group are cleared. During deserialization, if multiple
- * fields are encountered for a group, only the last value seen will be kept.
- * @private {!Array<!Array<number>>}
- * @const
- */
-proto.proto.api.v1.ControlBaseResponse.oneofGroups_ = [[3,4]];
-
-/**
- * @enum {number}
- */
-proto.proto.api.v1.ControlBaseResponse.ResultCase = {
-  RESULT_NOT_SET: 0,
-  STRAIGHT_DISTANCE_MILLIS: 3,
-  SPIN_ANGLE_DEG: 4
-};
-
-/**
- * @return {proto.proto.api.v1.ControlBaseResponse.ResultCase}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.getResultCase = function() {
-  return /** @type {proto.proto.api.v1.ControlBaseResponse.ResultCase} */(jspb.Message.computeOneofCase(this, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0]));
-};
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBaseResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBaseResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBaseResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
-    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    straightDistanceMillis: jspb.Message.getFieldWithDefault(msg, 3, 0),
-    spinAngleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBaseResponse}
- */
-proto.proto.api.v1.ControlBaseResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBaseResponse;
-  return proto.proto.api.v1.ControlBaseResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBaseResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBaseResponse}
- */
-proto.proto.api.v1.ControlBaseResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {boolean} */ (reader.readBool());
-      msg.setSuccess(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setError(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readInt64());
-      msg.setStraightDistanceMillis(value);
-      break;
-    case 4:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setSpinAngleDeg(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBaseResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBaseResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBaseResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getSuccess();
-  if (f) {
-    writer.writeBool(
-      1,
-      f
-    );
-  }
-  f = message.getError();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = /** @type {number} */ (jspb.Message.getField(message, 3));
-  if (f != null) {
-    writer.writeInt64(
-      3,
-      f
-    );
-  }
-  f = /** @type {number} */ (jspb.Message.getField(message, 4));
-  if (f != null) {
-    writer.writeDouble(
-      4,
-      f
-    );
-  }
-};
-
-
-/**
- * optional bool success = 1;
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.getSuccess = function() {
-  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
-};
-
-
-/**
- * @param {boolean} value
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.setSuccess = function(value) {
-  return jspb.Message.setProto3BooleanField(this, 1, value);
-};
-
-
-/**
- * optional string error = 2;
- * @return {string}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.getError = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.setError = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional int64 straight_distance_millis = 3;
- * @return {number}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.getStraightDistanceMillis = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.setStraightDistanceMillis = function(value) {
-  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the field making it undefined.
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.clearStraightDistanceMillis = function() {
-  return jspb.Message.setOneofField(this, 3, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.hasStraightDistanceMillis = function() {
-  return jspb.Message.getField(this, 3) != null;
-};
-
-
-/**
- * optional double spin_angle_deg = 4;
- * @return {number}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.getSpinAngleDeg = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.setSpinAngleDeg = function(value) {
-  return jspb.Message.setOneofField(this, 4, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], value);
-};
-
-
-/**
- * Clears the field making it undefined.
- * @return {!proto.proto.api.v1.ControlBaseResponse} returns this
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.clearSpinAngleDeg = function() {
-  return jspb.Message.setOneofField(this, 4, proto.proto.api.v1.ControlBaseResponse.oneofGroups_[0], undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.ControlBaseResponse.prototype.hasSpinAngleDeg = function() {
-  return jspb.Message.getField(this, 4) != null;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
 proto.proto.api.v1.ArmCurrentPositionRequest.prototype.toObject = function(opt_includeInstance) {
   return proto.proto.api.v1.ArmCurrentPositionRequest.toObject(opt_includeInstance, this);
 };
@@ -5457,8 +3898,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MoveArmToPositionRequest.toObject(opt_includeInstance, this);
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.ArmMoveToPositionRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5467,11 +3908,11 @@ proto.proto.api.v1.MoveArmToPositionRequest.prototype.toObject = function(opt_in
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MoveArmToPositionRequest} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToPositionRequest.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.ArmMoveToPositionRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     to: (f = msg.getTo()) && proto.proto.api.v1.ArmPosition.toObject(includeInstance, f)
@@ -5488,23 +3929,23 @@ proto.proto.api.v1.MoveArmToPositionRequest.toObject = function(includeInstance,
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MoveArmToPositionRequest}
+ * @return {!proto.proto.api.v1.ArmMoveToPositionRequest}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.deserializeBinary = function(bytes) {
+proto.proto.api.v1.ArmMoveToPositionRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MoveArmToPositionRequest;
-  return proto.proto.api.v1.MoveArmToPositionRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.ArmMoveToPositionRequest;
+  return proto.proto.api.v1.ArmMoveToPositionRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.MoveArmToPositionRequest} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MoveArmToPositionRequest}
+ * @return {!proto.proto.api.v1.ArmMoveToPositionRequest}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.ArmMoveToPositionRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5533,9 +3974,9 @@ proto.proto.api.v1.MoveArmToPositionRequest.deserializeBinaryFromReader = functi
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.serializeBinary = function() {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MoveArmToPositionRequest.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.ArmMoveToPositionRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5543,11 +3984,11 @@ proto.proto.api.v1.MoveArmToPositionRequest.prototype.serializeBinary = function
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MoveArmToPositionRequest} message
+ * @param {!proto.proto.api.v1.ArmMoveToPositionRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToPositionRequest.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.ArmMoveToPositionRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getName();
   if (f.length > 0) {
@@ -5571,16 +4012,16 @@ proto.proto.api.v1.MoveArmToPositionRequest.serializeBinaryToWriter = function(m
  * optional string name = 1;
  * @return {string}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.getName = function() {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.proto.api.v1.MoveArmToPositionRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToPositionRequest} returns this
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.setName = function(value) {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -5589,7 +4030,7 @@ proto.proto.api.v1.MoveArmToPositionRequest.prototype.setName = function(value) 
  * optional ArmPosition to = 2;
  * @return {?proto.proto.api.v1.ArmPosition}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.getTo = function() {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.getTo = function() {
   return /** @type{?proto.proto.api.v1.ArmPosition} */ (
     jspb.Message.getWrapperField(this, proto.proto.api.v1.ArmPosition, 2));
 };
@@ -5597,18 +4038,18 @@ proto.proto.api.v1.MoveArmToPositionRequest.prototype.getTo = function() {
 
 /**
  * @param {?proto.proto.api.v1.ArmPosition|undefined} value
- * @return {!proto.proto.api.v1.MoveArmToPositionRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToPositionRequest} returns this
 */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.setTo = function(value) {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.setTo = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.proto.api.v1.MoveArmToPositionRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToPositionRequest} returns this
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.clearTo = function() {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.clearTo = function() {
   return this.setTo(undefined);
 };
 
@@ -5617,7 +4058,7 @@ proto.proto.api.v1.MoveArmToPositionRequest.prototype.clearTo = function() {
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.proto.api.v1.MoveArmToPositionRequest.prototype.hasTo = function() {
+proto.proto.api.v1.ArmMoveToPositionRequest.prototype.hasTo = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -5638,8 +4079,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.MoveArmToPositionResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MoveArmToPositionResponse.toObject(opt_includeInstance, this);
+proto.proto.api.v1.ArmMoveToPositionResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.ArmMoveToPositionResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5648,11 +4089,11 @@ proto.proto.api.v1.MoveArmToPositionResponse.prototype.toObject = function(opt_i
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MoveArmToPositionResponse} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.ArmMoveToPositionResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToPositionResponse.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.ArmMoveToPositionResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -5668,23 +4109,23 @@ proto.proto.api.v1.MoveArmToPositionResponse.toObject = function(includeInstance
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MoveArmToPositionResponse}
+ * @return {!proto.proto.api.v1.ArmMoveToPositionResponse}
  */
-proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinary = function(bytes) {
+proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MoveArmToPositionResponse;
-  return proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.ArmMoveToPositionResponse;
+  return proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.MoveArmToPositionResponse} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.ArmMoveToPositionResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MoveArmToPositionResponse}
+ * @return {!proto.proto.api.v1.ArmMoveToPositionResponse}
  */
-proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.ArmMoveToPositionResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5704,9 +4145,9 @@ proto.proto.api.v1.MoveArmToPositionResponse.deserializeBinaryFromReader = funct
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.MoveArmToPositionResponse.prototype.serializeBinary = function() {
+proto.proto.api.v1.ArmMoveToPositionResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MoveArmToPositionResponse.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.ArmMoveToPositionResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5714,11 +4155,11 @@ proto.proto.api.v1.MoveArmToPositionResponse.prototype.serializeBinary = functio
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MoveArmToPositionResponse} message
+ * @param {!proto.proto.api.v1.ArmMoveToPositionResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToPositionResponse.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.ArmMoveToPositionResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -5739,8 +4180,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MoveArmToJointPositionsRequest.toObject(opt_includeInstance, this);
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.ArmMoveToJointPositionsRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -5749,11 +4190,11 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.toObject = function(
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     to: (f = msg.getTo()) && proto.proto.api.v1.JointPositions.toObject(includeInstance, f)
@@ -5770,23 +4211,23 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.toObject = function(includeIns
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsRequest}
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsRequest}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.deserializeBinary = function(bytes) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MoveArmToJointPositionsRequest;
-  return proto.proto.api.v1.MoveArmToJointPositionsRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.ArmMoveToJointPositionsRequest;
+  return proto.proto.api.v1.ArmMoveToJointPositionsRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsRequest}
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsRequest}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5815,9 +4256,9 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.deserializeBinaryFromReader = 
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.serializeBinary = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MoveArmToJointPositionsRequest.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.ArmMoveToJointPositionsRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5825,11 +4266,11 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.serializeBinary = fu
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsRequest} message
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getName();
   if (f.length > 0) {
@@ -5853,16 +4294,16 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.serializeBinaryToWriter = func
  * optional string name = 1;
  * @return {string}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.getName = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} returns this
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.setName = function(value) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
@@ -5871,7 +4312,7 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.setName = function(v
  * optional JointPositions to = 2;
  * @return {?proto.proto.api.v1.JointPositions}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.getTo = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.getTo = function() {
   return /** @type{?proto.proto.api.v1.JointPositions} */ (
     jspb.Message.getWrapperField(this, proto.proto.api.v1.JointPositions, 2));
 };
@@ -5879,18 +4320,18 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.getTo = function() {
 
 /**
  * @param {?proto.proto.api.v1.JointPositions|undefined} value
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} returns this
 */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.setTo = function(value) {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.setTo = function(value) {
   return jspb.Message.setWrapperField(this, 2, value);
 };
 
 
 /**
  * Clears the message field making it undefined.
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsRequest} returns this
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsRequest} returns this
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.clearTo = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.clearTo = function() {
   return this.setTo(undefined);
 };
 
@@ -5899,7 +4340,7 @@ proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.clearTo = function()
  * Returns whether this field is set.
  * @return {boolean}
  */
-proto.proto.api.v1.MoveArmToJointPositionsRequest.prototype.hasTo = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsRequest.prototype.hasTo = function() {
   return jspb.Message.getField(this, 2) != null;
 };
 
@@ -5920,8 +4361,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.MoveArmToJointPositionsResponse.toObject(opt_includeInstance, this);
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.ArmMoveToJointPositionsResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -5930,11 +4371,11 @@ proto.proto.api.v1.MoveArmToJointPositionsResponse.prototype.toObject = function
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsResponse} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
 
   };
@@ -5950,23 +4391,23 @@ proto.proto.api.v1.MoveArmToJointPositionsResponse.toObject = function(includeIn
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsResponse}
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsResponse}
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinary = function(bytes) {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.MoveArmToJointPositionsResponse;
-  return proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.ArmMoveToJointPositionsResponse;
+  return proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsResponse} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.MoveArmToJointPositionsResponse}
+ * @return {!proto.proto.api.v1.ArmMoveToJointPositionsResponse}
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -5986,9 +4427,9 @@ proto.proto.api.v1.MoveArmToJointPositionsResponse.deserializeBinaryFromReader =
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.prototype.serializeBinary = function() {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.MoveArmToJointPositionsResponse.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.ArmMoveToJointPositionsResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -5996,11 +4437,11 @@ proto.proto.api.v1.MoveArmToJointPositionsResponse.prototype.serializeBinary = f
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.MoveArmToJointPositionsResponse} message
+ * @param {!proto.proto.api.v1.ArmMoveToJointPositionsResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.MoveArmToJointPositionsResponse.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.ArmMoveToJointPositionsResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
 };
 
@@ -6021,8 +4462,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlGripperRequest.toObject(opt_includeInstance, this);
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseMoveStraightRequest.toObject(opt_includeInstance, this);
 };
 
 
@@ -6031,14 +4472,15 @@ proto.proto.api.v1.ControlGripperRequest.prototype.toObject = function(opt_inclu
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlGripperRequest} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.BaseMoveStraightRequest} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.ControlGripperRequest.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.BaseMoveStraightRequest.toObject = function(includeInstance, msg) {
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    action: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    distanceMillis: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    millisPerSec: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -6052,23 +4494,23 @@ proto.proto.api.v1.ControlGripperRequest.toObject = function(includeInstance, ms
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlGripperRequest}
+ * @return {!proto.proto.api.v1.BaseMoveStraightRequest}
  */
-proto.proto.api.v1.ControlGripperRequest.deserializeBinary = function(bytes) {
+proto.proto.api.v1.BaseMoveStraightRequest.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlGripperRequest;
-  return proto.proto.api.v1.ControlGripperRequest.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.BaseMoveStraightRequest;
+  return proto.proto.api.v1.BaseMoveStraightRequest.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlGripperRequest} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.BaseMoveStraightRequest} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlGripperRequest}
+ * @return {!proto.proto.api.v1.BaseMoveStraightRequest}
  */
-proto.proto.api.v1.ControlGripperRequest.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.BaseMoveStraightRequest.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6080,8 +4522,12 @@ proto.proto.api.v1.ControlGripperRequest.deserializeBinaryFromReader = function(
       msg.setName(value);
       break;
     case 2:
-      var value = /** @type {!proto.proto.api.v1.ControlGripperAction} */ (reader.readEnum());
-      msg.setAction(value);
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDistanceMillis(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setMillisPerSec(value);
       break;
     default:
       reader.skipField();
@@ -6096,9 +4542,9 @@ proto.proto.api.v1.ControlGripperRequest.deserializeBinaryFromReader = function(
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.serializeBinary = function() {
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlGripperRequest.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.BaseMoveStraightRequest.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6106,11 +4552,11 @@ proto.proto.api.v1.ControlGripperRequest.prototype.serializeBinary = function() 
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlGripperRequest} message
+ * @param {!proto.proto.api.v1.BaseMoveStraightRequest} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.ControlGripperRequest.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.BaseMoveStraightRequest.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getName();
   if (f.length > 0) {
@@ -6119,10 +4565,17 @@ proto.proto.api.v1.ControlGripperRequest.serializeBinaryToWriter = function(mess
       f
     );
   }
-  f = message.getAction();
-  if (f !== 0.0) {
-    writer.writeEnum(
+  f = message.getDistanceMillis();
+  if (f !== 0) {
+    writer.writeInt64(
       2,
+      f
+    );
+  }
+  f = message.getMillisPerSec();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      3,
       f
     );
   }
@@ -6133,35 +4586,53 @@ proto.proto.api.v1.ControlGripperRequest.serializeBinaryToWriter = function(mess
  * optional string name = 1;
  * @return {string}
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.getName = function() {
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.getName = function() {
   return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
 };
 
 
 /**
  * @param {string} value
- * @return {!proto.proto.api.v1.ControlGripperRequest} returns this
+ * @return {!proto.proto.api.v1.BaseMoveStraightRequest} returns this
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.setName = function(value) {
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.setName = function(value) {
   return jspb.Message.setProto3StringField(this, 1, value);
 };
 
 
 /**
- * optional ControlGripperAction action = 2;
- * @return {!proto.proto.api.v1.ControlGripperAction}
+ * optional int64 distance_millis = 2;
+ * @return {number}
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.getAction = function() {
-  return /** @type {!proto.proto.api.v1.ControlGripperAction} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.getDistanceMillis = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
 };
 
 
 /**
- * @param {!proto.proto.api.v1.ControlGripperAction} value
- * @return {!proto.proto.api.v1.ControlGripperRequest} returns this
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseMoveStraightRequest} returns this
  */
-proto.proto.api.v1.ControlGripperRequest.prototype.setAction = function(value) {
-  return jspb.Message.setProto3EnumField(this, 2, value);
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.setDistanceMillis = function(value) {
+  return jspb.Message.setProto3IntField(this, 2, value);
+};
+
+
+/**
+ * optional double millis_per_sec = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.getMillisPerSec = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseMoveStraightRequest} returns this
+ */
+proto.proto.api.v1.BaseMoveStraightRequest.prototype.setMillisPerSec = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 
@@ -6181,8 +4652,8 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
-proto.proto.api.v1.ControlGripperResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlGripperResponse.toObject(opt_includeInstance, this);
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseMoveStraightResponse.toObject(opt_includeInstance, this);
 };
 
 
@@ -6191,11 +4662,1173 @@ proto.proto.api.v1.ControlGripperResponse.prototype.toObject = function(opt_incl
  * @param {boolean|undefined} includeInstance Deprecated. Whether to include
  *     the JSPB instance for transitional soy proto support:
  *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlGripperResponse} msg The msg instance to transform.
+ * @param {!proto.proto.api.v1.BaseMoveStraightResponse} msg The msg instance to transform.
  * @return {!Object}
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.ControlGripperResponse.toObject = function(includeInstance, msg) {
+proto.proto.api.v1.BaseMoveStraightResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    distanceMillis: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BaseMoveStraightResponse}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BaseMoveStraightResponse;
+  return proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BaseMoveStraightResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BaseMoveStraightResponse}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setSuccess(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setError(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setDistanceMillis(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BaseMoveStraightResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BaseMoveStraightResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getSuccess();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+  f = message.getError();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getDistanceMillis();
+  if (f !== 0) {
+    writer.writeInt64(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool success = 1;
+ * @return {boolean}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.getSuccess = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.BaseMoveStraightResponse} returns this
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.setSuccess = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional string error = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.getError = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BaseMoveStraightResponse} returns this
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.setError = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional int64 distance_millis = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.getDistanceMillis = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseMoveStraightResponse} returns this
+ */
+proto.proto.api.v1.BaseMoveStraightResponse.prototype.setDistanceMillis = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseSpinRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BaseSpinRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseSpinRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    angleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
+    degsPerSec: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BaseSpinRequest}
+ */
+proto.proto.api.v1.BaseSpinRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BaseSpinRequest;
+  return proto.proto.api.v1.BaseSpinRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BaseSpinRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BaseSpinRequest}
+ */
+proto.proto.api.v1.BaseSpinRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    case 2:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setAngleDeg(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setDegsPerSec(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BaseSpinRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BaseSpinRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseSpinRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getAngleDeg();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      2,
+      f
+    );
+  }
+  f = message.getDegsPerSec();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BaseSpinRequest} returns this
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional double angle_deg = 2;
+ * @return {number}
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.getAngleDeg = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseSpinRequest} returns this
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.setAngleDeg = function(value) {
+  return jspb.Message.setProto3FloatField(this, 2, value);
+};
+
+
+/**
+ * optional double degs_per_sec = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.getDegsPerSec = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseSpinRequest} returns this
+ */
+proto.proto.api.v1.BaseSpinRequest.prototype.setDegsPerSec = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseSpinResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BaseSpinResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseSpinResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    success: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    error: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    angleDeg: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BaseSpinResponse}
+ */
+proto.proto.api.v1.BaseSpinResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BaseSpinResponse;
+  return proto.proto.api.v1.BaseSpinResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BaseSpinResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BaseSpinResponse}
+ */
+proto.proto.api.v1.BaseSpinResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setSuccess(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setError(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setAngleDeg(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BaseSpinResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BaseSpinResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseSpinResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getSuccess();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+  f = message.getError();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getAngleDeg();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool success = 1;
+ * @return {boolean}
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.getSuccess = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.BaseSpinResponse} returns this
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.setSuccess = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional string error = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.getError = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BaseSpinResponse} returns this
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.setError = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional double angle_deg = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.getAngleDeg = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BaseSpinResponse} returns this
+ */
+proto.proto.api.v1.BaseSpinResponse.prototype.setAngleDeg = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BaseStopRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseStopRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BaseStopRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseStopRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BaseStopRequest}
+ */
+proto.proto.api.v1.BaseStopRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BaseStopRequest;
+  return proto.proto.api.v1.BaseStopRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BaseStopRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BaseStopRequest}
+ */
+proto.proto.api.v1.BaseStopRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BaseStopRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BaseStopRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BaseStopRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseStopRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BaseStopRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BaseStopRequest} returns this
+ */
+proto.proto.api.v1.BaseStopRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BaseStopResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BaseStopResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BaseStopResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseStopResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BaseStopResponse}
+ */
+proto.proto.api.v1.BaseStopResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BaseStopResponse;
+  return proto.proto.api.v1.BaseStopResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BaseStopResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BaseStopResponse}
+ */
+proto.proto.api.v1.BaseStopResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BaseStopResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BaseStopResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BaseStopResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BaseStopResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.GripperOpenRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.GripperOpenRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.GripperOpenRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperOpenRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.GripperOpenRequest}
+ */
+proto.proto.api.v1.GripperOpenRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.GripperOpenRequest;
+  return proto.proto.api.v1.GripperOpenRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.GripperOpenRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.GripperOpenRequest}
+ */
+proto.proto.api.v1.GripperOpenRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.GripperOpenRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.GripperOpenRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.GripperOpenRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperOpenRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.GripperOpenRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.GripperOpenRequest} returns this
+ */
+proto.proto.api.v1.GripperOpenRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.GripperOpenResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.GripperOpenResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.GripperOpenResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperOpenResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.GripperOpenResponse}
+ */
+proto.proto.api.v1.GripperOpenResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.GripperOpenResponse;
+  return proto.proto.api.v1.GripperOpenResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.GripperOpenResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.GripperOpenResponse}
+ */
+proto.proto.api.v1.GripperOpenResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.GripperOpenResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.GripperOpenResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.GripperOpenResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperOpenResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.GripperGrabRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.GripperGrabRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.GripperGrabRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperGrabRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.GripperGrabRequest}
+ */
+proto.proto.api.v1.GripperGrabRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.GripperGrabRequest;
+  return proto.proto.api.v1.GripperGrabRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.GripperGrabRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.GripperGrabRequest}
+ */
+proto.proto.api.v1.GripperGrabRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.GripperGrabRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.GripperGrabRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.GripperGrabRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperGrabRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.GripperGrabRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.GripperGrabRequest} returns this
+ */
+proto.proto.api.v1.GripperGrabRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.GripperGrabResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.GripperGrabResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.GripperGrabResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.GripperGrabResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
     grabbed: jspb.Message.getBooleanFieldWithDefault(msg, 1, false)
   };
@@ -6211,23 +5844,23 @@ proto.proto.api.v1.ControlGripperResponse.toObject = function(includeInstance, m
 /**
  * Deserializes binary data (in protobuf wire format).
  * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlGripperResponse}
+ * @return {!proto.proto.api.v1.GripperGrabResponse}
  */
-proto.proto.api.v1.ControlGripperResponse.deserializeBinary = function(bytes) {
+proto.proto.api.v1.GripperGrabResponse.deserializeBinary = function(bytes) {
   var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlGripperResponse;
-  return proto.proto.api.v1.ControlGripperResponse.deserializeBinaryFromReader(msg, reader);
+  var msg = new proto.proto.api.v1.GripperGrabResponse;
+  return proto.proto.api.v1.GripperGrabResponse.deserializeBinaryFromReader(msg, reader);
 };
 
 
 /**
  * Deserializes binary data (in protobuf wire format) from the
  * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlGripperResponse} msg The message object to deserialize into.
+ * @param {!proto.proto.api.v1.GripperGrabResponse} msg The message object to deserialize into.
  * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlGripperResponse}
+ * @return {!proto.proto.api.v1.GripperGrabResponse}
  */
-proto.proto.api.v1.ControlGripperResponse.deserializeBinaryFromReader = function(msg, reader) {
+proto.proto.api.v1.GripperGrabResponse.deserializeBinaryFromReader = function(msg, reader) {
   while (reader.nextField()) {
     if (reader.isEndGroup()) {
       break;
@@ -6251,9 +5884,9 @@ proto.proto.api.v1.ControlGripperResponse.deserializeBinaryFromReader = function
  * Serializes the message to binary data (in protobuf wire format).
  * @return {!Uint8Array}
  */
-proto.proto.api.v1.ControlGripperResponse.prototype.serializeBinary = function() {
+proto.proto.api.v1.GripperGrabResponse.prototype.serializeBinary = function() {
   var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlGripperResponse.serializeBinaryToWriter(this, writer);
+  proto.proto.api.v1.GripperGrabResponse.serializeBinaryToWriter(this, writer);
   return writer.getResultBuffer();
 };
 
@@ -6261,11 +5894,11 @@ proto.proto.api.v1.ControlGripperResponse.prototype.serializeBinary = function()
 /**
  * Serializes the given message to binary data (in protobuf wire
  * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlGripperResponse} message
+ * @param {!proto.proto.api.v1.GripperGrabResponse} message
  * @param {!jspb.BinaryWriter} writer
  * @suppress {unusedLocalVariables} f is only used for nested messages
  */
-proto.proto.api.v1.ControlGripperResponse.serializeBinaryToWriter = function(message, writer) {
+proto.proto.api.v1.GripperGrabResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getGrabbed();
   if (f) {
@@ -6281,940 +5914,17 @@ proto.proto.api.v1.ControlGripperResponse.serializeBinaryToWriter = function(mes
  * optional bool grabbed = 1;
  * @return {boolean}
  */
-proto.proto.api.v1.ControlGripperResponse.prototype.getGrabbed = function() {
+proto.proto.api.v1.GripperGrabResponse.prototype.getGrabbed = function() {
   return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
 };
 
 
 /**
  * @param {boolean} value
- * @return {!proto.proto.api.v1.ControlGripperResponse} returns this
+ * @return {!proto.proto.api.v1.GripperGrabResponse} returns this
  */
-proto.proto.api.v1.ControlGripperResponse.prototype.setGrabbed = function(value) {
+proto.proto.api.v1.GripperGrabResponse.prototype.setGrabbed = function(value) {
   return jspb.Message.setProto3BooleanField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.BoardStatusRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.BoardStatusRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.BoardStatusRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatusRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    name: jspb.Message.getFieldWithDefault(msg, 1, "")
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.BoardStatusRequest}
- */
-proto.proto.api.v1.BoardStatusRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.BoardStatusRequest;
-  return proto.proto.api.v1.BoardStatusRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.BoardStatusRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.BoardStatusRequest}
- */
-proto.proto.api.v1.BoardStatusRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setName(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.BoardStatusRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.BoardStatusRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.BoardStatusRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatusRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getName();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string name = 1;
- * @return {string}
- */
-proto.proto.api.v1.BoardStatusRequest.prototype.getName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.BoardStatusRequest} returns this
- */
-proto.proto.api.v1.BoardStatusRequest.prototype.setName = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.BoardStatusResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.BoardStatusResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.BoardStatusResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatusResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    status: (f = msg.getStatus()) && proto.proto.api.v1.BoardStatus.toObject(includeInstance, f)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.BoardStatusResponse}
- */
-proto.proto.api.v1.BoardStatusResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.BoardStatusResponse;
-  return proto.proto.api.v1.BoardStatusResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.BoardStatusResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.BoardStatusResponse}
- */
-proto.proto.api.v1.BoardStatusResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = new proto.proto.api.v1.BoardStatus;
-      reader.readMessage(value,proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader);
-      msg.setStatus(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.BoardStatusResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.BoardStatusResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.BoardStatusResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.BoardStatusResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getStatus();
-  if (f != null) {
-    writer.writeMessage(
-      1,
-      f,
-      proto.proto.api.v1.BoardStatus.serializeBinaryToWriter
-    );
-  }
-};
-
-
-/**
- * optional BoardStatus status = 1;
- * @return {?proto.proto.api.v1.BoardStatus}
- */
-proto.proto.api.v1.BoardStatusResponse.prototype.getStatus = function() {
-  return /** @type{?proto.proto.api.v1.BoardStatus} */ (
-    jspb.Message.getWrapperField(this, proto.proto.api.v1.BoardStatus, 1));
-};
-
-
-/**
- * @param {?proto.proto.api.v1.BoardStatus|undefined} value
- * @return {!proto.proto.api.v1.BoardStatusResponse} returns this
-*/
-proto.proto.api.v1.BoardStatusResponse.prototype.setStatus = function(value) {
-  return jspb.Message.setWrapperField(this, 1, value);
-};
-
-
-/**
- * Clears the message field making it undefined.
- * @return {!proto.proto.api.v1.BoardStatusResponse} returns this
- */
-proto.proto.api.v1.BoardStatusResponse.prototype.clearStatus = function() {
-  return this.setStatus(undefined);
-};
-
-
-/**
- * Returns whether this field is set.
- * @return {boolean}
- */
-proto.proto.api.v1.BoardStatusResponse.prototype.hasStatus = function() {
-  return jspb.Message.getField(this, 1) != null;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBoardMotorRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBoardMotorRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardMotorRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    motorName: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    speed: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
-    rotations: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
-    direction: jspb.Message.getFieldWithDefault(msg, 5, 0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBoardMotorRequest;
-  return proto.proto.api.v1.ControlBoardMotorRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBoardMotorRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setBoardName(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setMotorName(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setSpeed(value);
-      break;
-    case 4:
-      var value = /** @type {number} */ (reader.readDouble());
-      msg.setRotations(value);
-      break;
-    case 5:
-      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
-      msg.setDirection(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBoardMotorRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBoardMotorRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardMotorRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getBoardName();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = message.getMotorName();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getSpeed();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      3,
-      f
-    );
-  }
-  f = message.getRotations();
-  if (f !== 0.0) {
-    writer.writeDouble(
-      4,
-      f
-    );
-  }
-  f = message.getDirection();
-  if (f !== 0.0) {
-    writer.writeEnum(
-      5,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string board_name = 1;
- * @return {string}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.getBoardName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest} returns this
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.setBoardName = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional string motor_name = 2;
- * @return {string}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.getMotorName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest} returns this
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.setMotorName = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional double speed = 3;
- * @return {number}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.getSpeed = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest} returns this
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.setSpeed = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
-};
-
-
-/**
- * optional double rotations = 4;
- * @return {number}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.getRotations = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest} returns this
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.setRotations = function(value) {
-  return jspb.Message.setProto3FloatField(this, 4, value);
-};
-
-
-/**
- * optional DirectionRelative direction = 5;
- * @return {!proto.proto.api.v1.DirectionRelative}
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.getDirection = function() {
-  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 5, 0));
-};
-
-
-/**
- * @param {!proto.proto.api.v1.DirectionRelative} value
- * @return {!proto.proto.api.v1.ControlBoardMotorRequest} returns this
- */
-proto.proto.api.v1.ControlBoardMotorRequest.prototype.setDirection = function(value) {
-  return jspb.Message.setProto3EnumField(this, 5, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBoardMotorResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBoardMotorResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBoardMotorResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardMotorResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBoardMotorResponse}
- */
-proto.proto.api.v1.ControlBoardMotorResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBoardMotorResponse;
-  return proto.proto.api.v1.ControlBoardMotorResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBoardMotorResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBoardMotorResponse}
- */
-proto.proto.api.v1.ControlBoardMotorResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBoardMotorResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBoardMotorResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBoardMotorResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardMotorResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBoardServoRequest.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBoardServoRequest} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardServoRequest.toObject = function(includeInstance, msg) {
-  var f, obj = {
-    boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
-    servoName: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    angleDeg: jspb.Message.getFieldWithDefault(msg, 3, 0)
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBoardServoRequest}
- */
-proto.proto.api.v1.ControlBoardServoRequest.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBoardServoRequest;
-  return proto.proto.api.v1.ControlBoardServoRequest.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBoardServoRequest} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBoardServoRequest}
- */
-proto.proto.api.v1.ControlBoardServoRequest.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    case 1:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setBoardName(value);
-      break;
-    case 2:
-      var value = /** @type {string} */ (reader.readString());
-      msg.setServoName(value);
-      break;
-    case 3:
-      var value = /** @type {number} */ (reader.readUint32());
-      msg.setAngleDeg(value);
-      break;
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBoardServoRequest.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBoardServoRequest} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardServoRequest.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
-  f = message.getBoardName();
-  if (f.length > 0) {
-    writer.writeString(
-      1,
-      f
-    );
-  }
-  f = message.getServoName();
-  if (f.length > 0) {
-    writer.writeString(
-      2,
-      f
-    );
-  }
-  f = message.getAngleDeg();
-  if (f !== 0) {
-    writer.writeUint32(
-      3,
-      f
-    );
-  }
-};
-
-
-/**
- * optional string board_name = 1;
- * @return {string}
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.getBoardName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBoardServoRequest} returns this
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.setBoardName = function(value) {
-  return jspb.Message.setProto3StringField(this, 1, value);
-};
-
-
-/**
- * optional string servo_name = 2;
- * @return {string}
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.getServoName = function() {
-  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
-};
-
-
-/**
- * @param {string} value
- * @return {!proto.proto.api.v1.ControlBoardServoRequest} returns this
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.setServoName = function(value) {
-  return jspb.Message.setProto3StringField(this, 2, value);
-};
-
-
-/**
- * optional uint32 angle_deg = 3;
- * @return {number}
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.getAngleDeg = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
-};
-
-
-/**
- * @param {number} value
- * @return {!proto.proto.api.v1.ControlBoardServoRequest} returns this
- */
-proto.proto.api.v1.ControlBoardServoRequest.prototype.setAngleDeg = function(value) {
-  return jspb.Message.setProto3IntField(this, 3, value);
-};
-
-
-
-
-
-if (jspb.Message.GENERATE_TO_OBJECT) {
-/**
- * Creates an object representation of this proto.
- * Field names that are reserved in JavaScript and will be renamed to pb_name.
- * Optional fields that are not set will be set to undefined.
- * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
- * For the list of reserved names please see:
- *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
- * @param {boolean=} opt_includeInstance Deprecated. whether to include the
- *     JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @return {!Object}
- */
-proto.proto.api.v1.ControlBoardServoResponse.prototype.toObject = function(opt_includeInstance) {
-  return proto.proto.api.v1.ControlBoardServoResponse.toObject(opt_includeInstance, this);
-};
-
-
-/**
- * Static version of the {@see toObject} method.
- * @param {boolean|undefined} includeInstance Deprecated. Whether to include
- *     the JSPB instance for transitional soy proto support:
- *     http://goto/soy-param-migration
- * @param {!proto.proto.api.v1.ControlBoardServoResponse} msg The msg instance to transform.
- * @return {!Object}
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardServoResponse.toObject = function(includeInstance, msg) {
-  var f, obj = {
-
-  };
-
-  if (includeInstance) {
-    obj.$jspbMessageInstance = msg;
-  }
-  return obj;
-};
-}
-
-
-/**
- * Deserializes binary data (in protobuf wire format).
- * @param {jspb.ByteSource} bytes The bytes to deserialize.
- * @return {!proto.proto.api.v1.ControlBoardServoResponse}
- */
-proto.proto.api.v1.ControlBoardServoResponse.deserializeBinary = function(bytes) {
-  var reader = new jspb.BinaryReader(bytes);
-  var msg = new proto.proto.api.v1.ControlBoardServoResponse;
-  return proto.proto.api.v1.ControlBoardServoResponse.deserializeBinaryFromReader(msg, reader);
-};
-
-
-/**
- * Deserializes binary data (in protobuf wire format) from the
- * given reader into the given message object.
- * @param {!proto.proto.api.v1.ControlBoardServoResponse} msg The message object to deserialize into.
- * @param {!jspb.BinaryReader} reader The BinaryReader to use.
- * @return {!proto.proto.api.v1.ControlBoardServoResponse}
- */
-proto.proto.api.v1.ControlBoardServoResponse.deserializeBinaryFromReader = function(msg, reader) {
-  while (reader.nextField()) {
-    if (reader.isEndGroup()) {
-      break;
-    }
-    var field = reader.getFieldNumber();
-    switch (field) {
-    default:
-      reader.skipField();
-      break;
-    }
-  }
-  return msg;
-};
-
-
-/**
- * Serializes the message to binary data (in protobuf wire format).
- * @return {!Uint8Array}
- */
-proto.proto.api.v1.ControlBoardServoResponse.prototype.serializeBinary = function() {
-  var writer = new jspb.BinaryWriter();
-  proto.proto.api.v1.ControlBoardServoResponse.serializeBinaryToWriter(this, writer);
-  return writer.getResultBuffer();
-};
-
-
-/**
- * Serializes the given message to binary data (in protobuf wire
- * format), writing to the given BinaryWriter.
- * @param {!proto.proto.api.v1.ControlBoardServoResponse} message
- * @param {!jspb.BinaryWriter} writer
- * @suppress {unusedLocalVariables} f is only used for nested messages
- */
-proto.proto.api.v1.ControlBoardServoResponse.serializeBinaryToWriter = function(message, writer) {
-  var f = undefined;
 };
 
 
@@ -7374,6 +6084,166 @@ proto.proto.api.v1.CameraFrameRequest.prototype.getMimeType = function() {
  * @return {!proto.proto.api.v1.CameraFrameRequest} returns this
  */
 proto.proto.api.v1.CameraFrameRequest.prototype.setMimeType = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.CameraRenderFrameRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.CameraRenderFrameRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    mimeType: jspb.Message.getFieldWithDefault(msg, 2, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.CameraRenderFrameRequest}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.CameraRenderFrameRequest;
+  return proto.proto.api.v1.CameraRenderFrameRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.CameraRenderFrameRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.CameraRenderFrameRequest}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setMimeType(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.CameraRenderFrameRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.CameraRenderFrameRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getMimeType();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.CameraRenderFrameRequest} returns this
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string mime_type = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.getMimeType = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.CameraRenderFrameRequest} returns this
+ */
+proto.proto.api.v1.CameraRenderFrameRequest.prototype.setMimeType = function(value) {
   return jspb.Message.setProto3StringField(this, 2, value);
 };
 
@@ -9791,6 +8661,2192 @@ if (jspb.Message.GENERATE_TO_OBJECT) {
  *     http://goto/soy-param-migration
  * @return {!Object}
  */
+proto.proto.api.v1.BoardStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    motorsMap: (f = msg.getMotorsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.MotorStatus.toObject) : [],
+    servosMap: (f = msg.getServosMap()) ? f.toObject(includeInstance, proto.proto.api.v1.ServoStatus.toObject) : [],
+    analogsMap: (f = msg.getAnalogsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.AnalogStatus.toObject) : [],
+    digitalInterruptsMap: (f = msg.getDigitalInterruptsMap()) ? f.toObject(includeInstance, proto.proto.api.v1.DigitalInterruptStatus.toObject) : []
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardStatus}
+ */
+proto.proto.api.v1.BoardStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardStatus;
+  return proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardStatus}
+ */
+proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = msg.getMotorsMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.MotorStatus());
+         });
+      break;
+    case 2:
+      var value = msg.getServosMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.ServoStatus());
+         });
+      break;
+    case 3:
+      var value = msg.getAnalogsMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.AnalogStatus());
+         });
+      break;
+    case 4:
+      var value = msg.getDigitalInterruptsMap();
+      reader.readMessage(value, function(message, reader) {
+        jspb.Map.deserializeBinary(message, reader, jspb.BinaryReader.prototype.readString, jspb.BinaryReader.prototype.readMessage, proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader, "", new proto.proto.api.v1.DigitalInterruptStatus());
+         });
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getMotorsMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(1, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.MotorStatus.serializeBinaryToWriter);
+  }
+  f = message.getServosMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(2, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.ServoStatus.serializeBinaryToWriter);
+  }
+  f = message.getAnalogsMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(3, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter);
+  }
+  f = message.getDigitalInterruptsMap(true);
+  if (f && f.getLength() > 0) {
+    f.serializeBinary(4, writer, jspb.BinaryWriter.prototype.writeString, jspb.BinaryWriter.prototype.writeMessage, proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter);
+  }
+};
+
+
+/**
+ * map<string, MotorStatus> motors = 1;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>}
+ */
+proto.proto.api.v1.BoardStatus.prototype.getMotorsMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.proto.api.v1.MotorStatus>} */ (
+      jspb.Message.getMapField(this, 1, opt_noLazyCreate,
+      proto.proto.api.v1.MotorStatus));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.proto.api.v1.BoardStatus} returns this
+ */
+proto.proto.api.v1.BoardStatus.prototype.clearMotorsMap = function() {
+  this.getMotorsMap().clear();
+  return this;};
+
+
+/**
+ * map<string, ServoStatus> servos = 2;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>}
+ */
+proto.proto.api.v1.BoardStatus.prototype.getServosMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.proto.api.v1.ServoStatus>} */ (
+      jspb.Message.getMapField(this, 2, opt_noLazyCreate,
+      proto.proto.api.v1.ServoStatus));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.proto.api.v1.BoardStatus} returns this
+ */
+proto.proto.api.v1.BoardStatus.prototype.clearServosMap = function() {
+  this.getServosMap().clear();
+  return this;};
+
+
+/**
+ * map<string, AnalogStatus> analogs = 3;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.proto.api.v1.AnalogStatus>}
+ */
+proto.proto.api.v1.BoardStatus.prototype.getAnalogsMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.proto.api.v1.AnalogStatus>} */ (
+      jspb.Message.getMapField(this, 3, opt_noLazyCreate,
+      proto.proto.api.v1.AnalogStatus));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.proto.api.v1.BoardStatus} returns this
+ */
+proto.proto.api.v1.BoardStatus.prototype.clearAnalogsMap = function() {
+  this.getAnalogsMap().clear();
+  return this;};
+
+
+/**
+ * map<string, DigitalInterruptStatus> digital_interrupts = 4;
+ * @param {boolean=} opt_noLazyCreate Do not create the map if
+ * empty, instead returning `undefined`
+ * @return {!jspb.Map<string,!proto.proto.api.v1.DigitalInterruptStatus>}
+ */
+proto.proto.api.v1.BoardStatus.prototype.getDigitalInterruptsMap = function(opt_noLazyCreate) {
+  return /** @type {!jspb.Map<string,!proto.proto.api.v1.DigitalInterruptStatus>} */ (
+      jspb.Message.getMapField(this, 4, opt_noLazyCreate,
+      proto.proto.api.v1.DigitalInterruptStatus));
+};
+
+
+/**
+ * Clears values from the map. The map will be non-null.
+ * @return {!proto.proto.api.v1.BoardStatus} returns this
+ */
+proto.proto.api.v1.BoardStatus.prototype.clearDigitalInterruptsMap = function() {
+  this.getDigitalInterruptsMap().clear();
+  return this;};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.MotorStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.MotorStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.MotorStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.MotorStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    on: jspb.Message.getBooleanFieldWithDefault(msg, 1, false),
+    positionSupported: jspb.Message.getBooleanFieldWithDefault(msg, 2, false),
+    position: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.MotorStatus}
+ */
+proto.proto.api.v1.MotorStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.MotorStatus;
+  return proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.MotorStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.MotorStatus}
+ */
+proto.proto.api.v1.MotorStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setOn(value);
+      break;
+    case 2:
+      var value = /** @type {boolean} */ (reader.readBool());
+      msg.setPositionSupported(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setPosition(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.MotorStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.MotorStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.MotorStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.MotorStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getOn();
+  if (f) {
+    writer.writeBool(
+      1,
+      f
+    );
+  }
+  f = message.getPositionSupported();
+  if (f) {
+    writer.writeBool(
+      2,
+      f
+    );
+  }
+  f = message.getPosition();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional bool on = 1;
+ * @return {boolean}
+ */
+proto.proto.api.v1.MotorStatus.prototype.getOn = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 1, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.MotorStatus} returns this
+ */
+proto.proto.api.v1.MotorStatus.prototype.setOn = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 1, value);
+};
+
+
+/**
+ * optional bool position_supported = 2;
+ * @return {boolean}
+ */
+proto.proto.api.v1.MotorStatus.prototype.getPositionSupported = function() {
+  return /** @type {boolean} */ (jspb.Message.getBooleanFieldWithDefault(this, 2, false));
+};
+
+
+/**
+ * @param {boolean} value
+ * @return {!proto.proto.api.v1.MotorStatus} returns this
+ */
+proto.proto.api.v1.MotorStatus.prototype.setPositionSupported = function(value) {
+  return jspb.Message.setProto3BooleanField(this, 2, value);
+};
+
+
+/**
+ * optional double position = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.MotorStatus.prototype.getPosition = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.MotorStatus} returns this
+ */
+proto.proto.api.v1.MotorStatus.prototype.setPosition = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.ServoStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.ServoStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.ServoStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.ServoStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    angle: jspb.Message.getFieldWithDefault(msg, 1, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.ServoStatus}
+ */
+proto.proto.api.v1.ServoStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.ServoStatus;
+  return proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.ServoStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.ServoStatus}
+ */
+proto.proto.api.v1.ServoStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setAngle(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.ServoStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.ServoStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.ServoStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.ServoStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getAngle();
+  if (f !== 0) {
+    writer.writeUint32(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional uint32 angle = 1;
+ * @return {number}
+ */
+proto.proto.api.v1.ServoStatus.prototype.getAngle = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ServoStatus} returns this
+ */
+proto.proto.api.v1.ServoStatus.prototype.setAngle = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.AnalogStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.AnalogStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.AnalogStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.AnalogStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    value: jspb.Message.getFieldWithDefault(msg, 1, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.AnalogStatus}
+ */
+proto.proto.api.v1.AnalogStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.AnalogStatus;
+  return proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.AnalogStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.AnalogStatus}
+ */
+proto.proto.api.v1.AnalogStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readInt32());
+      msg.setValue(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.AnalogStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.AnalogStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.AnalogStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getValue();
+  if (f !== 0) {
+    writer.writeInt32(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional int32 value = 1;
+ * @return {number}
+ */
+proto.proto.api.v1.AnalogStatus.prototype.getValue = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.AnalogStatus} returns this
+ */
+proto.proto.api.v1.AnalogStatus.prototype.setValue = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.DigitalInterruptStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.DigitalInterruptStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.DigitalInterruptStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.DigitalInterruptStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    value: jspb.Message.getFieldWithDefault(msg, 1, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.DigitalInterruptStatus}
+ */
+proto.proto.api.v1.DigitalInterruptStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.DigitalInterruptStatus;
+  return proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.DigitalInterruptStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.DigitalInterruptStatus}
+ */
+proto.proto.api.v1.DigitalInterruptStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {number} */ (reader.readInt64());
+      msg.setValue(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.DigitalInterruptStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.DigitalInterruptStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.DigitalInterruptStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getValue();
+  if (f !== 0) {
+    writer.writeInt64(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional int64 value = 1;
+ * @return {number}
+ */
+proto.proto.api.v1.DigitalInterruptStatus.prototype.getValue = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.DigitalInterruptStatus} returns this
+ */
+proto.proto.api.v1.DigitalInterruptStatus.prototype.setValue = function(value) {
+  return jspb.Message.setProto3IntField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.SensorStatus.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.SensorStatus.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.SensorStatus} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.SensorStatus.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    type: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.SensorStatus}
+ */
+proto.proto.api.v1.SensorStatus.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.SensorStatus;
+  return proto.proto.api.v1.SensorStatus.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.SensorStatus} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.SensorStatus}
+ */
+proto.proto.api.v1.SensorStatus.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setType(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.SensorStatus.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.SensorStatus.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.SensorStatus} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.SensorStatus.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getType();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string type = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.SensorStatus.prototype.getType = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.SensorStatus} returns this
+ */
+proto.proto.api.v1.SensorStatus.prototype.setType = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardStatusRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardStatusRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardStatusRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatusRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    name: jspb.Message.getFieldWithDefault(msg, 1, "")
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardStatusRequest}
+ */
+proto.proto.api.v1.BoardStatusRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardStatusRequest;
+  return proto.proto.api.v1.BoardStatusRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardStatusRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardStatusRequest}
+ */
+proto.proto.api.v1.BoardStatusRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setName(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardStatusRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardStatusRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardStatusRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatusRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardStatusRequest.prototype.getName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardStatusRequest} returns this
+ */
+proto.proto.api.v1.BoardStatusRequest.prototype.setName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardStatusResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardStatusResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardStatusResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatusResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    status: (f = msg.getStatus()) && proto.proto.api.v1.BoardStatus.toObject(includeInstance, f)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardStatusResponse}
+ */
+proto.proto.api.v1.BoardStatusResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardStatusResponse;
+  return proto.proto.api.v1.BoardStatusResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardStatusResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardStatusResponse}
+ */
+proto.proto.api.v1.BoardStatusResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = new proto.proto.api.v1.BoardStatus;
+      reader.readMessage(value,proto.proto.api.v1.BoardStatus.deserializeBinaryFromReader);
+      msg.setStatus(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardStatusResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardStatusResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardStatusResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardStatusResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getStatus();
+  if (f != null) {
+    writer.writeMessage(
+      1,
+      f,
+      proto.proto.api.v1.BoardStatus.serializeBinaryToWriter
+    );
+  }
+};
+
+
+/**
+ * optional BoardStatus status = 1;
+ * @return {?proto.proto.api.v1.BoardStatus}
+ */
+proto.proto.api.v1.BoardStatusResponse.prototype.getStatus = function() {
+  return /** @type{?proto.proto.api.v1.BoardStatus} */ (
+    jspb.Message.getWrapperField(this, proto.proto.api.v1.BoardStatus, 1));
+};
+
+
+/**
+ * @param {?proto.proto.api.v1.BoardStatus|undefined} value
+ * @return {!proto.proto.api.v1.BoardStatusResponse} returns this
+*/
+proto.proto.api.v1.BoardStatusResponse.prototype.setStatus = function(value) {
+  return jspb.Message.setWrapperField(this, 1, value);
+};
+
+
+/**
+ * Clears the message field making it undefined.
+ * @return {!proto.proto.api.v1.BoardStatusResponse} returns this
+ */
+proto.proto.api.v1.BoardStatusResponse.prototype.clearStatus = function() {
+  return this.setStatus(undefined);
+};
+
+
+/**
+ * Returns whether this field is set.
+ * @return {boolean}
+ */
+proto.proto.api.v1.BoardStatusResponse.prototype.hasStatus = function() {
+  return jspb.Message.getField(this, 1) != null;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardMotorGoRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardMotorGoRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    motorName: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    direction: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    power: jspb.Message.getFieldWithDefault(msg, 4, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardMotorGoRequest;
+  return proto.proto.api.v1.BoardMotorGoRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardMotorGoRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setBoardName(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setMotorName(value);
+      break;
+    case 3:
+      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
+      msg.setDirection(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setPower(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardMotorGoRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardMotorGoRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getBoardName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getMotorName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getDirection();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      3,
+      f
+    );
+  }
+  f = message.getPower();
+  if (f !== 0) {
+    writer.writeUint32(
+      4,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string board_name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.getBoardName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.setBoardName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string motor_name = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.getMotorName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.setMotorName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional DirectionRelative direction = 3;
+ * @return {!proto.proto.api.v1.DirectionRelative}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.getDirection = function() {
+  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.DirectionRelative} value
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.setDirection = function(value) {
+  return jspb.Message.setProto3EnumField(this, 3, value);
+};
+
+
+/**
+ * optional uint32 power = 4;
+ * @return {number}
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.getPower = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BoardMotorGoRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoRequest.prototype.setPower = function(value) {
+  return jspb.Message.setProto3IntField(this, 4, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardMotorGoResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardMotorGoResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardMotorGoResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardMotorGoResponse}
+ */
+proto.proto.api.v1.BoardMotorGoResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardMotorGoResponse;
+  return proto.proto.api.v1.BoardMotorGoResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardMotorGoResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardMotorGoResponse}
+ */
+proto.proto.api.v1.BoardMotorGoResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardMotorGoResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardMotorGoResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardMotorGoResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardMotorGoForRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardMotorGoForRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    motorName: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    direction: jspb.Message.getFieldWithDefault(msg, 3, 0),
+    rpm: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
+    revolutions: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardMotorGoForRequest;
+  return proto.proto.api.v1.BoardMotorGoForRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardMotorGoForRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setBoardName(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setMotorName(value);
+      break;
+    case 3:
+      var value = /** @type {!proto.proto.api.v1.DirectionRelative} */ (reader.readEnum());
+      msg.setDirection(value);
+      break;
+    case 4:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setRpm(value);
+      break;
+    case 5:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setRevolutions(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardMotorGoForRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardMotorGoForRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getBoardName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getMotorName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getDirection();
+  if (f !== 0.0) {
+    writer.writeEnum(
+      3,
+      f
+    );
+  }
+  f = message.getRpm();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      4,
+      f
+    );
+  }
+  f = message.getRevolutions();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      5,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string board_name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.getBoardName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.setBoardName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string motor_name = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.getMotorName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.setMotorName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional DirectionRelative direction = 3;
+ * @return {!proto.proto.api.v1.DirectionRelative}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.getDirection = function() {
+  return /** @type {!proto.proto.api.v1.DirectionRelative} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.DirectionRelative} value
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.setDirection = function(value) {
+  return jspb.Message.setProto3EnumField(this, 3, value);
+};
+
+
+/**
+ * optional double rpm = 4;
+ * @return {number}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.getRpm = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.setRpm = function(value) {
+  return jspb.Message.setProto3FloatField(this, 4, value);
+};
+
+
+/**
+ * optional double revolutions = 5;
+ * @return {number}
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.getRevolutions = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 5, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BoardMotorGoForRequest} returns this
+ */
+proto.proto.api.v1.BoardMotorGoForRequest.prototype.setRevolutions = function(value) {
+  return jspb.Message.setProto3FloatField(this, 5, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardMotorGoForResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardMotorGoForResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardMotorGoForResponse}
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardMotorGoForResponse;
+  return proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardMotorGoForResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardMotorGoForResponse}
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardMotorGoForResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardMotorGoForResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardMotorGoForResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardServoMoveRequest.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardServoMoveRequest} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardServoMoveRequest.toObject = function(includeInstance, msg) {
+  var f, obj = {
+    boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
+    servoName: jspb.Message.getFieldWithDefault(msg, 2, ""),
+    angleDeg: jspb.Message.getFieldWithDefault(msg, 3, 0)
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardServoMoveRequest}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardServoMoveRequest;
+  return proto.proto.api.v1.BoardServoMoveRequest.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardServoMoveRequest} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardServoMoveRequest}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    case 1:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setBoardName(value);
+      break;
+    case 2:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setServoName(value);
+      break;
+    case 3:
+      var value = /** @type {number} */ (reader.readUint32());
+      msg.setAngleDeg(value);
+      break;
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardServoMoveRequest.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardServoMoveRequest} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardServoMoveRequest.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+  f = message.getBoardName();
+  if (f.length > 0) {
+    writer.writeString(
+      1,
+      f
+    );
+  }
+  f = message.getServoName();
+  if (f.length > 0) {
+    writer.writeString(
+      2,
+      f
+    );
+  }
+  f = message.getAngleDeg();
+  if (f !== 0) {
+    writer.writeUint32(
+      3,
+      f
+    );
+  }
+};
+
+
+/**
+ * optional string board_name = 1;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.getBoardName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 1, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardServoMoveRequest} returns this
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.setBoardName = function(value) {
+  return jspb.Message.setProto3StringField(this, 1, value);
+};
+
+
+/**
+ * optional string servo_name = 2;
+ * @return {string}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.getServoName = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 2, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.proto.api.v1.BoardServoMoveRequest} returns this
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.setServoName = function(value) {
+  return jspb.Message.setProto3StringField(this, 2, value);
+};
+
+
+/**
+ * optional uint32 angle_deg = 3;
+ * @return {number}
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.getAngleDeg = function() {
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.BoardServoMoveRequest} returns this
+ */
+proto.proto.api.v1.BoardServoMoveRequest.prototype.setAngleDeg = function(value) {
+  return jspb.Message.setProto3IntField(this, 3, value);
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
+proto.proto.api.v1.BoardServoMoveResponse.prototype.toObject = function(opt_includeInstance) {
+  return proto.proto.api.v1.BoardServoMoveResponse.toObject(opt_includeInstance, this);
+};
+
+
+/**
+ * Static version of the {@see toObject} method.
+ * @param {boolean|undefined} includeInstance Deprecated. Whether to include
+ *     the JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @param {!proto.proto.api.v1.BoardServoMoveResponse} msg The msg instance to transform.
+ * @return {!Object}
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardServoMoveResponse.toObject = function(includeInstance, msg) {
+  var f, obj = {
+
+  };
+
+  if (includeInstance) {
+    obj.$jspbMessageInstance = msg;
+  }
+  return obj;
+};
+}
+
+
+/**
+ * Deserializes binary data (in protobuf wire format).
+ * @param {jspb.ByteSource} bytes The bytes to deserialize.
+ * @return {!proto.proto.api.v1.BoardServoMoveResponse}
+ */
+proto.proto.api.v1.BoardServoMoveResponse.deserializeBinary = function(bytes) {
+  var reader = new jspb.BinaryReader(bytes);
+  var msg = new proto.proto.api.v1.BoardServoMoveResponse;
+  return proto.proto.api.v1.BoardServoMoveResponse.deserializeBinaryFromReader(msg, reader);
+};
+
+
+/**
+ * Deserializes binary data (in protobuf wire format) from the
+ * given reader into the given message object.
+ * @param {!proto.proto.api.v1.BoardServoMoveResponse} msg The message object to deserialize into.
+ * @param {!jspb.BinaryReader} reader The BinaryReader to use.
+ * @return {!proto.proto.api.v1.BoardServoMoveResponse}
+ */
+proto.proto.api.v1.BoardServoMoveResponse.deserializeBinaryFromReader = function(msg, reader) {
+  while (reader.nextField()) {
+    if (reader.isEndGroup()) {
+      break;
+    }
+    var field = reader.getFieldNumber();
+    switch (field) {
+    default:
+      reader.skipField();
+      break;
+    }
+  }
+  return msg;
+};
+
+
+/**
+ * Serializes the message to binary data (in protobuf wire format).
+ * @return {!Uint8Array}
+ */
+proto.proto.api.v1.BoardServoMoveResponse.prototype.serializeBinary = function() {
+  var writer = new jspb.BinaryWriter();
+  proto.proto.api.v1.BoardServoMoveResponse.serializeBinaryToWriter(this, writer);
+  return writer.getResultBuffer();
+};
+
+
+/**
+ * Serializes the given message to binary data (in protobuf wire
+ * format), writing to the given BinaryWriter.
+ * @param {!proto.proto.api.v1.BoardServoMoveResponse} message
+ * @param {!jspb.BinaryWriter} writer
+ * @suppress {unusedLocalVariables} f is only used for nested messages
+ */
+proto.proto.api.v1.BoardServoMoveResponse.serializeBinaryToWriter = function(message, writer) {
+  var f = undefined;
+};
+
+
+
+
+
+if (jspb.Message.GENERATE_TO_OBJECT) {
+/**
+ * Creates an object representation of this proto.
+ * Field names that are reserved in JavaScript and will be renamed to pb_name.
+ * Optional fields that are not set will be set to undefined.
+ * To access a reserved field use, foo.pb_<name>, eg, foo.pb_default.
+ * For the list of reserved names please see:
+ *     net/proto2/compiler/js/internal/generator.cc#kKeyword.
+ * @param {boolean=} opt_includeInstance Deprecated. whether to include the
+ *     JSPB instance for transitional soy proto support:
+ *     http://goto/soy-param-migration
+ * @return {!Object}
+ */
 proto.proto.api.v1.SensorReadingsRequest.prototype.toObject = function(opt_includeInstance) {
   return proto.proto.api.v1.SensorReadingsRequest.toObject(opt_includeInstance, this);
 };
@@ -11017,15 +12073,6 @@ proto.proto.api.v1.CompassMarkResponse.serializeBinaryToWriter = function(messag
   var f = undefined;
 };
 
-
-/**
- * @enum {number}
- */
-proto.proto.api.v1.ControlGripperAction = {
-  CONTROL_GRIPPER_ACTION_UNSPECIFIED: 0,
-  CONTROL_GRIPPER_ACTION_OPEN: 1,
-  CONTROL_GRIPPER_ACTION_GRAB: 2
-};
 
 /**
  * @enum {number}

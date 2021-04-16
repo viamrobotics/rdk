@@ -16,6 +16,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -76,52 +77,7 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 	return &pb.DoActionResponse{}, nil
 }
 
-func (s *Server) ControlBase(ctx context.Context, req *pb.ControlBaseRequest) (*pb.ControlBaseResponse, error) {
-	base := s.r.BaseByName(req.Name)
-	if base == nil {
-		return nil, fmt.Errorf("no base with name (%s)", req.Name)
-	}
-
-	switch v := req.Action.(type) {
-	case *pb.ControlBaseRequest_Stop:
-		if v.Stop {
-			return &pb.ControlBaseResponse{}, base.Stop(ctx)
-		}
-		return &pb.ControlBaseResponse{}, nil
-	case *pb.ControlBaseRequest_Move:
-		if v.Move == nil {
-			return &pb.ControlBaseResponse{}, errors.New("move unspecified")
-		}
-		millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
-		if v.Move.Speed != 0 {
-			millisPerSec = v.Move.Speed
-		}
-		switch o := v.Move.Option.(type) {
-		case *pb.MoveBase_StraightDistanceMillis:
-			moved, err := base.MoveStraight(ctx, int(o.StraightDistanceMillis), millisPerSec, false)
-			if err != nil {
-				if moved == 0 {
-					return nil, err
-				}
-				return &pb.ControlBaseResponse{Success: false, Error: err.Error(), Result: &pb.ControlBaseResponse_StraightDistanceMillis{StraightDistanceMillis: int64(moved)}}, nil
-			}
-			return &pb.ControlBaseResponse{Success: true, Result: &pb.ControlBaseResponse_StraightDistanceMillis{StraightDistanceMillis: int64(moved)}}, nil
-		case *pb.MoveBase_SpinAngleDeg:
-			spun, err := base.Spin(ctx, o.SpinAngleDeg, 64, false)
-			if err != nil {
-				if math.IsNaN(spun) || spun == 0 {
-					return nil, err
-				}
-				return &pb.ControlBaseResponse{Success: false, Error: err.Error(), Result: &pb.ControlBaseResponse_SpinAngleDeg{SpinAngleDeg: spun}}, nil
-			}
-			return &pb.ControlBaseResponse{Success: true, Result: &pb.ControlBaseResponse_SpinAngleDeg{SpinAngleDeg: spun}}, nil
-		default:
-			return nil, fmt.Errorf("unknown move %T", o)
-		}
-	default:
-		return nil, fmt.Errorf("unknown action %T", v)
-	}
-}
+// Arm
 
 func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
@@ -149,101 +105,96 @@ func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurren
 	return &pb.ArmCurrentJointPositionsResponse{Positions: pos}, nil
 }
 
-func (s *Server) MoveArmToPosition(ctx context.Context, req *pb.MoveArmToPositionRequest) (*pb.MoveArmToPositionResponse, error) {
+func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositionRequest) (*pb.ArmMoveToPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
 		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
 	}
 
-	return &pb.MoveArmToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
+	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
 }
 
-func (s *Server) MoveArmToJointPositions(ctx context.Context, req *pb.MoveArmToJointPositionsRequest) (*pb.MoveArmToJointPositionsResponse, error) {
+func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJointPositionsRequest) (*pb.ArmMoveToJointPositionsResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
 		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
 	}
 
-	return &pb.MoveArmToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
+	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
 }
 
-func (s *Server) ControlGripper(ctx context.Context, req *pb.ControlGripperRequest) (*pb.ControlGripperResponse, error) {
+// Base
+
+func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
+	base := s.r.BaseByName(req.Name)
+	if base == nil {
+		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+	}
+	millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
+	if req.MillisPerSec != 0 {
+		millisPerSec = req.MillisPerSec
+	}
+	moved, err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
+	if err != nil {
+		if moved == 0 {
+			return nil, err
+		}
+		return &pb.BaseMoveStraightResponse{Success: false, Error: err.Error(), DistanceMillis: int64(moved)}, nil
+	}
+	return &pb.BaseMoveStraightResponse{Success: true, DistanceMillis: int64(moved)}, nil
+}
+
+func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.BaseSpinResponse, error) {
+	base := s.r.BaseByName(req.Name)
+	if base == nil {
+		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+	}
+	degsPerSec := 64.0
+	if req.DegsPerSec != 0 {
+		degsPerSec = req.DegsPerSec
+	}
+	spun, err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
+	if err != nil {
+		if math.IsNaN(spun) || spun == 0 {
+			return nil, err
+		}
+		return &pb.BaseSpinResponse{Success: false, Error: err.Error(), AngleDeg: spun}, nil
+	}
+	return &pb.BaseSpinResponse{Success: true, AngleDeg: spun}, nil
+
+}
+
+func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
+	base := s.r.BaseByName(req.Name)
+	if base == nil {
+		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+	}
+	return &pb.BaseStopResponse{}, base.Stop(ctx)
+}
+
+// Gripper
+
+func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
 	gripper := s.r.GripperByName(req.Name)
 	if gripper == nil {
 		return nil, fmt.Errorf("no gripper with that name %s", req.Name)
 	}
-
-	var grabbed bool
-	switch req.Action {
-	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN:
-		if err := gripper.Open(ctx); err != nil {
-			return nil, err
-		}
-	case pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB:
-		var err error
-		grabbed, err = gripper.Grab(ctx)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("unknown action: (%s)", req.Action)
-	}
-
-	return &pb.ControlGripperResponse{Grabbed: grabbed}, nil
+	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
 }
 
-func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
-	b := s.r.BoardByName(req.Name)
-	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.Name)
+func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
+	gripper := s.r.GripperByName(req.Name)
+	if gripper == nil {
+		return nil, fmt.Errorf("no gripper with that name %s", req.Name)
 	}
-
-	status, err := b.Status(ctx)
+	grabbed, err := gripper.Grab(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.BoardStatusResponse{Status: status}, nil
+	return &pb.GripperGrabResponse{Grabbed: grabbed}, nil
 }
 
-func (s *Server) ControlBoardMotor(ctx context.Context, req *pb.ControlBoardMotorRequest) (*pb.ControlBoardMotorResponse, error) {
-	b := s.r.BoardByName(req.BoardName)
-	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor := b.Motor(req.MotorName)
-	if theMotor == nil {
-		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	// erh: this isn't right semantically.
-	// GoFor with 0 rotations means something important.
-	rVal := 0.0
-	if req.Rotations != 0 {
-		rVal = req.Rotations
-	}
-
-	if rVal == 0 {
-		return &pb.ControlBoardMotorResponse{}, theMotor.Go(ctx, req.Direction, byte(req.Speed))
-	}
-
-	return &pb.ControlBoardMotorResponse{}, theMotor.GoFor(ctx, req.Direction, req.Speed, rVal)
-}
-
-func (s *Server) ControlBoardServo(ctx context.Context, req *pb.ControlBoardServoRequest) (*pb.ControlBoardServoResponse, error) {
-	b := s.r.BoardByName(req.BoardName)
-	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theServo := b.Servo(req.ServoName)
-	if theServo == nil {
-		return nil, fmt.Errorf("unknown servo: %s", req.ServoName)
-	}
-
-	return &pb.ControlBoardServoResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
-}
+// Camera
 
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
 	camera := s.r.CameraByName(req.Name)
@@ -281,8 +232,8 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	return &resp, nil
 }
 
-func (s *Server) RenderCameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*httpbody.HttpBody, error) {
-	resp, err := s.CameraFrame(ctx, req)
+func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
+	resp, err := s.CameraFrame(ctx, (*pb.CameraFrameRequest)(req))
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +243,8 @@ func (s *Server) RenderCameraFrame(ctx context.Context, req *pb.CameraFrameReque
 		Data:        resp.Frame,
 	}, nil
 }
+
+// Lidar
 
 func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
@@ -408,6 +361,77 @@ func MeasurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 	return pms
 }
 
+// Board
+
+func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
+	b := s.r.BoardByName(req.Name)
+	if b == nil {
+		return nil, fmt.Errorf("no board with name (%s)", req.Name)
+	}
+
+	status, err := b.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BoardStatusResponse{Status: status}, nil
+}
+
+// Motor
+
+func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
+	b := s.r.BoardByName(req.BoardName)
+	if b == nil {
+		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor := b.Motor(req.MotorName)
+	if theMotor == nil {
+		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, utils.ScaleUInt32ToByte(req.Power))
+}
+
+func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {
+	b := s.r.BoardByName(req.BoardName)
+	if b == nil {
+		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor := b.Motor(req.MotorName)
+	if theMotor == nil {
+		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	// erh: this isn't right semantically.
+	// GoFor with 0 rotations means something important.
+	rVal := 0.0
+	if req.Revolutions != 0 {
+		rVal = req.Revolutions
+	}
+
+	return &pb.BoardMotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
+}
+
+// Servo
+
+func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
+	b := s.r.BoardByName(req.BoardName)
+	if b == nil {
+		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theServo := b.Servo(req.ServoName)
+	if theServo == nil {
+		return nil, fmt.Errorf("unknown servo: %s", req.ServoName)
+	}
+
+	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
+}
+
+// Sensor
+
 func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
 	sensorDevice := s.r.SensorByName(req.Name)
 	if sensorDevice == nil {
@@ -427,6 +451,8 @@ func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsReque
 	}
 	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
 }
+
+// Compass
 
 func (s *Server) compassByName(name string) (compass.Device, error) {
 	sensorDevice := s.r.SensorByName(name)
@@ -473,6 +499,8 @@ func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStop
 	}
 	return &pb.CompassStopCalibrationResponse{}, nil
 }
+
+// Relative Compass
 
 func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*pb.CompassMarkResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)

@@ -51,7 +51,7 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
-	go.viam.com/dynamixel v0.0.0-20210408230828-2203fefbf6c9
+	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030

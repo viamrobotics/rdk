@@ -22,17 +22,17 @@ type RobotServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (RobotService_StatusStreamClient, error)
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	ControlBase(ctx context.Context, in *ControlBaseRequest, opts ...grpc.CallOption) (*ControlBaseResponse, error)
 	ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error)
+	ArmMoveToPosition(ctx context.Context, in *ArmMoveToPositionRequest, opts ...grpc.CallOption) (*ArmMoveToPositionResponse, error)
 	ArmCurrentJointPositions(ctx context.Context, in *ArmCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmCurrentJointPositionsResponse, error)
-	MoveArmToPosition(ctx context.Context, in *MoveArmToPositionRequest, opts ...grpc.CallOption) (*MoveArmToPositionResponse, error)
-	MoveArmToJointPositions(ctx context.Context, in *MoveArmToJointPositionsRequest, opts ...grpc.CallOption) (*MoveArmToJointPositionsResponse, error)
-	ControlGripper(ctx context.Context, in *ControlGripperRequest, opts ...grpc.CallOption) (*ControlGripperResponse, error)
-	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
-	ControlBoardMotor(ctx context.Context, in *ControlBoardMotorRequest, opts ...grpc.CallOption) (*ControlBoardMotorResponse, error)
-	ControlBoardServo(ctx context.Context, in *ControlBoardServoRequest, opts ...grpc.CallOption) (*ControlBoardServoResponse, error)
+	ArmMoveToJointPositions(ctx context.Context, in *ArmMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmMoveToJointPositionsResponse, error)
+	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
+	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
+	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
+	GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error)
+	GripperGrab(ctx context.Context, in *GripperGrabRequest, opts ...grpc.CallOption) (*GripperGrabResponse, error)
 	CameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*CameraFrameResponse, error)
-	RenderCameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
+	CameraRenderFrame(ctx context.Context, in *CameraRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
 	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
 	LidarStart(ctx context.Context, in *LidarStartRequest, opts ...grpc.CallOption) (*LidarStartResponse, error)
 	LidarStop(ctx context.Context, in *LidarStopRequest, opts ...grpc.CallOption) (*LidarStopResponse, error)
@@ -40,6 +40,10 @@ type RobotServiceClient interface {
 	LidarRange(ctx context.Context, in *LidarRangeRequest, opts ...grpc.CallOption) (*LidarRangeResponse, error)
 	LidarBounds(ctx context.Context, in *LidarBoundsRequest, opts ...grpc.CallOption) (*LidarBoundsResponse, error)
 	LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error)
+	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
+	BoardMotorGo(ctx context.Context, in *BoardMotorGoRequest, opts ...grpc.CallOption) (*BoardMotorGoResponse, error)
+	BoardMotorGoFor(ctx context.Context, in *BoardMotorGoForRequest, opts ...grpc.CallOption) (*BoardMotorGoForResponse, error)
+	BoardServoMove(ctx context.Context, in *BoardServoMoveRequest, opts ...grpc.CallOption) (*BoardServoMoveResponse, error)
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	CompassHeading(ctx context.Context, in *CompassHeadingRequest, opts ...grpc.CallOption) (*CompassHeadingResponse, error)
 	CompassStartCalibration(ctx context.Context, in *CompassStartCalibrationRequest, opts ...grpc.CallOption) (*CompassStartCalibrationResponse, error)
@@ -105,18 +109,18 @@ func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, 
 	return out, nil
 }
 
-func (c *robotServiceClient) ControlBase(ctx context.Context, in *ControlBaseRequest, opts ...grpc.CallOption) (*ControlBaseResponse, error) {
-	out := new(ControlBaseResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBase", in, out, opts...)
+func (c *robotServiceClient) ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error) {
+	out := new(ArmCurrentPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmCurrentPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error) {
-	out := new(ArmCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmCurrentPosition", in, out, opts...)
+func (c *robotServiceClient) ArmMoveToPosition(ctx context.Context, in *ArmMoveToPositionRequest, opts ...grpc.CallOption) (*ArmMoveToPositionResponse, error) {
+	out := new(ArmMoveToPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmMoveToPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,54 +136,54 @@ func (c *robotServiceClient) ArmCurrentJointPositions(ctx context.Context, in *A
 	return out, nil
 }
 
-func (c *robotServiceClient) MoveArmToPosition(ctx context.Context, in *MoveArmToPositionRequest, opts ...grpc.CallOption) (*MoveArmToPositionResponse, error) {
-	out := new(MoveArmToPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MoveArmToPosition", in, out, opts...)
+func (c *robotServiceClient) ArmMoveToJointPositions(ctx context.Context, in *ArmMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmMoveToJointPositionsResponse, error) {
+	out := new(ArmMoveToJointPositionsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmMoveToJointPositions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) MoveArmToJointPositions(ctx context.Context, in *MoveArmToJointPositionsRequest, opts ...grpc.CallOption) (*MoveArmToJointPositionsResponse, error) {
-	out := new(MoveArmToJointPositionsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/MoveArmToJointPositions", in, out, opts...)
+func (c *robotServiceClient) BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error) {
+	out := new(BaseMoveStraightResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveStraight", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) ControlGripper(ctx context.Context, in *ControlGripperRequest, opts ...grpc.CallOption) (*ControlGripperResponse, error) {
-	out := new(ControlGripperResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlGripper", in, out, opts...)
+func (c *robotServiceClient) BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error) {
+	out := new(BaseSpinResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseSpin", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error) {
-	out := new(BoardStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardStatus", in, out, opts...)
+func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error) {
+	out := new(BaseStopResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseStop", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) ControlBoardMotor(ctx context.Context, in *ControlBoardMotorRequest, opts ...grpc.CallOption) (*ControlBoardMotorResponse, error) {
-	out := new(ControlBoardMotorResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBoardMotor", in, out, opts...)
+func (c *robotServiceClient) GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error) {
+	out := new(GripperOpenResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GripperOpen", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *robotServiceClient) ControlBoardServo(ctx context.Context, in *ControlBoardServoRequest, opts ...grpc.CallOption) (*ControlBoardServoResponse, error) {
-	out := new(ControlBoardServoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ControlBoardServo", in, out, opts...)
+func (c *robotServiceClient) GripperGrab(ctx context.Context, in *GripperGrabRequest, opts ...grpc.CallOption) (*GripperGrabResponse, error) {
+	out := new(GripperGrabResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GripperGrab", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -195,9 +199,9 @@ func (c *robotServiceClient) CameraFrame(ctx context.Context, in *CameraFrameReq
 	return out, nil
 }
 
-func (c *robotServiceClient) RenderCameraFrame(ctx context.Context, in *CameraFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error) {
+func (c *robotServiceClient) CameraRenderFrame(ctx context.Context, in *CameraRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error) {
 	out := new(httpbody.HttpBody)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/RenderCameraFrame", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/CameraRenderFrame", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -267,6 +271,42 @@ func (c *robotServiceClient) LidarAngularResolution(ctx context.Context, in *Lid
 	return out, nil
 }
 
+func (c *robotServiceClient) BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error) {
+	out := new(BoardStatusResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardStatus", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardMotorGo(ctx context.Context, in *BoardMotorGoRequest, opts ...grpc.CallOption) (*BoardMotorGoResponse, error) {
+	out := new(BoardMotorGoResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorGo", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardMotorGoFor(ctx context.Context, in *BoardMotorGoForRequest, opts ...grpc.CallOption) (*BoardMotorGoForResponse, error) {
+	out := new(BoardMotorGoForResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorGoFor", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardServoMove(ctx context.Context, in *BoardServoMoveRequest, opts ...grpc.CallOption) (*BoardServoMoveResponse, error) {
+	out := new(BoardServoMoveResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardServoMove", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error) {
 	out := new(SensorReadingsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/SensorReadings", in, out, opts...)
@@ -319,17 +359,17 @@ type RobotServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	ControlBase(context.Context, *ControlBaseRequest) (*ControlBaseResponse, error)
 	ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error)
+	ArmMoveToPosition(context.Context, *ArmMoveToPositionRequest) (*ArmMoveToPositionResponse, error)
 	ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error)
-	MoveArmToPosition(context.Context, *MoveArmToPositionRequest) (*MoveArmToPositionResponse, error)
-	MoveArmToJointPositions(context.Context, *MoveArmToJointPositionsRequest) (*MoveArmToJointPositionsResponse, error)
-	ControlGripper(context.Context, *ControlGripperRequest) (*ControlGripperResponse, error)
-	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
-	ControlBoardMotor(context.Context, *ControlBoardMotorRequest) (*ControlBoardMotorResponse, error)
-	ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error)
+	ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error)
+	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
+	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
+	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
+	GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error)
+	GripperGrab(context.Context, *GripperGrabRequest) (*GripperGrabResponse, error)
 	CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error)
-	RenderCameraFrame(context.Context, *CameraFrameRequest) (*httpbody.HttpBody, error)
+	CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error)
 	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
 	LidarStart(context.Context, *LidarStartRequest) (*LidarStartResponse, error)
 	LidarStop(context.Context, *LidarStopRequest) (*LidarStopResponse, error)
@@ -337,6 +377,10 @@ type RobotServiceServer interface {
 	LidarRange(context.Context, *LidarRangeRequest) (*LidarRangeResponse, error)
 	LidarBounds(context.Context, *LidarBoundsRequest) (*LidarBoundsResponse, error)
 	LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error)
+	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
+	BoardMotorGo(context.Context, *BoardMotorGoRequest) (*BoardMotorGoResponse, error)
+	BoardMotorGoFor(context.Context, *BoardMotorGoForRequest) (*BoardMotorGoForResponse, error)
+	BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error)
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	CompassHeading(context.Context, *CompassHeadingRequest) (*CompassHeadingResponse, error)
 	CompassStartCalibration(context.Context, *CompassStartCalibrationRequest) (*CompassStartCalibrationResponse, error)
@@ -358,38 +402,38 @@ func (UnimplementedRobotServiceServer) StatusStream(*StatusStreamRequest, RobotS
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
 }
-func (UnimplementedRobotServiceServer) ControlBase(context.Context, *ControlBaseRequest) (*ControlBaseResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ControlBase not implemented")
-}
 func (UnimplementedRobotServiceServer) ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentPosition not implemented")
+}
+func (UnimplementedRobotServiceServer) ArmMoveToPosition(context.Context, *ArmMoveToPositionRequest) (*ArmMoveToPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ArmMoveToPosition not implemented")
 }
 func (UnimplementedRobotServiceServer) ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentJointPositions not implemented")
 }
-func (UnimplementedRobotServiceServer) MoveArmToPosition(context.Context, *MoveArmToPositionRequest) (*MoveArmToPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MoveArmToPosition not implemented")
+func (UnimplementedRobotServiceServer) ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ArmMoveToJointPositions not implemented")
 }
-func (UnimplementedRobotServiceServer) MoveArmToJointPositions(context.Context, *MoveArmToJointPositionsRequest) (*MoveArmToJointPositionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method MoveArmToJointPositions not implemented")
+func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
 }
-func (UnimplementedRobotServiceServer) ControlGripper(context.Context, *ControlGripperRequest) (*ControlGripperResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ControlGripper not implemented")
+func (UnimplementedRobotServiceServer) BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseSpin not implemented")
 }
-func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
+func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseStop not implemented")
 }
-func (UnimplementedRobotServiceServer) ControlBoardMotor(context.Context, *ControlBoardMotorRequest) (*ControlBoardMotorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ControlBoardMotor not implemented")
+func (UnimplementedRobotServiceServer) GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GripperOpen not implemented")
 }
-func (UnimplementedRobotServiceServer) ControlBoardServo(context.Context, *ControlBoardServoRequest) (*ControlBoardServoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ControlBoardServo not implemented")
+func (UnimplementedRobotServiceServer) GripperGrab(context.Context, *GripperGrabRequest) (*GripperGrabResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GripperGrab not implemented")
 }
 func (UnimplementedRobotServiceServer) CameraFrame(context.Context, *CameraFrameRequest) (*CameraFrameResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CameraFrame not implemented")
 }
-func (UnimplementedRobotServiceServer) RenderCameraFrame(context.Context, *CameraFrameRequest) (*httpbody.HttpBody, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RenderCameraFrame not implemented")
+func (UnimplementedRobotServiceServer) CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CameraRenderFrame not implemented")
 }
 func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
@@ -411,6 +455,18 @@ func (UnimplementedRobotServiceServer) LidarBounds(context.Context, *LidarBounds
 }
 func (UnimplementedRobotServiceServer) LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarAngularResolution not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardMotorGo(context.Context, *BoardMotorGoRequest) (*BoardMotorGoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorGo not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardMotorGoFor(context.Context, *BoardMotorGoForRequest) (*BoardMotorGoForResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorGoFor not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardServoMove not implemented")
 }
 func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
@@ -497,24 +553,6 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ControlBase_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ControlBaseRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ControlBase(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ControlBase",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ControlBase(ctx, req.(*ControlBaseRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_ArmCurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ArmCurrentPositionRequest)
 	if err := dec(in); err != nil {
@@ -529,6 +567,24 @@ func _RobotService_ArmCurrentPosition_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).ArmCurrentPosition(ctx, req.(*ArmCurrentPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ArmMoveToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmMoveToPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ArmMoveToPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ArmMoveToPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ArmMoveToPosition(ctx, req.(*ArmMoveToPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -551,110 +607,110 @@ func _RobotService_ArmCurrentJointPositions_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_MoveArmToPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveArmToPositionRequest)
+func _RobotService_ArmMoveToJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmMoveToJointPositionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).MoveArmToPosition(ctx, in)
+		return srv.(RobotServiceServer).ArmMoveToJointPositions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/MoveArmToPosition",
+		FullMethod: "/proto.api.v1.RobotService/ArmMoveToJointPositions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).MoveArmToPosition(ctx, req.(*MoveArmToPositionRequest))
+		return srv.(RobotServiceServer).ArmMoveToJointPositions(ctx, req.(*ArmMoveToJointPositionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_MoveArmToJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MoveArmToJointPositionsRequest)
+func _RobotService_BaseMoveStraight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseMoveStraightRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).MoveArmToJointPositions(ctx, in)
+		return srv.(RobotServiceServer).BaseMoveStraight(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/MoveArmToJointPositions",
+		FullMethod: "/proto.api.v1.RobotService/BaseMoveStraight",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).MoveArmToJointPositions(ctx, req.(*MoveArmToJointPositionsRequest))
+		return srv.(RobotServiceServer).BaseMoveStraight(ctx, req.(*BaseMoveStraightRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ControlGripper_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ControlGripperRequest)
+func _RobotService_BaseSpin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseSpinRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).ControlGripper(ctx, in)
+		return srv.(RobotServiceServer).BaseSpin(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ControlGripper",
+		FullMethod: "/proto.api.v1.RobotService/BaseSpin",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ControlGripper(ctx, req.(*ControlGripperRequest))
+		return srv.(RobotServiceServer).BaseSpin(ctx, req.(*BaseSpinRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_BoardStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardStatusRequest)
+func _RobotService_BaseStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseStopRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardStatus(ctx, in)
+		return srv.(RobotServiceServer).BaseStop(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardStatus",
+		FullMethod: "/proto.api.v1.RobotService/BaseStop",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardStatus(ctx, req.(*BoardStatusRequest))
+		return srv.(RobotServiceServer).BaseStop(ctx, req.(*BaseStopRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ControlBoardMotor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ControlBoardMotorRequest)
+func _RobotService_GripperOpen_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GripperOpenRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).ControlBoardMotor(ctx, in)
+		return srv.(RobotServiceServer).GripperOpen(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ControlBoardMotor",
+		FullMethod: "/proto.api.v1.RobotService/GripperOpen",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ControlBoardMotor(ctx, req.(*ControlBoardMotorRequest))
+		return srv.(RobotServiceServer).GripperOpen(ctx, req.(*GripperOpenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ControlBoardServo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ControlBoardServoRequest)
+func _RobotService_GripperGrab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GripperGrabRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).ControlBoardServo(ctx, in)
+		return srv.(RobotServiceServer).GripperGrab(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ControlBoardServo",
+		FullMethod: "/proto.api.v1.RobotService/GripperGrab",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ControlBoardServo(ctx, req.(*ControlBoardServoRequest))
+		return srv.(RobotServiceServer).GripperGrab(ctx, req.(*GripperGrabRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -677,20 +733,20 @@ func _RobotService_CameraFrame_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_RenderCameraFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraFrameRequest)
+func _RobotService_CameraRenderFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraRenderFrameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).RenderCameraFrame(ctx, in)
+		return srv.(RobotServiceServer).CameraRenderFrame(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/RenderCameraFrame",
+		FullMethod: "/proto.api.v1.RobotService/CameraRenderFrame",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).RenderCameraFrame(ctx, req.(*CameraFrameRequest))
+		return srv.(RobotServiceServer).CameraRenderFrame(ctx, req.(*CameraRenderFrameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -821,6 +877,78 @@ func _RobotService_LidarAngularResolution_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_BoardStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardStatus(ctx, req.(*BoardStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardMotorGo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardMotorGoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardMotorGo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardMotorGo",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardMotorGo(ctx, req.(*BoardMotorGoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardMotorGoFor_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardMotorGoForRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardMotorGoFor(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardMotorGoFor",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardMotorGoFor(ctx, req.(*BoardMotorGoForRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardServoMove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServoMoveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardServoMove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardServoMove",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardServoMove(ctx, req.(*BoardServoMoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_SensorReadings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SensorReadingsRequest)
 	if err := dec(in); err != nil {
@@ -927,48 +1055,48 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_DoAction_Handler,
 		},
 		{
-			MethodName: "ControlBase",
-			Handler:    _RobotService_ControlBase_Handler,
-		},
-		{
 			MethodName: "ArmCurrentPosition",
 			Handler:    _RobotService_ArmCurrentPosition_Handler,
+		},
+		{
+			MethodName: "ArmMoveToPosition",
+			Handler:    _RobotService_ArmMoveToPosition_Handler,
 		},
 		{
 			MethodName: "ArmCurrentJointPositions",
 			Handler:    _RobotService_ArmCurrentJointPositions_Handler,
 		},
 		{
-			MethodName: "MoveArmToPosition",
-			Handler:    _RobotService_MoveArmToPosition_Handler,
+			MethodName: "ArmMoveToJointPositions",
+			Handler:    _RobotService_ArmMoveToJointPositions_Handler,
 		},
 		{
-			MethodName: "MoveArmToJointPositions",
-			Handler:    _RobotService_MoveArmToJointPositions_Handler,
+			MethodName: "BaseMoveStraight",
+			Handler:    _RobotService_BaseMoveStraight_Handler,
 		},
 		{
-			MethodName: "ControlGripper",
-			Handler:    _RobotService_ControlGripper_Handler,
+			MethodName: "BaseSpin",
+			Handler:    _RobotService_BaseSpin_Handler,
 		},
 		{
-			MethodName: "BoardStatus",
-			Handler:    _RobotService_BoardStatus_Handler,
+			MethodName: "BaseStop",
+			Handler:    _RobotService_BaseStop_Handler,
 		},
 		{
-			MethodName: "ControlBoardMotor",
-			Handler:    _RobotService_ControlBoardMotor_Handler,
+			MethodName: "GripperOpen",
+			Handler:    _RobotService_GripperOpen_Handler,
 		},
 		{
-			MethodName: "ControlBoardServo",
-			Handler:    _RobotService_ControlBoardServo_Handler,
+			MethodName: "GripperGrab",
+			Handler:    _RobotService_GripperGrab_Handler,
 		},
 		{
 			MethodName: "CameraFrame",
 			Handler:    _RobotService_CameraFrame_Handler,
 		},
 		{
-			MethodName: "RenderCameraFrame",
-			Handler:    _RobotService_RenderCameraFrame_Handler,
+			MethodName: "CameraRenderFrame",
+			Handler:    _RobotService_CameraRenderFrame_Handler,
 		},
 		{
 			MethodName: "LidarInfo",
@@ -997,6 +1125,22 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "LidarAngularResolution",
 			Handler:    _RobotService_LidarAngularResolution_Handler,
+		},
+		{
+			MethodName: "BoardStatus",
+			Handler:    _RobotService_BoardStatus_Handler,
+		},
+		{
+			MethodName: "BoardMotorGo",
+			Handler:    _RobotService_BoardMotorGo_Handler,
+		},
+		{
+			MethodName: "BoardMotorGoFor",
+			Handler:    _RobotService_BoardMotorGoFor_Handler,
+		},
+		{
+			MethodName: "BoardServoMove",
+			Handler:    _RobotService_BoardServoMove_Handler,
 		},
 		{
 			MethodName: "SensorReadings",

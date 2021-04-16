@@ -178,7 +178,7 @@ func TestServer(t *testing.T) {
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
 	})
 
-	t.Run("ControlBase", func(t *testing.T) {
+	t.Run("Base", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.BaseByNameFunc = func(name string) api.Base {
@@ -186,7 +186,21 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.ControlBase(context.Background(), &pb.ControlBaseRequest{
+		_, err := server.BaseMoveStraight(context.Background(), &pb.BaseMoveStraightRequest{
+			Name: "base1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
+		test.That(t, capName, test.ShouldEqual, "base1")
+
+		_, err = server.BaseSpin(context.Background(), &pb.BaseSpinRequest{
+			Name: "base1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
+		test.That(t, capName, test.ShouldEqual, "base1")
+
+		_, err = server.BaseStop(context.Background(), &pb.BaseStopRequest{
 			Name: "base1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -197,12 +211,6 @@ func TestServer(t *testing.T) {
 		injectRobot.BaseByNameFunc = func(name string) api.Base {
 			return injectBase
 		}
-		_, err = server.ControlBase(context.Background(), &pb.ControlBaseRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown action")
-
 		var capCtx context.Context
 		err1 := errors.New("whoops")
 		injectBase.StopFunc = func(ctx context.Context) error {
@@ -211,20 +219,8 @@ func TestServer(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
 			Name: "base1",
-			Action: &pb.ControlBaseRequest_Stop{
-				Stop: false,
-			},
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldBeNil)
-
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Stop{
-				Stop: true,
-			},
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capCtx, test.ShouldEqual, ctx)
@@ -232,110 +228,67 @@ func TestServer(t *testing.T) {
 		injectBase.StopFunc = func(ctx context.Context) error {
 			return nil
 		}
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
+		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
 			Name: "base1",
-			Action: &pb.ControlBaseRequest_Stop{
-				Stop: true,
-			},
 		})
 		test.That(t, err, test.ShouldBeNil)
-
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name:   "base1",
-			Action: &pb.ControlBaseRequest_Move{},
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unspecified")
-
-		_, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Move{
-				Move: &pb.MoveBase{},
-			},
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown move")
 
 		var capArgs []interface{}
 		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
 			return 2, err1
 		}
-		resp, err := server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Move{
-				Move: &pb.MoveBase{
-					Option: &pb.MoveBase_StraightDistanceMillis{
-						StraightDistanceMillis: 1,
-					},
-				},
-			},
+		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+			Name:           "base1",
+			DistanceMillis: 1,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 500.0, false})
 		test.That(t, resp.Success, test.ShouldBeFalse)
 		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
-		test.That(t, resp.GetStraightDistanceMillis(), test.ShouldEqual, 2)
+		test.That(t, resp.DistanceMillis, test.ShouldEqual, 2)
 
 		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
 			return distanceMillis, nil
 		}
-		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Move{
-				Move: &pb.MoveBase{
-					Speed: 2.3,
-					Option: &pb.MoveBase_StraightDistanceMillis{
-						StraightDistanceMillis: 1,
-					},
-				},
-			},
+		resp, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
+			Name:           "base1",
+			MillisPerSec:   2.3,
+			DistanceMillis: 1,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 2.3, false})
 		test.That(t, resp.Success, test.ShouldBeTrue)
-		test.That(t, resp.GetStraightDistanceMillis(), test.ShouldEqual, 1)
+		test.That(t, resp.DistanceMillis, test.ShouldEqual, 1)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-			capArgs = []interface{}{ctx, angleDeg, speed, block}
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
 			return 2.2, err1
 		}
-		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Move{
-				Move: &pb.MoveBase{
-					Option: &pb.MoveBase_SpinAngleDeg{
-						SpinAngleDeg: 4.5,
-					},
-				},
-			},
+		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
+			Name:     "base1",
+			AngleDeg: 4.5,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64, false})
-		test.That(t, resp.Success, test.ShouldBeFalse)
-		test.That(t, resp.Error, test.ShouldEqual, err1.Error())
-		test.That(t, resp.GetSpinAngleDeg(), test.ShouldEqual, 2.2)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64.0, false})
+		test.That(t, spinResp.Success, test.ShouldBeFalse)
+		test.That(t, spinResp.Error, test.ShouldEqual, err1.Error())
+		test.That(t, spinResp.AngleDeg, test.ShouldEqual, 2.2)
 
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, speed int, block bool) (float64, error) {
-			capArgs = []interface{}{ctx, angleDeg, speed, block}
+		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
 			return angleDeg, nil
 		}
-		resp, err = server.ControlBase(ctx, &pb.ControlBaseRequest{
-			Name: "base1",
-			Action: &pb.ControlBaseRequest_Move{
-				Move: &pb.MoveBase{
-					Speed: 20.3,
-					Option: &pb.MoveBase_SpinAngleDeg{
-						SpinAngleDeg: 4.5,
-					},
-				},
-			},
+		spinResp, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
+			Name:       "base1",
+			DegsPerSec: 20.3,
+			AngleDeg:   4.5,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 64, false})
-		test.That(t, resp.Success, test.ShouldBeTrue)
-		test.That(t, resp.GetSpinAngleDeg(), test.ShouldEqual, 4.5)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
+		test.That(t, spinResp.Success, test.ShouldBeTrue)
+		test.That(t, spinResp.AngleDeg, test.ShouldEqual, 4.5)
 	})
 
 	t.Run("ArmCurrentPosition", func(t *testing.T) {
@@ -420,7 +373,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Positions, test.ShouldResemble, pos)
 	})
 
-	t.Run("MoveArmToPosition", func(t *testing.T) {
+	t.Run("ArmMoveToPosition", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.ArmByNameFunc = func(name string) api.Arm {
@@ -428,7 +381,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.MoveArmToPosition(context.Background(), &pb.MoveArmToPositionRequest{
+		_, err := server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -448,7 +401,7 @@ func TestServer(t *testing.T) {
 		}
 
 		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, RX: 4, RY: 5, RZ: 6}
-		_, err = server.MoveArmToPosition(context.Background(), &pb.MoveArmToPositionRequest{
+		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 			To:   pos,
 		})
@@ -458,14 +411,14 @@ func TestServer(t *testing.T) {
 		injectArm.MoveToPositionFunc = func(ctx context.Context, ap *pb.ArmPosition) error {
 			return nil
 		}
-		_, err = server.MoveArmToPosition(context.Background(), &pb.MoveArmToPositionRequest{
+		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 			To:   pos,
 		})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("MoveArmToJointPositions", func(t *testing.T) {
+	t.Run("ArmMoveToJointPositions", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.ArmByNameFunc = func(name string) api.Arm {
@@ -473,7 +426,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.MoveArmToJointPositions(context.Background(), &pb.MoveArmToJointPositionsRequest{
+		_, err := server.ArmMoveToJointPositions(context.Background(), &pb.ArmMoveToJointPositionsRequest{
 			Name: "arm1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -493,7 +446,7 @@ func TestServer(t *testing.T) {
 		}
 
 		pos := &pb.JointPositions{Degrees: []float64{1.2, 3.4}}
-		_, err = server.MoveArmToJointPositions(context.Background(), &pb.MoveArmToJointPositionsRequest{
+		_, err = server.ArmMoveToJointPositions(context.Background(), &pb.ArmMoveToJointPositionsRequest{
 			Name: "arm1",
 			To:   pos,
 		})
@@ -503,14 +456,14 @@ func TestServer(t *testing.T) {
 		injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 			return nil
 		}
-		_, err = server.MoveArmToJointPositions(context.Background(), &pb.MoveArmToJointPositionsRequest{
+		_, err = server.ArmMoveToJointPositions(context.Background(), &pb.ArmMoveToJointPositionsRequest{
 			Name: "arm1",
 			To:   pos,
 		})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("ControlGripper", func(t *testing.T) {
+	t.Run("Gripper", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.GripperByNameFunc = func(name string) api.Gripper {
@@ -518,7 +471,14 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
+		_, err := server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
+			Name: "gripper1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
+		test.That(t, capName, test.ShouldEqual, "gripper1")
+
+		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
 			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -529,46 +489,36 @@ func TestServer(t *testing.T) {
 		injectRobot.GripperByNameFunc = func(name string) api.Gripper {
 			return injectGripper
 		}
-		_, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name: "gripper1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown action")
 
 		err1 := errors.New("whoops")
 		injectGripper.OpenFunc = func(ctx context.Context) error {
 			return err1
 		}
-		_, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name:   "gripper1",
-			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN,
+		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
+			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		injectGripper.OpenFunc = func(ctx context.Context) error {
 			return nil
 		}
-		resp, err := server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name:   "gripper1",
-			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_OPEN,
+		_, err = server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
+			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldEqual, nil)
-		test.That(t, resp.Grabbed, test.ShouldBeFalse)
 
 		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return false, err1
 		}
-		_, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name:   "gripper1",
-			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB,
+		_, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
+			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 
-		resp, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name:   "gripper1",
-			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB,
+		resp, err := server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
+			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldEqual, nil)
 		test.That(t, resp.Grabbed, test.ShouldBeFalse)
@@ -576,9 +526,8 @@ func TestServer(t *testing.T) {
 		injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
-		resp, err = server.ControlGripper(context.Background(), &pb.ControlGripperRequest{
-			Name:   "gripper1",
-			Action: pb.ControlGripperAction_CONTROL_GRIPPER_ACTION_GRAB,
+		resp, err = server.GripperGrab(context.Background(), &pb.GripperGrabRequest{
+			Name: "gripper1",
 		})
 		test.That(t, err, test.ShouldEqual, nil)
 		test.That(t, resp.Grabbed, test.ShouldBeTrue)
@@ -637,7 +586,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Status, test.ShouldResemble, status)
 	})
 
-	t.Run("ControlBoardMotor", func(t *testing.T) {
+	t.Run("BoardMotor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.BoardByNameFunc = func(name string) board.Board {
@@ -645,7 +594,14 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
+		_, err := server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
 			BoardName: "board1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -661,7 +617,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err = server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
+		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
 			BoardName: "board1",
 			MotorName: "motor1",
 		})
@@ -680,7 +636,7 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{d, force}
 			return err1
 		}
-		_, err = server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
+		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
 			BoardName: "board1",
 			MotorName: "motor1",
 		})
@@ -691,11 +647,11 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{d, force}
 			return nil
 		}
-		_, err = server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
+		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
 			BoardName: "board1",
 			MotorName: "motor1",
 			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
-			Speed:     2.3,
+			Power:     utils.ScaleByteToUInt32(2),
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, byte(2)})
@@ -703,36 +659,36 @@ func TestServer(t *testing.T) {
 		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
 			return errors.New("no")
 		}
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
-			capArgs = []interface{}{d, rpm, rotations}
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{d, rpm, revolutions}
 			return err1
 		}
-		_, err = server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Speed:     2.3,
-			Rotations: 4.5,
+		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
+			BoardName:   "board1",
+			MotorName:   "motor1",
+			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:         2.3,
+			Revolutions: 4.5,
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
 
-		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
-			capArgs = []interface{}{d, rpm, rotations}
+		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{d, rpm, revolutions}
 			return nil
 		}
-		_, err = server.ControlBoardMotor(context.Background(), &pb.ControlBoardMotorRequest{
-			BoardName: "board1",
-			MotorName: "motor1",
-			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
-			Speed:     2.3,
-			Rotations: 4.5,
+		_, err = server.BoardMotorGoFor(context.Background(), &pb.BoardMotorGoForRequest{
+			BoardName:   "board1",
+			MotorName:   "motor1",
+			Direction:   pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:         2.3,
+			Revolutions: 4.5,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
 	})
 
-	t.Run("ControlBoardServo", func(t *testing.T) {
+	t.Run("BoardServoMove", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.BoardByNameFunc = func(name string) board.Board {
@@ -740,7 +696,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.ControlBoardServo(context.Background(), &pb.ControlBoardServoRequest{
+		_, err := server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
 			BoardName: "board1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -756,7 +712,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err = server.ControlBoardServo(context.Background(), &pb.ControlBoardServoRequest{
+		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
 			BoardName: "board1",
 			ServoName: "servo1",
 		})
@@ -775,7 +731,7 @@ func TestServer(t *testing.T) {
 			capAngle = angle
 			return err1
 		}
-		_, err = server.ControlBoardServo(context.Background(), &pb.ControlBoardServoRequest{
+		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
 			BoardName: "board1",
 			ServoName: "servo1",
 			AngleDeg:  5,
@@ -787,7 +743,7 @@ func TestServer(t *testing.T) {
 			capAngle = angle
 			return nil
 		}
-		_, err = server.ControlBoardServo(context.Background(), &pb.ControlBoardServoRequest{
+		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
 			BoardName: "board1",
 			ServoName: "servo1",
 			AngleDeg:  5,
@@ -861,7 +817,7 @@ func TestServer(t *testing.T) {
 		test.That(t, released, test.ShouldBeTrue)
 	})
 
-	t.Run("RenderCameraFrame", func(t *testing.T) {
+	t.Run("CameraRenderFrame", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
 		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
@@ -869,7 +825,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 
-		_, err := server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+		_, err := server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name: "camera1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -884,7 +840,7 @@ func TestServer(t *testing.T) {
 		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, nil, err1
 		}
-		_, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+		_, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name: "camera1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
@@ -898,7 +854,7 @@ func TestServer(t *testing.T) {
 			return img, func() { released = true }, nil
 		}
 
-		resp, err := server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+		resp, err := server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name: "camera1",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -907,7 +863,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
-		resp, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+		resp, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name:     "camera1",
 			MimeType: "image/jpeg",
 		})
@@ -917,7 +873,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
-		_, err = server.RenderCameraFrame(context.Background(), &pb.CameraFrameRequest{
+		_, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name:     "camera1",
 			MimeType: "image/who",
 		})
