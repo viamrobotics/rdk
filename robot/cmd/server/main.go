@@ -43,7 +43,7 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
-func NewNetLogger(config api.CloudConfig) (*netLogger, error) {
+func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
