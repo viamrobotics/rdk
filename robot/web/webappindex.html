@@ -152,7 +152,7 @@
                       } else {
                         req = new robotApi.BoardMotorGoRequest();
                         if (cmd.s) {
-                          req.setPower(cmd.s);
+                            req.setPower(cmd.s * 4294967296); // TODO(erd): remove when change power to float
                         }
                       }
                       req.setBoardName(board);
@@ -371,20 +371,33 @@
             <tr>
               <th>${m[0]}</th>
               <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 64})">--</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 32})">-</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .50})">--</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .25})">-</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'none', s: 0})">0</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 32})">+</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 64})">++</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .25})">+</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .50})">++</button>
               </td>
             </tr>
             <tr>
-              <td></td>
+              <td>50rpm</td>
               <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 64, r: 10})">-10</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 32, r: 1})">-1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 32, r: 1})">+1</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 64, r: 10})">+10</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: 10})">-10</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: 1})">-1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50, r: .25})">-.25</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: .25})">+.25</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: 1})">+1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50, r: 10})">+10</button>
+              </td>
+            </tr>
+            <tr>
+              <td>10rpm</td>
+              <td>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: 10})">-10</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: 1})">-1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 10, r: .25})">-.25</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: .25})">+.25</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: 1})">+1</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 10, r: 10})">+10</button>
               </td>
             </tr>
             
