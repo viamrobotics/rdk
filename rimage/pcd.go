@@ -2,10 +2,8 @@ package rimage
 
 import (
 	"fmt"
-	"image/color"
 	"io"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/pointcloud"
 )
 
@@ -78,20 +76,18 @@ func (iwd *ImageWithDepth) ToPCD(out io.Writer) error {
 	return nil
 }
 
-func (iwd *ImageWithDepth) ToPointCloud(logger golog.Logger) (*pointcloud.PointCloud, error) {
-	pc := pointcloud.New(logger)
+func (dm *DepthMap) ToPointCloud() (*pointcloud.PointCloud, error) {
+	pc := pointcloud.New()
 
-	height := iwd.Height()
-	width := iwd.Width()
+	height := dm.Height()
+	width := dm.Width()
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			z := iwd.Depth.GetDepth(x, y)
+			z := dm.GetDepth(x, y)
 			if z == 0 {
 				continue
 			}
-			c := iwd.Color.GetXY(x, y)
-			r, g, b := c.RGB255()
-			err := pc.Set(pointcloud.NewColoredPoint(x, y, int(z), color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewBasicPointInt(x, y, int(z)))
 			if err != nil {
 				return nil, err
 			}

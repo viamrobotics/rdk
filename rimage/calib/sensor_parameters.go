@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/color"
 	"io/ioutil"
 	"math"
 	"os"
@@ -58,7 +59,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	return nil
 }
 
-func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
+func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
+	if ii.IsAligned() {
+		return ii, nil
+	}
 	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
 	if err != nil {
 		return nil, err
@@ -66,11 +70,23 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.I
 	return newImgWithDepth, nil
 }
 
-func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
-	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
+func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+	var newImgWithDepth *rimage.ImageWithDepth
+	var err error
+	if ii.IsAligned() {
+		newImgWithDepth = ii
+	} else {
+		newImgWithDepth, err = dcie.TransformDepthCoordToColorCoord(ii)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// All points now in Color frame
-	depthPoints := TransformAlignedImageToPointCloud(newImgWithDepth)
-	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorIntrinsicsExtrinsics")
+	pc, err := dcie.AlignedImageToPointCloud(newImgWithDepth)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
 }
 
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
@@ -184,9 +200,13 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 }
 
 // Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
+// Extrinsic matrices in meters, points are in mm, need to convert to m and then back
 func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz float64) (float64, float64, float64) {
+	m2mm := 1000.0
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)
+	x, y, z = x/m2mm, y/m2mm, z/m2mm
 	x, y, z = dcie.ExtrinsicD2C.TransformPointToPoint(x, y, z)
+	x, y, z = x*m2mm, y*m2mm, z*m2mm
 	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
 	return cx, cy, z
 }
@@ -233,10 +253,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	crop := image.Rect(xMin, yMin, xMax, yMax)
 	outmap = outmap.SubImage(crop)
 	outcol := img.Color.SubImage(crop)
-	return &rimage.ImageWithDepth{&outcol, &outmap}, nil
+	return rimage.MakeImageWithDepth(&outcol, &outmap, true), nil
 }
 
-func (dcie *DepthColorIntrinsicsExtrinsics) TransformAlignedImageToPointCloud(iwd *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+func (dcie *DepthColorIntrinsicsExtrinsics) AlignedImageToPointCloud(iwd *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
 	// color and depth images need to already be aligned, check dimensions
 	// They are also aligned to the color frame
 	if iwd.Depth.Width() != iwd.Color.Width() ||
@@ -244,17 +264,18 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformAlignedImageToPointCloud(iw
 		return nil, fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
 			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
-	pc := pointcloud.New(logger)
+	pc := pointcloud.New()
 
-	for y := 0; y < iwd.Depth.Height(); y++ {
-		for x := 0; x < iwd.Depth.Width(); x++ {
+	for y := 0; y < iwd.Color.Height(); y++ {
+		for x := 0; x < iwd.Color.Width(); x++ {
 			r, g, b := iwd.Color.GetXY(x, y).RGB255()
-			px, py, pz := dcie.ColorCamera.PixelToPoint(x, y, iwd.Depth.GetDepth(x, y))
-			err := pc.Set(pointcloud.NewColoredPoint(px, py, int(pz), color.NRGBA{r, g, b, 255}))
+			px, py, pz := dcie.ColorCamera.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
+			err := pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
+	return pc, nil
 
 }

@@ -25,13 +25,13 @@ func New3DPoints() *Points3D {
 
 // Convert float 3d Points in meters to pointcloud
 func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64, logger golog.Logger) (*pc.PointCloud, error) {
-	pointCloud := pc.New(logger)
+	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
 		ptPc := pc.NewBasicPoint(x, y, z)
 		err := pointCloud.Set(ptPc)
 		if err != nil {
-			err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", x, y, z, err)
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
 			return pointCloud, err
 		}
 	}
@@ -43,7 +43,7 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	selectedPoints map[pc.Vec3]int,
 	logger golog.Logger,
 ) (*pc.PointCloud, error) {
-	pointCloud := pc.New(logger)
+	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
 		val := 0
@@ -53,7 +53,7 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 		ptPc := pc.NewValuePoint(x, y, z, val)
 		err := pointCloud.Set(ptPc)
 		if err != nil {
-			err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", x, y, z, err)
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
 			return nil, err
 		}
 	}
@@ -185,13 +185,13 @@ func (pts *Points3D) ApplyRigidBodyTransform(params *calib.Extrinsics) *Points3D
 // utils for 3D float Points transforms
 
 // Convert point from meters (float64) to mm (int)
-func MeterToDepthUnit(x, y, z float64, pixel2Meter float64) (int, int, int) {
+func MeterToDepthUnit(x, y, z float64, pixel2Meter float64) (float64, float64, float64) {
 	if pixel2Meter < 0.0000001 {
 		panic("pixel2Meter is too close to zero to make the conversion from meters to millimeters.")
 	}
-	xMm := int(x / pixel2Meter)
-	yMm := int(y / pixel2Meter)
-	zMm := int(z / pixel2Meter)
+	xMm := x / pixel2Meter
+	yMm := y / pixel2Meter
+	zMm := z / pixel2Meter
 	return xMm, yMm, zMm
 }
 
@@ -203,7 +203,7 @@ func SampleRandomIntRange(min, max int) int {
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
 func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics, logger golog.Logger) (*pc.PointCloud, error) {
 	// create new point cloud
-	pcOut := pc.New(logger)
+	pcOut := pc.New()
 	// go through depth map pixels and get 3D Points
 	for y := 0; y < depthImage.Height(); y++ {
 		for x := 0; x < depthImage.Width(); x++ {
@@ -214,13 +214,13 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 			// get x and y of 3D point
 			xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
 			// Get point in PointCloud format
-			xInt := int(math.Round(xPoint / pixel2meter))
-			yInt := int(math.Round(yPoint / pixel2meter))
-			zInt := int(math.Round(z / pixel2meter))
+			xInt := math.Round(xPoint / pixel2meter)
+			yInt := math.Round(yPoint / pixel2meter)
+			zInt := math.Round(z / pixel2meter)
 			pt := pc.NewBasicPoint(xInt, yInt, zInt)
 			err := pcOut.Set(pt)
 			if err != nil {
-				err = fmt.Errorf("error setting point (%d, %d, %d) in point cloud - %s", xInt, yInt, zInt, err)
+				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xInt, yInt, zInt, err)
 				return nil, err
 			}
 		}

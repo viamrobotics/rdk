@@ -10,7 +10,7 @@ import (
 )
 
 func NewSquareArea(sizeMeters int, unitsPerMeter int, logger golog.Logger) (*SquareArea, error) {
-	cloud := pointcloud.New(logger)
+	cloud := pointcloud.New()
 	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
@@ -72,8 +72,8 @@ func (sa *SquareArea) QuadrantLength() int {
 	return sa.quadLength
 }
 
-func (sa *SquareArea) WriteToFile(fn string) error {
-	return sa.cloud.WriteToFile(fn)
+func (sa *SquareArea) WriteToFile(fn string, logger golog.Logger) error {
+	return sa.cloud.WriteToFile(fn, logger)
 }
 
 type MutableArea interface {
@@ -94,12 +94,12 @@ type mutableSquareArea SquareArea
 func (msa *mutableSquareArea) Iterate(visit func(x, y, v int) bool) {
 	msa.cloud.Iterate(func(p pointcloud.Point) bool {
 		pos := p.Position()
-		return visit(pos.X, pos.Y, p.Value())
+		return visit(int(pos.X), int(pos.Y), p.Value())
 	})
 }
 
 func (msa *mutableSquareArea) At(x, y int) int {
-	p := msa.cloud.At(x, y, 0)
+	p := msa.cloud.AtInt(x, y, 0)
 	if p == nil {
 		return 0
 	}
@@ -113,9 +113,9 @@ func (msa *mutableSquareArea) Set(x, y, v int) error {
 	if y < -msa.quadLength || y >= msa.quadLength {
 		return fmt.Errorf("y must be between [%d,%d)", -msa.quadLength, msa.quadLength)
 	}
-	return msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
+	return msa.cloud.Set(pointcloud.NewValuePointInt(x, y, 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y int) {
-	msa.cloud.Unset(x, y, 0)
+	msa.cloud.UnsetInt(x, y, 0)
 }

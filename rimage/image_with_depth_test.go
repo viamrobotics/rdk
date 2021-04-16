@@ -61,12 +61,12 @@ func TestPC3(t *testing.T) {
 
 	os.MkdirAll("out", 0775)
 
-	pc, err := iwd.ToPointCloud(logger)
+	pc, err := iwd.Depth.ToPointCloud()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = pc.WriteToFile("out/board2.las")
+	err = pc.WriteToFile("out/board2.las", logger)
 	if err != nil {
 		t.Fatal(err)
 	}

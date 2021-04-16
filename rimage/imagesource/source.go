@@ -105,8 +105,7 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return &rimage.ImageWithDepth{rimage.ConvertImage(img), depth}, func() {}, nil
+	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, false), func() {}, nil
 }
 
 func (hs *HTTPSource) Close() error {

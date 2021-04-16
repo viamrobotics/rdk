@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/edaniels/golog"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -17,10 +16,9 @@ type PointCloud struct {
 	minX, maxX float64
 	minY, maxY float64
 	minZ, maxZ float64
-	logger     golog.Logger
 }
 
-func New(logger golog.Logger) *PointCloud {
+func New() *PointCloud {
 	return &PointCloud{
 		points: map[key]Point{},
 		minX:   math.MaxFloat64,
@@ -29,7 +27,6 @@ func New(logger golog.Logger) *PointCloud {
 		maxX:   -math.MaxFloat64,
 		maxY:   -math.MaxFloat64,
 		maxZ:   -math.MaxFloat64,
-		logger: logger,
 	}
 }
 
@@ -37,23 +34,25 @@ func (cloud *PointCloud) Size() int {
 	return len(cloud.points)
 }
 
-func (cloud *PointCloud) At(x, y, z int) Point {
+func (cloud *PointCloud) AtInt(x, y, z int) Point {
+	return cloud.At(float64(x), float64(y), float64(z))
+}
+
+func (cloud *PointCloud) At(x, y, z float64) Point {
 	return cloud.points[key{x, y, z}]
 }
 
+// With 64bit floating point numbers, you get about 16 decimal digits of precision
+// to guarantee at least 6 decimal places of precision past 0, Abs(x) cannot be greater than 2^33 - 1
 const (
-	maxPreciseFloat64 = math.Pow(2, 33) - 1.0
-	minPreciseFloat64 = -math.Pow(2, 33) + 1.0
+	maxPreciseFloat64 = 8589934591
+	minPreciseFloat64 = -8589934591
 )
 
-func newOutOfRangeErr(dim string, val int) error {
-	return fmt.Errorf("%s component (%d) is out of range [%d,%d]", dim, val, minPreciseFloat64, maxPreciseFloat64)
+func newOutOfRangeErr(dim string, val float64) error {
+	return fmt.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
 }
 
-func outOfRange(x float64) bool {
-	// to always have at least 6 decimal places of precision, Abs(x) cannot be greater than 2^33 - 1
-	return ((math.Float64bits(x) >> 52) & 0b001111100000) != 0
-}
 func (cloud *PointCloud) Set(p Point) error {
 	cloud.points[key(p.Position())] = p
 	if p.HasColor() {
@@ -63,13 +62,13 @@ func (cloud *PointCloud) Set(p Point) error {
 		cloud.hasValue = true
 	}
 	v := p.Position()
-	if outOfRange(v.X) {
+	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
 		return newOutOfRangeErr("x", v.X)
 	}
-	if outOfRange(v.Y) {
+	if v.Y > maxPreciseFloat64 || v.Y < minPreciseFloat64 {
 		return newOutOfRangeErr("y", v.Y)
 	}
-	if outOfRange(v.Z) {
+	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
 		return newOutOfRangeErr("z", v.Z)
 	}
 	if v.X > cloud.maxX {
@@ -94,6 +93,10 @@ func (cloud *PointCloud) Set(p Point) error {
 	return nil
 }
 
+func (cloud *PointCloud) UnsetInt(x, y, z int) {
+	cloud.Unset(float64(x), float64(y), float64(z))
+}
+
 func (cloud *PointCloud) Unset(x, y, z float64) {
 	delete(cloud.points, key{x, y, z})
 }
@@ -106,15 +109,15 @@ func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
 	}
 }
 
-func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, error) {
+func newDensePivotFromCloud(cloud *PointCloud, dim int, idx float64) (*mat.Dense, error) {
 	size := cloud.Size()
 	m := mat.NewDense(2, size, nil)
-	var data []int
+	var data []float64
 	c := 0
 	var err error
 	cloud.Iterate(func(p Point) bool {
 		v := p.Position()
-		var i, j, k int
+		var i, j, k float64
 		switch dim {
 		case 0:
 			i = v.Y
@@ -136,8 +139,8 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, er
 			return true
 		}
 		// floating point losiness validated/warned from set/load
-		m.Set(0, c, float64(i))
-		m.Set(1, c, float64(j))
+		m.Set(0, c, i)
+		m.Set(1, c, j)
 		data = append(data, i, j)
 		c++
 		return true
@@ -145,7 +148,7 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx int) (*mat.Dense, er
 	return m, err
 }
 
-func (cloud *PointCloud) DenseZ(zIdx int) (*mat.Dense, error) {
+func (cloud *PointCloud) DenseZ(zIdx float64) (*mat.Dense, error) {
 	// would be nice if this was lazy and not dense
 	return newDensePivotFromCloud(cloud, 2, zIdx)
 }
