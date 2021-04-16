@@ -3,6 +3,7 @@ package calib
 import (
 	"fmt"
 	"image"
+	"image/color"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
@@ -16,11 +17,43 @@ type DepthColorWarpTransforms struct {
 	*AlignConfig                   // anonymous fields
 }
 
-func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
-	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorWarpTransforms")
+func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+	var iwd *rimage.ImageWithDepth
+	var err error
+	if ii.IsAligned() {
+		iwd = ii
+	} else {
+		iwd, err = dct.ToAlignedImageWithDepth(ii)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// All points now in Common frame
+	pc := pointcloud.New()
+
+	height := iwd.Height()
+	width := iwd.Width()
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			z := iwd.Depth.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			c := iwd.Color.GetXY(x, y)
+			r, g, b := c.RGB255()
+			err := pc.Set(pointcloud.NewColoredPointInt(x, y, int(z), color.NRGBA{r, g, b, 255}))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pc, nil
 }
 
-func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth, logger golog.Logger) (*rimage.ImageWithDepth, error) {
+func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
+	if ii.IsAligned() {
+		return ii, nil
+	}
 
 	if ii.Color.Width() != dct.ColorInputSize.X ||
 		ii.Color.Height() != dct.ColorInputSize.Y ||
@@ -37,7 +70,7 @@ func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWit
 	c2 := rimage.WarpImage(ii, dct.ColorTransform, dct.OutputSize)
 	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)
 
-	return &rimage.ImageWithDepth{c2, &dm2}, nil
+	return rimage.MakeImageWithDepth(c2, &dm2, true), nil
 }
 
 func NewDepthColorWarpTransforms(attrs api.AttributeMap, logger golog.Logger) (*DepthColorWarpTransforms, error) {

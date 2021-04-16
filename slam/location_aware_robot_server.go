@@ -31,7 +31,7 @@ func (s *LocationAwareRobotServer) Save(ctx context.Context, req *pb.SaveRequest
 	if req.File == "" {
 		return nil, errors.New("file to save to required")
 	}
-	return &pb.SaveResponse{}, s.lar.rootArea.WriteToFile(req.File)
+	return &pb.SaveResponse{}, s.lar.rootArea.WriteToFile(req.File, s.lar.logger)
 }
 
 func (s *LocationAwareRobotServer) Stats(ctx context.Context, _ *pb.StatsRequest) (*pb.StatsResponse, error) {

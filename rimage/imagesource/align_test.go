@@ -30,7 +30,7 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 		}
 	}
 
-	fixed, err := h.dc.aligner.ToAlignedImageWithDepth(ii, logger)
+	fixed, err := h.dc.aligner.ToAlignedImageWithDepth(ii)
 	if err != nil {
 		t.Fatal(err)
 	}

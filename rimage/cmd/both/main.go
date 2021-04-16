@@ -54,12 +54,12 @@ func toLas(flags *flag.FlagSet) error {
 		return err
 	}
 
-	pc, err := img.ToPointCloud(logger)
+	pc, err := img.Depth.ToPointCloud()
 	if err != nil {
 		return err
 	}
 
-	return pc.WriteToFile(flags.Arg(2))
+	return pc.WriteToFile(flags.Arg(2), logger)
 }
 
 func realMain(args []string) error {
