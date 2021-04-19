@@ -73,6 +73,7 @@ If libvpx is not available on your distro, run the following:
 ### Conventions
 1. Always run `make lint` and test before pushing.
 1. Write tests!
+1. Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
 1. If you add a new package, please add it to this README.
 1. If you add a new sample or command, please add it to this README.
 1. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
