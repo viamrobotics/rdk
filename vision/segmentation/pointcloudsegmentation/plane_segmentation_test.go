@@ -6,8 +6,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/golang/geo/r3"
-
 	"go.viam.com/robotcore/artifact"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -188,39 +186,6 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
 		_, _, err := SegmentPlane(pts, 2500, 0.0025, pixel2meter)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkPlaneSegment3DPoints(b *testing.B) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
-	if err != nil {
-		b.Fatal(err)
-	}
-	m := rgbd.Depth
-	//rgb := rgbd.Color
-
-	// Pixel to Meter
-	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
-	if err != nil {
-		b.Fatal(err)
-	}
-	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
-	if err != nil {
-		b.Fatal(err)
-	}
-	pts := New3DPoints()
-	cloud.Iterate(func(p pc.Point) bool {
-		pts.Points = append(pts.Points, r3.Vector{p.Position().X, p.Position().Y, p.Position().Z})
-		return true
-	})
-	for i := 0; i < b.N; i++ {
-		// Segment Plane
-		_, _, err := SegmentPlane3DPoints(pts, 2500, 0.0025, pixel2meter)
 		if err != nil {
 			b.Fatal(err)
 		}
