@@ -7,7 +7,6 @@ import (
 	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -62,7 +61,7 @@ type encodedMotor struct {
 	// TODO(erh): check thread safety on this
 	desiredRPM float64 // <= 0 means thread should do nothing
 
-	lastPower    byte
+	lastPowerPct float32
 	curDirection pb.DirectionRelative
 	setPoint     int64
 
@@ -95,12 +94,15 @@ func (m *encodedMotor) setRegulated(b bool) {
 
 func (m *encodedMotor) Power(ctx context.Context, powerPct float32) error {
 	m.desiredRPM = 0 // if we're setting power manually, don't control RPM
-	return m.setPower(ctx, byte(utils.ScaleByPct(255, float64(powerPct))))
+	return m.setPower(ctx, powerPct)
 }
 
-func (m *encodedMotor) setPower(ctx context.Context, power byte) error {
-	m.lastPower = power
-	return m.real.Power(ctx, (float32(power)/255.0)*100)
+func (m *encodedMotor) setPower(ctx context.Context, powerPct float32) error {
+	if powerPct > 1 {
+		powerPct = 1
+	}
+	m.lastPowerPct = powerPct
+	return m.real.Power(ctx, powerPct)
 }
 
 func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
@@ -110,7 +112,7 @@ func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct 
 }
 
 func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	m.lastPower = byte(utils.ScaleByPct(255, float64(powerPct)))
+	m.lastPowerPct = powerPct
 	m.curDirection = d
 	return m.real.Go(ctx, d, powerPct)
 }
@@ -258,37 +260,37 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context) {
 				currentRPM = 0
 			}
 
-			var newPower byte
+			var newPowerPct float32
 
 			if currentRPM == 0 {
-				newPower = m.lastPower + 16
-				if newPower < 16 {
-					newPower = 255
+				newPowerPct = m.lastPowerPct + 0.0625
+				if newPowerPct > 1 {
+					newPowerPct = 1
 				}
 			} else {
 				dOverC := m.desiredRPM / currentRPM
 				if dOverC > 2 {
 					dOverC = 2
 				}
-				neededPower := float64(m.lastPower) * dOverC
+				neededPowerPct := float64(m.lastPowerPct) * dOverC
 
-				if neededPower < 8 {
-					neededPower = 8
-				} else if neededPower > 255 {
-					neededPower = 255
+				if neededPowerPct < .01 {
+					neededPowerPct = .01
+				} else if neededPowerPct > 1 {
+					neededPowerPct = 1
 				}
 
-				neededPower = (float64(m.lastPower) + neededPower) / 2 // slow down ramps
+				neededPowerPct = (float64(m.lastPowerPct) + neededPowerPct) / 2 // slow down ramps
 
-				newPower = byte(neededPower)
+				newPowerPct = float32(neededPowerPct)
 			}
 
-			if newPower != m.lastPower {
+			if newPowerPct != m.lastPowerPct {
 				if rpmDebug {
-					m.logger.Debugf("current rpm: %0.1f power: %v newPower: %v desiredRPM: %0.1f",
-						currentRPM, m.lastPower, newPower, m.desiredRPM)
+					m.logger.Debugf("current rpm: %0.1f powerPct: %v newPowerPct: %v desiredRPM: %0.1f",
+						currentRPM, m.lastPowerPct*100, newPowerPct*100, m.desiredRPM)
 				}
-				err := m.setPower(ctx, newPower)
+				err := m.setPower(ctx, newPowerPct)
 				if err != nil {
 					m.logger.Warnf("rpm regulator cannot set power %s", err)
 				}
@@ -318,7 +320,7 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 		if oldRpm > 0 && d == m.curDirection {
 			return nil
 		}
-		return m.doGo(ctx, d, 6) // power of 6 is random
+		return m.doGo(ctx, d, .06) // power of 6% is random
 	}
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
@@ -340,7 +342,7 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.doGo(ctx, d, 3)
+		err := m.doGo(ctx, d, .03)
 		if err != nil {
 			return err
 		}

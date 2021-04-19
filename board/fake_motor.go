@@ -32,7 +32,7 @@ func (m *FakeMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 
 func (m *FakeMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	m.d = d
-	m.powerPct = 1
+	m.powerPct = .01
 	return nil
 }
 
