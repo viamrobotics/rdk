@@ -88,14 +88,15 @@ func SquareInt(n int) int {
 	return n * n
 }
 
-// Scales a uint32 down to a byte
-func ScaleUInt32ToByte(n uint32) byte {
-	return byte(float64(math.MaxUint8) * (float64(n) / float64(math.MaxUint32)))
-}
-
-// Scales a byte up to a uint32
-func ScaleByteToUInt32(n byte) uint32 {
-	return uint32(float64(math.MaxUint32) * (float64(n) / float64(math.MaxUint8)))
+// ScaleByPct scales a max number by a floating point percentage between two bounds [0, n].
+func ScaleByPct(n int, pct float64) int {
+	scaled := int(float64(n) * pct)
+	if scaled < 0 {
+		scaled = 0
+	} else if scaled > n {
+		scaled = n
+	}
+	return scaled
 }
 
 // RayToUpwardCWCartesian returns coordinates based off of
