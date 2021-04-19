@@ -96,8 +96,8 @@ func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
 }
 
 // TODO(pl): Implement this feature once we have a driver board allowing PWM control.
-func (m *BrushlessMotor) Force(ctx context.Context, force byte) error {
-	return fmt.Errorf("force not supported for stepper motors on dual H-bridges")
+func (m *BrushlessMotor) Power(ctx context.Context, force byte) error {
+	return fmt.Errorf("power not supported for stepper motors on dual H-bridges")
 }
 
 func (m *BrushlessMotor) setStep(pins []bool) error {
