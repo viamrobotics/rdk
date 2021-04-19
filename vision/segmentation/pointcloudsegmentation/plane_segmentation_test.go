@@ -6,7 +6,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
@@ -41,15 +40,19 @@ func TestSegmentPlane(t *testing.T) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
-	pts := CreatePoints3DFromDepthMap(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	pts, err := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Segment Plane
-	logger := golog.NewTestLogger(t)
-	_, eq, _ := pts.SegmentPlane(1000, 0.0025, pixel2meter, logger)
+	_, eq, err := SegmentPlane(pts, 1000, 0.0025, pixel2meter)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
@@ -63,15 +66,9 @@ func TestSegmentPlane(t *testing.T) {
 	if math.Abs(dot) < 0.75 {
 		t.Error("The estimated plane normal differs from the GT normal vector too much.")
 	}
-	// Test conversion function
-	pointCloud, _ := pts.convert3DPointsToPointCloud(pixel2meter, logger)
-	if pointCloud.Size() == 0 {
-		t.Error("pointCloud could not be created.")
-	}
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +84,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pc, _ := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, logger)
+	pc, _ := DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
 
 	if pc.Size() != 456371 {
 		t.Error("Size of Point Cloud does not correspond to the GT point cloud size.")
@@ -123,13 +120,19 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Apply RBT
-	transformedPoints := pts.ApplyRigidBodyTransform(&sensorParams.ExtrinsicD2C)
+	transformedPoints, err := pts.ApplyRigidBodyTransform(&sensorParams.ExtrinsicD2C)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Re-project 3D Points in RGB Plane
 	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "color")
 	if err != nil {
 		t.Fatal(err)
 	}
-	coordinatesRGB := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, *colorIntrinsics, pixel2meter)
+	coordinatesRGB, err := transformedPoints.ProjectPlane3dPointsToRGBPlane(h, w, *colorIntrinsics, pixel2meter)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// fill image
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{w, h}

@@ -2,11 +2,11 @@ package pointcloud
 
 import (
 	"image/color"
+
+	"github.com/golang/geo/r3"
 )
 
-type Vec3 struct {
-	X, Y, Z float64
-}
+type Vec3 r3.Vector
 
 type Point interface {
 	Position() Vec3
