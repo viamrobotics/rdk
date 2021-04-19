@@ -152,7 +152,7 @@
                       } else {
                         req = new robotApi.BoardMotorGoRequest();
                         if (cmd.s) {
-                            req.setPower(cmd.s * 4294967296); // TODO(erd): remove when change power to float
+                            req.setPowerPct(cmd.s);
                         }
                       }
                       req.setBoardName(board);
