@@ -90,7 +90,7 @@ func SquareInt(n int) int {
 
 // ScaleByPct scales a max number by a floating point percentage between two bounds [0, n].
 func ScaleByPct(n int, pct float64) int {
-	scaled := int(float64(n) * (pct / 100))
+	scaled := int(float64(n) * pct)
 	if scaled < 0 {
 		scaled = 0
 	} else if scaled > n {
