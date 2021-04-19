@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
 
@@ -14,8 +15,15 @@ type GPIOBoard interface {
 	PWMSet(pin string, dutyCycle byte) error
 }
 
-func NewGPIOMotor(b GPIOBoard, pins map[string]string) (*GPIOMotor, error) {
-	m := &GPIOMotor{
+func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, error) {
+	var m Motor
+	pins := mc.Pins
+
+	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
+	if _, ok := pins["c"]; ok {
+		return NewBrushlessMotor(b, pins, mc, logger)
+	}
+	m = &GPIOMotor{
 		b,
 		pins["a"],
 		pins["b"],

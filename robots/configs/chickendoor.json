@@ -1,0 +1,20 @@
+{
+    "boards" : [
+        { "name" : "local",
+          "model" : "pi",
+          "motors" : [
+              { "name" : "g",
+                "pins" : {
+                    "a" : "31",
+                    "b" : "33",
+                    "c" : "35",
+                    "d" : "37",
+                    "pwm" : "38",
+                    "pwmb" : "40"
+                },
+                "ticksPerRotation" : 200
+              }
+          ]
+        }
+    ]
+}
