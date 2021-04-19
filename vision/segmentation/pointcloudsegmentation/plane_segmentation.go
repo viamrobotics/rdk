@@ -61,7 +61,6 @@ func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter 
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		//n1, n2, n3 := cloud.GetRandomPoint(), cloud.GetRandomPoint(), cloud.GetRandomPoint()
 		n1, n2, n3 := SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1)
 		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
