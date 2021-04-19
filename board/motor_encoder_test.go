@@ -40,9 +40,9 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Equal(t, false, motor.isRegulated())
 
 	// when we go forward things work
-	assert.Nil(t, motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 6))
+	assert.Nil(t, motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .01))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
-	assert.Equal(t, float32(6), real.powerPct)
+	assert.Equal(t, float32(.01), real.powerPct)
 
 	// stop
 	assert.Nil(t, motor.Off(context.Background()))
@@ -55,7 +55,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, float32(100), real.powerPct)
+	assert.Equal(t, float32(1), real.powerPct)
 
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
@@ -69,21 +69,21 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Less(t, float32(0), real.powerPct)
 
 	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, float32(100), real.powerPct)
+	assert.Equal(t, float32(1), real.powerPct)
 
 	// we didn't hit the set point
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 
 	// go to non controlled
-	motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 25)
+	motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .25)
 
 	// go far!
 	encoder.ticks(1000, nowNanosTest())
 
 	// we should still be moving at the previous force
-	time.Sleep(50 * time.Millisecond)
-	assert.Equal(t, float32(25), real.powerPct)
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, float32(.25), real.powerPct)
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 
 	assert.Nil(t, motor.Off(context.Background()))
@@ -95,7 +95,7 @@ func TestMotorEncoder1(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, float32(100), real.powerPct)
+	assert.Equal(t, float32(1), real.powerPct)
 
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)
