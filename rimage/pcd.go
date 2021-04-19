@@ -76,6 +76,8 @@ func (iwd *ImageWithDepth) ToPCD(out io.Writer) error {
 	return nil
 }
 
+// Naive implementation that does not take into account camera parameters
+// If you have the Camera matrices, use calib.DepthMapToPointCloud
 func (dm *DepthMap) ToPointCloud() (*pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 
