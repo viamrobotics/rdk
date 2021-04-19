@@ -30,19 +30,12 @@ func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
 // Return a pointcloud that is a subset of the given pointcloud using a map of point positions
 func GetSubsetPointCloud(cloud *pc.PointCloud, inPlane map[r3.Vector]bool) (*pc.PointCloud, error) {
 	subCloud := pc.New()
-	var err error
-	cloud.Iterate(func(pt pc.Point) bool {
-		if _, ok := inPlane[r3.Vector(pt.Position())]; ok {
-			err = subCloud.Set(pt)
-			if err != nil {
-				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pt.Position().X, pt.Position().Y, pt.Position().Z, err)
-				return false
-			}
+	for pt, _ := range inPlane {
+		err := subCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
+		if err != nil {
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pt.X, pt.Y, pt.Z, err)
+			return nil, err
 		}
-		return true
-	})
-	if err != nil {
-		return nil, err
 	}
 	return subCloud, nil
 }
