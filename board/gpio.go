@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -33,6 +34,8 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, erro
 	return m, nil
 }
 
+var _ = Motor(&GPIOMotor{})
+
 type GPIOMotor struct {
 	Board     GPIOBoard
 	A, B, PWM string
@@ -47,11 +50,12 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (m *GPIOMotor) Power(ctx context.Context, power byte) error {
-	return m.Board.PWMSet(m.PWM, power)
+func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
+	return m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
 }
 
-func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
+func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+	power := byte(utils.ScaleByPct(255, float64(powerPct)))
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)

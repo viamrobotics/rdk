@@ -30,7 +30,7 @@ type GripperV1 struct {
 
 	openPos, closePos float64
 
-	defaultSpeed, holdingPressure byte
+	defaultPowerPct, holdingPressure float32
 
 	pressureLimit int
 
@@ -44,8 +44,8 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           theBoard.Motor("g"),
 		current:         theBoard.AnalogReader("current"),
 		pressure:        theBoard.AnalogReader("pressure"),
-		defaultSpeed:    64,
-		holdingPressure: 16,
+		defaultPowerPct: 25,
+		holdingPressure: 6,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
 	}
@@ -97,7 +97,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 }
 
 func (vg *GripperV1) Open(ctx context.Context) error {
-	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultSpeed)
+	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultPowerPct)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 }
 
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
-	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultSpeed)
+	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultPowerPct)
 	if err != nil {
 		return false, err
 	}
@@ -219,7 +219,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.Go(ctx, dir, vg.defaultSpeed)
+	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct)
 	if err != nil {
 		return -1, false, err
 	}
