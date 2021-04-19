@@ -6,6 +6,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
+
 	"go.viam.com/robotcore/artifact"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -45,16 +47,17 @@ func TestSegmentPlane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
+	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Segment Plane
-	_, eq, err := SegmentPlane(pts, 1500, 0.0025, pixel2meter)
+	nIter := 2500
+	_, eq, err := SegmentPlane(cloud, nIter, 0.0025, pixel2meter)
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
 	//gtPlaneEquation =  0.02x + 1.00y + 0.09z + -1.12 = 0, obtained from Open3D
@@ -68,6 +71,22 @@ func TestSegmentPlane(t *testing.T) {
 	if math.Abs(dot) < tol {
 		t.Errorf("The estimated plane normal differs from the GT normal vector too much. Got %.3f expected > %v", math.Abs(dot), tol)
 	}
+
+	// Segment Plane 3D points
+	pts := New3DPoints()
+	cloud.Iterate(func(p pc.Point) bool {
+		pts.Points = append(pts.Points, r3.Vector{p.Position().X, p.Position().Y, p.Position().Z})
+		return true
+	})
+	_, eq, err = SegmentPlane3DPoints(pts, nIter, 0.0025, pixel2meter)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dot = eq[0]*gtPlaneEquation[0] + eq[1]*gtPlaneEquation[1] + eq[2]*gtPlaneEquation[2]
+	if math.Abs(dot) < tol {
+		t.Errorf("The estimated plane normal differs from the GT normal vector too much. Got %.3f expected > %v", math.Abs(dot), tol)
+	}
+
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
@@ -86,7 +105,8 @@ func TestDepthMapToPointCloud(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
+	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +137,8 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics)
+	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
+	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,5 +179,66 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	}
 	if maxPt.Y != rgb.Height() {
 		t.Error("Projected Depth map does not have the right height.")
+	}
+}
+
+func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	m := rgbd.Depth
+	//rgb := rgbd.Color
+
+	// Pixel to Meter
+	pixel2meter := 0.001
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	if err != nil {
+		b.Fatal(err)
+	}
+	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
+	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 0; i < b.N; i++ {
+		// Segment Plane
+		_, _, err := SegmentPlane(pts, 2500, 0.0025, pixel2meter)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkPlaneSegment3DPoints(b *testing.B) {
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	if err != nil {
+		b.Fatal(err)
+	}
+	m := rgbd.Depth
+	//rgb := rgbd.Color
+
+	// Pixel to Meter
+	pixel2meter := 0.001
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	if err != nil {
+		b.Fatal(err)
+	}
+	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
+	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	if err != nil {
+		b.Fatal(err)
+	}
+	pts := New3DPoints()
+	cloud.Iterate(func(p pc.Point) bool {
+		pts.Points = append(pts.Points, r3.Vector{p.Position().X, p.Position().Y, p.Position().Z})
+		return true
+	})
+	for i := 0; i < b.N; i++ {
+		// Segment Plane
+		_, _, err := SegmentPlane3DPoints(pts, 2500, 0.0025, pixel2meter)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }

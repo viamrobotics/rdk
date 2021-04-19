@@ -81,7 +81,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignedImageToPointCloud(iwd *rimage
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params PinholeCameraIntrinsics) (*pointcloud.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (*pointcloud.PointCloud, error) {
 	// create new point cloud
 	pcOut := pointcloud.New()
 	// go through depth map pixels and get 3D Points
@@ -89,19 +89,21 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 		for x := 0; x < depthImage.Width(); x++ {
 			// get depth value
 			d := depthImage.Get(image.Point{x, y})
-			// get z distance to meter for unit uniformity
-			z := float64(d) * pixel2meter
-			// get x and y of 3D point
-			xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
-			// Get point in PointCloud format
-			xPoint = xPoint / pixel2meter
-			yPoint = yPoint / pixel2meter
-			z = z / pixel2meter
-			pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
-			err := pcOut.Set(pt)
-			if err != nil {
-				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xPoint, yPoint, z, err)
-				return nil, err
+			if d >= depthMin && d < depthMax {
+				// get z distance to meter for unit uniformity
+				z := float64(d) * pixel2meter
+				// get x and y of 3D point
+				xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
+				// Get point in PointCloud format
+				xPoint = xPoint / pixel2meter
+				yPoint = yPoint / pixel2meter
+				z = z / pixel2meter
+				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
+				err := pcOut.Set(pt)
+				if err != nil {
+					err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xPoint, yPoint, z, err)
+					return nil, err
+				}
 			}
 		}
 	}
