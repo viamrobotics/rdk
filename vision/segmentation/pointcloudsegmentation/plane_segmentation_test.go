@@ -71,22 +71,6 @@ func TestSegmentPlane(t *testing.T) {
 	if math.Abs(dot) < tol {
 		t.Errorf("The estimated plane normal differs from the GT normal vector too much. Got %.3f expected > %v", math.Abs(dot), tol)
 	}
-
-	// Segment Plane 3D points
-	pts := New3DPoints()
-	cloud.Iterate(func(p pc.Point) bool {
-		pts.Points = append(pts.Points, r3.Vector{p.Position().X, p.Position().Y, p.Position().Z})
-		return true
-	})
-	_, eq, err = SegmentPlane3DPoints(pts, nIter, 0.0025, pixel2meter)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dot = eq[0]*gtPlaneEquation[0] + eq[1]*gtPlaneEquation[1] + eq[2]*gtPlaneEquation[2]
-	if math.Abs(dot) < tol {
-		t.Errorf("The estimated plane normal differs from the GT normal vector too much. Got %.3f expected > %v", math.Abs(dot), tol)
-	}
-
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
