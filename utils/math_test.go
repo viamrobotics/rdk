@@ -167,9 +167,9 @@ func TestMinMax(t *testing.T) {
 func TestScaleByPct(t *testing.T) {
 	assert.Equal(t, 0, ScaleByPct(0, 0))
 	assert.Equal(t, 0, ScaleByPct(255, 0))
-	assert.Equal(t, 255, ScaleByPct(255, 100))
-	assert.Equal(t, 127, ScaleByPct(255, 50))
-	assert.Equal(t, 0, ScaleByPct(255, -200))
+	assert.Equal(t, 255, ScaleByPct(255, 1))
+	assert.Equal(t, 127, ScaleByPct(255, .5))
+	assert.Equal(t, 0, ScaleByPct(255, -2))
 }
 
 func TestRayToUpwardCWCartesian(t *testing.T) {
