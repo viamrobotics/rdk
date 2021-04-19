@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -92,26 +93,26 @@ func (m *encodedMotor) setRegulated(b bool) {
 	}
 }
 
-func (m *encodedMotor) Power(ctx context.Context, power byte) error {
+func (m *encodedMotor) Power(ctx context.Context, powerPct float32) error {
 	m.desiredRPM = 0 // if we're setting power manually, don't control RPM
-	return m.setPower(ctx, power)
+	return m.setPower(ctx, byte(utils.ScaleByPct(255, float64(powerPct))))
 }
 
 func (m *encodedMotor) setPower(ctx context.Context, power byte) error {
 	m.lastPower = power
-	return m.real.Power(ctx, power)
+	return m.real.Power(ctx, (float32(power)/255.0)*100)
 }
 
-func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
+func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	m.setRegulated(false) // user wants direct control, so we stop trying to control the world
 	m.desiredRPM = 0      // if we're setting power manually, don't control RPM
-	return m.doGo(ctx, d, power)
+	return m.doGo(ctx, d, powerPct)
 }
 
-func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, power byte) error {
-	m.lastPower = power
+func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+	m.lastPower = byte(utils.ScaleByPct(255, float64(powerPct)))
 	m.curDirection = d
-	return m.real.Go(ctx, d, power)
+	return m.real.Go(ctx, d, powerPct)
 }
 
 func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
@@ -317,7 +318,7 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 		if oldRpm > 0 && d == m.curDirection {
 			return nil
 		}
-		return m.doGo(ctx, d, 16) // power of 16 is random
+		return m.doGo(ctx, d, 6) // power of 6 is random
 	}
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
@@ -339,7 +340,7 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.doGo(ctx, d, 8)
+		err := m.doGo(ctx, d, 3)
 		if err != nil {
 			return err
 		}

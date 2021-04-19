@@ -466,7 +466,7 @@ message BoardMotorGoRequest {
 	string board_name = 1;
 	string motor_name = 2;
 	DirectionRelative direction = 3; 
-	uint32 power = 4;
+	float power_pct = 4;
 }
 
 message BoardMotorGoResponse {}

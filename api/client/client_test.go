@@ -193,8 +193,8 @@ func TestClient(t *testing.T) {
 	injectBoard := &inject.Board{}
 	injectMotor := &inject.Motor{}
 	var capGoMotorArgs []interface{}
-	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
-		capGoMotorArgs = []interface{}{d, force}
+	injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+		capGoMotorArgs = []interface{}{d, powerPct}
 		return nil
 	}
 	var capGoForMotorArgs []interface{}
@@ -459,7 +459,7 @@ func TestClient(t *testing.T) {
 
 	err = client.BoardByName("board1").Motor("motor1").Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, uint8(1)})
+	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(1)})
 	test.That(t, capBoardName, test.ShouldEqual, "board1")
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 

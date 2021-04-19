@@ -9,8 +9,8 @@ import (
 
 type Motor struct {
 	board.Motor
-	PowerFunc             func(ctx context.Context, power byte) error
-	GoFunc                func(ctx context.Context, d pb.DirectionRelative, power byte) error
+	PowerFunc             func(ctx context.Context, powerPct float32) error
+	GoFunc                func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
 	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
@@ -18,18 +18,18 @@ type Motor struct {
 	IsOnFunc              func(ctx context.Context) (bool, error)
 }
 
-func (m *Motor) Power(ctx context.Context, power byte) error {
+func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	if m.PowerFunc == nil {
-		return m.Motor.Power(ctx, power)
+		return m.Motor.Power(ctx, powerPct)
 	}
-	return m.PowerFunc(ctx, power)
+	return m.PowerFunc(ctx, powerPct)
 }
 
-func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
+func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	if m.GoFunc == nil {
-		return m.Motor.Go(ctx, d, power)
+		return m.Motor.Go(ctx, d, powerPct)
 	}
-	return m.GoFunc(ctx, d, power)
+	return m.GoFunc(ctx, d, powerPct)
 }
 
 func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {

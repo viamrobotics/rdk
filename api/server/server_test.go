@@ -632,8 +632,8 @@ func TestServer(t *testing.T) {
 
 		var capArgs []interface{}
 		err1 := errors.New("whoops")
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
-			capArgs = []interface{}{d, force}
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			capArgs = []interface{}{d, powerPct}
 			return err1
 		}
 		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
@@ -641,22 +641,22 @@ func TestServer(t *testing.T) {
 			MotorName: "motor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, byte(0)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, float32(0)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
-			capArgs = []interface{}{d, force}
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
+			capArgs = []interface{}{d, powerPct}
 			return nil
 		}
 		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
 			BoardName: "board1",
 			MotorName: "motor1",
 			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD,
-			Power:     utils.ScaleByteToUInt32(2),
+			PowerPct:  2,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, byte(2)})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(2)})
 
-		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, force byte) error {
+		injectMotor.GoFunc = func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 			return errors.New("no")
 		}
 		injectMotor.GoForFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {

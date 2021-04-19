@@ -17,7 +17,6 @@ import (
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -467,17 +466,17 @@ type motorClient struct {
 	motorName string
 }
 
-func (mc *motorClient) Power(ctx context.Context, power byte) error {
+func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
 
-func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, power byte) error {
+func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	_, err := mc.rc.client.BoardMotorGo(ctx, &pb.BoardMotorGoRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 		Direction: d,
-		Power:     utils.ScaleByteToUInt32(power),
+		PowerPct:  powerPct,
 	})
 	return err
 }
