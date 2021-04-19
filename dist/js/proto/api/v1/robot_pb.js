@@ -9903,7 +9903,7 @@ proto.proto.api.v1.BoardMotorGoRequest.toObject = function(includeInstance, msg)
     boardName: jspb.Message.getFieldWithDefault(msg, 1, ""),
     motorName: jspb.Message.getFieldWithDefault(msg, 2, ""),
     direction: jspb.Message.getFieldWithDefault(msg, 3, 0),
-    power: jspb.Message.getFieldWithDefault(msg, 4, 0)
+    powerPct: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0)
   };
 
   if (includeInstance) {
@@ -9953,8 +9953,8 @@ proto.proto.api.v1.BoardMotorGoRequest.deserializeBinaryFromReader = function(ms
       msg.setDirection(value);
       break;
     case 4:
-      var value = /** @type {number} */ (reader.readUint32());
-      msg.setPower(value);
+      var value = /** @type {number} */ (reader.readFloat());
+      msg.setPowerPct(value);
       break;
     default:
       reader.skipField();
@@ -10006,9 +10006,9 @@ proto.proto.api.v1.BoardMotorGoRequest.serializeBinaryToWriter = function(messag
       f
     );
   }
-  f = message.getPower();
-  if (f !== 0) {
-    writer.writeUint32(
+  f = message.getPowerPct();
+  if (f !== 0.0) {
+    writer.writeFloat(
       4,
       f
     );
@@ -10071,11 +10071,11 @@ proto.proto.api.v1.BoardMotorGoRequest.prototype.setDirection = function(value) 
 
 
 /**
- * optional uint32 power = 4;
+ * optional float power_pct = 4;
  * @return {number}
  */
-proto.proto.api.v1.BoardMotorGoRequest.prototype.getPower = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 4, 0));
+proto.proto.api.v1.BoardMotorGoRequest.prototype.getPowerPct = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 4, 0.0));
 };
 
 
@@ -10083,8 +10083,8 @@ proto.proto.api.v1.BoardMotorGoRequest.prototype.getPower = function() {
  * @param {number} value
  * @return {!proto.proto.api.v1.BoardMotorGoRequest} returns this
  */
-proto.proto.api.v1.BoardMotorGoRequest.prototype.setPower = function(value) {
-  return jspb.Message.setProto3IntField(this, 4, value);
+proto.proto.api.v1.BoardMotorGoRequest.prototype.setPowerPct = function(value) {
+  return jspb.Message.setProto3FloatField(this, 4, value);
 };
 
 

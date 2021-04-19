@@ -20,9 +20,12 @@ func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 }
 
 type Motor interface {
-	Power(ctx context.Context, power byte) error
+	// Power sets the percentage of power the motor should employ between 0-1.
+	Power(ctx context.Context, powerPct float32) error
 
-	Go(ctx context.Context, d pb.DirectionRelative, power byte) error
+	// Go instructs the motor to go in a specific direction at a percentage
+	// of power between 0-1.
+	Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
 
 	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
 

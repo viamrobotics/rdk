@@ -16,7 +16,6 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -390,7 +389,7 @@ func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) 
 		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
 	}
 
-	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, utils.ScaleUInt32ToByte(req.Power))
+	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
 }
 
 func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {

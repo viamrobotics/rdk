@@ -48,15 +48,15 @@ func TestMotor1(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, on)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 111))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .43))
 	assert.Equal(t, true, b.gpio["1"])
 	assert.Equal(t, false, b.gpio["2"])
-	assert.Equal(t, byte(111), b.pwm["3"])
+	assert.Equal(t, byte(109), b.pwm["3"])
 	on, err = m.IsOn(ctx)
 	assert.Nil(t, err)
 	assert.True(t, on)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
 	assert.Equal(t, byte(112), b.pwm["3"])
@@ -64,8 +64,8 @@ func TestMotor1(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, on)
 
-	assert.Nil(t, m.Power(ctx, 113))
-	assert.Equal(t, byte(113), b.pwm["3"])
+	assert.Nil(t, m.Power(ctx, .45))
+	assert.Equal(t, byte(114), b.pwm["3"])
 
 	assert.Nil(t, m.Off(ctx))
 	assert.Equal(t, false, b.gpio["1"])
@@ -74,10 +74,10 @@ func TestMotor1(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, on)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 112))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44))
 	assert.Equal(t, false, b.gpio["1"])
 	assert.Equal(t, true, b.gpio["2"])
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 121))
+	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, .47))
 	assert.False(t, b.gpio["1"])
 	assert.False(t, b.gpio["2"])
 
