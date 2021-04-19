@@ -48,6 +48,16 @@ func SampleRandomIntRange(min, max int) int {
 	return rand.Intn(max-min+1) + min
 }
 
+// Use the fact that map iterations are random to get a random point
+func GetRandomPoint(cloud *pc.PointCloud) pc.Point {
+	var randPoint pc.Point
+	cloud.Iterate(func(pt pc.Point) bool {
+		randPoint = pt
+		return false
+	})
+	return randPoint
+}
+
 // Function to segment the biggest plane in the 3D Points cloud
 // nIterations is the number of iteration for ransac
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
@@ -61,7 +71,8 @@ func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter 
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := cloud.GetRandomPoint(), cloud.GetRandomPoint(), cloud.GetRandomPoint()
+		//n1, n2, n3 := cloud.GetRandomPoint(), cloud.GetRandomPoint(), cloud.GetRandomPoint()
+		n1, n2, n3 := GetRandomPoint(cloud), GetRandomPoint(cloud), GetRandomPoint(cloud)
 		p1, p2, p3 := r3.Vector(n1.Position()), r3.Vector(n2.Position()), r3.Vector(n3.Position())
 
 		// get 2 vectors that are going to define the plane

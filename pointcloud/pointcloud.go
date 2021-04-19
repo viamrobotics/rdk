@@ -3,7 +3,6 @@ package pointcloud
 import (
 	"fmt"
 	"math"
-	"math/rand"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -147,19 +146,6 @@ func newDensePivotFromCloud(cloud *PointCloud, dim int, idx float64) (*mat.Dense
 		return true
 	})
 	return m, err
-}
-
-// Retrieve a random Point from the map of points
-// runs in O(N), maybe change cloud.points from map to slice?
-func (cloud *PointCloud) GetRandomPoint() Point {
-	r := rand.Intn(cloud.Size())
-	for _, p := range cloud.points {
-		if r == 0 {
-			return p
-		}
-		r--
-	}
-	panic("should be impossible to reach")
 }
 
 func (cloud *PointCloud) DenseZ(zIdx float64) (*mat.Dense, error) {
