@@ -152,7 +152,7 @@
                       } else {
                         req = new robotApi.BoardMotorGoRequest();
                         if (cmd.s) {
-                            req.setPower(cmd.s * 4294967296); // TODO(erd): remove when change power to float
+                            req.setPowerPct(cmd.s);
                         }
                       }
                       req.setBoardName(board);
@@ -371,11 +371,11 @@
             <tr>
               <th>${m[0]}</th>
               <td>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .50})">--</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .25})">-</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 50})">--</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 25})">-</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'none', s: 0})">0</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .25})">+</button>
-                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .50})">++</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 25})">+</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 50})">++</button>
               </td>
             </tr>
             <tr>

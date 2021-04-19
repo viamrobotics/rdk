@@ -20,9 +20,9 @@ func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 }
 
 type Motor interface {
-	Power(ctx context.Context, power byte) error
+	Power(ctx context.Context, powerPct float32) error
 
-	Go(ctx context.Context, d pb.DirectionRelative, power byte) error
+	Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
 
 	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
 
