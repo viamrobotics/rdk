@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,8 +34,9 @@ func (b *testGPIOBoard) PWMSet(pin string, dutyCycle byte) error {
 func TestMotor1(t *testing.T) {
 	ctx := context.Background()
 	b := &testGPIOBoard{}
+	logger := golog.NewTestLogger(t)
 
-	m, err := NewGPIOMotor(b, map[string]string{"a": "1", "b": "2", "pwm": "3"})
+	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}}, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
