@@ -100,6 +100,8 @@ func (m *encodedMotor) Power(ctx context.Context, powerPct float32) error {
 func (m *encodedMotor) setPower(ctx context.Context, powerPct float32) error {
 	if powerPct > 1 {
 		powerPct = 1
+	} else if powerPct < 0 {
+		powerPct = 0
 	}
 	m.lastPowerPct = powerPct
 	return m.real.Power(ctx, powerPct)
