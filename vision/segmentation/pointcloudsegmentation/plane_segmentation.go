@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -24,7 +23,7 @@ func New3DPoints() *Points3D {
 }
 
 // Convert float 3d Points in meters to pointcloud
-func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64, logger golog.Logger) (*pc.PointCloud, error) {
+func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
@@ -41,7 +40,6 @@ func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64, logger gol
 func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	pixel2Meter float64,
 	selectedPoints map[pc.Vec3]int,
-	logger golog.Logger,
 ) (*pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
@@ -60,21 +58,31 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	return pointCloud, nil
 }
 
+// util to return a random point from the pointcloud
+func GetRandomPoint(cloud *pc.PointCloud) pc.Point {
+	var randPoint pc.Point
+	cloud.Iterate(func(p pc.Point) bool {
+		randPoint = p
+		return false
+	})
+	return randPoint
+}
+
 // Function to segment the biggest plane in the 3D Points cloud
 // nIterations is the number of iteration for ransac
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // pixel2meter is the conversion factor from the depth value to its value in meters
 // This function returns a pointcloud with values; the values are set to 1 if a point belongs to the plane, 0 otherwise
-func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64, logger golog.Logger) (*pc.PointCloud, []float64, error) {
-	nPoints := len(pts.Points)
+func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64, error) {
 	bestEquation := make([]float64, 4)
 	currentEquation := make([]float64, 4)
-	var bestInliers []r3.Vector
+	bestInliers := pc.New()
+	var err error
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1)
-		p1, p2, p3 := pts.Points[n1], pts.Points[n2], pts.Points[n3]
+		n1, n2, n3 := GetRandomPoint(cloud), GetRandomPoint(cloud), GetRandomPoint(cloud)
+		p1, p2, p3 := r3.Vector(n1.Position()), r3.Vector(n2.Position()), r3.Vector(n3.Position())
 
 		// get 2 vectors that are going to define the plane
 		v1 := p2.Sub(p1)
@@ -90,31 +98,29 @@ func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float6
 		currentEquation[0], currentEquation[1], currentEquation[2], currentEquation[3] = vec.X, vec.Y, vec.Z, d
 
 		// compute distance to plane of each point in the cloud
-		currentInliers := make([]r3.Vector, 0)
+		currentInliers := pc.New()
 		// store all the Points that are below a certain distance to the plane
-		for _, pt := range pts.Points {
-			dist := (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
+		cloud.Iterate(func(pt pc.Point) bool {
+			dist := (currentEquation[0]*pt.Position().X + currentEquation[1]*pt.Position().Y + currentEquation[2]*pt.Position().Z + currentEquation[3]) / vec.Norm()
 			if math.Abs(dist) < threshold {
-				currentInliers = append(currentInliers, pt)
+				err = currentInliers.Set(pt)
+				if err != nil {
+					err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pt.Position().X, pt.Position().Y, pt.Position().Z, err)
+					return false
+				}
 			}
+			return true
+		})
+		if err != nil {
+			return nil, nil, err
 		}
 		// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
-		if len(currentInliers) > len(bestInliers) {
+		if currentInliers.Size() > bestInliers.Size() {
 			bestEquation = currentEquation
 			bestInliers = currentInliers
 		}
 	}
-	// Output as slice of r3.Vector
-	bestInliersPointCloud := make(map[pc.Vec3]int)
-	for _, pt := range bestInliers {
-		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2meter)
-		bestInliersPointCloud[pc.Vec3{x, y, z}] = 1
-	}
-	pointCloudOut, err := pts.convert3DPointsToPointCloudWithValue(pixel2meter, bestInliersPointCloud, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-	return pointCloudOut, bestEquation, nil
+	return bestInliers, bestEquation, nil
 }
 
 // Function that creates a point cloud from a depth image with the intrinsics from the depth sensor camera
@@ -146,7 +152,7 @@ func CreatePoints3DFromDepthMap(depthImage *rimage.DepthMap, pixel2meter float64
 }
 
 // Function to project 3D point in a given camera image plane
-func (pts *Points3D) ProjectPlane3dPointsToRGBPlane(h, w int, params calib.PinholeCameraIntrinsics, pixel2meter float64) []r3.Vector {
+func (pts *Points3D) ProjectPlane3dPointsToRGBPlane(h, w int, params calib.PinholeCameraIntrinsics, pixel2meter float64) ([]r3.Vector, error) {
 	var coordinates []r3.Vector
 	for _, pt := range pts.Points {
 		j, i := params.PointToPixel(pt.X, pt.Y, pt.Z)
@@ -158,7 +164,32 @@ func (pts *Points3D) ProjectPlane3dPointsToRGBPlane(h, w int, params calib.Pinho
 			coordinates = append(coordinates, pt2d)
 		}
 	}
-	return coordinates
+	return coordinates, nil
+}
+
+// Same as above, but with PointCloud to PointCloud
+func ProjectPointCloudToRGBPlane(pts *pc.PointCloud, h, w int, params calib.PinholeCameraIntrinsics, pixel2meter float64) (*pc.PointCloud, error) {
+	coordinates := pc.New()
+	var err error
+	pts.Iterate(func(pt pc.Point) bool {
+		j, i := params.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+		j = math.Round(j)
+		i = math.Round(i)
+		// if point has color is inside the RGB image bounds, add it to the new pointcloud
+		if j >= 0 && j < float64(w) && i >= 0 && i < float64(h) && pt.HasColor() {
+			pt2d := pc.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
+			err = coordinates.Set(pt2d)
+			if err != nil {
+				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", j, i, pt.Position().Z, err)
+				return false
+			}
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return coordinates, nil
 }
 
 //TODO(louise): Add Depth Map dilation function as in the librealsense library
@@ -172,14 +203,41 @@ func IsPixelInImage(i, j, h, w int) bool {
 }
 
 // Function to project 3D point in a given camera image plane
-func (pts *Points3D) ApplyRigidBodyTransform(params *calib.Extrinsics) *Points3D {
+func (pts *Points3D) ApplyRigidBodyTransform(params *calib.Extrinsics) (*Points3D, error) {
 	transformedPoints := New3DPoints()
 	for _, pt := range pts.Points {
 		x, y, z := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
 		ptTransformed := r3.Vector{x, y, z}
 		transformedPoints.Points = append(transformedPoints.Points, ptTransformed)
 	}
-	return transformedPoints
+	return transformedPoints, nil
+}
+
+// Same as above but with pointclouds, return new pointclouds leaving original unchanged
+func ApplyRigidBodyTransform(pts *pc.PointCloud, params *calib.Extrinsics) (*pc.PointCloud, error) {
+	transformedPoints := pc.New()
+	var err error
+	pts.Iterate(func(pt pc.Point) bool {
+		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
+		var ptTransformed pc.Point
+		if pt.HasColor() {
+			ptTransformed = pc.NewColoredPoint(x, y, z, pt.Color().(color.NRGBA))
+		} else if pt.HasValue() {
+			ptTransformed = pc.NewValuePoint(x, y, z, pt.Value())
+		} else {
+			ptTransformed = pc.NewBasicPoint(x, y, z)
+		}
+		err = transformedPoints.Set(ptTransformed)
+		if err != nil {
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return transformedPoints, nil
 }
 
 // utils for 3D float Points transforms
@@ -201,7 +259,7 @@ func SampleRandomIntRange(min, max int) int {
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics, logger golog.Logger) (*pc.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics) (*pc.PointCloud, error) {
 	// create new point cloud
 	pcOut := pc.New()
 	// go through depth map pixels and get 3D Points
@@ -214,13 +272,13 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 			// get x and y of 3D point
 			xPoint, yPoint, z := params.PixelToPoint(float64(x), float64(y), z)
 			// Get point in PointCloud format
-			xInt := math.Round(xPoint / pixel2meter)
-			yInt := math.Round(yPoint / pixel2meter)
-			zInt := math.Round(z / pixel2meter)
-			pt := pc.NewBasicPoint(xInt, yInt, zInt)
+			xPoint = xPoint / pixel2meter
+			yPoint = yPoint / pixel2meter
+			z = z / pixel2meter
+			pt := pc.NewBasicPoint(xPoint, yPoint, z)
 			err := pcOut.Set(pt)
 			if err != nil {
-				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xInt, yInt, zInt, err)
+				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xPoint, yPoint, z, err)
 				return nil, err
 			}
 		}
@@ -250,5 +308,31 @@ func GetPlaneMaskRGBCoordinates(depthImage *rimage.DepthMap, coordinates []r3.Ve
 		j, i := pt.X, pt.Y
 		maskPlane.Set(int(j), int(i), white)
 	}
+	return maskPlane
+}
+
+// Same as above, but with a pointcloud plane of RGB coorindates
+func GetPlaneMaskRGBPointCloud(depthImage *rimage.DepthMap, coordinates *pc.PointCloud) image.Image {
+	h, w := depthImage.Height(), depthImage.Width()
+	upLeft := image.Point{0, 0}
+	lowRight := image.Point{w, h}
+
+	maskPlane := image.NewGray(image.Rectangle{upLeft, lowRight})
+
+	// Colors are defined by Red, Green, Blue, Alpha uint8 values.
+	black := color.Gray{0}
+
+	// Set color for each pixel.
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			maskPlane.Set(y, x, black)
+		}
+	}
+	white := color.Gray{255}
+	coordinates.Iterate(func(pt pc.Point) bool {
+		j, i := pt.Position().X, pt.Position().Y
+		maskPlane.Set(int(j), int(i), white)
+		return true
+	})
 	return maskPlane
 }
