@@ -41,6 +41,31 @@ func (cloud *PointCloud) HasColor() bool {
 func (cloud *PointCloud) HasValue() bool {
 	return cloud.hasValue
 }
+
+func (cloud *PointCloud) MinX() float64 {
+	return cloud.minX
+}
+
+func (cloud *PointCloud) MaxX() float64 {
+	return cloud.maxX
+}
+
+func (cloud *PointCloud) MinY() float64 {
+	return cloud.minY
+}
+
+func (cloud *PointCloud) MaxY() float64 {
+	return cloud.maxY
+}
+
+func (cloud *PointCloud) MinZ() float64 {
+	return cloud.minZ
+}
+
+func (cloud *PointCloud) MaxZ() float64 {
+	return cloud.maxZ
+}
+
 func (cloud *PointCloud) AtInt(x, y, z int) Point {
 	return cloud.At(float64(x), float64(y), float64(z))
 }
