@@ -145,11 +145,11 @@ func (p *ManagedProcess) manage(stdOut, stdErr io.ReadCloser) {
 			continue
 		}
 
-		if !state.Exited() {
-			p.logger.Debugw("oddity; wait finished but process did not exit", "state", state)
-			continue
+		if state.Exited() {
+			p.logger.Infow("process exited before expected", "code", state.ExitCode())
+		} else {
+			p.logger.Infow("process exited before expected", "state", state)
 		}
-		p.logger.Infow("process exited before expected", "code", state.ExitCode())
 		p.logger.Info("restarting process")
 		restarting = true
 		close(stopLogging)
