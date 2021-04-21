@@ -458,7 +458,7 @@ func (s *Server) compassByName(name string) (compass.Device, error) {
 	if sensorDevice == nil {
 		return nil, fmt.Errorf("no sensor with name (%s)", name)
 	}
-	sensorType := api.GetSensorDeviceType(sensorDevice)
+	sensorType := sensorDevice.Desc().Type
 	if sensorType != compass.DeviceType && sensorType != compass.RelativeDeviceType {
 		return nil, fmt.Errorf("unexpected sensor type %q", sensorType)
 	}
