@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
@@ -75,8 +76,33 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 	return rimage.MakeImageWithDepth(c2, &dm2, true), nil
 }
 
-func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(*pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
-	return nil, fmt.Errorf("function PointCloudToImageWithDepth not implemented for DepthColorWarpTransforms")
+// Function that takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
+func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud *pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+	// Needs to be a pointcloud with color
+	if !cloud.HasColor() {
+		return nil, fmt.Errorf("pointcloud has no color information, cannot create an image with depth")
+	}
+	// ImageWithDepth will be in the camera frame of the RGB camera.
+	// Points outside of the frame will be discarded.
+	// Assumption is that points in pointcloud are in mm.
+	width, height := dct.OutputSize.X, dct.OutputSize.Y
+	color := rimage.NewImage(width, height)
+	depth := rimage.NewEmptyDepthMap(width, height)
+	//TODO(bijan): naive implementation until we get get more points in the warp config
+	cloud.Iterate(func(pt pointcloud.Point) bool {
+		j, i := pt.Position().X, pt.Position().Y
+		x, y := int(math.Round(j)), int(math.Round(i))
+		z := int(pt.Position().Z)
+		// if point has color and is inside the RGB image bounds, add it to the images
+		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
+			r, g, b := pt.RGB255()
+			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
+			depth.Set(x, y, rimage.Depth(z))
+		}
+		return true
+	})
+	return rimage.MakeImageWithDepth(color, &depth, true), nil
+
 }
 
 func NewDepthColorWarpTransforms(attrs api.AttributeMap, logger golog.Logger) (*DepthColorWarpTransforms, error) {

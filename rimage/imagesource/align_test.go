@@ -39,6 +39,17 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	d.GotDebugImage(fixed.Overlay(), "overlay")
+
+	pc, err := h.dc.aligner.ImageWithDepthToPointCloud(fixed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTrip, err := h.dc.aligner.PointCloudToImageWithDepth(pc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
+
 	return nil
 }
 
