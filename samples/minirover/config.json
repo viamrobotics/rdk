@@ -48,5 +48,13 @@
             "name": "pi",
             "address": "pi64a.local:8080"
         }
+    ],
+    "processes": [
+        {
+            "name": "go",
+            "cwd" : "/home/erh/work/rplidar",
+            "args": [ "run", "cmd/server/main.go"],
+            "log": true
+        }
     ]
 }

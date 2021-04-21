@@ -10,6 +10,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/utils"
 
@@ -29,15 +30,16 @@ import (
 )
 
 type Robot struct {
-	remotes      map[string]api.Robot
-	boards       map[string]board.Board
-	arms         map[string]api.Arm
-	grippers     map[string]api.Gripper
-	cameras      map[string]gostream.ImageSource
-	lidarDevices map[string]lidar.Device
-	bases        map[string]api.Base
-	sensors      map[string]sensor.Device
-	providers    map[string]api.Provider
+	remotes        map[string]api.Robot
+	boards         map[string]board.Board
+	arms           map[string]api.Arm
+	grippers       map[string]api.Gripper
+	cameras        map[string]gostream.ImageSource
+	lidarDevices   map[string]lidar.Device
+	bases          map[string]api.Base
+	sensors        map[string]sensor.Device
+	providers      map[string]api.Provider
+	processManager rexec.ProcessManager
 
 	config api.Config
 	logger golog.Logger
@@ -197,6 +199,10 @@ func (r *Robot) SensorNames() []string {
 }
 
 func (r *Robot) Close() error {
+	if err := r.processManager.Stop(); err != nil {
+		return fmt.Errorf("error stopping process manager: %w", err)
+	}
+
 	for _, x := range r.arms {
 		if err := utils.TryClose(x); err != nil {
 			return fmt.Errorf("error closing arm: %w", err)
@@ -256,22 +262,30 @@ func (r *Robot) Logger() golog.Logger {
 
 func NewBlankRobot(logger golog.Logger) *Robot {
 	return &Robot{
-		remotes:      map[string]api.Robot{},
-		boards:       map[string]board.Board{},
-		arms:         map[string]api.Arm{},
-		grippers:     map[string]api.Gripper{},
-		cameras:      map[string]gostream.ImageSource{},
-		lidarDevices: map[string]lidar.Device{},
-		bases:        map[string]api.Base{},
-		sensors:      map[string]sensor.Device{},
-		providers:    map[string]api.Provider{},
-		logger:       logger,
+		remotes:        map[string]api.Robot{},
+		boards:         map[string]board.Board{},
+		arms:           map[string]api.Arm{},
+		grippers:       map[string]api.Gripper{},
+		cameras:        map[string]gostream.ImageSource{},
+		lidarDevices:   map[string]lidar.Device{},
+		bases:          map[string]api.Base{},
+		sensors:        map[string]sensor.Device{},
+		providers:      map[string]api.Provider{},
+		processManager: rexec.NewProcessManager(logger),
+		logger:         logger,
 	}
 }
 
 func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot, error) {
 	r := NewBlankRobot(logger)
 	r.config = cfg
+
+	for _, procConf := range cfg.Processes {
+		r.processManager.AddProcess(procConf)
+	}
+	if err := r.processManager.Start(ctx); err != nil {
+		return nil, err
+	}
 
 	for _, remote := range cfg.Remotes {
 		robotClient, err := client.NewRobotClient(ctx, remote.Address, logger)

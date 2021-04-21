@@ -212,6 +212,12 @@
                       req.setName(name);
                       consumeClientCall(robotService.sensorReadings(req));
                       
+                  },
+                  nonEmpty : function(d) {
+                      for ( var k in d ) {
+                          return true;
+                      }
+                      return false;
                   }
               }
           })
@@ -458,7 +464,7 @@
         </table>
       </div> <!-- end boards -->
 
-      <table border="1">
+      <table border="1" v-if="nonEmpty(status.camerasMap)">
         <tr>
           <th colspan="3">
             Cameras
@@ -476,7 +482,7 @@
         </tr>
       </table>
 
-      <table border=1>
+      <table border=1 v-if="nonEmpty(status.sensorsMap)">
         <tr>
           <th colspan="2">Sensors</th>
         </tr>
