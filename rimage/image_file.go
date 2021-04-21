@@ -12,9 +12,11 @@ import (
 	"github.com/lmittmann/ppm"
 )
 
-func ReadImageFromFile(path string) (image.Image, error) {
+// Function to extract the RGB, Z16, or "both" data from an image file.
+// This returns an image.Image, use BothReadFromFile instead if you want an ImageWithDepth.
+func readImageFromFile(path string) (image.Image, error) {
 	if strings.HasSuffix(path, ".both.gz") {
-		return BothReadFromFile(path)
+		return BothReadFromFile(path, false)
 	}
 
 	f, err := os.Open(path)
@@ -31,7 +33,7 @@ func ReadImageFromFile(path string) (image.Image, error) {
 }
 
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := ReadImageFromFile(fn)
+	img, err := readImageFromFile(fn)
 	if err != nil {
 		return nil, err
 	}

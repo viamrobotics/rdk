@@ -10,7 +10,7 @@ import (
 )
 
 func TestRotateSource(t *testing.T) {
-	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
+	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestRotateSource(t *testing.T) {
 }
 
 func BenchmarkRotate(b *testing.B) {
-	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
+	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	if err != nil {
 		b.Fatal(err)
 	}

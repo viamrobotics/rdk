@@ -127,7 +127,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 		d.logger.Debug(f)
 
 		cont := t.Run(f, func(t *testing.T) {
-			img, err := ReadImageFromFile(f)
+			img, err := readImageFromFile(f)
 			if err != nil {
 				t.Fatal(err)
 			}

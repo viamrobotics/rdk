@@ -11,7 +11,7 @@ import (
 )
 
 func TestPC1(t *testing.T) {
-	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
+	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestPC1(t *testing.T) {
 }
 
 func TestPCRoundTrip(t *testing.T) {
-	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"))
+	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestPCRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pc2, err := BothReadFromFile(fn)
+	pc2, err := BothReadFromFile(fn, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestPCRoundTrip(t *testing.T) {
 
 func TestPC3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestPC3(t *testing.T) {
 }
 
 func TestImageWithDepthFromImages(t *testing.T) {
-	iwd, err := NewImageWithDepthFromImages(artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"))
+	iwd, err := NewImageWithDepthFromImages(artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func TestImageWithDepthFromImages(t *testing.T) {
 }
 
 func TestImageToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}

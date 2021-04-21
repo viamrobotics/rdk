@@ -5,19 +5,14 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"math/rand"
 
 	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/utils"
 )
 
-// Function to sample a random integer within a range given by [min, max]
-func SampleRandomIntRange(min, max int) int {
-	return rand.Intn(max-min+1) + min
-}
-
-// Extract the positions of the points from the pointcloud into an r3 slice
+// Extract the positions of the points from the pointcloud into an r3 slice.
 func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
 	keys := make([]r3.Vector, 0, cloud.Size())
 	cloud.Iterate(func(pt pc.Point) bool {
@@ -27,25 +22,37 @@ func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
 	return keys
 }
 
-// Return a pointcloud that is a subset of the given pointcloud using a map of point positions
-func GetSubsetPointCloud(cloud *pc.PointCloud, inPlane map[r3.Vector]bool) (*pc.PointCloud, error) {
-	subCloud := pc.New()
-	for pt, _ := range inPlane {
-		err := subCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
-		if err != nil {
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pt.X, pt.Y, pt.Z, err)
-			return nil, err
+// Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.
+func PointCloudSplit(cloud *pc.PointCloud, inMap map[r3.Vector]bool) (*pc.PointCloud, *pc.PointCloud, error) {
+	mapCloud := pc.New()
+	nonMapCloud := pc.New()
+	var err error
+	cloud.Iterate(func(pt pc.Point) bool {
+		if _, ok := inMap[r3.Vector(pt.Position())]; ok {
+			err = mapCloud.Set(pt)
+		} else {
+			err = nonMapCloud.Set(pt)
 		}
+		if err != nil {
+			pos := pt.Position()
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pos.X, pos.Y, pos.Z, err)
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return nil, nil, err
 	}
-	return subCloud, nil
+	return mapCloud, nonMapCloud, nil
 }
 
-// Function to segment the biggest plane in the 3D Pointcloud
+// Function to segment the biggest plane in the 3D Pointcloud.
 // nIterations is the number of iteration for ransac
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // pixel2meter is the conversion factor from the depth value to its value in meters
-// This function returns a pointcloud that only contains the points in the found plane
-func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64, error) {
+// This function returns 2 pointclouds, the pointcloud of the plane and one without the plane
+// It also returns the equation of the found plane
+func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, *pc.PointCloud, []float64, error) {
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 	bestEquation := make([]float64, 4)
@@ -54,7 +61,7 @@ func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter 
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1), SampleRandomIntRange(1, nPoints-1)
+		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1), utils.SampleRandomIntRange(1, nPoints-1), utils.SampleRandomIntRange(1, nPoints-1)
 		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
 		// get 2 vectors that are going to define the plane
@@ -85,11 +92,11 @@ func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter 
 			bestInliers = currentInliers
 		}
 	}
-	bestCloud, err := GetSubsetPointCloud(cloud, bestInliers)
+	planeCloud, nonPlaneCloud, err := PointCloudSplit(cloud, bestInliers)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return bestCloud, bestEquation, nil
+	return planeCloud, nonPlaneCloud, bestEquation, nil
 }
 
 // utils for 3D float Points transforms
