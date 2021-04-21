@@ -23,12 +23,12 @@ type Board struct {
 	logger golog.Logger
 }
 
-func FindAndWarpBoardFromFilesRoot(root string, logger golog.Logger) (*Board, error) {
-	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz", logger)
+func FindAndWarpBoardFromFilesRoot(root string, aligned bool, logger golog.Logger) (*Board, error) {
+	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz", aligned, logger)
 }
 
-func FindAndWarpBoardFromFiles(colorFN, depthFN string, logger golog.Logger) (*Board, error) {
-	img, err := rimage.NewImageWithDepth(colorFN, depthFN)
+func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger golog.Logger) (*Board, error) {
+	img, err := rimage.NewImageWithDepth(colorFN, depthFN, aligned)
 	if err != nil {
 		return nil, err
 	}

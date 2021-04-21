@@ -30,7 +30,7 @@ func TestInit(t *testing.T) {
 		fmt.Println(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
-		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN)
+		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func TestOneMove(t *testing.T) {
 		fmt.Println(fn)
 		depthDN := strings.Replace(fn, ".png", ".dat.gz", 1)
 
-		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, logger)
+		board, err := chess.FindAndWarpBoardFromFiles(fn, depthDN, true, logger)
 		if err != nil {
 			t.Fatal(err)
 		}

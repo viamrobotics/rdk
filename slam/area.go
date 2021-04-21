@@ -72,8 +72,8 @@ func (sa *SquareArea) QuadrantLength() int {
 	return sa.quadLength
 }
 
-func (sa *SquareArea) WriteToFile(fn string, logger golog.Logger) error {
-	return sa.cloud.WriteToFile(fn, logger)
+func (sa *SquareArea) WriteToFile(fn string) error {
+	return sa.cloud.WriteToFile(fn)
 }
 
 type MutableArea interface {

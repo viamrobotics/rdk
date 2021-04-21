@@ -48,7 +48,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
-	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board1", logger)
+	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board1", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
-	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board2", logger)
+	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board2", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	annotated := theBoard.Annotate()
 	rimage.WriteImageToFile("out/board2_annotated.png", annotated)
 
-	nextBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), logger)
+	nextBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	chessPath := artifact.MustPath("samples/chess/init")
-	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543520", logger)
+	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543520", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "e1", 70, 100, "board-1605543520") // king
 	_testBoardHeight(t, game, theBoard, "c1", 45, 74, "board-1605543520")  // bishop
 
-	nextBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543783", logger)
+	nextBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1605543783", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 
 func TestArmBlock1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	board, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/armblock1.png"), artifact.MustPath("vision/chess/armblock1.dat.gz"), logger)
+	board, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/armblock1.png"), artifact.MustPath("vision/chess/armblock1.dat.gz"), true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
-	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1610063549", logger)
+	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1610063549", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestWarpColorAndDepthToChess5(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
-	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board5", logger)
+	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board5", true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

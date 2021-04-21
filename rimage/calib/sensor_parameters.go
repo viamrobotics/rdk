@@ -8,8 +8,6 @@ import (
 	"os"
 
 	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/pointcloud"
-	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
 )
@@ -54,36 +52,6 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 		return fmt.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
 	}
 	return nil
-}
-
-func (dcie *DepthColorIntrinsicsExtrinsics) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
-	if ii.IsAligned() {
-		return ii, nil
-	}
-	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
-	if err != nil {
-		return nil, err
-	}
-	return newImgWithDepth, nil
-}
-
-func (dcie *DepthColorIntrinsicsExtrinsics) ToPointCloudWithColor(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
-	var newImgWithDepth *rimage.ImageWithDepth
-	var err error
-	if ii.IsAligned() {
-		newImgWithDepth = ii
-	} else {
-		newImgWithDepth, err = dcie.TransformDepthCoordToColorCoord(ii)
-		if err != nil {
-			return nil, err
-		}
-	}
-	// All points now in Color frame
-	pc, err := dcie.AlignedImageToPointCloud(newImgWithDepth)
-	if err != nil {
-		return nil, err
-	}
-	return pc, nil
 }
 
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {

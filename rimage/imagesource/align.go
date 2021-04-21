@@ -111,7 +111,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 
 	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, false)
 
-	_, span := trace.StartSpan(ctx, "ToAlignedImageWithDepth")
+	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
 	if dc.debug {
 		if !alignCurrentlyWriting {
@@ -128,7 +128,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			}()
 		}
 	}
-	aligned, err := dc.aligner.ToAlignedImageWithDepth(ii)
+	aligned, err := dc.aligner.AlignImageWithDepth(ii)
 
 	return aligned, func() {}, err
 
