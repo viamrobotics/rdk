@@ -1078,18 +1078,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
 		test.That(t, capName, test.ShouldEqual, "compass1")
 
-		type someSensor struct {
-			sensor.Device
-		}
-		injectRobot.SensorByNameFunc = func(name string) sensor.Device {
-			return someSensor{}
-		}
-		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass3",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected sensor type")
-
 		err1 := errors.New("whoops")
 
 		device := &inject.Compass{}
