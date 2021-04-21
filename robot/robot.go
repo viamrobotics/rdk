@@ -280,6 +280,13 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	r := NewBlankRobot(logger)
 	r.config = cfg
 
+	for _, procConf := range cfg.Processes {
+		r.processManager.AddProcess(procConf)
+	}
+	if err := r.processManager.Start(ctx); err != nil {
+		return nil, err
+	}
+
 	for _, remote := range cfg.Remotes {
 		robotClient, err := client.NewRobotClient(ctx, remote.Address, logger)
 		if err != nil {
@@ -365,15 +372,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 		}
 	}
 
-	for _, procConf := range cfg.Processes {
-		r.processManager.AddProcess(procConf)
-	}
-
 	return r, nil
-}
-
-func (r *Robot) Start(ctx context.Context) error {
-	return r.processManager.Start(ctx)
 }
 
 func (r *Robot) mergeRemote(ctx context.Context, otherR api.Robot, robotName string, prefix bool) error {
