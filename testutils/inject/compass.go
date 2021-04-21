@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 )
@@ -42,6 +43,10 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 		return c.Device.StopCalibration(ctx)
 	}
 	return c.StopCalibrationFunc(ctx)
+}
+
+func (c *Compass) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.DeviceType, ""}
 }
 
 func (c *Compass) Close() error {
@@ -101,4 +106,8 @@ func (rc *RelativeCompass) Close() error {
 		return utils.TryClose(rc.RelativeDevice)
 	}
 	return rc.CloseFunc()
+}
+
+func (rc *RelativeCompass) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
 }

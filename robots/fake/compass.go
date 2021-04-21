@@ -41,10 +41,18 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
+func (c *Compass) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.DeviceType, ""}
+}
+
 type RelativeCompass struct {
 	*Compass
 }
 
 func (rc *RelativeCompass) Mark(ctx context.Context) error {
 	return nil
+}
+
+func (rc *RelativeCompass) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
 }
