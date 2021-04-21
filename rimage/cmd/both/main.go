@@ -20,7 +20,7 @@ func main() {
 
 func merge(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("merge needs <color in> <depth in> <imgs aligned?> [optional -aligned]")
+		return fmt.Errorf("merge needs <color in> <depth in> [optional -aligned]")
 	}
 
 	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2), aligned)
