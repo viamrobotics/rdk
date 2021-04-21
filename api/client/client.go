@@ -179,7 +179,7 @@ func (rc *RobotClient) BoardByName(name string) board.Board {
 
 func (rc *RobotClient) SensorByName(name string) sensor.Device {
 	sensorType := rc.sensorTypes[name]
-	sc := &sensorClient{rc, name}
+	sc := &sensorClient{rc, name, sensorType}
 	switch sensorType {
 	case compass.DeviceType:
 		return &compassClient{sc}
@@ -193,8 +193,12 @@ func (rc *RobotClient) SensorByName(name string) sensor.Device {
 func (rc *RobotClient) populateNames(ctx context.Context) error {
 	status, err := rc.Status(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("status call failed: %w", err)
 	}
+	if status == nil {
+		return fmt.Errorf("status returned nil")
+	}
+
 	rc.storeStatus(status)
 	for name := range status.Arms {
 		rc.armNames = append(rc.armNames, name)
@@ -638,8 +642,9 @@ func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
 }
 
 type sensorClient struct {
-	rc   *RobotClient
-	name string
+	rc         *RobotClient
+	name       string
+	sensorType sensor.DeviceType
 }
 
 func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
@@ -654,6 +659,10 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 		readings = append(readings, r.AsInterface())
 	}
 	return readings, nil
+}
+
+func (sc *sensorClient) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{sc.sensorType, ""}
 }
 
 type compassClient struct {
@@ -692,6 +701,10 @@ func (cc *compassClient) StopCalibration(ctx context.Context) error {
 	return err
 }
 
+func (cc *compassClient) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.DeviceType, ""}
+}
+
 type relativeCompassClient struct {
 	*compassClient
 }
@@ -701,4 +714,8 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 		Name: rcc.name,
 	})
 	return err
+}
+
+func (rcc *relativeCompassClient) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
 }

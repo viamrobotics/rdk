@@ -6,15 +6,19 @@
     <script>
       const enableDevTools = window.__GRPCWEB_DEVTOOLS__ || (() => {});
       enableDevTools([robotService]);
-      async function consumeClientCall(prom) {
+      async function consumeClientCall(prom, cb) {
         try {
-          const resp = await prom;
-          theData.res = JSON.stringify(resp.toObject());
+            const resp = await prom;
+            if (cb) {
+                cb(resp.toObject());
+            } else {
+                theData.res = JSON.stringify(resp.toObject());
+            }
         } catch (e) {
-          theData.error = JSON.stringify(e);
+            theData.error = JSON.stringify(e);
         }
       }
-      
+
       {{ range $view := .Views }}
         {{ jsSafe $view.JavaScript }}
       {{ end }}
@@ -55,10 +59,12 @@
           status.grippersMap = rawSatusObj.grippersMap;
           status.boardsMap = rawSatusObj.boardsMap;
           status.camerasMap = rawSatusObj.camerasMap;
+          status.sensorsMap = rawSatusObj.sensorsMap;
 
           status.armsMap = fixArms(status.armsMap);
 
           if (!firstResult) {
+            console.log(rawSatusObj);
             console.log(status);
             firstResult = true;
           }
@@ -184,8 +190,8 @@
                           req.setName(name);
                           req.setMillisPerSec(document.getElementById("speed").value)
                           req.setDistanceMillis(document.getElementById("distance").value * amount);
+                          consumeClientCall(robotService.baseMoveStraight(req));
                           break;
-                          consumeClientCall(robotService.baseMove(req));
                         case 'angle':
                           req = new robotApi.BaseSpinRequest();
                           req.setName(name);
@@ -199,6 +205,12 @@
                       initPCDIfNeeded();
 
                       pcdLoad("/cameras/" + cameraName + "/data.pcd");
+                      
+                  },
+                  doSensorReadings : function(name) {
+                      var req = new robotApi.SensorReadingsRequest();
+                      req.setName(name);
+                      consumeClientCall(robotService.sensorReadings(req));
                       
                   }
               }
@@ -463,6 +475,25 @@
           <td><button v-on:click="renderPCD(cam[0])">GO</button></td>
         </tr>
       </table>
+
+      <table border=1>
+        <tr>
+          <th colspan="2">Sensors</th>
+        </tr>
+        
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+        </tr>
+        
+        <tr v-for="(sensor, x) in status.sensorsMap">
+          <td>${sensor[0]}</td>
+          <td>${sensor[1].type}</td>
+          <td><button v-on:click="doSensorReadings(sensor[0])">Get Readings</button></td>
+        </tr>
+      </table>
+          
+      
       <div>${res}</div>
     </div> <!-- end vue app -->
 

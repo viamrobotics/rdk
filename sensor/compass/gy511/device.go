@@ -111,6 +111,10 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev *Device, er
 	return d, nil
 }
 
+func (d *Device) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.DeviceType, ""}
+}
+
 func (d *Device) StartCalibration(ctx context.Context) error {
 	d.mu.Lock()
 	d.calibrating = true

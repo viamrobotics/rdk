@@ -53,6 +53,10 @@ func New(ctx context.Context, config api.Component, logger golog.Logger) (compas
 	return &Device{Device: lidarDevice}, nil
 }
 
+func (d *Device) Desc() sensor.DeviceDescription {
+	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
+}
+
 func (d *Device) Close() (err error) {
 	defer func() {
 		err = multierr.Combine(err, utils.TryClose(d.Device))

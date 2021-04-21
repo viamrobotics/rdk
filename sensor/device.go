@@ -6,6 +6,7 @@ import (
 
 type Device interface {
 	Readings(ctx context.Context) ([]interface{}, error)
+	Desc() DeviceDescription
 }
 
 type DeviceType string
