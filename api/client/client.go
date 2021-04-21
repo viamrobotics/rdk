@@ -54,7 +54,6 @@ type RobotClientOptions struct {
 }
 
 func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
-	// TODO(erd): address insecure
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer timeoutCancel()
 	var conn rpc.ClientConn
