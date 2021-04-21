@@ -17,6 +17,7 @@ func NewManagedProcess(config ProcessConfig, logger golog.Logger) *ManagedProces
 	return &ManagedProcess{
 		name:      config.Name,
 		args:      config.Args,
+		cwd:       config.CWD,
 		oneShot:   config.OneShot,
 		shouldLog: config.Log,
 		logger:    logger,
@@ -30,6 +31,7 @@ type ManagedProcess struct {
 	// live management
 	name      string
 	args      []string
+	cwd       string
 	oneShot   bool
 	shouldLog bool
 	cmd       *exec.Cmd
@@ -46,6 +48,7 @@ func (p *ManagedProcess) Start(ctx context.Context) error {
 	defer p.mu.Unlock()
 	if p.oneShot {
 		cmd := exec.CommandContext(ctx, p.name, p.args...)
+		cmd.Dir = p.cwd
 		if !p.shouldLog {
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -62,6 +65,7 @@ func (p *ManagedProcess) Start(ctx context.Context) error {
 
 	// this is fully managed so we will control when to kill the process
 	cmd := exec.Command(p.name, p.args...)
+	cmd.Dir = p.cwd
 	var stdOut, stdErr io.ReadCloser
 	if p.shouldLog {
 		var err error
