@@ -59,7 +59,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 		return err
 	}
 
-	return pc.WriteToFile(flags.Arg(2), logger)
+	return pc.WriteToFile(flags.Arg(2))
 }
 
 func realMain(args []string) error {

@@ -28,7 +28,7 @@ func TestSegmentPlane(t *testing.T) {
 	//Principal Point         : 542.078, 398.016
 	//Focal Length            : 734.938, 735.516
 	// get depth map
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"))
+	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	if err != nil {
 		b.Fatal(err)
 	}

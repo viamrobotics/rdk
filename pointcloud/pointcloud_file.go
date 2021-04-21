@@ -75,17 +75,15 @@ func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 	return pc, nil
 }
 
-func (pc *PointCloud) WriteToFile(fn string, logger golog.Logger) error {
+func (pc *PointCloud) WriteToFile(fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
-		return err
+		return
 	}
-	var successful bool
 	defer func() {
-		if !successful {
-			if err := lf.Close(); err != nil {
-				logger.Debug(err)
-			}
+		cerr := lf.Close()
+		if err == nil {
+			err = cerr
 		}
 	}()
 
@@ -93,10 +91,10 @@ func (pc *PointCloud) WriteToFile(fn string, logger golog.Logger) error {
 	if pc.hasColor {
 		pointFormatID = 2
 	}
-	if err := lf.AddHeader(lidario.LasHeader{
+	if err = lf.AddHeader(lidario.LasHeader{
 		PointFormatID: byte(pointFormatID),
 	}); err != nil {
-		return err
+		return
 	}
 
 	var pVals []int
@@ -146,8 +144,8 @@ func (pc *PointCloud) WriteToFile(fn string, logger golog.Logger) error {
 				pVals = append(pVals, 0)
 			}
 		}
-		if err := lf.AddLasPoint(lp); err != nil {
-			lastErr = err
+		if lerr := lf.AddLasPoint(lp); lerr != nil {
+			lastErr = lerr
 			return false
 		}
 		return true
@@ -159,19 +157,19 @@ func (pc *PointCloud) WriteToFile(fn string, logger golog.Logger) error {
 			binary.LittleEndian.PutUint64(bytes, uint64(v))
 			buf.Write(bytes)
 		}
-		if err := lf.AddVLR(lidario.VLR{
+		if err = lf.AddVLR(lidario.VLR{
 			UserID:                  "",
 			Description:             pointValueDataTag,
 			BinaryData:              buf.Bytes(),
 			RecordLengthAfterHeader: buf.Len(),
 		}); err != nil {
-			return err
+			return
 		}
 	}
 	if lastErr != nil {
-		return lastErr
+		err = lastErr
+		return
 	}
 
-	successful = true
-	return lf.Close()
+	return
 }

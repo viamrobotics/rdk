@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +52,6 @@ func TestPCRoundTrip(t *testing.T) {
 }
 
 func TestPC3(t *testing.T) {
-	logger := golog.NewTestLogger(t)
 	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +64,7 @@ func TestPC3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = pc.WriteToFile("out/board2.las", logger)
+	err = pc.WriteToFile("out/board2.las")
 	if err != nil {
 		t.Fatal(err)
 	}

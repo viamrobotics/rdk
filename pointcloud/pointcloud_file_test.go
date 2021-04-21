@@ -35,7 +35,7 @@ func TestNewFromFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = cloud.WriteToFile(temp.Name(), logger)
+	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	nextCloud, err := NewFromFile(temp.Name(), logger)
@@ -64,7 +64,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = cloud.WriteToFile(temp.Name(), logger)
+	err = cloud.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	nextCloud, err := NewFromFile(temp.Name(), logger)

@@ -41,7 +41,7 @@ func TestSquareAreaWriteToFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = sa.WriteToFile(temp.Name(), logger)
+	err = sa.WriteToFile(temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	nextArea, err := NewSquareAreaFromFile(temp.Name(), 100, 10, logger)

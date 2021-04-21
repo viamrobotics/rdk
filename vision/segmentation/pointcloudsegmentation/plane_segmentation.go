@@ -14,12 +14,12 @@ import (
 
 // Extract the positions of the points from the pointcloud into an r3 slice.
 func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
-	keys := make([]r3.Vector, 0, cloud.Size())
+	positions := make([]r3.Vector, 0, cloud.Size())
 	cloud.Iterate(func(pt pc.Point) bool {
-		keys = append(keys, r3.Vector(pt.Position()))
+		positions = append(positions, r3.Vector(pt.Position()))
 		return true
 	})
-	return keys
+	return positions
 }
 
 // Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.

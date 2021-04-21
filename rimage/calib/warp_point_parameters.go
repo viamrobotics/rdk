@@ -17,13 +17,13 @@ type DepthColorWarpTransforms struct {
 	*AlignConfig                   // anonymous fields
 }
 
-func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
 	if ii.IsAligned() {
 		iwd = ii
 	} else {
-		iwd, err = dct.ToAlignedImageWithDepth(ii)
+		iwd, err = dct.AlignImageWithDepth(ii)
 		if err != nil {
 			return nil, err
 		}
@@ -33,6 +33,8 @@ func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithD
 
 	height := iwd.Height()
 	width := iwd.Width()
+	// TODO (bijan): this is a naive projection to 3D space, implement a better algo for warp points
+	// Will need more than 2 points for warp points to create better projection
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			z := iwd.Depth.GetDepth(x, y)
@@ -50,7 +52,7 @@ func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithD
 	return pc, nil
 }
 
-func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
+func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
 		return ii, nil
 	}
@@ -71,6 +73,10 @@ func (dct *DepthColorWarpTransforms) ToAlignedImageWithDepth(ii *rimage.ImageWit
 	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)
 
 	return rimage.MakeImageWithDepth(c2, &dm2, true), nil
+}
+
+func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(*pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+	return nil, fmt.Errorf("function PointCloudToImageWithDepth not implemented for DepthColorWarpTransforms")
 }
 
 func NewDepthColorWarpTransforms(attrs api.AttributeMap, logger golog.Logger) (*DepthColorWarpTransforms, error) {

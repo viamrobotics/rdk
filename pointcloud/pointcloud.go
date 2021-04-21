@@ -34,6 +34,13 @@ func (cloud *PointCloud) Size() int {
 	return len(cloud.points)
 }
 
+func (cloud *PointCloud) HasColor() bool {
+	return cloud.hasColor
+}
+
+func (cloud *PointCloud) HasValue() bool {
+	return cloud.hasValue
+}
 func (cloud *PointCloud) AtInt(x, y, z int) Point {
 	return cloud.At(float64(x), float64(y), float64(z))
 }
