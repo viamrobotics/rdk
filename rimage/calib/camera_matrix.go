@@ -46,8 +46,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 
 	for y := 0; y < iwd.Color.Height(); y++ {
 		for x := 0; x < iwd.Color.Width(); x++ {
-			r, g, b := iwd.Color.GetXY(x, y).RGB255()
 			px, py, pz := dcie.ColorCamera.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
+			r, g, b := iwd.Color.GetXY(x, y).RGB255()
 			err = pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
@@ -121,7 +121,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud *po
 		z := int(pt.Position().Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
 		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
-			color.Set(image.Point{x, y}, pt.Color().(rimage.Color))
+			r, g, b := pt.RGB255()
+			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
 			depth.Set(x, y, rimage.Depth(z))
 		}
 		return true

@@ -182,18 +182,17 @@ func _colorToInt(pt Point) int {
 	x = x | (int(r) << 16)
 	x = x | (int(g) << 8)
 	x = x | (int(b) << 0)
-	//x = x | ( int(c.A) << 0 )
 	return x
 }
 
-func (cloud *PointCloud) ToPCD(out io.Writer) error {
-	if !cloud.HasColor() {
+func (pc *PointCloud) ToPCD(out io.Writer) error {
+	if !pc.HasColor() {
 		return fmt.Errorf("no color data")
 	}
 	var err error
-	minZ, maxZ := cloud.MinZ(), cloud.MaxZ()
-	minX, maxX := cloud.MinX(), cloud.MaxX()
-	minY, maxY := cloud.MinY(), cloud.MaxY()
+	minZ, maxZ := pc.MinZ(), pc.MaxZ()
+	minX, maxX := pc.MinX(), pc.MaxX()
+	minY, maxY := pc.MinY(), pc.MaxY()
 	width := maxX - minX
 	height := maxY - minY
 	depth := maxZ - minZ
@@ -210,14 +209,14 @@ func (cloud *PointCloud) ToPCD(out io.Writer) error {
 		"DATA ascii\n",
 		int(width*height),
 		1, //depth,
-		cloud.Size(),
+		pc.Size(),
 	)
 
 	if err != nil {
 		return err
 	}
 
-	cloud.Iterate(func(pt Point) bool {
+	pc.Iterate(func(pt Point) bool {
 		position := pt.Position()
 		scaledWidth := (position.X - minX) / width
 		scaledHeight := (position.Y - minY) / height
@@ -228,10 +227,7 @@ func (cloud *PointCloud) ToPCD(out io.Writer) error {
 			scaledHeight,
 			scaledDepth,
 			_colorToInt(pt))
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	})
 
 	if err != nil {
