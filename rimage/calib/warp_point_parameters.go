@@ -41,7 +41,7 @@ func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithD
 			}
 			c := iwd.Color.GetXY(x, y)
 			r, g, b := c.RGB255()
-			err := pc.Set(pointcloud.NewColoredPointInt(x, y, int(z), color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewColoredPoint(float64(x), float64(y), float64(z), color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}

@@ -52,7 +52,7 @@ func TestSegmentPlane(t *testing.T) {
 	}
 	// Segment Plane
 	nIter := 2500
-	_, eq, err := SegmentPlane(cloud, nIter, 0.0025, pixel2meter)
+	_, _, eq, err := SegmentPlane(cloud, nIter, 0.0025, pixel2meter)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
-		_, _, err := SegmentPlane(pts, 2500, 0.0025, pixel2meter)
+		_, _, _, err := SegmentPlane(pts, 2500, 0.0025, pixel2meter)
 		if err != nil {
 			b.Fatal(err)
 		}

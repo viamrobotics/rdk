@@ -11,18 +11,6 @@ import (
 	"go.viam.com/robotcore/artifact"
 )
 
-func loadPictureConvertToDM(p string) (*DepthMap, error) {
-	depthImg, err := ReadImageFromFile(p)
-	if err != nil {
-		return nil, err
-	}
-	dm, err := ConvertImageToDepthMap(depthImg)
-	if err != nil {
-		return nil, err
-	}
-	return dm, nil
-}
-
 func writePicture(img image.Image, p string) error {
 	file, err := os.Create(p)
 	if err != nil {
@@ -64,7 +52,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 
 func TestSobelFilter(t *testing.T) {
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
-	dm, err := loadPictureConvertToDM(artifact.MustPath("rimage/circle.png"))
+	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +79,7 @@ func TestSobelFilter(t *testing.T) {
 }
 
 func BenchmarkSobelFilter(b *testing.B) {
-	dm, err := loadPictureConvertToDM(artifact.MustPath("rimage/shelf_grayscale.png"))
+	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/shelf_grayscale.png"))
 	if err != nil {
 		b.Fatal(err)
 	}

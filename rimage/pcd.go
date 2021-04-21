@@ -89,7 +89,7 @@ func (dm *DepthMap) ToPointCloud() (*pointcloud.PointCloud, error) {
 			if z == 0 {
 				continue
 			}
-			err := pc.Set(pointcloud.NewBasicPointInt(x, y, int(z)))
+			err := pc.Set(pointcloud.NewBasicPoint(float64(x), float64(y), float64(z)))
 			if err != nil {
 				return nil, err
 			}
