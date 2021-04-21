@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/rexec"
 )
 
 type ComponentType string
@@ -196,6 +197,7 @@ type Config struct {
 	Boards     []board.Config
 	Components []Component
 	Cloud      CloudConfig
+	Processes  []rexec.ProcessConfig
 }
 
 func (c Config) FindComponent(name string) *Component {

@@ -228,6 +228,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
+	if err := myRobot.Start(ctx); err != nil {
+		return err
+	}
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
