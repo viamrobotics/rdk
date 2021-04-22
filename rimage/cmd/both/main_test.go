@@ -31,8 +31,9 @@ func TestBothMain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out2 := "out/board1.las"
-	err = realMain([]string{"to-las", out, out2, "-aligned"})
+	out2 := "out/shelf.las"
+	jsonFilePath := "../../../robots/configs/intel515_parameters.json"
+	err = realMain([]string{"to-las", artifact.MustPath("align/intel515/shelf.both.gz"), jsonFilePath, out2})
 	if err != nil {
 		t.Fatal(err)
 	}

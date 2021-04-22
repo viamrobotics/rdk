@@ -66,10 +66,6 @@ func (cloud *PointCloud) MaxZ() float64 {
 	return cloud.maxZ
 }
 
-func (cloud *PointCloud) AtInt(x, y, z int) Point {
-	return cloud.At(float64(x), float64(y), float64(z))
-}
-
 func (cloud *PointCloud) At(x, y, z float64) Point {
 	return cloud.points[key{x, y, z}]
 }
@@ -123,10 +119,6 @@ func (cloud *PointCloud) Set(p Point) error {
 		cloud.minZ = v.Z
 	}
 	return nil
-}
-
-func (cloud *PointCloud) UnsetInt(x, y, z int) {
-	cloud.Unset(float64(x), float64(y), float64(z))
 }
 
 func (cloud *PointCloud) Unset(x, y, z float64) {

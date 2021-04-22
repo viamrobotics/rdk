@@ -16,6 +16,12 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 	if ii.IsAligned() {
 		return ii, nil
 	}
+	if ii.Color == nil {
+		return nil, fmt.Errorf("no color image present to align")
+	}
+	if ii.Depth == nil {
+		return nil, fmt.Errorf("no depth image present to align")
+	}
 	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
 	if err != nil {
 		return nil, err
@@ -24,7 +30,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 }
 
 // Function that changes the coordinate system of the depth map to be in same coordinate system
-// as the color image, and then crop both images.
+// as the color image, and then crop both images to be the size of the color image.
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
 		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
@@ -62,10 +68,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			}
 		}
 	}
-	crop := image.Rect(xMin, yMin, xMax, yMax)
-	outmap = outmap.SubImage(crop)
-	outcol := img.Color.SubImage(crop)
-	return rimage.MakeImageWithDepth(&outcol, &outmap, true), nil
+	return rimage.MakeImageWithDepth(img.Color, &outmap, true), nil
 }
 
 // Function that takes an aligned or unaligned ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -132,7 +135,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud *po
 }
 
 // Converts a Depth Map to a PointCloud using the depth camera parameters
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (*pointcloud.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params *PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (*pointcloud.PointCloud, error) {
 	// create new point cloud
 	pcOut := pointcloud.New()
 	// go through depth map pixels and get 3D Points

@@ -65,24 +65,12 @@ func (bp *BasicPoint) Value() int {
 	return bp.value
 }
 
-func NewBasicPointInt(x, y, z int) *BasicPoint {
-	return NewBasicPoint(float64(x), float64(y), float64(z))
-}
-
 func NewBasicPoint(x, y, z float64) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}}
 }
 
-func NewColoredPointInt(x, y, z int, c color.NRGBA) *BasicPoint {
-	return NewColoredPoint(float64(x), float64(y), float64(z), c)
-}
-
 func NewColoredPoint(x, y, z float64, c color.NRGBA) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}, c: c, hasColor: true}
-}
-
-func NewValuePointInt(x, y, z int, v int) *BasicPoint {
-	return NewValuePoint(float64(x), float64(y), float64(z), v)
 }
 
 func NewValuePoint(x, y, z float64, v int) *BasicPoint {
