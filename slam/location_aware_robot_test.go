@@ -10,12 +10,14 @@ import (
 
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/slam/v1"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 )
 
 type testHarness struct {
@@ -36,19 +38,19 @@ func newTestHarness(t *testing.T) *testHarness {
 	return newTestHarnessWithLidarAndSize(t, nil, 10, 100)
 }
 
-func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter int) *testHarness {
+func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter float64) *testHarness {
 	return newTestHarnessWithLidarAndSize(t, nil, meters, unitsPerMeter)
 }
 
-func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter int) *testHarness {
+func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter float64) *testHarness {
 	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
 	area, err := NewSquareArea(meters, unitsPerMeter, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
 	if lidarDev == nil {
-		injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-			return image.Point{meters, meters}, nil
+		injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+			return r2.Point{meters, meters}, nil
 		}
 	}
 
@@ -84,8 +86,8 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	area, err := NewSquareArea(10, 100, logger)
 	test.That(t, err, test.ShouldBeNil)
 	injectLidarDev := &inject.LidarDevice{}
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{10, 10}, nil
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+		return r2.Point{10, 10}, nil
 	}
 
 	_, err = NewLocationAwareRobot(
@@ -100,8 +102,8 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	err1 := errors.New("whoops")
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{}, err1
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+		return r2.Point{}, err1
 	}
 
 	_, err = NewLocationAwareRobot(
@@ -115,11 +117,11 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldWrap, err1)
 
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{5, 5}, nil
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+		return r2.Point{5, 5}, nil
 	}
 	injectBase := &inject.Base{Base: baseDevice}
-	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
 		return 0, err1
 	}
 
@@ -224,7 +226,7 @@ func TestMove(t *testing.T) {
 		{"unknown direction", intPtr(200), dirPtr(pb.Direction_DIRECTION_UNSPECIFIED), "do not know how", 0, 0, 0, nil},
 		{"moving fails", intPtr(200), dirPtr(pb.Direction_DIRECTION_RIGHT), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
-			injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+			injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
 				return 600, nil
 			}
 			th.bot.baseDevice = injectBase
@@ -295,8 +297,8 @@ func TestRobotAreasToView(t *testing.T) {
 
 func TestRobotMillimetersToMeasuredUnit(t *testing.T) {
 	for i, tc := range []struct {
-		millis   int
-		expected int
+		millis   float64
+		expected float64
 	}{
 		{0, 0},
 		{1, 1},
@@ -319,32 +321,32 @@ func TestRobotMillimetersToMeasuredUnit(t *testing.T) {
 
 func TestRobotCalculateMove(t *testing.T) {
 	for i, tc := range []struct {
-		basePosX     int
-		basePosY     int
+		basePosX     float64
+		basePosY     float64
 		orientation  float64
 		amountMillis int
 		err          string
-		newCoords    image.Point
+		newCoords    r2.Point
 	}{
-		{-500, -500, 0, 0, "", image.Point{-500, -500}},
-		{-500, -500, 0, 1, "", image.Point{-500, -499}},
-		{-500, -500, 45, 1, "orientation", image.Point{}},
-		{-500, -500, 90, 1, "", image.Point{-499, -500}},
-		{-500, -500, 180, 1, "stuck", image.Point{}},
-		{-500, -500, 270, 1, "stuck", image.Point{}},
-		{0, 0, 0, 1, "", image.Point{0, 1}},
-		{0, 0, 90, 1, "", image.Point{1, 0}},
-		{0, 0, 180, 1, "", image.Point{0, -1}},
-		{0, 0, 270, 1, "", image.Point{-1, 0}},
-		{0, 0, 0, 100, "", image.Point{0, 10}},
-		{0, 0, 90, 100, "", image.Point{10, 0}},
-		{0, 0, 180, 100, "", image.Point{0, -10}},
-		{0, 0, 270, 100, "", image.Point{-10, 0}},
-		{499, 499, 0, 1, "stuck", image.Point{}},
-		{499, 499, 45, 1, "orientation", image.Point{}},
-		{499, 499, 90, 1, "stuck", image.Point{}},
-		{499, 499, 180, 1, "", image.Point{499, 498}},
-		{499, 499, 270, 1, "", image.Point{498, 499}},
+		{-500, -500, 0, 0, "", r2.Point{-500, -500}},
+		{-500, -500, 0, 1, "", r2.Point{-500, -499}},
+		{-500, -500, 45, 1, "orientation", r2.Point{}},
+		{-500, -500, 90, 1, "", r2.Point{-499, -500}},
+		{-500, -500, 180, 1, "stuck", r2.Point{}},
+		{-500, -500, 270, 1, "stuck", r2.Point{}},
+		{0, 0, 0, 1, "", r2.Point{0, 1}},
+		{0, 0, 90, 1, "", r2.Point{1, 0}},
+		{0, 0, 180, 1, "", r2.Point{0, -1}},
+		{0, 0, 270, 1, "", r2.Point{-1, 0}},
+		{0, 0, 0, 100, "", r2.Point{0, 10}},
+		{0, 0, 90, 100, "", r2.Point{10, 0}},
+		{0, 0, 180, 100, "", r2.Point{0, -10}},
+		{0, 0, 270, 100, "", r2.Point{-10, 0}},
+		{499, 499, 0, 1, "stuck", r2.Point{}},
+		{499, 499, 45, 1, "orientation", r2.Point{}},
+		{499, 499, 90, 1, "stuck", r2.Point{}},
+		{499, 499, 180, 1, "", r2.Point{499, 498}},
+		{499, 499, 270, 1, "", r2.Point{498, 499}},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			th := newTestHarness(t)
@@ -364,8 +366,8 @@ func TestRobotCalculateMove(t *testing.T) {
 
 func TestBaseRect(t *testing.T) {
 	for i, tc := range []struct {
-		basePosX int
-		basePosY int
+		basePosX float64
+		basePosY float64
 		rect     image.Rectangle
 	}{
 		{0, 0, image.Rect(-30, -30, 30, 30)},
@@ -377,17 +379,17 @@ func TestBaseRect(t *testing.T) {
 			th := newTestHarness(t)
 			th.bot.basePosX = tc.basePosX
 			th.bot.basePosY = tc.basePosY
-			test.That(t, th.bot.baseRect(), test.ShouldResemble, tc.rect)
+			test.That(t, rimage.R2RectToImageRect(th.bot.baseRect()), test.ShouldResemble, tc.rect)
 		})
 	}
 }
 
 func TestMoveRect(t *testing.T) {
 	for i, tc := range []struct {
-		basePosX    int
-		basePosY    int
-		toX         int
-		toY         int
+		basePosX    float64
+		basePosY    float64
+		toX         float64
+		toY         float64
 		orientation float64
 		rect        image.Rectangle
 		err         string
@@ -413,7 +415,7 @@ func TestMoveRect(t *testing.T) {
 			rect, err := th.bot.moveRect(tc.toX, tc.toY, tc.orientation)
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, rect, test.ShouldResemble, tc.rect)
+				test.That(t, rimage.R2RectToImageRect(rect), test.ShouldResemble, tc.rect)
 				return
 			}
 			test.That(t, err, test.ShouldNotBeNil)
@@ -429,13 +431,13 @@ func TestNewPresentView(t *testing.T) {
 	rootCount := 0
 	presentCount := 0
 	th.bot.rootArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			rootCount++
 			return true
 		})
 	})
 	th.bot.presentViewArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			presentCount++
 			return true
 		})
@@ -445,13 +447,13 @@ func TestNewPresentView(t *testing.T) {
 	test.That(t, th.bot.newPresentView(), test.ShouldBeNil)
 
 	th.bot.rootArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			rootCount++
 			return true
 		})
 	})
 	th.bot.presentViewArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			presentCount++
 			return true
 		})
@@ -471,13 +473,13 @@ func TestNewPresentView(t *testing.T) {
 	test.That(t, th.bot.newPresentView(), test.ShouldBeNil)
 
 	th.bot.rootArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			rootCount++
 			return true
 		})
 	})
 	th.bot.presentViewArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			presentCount++
 			return true
 		})
@@ -494,8 +496,8 @@ func TestNewPresentView(t *testing.T) {
 		"32,49,2": {},
 	}
 	th.bot.rootArea.Mutate(func(area MutableArea) {
-		area.Iterate(func(x, y, v int) bool {
-			delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+		area.Iterate(func(x, y float64, v int) bool {
+			delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 			return true
 		})
 	})
@@ -522,8 +524,8 @@ func testUpdate(t *testing.T, internal bool) {
 
 	for _, tc := range []struct {
 		desc            string
-		basePosX        int
-		basePosY        int
+		basePosX        float64
+		basePosY        float64
 		orientation     float64
 		deviceOffsets   []DeviceOffset
 		allMeasurements []lidar.Measurements
@@ -533,7 +535,7 @@ func testUpdate(t *testing.T, internal bool) {
 		{"base case", 0, 0, 0, nil, nil, "", func(t *testing.T, area *SquareArea) {
 			count := 0
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
 					return true
 				})
@@ -550,9 +552,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -569,9 +571,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -588,9 +590,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -607,9 +609,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"0,100,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -637,9 +639,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -665,9 +667,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"-410,-456,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -710,9 +712,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -741,9 +743,9 @@ func testUpdate(t *testing.T, internal bool) {
 				"-375,136,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
-				area.Iterate(func(x, y, v int) bool {
+				area.Iterate(func(x, y float64, v int) bool {
 					count++
-					delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+					delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 					return true
 				})
 			})
@@ -785,9 +787,10 @@ func testUpdate(t *testing.T, internal bool) {
 					"-375,136,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
-					area.Iterate(func(x, y, v int) bool {
+					area.Iterate(func(x, y float64, v int) bool {
 						count++
-						delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+						t.Logf("%.16f,%.16f,%d", x, y, v)
+						delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 						return true
 					})
 				})
@@ -836,9 +839,10 @@ func testUpdate(t *testing.T, internal bool) {
 					"-365,156,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
-					area.Iterate(func(x, y, v int) bool {
+					area.Iterate(func(x, y float64, v int) bool {
 						count++
-						delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+						t.Logf("%d,%d,%d", int(x), int(y), v)
+						delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 						return true
 					})
 				})
@@ -941,7 +945,7 @@ func TestRobotCull(t *testing.T) {
 		th.bot.cull()
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 
-		th.bot.maxBounds = image.Point{5, 5}
+		th.bot.maxBounds = r2.Point{5, 5}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.Set(1, 2, 3), test.ShouldBeNil)
 			test.That(t, area.Set(0, 4, 3), test.ShouldBeNil)
@@ -1037,8 +1041,8 @@ func TestRobotActive(t *testing.T) {
 		}
 		actual := map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {
-			area.Iterate(func(x, y, v int) bool {
-				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+			area.Iterate(func(x, y float64, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", int(x), int(y), v)] = struct{}{}
 				return true
 			})
 		})
@@ -1090,8 +1094,8 @@ func TestRobotActive(t *testing.T) {
 		}
 		actual := map[string]struct{}{}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
-			area.Iterate(func(x, y, v int) bool {
-				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+			area.Iterate(func(x, y float64, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", int(x), int(y), v)] = struct{}{}
 				return true
 			})
 		})
@@ -1145,8 +1149,8 @@ func TestRobotActive(t *testing.T) {
 		}
 		actual = map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {
-			area.Iterate(func(x, y, v int) bool {
-				actual[fmt.Sprintf("%d,%d,%d", x, y, v)] = struct{}{}
+			area.Iterate(func(x, y float64, v int) bool {
+				actual[fmt.Sprintf("%d,%d,%d", int(x), int(y), v)] = struct{}{}
 				return true
 			})
 		})

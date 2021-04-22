@@ -115,8 +115,8 @@ func TestRobotNext(t *testing.T) {
 
 		for _, tc := range []struct {
 			Seed        int64
-			BasePosX    int
-			BasePosY    int
+			BasePosX    float64
+			BasePosY    float64
 			Zoom        int
 			Orientation int
 			Diff        int
@@ -147,7 +147,7 @@ func TestRobotNext(t *testing.T) {
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1381},
 			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1395},
 		} {
-			testName := fmt.Sprintf("%d_%d_%d_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
+			testName := fmt.Sprintf("%d_%v_%v_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
 			t.Run(testName, func(t *testing.T) {
 				fakeLidar := fake.NewLidar()
 				fakeLidar.SetSeed(tc.Seed)
