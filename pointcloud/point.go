@@ -2,11 +2,11 @@ package pointcloud
 
 import (
 	"image/color"
+
+	"github.com/golang/geo/r3"
 )
 
-type Vec3 struct {
-	X, Y, Z int
-}
+type Vec3 r3.Vector
 
 type Point interface {
 	Position() Vec3
@@ -65,14 +65,14 @@ func (bp *BasicPoint) Value() int {
 	return bp.value
 }
 
-func NewBasicPoint(x, y, z int) *BasicPoint {
+func NewBasicPoint(x, y, z float64) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}}
 }
 
-func NewColoredPoint(x, y, z int, c color.NRGBA) *BasicPoint {
+func NewColoredPoint(x, y, z float64, c color.NRGBA) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}, c: c, hasColor: true}
 }
 
-func NewValuePoint(x, y, z int, v int) *BasicPoint {
+func NewValuePoint(x, y, z float64, v int) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
 }
