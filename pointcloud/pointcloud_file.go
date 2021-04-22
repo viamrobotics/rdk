@@ -175,7 +175,7 @@ func (pc *PointCloud) WriteToFile(fn string) (err error) {
 	return
 }
 
-func _colorToInt(pt Point) int {
+func _colorToPCDInt(pt Point) int {
 	r, g, b := pt.RGB255()
 	x := 0
 
@@ -208,7 +208,7 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 		"POINTS %d\n"+
 		"DATA ascii\n",
 		int(width*height),
-		1, //depth,
+		1,
 		pc.Size(),
 	)
 
@@ -217,6 +217,9 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 	}
 
 	pc.Iterate(func(pt Point) bool {
+		if !pt.HasColor() {
+			return true
+		}
 		position := pt.Position()
 		scaledWidth := (position.X - minX) / width
 		scaledHeight := (position.Y - minY) / height
@@ -226,7 +229,7 @@ func (pc *PointCloud) ToPCD(out io.Writer) error {
 			scaledWidth,
 			scaledHeight,
 			scaledDepth,
-			_colorToInt(pt))
+			_colorToPCDInt(pt))
 		return err == nil
 	})
 
