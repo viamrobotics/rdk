@@ -54,7 +54,7 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 }
 
 func TestAlignIntelWarp(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
 	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestAlignIntelMatrices(t *testing.T) {
 		t.Fatal("no front")
 	}
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestAlignGripper(t *testing.T) {
 		t.Fatal("no combined")
 	}
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)

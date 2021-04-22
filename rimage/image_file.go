@@ -13,8 +13,9 @@ import (
 )
 
 // Function to extract the RGB, Z16, or "both" data from an image file.
-// This returns an image.Image, use BothReadFromFile instead if you want an ImageWithDepth.
-func readImageFromFile(path string) (image.Image, error) {
+// Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
+// Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
+func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	if strings.HasSuffix(path, ".both.gz") {
 		return BothReadFromFile(path, false)
 	}
@@ -33,7 +34,7 @@ func readImageFromFile(path string) (image.Image, error) {
 }
 
 func NewImageFromFile(fn string) (*Image, error) {
-	img, err := readImageFromFile(fn)
+	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
 	if err != nil {
 		return nil, err
 	}

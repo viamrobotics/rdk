@@ -27,7 +27,7 @@ func init() {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), config.Attributes.GetBool("aligned", false)}, nil
+		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), config.Attributes.GetBool("aligned", true)}, nil
 	})
 
 	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
