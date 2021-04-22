@@ -46,12 +46,12 @@ func TestSegmentPlane(t *testing.T) {
 		t.Fatal(err)
 	}
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Segment Plane
-	nIter := 2500
+	nIter := 3000
 	_, _, eq, err := SegmentPlane(cloud, nIter, 0.0025, pixel2meter)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 		t.Fatal(err)
 	}
 	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
-	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 		t.Fatal(err)
 	}
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 		b.Fatal(err)
 	}
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, *depthIntrinsics, depthMin, depthMax)
+	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	if err != nil {
 		b.Fatal(err)
 	}

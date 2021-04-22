@@ -76,6 +76,8 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 		dcaligner, err = calib.NewDepthColorWarpTransforms(attrs, logger)
 	} else if attrs.Has("matrices") {
 		dcaligner, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs, logger)
+	} else if attrs.Has("dummy_align") {
+		dcaligner, err = calib.NewDummyAligner()
 	} else {
 		return nil, fmt.Errorf("no alignment config")
 	}

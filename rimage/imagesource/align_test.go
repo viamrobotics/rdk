@@ -53,6 +53,13 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 	return nil
 }
 
+func TestAlignDummyIntel(t *testing.T) {
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
+	err := d.Process(t, &alignTestHelper{api.AttributeMap{"dummy_align": true, "debug": true}, nil})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
 	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})

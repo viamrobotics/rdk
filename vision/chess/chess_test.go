@@ -86,7 +86,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 }
 
 func TestChessCheatRed1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*")
+	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*", true)
 	err := d.Process(t, &ChessImageProcessDebug{FindChessCornersPinkCheat})
 	if err != nil {
 		t.Fatal(err)

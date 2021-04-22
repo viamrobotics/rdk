@@ -57,7 +57,12 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 	if ii.IsAligned() {
 		return ii, nil
 	}
-
+	if ii.Color == nil {
+		return nil, fmt.Errorf("no color image present to align")
+	}
+	if ii.Depth == nil {
+		return nil, fmt.Errorf("no depth image present to align")
+	}
 	if ii.Color.Width() != dct.ColorInputSize.X ||
 		ii.Color.Height() != dct.ColorInputSize.Y ||
 		ii.Depth.Width() != dct.DepthInputSize.X ||
@@ -90,7 +95,8 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud *pointclou
 	depth := rimage.NewEmptyDepthMap(width, height)
 	//TODO(bijan): naive implementation until we get get more points in the warp config
 	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j, i := pt.Position().X, pt.Position().Y
+		j := pt.Position().X - cloud.MinX()
+		i := pt.Position().Y - cloud.MinY()
 		x, y := int(math.Round(j)), int(math.Round(i))
 		z := int(pt.Position().Z)
 		// if point has color and is inside the RGB image bounds, add it to the images

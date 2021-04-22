@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/calib"
 )
 
 var logger = golog.NewDevelopmentLogger("rimage_both")
@@ -46,20 +47,24 @@ func combineRGBAndZ16(flags *flag.FlagSet, aligned bool) error {
 
 func toLas(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 3 {
-		return fmt.Errorf("to-las needs <both in> <las out> [optional -aligned]")
+		return fmt.Errorf("to-las needs <both in> <aligner config> <las out> [optional -aligned]")
 	}
 
 	img, err := rimage.BothReadFromFile(flags.Arg(1), aligned)
 	if err != nil {
 		return err
 	}
-
-	pc, err := img.Depth.ToPointCloud()
+	cameraMatrices, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(flags.Arg(2))
 	if err != nil {
 		return err
 	}
 
-	return pc.WriteToFile(flags.Arg(2))
+	pc, err := cameraMatrices.ImageWithDepthToPointCloud(img)
+	if err != nil {
+		return err
+	}
+
+	return pc.WriteToFile(flags.Arg(3))
 }
 
 func realMain(args []string) error {
