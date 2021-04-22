@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/color"
+	"io"
 	"path/filepath"
 
 	"github.com/edaniels/golog"
@@ -39,7 +40,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 		}
 	}
 
-	pc := New(logger)
+	pc := New()
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
 		if err != nil {
@@ -48,13 +49,13 @@ func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 		data := p.PointData()
 
 		x, y, z := data.X, data.Y, data.Z
-		if x < minExactFloat64Integer || x > maxExactFloat64Integer ||
-			y < minExactFloat64Integer || y > maxExactFloat64Integer ||
-			z < minExactFloat64Integer || z > maxExactFloat64Integer {
+		if x < minPreciseFloat64 || x > maxPreciseFloat64 ||
+			y < minPreciseFloat64 || y > maxPreciseFloat64 ||
+			z < minPreciseFloat64 || z > maxPreciseFloat64 {
 			logger.Warnf("potential floating point lossiness for LAS point",
-				"point", data, "range", fmt.Sprintf("[%d,%d]", minExactFloat64Integer, maxExactFloat64Integer))
+				"point", data, "range", fmt.Sprintf("[%d,%d]", minPreciseFloat64, maxPreciseFloat64))
 		}
-		pToSet := NewBasicPoint(int(x), int(y), int(z))
+		pToSet := NewBasicPoint(x, y, z)
 
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
@@ -75,17 +76,15 @@ func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 	return pc, nil
 }
 
-func (pc *PointCloud) WriteToFile(fn string) error {
+func (pc *PointCloud) WriteToFile(fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
-		return err
+		return
 	}
-	var successful bool
 	defer func() {
-		if !successful {
-			if err := lf.Close(); err != nil {
-				pc.logger.Debug(err)
-			}
+		cerr := lf.Close()
+		if err == nil {
+			err = cerr
 		}
 	}()
 
@@ -93,10 +92,10 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 	if pc.hasColor {
 		pointFormatID = 2
 	}
-	if err := lf.AddHeader(lidario.LasHeader{
+	if err = lf.AddHeader(lidario.LasHeader{
 		PointFormatID: byte(pointFormatID),
 	}); err != nil {
-		return err
+		return
 	}
 
 	var pVals []int
@@ -109,9 +108,9 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
 			// floating point losiness validated/warned from set/load
-			X:         float64(pos.X),
-			Y:         float64(pos.Y),
-			Z:         float64(pos.Z),
+			X:         pos.X,
+			Y:         pos.Y,
+			Z:         pos.Z,
 			Intensity: 0,
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
@@ -146,8 +145,8 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 				pVals = append(pVals, 0)
 			}
 		}
-		if err := lf.AddLasPoint(lp); err != nil {
-			lastErr = err
+		if lerr := lf.AddLasPoint(lp); lerr != nil {
+			lastErr = lerr
 			return false
 		}
 		return true
@@ -159,19 +158,19 @@ func (pc *PointCloud) WriteToFile(fn string) error {
 			binary.LittleEndian.PutUint64(bytes, uint64(v))
 			buf.Write(bytes)
 		}
-		if err := lf.AddVLR(lidario.VLR{
+		if err = lf.AddVLR(lidario.VLR{
 			UserID:                  "",
 			Description:             pointValueDataTag,
 			BinaryData:              buf.Bytes(),
 			RecordLengthAfterHeader: buf.Len(),
 		}); err != nil {
-			return err
+			return
 		}
 	}
 	if lastErr != nil {
-		return lastErr
+		err = lastErr
+		return
 	}
 
-	successful = true
-	return lf.Close()
+	return
 }

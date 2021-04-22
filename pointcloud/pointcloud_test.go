@@ -3,13 +3,11 @@ package pointcloud
 import (
 	"testing"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	pc := New(logger)
+	pc := New()
 	p0 := NewBasicPoint(0, 0, 0)
 	test.That(t, pc.Set(p0), test.ShouldBeNil)
 	pAt := pc.At(0, 0, 0)
@@ -41,20 +39,20 @@ func TestPointCloudBasic(t *testing.T) {
 
 	test.That(t, pc.At(1, 1, 1), test.ShouldBeNil)
 
-	pMax := NewBasicPoint(minExactFloat64Integer, maxExactFloat64Integer, minExactFloat64Integer)
+	pMax := NewBasicPoint(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64)
 	test.That(t, pc.Set(pMax), test.ShouldBeNil)
 
-	pBad := NewBasicPoint(minExactFloat64Integer-1, maxExactFloat64Integer, minExactFloat64Integer)
+	pBad := NewBasicPoint(minPreciseFloat64-1, maxPreciseFloat64, minPreciseFloat64)
 	err := pc.Set(pBad)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "x component")
 
-	pBad = NewBasicPoint(minExactFloat64Integer, maxExactFloat64Integer+1, minExactFloat64Integer)
+	pBad = NewBasicPoint(minPreciseFloat64, maxPreciseFloat64+1, minPreciseFloat64)
 	err = pc.Set(pBad)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "y component")
 
-	pBad = NewBasicPoint(minExactFloat64Integer, maxExactFloat64Integer, minExactFloat64Integer-1)
+	pBad = NewBasicPoint(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64-1)
 	err = pc.Set(pBad)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "z component")
