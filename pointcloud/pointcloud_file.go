@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/color"
-	"io"
 	"path/filepath"
 
 	"github.com/edaniels/golog"

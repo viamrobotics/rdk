@@ -13,7 +13,7 @@ import (
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	dev.WidthMillisFunc = func(ctx context.Context) (float64, error) {
 		return 600, nil
 	}
 	ang, dist, err := api.DoMove(context.Background(), api.Move{}, dev)

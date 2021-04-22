@@ -25,7 +25,7 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return angleDeg, nil
 }
 
-func (b *Base) WidthMillis(ctx context.Context) (int, error) {
+func (b *Base) WidthMillis(ctx context.Context) (float64, error) {
 	return 600, nil
 }
 
