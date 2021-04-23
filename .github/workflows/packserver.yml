@@ -15,8 +15,8 @@ env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
-  build_and_test:
-    name: Build and Test
+  build_and_pack:
+    name: Build and Pack Server
     runs-on: Pi4
 
     steps:
@@ -38,9 +38,9 @@ jobs:
 
     - name: Add package to repo
       run: |
-	dput local packaging/work/*.changes
+        dput local packaging/work/*.changes
 
     - name: Sync repo to cloud
       run: |
-	gsutil -m rsync -d -r /home/buildbot/debian/debian/viam gs://packages.viam.com/debian/viam
-	gsutil -m setmeta -h "Cache-Control: no-cache" 'gs://packages.viam.com/debian/viam/[A-Z]*'
+        gsutil -m rsync -d -r /home/buildbot/debian/debian/viam gs://packages.viam.com/debian/viam
+        gsutil -m setmeta -h "Cache-Control: no-cache" 'gs://packages.viam.com/debian/viam/[A-Z]*'
