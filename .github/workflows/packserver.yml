@@ -34,7 +34,7 @@ jobs:
 
     - name: Build server package
       run: |
-        make server
+        make deb-server
 
     - name: Add package to repo
       run: |
