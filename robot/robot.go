@@ -281,7 +281,9 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 	r.config = cfg
 
 	for _, procConf := range cfg.Processes {
-		r.processManager.AddProcess(procConf)
+		if err := r.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
+			return nil, err
+		}
 	}
 	if err := r.processManager.Start(ctx); err != nil {
 		return nil, err
