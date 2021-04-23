@@ -2199,7 +2199,7 @@ type LidarRangeResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Range int64 `protobuf:"varint,1,opt,name=range,proto3" json:"range,omitempty"`
+	Range float64 `protobuf:"varint,1,opt,name=range,proto3" json:"range,omitempty"`
 }
 
 func (x *LidarRangeResponse) Reset() {
@@ -2234,7 +2234,7 @@ func (*LidarRangeResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{41}
 }
 
-func (x *LidarRangeResponse) GetRange() int64 {
+func (x *LidarRangeResponse) GetRange() float64 {
 	if x != nil {
 		return x.Range
 	}
@@ -2293,8 +2293,8 @@ type LidarBoundsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	X int64 `protobuf:"varint,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y int64 `protobuf:"varint,2,opt,name=y,proto3" json:"y,omitempty"`
+	X float64 `protobuf:"varint,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y float64 `protobuf:"varint,2,opt,name=y,proto3" json:"y,omitempty"`
 }
 
 func (x *LidarBoundsResponse) Reset() {
@@ -2329,14 +2329,14 @@ func (*LidarBoundsResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{43}
 }
 
-func (x *LidarBoundsResponse) GetX() int64 {
+func (x *LidarBoundsResponse) GetX() float64 {
 	if x != nil {
 		return x.X
 	}
 	return 0
 }
 
-func (x *LidarBoundsResponse) GetY() int64 {
+func (x *LidarBoundsResponse) GetY() float64 {
 	if x != nil {
 		return x.Y
 	}

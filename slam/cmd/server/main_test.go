@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"math"
 	"net"
 	"testing"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 )
@@ -66,8 +66,8 @@ func TestMain(t *testing.T) {
 	})
 	api.RegisterLidarDevice("fail_width", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
 		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-		dev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-			return image.Point{}, errors.New("whoops")
+		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+			return r2.Point{}, errors.New("whoops")
 		}
 		return dev, nil
 	})
