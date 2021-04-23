@@ -1,5 +1,7 @@
-
+{
+  ".DS_Store": "ed4872e251b6afb3d25b0f8c26861ee8",
   "align": {
+    ".DS_Store": "5c8e868d36834f986f7c43de8f928ba3",
     "gripper1": {
       "align-test-1615760748.both.gz": "a4b99c91c6bc68b734499799c05367e7",
       "align-test-1615761783.both.gz": "4d68902ed4ee155b4abcc0ff9ae3a800",
@@ -26,6 +28,7 @@
     }
   },
   "chess": {
+    ".DS_Store": "ace511ba2dbd02b2cd1eb99dbf38ebb4",
     "boardseliot1": {
       "board0-0.94.svg": "83d5fd595d9d64a7b6ee09b125bdb09e",
       "board0-0.95.svg": "98430ba333b167905c2d0fef7666302f",
@@ -997,6 +1000,7 @@
     }
   },
   "segmentation": {
+    ".DS_Store": "db588911abd9aa4bfc56aa50cfa271bc",
     "set_game": {
       "data_00000.both.gz": "74fd61ef0beabcb5fe3c4e4758ff09b6",
       "data_00000.both.json": "a68d90c7f78b5822836dbc798b0b8205",
@@ -1062,31 +1066,32 @@
     }
   },
   "slam": {
-    "0_0_0_1_0.png": "857661bd7ff3dfbbf23020f37aa5ec66",
-    "0_0_0_1_120.png": "39b4f54317ed39b03634ce7e6586cfd6",
-    "0_0_0_1_135.png": "8dc28a257d6532f94e5b9d95dbe5bb34",
-    "0_0_0_1_15.png": "035529db7666cf708a9317de9153b76b",
-    "0_0_0_1_150.png": "bf881d095d7d8e95b0197dd3819cced3",
-    "0_0_0_1_165.png": "d410cdffe4a94e87084d97a023288483",
-    "0_0_0_1_180.png": "0ec82b767fe5d58410e585fe5b0ecb04",
-    "0_0_0_1_195.png": "49a239d4b4b0cbe4fa3e4f166015aca5",
-    "0_0_0_1_210.png": "3c440f014514564fb843e3367b83ff70",
-    "0_0_0_1_225.png": "a5e764220cb27dd1d8c92eaa723c3f1e",
-    "0_0_0_1_240.png": "d0ecfd1d40f1853ad3d29af076ddc108",
-    "0_0_0_1_255.png": "6c75213bf2349d6e6e3c0faec02b3f04",
-    "0_0_0_1_270.png": "3fb66302e2571570f3f7d4433301e266",
-    "0_0_0_1_285.png": "8f01271753b685a3912ff1316067d821",
-    "0_0_0_1_30.png": "14d81057335ac70c5875217b353002a6",
-    "0_0_0_1_315.png": "34b3d6f7e986f712e8ce06eb3ca5f052",
-    "0_0_0_1_330.png": "5ee91ec663f17f0e918b8db598177e70",
-    "0_0_0_1_345.png": "e2abf4bd4b323000aa3d7dfef9586951",
-    "0_0_0_1_45.png": "b6d89ed4ba9216b9ed0a3d57d908aed5",
-    "0_0_0_1_60.png": "befa933c02c1604a2ab05c69cd0b199a",
-    "0_0_0_1_75.png": "9a85cb01de155202fc83689da912352a",
-    "0_0_0_1_90.png": "4c5644343c918e10137128bf9ef427dd",
-    "0_0_0_2_0.png": "83271c7d964b874d94fa3de1a7d5ab8e",
-    "0_0_0_2_90.png": "b761e80299871e074fbc9d20668c392c",
-    "5_5_0_2_90.png": "133eae3d75c50fba2f9f68c0a72666f7",
+    ".DS_Store": "ff7588abc7d1e03b9d893a32a25a8195",
+    "0_0_0_1_0.png": "b26ef5308fe690e032e9d633801d8818",
+    "0_0_0_1_120.png": "6c2f70ba76fa836d8a18454e4ea13592",
+    "0_0_0_1_135.png": "d8d22bb7aa73a513cb80a94760e93122",
+    "0_0_0_1_15.png": "99e613d0c6aa381d81c4caa99486774b",
+    "0_0_0_1_150.png": "41a9e23c3517c6f4bd67d6631e5da417",
+    "0_0_0_1_165.png": "f1b759a633e761e20322ca5a95251813",
+    "0_0_0_1_180.png": "0624c2eed6fc8de1e1c245ac053531b6",
+    "0_0_0_1_195.png": "3c9d262ecc413a66db4033d755a21faf",
+    "0_0_0_1_210.png": "2c8e2f8db6279c7573378f99b8ae1807",
+    "0_0_0_1_225.png": "d425d21de2e8a8e5dd9f1592215ab1d8",
+    "0_0_0_1_240.png": "2d20fbc948667ddc9374a87ceb8433ab",
+    "0_0_0_1_255.png": "d7c9757a88a903b4b0d1dc353675af8f",
+    "0_0_0_1_270.png": "55288c867b4940a62da9bd2bca2c0461",
+    "0_0_0_1_285.png": "dedd3698504364a2893862b3d2909d96",
+    "0_0_0_1_30.png": "f79cb30ecd574539a87c35c6c72d8e29",
+    "0_0_0_1_315.png": "833363ed2a8df3d67a3234a5c231be3a",
+    "0_0_0_1_330.png": "d508dcfe6f2baa049a0b4ce5766681fb",
+    "0_0_0_1_345.png": "0d5f83eb0a0266036d4a8a5aec8d1008",
+    "0_0_0_1_45.png": "9053c971cdb86c7df6ee53f63f114ecd",
+    "0_0_0_1_60.png": "ec4a5a80365b333428fe83f54a24f415",
+    "0_0_0_1_75.png": "f8fc7f0e081ca6b5af85b92c4e161c78",
+    "0_0_0_1_90.png": "477b7b2c6cc4e51259ac40061d06340c",
+    "0_0_0_2_0.png": "1b427ffe5947dabae1f4556d5334e4cc",
+    "0_0_0_2_90.png": "a3bffb0ac4a2d0b6c1e3b02ba58b5fa9",
+    "5_5_0_2_90.png": "9f10bb124f57f8a35c27e2544a4b4ddf",
     "aces.clf": "b02adcaf4b596a3244c4d760fa7bace9"
   },
   "utils": {

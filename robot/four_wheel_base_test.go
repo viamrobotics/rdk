@@ -41,7 +41,7 @@ func TestFourWheelBase1(t *testing.T) {
 
 	cfg := api.Component{
 		Attributes: api.AttributeMap{
-			"widthMillis":              100,
+			"widthMillis":              100.,
 			"wheelCircumferenceMillis": 1000,
 			"board":                    "local",
 			"frontRight":               "fr-m",
@@ -61,7 +61,7 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("basics", func(t *testing.T) {
 		temp, err := base.WidthMillis(ctx)
 		assert.Nil(t, err)
-		assert.Equal(t, 100, temp)
+		assert.Equal(t, 100., temp)
 	})
 
 	t.Run("math", func(t *testing.T) {

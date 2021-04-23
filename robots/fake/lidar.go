@@ -109,7 +109,7 @@ func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Meas
 		return nil, nil
 	}
 	h := fnv.New64()
-	if _, err := h.Write([]byte(fmt.Sprintf("%d,%d", l.posX, l.posY))); err != nil {
+	if _, err := h.Write([]byte(fmt.Sprintf("%v,%v", l.posX, l.posY))); err != nil {
 		return nil, err
 	}
 	r := rand.NewSource(int64(h.Sum64()) + l.seed)
