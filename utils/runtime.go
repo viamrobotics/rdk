@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/edaniels/golog"
 )
@@ -26,10 +25,7 @@ func ContextualMainQuit(main func(ctx context.Context, args []string, logger gol
 
 func contextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, quitSignal bool, logger golog.Logger) {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer func(){
-		stop()
-		<-time.After(time.Second)
-	}()
+	defer stop()
 	if quitSignal {
 		quitC := make(chan os.Signal, 1)
 		signal.Notify(quitC, syscall.SIGQUIT)
@@ -43,7 +39,7 @@ func contextualMain(main func(ctx context.Context, args []string, logger golog.L
 }
 
 var fatal = func(logger golog.Logger, args ...interface{}) {
-	logger.Error(args...)
+	logger.Fatal(args...)
 }
 
 type ctxKey int
