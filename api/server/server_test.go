@@ -23,6 +23,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -970,14 +971,14 @@ func TestServer(t *testing.T) {
 		test.That(t, client.MeasurementsFromProto(scanResp.GetMeasurements()), test.ShouldResemble, ms)
 		test.That(t, capOptions, test.ShouldResemble, lidar.ScanOptions{Count: 4, NoFilter: true})
 
-		device.RangeFunc = func(ctx context.Context) (int, error) {
+		device.RangeFunc = func(ctx context.Context) (float64, error) {
 			return 0, err1
 		}
 		_, err = server.LidarRange(context.Background(), &pb.LidarRangeRequest{
 			Name: "lidar1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		device.RangeFunc = func(ctx context.Context) (int, error) {
+		device.RangeFunc = func(ctx context.Context) (float64, error) {
 			return 5, nil
 		}
 		rangeResp, err := server.LidarRange(context.Background(), &pb.LidarRangeRequest{
@@ -986,15 +987,15 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rangeResp.GetRange(), test.ShouldEqual, 5)
 
-		device.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-			return image.Point{}, err1
+		device.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+			return r2.Point{}, err1
 		}
 		_, err = server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
 			Name: "lidar1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		device.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-			return image.Point{4, 5}, nil
+		device.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+			return r2.Point{4, 5}, nil
 		}
 		boundsResp, err := server.LidarBounds(context.Background(), &pb.LidarBoundsRequest{
 			Name: "lidar1",

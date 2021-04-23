@@ -22,6 +22,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 )
 
 func TestMain(t *testing.T) {
@@ -34,7 +35,7 @@ func TestMain(t *testing.T) {
 	})
 	api.RegisterLidarDevice("fail_width", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
 		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
-		dev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
+		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return image.Point{}, errors.New("whoops")
 		}
 		return dev, nil

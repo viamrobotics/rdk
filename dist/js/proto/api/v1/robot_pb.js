@@ -7997,7 +7997,7 @@ proto.proto.api.v1.LidarRangeResponse.prototype.toObject = function(opt_includeI
  */
 proto.proto.api.v1.LidarRangeResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    range: jspb.Message.getFieldWithDefault(msg, 1, 0)
+    range: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0)
   };
 
   if (includeInstance) {
@@ -8035,7 +8035,7 @@ proto.proto.api.v1.LidarRangeResponse.deserializeBinaryFromReader = function(msg
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setRange(value);
       break;
     default:
@@ -8068,8 +8068,8 @@ proto.proto.api.v1.LidarRangeResponse.prototype.serializeBinary = function() {
 proto.proto.api.v1.LidarRangeResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getRange();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeDouble(
       1,
       f
     );
@@ -8078,11 +8078,11 @@ proto.proto.api.v1.LidarRangeResponse.serializeBinaryToWriter = function(message
 
 
 /**
- * optional int64 range = 1;
+ * optional double range = 1;
  * @return {number}
  */
 proto.proto.api.v1.LidarRangeResponse.prototype.getRange = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
 };
 
 
@@ -8091,7 +8091,7 @@ proto.proto.api.v1.LidarRangeResponse.prototype.getRange = function() {
  * @return {!proto.proto.api.v1.LidarRangeResponse} returns this
  */
 proto.proto.api.v1.LidarRangeResponse.prototype.setRange = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
+  return jspb.Message.setProto3FloatField(this, 1, value);
 };
 
 
@@ -8257,8 +8257,8 @@ proto.proto.api.v1.LidarBoundsResponse.prototype.toObject = function(opt_include
  */
 proto.proto.api.v1.LidarBoundsResponse.toObject = function(includeInstance, msg) {
   var f, obj = {
-    x: jspb.Message.getFieldWithDefault(msg, 1, 0),
-    y: jspb.Message.getFieldWithDefault(msg, 2, 0)
+    x: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0),
+    y: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0)
   };
 
   if (includeInstance) {
@@ -8296,11 +8296,11 @@ proto.proto.api.v1.LidarBoundsResponse.deserializeBinaryFromReader = function(ms
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setX(value);
       break;
     case 2:
-      var value = /** @type {number} */ (reader.readInt64());
+      var value = /** @type {number} */ (reader.readDouble());
       msg.setY(value);
       break;
     default:
@@ -8333,15 +8333,15 @@ proto.proto.api.v1.LidarBoundsResponse.prototype.serializeBinary = function() {
 proto.proto.api.v1.LidarBoundsResponse.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getX();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeDouble(
       1,
       f
     );
   }
   f = message.getY();
-  if (f !== 0) {
-    writer.writeInt64(
+  if (f !== 0.0) {
+    writer.writeDouble(
       2,
       f
     );
@@ -8350,11 +8350,11 @@ proto.proto.api.v1.LidarBoundsResponse.serializeBinaryToWriter = function(messag
 
 
 /**
- * optional int64 x = 1;
+ * optional double x = 1;
  * @return {number}
  */
 proto.proto.api.v1.LidarBoundsResponse.prototype.getX = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
 };
 
 
@@ -8363,16 +8363,16 @@ proto.proto.api.v1.LidarBoundsResponse.prototype.getX = function() {
  * @return {!proto.proto.api.v1.LidarBoundsResponse} returns this
  */
 proto.proto.api.v1.LidarBoundsResponse.prototype.setX = function(value) {
-  return jspb.Message.setProto3IntField(this, 1, value);
+  return jspb.Message.setProto3FloatField(this, 1, value);
 };
 
 
 /**
- * optional int64 y = 2;
+ * optional double y = 2;
  * @return {number}
  */
 proto.proto.api.v1.LidarBoundsResponse.prototype.getY = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
 };
 
 
@@ -8381,7 +8381,7 @@ proto.proto.api.v1.LidarBoundsResponse.prototype.getY = function() {
  * @return {!proto.proto.api.v1.LidarBoundsResponse} returns this
  */
 proto.proto.api.v1.LidarBoundsResponse.prototype.setY = function(value) {
-  return jspb.Message.setProto3IntField(this, 2, value);
+  return jspb.Message.setProto3FloatField(this, 2, value);
 };
 
 
