@@ -1,5 +1,5 @@
 # See https://github.com/mvdan/github-actions-golang for golang nuances
-name: Package Server for Debian
+name: Package Viam-Server
 
 on:
   workflow_dispatch:
@@ -32,7 +32,15 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
-    - name: Build Server
+    - name: Build server package
       run: |
         make server
 
+    - name: Add package to repo
+      run: |
+	dput local packaging/work/*.changes
+
+    - name: Sync repo to cloud
+      run: |
+	gsutil -m rsync -d -r /home/buildbot/debian/debian/viam gs://packages.viam.com/debian/viam
+	gsutil -m setmeta -h "Cache-Control: no-cache" 'gs://packages.viam.com/debian/viam/[A-Z]*'

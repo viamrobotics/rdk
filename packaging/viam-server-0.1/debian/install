@@ -1,0 +1,2 @@
+usr/bin/viam-server
+lib/systemd/system/viam-server.service
