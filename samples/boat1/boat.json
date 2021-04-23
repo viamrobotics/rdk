@@ -65,6 +65,21 @@
               }
           ]
         }
+    ],
+    "remotes": [
+        {
+            "name": "depth",
+            "address": "127.0.0.1:8282"
+        }
+    ],
+    "processes": [
+        {
+            "name": "python3",
+            "cwd" : "/home/erh/robot-py",
+            "args": [ "depth_server.py", "--device", "/dev/serial0"],
+            "log": true
+        }
     ]
+
 }
 

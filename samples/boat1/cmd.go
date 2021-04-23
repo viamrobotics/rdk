@@ -154,7 +154,7 @@ func main() {
 func realMain() error {
 	flag.Parse()
 
-	cfg, err := api.ReadConfig("samples/boat1/boat.json")
+	cfg, err := api.ReadConfig(flag.Arg(0))
 	if err != nil {
 		return err
 	}
