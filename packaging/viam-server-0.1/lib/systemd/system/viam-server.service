@@ -1,15 +1,16 @@
 [Unit]
-Description=Viam Robot
+Description=Viam Robot Server
 After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=0
+ConditionPathExists=/etc/viam.json
 
 [Service]
 Type=simple
 Restart=always
 RestartSec=1
 User=root
-ExecStart=/usr/local/bin/viamserver /etc/viam.json
+ExecStart=/usr/bin/viam-server /etc/viam.json
 
 [Install]
 WantedBy=multi-user.target
