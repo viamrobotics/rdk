@@ -54,7 +54,7 @@ func toLas(flags *flag.FlagSet) error {
 		return err
 	}
 
-	pc, err := img.ToPointCloud(logger)
+	pc, err := img.ToPointCloud()
 	if err != nil {
 		return err
 	}

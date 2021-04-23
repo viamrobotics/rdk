@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -36,7 +35,7 @@ func TestMain(t *testing.T) {
 	api.RegisterLidarDevice("fail_width", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
 		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
-			return image.Point{}, errors.New("whoops")
+			return r2.Point{}, errors.New("whoops")
 		}
 		return dev, nil
 	})
