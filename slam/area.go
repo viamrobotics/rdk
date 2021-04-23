@@ -44,7 +44,7 @@ type SquareArea struct {
 	unitsPerMeter float64
 	dim           float64
 	quadLength    float64
-	cloud         *pointcloud.PointCloud
+	cloud         PointStorage
 }
 
 // PointCloud returns the mutable PointCloud this area uses
