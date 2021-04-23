@@ -100,7 +100,7 @@ func (msa *mutableSquareArea) Iterate(visit func(x, y float64, v int) bool) {
 }
 
 func (msa *mutableSquareArea) At(x, y float64) int {
-	p := msa.cloud.At(x, y, 0)
+	p := msa.cloud.At(math.Round(x), math.Round(y), 0)
 	if p == nil {
 		return 0
 	}
@@ -114,9 +114,9 @@ func (msa *mutableSquareArea) Set(x, y float64, v int) error {
 	if y < -msa.quadLength || y >= msa.quadLength {
 		return fmt.Errorf("y must be between [%v,%v)", -msa.quadLength, msa.quadLength)
 	}
-	return msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
+	return msa.cloud.Set(pointcloud.NewValuePoint(math.Round(x), math.Round(y), 0, v))
 }
 
 func (msa *mutableSquareArea) Unset(x, y float64) {
-	msa.cloud.Unset(x, y, 0)
+	msa.cloud.Unset(math.Round(x), math.Round(y), 0)
 }

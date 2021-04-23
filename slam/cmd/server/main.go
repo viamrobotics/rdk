@@ -123,8 +123,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err error) {
-	areaSizeMeters := 50
-	unitsPerMeter := 100 // cm
+	areaSizeMeters := 50.
+	unitsPerMeter := 100. // cm
 	area, err := slam.NewSquareArea(areaSizeMeters, unitsPerMeter, logger)
 	if err != nil {
 		return err

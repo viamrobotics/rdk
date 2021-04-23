@@ -634,9 +634,9 @@ func testUpdate(t *testing.T, internal bool) {
 			expected := map[string]struct{}{
 				"0,300,3":    {},
 				"143,373,3":  {},
-				"89,43,3":    {},
-				"148,-133,3": {},
-				"-375,136,3": {},
+				"90,44,3":    {},
+				"149,-134,3": {},
+				"-376,137,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y float64, v int) bool {
@@ -663,7 +663,7 @@ func testUpdate(t *testing.T, internal bool) {
 			count := 0
 			expected := map[string]struct{}{
 				"-500,-200,3": {},
-				"-356,-126,3": {},
+				"-357,-127,3": {},
 				"-410,-456,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
@@ -702,14 +702,14 @@ func testUpdate(t *testing.T, internal bool) {
 			expected := map[string]struct{}{
 				"0,300,3":    {},
 				"143,373,3":  {},
-				"89,43,3":    {},
-				"148,-133,3": {},
-				"-370,149,3": {},
-				"10,299,3":   {},
+				"90,44,3":    {},
+				"149,-134,3": {},
+				"-371,150,3": {},
+				"10,300,3":   {},
 				"156,368,3":  {},
-				"91,40,3":    {},
+				"91,41,3":    {},
 				"141,-141,3": {},
-				"-375,136,3": {},
+				"-376,137,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y float64, v int) bool {
@@ -738,9 +738,9 @@ func testUpdate(t *testing.T, internal bool) {
 			expected := map[string]struct{}{
 				"0,300,3":    {},
 				"143,373,3":  {},
-				"89,43,3":    {},
-				"148,-133,3": {},
-				"-375,136,3": {},
+				"90,44,3":    {},
+				"149,-134,3": {},
+				"-376,137,3": {},
 			}
 			area.Mutate(func(area MutableArea) {
 				area.Iterate(func(x, y float64, v int) bool {
@@ -782,14 +782,13 @@ func testUpdate(t *testing.T, internal bool) {
 				expected := map[string]struct{}{
 					"0,300,3":    {},
 					"143,373,3":  {},
-					"89,43,3":    {},
-					"148,-133,3": {},
-					"-375,136,3": {},
+					"90,44,3":    {},
+					"149,-134,3": {},
+					"-376,137,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
 					area.Iterate(func(x, y float64, v int) bool {
 						count++
-						t.Logf("%.16f,%.16f,%d", x, y, v)
 						delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 						return true
 					})
@@ -806,7 +805,7 @@ func testUpdate(t *testing.T, internal bool) {
 					lidar.NewMeasurement(0, 3),
 					lidar.NewMeasurement(21, 4),
 					lidar.NewMeasurement(64, 1),
-					lidar.NewMeasurement(90, .2), // within base
+					lidar.NewMeasurement(90, .3), // within base
 					lidar.NewMeasurement(132, 2),
 					lidar.NewMeasurement(290, 4),
 					lidar.NewMeasurement(180, 10), // out of range
@@ -816,7 +815,7 @@ func testUpdate(t *testing.T, internal bool) {
 					lidar.NewMeasurement(315, 3),
 					lidar.NewMeasurement(336, 4),
 					lidar.NewMeasurement(379, 1),
-					lidar.NewMeasurement(45, .2), // not within base now
+					lidar.NewMeasurement(45, .3), // not within base now
 					lidar.NewMeasurement(87, 2),
 					lidar.NewMeasurement(245, 4),
 					lidar.NewMeasurement(135, 10), // out of range
@@ -827,25 +826,24 @@ func testUpdate(t *testing.T, internal bool) {
 				expected := map[string]struct{}{
 					"0,300,3":    {},
 					"143,373,3":  {},
-					"89,43,3":    {},
-					"148,-133,3": {},
-					"-375,136,3": {},
-
-					"9,320,3":    {},
+					"90,44,3":    {},
+					"149,-134,3": {},
+					"-376,137,3": {},
+					"10,320,3":   {},
 					"153,393,3":  {},
-					"99,63,3":    {},
-					"30,20,3":    {},
-					"158,-113,3": {},
-					"-365,156,3": {},
+					"100,64,3":   {},
+					"40,20,3":    {},
+					"159,-114,3": {},
+					"-366,157,3": {},
 				}
 				area.Mutate(func(area MutableArea) {
 					area.Iterate(func(x, y float64, v int) bool {
 						count++
-						t.Logf("%d,%d,%d", int(x), int(y), v)
 						delete(expected, fmt.Sprintf("%d,%d,%d", int(x), int(y), v))
 						return true
 					})
 				})
+				t.Logf("expected %v", expected)
 				test.That(t, count, test.ShouldEqual, 11)
 				test.That(t, expected, test.ShouldBeEmpty)
 			}},
@@ -1032,12 +1030,12 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 6)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
-			"20,34,1": {},
+			"20,35,1": {},
 			"32,38,1": {},
-			"45,38,1": {},
-			"60,35,2": {},
+			"46,39,1": {},
+			"61,35,2": {},
 			"75,27,2": {},
-			"88,15,2": {},
+			"89,16,2": {},
 		}
 		actual := map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {
@@ -1085,12 +1083,12 @@ func TestRobotActive(t *testing.T) {
 		<-swap
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
-			"20,34,1": {},
+			"20,35,1": {},
 			"32,38,1": {},
-			"45,38,1": {},
-			"60,35,2": {},
+			"46,39,1": {},
+			"61,35,2": {},
 			"75,27,2": {},
-			"88,15,2": {},
+			"89,16,2": {},
 		}
 		actual := map[string]struct{}{}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
@@ -1133,19 +1131,19 @@ func TestRobotActive(t *testing.T) {
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
 		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected = map[string]struct{}{
-			"20,34,1": {},
+			"20,35,1": {},
 			"32,38,1": {},
-			"45,38,1": {},
-			"60,35,2": {},
+			"46,39,1": {},
+			"61,35,2": {},
 			"75,27,2": {},
-			"88,15,2": {},
+			"89,16,2": {},
 
 			"-19,98,2": {},
-			"-45,24,1": {},
-			"-47,38,1": {},
-			"-46,53,1": {},
+			"-45,25,1": {},
+			"-48,39,1": {},
+			"-47,54,1": {},
 			"-42,69,2": {},
-			"-32,84,2": {},
+			"-33,85,2": {},
 		}
 		actual = map[string]struct{}{}
 		th.bot.rootArea.Mutate(func(area MutableArea) {

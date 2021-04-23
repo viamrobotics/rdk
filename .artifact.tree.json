@@ -1,4 +1,4 @@
-{
+
   "align": {
     "gripper1": {
       "align-test-1615760748.both.gz": "a4b99c91c6bc68b734499799c05367e7",
@@ -26,7 +26,6 @@
     }
   },
   "chess": {
-    ".DS_Store": "ace511ba2dbd02b2cd1eb99dbf38ebb4",
     "boardseliot1": {
       "board0-0.94.svg": "83d5fd595d9d64a7b6ee09b125bdb09e",
       "board0-0.95.svg": "98430ba333b167905c2d0fef7666302f",
@@ -1035,6 +1034,8 @@
       "data_00147.both.json": "a68d90c7f78b5822836dbc798b0b8205"
     },
     "test1": {
+      "1occ.both.gz": "eac4e22e469116b19e97df1cbd53be53",
+      "1occ.both.json": "a68d90c7f78b5822836dbc798b0b8205",
       "20210111.1459.32.both.gz": "610c43752629a1d44ad0f0760949e3fe",
       "20210111.1459.32.both.json": "46f16caefdd3419aed39d51116515bf0",
       "20210111.1459.32.both.json~": "a68d90c7f78b5822836dbc798b0b8205",
@@ -1050,6 +1051,8 @@
       "rover_backwards.both.json": "395d5e2e1248ea72f76f860f3ff68e7b",
       "rover_backwards.both.json~": "2e83b0c7994db63a7d4219718a33b7d8",
       "rover_backwards.json~": "a68d90c7f78b5822836dbc798b0b8205",
+      "rover_stuff.both.gz": "54b731552662f5a917837977a83e9900",
+      "rover_stuff.both.json": "a68d90c7f78b5822836dbc798b0b8205",
       "warped-board-1605543525.json": "e59e109ae3954cd5a1c714afdc84693d",
       "warped-board-1605543525.json~": "e817b657be208c18acfec3e334c90981",
       "warped-board-1605543525.png": "35a6fa8537aaa117c88b458b84b03196",
@@ -1059,31 +1062,31 @@
     }
   },
   "slam": {
-    "0_0_0_1_0.png": "4b0ac7366661f892f6423cfad5e49d3f",
-    "0_0_0_1_120.png": "1a425a6950475bd22371b3772778fa6d",
-    "0_0_0_1_135.png": "66b2c25c1cf133caa1a02af05443d0dd",
-    "0_0_0_1_15.png": "0d81005d2ff965ba6b5797681255fddc",
-    "0_0_0_1_150.png": "66de9f7000af6b5d83162cdde4b08242",
-    "0_0_0_1_165.png": "20c7e3697fd99f87ef1fd01d45b0fa54",
-    "0_0_0_1_180.png": "9c288d92a815f9959cef3732dedda523",
-    "0_0_0_1_195.png": "b47ac7952cc8e53d8508a4e59ce40e9a",
-    "0_0_0_1_210.png": "8020fa04db6b6264f293dabdd19f758d",
-    "0_0_0_1_225.png": "9232d7d1aad1598d0d8a64016fcd8811",
-    "0_0_0_1_240.png": "ab826d627a22d9f88e66afbedc4b3078",
-    "0_0_0_1_255.png": "7fdb09b771c3908a32b8f294394dbcee",
-    "0_0_0_1_270.png": "ac092201224da90caa3a520017c52c01",
-    "0_0_0_1_285.png": "646e7de95c34654b038eac7d33925524",
-    "0_0_0_1_30.png": "cbbef5ebd52382567956a2dff110cba3",
-    "0_0_0_1_315.png": "5f23d4db86f6b2d1e23f9a8fbf7ff547",
-    "0_0_0_1_330.png": "04fbb41e12a31b1158d6a18606a270ad",
-    "0_0_0_1_345.png": "68fd091a3b42a85f0300ee9fc934b75f",
-    "0_0_0_1_45.png": "4c503fcec47e8d6d045239106243c35c",
-    "0_0_0_1_60.png": "c4c3c3a11ee8237d7a2384fc6d9f861f",
-    "0_0_0_1_75.png": "3527a0f0e77cf9ebe0bf89cb502643cc",
-    "0_0_0_1_90.png": "6ada38c7a98491762f016fdd7238bcdd",
-    "0_0_0_2_0.png": "cb2b30d0e1ef91e0b8a7399f2250b9f8",
-    "0_0_0_2_90.png": "31201b03f75ee55f013b823265cf0e05",
-    "5_5_0_2_90.png": "4ec683131c08efd4f5165f5d5c12fc76",
+    "0_0_0_1_0.png": "857661bd7ff3dfbbf23020f37aa5ec66",
+    "0_0_0_1_120.png": "39b4f54317ed39b03634ce7e6586cfd6",
+    "0_0_0_1_135.png": "8dc28a257d6532f94e5b9d95dbe5bb34",
+    "0_0_0_1_15.png": "035529db7666cf708a9317de9153b76b",
+    "0_0_0_1_150.png": "bf881d095d7d8e95b0197dd3819cced3",
+    "0_0_0_1_165.png": "d410cdffe4a94e87084d97a023288483",
+    "0_0_0_1_180.png": "0ec82b767fe5d58410e585fe5b0ecb04",
+    "0_0_0_1_195.png": "49a239d4b4b0cbe4fa3e4f166015aca5",
+    "0_0_0_1_210.png": "3c440f014514564fb843e3367b83ff70",
+    "0_0_0_1_225.png": "a5e764220cb27dd1d8c92eaa723c3f1e",
+    "0_0_0_1_240.png": "d0ecfd1d40f1853ad3d29af076ddc108",
+    "0_0_0_1_255.png": "6c75213bf2349d6e6e3c0faec02b3f04",
+    "0_0_0_1_270.png": "3fb66302e2571570f3f7d4433301e266",
+    "0_0_0_1_285.png": "8f01271753b685a3912ff1316067d821",
+    "0_0_0_1_30.png": "14d81057335ac70c5875217b353002a6",
+    "0_0_0_1_315.png": "34b3d6f7e986f712e8ce06eb3ca5f052",
+    "0_0_0_1_330.png": "5ee91ec663f17f0e918b8db598177e70",
+    "0_0_0_1_345.png": "e2abf4bd4b323000aa3d7dfef9586951",
+    "0_0_0_1_45.png": "b6d89ed4ba9216b9ed0a3d57d908aed5",
+    "0_0_0_1_60.png": "befa933c02c1604a2ab05c69cd0b199a",
+    "0_0_0_1_75.png": "9a85cb01de155202fc83689da912352a",
+    "0_0_0_1_90.png": "4c5644343c918e10137128bf9ef427dd",
+    "0_0_0_2_0.png": "83271c7d964b874d94fa3de1a7d5ab8e",
+    "0_0_0_2_90.png": "b761e80299871e074fbc9d20668c392c",
+    "5_5_0_2_90.png": "133eae3d75c50fba2f9f68c0a72666f7",
     "aces.clf": "b02adcaf4b596a3244c4d760fa7bace9"
   },
   "utils": {

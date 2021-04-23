@@ -19,7 +19,7 @@ func init() {
 }
 
 type fourWheelBase struct {
-	widthMillis              int
+	widthMillis              float64
 	wheelCircumferenceMillis int
 	spinSlipFactor           float64
 
@@ -80,7 +80,7 @@ func (base *fourWheelBase) spinMath(angleDeg float64, degsPerSec float64) (pb.Di
 		angleDeg *= -1
 	}
 
-	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
+	wheelTravel := base.spinSlipFactor * base.widthMillis * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
@@ -156,7 +156,7 @@ func (base *fourWheelBase) Close() error {
 	return base.Stop(context.Background())
 }
 
-func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
+func (base *fourWheelBase) WidthMillis(ctx context.Context) (float64, error) {
 	return base.widthMillis, nil
 }
 
@@ -167,7 +167,7 @@ func CreateFourWheelBase(ctx context.Context, r api.Robot, config api.Component,
 	}
 
 	base := &fourWheelBase{
-		widthMillis:              config.Attributes.GetInt("widthMillis", 0),
+		widthMillis:              config.Attributes.GetFloat64("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.GetInt("wheelCircumferenceMillis", 0),
 		spinSlipFactor:           config.Attributes.GetFloat64("spinSlipFactor", 1.0),
 		frontLeft:                board.Motor(config.Attributes.GetString("frontLeft")),
