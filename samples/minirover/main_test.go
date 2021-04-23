@@ -29,7 +29,7 @@ func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger,
 }
 
 func TestCharge1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging3", "*.jpg")
+	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging3", "*.jpg", false)
 	err := d.Process(t, ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)

@@ -14,7 +14,7 @@ import (
 // Function to take an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
 func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
-		return ii, nil
+		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie), nil
 	}
 	if ii.Color == nil {
 		return nil, fmt.Errorf("no color image present to align")
@@ -68,7 +68,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(img.Color, &outmap, true), nil
+	return rimage.MakeImageWithDepth(img.Color, &outmap, true, dcie), nil
 }
 
 // Function that takes an aligned or unaligned ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -77,7 +77,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 	var err error
 	// color and depth images need to already be aligned
 	if ii.IsAligned() {
-		iwd = ii
+		iwd = rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie)
 	} else {
 		iwd, err = dcie.AlignImageWithDepth(ii)
 		if err != nil {
@@ -130,7 +130,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud *po
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, &depth, true), nil
+	return rimage.MakeImageWithDepth(color, &depth, true, dcie), nil
 
 }
 

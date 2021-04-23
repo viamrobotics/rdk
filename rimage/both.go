@@ -25,7 +25,7 @@ func BothReadFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 		return nil, err
 	}
 
-	return &ImageWithDepth{ConvertImage(img), depth, isAligned}, nil
+	return &ImageWithDepth{ConvertImage(img), depth, isAligned, nil}, nil
 }
 
 func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
