@@ -245,6 +245,13 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		return nil, fmt.Errorf("gpioInitialise failed with code: %d", resCode)
 	}
 
+	// with internal sig handling disabled above, we must do it ourselves
+	go func() {
+		<-ctx.Done()
+		piInstance.Close()
+		logger.Debug("GPIO Terminated Properly.")
+	}()
+
 	// setup servos
 	piInstance.servos = map[string]board.Servo{}
 	for _, c := range cfg.Servos {
