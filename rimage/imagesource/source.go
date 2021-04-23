@@ -115,7 +115,7 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned()), func() {}, nil
+	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned(), nil), func() {}, nil
 }
 
 func (hs *HTTPSource) Close() error {

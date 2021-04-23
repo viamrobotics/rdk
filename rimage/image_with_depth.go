@@ -10,14 +10,11 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
+	aligner DepthColorAligner
 }
 
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool) *ImageWithDepth {
-	return &ImageWithDepth{img, dm, aligned}
-}
-
-func (i *ImageWithDepth) IsAligned() bool {
-	return i.aligned
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, aligner DepthColorAligner) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned, aligner}
 }
 
 func (i *ImageWithDepth) Bounds() image.Rectangle {
@@ -41,11 +38,10 @@ func (i *ImageWithDepth) Height() int {
 }
 
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.IsAligned()}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.aligner}
 }
 
 func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
-	aligned := i.IsAligned()
 	m2 := GetPerspectiveTransform(src, dst)
 
 	img := WarpImage(i.Color, m2, newSize)
@@ -56,7 +52,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = &dm2
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, aligned}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.aligner}
 }
 
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
@@ -170,7 +166,7 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 		return nil, err
 	}
 
-	return &ImageWithDepth{img, dm, isAligned}, nil
+	return &ImageWithDepth{img, dm, isAligned, nil}, nil
 }
 
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
@@ -189,7 +185,7 @@ func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth
 			img.Width(), img.Height(), dm.Width(), dm.Height())
 	}
 
-	return &ImageWithDepth{img, dm, isAligned}, nil
+	return &ImageWithDepth{img, dm, isAligned, nil}, nil
 }
 
 func imageToDepthMap(img image.Image) *DepthMap {
@@ -215,8 +211,8 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x
 	case *Image:
-		return &ImageWithDepth{x, nil, false}
+		return &ImageWithDepth{x, nil, false, nil}
 	default:
-		return &ImageWithDepth{ConvertImage(img), nil, false}
+		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
 	}
 }
