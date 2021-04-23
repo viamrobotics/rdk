@@ -2,11 +2,14 @@ package robot_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
@@ -183,4 +186,50 @@ func TestConfigRemote(t *testing.T) {
 	if err := r2.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+type dummyBoard struct {
+	board.Board
+	closeCount int
+}
+
+func (db *dummyBoard) Close() error {
+	db.closeCount++
+	return nil
+}
+
+func TestNewRobotTeardown(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	var dummyBoard1 dummyBoard
+	board.RegisterBoard("dummy", func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
+		return &dummyBoard1, nil
+	})
+	api.RegisterGripper("dummy", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+		return nil, errors.New("whoops")
+	})
+
+	const failingConfig = `{
+	"boards": [
+		{
+			"model": "dummy",
+			"name": "board1"
+		}
+	],
+    "components": [
+        {
+            "model": "dummy",
+            "name": "gripper1",
+            "type": "gripper"
+        }
+    ]
+}
+`
+	cfg, err := api.ReadConfigFromReader("", strings.NewReader(failingConfig))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = robot.NewRobot(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
+	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)
 }
