@@ -24,7 +24,7 @@ func ContextualMainQuit(main func(ctx context.Context, args []string, logger gol
 }
 
 func contextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, quitSignal bool, logger golog.Logger) {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if quitSignal {
 		quitC := make(chan os.Signal, 1)
