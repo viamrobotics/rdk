@@ -59,11 +59,12 @@ python-macos:
 server:
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server robot/cmd/server/main.go
 
-deb-server:
+deb-server: server
 	rm -rf packaging/work/
 	mkdir packaging/work/
 	cp -r packaging/viam-server-0.1/ packaging/work/
-	go build $(TAGS) -o packaging/work/viam-server-0.1/usr/bin/viam-server robot/cmd/server/main.go
+	install -D $(BIN_OUTPUT_PATH)/server packaging/work/viam-server-0.1/usr/bin/viam-server
+	install -m 644 -D robot/web/*.html --target-directory=packaging/work/viam-server-0.1/usr/share/viam/
 	cd packaging/work/viam-server-0.1/ \
 	&& dch -v 0.1+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
