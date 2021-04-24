@@ -45,7 +45,7 @@ func (app *robotWebApp) Init() error {
 	var err error
 	if app.options.TemplateDir != "" {
 		templateDir, err = filepath.Abs(app.options.TemplateDir)
-	}else{
+	} else {
 		_, thisFilePath, _, _ := runtime.Caller(0)
 		templateDir, err = filepath.Abs(filepath.Dir(thisFilePath))
 	}
