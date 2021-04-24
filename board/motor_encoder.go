@@ -149,7 +149,7 @@ func (m *encodedMotor) startSingleEncoderThread(ctx context.Context) {
 			} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 				m.curPosition--
 				stop = m.isRegulated() && m.curPosition <= m.setPoint
-			} else {
+			} else if rpmDebug {
 				m.logger.Warnf("got encoder tick but motor should be off")
 			}
 

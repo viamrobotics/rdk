@@ -76,7 +76,7 @@
     },
     {
       "name": "bash",
-      "args": ["-c", "while true; do echo hey; sleep 2; done"],
+      "args": ["-c", "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"],
       "log": true
     }
   ]
