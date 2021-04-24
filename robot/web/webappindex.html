@@ -389,11 +389,15 @@
             <tr>
               <th>${m[0]}</th>
               <td>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: 1.0})">----</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .75})">---</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .50})">--</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'backward', s: .25})">-</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'none', s: 0})">0</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .25})">+</button>
                 <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .50})">++</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: .75})">+++</button>
+                <button v-on:click="motorButton(board[0], m[0], {d:'forward', s: 1.0})">++++</button>
               </td>
             </tr>
             <tr>
