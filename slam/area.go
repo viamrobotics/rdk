@@ -7,23 +7,24 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/pointcloud"
 )
 
 func NewSquareArea(sizeMeters float64, unitsPerMeter float64, logger golog.Logger) (*SquareArea, error) {
-	cloud := pointcloud.New()
-	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
+	storage := NewRoundingPointCloud()
+	return SquareAreaFromPointStorage(storage, sizeMeters, unitsPerMeter)
 }
 
 func NewSquareAreaFromFile(fn string, sizeMeters float64, unitsPerMeter float64, logger golog.Logger) (*SquareArea, error) {
-	cloud, err := pointcloud.NewFromFile(fn, logger)
+	storage, err := NewRoundingPointCloudFromFile(fn, logger)
 	if err != nil {
 		return nil, err
 	}
-	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
+	return SquareAreaFromPointStorage(storage, sizeMeters, unitsPerMeter)
 }
 
-func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters float64, unitsPerMeter float64) (*SquareArea, error) {
+func SquareAreaFromPointStorage(storage PointStorage, sizeMeters float64, unitsPerMeter float64) (*SquareArea, error) {
 	sizeUnits := sizeMeters * unitsPerMeter
 	if int(math.Round(sizeUnits))%2 != 0 {
 		return nil, errors.New("sizeMeters * unitsPerMeter must be divisible by 2")
@@ -34,7 +35,7 @@ func SquareAreaFromPointCloud(cloud *pointcloud.PointCloud, sizeMeters float64, 
 		unitsPerMeter: unitsPerMeter,
 		dim:           sizeUnits,
 		quadLength:    sizeUnits / 2,
-		cloud:         cloud,
+		storage:       storage,
 	}, nil
 }
 
@@ -44,13 +45,13 @@ type SquareArea struct {
 	unitsPerMeter float64
 	dim           float64
 	quadLength    float64
-	cloud         PointStorage
+	storage       PointStorage
 }
 
-// PointCloud returns the mutable PointCloud this area uses
+// PointStorage returns the mutable PointStorage this area uses
 // to store its points.
-func (sa *SquareArea) PointCloud() *pointcloud.PointCloud {
-	return sa.cloud
+func (sa *SquareArea) PointStorage() PointStorage {
+	return sa.storage
 }
 
 func (sa *SquareArea) BlankCopy(logger golog.Logger) (*SquareArea, error) {
@@ -74,7 +75,7 @@ func (sa *SquareArea) QuadrantLength() float64 {
 }
 
 func (sa *SquareArea) WriteToFile(fn string) error {
-	return sa.cloud.WriteToFile(fn)
+	return sa.storage.WriteToFile(fn)
 }
 
 type MutableArea interface {
@@ -93,14 +94,14 @@ func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 type mutableSquareArea SquareArea
 
 func (msa *mutableSquareArea) Iterate(visit func(x, y float64, v int) bool) {
-	msa.cloud.Iterate(func(p pointcloud.Point) bool {
+	msa.storage.Iterate(func(p pointcloud.Point) bool {
 		pos := p.Position()
 		return visit(pos.X, pos.Y, p.Value())
 	})
 }
 
 func (msa *mutableSquareArea) At(x, y float64) int {
-	p := msa.cloud.At(math.Round(x), math.Round(y), 0)
+	p := msa.storage.At(x, y)
 	if p == nil {
 		return 0
 	}
@@ -114,9 +115,9 @@ func (msa *mutableSquareArea) Set(x, y float64, v int) error {
 	if y < -msa.quadLength || y >= msa.quadLength {
 		return fmt.Errorf("y must be between [%v,%v)", -msa.quadLength, msa.quadLength)
 	}
-	return msa.cloud.Set(pointcloud.NewValuePoint(math.Round(x), math.Round(y), 0, v))
+	return msa.storage.Set(x, y, v)
 }
 
 func (msa *mutableSquareArea) Unset(x, y float64) {
-	msa.cloud.Unset(math.Round(x), math.Round(y), 0)
+	msa.storage.Unset(x, y)
 }
