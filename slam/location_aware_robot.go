@@ -300,7 +300,7 @@ func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount float64) float64
 	if amountNeg {
 		amount *= -1
 	}
-	units := math.Ceil(float64(amount) / float64((1000 / lar.unitsPerMeter)))
+	units := math.Ceil(amount / (1000 / lar.unitsPerMeter))
 	if amountNeg {
 		return units * -1
 	}
@@ -353,7 +353,7 @@ const detectionBufferMillis = 150
 func (lar *LocationAwareRobot) moveRect(toX, toY float64, orientation float64) (r2.Rect, error) {
 	bufferScaled := lar.millimetersToMeasuredUnit(detectionBufferMillis)
 	baseRect := lar.baseRect()
-	distX, distY := math.Abs(float64(lar.basePosX-toX)), math.Abs(float64(lar.basePosY-toY))
+	distX, distY := math.Abs(lar.basePosX-toX), math.Abs(lar.basePosY-toY)
 	var pathX0, pathY0, pathX1, pathY1 float64
 	switch orientation {
 	case 0:

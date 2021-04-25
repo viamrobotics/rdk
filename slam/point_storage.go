@@ -22,7 +22,7 @@ type PointStorage interface {
 
 // RoundingPointCloud is a simple PointStorage implementation that rounds all points to the closest
 // integer before it sets or gets the location. The bare floats measured from devices are not
-// stored because even if the points only 0.00000000002 apart, they would be considered different
+// stored because even if the points are only 0.00000000002 apart, they would be considered different
 // locations.
 type RoundingPointCloud struct {
 	pc *pointcloud.PointCloud
