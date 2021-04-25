@@ -254,7 +254,6 @@ func TestClient(t *testing.T) {
 	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
 		return lidar.Measurements{lidar.NewMeasurement(2, 40)}, nil
 	}
-	t.Logf("I made it to right before RangeFun\n")
 	injectLidarDev.RangeFunc = func(ctx context.Context) (float64, error) {
 		return 25, nil
 	}

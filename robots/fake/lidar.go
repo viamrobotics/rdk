@@ -128,7 +128,7 @@ func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Meas
 	}
 	for i := 0; i < cap(measurements); i++ {
 		measurements = append(measurements, lidar.NewMeasurement(
-			getFloat64()*360, getFloat64()*float64(rang)))
+			getFloat64()*360, getFloat64()*rang))
 	}
 	return measurements, nil
 }
