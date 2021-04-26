@@ -70,6 +70,9 @@ deb-server: server
 	&& dch -r viam \
 	&& dpkg-buildpackage -us -uc -b \
 
+deb-install: deb-server
+	sudo dpkg -i packaging/work/viam-server_0.1+*.deb
+
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
 
