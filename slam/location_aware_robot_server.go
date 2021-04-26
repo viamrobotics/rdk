@@ -216,25 +216,24 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 	case pb.ClickMode_CLICK_MODE_INFO:
 		_, bounds, areas := lar.areasToView()
 
-		bounds.X = int(math.Ceil(float64(bounds.X) * float64(lar.unitsPerMeter) / lar.clientZoom))
-		bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(lar.unitsPerMeter) / lar.clientZoom))
+		bounds.X = math.Ceil(bounds.X * lar.unitsPerMeter / lar.clientZoom)
+		bounds.Y = math.Ceil(bounds.Y * lar.unitsPerMeter / lar.clientZoom)
 
 		basePosX, basePosY := lar.basePos()
 		minX := basePosX - bounds.X/2
 		minY := basePosY - bounds.Y/2
 
-		areaX := minX + int(float64(bounds.X)*(float64(x)/float64(viewWidth)))
-		areaY := minY + int(float64(bounds.Y)*(float64(y)/float64(viewHeight)))
+		areaX := minX + bounds.X*(float64(x)/float64(viewWidth))
+		areaY := minY + bounds.Y*(float64(y)/float64(viewHeight))
 
-		distanceCenterF := math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY))))
-		distanceCenter := int(distanceCenterF)
+		distanceCenter := math.Sqrt(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - basePosY) * (areaY - basePosY)))
 		frontY := basePosY - lar.baseDeviceWidthUnits/2
-		distanceFront := int(math.Sqrt(float64(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))))
+		distanceFront := math.Sqrt(((areaX - basePosX) * (areaX - basePosX)) + ((areaY - frontY) * (areaY - frontY)))
 
 		xForAngle := (areaX - basePosX)
 		yForAngle := (areaY - basePosY)
 		yForAngle *= -1
-		angelCenterRad := math.Atan2(float64(xForAngle), float64(yForAngle))
+		angelCenterRad := math.Atan2(xForAngle, yForAngle)
 		angleCenter := utils.RadToDeg(angelCenterRad)
 		if angleCenter < 0 {
 			angleCenter = 360 + angleCenter
@@ -250,7 +249,7 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 			}
 		}
 
-		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f,%f, distanceCenter=%dcm distanceFront=%dcm", areaX, areaY, present, angleCenter, angelCenterRad, distanceCenter, distanceFront), nil
+		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f,%f, distanceCenter=%dcm distanceFront=%dcm", int(areaX), int(areaY), present, angleCenter, angelCenterRad, int(distanceCenter), int(distanceFront)), nil
 	default:
 		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
 	}

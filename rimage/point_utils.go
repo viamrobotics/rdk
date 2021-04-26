@@ -6,6 +6,8 @@ import (
 	"math"
 
 	"go.viam.com/robotcore/utils"
+
+	"github.com/golang/geo/r2"
 )
 
 var (
@@ -129,4 +131,16 @@ func AllPointsIn(size image.Point, pts []image.Point) bool {
 	}
 
 	return true
+}
+
+func R2PointToImagePoint(pt r2.Point) image.Point {
+	return image.Point{int(math.Round(pt.X)), int(math.Round(pt.Y))}
+}
+
+func R2RectToImageRect(rec r2.Rect) image.Rectangle {
+	return image.Rectangle{R2PointToImagePoint(rec.Lo()), R2PointToImagePoint(rec.Hi())}
+}
+
+func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
+	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
 }

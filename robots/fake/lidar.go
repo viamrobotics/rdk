@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
-	"image"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r2"
 )
 
 const LidarDeviceType = ModelName
@@ -37,7 +37,7 @@ func init() {
 // A Lidar outputs noisy scans based on its current position and seed.
 type Lidar struct {
 	mu         sync.Mutex
-	posX, posY int
+	posX, posY float64
 	started    bool
 	seed       int64
 }
@@ -46,7 +46,7 @@ func NewLidar() *Lidar {
 	return &Lidar{}
 }
 
-func (l *Lidar) SetPosition(pos image.Point) {
+func (l *Lidar) SetPosition(pos r2.Point) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.posX = pos.X
@@ -85,7 +85,7 @@ func (l *Lidar) Close() error {
 	return l.Stop(context.Background())
 }
 
-func (l *Lidar) Range(ctx context.Context) (int, error) {
+func (l *Lidar) Range(ctx context.Context) (float64, error) {
 	return 25, nil
 }
 
@@ -93,13 +93,13 @@ func (l *Lidar) AngularResolution(ctx context.Context) (float64, error) {
 	return 1, nil
 }
 
-func (l *Lidar) Bounds(ctx context.Context) (image.Point, error) {
+func (l *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	r, err := l.Range(ctx)
 	if err != nil {
-		return image.Point{}, err
+		return r2.Point{}, err
 	}
 	x := r * 2
-	return image.Point{x, x}, nil
+	return r2.Point{x, x}, nil
 }
 
 func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
@@ -109,7 +109,7 @@ func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Meas
 		return nil, nil
 	}
 	h := fnv.New64()
-	if _, err := h.Write([]byte(fmt.Sprintf("%d,%d", l.posX, l.posY))); err != nil {
+	if _, err := h.Write([]byte(fmt.Sprintf("%v,%v", l.posX, l.posY))); err != nil {
 		return nil, err
 	}
 	r := rand.NewSource(int64(h.Sum64()) + l.seed)
@@ -128,7 +128,7 @@ func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Meas
 	}
 	for i := 0; i < cap(measurements); i++ {
 		measurements = append(measurements, lidar.NewMeasurement(
-			getFloat64()*360, getFloat64()*float64(rang)))
+			getFloat64()*360, getFloat64()*rang))
 	}
 	return measurements, nil
 }

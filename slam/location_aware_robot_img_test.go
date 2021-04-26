@@ -115,39 +115,39 @@ func TestRobotNext(t *testing.T) {
 
 		for _, tc := range []struct {
 			Seed        int64
-			BasePosX    int
-			BasePosY    int
+			BasePosX    float64
+			BasePosY    float64
 			Zoom        int
 			Orientation int
 			Diff        int
 		}{
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 0, Diff: 1483},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 15, Diff: 1441},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 30, Diff: 1392},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 45, Diff: 1371},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 60, Diff: 1339},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 75, Diff: 1326},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 90, Diff: 1391},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 120, Diff: 1334},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 0, Diff: 1452},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 15, Diff: 1419},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 30, Diff: 1388},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 45, Diff: 1387},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 60, Diff: 1336},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 75, Diff: 1342},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 90, Diff: 1381},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 120, Diff: 1345},
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 135, Diff: 1350},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 150, Diff: 1315},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 165, Diff: 1343},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 180, Diff: 1421},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 150, Diff: 1346},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 165, Diff: 1325},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 180, Diff: 1396},
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 195, Diff: 1347},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 210, Diff: 1290},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 225, Diff: 1410},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 210, Diff: 1270},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 225, Diff: 1392},
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 240, Diff: 1374},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 255, Diff: 1430},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 270, Diff: 1453},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 285, Diff: 1486},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 315, Diff: 1454},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 255, Diff: 1419},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 270, Diff: 1441},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 285, Diff: 1474},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 315, Diff: 1442},
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 330, Diff: 1424},
 			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 1, Orientation: 345, Diff: 1441},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 0, Diff: 1473},
-			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1381},
-			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1395},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 0, Diff: 1442},
+			{Seed: 0, BasePosX: 0, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1370},
+			{Seed: 5, BasePosX: 5, BasePosY: 0, Zoom: 2, Orientation: 90, Diff: 1369},
 		} {
-			testName := fmt.Sprintf("%d_%d_%d_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
+			testName := fmt.Sprintf("%d_%v_%v_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
 			t.Run(testName, func(t *testing.T) {
 				fakeLidar := fake.NewLidar()
 				fakeLidar.SetSeed(tc.Seed)

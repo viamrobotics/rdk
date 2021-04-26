@@ -10,9 +10,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jblindsay/lidario"
+
+	"go.uber.org/multierr"
 )
 
-func NewFromFile(fn string, logger golog.Logger) (*PointCloud, error) {
+func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":
 		return NewFromLASFile(fn, logger)
@@ -23,7 +25,7 @@ func NewFromFile(fn string, logger golog.Logger) (*PointCloud, error) {
 
 const pointValueDataTag = "rc|pv"
 
-func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
+func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
 		return nil, err
@@ -76,16 +78,14 @@ func NewFromLASFile(fn string, logger golog.Logger) (*PointCloud, error) {
 	return pc, nil
 }
 
-func (pc *PointCloud) WriteToFile(fn string) (err error) {
+func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
 		return
 	}
 	defer func() {
 		cerr := lf.Close()
-		if err == nil {
-			err = cerr
-		}
+		err = multierr.Combine(err, cerr)
 	}()
 
 	pointFormatID := 0
@@ -185,7 +185,7 @@ func _colorToPCDInt(pt Point) int {
 	return x
 }
 
-func (pc *PointCloud) ToPCD(out io.Writer) error {
+func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 	if !pc.HasColor() {
 		return fmt.Errorf("no color data")
 	}

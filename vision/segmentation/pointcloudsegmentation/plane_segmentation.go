@@ -13,7 +13,7 @@ import (
 )
 
 // Extract the positions of the points from the pointcloud into an r3 slice.
-func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
+func GetPointCloudPositions(cloud pc.PointCloud) []r3.Vector {
 	positions := make([]r3.Vector, 0, cloud.Size())
 	cloud.Iterate(func(pt pc.Point) bool {
 		positions = append(positions, r3.Vector(pt.Position()))
@@ -23,7 +23,7 @@ func GetPointCloudPositions(cloud *pc.PointCloud) []r3.Vector {
 }
 
 // Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.
-func PointCloudSplit(cloud *pc.PointCloud, inMap map[r3.Vector]bool) (*pc.PointCloud, *pc.PointCloud, error) {
+func PointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointCloud, pc.PointCloud, error) {
 	mapCloud := pc.New()
 	nonMapCloud := pc.New()
 	var err error
@@ -52,7 +52,7 @@ func PointCloudSplit(cloud *pc.PointCloud, inMap map[r3.Vector]bool) (*pc.PointC
 // pixel2meter is the conversion factor from the depth value to its value in meters
 // This function returns 2 pointclouds, the pointcloud of the plane and one without the plane
 // It also returns the equation of the found plane
-func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, *pc.PointCloud, []float64, error) {
+func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold, pixel2meter float64) (pc.PointCloud, pc.PointCloud, []float64, error) {
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 	bestEquation := make([]float64, 4)
@@ -101,7 +101,7 @@ func SegmentPlane(cloud *pc.PointCloud, nIterations int, threshold, pixel2meter 
 
 // utils for 3D float Points transforms
 // Get plane 2D mask obtained from depth data in RGB image coordinates
-func GetPlaneMaskRGBPointCloud(depthImage *rimage.DepthMap, coordinates *pc.PointCloud) image.Image {
+func GetPlaneMaskRGBPointCloud(depthImage *rimage.DepthMap, coordinates pc.PointCloud) image.Image {
 	h, w := depthImage.Height(), depthImage.Width()
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{w, h}

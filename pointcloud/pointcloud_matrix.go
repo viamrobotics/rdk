@@ -7,7 +7,7 @@ import (
 )
 
 // creates a dense, expensive copy
-func (pc *PointCloud) ToVec2Matrix() (*utils.Vec2Matrix, error) {
+func (pc *basicPointCloud) ToVec2Matrix() (*utils.Vec2Matrix, error) {
 	denseZ, err := pc.DenseZ(0)
 	if err != nil {
 		return nil, err

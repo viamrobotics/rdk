@@ -173,7 +173,7 @@ func TestServer(t *testing.T) {
 		for i := 0; i < 23; i++ {
 			resp, err = server.MoveRobot(context.Background(), &pb.MoveRobotRequest{Direction: pb.Direction_DIRECTION_RIGHT})
 			test.That(t, err, test.ShouldBeNil)
-			expectedX := origPosX + th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i)
+			expectedX := origPosX + th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2.+float64(i))
 			expectedY := origPosY
 			test.That(t, resp, test.ShouldResemble, &pb.MoveRobotResponse{
 				NewPosition: &pb.BasePosition{
@@ -224,7 +224,7 @@ func TestServer(t *testing.T) {
 			resp, err = server.MoveRobotForward(context.Background(), &pb.MoveRobotForwardRequest{})
 			test.That(t, err, test.ShouldBeNil)
 			expectedX := origPosX
-			expectedY := origPosY + th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i)
+			expectedY := origPosY + th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2.+float64(i))
 			test.That(t, resp, test.ShouldResemble, &pb.MoveRobotForwardResponse{
 				NewPosition: &pb.BasePosition{
 					X: int64(expectedX),
@@ -276,7 +276,7 @@ func TestServer(t *testing.T) {
 			resp, err = server.MoveRobotBackward(context.Background(), &pb.MoveRobotBackwardRequest{})
 			test.That(t, err, test.ShouldBeNil)
 			expectedX := origPosX
-			expectedY := origPosY - th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2+i)
+			expectedY := origPosY - th.bot.millimetersToMeasuredUnit(defaultClientMoveAmountMillis)*(2.+float64(i))
 			test.That(t, resp, test.ShouldResemble, &pb.MoveRobotBackwardResponse{
 				NewPosition: &pb.BasePosition{
 					X: int64(expectedX),
