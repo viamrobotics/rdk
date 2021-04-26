@@ -912,7 +912,7 @@ func TestRobotCull(t *testing.T) {
 		})
 
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 7)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 7)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(1, 2), test.ShouldEqual, 2)
 			test.That(t, area.At(0, 4), test.ShouldEqual, 2)
@@ -924,7 +924,7 @@ func TestRobotCull(t *testing.T) {
 		})
 
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 7)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 7)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(1, 2), test.ShouldEqual, 1)
 			test.That(t, area.At(0, 4), test.ShouldEqual, 1)
@@ -936,12 +936,12 @@ func TestRobotCull(t *testing.T) {
 		})
 
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 1)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 1)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(7, 6), test.ShouldEqual, 1)
 		})
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 0)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 
 		th.bot.maxBounds = r2.Point{5, 5}
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
@@ -956,7 +956,7 @@ func TestRobotCull(t *testing.T) {
 		th.bot.cull()
 		th.bot.cull()
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 3)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 3)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(7, 6), test.ShouldEqual, 1)
 			test.That(t, area.At(20, 499), test.ShouldEqual, 3)
@@ -964,7 +964,7 @@ func TestRobotCull(t *testing.T) {
 		})
 		th.bot.cull()
 		th.bot.cull()
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 2)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 2)
 		th.bot.presentViewArea.Mutate(func(area MutableArea) {
 			test.That(t, area.At(20, 499), test.ShouldEqual, 3)
 			test.That(t, area.At(-350, -40), test.ShouldEqual, 3)
@@ -1027,8 +1027,8 @@ func TestRobotActive(t *testing.T) {
 		<-waitCh
 		test.That(t, th.bot.Stop(), test.ShouldBeNil)
 
-		test.That(t, th.bot.rootArea.PointStorage().Size(), test.ShouldEqual, 6)
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 0)
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 6)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
 			"20,35,1": {},
 			"32,38,1": {},
@@ -1081,7 +1081,7 @@ func TestRobotActive(t *testing.T) {
 		}
 
 		<-swap
-		test.That(t, th.bot.rootArea.PointStorage().Size(), test.ShouldEqual, 0)
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected := map[string]struct{}{
 			"20,35,1": {},
 			"32,38,1": {},
@@ -1117,8 +1117,8 @@ func TestRobotActive(t *testing.T) {
 		moveAmount := 20
 		moveDir := pb.Direction_DIRECTION_LEFT
 		test.That(t, th.bot.Move(context.Background(), &moveAmount, &moveDir), test.ShouldBeNil)
-		test.That(t, th.bot.rootArea.PointStorage().Size(), test.ShouldEqual, (cullTTL-1)*th.scansPerCull)
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 0)
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, (cullTTL-1)*th.scansPerCull)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 
 		waitCh := waitForCulls(th, waitFor, func() {
 			th.bot.SignalStop()
@@ -1128,8 +1128,8 @@ func TestRobotActive(t *testing.T) {
 		<-waitCh
 		test.That(t, th.bot.Stop(), test.ShouldBeNil)
 
-		test.That(t, th.bot.rootArea.PointStorage().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
-		test.That(t, th.bot.presentViewArea.PointStorage().Size(), test.ShouldEqual, 0)
+		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 2*(cullTTL-1)*th.scansPerCull)
+		test.That(t, th.bot.presentViewArea.PointCloud().Size(), test.ShouldEqual, 0)
 		expected = map[string]struct{}{
 			"20,35,1": {},
 			"32,38,1": {},

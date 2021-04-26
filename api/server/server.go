@@ -307,7 +307,7 @@ func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	return &pb.LidarRangeResponse{Range: r}, nil
+	return &pb.LidarRangeResponse{Range: int64(r)}, nil
 }
 
 func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
@@ -319,7 +319,7 @@ func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*
 	if err != nil {
 		return nil, err
 	}
-	return &pb.LidarBoundsResponse{X: bounds.X, Y: bounds.Y}, nil
+	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
 }
 
 func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {

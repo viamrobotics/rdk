@@ -606,7 +606,7 @@ func (ldc *lidarDeviceClient) Range(ctx context.Context) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return resp.Range, nil
+	return float64(resp.Range), nil
 }
 
 func (ldc *lidarDeviceClient) Bounds(ctx context.Context) (r2.Point, error) {
@@ -616,7 +616,7 @@ func (ldc *lidarDeviceClient) Bounds(ctx context.Context) (r2.Point, error) {
 	if err != nil {
 		return r2.Point{}, err
 	}
-	return r2.Point{resp.X, resp.Y}, nil
+	return r2.Point{float64(resp.X), float64(resp.Y)}, nil
 }
 
 func (ldc *lidarDeviceClient) AngularResolution(ctx context.Context) (float64, error) {

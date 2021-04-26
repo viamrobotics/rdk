@@ -9,6 +9,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/jblindsay/lidario"
+
+	"go.uber.org/multierr"
 )
 
 func NewFromFile(fn string, logger golog.Logger) (*PointCloud, error) {
@@ -82,9 +84,7 @@ func (pc *PointCloud) WriteToFile(fn string) (err error) {
 	}
 	defer func() {
 		cerr := lf.Close()
-		if err == nil {
-			err = cerr
-		}
+		err = multierr.Combine(err, cerr)
 	}()
 
 	pointFormatID := 0
