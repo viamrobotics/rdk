@@ -352,8 +352,7 @@
       "20210115.1737.24.both.gz": "676790375af59b8e0aa25bb1e20b9a29",
       "20210115.1737.30.both.gz": "be24b53fb6ad38e6285f4e923f57cbda",
       "20210115.1737.38.both.gz": "34f49f874239544a16485524dcfbe48f",
-      "Makefile": "aaa3f49190f02f0332cdec3b2c738e23",
-      "Makefile~": "2cfd0fc94a1e63adf427a26e9e159ca7"
+      "Makefile": "aaa3f49190f02f0332cdec3b2c738e23"
     }
   },
   "colors_datasets": {
@@ -756,7 +755,6 @@
     "original.png": "eb388dce5623be8ac1438c712189e31e"
   },
   "minirover2": {
-    "Makefile~": "25f4f6c6788c293c138933af67dc9ee7",
     "autodrive": {
       "20201218.0819.08.dat.gz": "07628d15478f5631787c3596b4d3663d",
       "20201218.0819.08.png": "29dc11cfe3262054e6d727634cc907e9",
@@ -1037,25 +1035,20 @@
     "test1": {
       "20210111.1459.32.both.gz": "610c43752629a1d44ad0f0760949e3fe",
       "20210111.1459.32.both.json": "46f16caefdd3419aed39d51116515bf0",
-      "20210111.1459.32.both.json~": "a68d90c7f78b5822836dbc798b0b8205",
       "back5.jpg": "f49f408f5d154ae8d0372bd93eea81d7",
       "back5.json": "388a1fc918d3cabf3cdd2594e73d608a",
-      "back5.json~": "6c62272e07bb014262b821756295c58d",
       "data_00126.both.gz": "8ed9495fccda83b4369bea95fd6d4b83",
-      "data_00126.both.json": "a68d90c7f78b5822836dbc798b0b8205",
+      "data_00126.both.json": "4b69bac8f4deee52d13299fb08282495",
       "office1.json": "a68d90c7f78b5822836dbc798b0b8205",
-      "office1.json~": "6c62272e07bb014262b821756295c58d",
       "office1.png": "84c523b832e9a9e259a477b94a2f5804",
       "rover_backwards.both.gz": "b3b154b2a0ec9096ebccc3e2cbee04d9",
       "rover_backwards.both.json": "395d5e2e1248ea72f76f860f3ff68e7b",
-      "rover_backwards.both.json~": "2e83b0c7994db63a7d4219718a33b7d8",
-      "rover_backwards.json~": "a68d90c7f78b5822836dbc798b0b8205",
       "warped-board-1605543525.json": "e59e109ae3954cd5a1c714afdc84693d",
-      "warped-board-1605543525.json~": "e817b657be208c18acfec3e334c90981",
       "warped-board-1605543525.png": "35a6fa8537aaa117c88b458b84b03196",
       "warped-board1.json": "2d0ac77e6bffaf0d7f716c6e10852a2b",
-      "warped-board1.json~": "4db66daba942bff38bc73d70fb6db221",
-      "warped-board1.png": "7834440b99ae313b8a2c8645e0aaf133"
+      "warped-board1.png": "7834440b99ae313b8a2c8645e0aaf133",
+      "warped-board2.both.gz": "3433366ba5cae0eca1e9ba474dc9faac",
+      "warped-board2.both.json": "bcb99b0ea0f053c0f4e8fd25504736bc"
     }
   },
   "slam": {
