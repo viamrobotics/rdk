@@ -9,8 +9,8 @@ type Options struct {
 
 func NewOptions() Options {
 	return Options{
-		AutoTile:    true,
-		Pprof:       false,
-		Port:        8080,
+		AutoTile: true,
+		Pprof:    false,
+		Port:     8080,
 	}
 }
