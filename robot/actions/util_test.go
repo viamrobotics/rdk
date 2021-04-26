@@ -53,7 +53,7 @@ func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger,
 	iwd := rimage.ConvertToImageWithDepth(img).Rotate(180)
 	d.GotDebugImage(iwd, "rotated")
 
-	m2, err := segmentation.ShapeWalkEntireDebug(iwd.Color, segmentation.ShapeWalkOptions{}, logger)
+	m2, err := segmentation.ShapeWalkEntireDebug(iwd, segmentation.ShapeWalkOptions{}, logger)
 	if err != nil {
 		return err
 	}
