@@ -71,7 +71,7 @@ func TestServer(t *testing.T) {
 
 		// 3rd spin fails
 		injectBase := &inject.Base{}
-		injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 			return 600, nil
 		}
 		th.bot.baseDevice = injectBase
@@ -589,7 +589,7 @@ func TestHandleClick(t *testing.T) {
 		larBot := th.bot
 		larBot.clientClickMode = pb.ClickMode_CLICK_MODE_MOVE
 		injectBase := &inject.Base{Base: larBot.baseDevice}
-		injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 			return 600, nil
 		}
 		larBot.baseDevice = injectBase

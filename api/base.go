@@ -8,7 +8,7 @@ type Base interface {
 	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
 	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
 	Stop(ctx context.Context) error
-	WidthMillis(ctx context.Context) (float64, error)
+	WidthMillis(ctx context.Context) (int, error)
 }
 
 type Move struct {
