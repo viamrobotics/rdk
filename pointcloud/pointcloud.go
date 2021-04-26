@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"math"
 
+	"go.viam.com/robotcore/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
 type key Vec3
 
-type IPointCloud interface {
+type PointCloud interface {
 	Size() int
 	HasColor() bool
 	HasValue() bool
@@ -27,10 +28,11 @@ type IPointCloud interface {
 	// util functions
 	WriteToFile(fn string) error
 	DenseZ(zIdx float64) (*mat.Dense, error)
+	ToVec2Matrix() (*utils.Vec2Matrix, error)
 }
 
-// PointCloud is the basic implementation of the IPointCloud interface
-type PointCloud struct {
+// basicPointCloud is the basic implementation of the PointCloud interface
+type basicPointCloud struct {
 	points     map[key]Point
 	hasColor   bool
 	hasValue   bool
@@ -39,8 +41,8 @@ type PointCloud struct {
 	minZ, maxZ float64
 }
 
-func New() *PointCloud {
-	return &PointCloud{
+func New() PointCloud {
+	return &basicPointCloud{
 		points: map[key]Point{},
 		minX:   math.MaxFloat64,
 		minY:   math.MaxFloat64,
@@ -51,43 +53,43 @@ func New() *PointCloud {
 	}
 }
 
-func (cloud *PointCloud) Size() int {
+func (cloud *basicPointCloud) Size() int {
 	return len(cloud.points)
 }
 
-func (cloud *PointCloud) HasColor() bool {
+func (cloud *basicPointCloud) HasColor() bool {
 	return cloud.hasColor
 }
 
-func (cloud *PointCloud) HasValue() bool {
+func (cloud *basicPointCloud) HasValue() bool {
 	return cloud.hasValue
 }
 
-func (cloud *PointCloud) MinX() float64 {
+func (cloud *basicPointCloud) MinX() float64 {
 	return cloud.minX
 }
 
-func (cloud *PointCloud) MaxX() float64 {
+func (cloud *basicPointCloud) MaxX() float64 {
 	return cloud.maxX
 }
 
-func (cloud *PointCloud) MinY() float64 {
+func (cloud *basicPointCloud) MinY() float64 {
 	return cloud.minY
 }
 
-func (cloud *PointCloud) MaxY() float64 {
+func (cloud *basicPointCloud) MaxY() float64 {
 	return cloud.maxY
 }
 
-func (cloud *PointCloud) MinZ() float64 {
+func (cloud *basicPointCloud) MinZ() float64 {
 	return cloud.minZ
 }
 
-func (cloud *PointCloud) MaxZ() float64 {
+func (cloud *basicPointCloud) MaxZ() float64 {
 	return cloud.maxZ
 }
 
-func (cloud *PointCloud) At(x, y, z float64) Point {
+func (cloud *basicPointCloud) At(x, y, z float64) Point {
 	return cloud.points[key{x, y, z}]
 }
 
@@ -102,7 +104,7 @@ func newOutOfRangeErr(dim string, val float64) error {
 	return fmt.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
 }
 
-func (cloud *PointCloud) Set(p Point) error {
+func (cloud *basicPointCloud) Set(p Point) error {
 	cloud.points[key(p.Position())] = p
 	if p.HasColor() {
 		cloud.hasColor = true
@@ -142,11 +144,11 @@ func (cloud *PointCloud) Set(p Point) error {
 	return nil
 }
 
-func (cloud *PointCloud) Unset(x, y, z float64) {
+func (cloud *basicPointCloud) Unset(x, y, z float64) {
 	delete(cloud.points, key{x, y, z})
 }
 
-func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
+func (cloud *basicPointCloud) Iterate(fn func(p Point) bool) {
 	for _, p := range cloud.points {
 		if cont := fn(p); !cont {
 			return
@@ -154,7 +156,7 @@ func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
 	}
 }
 
-func newDensePivotFromCloud(cloud IPointCloud, dim int, idx float64) (*mat.Dense, error) {
+func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense, error) {
 	size := cloud.Size()
 	m := mat.NewDense(2, size, nil)
 	var data []float64
@@ -193,7 +195,7 @@ func newDensePivotFromCloud(cloud IPointCloud, dim int, idx float64) (*mat.Dense
 	return m, err
 }
 
-func (cloud *PointCloud) DenseZ(zIdx float64) (*mat.Dense, error) {
+func (cloud *basicPointCloud) DenseZ(zIdx float64) (*mat.Dense, error) {
 	// would be nice if this was lazy and not dense
 	return newDensePivotFromCloud(cloud, 2, zIdx)
 }

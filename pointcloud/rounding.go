@@ -12,14 +12,14 @@ import (
 // stored because even if the points are only 0.00000000002 apart, they would be considered different locations.
 
 type RoundingPointCloud struct {
-	*PointCloud
+	*basicPointCloud
 }
 
-func NewRoundingPointCloud() *RoundingPointCloud {
-	return &RoundingPointCloud{New()}
+func NewRoundingPointCloud() PointCloud {
+	return &RoundingPointCloud{New().(*basicPointCloud)}
 }
 
-func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (*RoundingPointCloud, error) {
+func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	var err error
 	roundingPc := NewRoundingPointCloud()
 	pc, err := NewFromFile(fn, logger)

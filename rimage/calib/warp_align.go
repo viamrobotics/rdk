@@ -9,5 +9,5 @@ import (
 
 type DepthColorAligner interface {
 	ToAlignedImageWithDepth(*rimage.ImageWithDepth, golog.Logger) (*rimage.ImageWithDepth, error)
-	ToPointCloudWithColor(*rimage.ImageWithDepth, golog.Logger) (*pointcloud.PointCloud, error)
+	ToPointCloudWithColor(*rimage.ImageWithDepth, golog.Logger) (pointcloud.PointCloud, error)
 }

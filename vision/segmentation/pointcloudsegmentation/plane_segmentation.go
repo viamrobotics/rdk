@@ -23,7 +23,7 @@ func New3DPoints() *Points3D {
 }
 
 // Convert float 3d Points in meters to pointcloud
-func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.PointCloud, error) {
+func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
@@ -40,7 +40,7 @@ func (pts *Points3D) convert3DPointsToPointCloud(pixel2Meter float64) (*pc.Point
 func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 	pixel2Meter float64,
 	selectedPoints map[pc.Vec3]int,
-) (*pc.PointCloud, error) {
+) (pc.PointCloud, error) {
 	pointCloud := pc.New()
 	for _, pt := range pts.Points {
 		x, y, z := MeterToDepthUnit(pt.X, pt.Y, pt.Z, pixel2Meter)
@@ -63,7 +63,7 @@ func (pts *Points3D) convert3DPointsToPointCloudWithValue(
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // pixel2meter is the conversion factor from the depth value to its value in meters
 // This function returns a pointcloud with values; the values are set to 1 if a point belongs to the plane, 0 otherwise
-func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (*pc.PointCloud, []float64, error) {
+func (pts *Points3D) SegmentPlane(nIterations int, threshold, pixel2meter float64) (pc.PointCloud, []float64, error) {
 	nPoints := len(pts.Points)
 	bestEquation := make([]float64, 4)
 	currentEquation := make([]float64, 4)
@@ -199,7 +199,7 @@ func SampleRandomIntRange(min, max int) int {
 }
 
 // Convert Depth map to point cloud (units in mm to get int coordinates) as defined in pointcloud/pointcloud.go
-func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics) (*pc.PointCloud, error) {
+func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params calib.PinholeCameraIntrinsics) (pc.PointCloud, error) {
 	// create new point cloud
 	pcOut := pc.New()
 	// go through depth map pixels and get 3D Points

@@ -77,7 +77,7 @@ func (iwd *ImageWithDepth) ToPCD(out io.Writer) error {
 	return nil
 }
 
-func (iwd *ImageWithDepth) ToPointCloud() (*pointcloud.PointCloud, error) {
+func (iwd *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 
 	height := iwd.Height()
