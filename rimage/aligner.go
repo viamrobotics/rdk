@@ -8,15 +8,15 @@ import (
 
 type DepthColorAligner interface {
 	AlignImageWithDepth(*ImageWithDepth) (*ImageWithDepth, error)
-	ImageWithDepthToPointCloud(*ImageWithDepth) (*pointcloud.PointCloud, error)
-	PointCloudToImageWithDepth(*pointcloud.PointCloud) (*ImageWithDepth, error)
+	ImageWithDepthToPointCloud(*ImageWithDepth) (pointcloud.PointCloud, error)
+	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
 }
 
 func (i *ImageWithDepth) IsAligned() bool {
 	return i.aligned
 }
 
-func (i *ImageWithDepth) ToPointCloud() (*pointcloud.PointCloud, error) {
+func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 	if i.aligner == nil {
 		return nil, fmt.Errorf("no DepthColorAligner set in ImageWithDepth")
 	}
