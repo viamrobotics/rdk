@@ -37,12 +37,24 @@ type walkState struct {
 	originalInterestingPixelDensity float64
 
 	interestingPixels *image.Gray
-	logger            golog.Logger
+
+	depth              *rimage.DepthMap
+	depthMin, depthMax rimage.Depth
+	depthRange         float64
+
+	logger golog.Logger
 }
 
 func (ws *walkState) initIfNot() {
 	if ws.interestingPixels == nil {
 		ws.interestingPixels = ws.img.InterestingPixels(.2)
+		if ws.depth != nil {
+			ws.depthMin, ws.depthMax = ws.depth.MinMax()
+			ws.depthRange = float64(ws.depthMax) - float64(ws.depthMin)
+			if ws.options.Debug {
+				ws.logger.Debugf("depthRange %v", ws.depthRange)
+			}
+		}
 	}
 }
 
@@ -151,7 +163,8 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 	}
 
 	lookback := DefaultLookback
-	for idx, prev := range path[utils.MaxInt(0, len(path)-lookback):] {
+	toLookAt := path[utils.MaxInt(0, len(path)-lookback):]
+	for idx, prev := range toLookAt {
 		prevColor := ws.img.Get(prev)
 		d := prevColor.Distance(myColor)
 		if ws.options.Diffs != nil && d > .1 {
@@ -159,11 +172,40 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 		}
 
 		threshold := ws.threshold + (float64(lookback-idx) / (float64(lookback) * DefaultLookbackScaling))
+		depthThreshold := 0.0
+
+		if idx == len(toLookAt)-1 && ws.depth != nil {
+			// only look at the last point
+			myZ := ws.depth.Get(p)
+			prevZ := ws.depth.Get(prev)
+			if myZ > 0 && prevZ > 0 {
+				depthThreshold = math.Abs(float64(myZ) - float64(prevZ))
+				// in mm right now
+
+				// first we scale to 0 -> 1 based on the data in the image
+				depthThreshold = depthThreshold / ws.depthRange
+
+				depthThreshold = ((depthThreshold - .01) * 50)
+				depthThreshold *= -1
+
+				if ws.options.Debug {
+					ws.logger.Debugf("\t\t\t XXX %v %v %v", myZ, prevZ, depthThreshold)
+				}
+
+			} else if myZ > 0 || prevZ > 0 {
+				// this means one of the points had good data and one didn't
+				// this usually means it's an edge or something
+				// so make the threshold a bit smaller
+				depthThreshold = -.5
+			}
+		}
+
+		threshold += depthThreshold
 
 		good := d < threshold
 
 		if ws.options.Debug {
-			ws.logger.Debugf("\t\t %v %v %v %0.3f %0.3f", prev, good, prevColor.Hex(), d, threshold)
+			ws.logger.Debugf("\t\t %v %v %v %0.3f threshold: %0.3f depthThreshold: %0.3f", prev, good, prevColor.Hex(), d, threshold, depthThreshold)
 			if !good && d-threshold < .2 {
 				ws.logger.Debugf("\t\t\t http://www.viam.com/color.html?#1=%s&2=%s", myColor.Hex()[1:], prevColor.Hex()[1:])
 			}
@@ -352,16 +394,17 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 	return total
 }
 
-func ShapeWalk(img *rimage.Image, start image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
+func ShapeWalk(img *rimage.ImageWithDepth, start image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 
 	return ShapeWalkMultiple(img, []image.Point{start}, options, logger)
 }
 
-func ShapeWalkMultiple(img *rimage.Image, starts []image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
+func ShapeWalkMultiple(img *rimage.ImageWithDepth, starts []image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 
 	ws := walkState{
-		img:       img,
-		dots:      newSegmentedImage(img),
+		img:       img.Color,
+		depth:     img.Depth,
+		dots:      newSegmentedImage(img.Color),
 		options:   options,
 		threshold: DefaultColorThreshold + options.ThresholdMod,
 		logger:    logger,
@@ -384,7 +427,7 @@ func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
-func ShapeWalkEntireDebug(img *rimage.Image, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
+func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error
 
@@ -407,10 +450,11 @@ func ShapeWalkEntireDebug(img *rimage.Image, options ShapeWalkOptions, logger go
 	return si, err
 }
 
-func shapeWalkEntireDebugOnePass(img *rimage.Image, options ShapeWalkOptions, extraThreshold float64, logger golog.Logger) (*SegmentedImage, error) {
+func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOptions, extraThreshold float64, logger golog.Logger) (*SegmentedImage, error) {
 	ws := walkState{
-		img:       img,
-		dots:      newSegmentedImage(img),
+		img:       img.Color,
+		depth:     img.Depth,
+		dots:      newSegmentedImage(img.Color),
 		options:   options,
 		threshold: DefaultColorThreshold + options.ThresholdMod + extraThreshold,
 		logger:    logger,
