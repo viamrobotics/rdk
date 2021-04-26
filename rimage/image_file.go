@@ -17,7 +17,7 @@ import (
 // Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	if strings.HasSuffix(path, ".both.gz") {
-		return BothReadFromFile(path, false)
+		return BothReadFromFile(path, aligned)
 	}
 
 	f, err := os.Open(path)
