@@ -18,7 +18,7 @@ type DepthColorWarpTransforms struct {
 	*AlignConfig                   // anonymous fields
 }
 
-func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (*pointcloud.PointCloud, error) {
+func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
 	if ii.IsAligned() {
@@ -82,7 +82,7 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 }
 
 // Function that takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
-func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud *pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
+func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
 		return nil, fmt.Errorf("pointcloud has no color information, cannot create an image with depth")
