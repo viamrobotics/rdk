@@ -16,7 +16,7 @@ type DepthColorWarpTransforms struct {
 	*AlignConfig                   // anonymous fields
 }
 
-func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (*pointcloud.PointCloud, error) {
+func (dct *DepthColorWarpTransforms) ToPointCloudWithColor(ii *rimage.ImageWithDepth, logger golog.Logger) (pointcloud.PointCloud, error) {
 	return nil, fmt.Errorf("method ToPointCloudWithColor not implemented for DepthColorWarpTransforms")
 }
 

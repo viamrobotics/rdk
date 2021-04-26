@@ -22,7 +22,7 @@ func NewSquareAreaFromFile(fn string, sizeMeters float64, unitsPerMeter float64,
 	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
-func SquareAreaFromPointCloud(cloud pointcloud.IPointCloud, sizeMeters float64, unitsPerMeter float64) (*SquareArea, error) {
+func SquareAreaFromPointCloud(cloud pointcloud.PointCloud, sizeMeters float64, unitsPerMeter float64) (*SquareArea, error) {
 	sizeUnits := sizeMeters * unitsPerMeter
 	if int(sizeUnits)%2 != 0 {
 		return nil, errors.New("sizeMeters * unitsPerMeter must be divisible by 2")
@@ -43,12 +43,12 @@ type SquareArea struct {
 	unitsPerMeter float64
 	dim           float64
 	quadLength    float64
-	cloud         pointcloud.IPointCloud
+	cloud         pointcloud.PointCloud
 }
 
 // PointCloud returns the mutable PointCloud this area uses
 // to store its points.
-func (sa *SquareArea) PointCloud() pointcloud.IPointCloud {
+func (sa *SquareArea) PointCloud() pointcloud.PointCloud {
 	return sa.cloud
 }
 
