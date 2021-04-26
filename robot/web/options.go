@@ -12,6 +12,5 @@ func NewOptions() Options {
 		AutoTile:    true,
 		Pprof:       false,
 		Port:        8080,
-		TemplateDir: "",
 	}
 }
