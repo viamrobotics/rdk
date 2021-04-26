@@ -15,7 +15,7 @@ import (
 func TestAugmentReduce(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	test.That(t, api.BaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
@@ -32,7 +32,7 @@ func TestAugmentReduce(t *testing.T) {
 func TestDeviceWithCompass(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	comp := &inject.Compass{}

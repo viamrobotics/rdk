@@ -279,7 +279,7 @@ func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir pb.Direction) e
 	return lar.Move(ctx, nil, &dir)
 }
 
-func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount float64) float64 {
+func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) float64 {
 	/*
 		amount millis
 		_____________
@@ -300,7 +300,7 @@ func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount float64) float64
 	if amountNeg {
 		amount *= -1
 	}
-	units := math.Ceil(amount / (1000 / lar.unitsPerMeter))
+	units := math.Ceil(float64(amount) / (1000 / lar.unitsPerMeter))
 	if amountNeg {
 		return units * -1
 	}
@@ -311,7 +311,7 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis i
 	newX := lar.basePosX
 	newY := lar.basePosY
 
-	amountScaled := lar.millimetersToMeasuredUnit(float64(amountMillis))
+	amountScaled := lar.millimetersToMeasuredUnit(amountMillis)
 
 	errMsg := fmt.Errorf("cannot move at orientation %f; stuck", orientation)
 	quadLen := lar.rootArea.QuadrantLength()

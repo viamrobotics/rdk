@@ -338,7 +338,7 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
-func (bc *baseClient) WidthMillis(ctx context.Context) (float64, error) {
+func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
 }

@@ -121,7 +121,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		return r2.Point{5, 5}, nil
 	}
 	injectBase := &inject.Base{Base: baseDevice}
-	injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 0, err1
 	}
 
@@ -226,7 +226,7 @@ func TestMove(t *testing.T) {
 		{"unknown direction", intPtr(200), dirPtr(pb.Direction_DIRECTION_UNSPECIFIED), "do not know how", 0, 0, 0, nil},
 		{"moving fails", intPtr(200), dirPtr(pb.Direction_DIRECTION_RIGHT), "whoops", 0, 0, 0, func(th *testHarness) {
 			injectBase := &inject.Base{}
-			injectBase.WidthMillisFunc = func(ctx context.Context) (float64, error) {
+			injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
 				return 600, nil
 			}
 			th.bot.baseDevice = injectBase
@@ -297,7 +297,7 @@ func TestRobotAreasToView(t *testing.T) {
 
 func TestRobotMillimetersToMeasuredUnit(t *testing.T) {
 	for i, tc := range []struct {
-		millis   float64
+		millis   int
 		expected float64
 	}{
 		{0, 0},

@@ -68,7 +68,7 @@ func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return math.NaN(), fmt.Errorf("boat can't spin yet")
 }
 
-func (b *Boat) WidthMillis(ctx context.Context) (float64, error) {
+func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
 	return 1, nil
 }
 
