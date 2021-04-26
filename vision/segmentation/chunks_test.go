@@ -18,7 +18,8 @@ func (cid *chunkImageDebug) Process(
 	imgraw image.Image,
 	logger golog.Logger) error {
 
-	img := rimage.ConvertImage(imgraw)
+	iwd := rimage.ConvertToImageWithDepth(imgraw)
+	img := iwd.Color
 
 	type AShape struct {
 		Start      image.Point
@@ -49,14 +50,14 @@ func (cid *chunkImageDebug) Process(
 
 		if true {
 			// this shows things with the cleaning, is it useful, not sure
-			out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{SkipCleaning: true}, logger)
+			out, err := ShapeWalkMultiple(iwd, starts, ShapeWalkOptions{SkipCleaning: true}, logger)
 			if err != nil {
 				return err
 			}
 			d.GotDebugImage(out, "shapes-noclean")
 		}
 
-		out, err := ShapeWalkMultiple(img, starts, ShapeWalkOptions{}, logger)
+		out, err := ShapeWalkMultiple(iwd, starts, ShapeWalkOptions{}, logger)
 		if err != nil {
 			return err
 		}
@@ -67,7 +68,7 @@ func (cid *chunkImageDebug) Process(
 			numPixels := out.PixelsInSegmemnt(idx + 1)
 			if numPixels < s.PixelRange[0] || numPixels > s.PixelRange[1] {
 				// run again with debugging on
-				_, err := ShapeWalkMultiple(img, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
+				_, err := ShapeWalkMultiple(iwd, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
 				if err != nil {
 					return err
 				}
@@ -79,11 +80,16 @@ func (cid *chunkImageDebug) Process(
 	}
 
 	if true {
-		out, err := ShapeWalkEntireDebug(img, ShapeWalkOptions{}, logger)
+		out, err := ShapeWalkEntireDebug(iwd, ShapeWalkOptions{}, logger)
 		if err != nil {
 			return err
 		}
 		d.GotDebugImage(out, "entire")
+	}
+
+	if iwd.Depth != nil {
+		x := iwd.Depth.ToPrettyPicture(0, 0)
+		d.GotDebugImage(x, "depth")
 	}
 
 	return nil

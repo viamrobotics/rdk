@@ -104,7 +104,7 @@ func view(img *rimage.Image) error {
 			x, y,
 			color.String())
 
-		walked, err := segmentation.ShapeWalk(img, p, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
+		walked, err := segmentation.ShapeWalk(rimage.ConvertToImageWithDepth(img), p, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
 		if err != nil {
 			panic(err)
 		}
@@ -167,7 +167,7 @@ func main() {
 
 	switch prog {
 	case "shapeWalkEntire":
-		out, err := segmentation.ShapeWalkEntireDebug(img, segmentation.ShapeWalkOptions{Debug: *debug}, logger)
+		out, err := segmentation.ShapeWalkEntireDebug(rimage.ConvertToImageWithDepth(img), segmentation.ShapeWalkOptions{Debug: *debug}, logger)
 		if err == nil {
 			err = rimage.WriteImageToFile(_getOutputfile(), out)
 			if err != nil {

@@ -9,7 +9,7 @@ on:
 jobs:
   build_docker_image:
     name: Build Docker Image
-    runs-on: self-hosted
+    runs-on: [self-hosted, x64]
     container:
       image: echolabs/robotcoretest:latest
     steps:

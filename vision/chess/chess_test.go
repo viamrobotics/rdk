@@ -41,7 +41,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 			}
 		}
 
-		res, err := segmentation.ShapeWalkMultiple(warped.Color, starts, swOptions, logger)
+		res, err := segmentation.ShapeWalkMultiple(warped, starts, swOptions, logger)
 		if err != nil {
 			return err
 		}

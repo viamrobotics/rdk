@@ -189,6 +189,7 @@ func (pi *piPigpio) Close() error {
 	}
 
 	C.gpioTerminate()
+	pi.logger.Debug("Pi GPIO terminated properly.")
 	piInstance = nil
 	return nil
 }

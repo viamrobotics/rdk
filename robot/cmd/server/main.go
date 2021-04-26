@@ -174,12 +174,13 @@ func addCloudLogger(logger golog.Logger, cfg api.CloudConfig) (golog.Logger, err
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string            `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
-	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
-	LogURL     string            `flag:"logurl,usage=url to log messages to"`
-	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
+	ConfigFile  string            `flag:"0,required,usage=robot config file"`
+	NoAutoTile  bool              `flag:"noAutoTile,usage=disable auto tiling"`
+	CPUProfile  string            `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile  bool              `flag:"webprofile,usage=include profiler in http server"`
+	LogURL      string            `flag:"logurl,usage=url to log messages to"`
+	TemplateDir string            `flag:"templatedir,usage=web template directory"`
+	Port        utils.NetPortFlag `flag:"port,usage=port to listen on"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
@@ -233,6 +234,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
 	options.Port = int(argsParsed.Port)
+	options.TemplateDir = argsParsed.TemplateDir
 
 	return web.RunWeb(ctx, myRobot, options, logger)
 }

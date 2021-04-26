@@ -48,8 +48,7 @@
               { "name" : "a",
                 "note" : "rc5",
                 "pin" : "38",
-                "type" : "servo",
-                "formula" : "(/ (- raw 1100) 700)"
+                "type" : "servo"
               },
               { "name" : "mode",
                 "note" : "rc6",

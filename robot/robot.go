@@ -278,6 +278,15 @@ func NewBlankRobot(logger golog.Logger) *Robot {
 
 func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot, error) {
 	r := NewBlankRobot(logger)
+
+	var successful bool
+	defer func() {
+		if !successful {
+			if err := r.Close(); err != nil {
+				logger.Errorw("failed to close robot down after startup failure", "error", err)
+			}
+		}
+	}()
 	r.config = cfg
 
 	for _, procConf := range cfg.Processes {
@@ -374,6 +383,7 @@ func NewRobot(ctx context.Context, cfg api.Config, logger golog.Logger) (*Robot,
 		}
 	}
 
+	successful = true
 	return r, nil
 }
 

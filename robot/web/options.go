@@ -1,9 +1,10 @@
 package web
 
 type Options struct {
-	AutoTile bool
-	Pprof    bool
-	Port     int
+	AutoTile    bool
+	Pprof       bool
+	Port        int
+	TemplateDir string
 }
 
 func NewOptions() Options {
