@@ -65,7 +65,7 @@ func (s *fileSystemStore) Store(hash string, r io.Reader) (err error) {
 	return
 }
 
-func (s *fileSystemStore) Emplace(hash, path string) error {
+func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 	if err := s.Contains(hash); err != nil {
 		return err
 	}
@@ -81,5 +81,25 @@ func (s *fileSystemStore) Emplace(hash, path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	return os.Symlink(s.pathToHashFile(hash), path)
+
+	hashFile, err := os.Open(s.pathToHashFile(hash))
+	if err != nil {
+		return err
+	}
+	defer hashFile.Close()
+
+	emplacedFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = multierr.Combine(err, os.Remove(path))
+		} else {
+			err = emplacedFile.Close()
+		}
+	}()
+	_, err = io.Copy(emplacedFile, hashFile)
+	return
 }

@@ -37,11 +37,18 @@ type robotWebApp struct {
 	views    []gostream.View
 	theRobot *robot.Robot
 	logger   golog.Logger
+	options  Options
 }
 
 func (app *robotWebApp) Init() error {
-	_, thisFilePath, _, _ := runtime.Caller(0)
-	thisDirPath, err := filepath.Abs(filepath.Dir(thisFilePath))
+	var templateDir string
+	var err error
+	if app.options.TemplateDir != "" {
+		templateDir, err = filepath.Abs(app.options.TemplateDir)
+	} else {
+		_, thisFilePath, _, _ := runtime.Caller(0)
+		templateDir, err = filepath.Abs(filepath.Dir(thisFilePath))
+	}
 	if err != nil {
 		return err
 	}
@@ -52,7 +59,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", thisDirPath))
+	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", templateDir))
 	if err != nil {
 		return err
 	}
@@ -207,7 +214,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 		}
 	}
 
-	app := &robotWebApp{views: views, theRobot: theRobot, logger: logger}
+	app := &robotWebApp{views: views, theRobot: theRobot, logger: logger, options: options}
 	if err := app.Init(); err != nil {
 		return nil, err
 	}

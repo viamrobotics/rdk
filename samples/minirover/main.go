@@ -167,7 +167,7 @@ func findBlack(ctx context.Context, img *rimage.Image, logger golog.Logger) (ima
 				continue
 			}
 
-			x, err := segmentation.ShapeWalk(img,
+			x, err := segmentation.ShapeWalk(rimage.ConvertToImageWithDepth(img),
 				image.Point{x, y},
 				segmentation.ShapeWalkOptions{
 					SkipCleaning: true,
