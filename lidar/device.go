@@ -13,8 +13,8 @@ type Device interface {
 	// assumes the device is in a fixed point for the duration
 	// of the scan
 	Scan(ctx context.Context, options ScanOptions) (Measurements, error)
-	Range(ctx context.Context) (float64, error)
-	Bounds(ctx context.Context) (r2.Point, error)
+	Range(ctx context.Context) (float64, error)   // in units of mm
+	Bounds(ctx context.Context) (r2.Point, error) // in units of mm
 	AngularResolution(ctx context.Context) (float64, error)
 }
 
