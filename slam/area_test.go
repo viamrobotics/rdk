@@ -124,5 +124,5 @@ func TestSquareArea(t *testing.T) {
 	test.That(t, newUnitsPerMeter, test.ShouldEqual, unitsPerMeter)
 	test.That(t, areaDim, test.ShouldEqual, newAreaDim)
 	test.That(t, quadLen, test.ShouldResemble, newQuadLen)
-	test.That(t, newSA.storage.Size(), test.ShouldEqual, 0)
+	test.That(t, newSA.cloud.Size(), test.ShouldEqual, 0)
 }

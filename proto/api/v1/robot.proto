@@ -401,7 +401,7 @@ message LidarRangeRequest {
 }
 
 message LidarRangeResponse {
-	double range = 1;
+	int64 range = 1;
 }
 
 message LidarBoundsRequest {
@@ -409,8 +409,8 @@ message LidarBoundsRequest {
 }
 
 message LidarBoundsResponse {
-	double x = 1;
-	double y = 2;
+	int64 x = 1;
+	int64 y = 2;
 }
 
 message LidarAngularResolutionRequest {

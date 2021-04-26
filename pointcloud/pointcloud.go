@@ -9,6 +9,27 @@ import (
 
 type key Vec3
 
+type IPointCloud interface {
+	Size() int
+	HasColor() bool
+	HasValue() bool
+	MinX() float64
+	MaxX() float64
+	MinY() float64
+	MaxY() float64
+	MinZ() float64
+	MaxZ() float64
+	// point setting and getting methods
+	Set(p Point) error
+	Unset(x, y, z float64)
+	At(x, y, z float64) Point
+	Iterate(fn func(p Point) bool)
+	// util functions
+	WriteToFile(fn string) error
+	DenseZ(zIdx float64) (*mat.Dense, error)
+}
+
+// PointCloud is the basic implementation of the IPointCloud interface
 type PointCloud struct {
 	points     map[key]Point
 	hasColor   bool
@@ -133,7 +154,7 @@ func (cloud *PointCloud) Iterate(fn func(p Point) bool) {
 	}
 }
 
-func newDensePivotFromCloud(cloud *PointCloud, dim int, idx float64) (*mat.Dense, error) {
+func newDensePivotFromCloud(cloud IPointCloud, dim int, idx float64) (*mat.Dense, error) {
 	size := cloud.Size()
 	m := mat.NewDense(2, size, nil)
 	var data []float64
