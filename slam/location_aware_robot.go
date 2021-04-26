@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"math"
 	"strconv"
 	"strings"
@@ -20,22 +19,24 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"go.uber.org/multierr"
+
+	"github.com/golang/geo/r2"
 )
 
 type LocationAwareRobot struct {
 	started              bool
 	baseDevice           api.Base
-	baseDeviceWidthUnits int
+	baseDeviceWidthUnits float64
 	baseOrientation      float64 // relative to map
-	basePosX             int
-	basePosY             int
-	devBounds            []image.Point
-	maxBounds            image.Point
+	basePosX             float64
+	basePosY             float64
+	devBounds            []r2.Point
+	maxBounds            r2.Point
 
 	devices       []lidar.Device
 	deviceOffsets []DeviceOffset
 
-	unitsPerMeter   int
+	unitsPerMeter   float64
 	rootArea        *SquareArea
 	presentViewArea *SquareArea
 
@@ -70,8 +71,8 @@ func NewLocationAwareRobot(
 		return nil, err
 	}
 
-	var maxBoundsX, maxBoundsY int
-	devBounds := make([]image.Point, 0, len(devices))
+	var maxBoundsX, maxBoundsY float64
+	devBounds := make([]r2.Point, 0, len(devices))
 	for _, dev := range devices {
 		bounds, err := dev.Bounds(ctx)
 		if err != nil {
@@ -93,7 +94,7 @@ func NewLocationAwareRobot(
 	_, unitsPerMeter := area.Size()
 	robot := &LocationAwareRobot{
 		baseDevice: baseDevice,
-		maxBounds:  image.Point{maxBoundsX, maxBoundsY},
+		maxBounds:  r2.Point{maxBoundsX, maxBoundsY},
 		devBounds:  devBounds,
 
 		devices:       devices,
@@ -162,7 +163,7 @@ func (lar *LocationAwareRobot) Close() error {
 }
 
 func (lar *LocationAwareRobot) String() string {
-	return fmt.Sprintf("pos: (%d, %d)", lar.basePosX, lar.basePosY)
+	return fmt.Sprintf("pos: (%v, %v)", lar.basePosX, lar.basePosY)
 }
 
 func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *pb.Direction) (err error) {
@@ -248,7 +249,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	return nil
 }
 
-func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64, moveAmountMillis *int) error {
+func (lar *LocationAwareRobot) detectObstacle(toX, toY float64, orientation float64, moveAmountMillis *int) error {
 	moveOrientation := orientation
 	if moveAmountMillis != nil && *moveAmountMillis < 0 {
 		moveOrientation = math.Mod(orientation+180, 360)
@@ -260,8 +261,8 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64,
 
 	var collides bool
 	lar.presentViewArea.Mutate(func(mutArea MutableArea) {
-		mutArea.Iterate(func(x, y, v int) bool {
-			if (image.Point{x, y}.In(moveRect)) {
+		mutArea.Iterate(func(x, y float64, v int) bool {
+			if (moveRect.ContainsPoint(r2.Point{x, y})) {
 				collides = true
 				return false
 			}
@@ -269,7 +270,7 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY int, orientation float64,
 		})
 	})
 	if collides {
-		return fmt.Errorf("cannot move to (%d,%d) via %f; would collide", toX, toY, moveOrientation)
+		return fmt.Errorf("cannot move to (%v,%v) via %f; would collide", toX, toY, moveOrientation)
 	}
 	return nil
 }
@@ -278,7 +279,7 @@ func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir pb.Direction) e
 	return lar.Move(ctx, nil, &dir)
 }
 
-func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) int {
+func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) float64 {
 	/*
 		amount millis
 		_____________
@@ -299,14 +300,14 @@ func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) int {
 	if amountNeg {
 		amount *= -1
 	}
-	units := int(math.Ceil(float64(amount) / float64((1000 / lar.unitsPerMeter))))
+	units := math.Ceil(float64(amount) / (1000 / lar.unitsPerMeter))
 	if amountNeg {
 		return units * -1
 	}
 	return units
 }
 
-func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis int) (image.Point, error) {
+func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis int) (r2.Point, error) {
 	newX := lar.basePosX
 	newY := lar.basePosY
 
@@ -318,78 +319,76 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis i
 	case 0:
 		posY := lar.basePosY + amountScaled
 		if posY < -quadLen || posY >= quadLen {
-			return image.Point{}, errMsg
+			return r2.Point{}, errMsg
 		}
 		newY = posY
 	case 90:
 		posX := lar.basePosX + amountScaled
 		if posX < -quadLen || posX >= quadLen {
-			return image.Point{}, errMsg
+			return r2.Point{}, errMsg
 		}
 		newX = posX
 	case 180:
 		posY := lar.basePosY - amountScaled
 		if posY < -quadLen || posY >= quadLen {
-			return image.Point{}, errMsg
+			return r2.Point{}, errMsg
 		}
 		newY = posY
 	case 270:
 		posX := lar.basePosX - amountScaled
 		if posX < -quadLen || posX >= quadLen {
-			return image.Point{}, errMsg
+			return r2.Point{}, errMsg
 		}
 		newX = posX
 	default:
-		return image.Point{}, fmt.Errorf("cannot move at orientation %f", orientation)
+		return r2.Point{}, fmt.Errorf("cannot move at orientation %f", orientation)
 	}
-	return image.Point{newX, newY}, nil
+	return r2.Point{newX, newY}, nil
 }
 
 const detectionBufferMillis = 150
 
 // the move rect will always be ahead of the base itself even though the
 // toX, toY are within the base rect since we move relative to the center.
-func (lar *LocationAwareRobot) moveRect(toX, toY int, orientation float64) (image.Rectangle, error) {
+func (lar *LocationAwareRobot) moveRect(toX, toY float64, orientation float64) (r2.Rect, error) {
 	bufferScaled := lar.millimetersToMeasuredUnit(detectionBufferMillis)
 	baseRect := lar.baseRect()
-	distX, distY := int(math.Abs(float64(lar.basePosX-toX))), int(math.Abs(float64(lar.basePosY-toY)))
-	var pathX0, pathY0, pathX1, pathY1 int
+	distX, distY := math.Abs(lar.basePosX-toX), math.Abs(lar.basePosY-toY)
+	var pathX0, pathY0, pathX1, pathY1 float64
 	switch orientation {
 	case 0:
 		// top-left of base extended up
-		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY+baseRect.Dy()/2
-		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 + distY + bufferScaled))
+		pathX0, pathY0 = lar.basePosX-baseRect.Size().X/2, lar.basePosY+baseRect.Size().Y/2
+		pathX1 = pathX0 + baseRect.Size().X
+		pathY1 = pathY0 + distY + bufferScaled
 	case 90:
 		// top-right of base extended right
-		pathX0, pathY0 = lar.basePosX+baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
-		pathX1 = int(float64(pathX0 + distX + bufferScaled))
-		pathY1 = pathY0 + baseRect.Dy()
+		pathX0, pathY0 = lar.basePosX+baseRect.Size().X/2, lar.basePosY-baseRect.Size().Y/2
+		pathX1 = pathX0 + distX + bufferScaled
+		pathY1 = pathY0 + baseRect.Size().Y
 	case 180:
 		// bottom-left of base extended down
-		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
-		pathX1 = pathX0 + baseRect.Dx()
-		pathY1 = int(float64(pathY0 - distY - bufferScaled))
+		pathX0, pathY0 = lar.basePosX-baseRect.Size().X/2, lar.basePosY-baseRect.Size().Y/2
+		pathX1 = pathX0 + baseRect.Size().X
+		pathY1 = pathY0 - distY - bufferScaled
 	case 270:
 		// top-left of base extended left
-		pathX0, pathY0 = lar.basePosX-baseRect.Dx()/2, lar.basePosY-baseRect.Dy()/2
-		pathX1 = int(float64(pathX0 - distX - bufferScaled))
-		pathY1 = pathY0 + baseRect.Dy()
+		pathX0, pathY0 = lar.basePosX-baseRect.Size().X/2, lar.basePosY-baseRect.Size().Y/2
+		pathX1 = pathX0 - distX - bufferScaled
+		pathY1 = pathY0 + baseRect.Size().Y
 	default:
-		return image.Rectangle{}, fmt.Errorf("bad orientation %f", orientation)
+		return r2.EmptyRect(), fmt.Errorf("bad orientation %f", orientation)
 	}
-	return image.Rect(pathX0, pathY0, pathX1, pathY1), nil
+	return r2.RectFromPoints(r2.Point{pathX0, pathY0}, r2.Point{pathX1, pathY1}), nil
 }
 
 // the rectangle is centered at the position of the base
-func (lar *LocationAwareRobot) baseRect() image.Rectangle {
+func (lar *LocationAwareRobot) baseRect() r2.Rect {
 	basePosX, basePosY := lar.basePos()
 
-	return image.Rect(
-		basePosX-lar.baseDeviceWidthUnits/2,
-		basePosY-lar.baseDeviceWidthUnits/2,
-		basePosX+lar.baseDeviceWidthUnits/2,
-		basePosY+lar.baseDeviceWidthUnits/2,
+	return r2.RectFromPoints(
+		r2.Point{basePosX - lar.baseDeviceWidthUnits/2, basePosY - lar.baseDeviceWidthUnits/2},
+		r2.Point{basePosX + lar.baseDeviceWidthUnits/2, basePosY + lar.baseDeviceWidthUnits/2},
 	)
 }
 
@@ -399,7 +398,7 @@ func (lar *LocationAwareRobot) newPresentView() error {
 	var err error
 	lar.rootArea.Mutate(func(mutRoot MutableArea) {
 		lar.presentViewArea.Mutate(func(mutPresent MutableArea) {
-			mutPresent.Iterate(func(x, y, v int) bool {
+			mutPresent.Iterate(func(x, y float64, v int) bool {
 				err = mutRoot.Set(x, y, v)
 				return err == nil
 			})
@@ -426,7 +425,7 @@ func (lar *LocationAwareRobot) setOrientation(orientation float64) {
 	lar.baseOrientation = orientation
 }
 
-func (lar *LocationAwareRobot) basePos() (int, int) {
+func (lar *LocationAwareRobot) basePos() (float64, float64) {
 	return lar.basePosX, lar.basePosY
 }
 
@@ -437,7 +436,7 @@ func (lar *LocationAwareRobot) update(ctx context.Context) error {
 	basePosX, basePosY := lar.basePos()
 	for _, dev := range lar.devices {
 		if fake, ok := dev.(*fake.Lidar); ok {
-			fake.SetPosition(image.Point{basePosX, basePosY})
+			fake.SetPosition(r2.Point{basePosX, basePosY})
 		}
 	}
 	return lar.scanAndStore(ctx, lar.devices, lar.presentViewArea)
@@ -462,7 +461,7 @@ func (lar *LocationAwareRobot) cull() error {
 	// within the area (assuming the lidar is active)
 	var err error
 	lar.presentViewArea.Mutate(func(mutArea MutableArea) {
-		mutArea.Iterate(func(x, y, v int) bool {
+		mutArea.Iterate(func(x, y float64, v int) bool {
 			if x < areaMinX || x > areaMaxX || y < areaMinY || y > areaMaxY {
 				return true
 			}
@@ -572,15 +571,15 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 				x = newX
 				y = newY
 			}
-			detectedX := int(float64(basePosX) + offsets.DistanceX + x*float64(lar.unitsPerMeter))
-			detectedY := int(float64(basePosY) + offsets.DistanceY + y*float64(lar.unitsPerMeter))
+			detectedX := basePosX + offsets.DistanceX + x*lar.unitsPerMeter
+			detectedY := basePosY + offsets.DistanceY + y*lar.unitsPerMeter
 			if detectedX < -quadLength || detectedX >= quadLength {
 				continue
 			}
 			if detectedY < -quadLength || detectedY >= quadLength {
 				continue
 			}
-			if (image.Point{detectedX, detectedY}).In(baseRect) {
+			if baseRect.ContainsPoint(r2.Point{detectedX, detectedY}) {
 				continue
 			}
 			var err error
@@ -595,7 +594,7 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 	return nil
 }
 
-func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, image.Point, []*SquareArea) {
+func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, r2.Point, []*SquareArea) {
 	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
 }
 
