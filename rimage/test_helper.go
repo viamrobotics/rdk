@@ -129,7 +129,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 		cont := t.Run(f, func(t *testing.T) {
 			img, err := ReadImageFromFile(f)
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("cannot read %s : %s", f, err)
 			}
 
 			d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))

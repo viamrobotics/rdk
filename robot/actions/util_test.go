@@ -27,6 +27,7 @@ func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn
 		return err
 	}
 	d.GotDebugImage(pc.Color, "cropped")
+	d.GotDebugImage(pc.Depth.ToPrettyPicture(0, 0), "cropped-depth")
 
 	walked, _ := roverWalk(pc, true, logger)
 	d.GotDebugImage(walked, "depth2")
@@ -34,7 +35,7 @@ func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn
 	return nil
 }
 
-func Test1(t *testing.T) {
+func TestAutoDrive1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png")
 	err := d.Process(t, MyDebug{})
 	if err != nil {
@@ -59,7 +60,7 @@ func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger,
 	d.GotDebugImage(m2, "segments")
 
 	if iwd.Depth != nil {
-		d.GotDebugImage(iwd.Depth.ToPrettyPicture(0, 10000), "depth")
+		d.GotDebugImage(iwd.Depth.ToPrettyPicture(0, 0), "depth")
 	}
 
 	return nil
