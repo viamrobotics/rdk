@@ -2,10 +2,11 @@ package inject
 
 import (
 	"context"
-	"image"
 
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/golang/geo/r2"
 )
 
 type LidarDevice struct {
@@ -15,8 +16,8 @@ type LidarDevice struct {
 	StopFunc              func(ctx context.Context) error
 	CloseFunc             func() error
 	ScanFunc              func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error)
-	RangeFunc             func(ctx context.Context) (int, error)
-	BoundsFunc            func(ctx context.Context) (image.Point, error)
+	RangeFunc             func(ctx context.Context) (float64, error)
+	BoundsFunc            func(ctx context.Context) (r2.Point, error)
 	AngularResolutionFunc func(ctx context.Context) (float64, error)
 }
 
@@ -55,14 +56,14 @@ func (ld *LidarDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lid
 	return ld.ScanFunc(ctx, options)
 }
 
-func (ld *LidarDevice) Range(ctx context.Context) (int, error) {
+func (ld *LidarDevice) Range(ctx context.Context) (float64, error) {
 	if ld.RangeFunc == nil {
 		return ld.Device.Range(ctx)
 	}
 	return ld.RangeFunc(ctx)
 }
 
-func (ld *LidarDevice) Bounds(ctx context.Context) (image.Point, error) {
+func (ld *LidarDevice) Bounds(ctx context.Context) (r2.Point, error) {
 	if ld.BoundsFunc == nil {
 		return ld.Device.Bounds(ctx)
 	}

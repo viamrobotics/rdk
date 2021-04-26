@@ -88,7 +88,7 @@ For API intercommunication, we use Protocol Buffers to serialize data and gRPC t
 
 Some guidelines on using these:
 1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
-1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files.
+1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
 1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
 ### Testing with big data

@@ -85,7 +85,7 @@ func TestSquareArea(t *testing.T) {
 
 	sa.Mutate(func(area MutableArea) {
 		called := 0
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			called++
 			return false
 		})
@@ -100,9 +100,9 @@ func TestSquareArea(t *testing.T) {
 			"0,0,1":       {},
 			"499,499,2":   {},
 		}
-		area.Iterate(func(x, y, v int) bool {
+		area.Iterate(func(x, y float64, v int) bool {
 			called++
-			delete(expected, fmt.Sprintf("%d,%d,%d", x, y, v))
+			delete(expected, fmt.Sprintf("%v,%v,%d", x, y, v))
 			return true
 		})
 		test.That(t, called, test.ShouldEqual, 8)

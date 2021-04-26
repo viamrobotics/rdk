@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"image"
 	"math"
 	"net"
 	"testing"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
 )
@@ -64,11 +64,11 @@ func TestMain(t *testing.T) {
 	injectDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
 		return lidar.Measurements{lidar.NewMeasurement(0, 5)}, nil
 	}
-	injectDev.RangeFunc = func(ctx context.Context) (int, error) {
+	injectDev.RangeFunc = func(ctx context.Context) (float64, error) {
 		return 10, nil
 	}
-	injectDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{4, 5}, nil
+	injectDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+		return r2.Point{4, 5}, nil
 	}
 	injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return 1, nil

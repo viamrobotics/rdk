@@ -12,6 +12,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/fogleman/gg"
+	"github.com/golang/geo/r2"
 )
 
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), error) {
@@ -27,17 +28,17 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), e
 
 var areaPointColor = color.NRGBA{255, 0, 0, 255}
 
-func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareArea) (image.Image, error) {
+func (lar *LocationAwareRobot) renderAreas(bounds r2.Point, areas []*SquareArea) (image.Image, error) {
 	// all areas are the same size
-	bounds.X = int(math.Ceil(float64(bounds.X) * float64(lar.unitsPerMeter) / lar.clientZoom))
-	bounds.Y = int(math.Ceil(float64(bounds.Y) * float64(lar.unitsPerMeter) / lar.clientZoom))
+	bounds.X = math.Ceil((bounds.X * lar.unitsPerMeter) / lar.clientZoom)
+	bounds.Y = math.Ceil((bounds.Y * lar.unitsPerMeter) / lar.clientZoom)
 	centerX := bounds.X / 2
 	centerY := bounds.Y / 2
 
-	dc := gg.NewContext(bounds.X, bounds.Y)
+	dc := gg.NewContext(int(bounds.X), int(bounds.Y))
 
 	// also serves as a font taking up 5% of space
-	textScaleYStart := float64(bounds.Y) * .05
+	textScaleYStart := bounds.Y * .05
 	rimage.DrawString(
 		dc,
 		fmt.Sprintf("zoom: %.02f", lar.clientZoom),
@@ -57,10 +58,10 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	minY := basePosY - bounds.Y/2
 	maxY := basePosY + bounds.Y/2
 
-	viewTranslateP := image.Point{-basePosX + centerX, -basePosY + centerY}
-	relBaseRect := lar.baseRect().Add(viewTranslateP)
+	viewTranslateP := r2.Point{-basePosX + centerX, -basePosY + centerY}
+	relBaseRect := rimage.TranslateR2Rect(lar.baseRect(), viewTranslateP)
 
-	rimage.DrawRectangleEmpty(dc, relBaseRect, color.NRGBA{0, 0, 255, 255}, 1)
+	rimage.DrawRectangleEmpty(dc, rimage.R2RectToImageRect(relBaseRect), color.NRGBA{0, 0, 255, 255}, 1)
 
 	for _, orientation := range []float64{0, 90, 180, 270} {
 		calcP, err := lar.calculateMove(orientation, defaultClientMoveAmountMillis)
@@ -69,7 +70,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 			if err != nil {
 				return nil, err
 			}
-			moveRect = moveRect.Add(viewTranslateP)
+			moveRect = rimage.TranslateR2Rect(moveRect, viewTranslateP)
 			var c color.Color
 			switch orientation {
 			case 0:
@@ -81,16 +82,16 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 			case 270:
 				c = color.NRGBA{255, 195, 0, 255}
 			}
-			rimage.DrawRectangleEmpty(dc, moveRect, c, 1)
+			rimage.DrawRectangleEmpty(dc, rimage.R2RectToImageRect(moveRect), c, 1)
 		}
 	}
 
 	distance := 30.0
 	x, y := utils.RayToUpwardCWCartesian(lar.orientation(), distance)
-	relX := float64(centerX) + x
-	relY := float64(centerY) - y // Y is decreasing in an image
+	relX := centerX + x
+	relY := centerY - y // Y is decreasing in an image
 
-	dc.DrawLine(float64(centerX), float64(centerY), relX, relY)
+	dc.DrawLine(centerX, centerY, relX, relY)
 	dc.SetColor(color.NRGBA{0, 255, 0, 255})
 	dc.SetLineWidth(3)
 	dc.Stroke()
@@ -99,7 +100,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 	// for a sub-area; it's fast as long as there are not many points
 	for _, area := range areas {
 		area.Mutate(func(area MutableArea) {
-			area.Iterate(func(x, y, _ int) bool {
+			area.Iterate(func(x, y float64, _ int) bool {
 				if x < minX || x > maxX || y < minY || y > maxY {
 					return true
 				}
@@ -109,7 +110,7 @@ func (lar *LocationAwareRobot) renderAreas(bounds image.Point, areas []*SquareAr
 				relY := centerY + distY // Y is decreasing in an image
 
 				dc.SetColor(areaPointColor)
-				dc.SetPixel(relX, relY)
+				dc.SetPixel(int(relX), int(relY))
 				return true
 			})
 		})
