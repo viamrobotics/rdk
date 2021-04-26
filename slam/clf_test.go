@@ -23,7 +23,7 @@ func TestAcesCLF(t *testing.T) {
 	}
 	defer f.Close()
 
-	unitsPerMeter := 20
+	unitsPerMeter := 20.
 
 	area, err := NewSquareArea(200, unitsPerMeter, golog.Global)
 	if err != nil {
@@ -61,8 +61,8 @@ func TestAcesCLF(t *testing.T) {
 			y += laserMessage.Y
 
 			area.Mutate(func(area MutableArea) {
-				xx := int(x * float64(unitsPerMeter))
-				yy := int(y * float64(unitsPerMeter))
+				xx := x * unitsPerMeter
+				yy := y * unitsPerMeter
 				err = area.Set(xx, yy, 1)
 			})
 

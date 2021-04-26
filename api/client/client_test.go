@@ -25,6 +25,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/test"
+	"github.com/golang/geo/r2"
 	"google.golang.org/grpc"
 )
 
@@ -253,11 +254,11 @@ func TestClient(t *testing.T) {
 	injectLidarDev.ScanFunc = func(ctx context.Context, opts lidar.ScanOptions) (lidar.Measurements, error) {
 		return lidar.Measurements{lidar.NewMeasurement(2, 40)}, nil
 	}
-	injectLidarDev.RangeFunc = func(ctx context.Context) (int, error) {
+	injectLidarDev.RangeFunc = func(ctx context.Context) (float64, error) {
 		return 25, nil
 	}
-	injectLidarDev.BoundsFunc = func(ctx context.Context) (image.Point, error) {
-		return image.Point{4, 5}, nil
+	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
+		return r2.Point{4, 5}, nil
 	}
 	injectLidarDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return 5.2, nil
@@ -499,7 +500,7 @@ func TestClient(t *testing.T) {
 	test.That(t, devRange, test.ShouldEqual, 25)
 	bounds, err := lidarDev.Bounds(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, bounds, test.ShouldResemble, image.Point{4, 5})
+	test.That(t, bounds, test.ShouldResemble, r2.Point{4, 5})
 	angRes, err := lidarDev.AngularResolution(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, angRes, test.ShouldEqual, 5.2)

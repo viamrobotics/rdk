@@ -35,8 +35,8 @@ var (
 	streamHeight = 800
 
 	// for saving to disk
-	areaSizeMeters = 50
-	unitsPerMeter  = 100 // cm
+	areaSizeMeters = 50.
+	unitsPerMeter  = 100. // cm
 
 	logger = golog.NewDevelopmentLogger("lidar_view")
 )
