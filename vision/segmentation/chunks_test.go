@@ -24,6 +24,7 @@ func (cid *chunkImageDebug) Process(
 	type AShape struct {
 		Start      image.Point
 		PixelRange []int
+		BadPoints  []image.Point
 	}
 
 	type imgConfig struct {
@@ -66,15 +67,29 @@ func (cid *chunkImageDebug) Process(
 
 		for idx, s := range cfg.Shapes {
 			numPixels := out.PixelsInSegmemnt(idx + 1)
+
+			reRun := false
+
 			if numPixels < s.PixelRange[0] || numPixels > s.PixelRange[1] {
+				reRun = true
+				t.Errorf("out of pixel range %s %v %d", fn, s, numPixels)
+			}
+
+			for _, badPoint := range s.BadPoints {
+				if out.GetSegment(badPoint) == idx+1 {
+					reRun = true
+					t.Errorf("point %v was in cluster %v but should not have been", badPoint, idx+1)
+				}
+			}
+
+			if reRun {
 				// run again with debugging on
 				_, err := ShapeWalkMultiple(iwd, []image.Point{s.Start}, ShapeWalkOptions{Debug: true}, logger)
 				if err != nil {
 					return err
 				}
-
-				t.Errorf("out of pixel range %s %v %d", fn, s, numPixels)
 			}
+
 		}
 
 	}
