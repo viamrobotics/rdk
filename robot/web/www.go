@@ -46,7 +46,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", utils.ResolveSharedDir(app.options.SharedDir) + "/templates"))
+	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", utils.ResolveSharedDir(app.options.SharedDir)+"/templates"))
 	if err != nil {
 		return err
 	}
@@ -207,7 +207,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveSharedDir(app.options.SharedDir) + "/static"))))
+	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
 	for _, view := range views {
