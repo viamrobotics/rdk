@@ -18,4 +18,7 @@ module.exports = {
 	resolve: {
 		alias: aliases,
 	},
+	output: {
+		path: path.resolve(__dirname, '../runtime-shared/static'),
+	},
 };
