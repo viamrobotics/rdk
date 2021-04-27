@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 
@@ -111,16 +110,8 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud
 
 }
 
-func NewDepthColorWarpTransforms(attrs api.AttributeMap, logger golog.Logger) (*DepthColorWarpTransforms, error) {
-	var config *AlignConfig
+func NewDepthColorWarpTransforms(config *AlignConfig, logger golog.Logger) (*DepthColorWarpTransforms, error) {
 	var err error
-
-	if attrs.Has("config") {
-		config = attrs["config"].(*AlignConfig)
-	} else {
-		return nil, fmt.Errorf("no alignment config")
-	}
-
 	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})
 
 	if config.WarpFromCommon {
