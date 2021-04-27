@@ -8,8 +8,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	apiserver "go.viam.com/robotcore/api/server"
@@ -42,16 +42,21 @@ type robotWebApp struct {
 
 func (app *robotWebApp) Init() error {
 	var templateDir string
-	var err error
-	if app.options.TemplateDir != "" {
-		templateDir, err = filepath.Abs(app.options.TemplateDir)
-	} else {
-		_, thisFilePath, _, _ := runtime.Caller(0)
-		templateDir, err = filepath.Abs(filepath.Dir(thisFilePath))
-	}
+	calledBinary, err := os.Executable()
 	if err != nil {
 		return err
 	}
+	if app.options.SharedDir != "" {
+		templateDir, err = filepath.Abs(app.options.SharedDir + "/templates")
+		if err != nil {
+			return err
+		}
+	} else if calledBinary == "/usr/bin/viam-server" {
+		templateDir = "/usr/share/viam/templates"
+	} else {
+		templateDir = utils.ResolveFile("robot/web/templates")
+	}
+
 	t, err := template.New("foo").Funcs(template.FuncMap{
 		"jsSafe": func(js string) template.JS {
 			return template.JS(js)
@@ -220,7 +225,24 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveFile("robot/web/frontend/dist")))))
+	var staticDir string
+	calledBinary, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	if app.options.SharedDir != "" {
+		staticDir, err = filepath.Abs(app.options.SharedDir + "/static")
+		if err != nil {
+			return nil, err
+		}
+
+	} else if calledBinary == "/usr/bin/viam-server" {
+		staticDir = "/usr/share/viam/static"
+	} else {
+		staticDir = utils.ResolveFile("robot/web/frontend/dist")
+	}
+
+	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(staticDir))))
 	mux.Handle(pat.New("/"), app)
 
 	for _, view := range views {
