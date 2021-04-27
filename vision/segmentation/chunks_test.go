@@ -105,6 +105,10 @@ func (cid *chunkImageDebug) Process(
 	if iwd.Depth != nil {
 		x := iwd.Depth.ToPrettyPicture(0, 0)
 		d.GotDebugImage(x, "depth")
+
+		x2 := iwd.Depth.InterestingPixels(2)
+		d.GotDebugImage(x2, "depth-interesting")
+
 	}
 
 	return nil
