@@ -10,6 +10,9 @@ import (
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
+
+	"github.com/edaniels/test"
+	"github.com/golang/geo/r3"
 )
 
 func TestSegmentPlane(t *testing.T) {
@@ -190,4 +193,73 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func TestPointCloudSplit(t *testing.T) {
+	// make a simple point cloud
+	cloud := pc.New()
+	var err error
+	err = cloud.Set(pc.NewColoredPoint(1, 1, 1, color.NRGBA{255, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(1, 0, -1, color.NRGBA{0, 255, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(-1, -2, -1, color.NRGBA{0, 0, 255, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(0, 0, 0, color.NRGBA{0, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	// 2-2 split map
+	map1 := map[r3.Vector]bool{
+		{1, 1, 1}: true,
+		{0, 0, 0}: true,
+	}
+	mapCloud, nonMapCloud, err := PointCloudSplit(cloud, map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mapCloud.Size(), test.ShouldEqual, 2)
+	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 2)
+	// map of all points
+	map2 := map[r3.Vector]bool{
+		{1, 1, 1}:    true,
+		{0, 0, 0}:    true,
+		{-1, -2, -1}: true,
+		{1, 0, -1}:   true,
+	}
+	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mapCloud.Size(), test.ShouldEqual, 4)
+	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 0)
+	// empty map
+	map3 := map[r3.Vector]bool{}
+	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map3)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mapCloud.Size(), test.ShouldEqual, 0)
+	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 4)
+	// map with invalid points
+	map4 := map[r3.Vector]bool{
+		{1, 1, 1}: true,
+		{0, 2, 0}: true,
+	}
+	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map4)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mapCloud.Size(), test.ShouldEqual, 1)
+	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 3)
+}
+
+func TestPlaneMaskRGBPointCloud(t *testing.T) {
+	cloud := pc.New()
+	err := cloud.Set(pc.NewColoredPoint(1, 1, 1, color.NRGBA{255, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(2, 4, 8, color.NRGBA{0, 255, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(3, 3, 7, color.NRGBA{0, 0, 255, 255}))
+	test.That(t, err, test.ShouldBeNil)
+	err = cloud.Set(pc.NewColoredPoint(0, 1, 4, color.NRGBA{0, 0, 0, 255}))
+	test.That(t, err, test.ShouldBeNil)
+
+	dm := rimage.NewDepthMap(10, 10)
+	mask := GetPlaneMaskRGBPointCloud(dm, cloud)
+	test.That(t, mask.At(1, 1), test.ShouldResemble, color.Gray{255})
+	test.That(t, mask.At(2, 4), test.ShouldResemble, color.Gray{255})
+	test.That(t, mask.At(3, 3), test.ShouldResemble, color.Gray{255})
+	test.That(t, mask.At(0, 1), test.ShouldResemble, color.Gray{255})
+	test.That(t, mask.At(5, 1), test.ShouldResemble, color.Gray{0})
 }
