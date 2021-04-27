@@ -460,41 +460,48 @@ func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOp
 		logger:    logger,
 	}
 
-	xSegments := 20
-	ySegments := 20
-
+	radius := 10
 	nextColor := 1
 
-	for x := 0; x < xSegments; x++ {
-		for y := 0; y < ySegments; y++ {
+	middleX := img.Width() / 2
+	middleY := img.Height() / 2
 
-			startX := (x + 1) * (img.Width() / (xSegments + 2))
-			startY := (y + 1) * (img.Height() / (ySegments + 2))
+	xStep := img.Width() / (radius * 2)
+	yStep := img.Height() / (radius * 2)
 
-			found := utils.Walk(startX, startY, img.Width(),
-				func(x, y int) error {
-					if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
-						return nil
-					}
+	err := utils.Walk(0, 0, radius, func(x, y int) error {
+		startX := middleX + (x * xStep)
+		startY := middleY + (y * yStep)
 
-					if ws.dots.get(image.Point{x, y}) != 0 {
-						return nil
-					}
-					return MyWalkError{image.Point{x, y}}
-				})
+		found := utils.Walk(startX, startY, img.Width(),
+			func(x, y int) error {
+				if x < 0 || x >= img.Width() || y < 0 || y >= img.Height() {
+					return nil
+				}
 
-			if found == nil {
-				break
-			}
+				if ws.dots.get(image.Point{x, y}) != 0 {
+					return nil
+				}
+				return MyWalkError{image.Point{x, y}}
+			})
 
-			start := found.(MyWalkError).pos
-			numPixels := ws.piece(start, nextColor)
-			if options.Debug && numPixels < 10 {
-				ws.logger.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
-			}
-
-			nextColor++
+		if found == nil {
+			return nil
 		}
+
+		start := found.(MyWalkError).pos
+		numPixels := ws.piece(start, nextColor)
+		if options.Debug && numPixels < 10 {
+			ws.logger.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)
+		}
+
+		nextColor++
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	ws.dots.createPalette()
