@@ -196,7 +196,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 				// this means one of the points had good data and one didn't
 				// this usually means it's an edge or something
 				// so make the threshold a bit smaller
-				depthThreshold = -.5
+				depthThreshold = -1.1
 			}
 		}
 
