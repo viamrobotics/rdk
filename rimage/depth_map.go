@@ -42,6 +42,10 @@ func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
+func (dm *DepthMap) Bounds() image.Rectangle {
+	return image.Rect(0, 0, dm.width, dm.height)
+}
+
 func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
@@ -463,6 +467,74 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 		}
 	}
 	return dm2
+}
+
+// returns average distance, average distance to avg
+// TODO(erh): should this be std. dev?
+func (dm *DepthMap) AverageDepthAndStats(p image.Point, radius int) (float64, float64) {
+	total := 0.0
+
+	heights := []Depth{}
+
+	for x := p.X - radius; x <= p.X+radius; x++ {
+		if x < 0 || x >= dm.width {
+			continue
+		}
+		for y := p.Y - radius; y <= p.Y+radius; y++ {
+			if y < 0 || y >= dm.height {
+				continue
+			}
+
+			h := dm.GetDepth(x, y)
+			if h == 0 {
+				continue
+			}
+
+			heights = append(heights, h)
+			total += float64(h)
+		}
+	}
+
+	if len(heights) == 0 {
+		return 0.0, 0.0
+	}
+
+	avg := total / float64(len(heights))
+
+	total = 0.0 // re-using for avg distance
+	for _, h := range heights {
+		d := math.Abs(float64(h) - avg)
+		total += d
+	}
+
+	return avg, total / float64(len(heights))
+}
+
+func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
+	out := image.NewGray(dm.Bounds())
+
+	for x := 0; x < dm.width; x += 3 {
+		for y := 0; y < dm.height; y += 3 {
+
+			_, avgDistance := dm.AverageDepthAndStats(image.Point{x + 1, y + 1}, 1)
+
+			clr := color.Gray{0}
+			if avgDistance > t {
+				clr = color.Gray{255}
+			}
+
+			for a := 0; a < 3; a++ {
+				for b := 0; b < 3; b++ {
+					xx := x + a
+					yy := y + b
+					out.SetGray(xx, yy, clr)
+				}
+			}
+
+		}
+	}
+
+	return out
 }
 
 func NewEmptyDepthMap(width, height int) DepthMap {
