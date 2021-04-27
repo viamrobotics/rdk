@@ -6,10 +6,11 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/golang/geo/r3"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/golang/geo/r3"
 )
 
 // Extract the positions of the points from the pointcloud into an r3 slice.
