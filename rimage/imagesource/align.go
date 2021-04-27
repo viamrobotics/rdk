@@ -73,7 +73,8 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 	var err error
 
 	if attrs.Has("config") {
-		dcaligner, err = calib.NewDepthColorWarpTransforms(attrs, logger)
+		config := attrs["config"].(*calib.AlignConfig)
+		dcaligner, err = calib.NewDepthColorWarpTransforms(config, logger)
 	} else if attrs.Has("matrices") {
 		dcaligner, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs, logger)
 	} else {

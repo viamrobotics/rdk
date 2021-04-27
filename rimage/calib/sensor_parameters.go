@@ -175,14 +175,3 @@ func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz fl
 	cx, cy := dcie.ColorCamera.PointToPixel(x, y, z)
 	return cx, cy, z
 }
-
-// Convert point from meters to mm
-func MeterToDepthUnit(x, y, z float64, pixel2Meter float64) (float64, float64, float64) {
-	if pixel2Meter < 0.0000001 {
-		panic("pixel2Meter is too close to zero to make the conversion from meters to millimeters.")
-	}
-	xMm := x / pixel2Meter
-	yMm := y / pixel2Meter
-	zMm := z / pixel2Meter
-	return xMm, yMm, zMm
-}
