@@ -255,8 +255,8 @@ func TestPlaneMaskRGBPointCloud(t *testing.T) {
 	err = cloud.Set(pc.NewColoredPoint(0, 1, 4, color.NRGBA{0, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
 
-	dm := rimage.NewDepthMap(10, 10)
-	mask := GetPlaneMaskRGBPointCloud(dm, cloud)
+	dm := rimage.NewEmptyDepthMap(10, 10)
+	mask := GetPlaneMaskRGBPointCloud(&dm, cloud)
 	test.That(t, mask.At(1, 1), test.ShouldResemble, color.Gray{255})
 	test.That(t, mask.At(2, 4), test.ShouldResemble, color.Gray{255})
 	test.That(t, mask.At(3, 3), test.ShouldResemble, color.Gray{255})
