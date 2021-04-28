@@ -274,10 +274,6 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
-func NewDepthMap(width, height int) *DepthMap {
-	return &DepthMap{width, height, make([]Depth, width*height)}
-}
-
 // Extract the depth map from a Z16 image file or a .both.gz image file
 func NewDepthMapFromImageFile(fn string) (*DepthMap, error) {
 	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
