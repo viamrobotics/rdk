@@ -19,7 +19,7 @@ func init() {
 		if b == nil {
 			return nil, fmt.Errorf("viam gripper requires a board called local")
 		}
-		return NewGripperV1(context.TODO(), b, config.Attributes.GetInt("pressureLimit", 800), logger)
+		return NewGripperV1(ctx, b, config.Attributes.GetInt("pressureLimit", 800), logger)
 	})
 }
 

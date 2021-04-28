@@ -251,3 +251,31 @@ func BenchmarkDepthMapRotate180(b *testing.B) {
 	}
 
 }
+
+func TestDepthMapStats(t *testing.T) {
+	dm := NewEmptyDepthMap(3, 3)
+	for x := 0; x < 3; x++ {
+		for y := 0; y < 3; y++ {
+			dm.Set(x, y, Depth((x*10)+y))
+		}
+	}
+
+	d, a := dm.AverageDepthAndStats(image.Point{1, 1}, 0)
+	assert.Equal(t, 11.0, d)
+	assert.Equal(t, 0.0, a)
+
+	d, a = dm.AverageDepthAndStats(image.Point{1, 1}, 1)
+	assert.Equal(t, 12.375, d)
+	assert.Equal(t, 6.46875, a)
+
+	d, a = dm.AverageDepthAndStats(image.Point{3, 3}, 1)
+	assert.Equal(t, 22.0, d)
+	assert.Equal(t, 0.0, a)
+
+	img := dm.InterestingPixels(5)
+	assert.Equal(t, uint8(255), img.GrayAt(1, 1).Y)
+
+	img = dm.InterestingPixels(10)
+	assert.Equal(t, uint8(0), img.GrayAt(1, 1).Y)
+
+}

@@ -51,10 +51,14 @@
     ],
     "processes": [
         {
-            "name": "go",
+            "name": "/home/erh/work/rplidar/main",
             "cwd" : "/home/erh/work/rplidar",
-            "args": [ "run", "cmd/server/main.go"],
+            "log": true
+        },
+        {
+            "name": "/home/erh/robotcore/utils/camera_servers/intelrealserver",
             "log": true
         }
+
     ]
 }
