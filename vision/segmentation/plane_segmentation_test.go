@@ -1,4 +1,4 @@
-package pointcloudsegmentation
+package segmentation
 
 import (
 	"image"
@@ -10,9 +10,9 @@ import (
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/test"
-	"github.com/golang/geo/r3"
 )
 
 func TestSegmentPlane(t *testing.T) {
@@ -44,7 +44,7 @@ func TestSegmentPlane(t *testing.T) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestSegmentPlane(t *testing.T) {
 	}
 	// Segment Plane
 	nIter := 3000
-	_, _, eq, err := SegmentPlane(cloud, nIter, 0.0025, pixel2meter)
+	_, _, eq, err := SegmentPlane(cloud, nIter, 0.0025)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 		t.Fatal(err)
 	}
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	pixel2meter := 0.001
 	// Select depth range
 	// Get 3D Points
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Get rigid body transform between Depth and RGB sensor
-	sensorParams, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json")
+	sensorParams, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "color")
+	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile("../../../robots/configs/intel515_parameters.json", "depth")
+	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	}
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
-		_, _, _, err := SegmentPlane(pts, 2500, 0.0025, pixel2meter)
+		_, _, _, err := SegmentPlane(pts, 2500, 0.0025)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -208,7 +208,7 @@ func TestPointCloudSplit(t *testing.T) {
 	err = cloud.Set(pc.NewColoredPoint(0, 0, 0, color.NRGBA{0, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
 	// 2-2 split map
-	map1 := map[r3.Vector]bool{
+	map1 := map[pc.Vec3]bool{
 		{1, 1, 1}: true,
 		{0, 0, 0}: true,
 	}
@@ -217,7 +217,7 @@ func TestPointCloudSplit(t *testing.T) {
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 2)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 2)
 	// map of all points
-	map2 := map[r3.Vector]bool{
+	map2 := map[pc.Vec3]bool{
 		{1, 1, 1}:    true,
 		{0, 0, 0}:    true,
 		{-1, -2, -1}: true,
@@ -228,20 +228,20 @@ func TestPointCloudSplit(t *testing.T) {
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 4)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 0)
 	// empty map
-	map3 := map[r3.Vector]bool{}
+	map3 := map[pc.Vec3]bool{}
 	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 0)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 4)
 	// map with invalid points
-	map4 := map[r3.Vector]bool{
+	map4 := map[pc.Vec3]bool{
 		{1, 1, 1}: true,
 		{0, 2, 0}: true,
 	}
 	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map4)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mapCloud.Size(), test.ShouldEqual, 1)
-	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 3)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, mapCloud, test.ShouldBeNil)
+	test.That(t, nonMapCloud, test.ShouldBeNil)
 }
 
 func TestPlaneMaskRGBPointCloud(t *testing.T) {
