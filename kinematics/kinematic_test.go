@@ -125,22 +125,28 @@ func TestJacobian_6DOF(t *testing.T) {
 	}
 }
 
+const derivEqualityEpsilon = 1e-16
+
+func derivComponentAlmostEqual(left, right float64) bool {
+	return math.Abs(left-right) <= derivEqualityEpsilon
+}
+
 func areDerivsEqual(q1, q2 []quat.Number) bool {
 	if len(q1) != len(q2) {
 		return false
 	}
 	for i, dq1 := range q1 {
 		dq2 := q2[i]
-		if dq1.Real != dq2.Real {
+		if !derivComponentAlmostEqual(dq1.Real, dq2.Real) {
 			return false
 		}
-		if dq1.Imag != dq2.Imag {
+		if !derivComponentAlmostEqual(dq1.Imag, dq2.Imag) {
 			return false
 		}
-		if dq1.Jmag != dq2.Jmag {
+		if !derivComponentAlmostEqual(dq1.Jmag, dq2.Jmag) {
 			return false
 		}
-		if dq1.Kmag != dq2.Kmag {
+		if !derivComponentAlmostEqual(dq1.Kmag, dq2.Kmag) {
 			return false
 		}
 	}
@@ -174,5 +180,4 @@ func TestDeriv(t *testing.T) {
 
 	match = areDerivsEqual(qDeriv, deriv(q))
 	test.That(t, match, test.ShouldBeTrue)
-
 }

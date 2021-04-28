@@ -1,0 +1,23 @@
+{
+    "boards" : [
+        { "name" : "local",
+          "model" : "pi",
+          "analogs" : [
+              { "name" : "psi",
+                "pin" : "0"
+              }
+          ]
+        }
+    ],
+    "components" : [
+        { "name" : "srg1",
+		  "type": "gripper",
+		  "model": "softrobotics",
+          "attributes" : {
+              "open" : "40",
+              "close" : "38",
+              "power" : "36"
+          }
+        }
+    ]
+}
