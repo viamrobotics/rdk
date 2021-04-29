@@ -27,11 +27,19 @@ func init() {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), config.Attributes.GetBool("aligned", true)}, nil
+		aligned, has := config.Attributes["aligned"]
+		if !has {
+			return nil, fmt.Errorf("camera 'url' needs bool attribute 'aligned'")
+		}
+		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
 	})
 
 	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
-		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), config.Attributes.GetBool("aligned", false)}, nil
+		aligned, has := config.Attributes["aligned"]
+		if !has {
+			return nil, fmt.Errorf("config for file needs bool attribute 'aligned'")
+		}
+		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
 	})
 }
 
@@ -140,7 +148,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) *IntelS
 	if has {
 		num = numString.(string)
 	}
-	return &IntelServerSource{fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num), host, attrs.GetBool("aligned", false)}
+	return &IntelServerSource{fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num), host, attrs.GetBool("aligned", true)}
 }
 
 func (s *IntelServerSource) Close() error {
