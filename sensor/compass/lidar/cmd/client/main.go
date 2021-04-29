@@ -30,7 +30,7 @@ func main() {
 
 // Arguments for the command.
 type Arguments struct {
-	LidarDevice *api.Component `flag:"device,usage=lidar device"`
+	LidarDevice *api.ComponentConfig `flag:"device,usage=lidar device"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
@@ -39,7 +39,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	var components []api.Component
+	var components []api.ComponentConfig
 	if argsParsed.LidarDevice == nil {
 		components = search.Devices()
 		if len(components) != 0 {
@@ -52,7 +52,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if argsParsed.LidarDevice.Type != api.ComponentTypeLidar {
 			return errors.New("device must be a lidar component")
 		}
-		components = []api.Component{*argsParsed.LidarDevice}
+		components = []api.ComponentConfig{*argsParsed.LidarDevice}
 	}
 
 	if len(components) == 0 {
@@ -62,8 +62,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return readCompass(ctx, components, logger)
 }
 
-func readCompass(ctx context.Context, lidarComponents []api.Component, logger golog.Logger) (err error) {
-	r, err := robot.NewRobot(ctx, api.Config{Components: lidarComponents}, logger)
+func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, logger golog.Logger) (err error) {
+	r, err := robot.NewRobot(ctx, &api.Config{Components: lidarComponents}, logger)
 	if err != nil {
 		return err
 	}

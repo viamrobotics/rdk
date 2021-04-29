@@ -22,3 +22,15 @@ func TestFilterOutError(t *testing.T) {
 	test.That(t, FilterOutError(errM, err2), test.ShouldResemble, multierr.Combine(err1, err4))
 	test.That(t, FilterOutError(errM, err3), test.ShouldBeNil)
 }
+
+func TestNewConfigValidationError(t *testing.T) {
+	err := NewConfigValidationError("thing", errors.New("another one"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "thing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "another one")
+
+	err = NewConfigValidationFieldRequiredError("thing", "another")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "thing")
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"another" is required`)
+}

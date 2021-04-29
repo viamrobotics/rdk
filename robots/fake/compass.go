@@ -10,15 +10,16 @@ import (
 )
 
 func init() {
-	api.RegisterSensor(compass.DeviceType, "fake", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+	api.RegisterSensor(compass.DeviceType, "fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		if config.Attributes.GetBool("relative", false) {
-			return &RelativeCompass{&Compass{}}, nil
+			return &RelativeCompass{&Compass{Name: config.Name}}, nil
 		}
-		return &Compass{}, nil
+		return &Compass{Name: config.Name}, nil
 	})
 }
 
 type Compass struct {
+	Name string
 }
 
 func (c *Compass) Readings(ctx context.Context) ([]interface{}, error) {

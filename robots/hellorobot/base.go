@@ -14,8 +14,8 @@ import (
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
-		t := r.ProviderByModel(ModelName)
+	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.ComponentConfig, logger golog.Logger) (api.Base, error) {
+		t := r.ProviderByName(ModelName)
 		if t == nil {
 			return nil, fmt.Errorf("no provider created for hellorobot")
 		}

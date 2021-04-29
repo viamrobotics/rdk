@@ -8,13 +8,15 @@ import (
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.Component, logger golog.Logger) (api.Base, error) {
-		return &Base{}, nil
+	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.ComponentConfig, logger golog.Logger) (api.Base, error) {
+		return &Base{Name: c.Name}, nil
 	})
 }
 
 // tracks in CM
 type Base struct {
+	Name       string
+	CloseCount int
 }
 
 func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
@@ -34,5 +36,6 @@ func (b *Base) Stop(ctx context.Context) error {
 }
 
 func (b *Base) Close() error {
+	b.CloseCount++
 	return nil
 }

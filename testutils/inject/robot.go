@@ -16,9 +16,9 @@ import (
 
 type Robot struct {
 	api.Robot
-	ProviderByModelFunc   func(model string) api.Provider
-	AddProviderFunc       func(p api.Provider, c api.Component)
-	RemoteByNameFunc      func(name string) api.Robot
+	ProviderByNameFunc    func(name string) api.Provider
+	AddProviderFunc       func(p api.Provider, c api.ComponentConfig)
+	RemoteByNameFunc      func(name string) api.RemoteRobot
 	ArmByNameFunc         func(name string) api.Arm
 	BaseByNameFunc        func(name string) api.Base
 	GripperByNameFunc     func(name string) api.Gripper
@@ -34,20 +34,20 @@ type Robot struct {
 	BaseNamesFunc         func() []string
 	BoardNamesFunc        func() []string
 	SensorNamesFunc       func() []string
-	GetConfigFunc         func(ctx context.Context) (api.Config, error)
+	GetConfigFunc         func(ctx context.Context) (*api.Config, error)
 	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
 	CloseFunc             func() error
 }
 
-func (r *Robot) ProviderByModel(model string) api.Provider {
-	if r.ProviderByModelFunc == nil {
-		return r.Robot.ProviderByModel(model)
+func (r *Robot) ProviderByName(name string) api.Provider {
+	if r.ProviderByNameFunc == nil {
+		return r.Robot.ProviderByName(name)
 	}
-	return r.ProviderByModelFunc(model)
+	return r.ProviderByNameFunc(name)
 }
 
-func (r *Robot) AddProvider(p api.Provider, c api.Component) {
+func (r *Robot) AddProvider(p api.Provider, c api.ComponentConfig) {
 	if r.AddProviderFunc == nil {
 		r.Robot.AddProvider(p, c)
 		return
@@ -167,7 +167,7 @@ func (r *Robot) SensorNames() []string {
 	return r.SensorNamesFunc()
 }
 
-func (r *Robot) GetConfig(ctx context.Context) (api.Config, error) {
+func (r *Robot) GetConfig(ctx context.Context) (*api.Config, error) {
 	if r.GetConfigFunc == nil {
 		return r.Robot.GetConfig(ctx)
 	}

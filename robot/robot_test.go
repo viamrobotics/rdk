@@ -92,8 +92,8 @@ func TestConfigRemote(t *testing.T) {
 	}()
 
 	addr := fmt.Sprintf("localhost:%d", port)
-	remoteConfig := api.Config{
-		Remotes: []api.Remote{
+	remoteConfig := &api.Config{
+		Remotes: []api.RemoteConfig{
 			{
 				Name:    "foo",
 				Address: addr,
@@ -205,7 +205,7 @@ func TestNewRobotTeardown(t *testing.T) {
 	board.RegisterBoard("dummy", func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
 	})
-	api.RegisterGripper("dummy", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper("dummy", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		return nil, errors.New("whoops")
 	})
 

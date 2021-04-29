@@ -1,3 +1,3 @@
 package artifact
 
-// TODO(erd): this should probably move to its own repo
+// TODO(https://github.com/viamrobotics/robotcore/issues/47): this should probably move to its own repo

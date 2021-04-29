@@ -43,7 +43,7 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
-func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
+func NewNetLogger(config *api.CloudConfig) (zapcore.Core, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
 
 type netLogger struct {
 	hostname string
-	cfg      api.CloudConfig
+	cfg      *api.CloudConfig
 
 	toLogMutex sync.Mutex
 	toLog      []interface{}
@@ -161,7 +161,7 @@ func (nl *netLogger) Sync() error {
 
 }
 
-func addCloudLogger(logger golog.Logger, cfg api.CloudConfig) (golog.Logger, error) {
+func addCloudLogger(logger golog.Logger, cfg *api.CloudConfig) (golog.Logger, error) {
 	nl, err := NewNetLogger(cfg)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	if cfg.Cloud.LogPath != "" {
+	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
 		logger, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err

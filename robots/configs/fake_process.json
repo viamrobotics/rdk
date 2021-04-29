@@ -70,11 +70,13 @@
   ],
   "processes": [
     {
+      "id": "1",
       "name": "echo",
       "args": ["hello", "world"],
       "one_shot": true
     },
     {
+      "id": "2",
       "name": "bash",
       "args": ["-c", "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"],
       "log": true

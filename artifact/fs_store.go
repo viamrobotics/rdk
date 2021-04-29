@@ -3,6 +3,7 @@ package artifact
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -75,6 +76,23 @@ func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 			return nil
 		}
 	}
+
+	if existing, err := os.Open(path); err == nil {
+		data, err := ioutil.ReadAll(existing)
+		if err != nil {
+			existing.Close()
+			return err
+		}
+		existing.Close()
+		existingHash, err := computeHash(data)
+		if err != nil {
+			return err
+		}
+		if existingHash == hash {
+			return nil
+		}
+	}
+
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("error removing old artifact at %q", path)
 	}

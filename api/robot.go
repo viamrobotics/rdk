@@ -12,10 +12,12 @@ import (
 	"github.com/edaniels/gostream"
 )
 
+// A Robot encompasses all functionality of some robot comprised
+// of parts, local and remote.
 type Robot interface {
-	// providers are for singletons for a whole model
-	ProviderByModel(model string) Provider
-	AddProvider(p Provider, c Component)
+	// providers are for singletons for a whole name
+	ProviderByName(name string) Provider
+	AddProvider(p Provider, config ComponentConfig)
 
 	RemoteByName(name string) Robot
 	ArmByName(name string) Arm
@@ -36,7 +38,7 @@ type Robot interface {
 	SensorNames() []string
 
 	// this is allowed to be partial or empty
-	GetConfig(ctx context.Context) (Config, error)
+	GetConfig(ctx context.Context) (*Config, error)
 
 	// use CreateStatus helper in most cases
 	Status(ctx context.Context) (*pb.Status, error)
@@ -44,6 +46,10 @@ type Robot interface {
 	Logger() golog.Logger
 }
 
+// A Provider is responsible for providing functionality to parts in a
+// robot.
 type Provider interface {
+	// Ready does any provider/platform initialization once robot configuration is
+	// finishing.
 	Ready(r Robot) error
 }

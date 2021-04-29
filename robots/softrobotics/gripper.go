@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("softrobotics", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper("softrobotics", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, fmt.Errorf("softrobotics gripper requires a board called local")
@@ -41,7 +41,7 @@ type Gripper struct {
 	logger golog.Logger
 }
 
-func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config api.Component, logger golog.Logger) (*Gripper, error) {
+func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config api.ComponentConfig, logger golog.Logger) (*Gripper, error) {
 	theGripper := &Gripper{
 		theBoard:  b,
 		gpioBoard: g,

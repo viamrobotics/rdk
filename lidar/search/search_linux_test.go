@@ -2,7 +2,6 @@ package search
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/usb"
 
 	"github.com/edaniels/test"
@@ -24,11 +24,9 @@ func TestDevices(t *testing.T) {
 		},
 	})
 
-	tempDir1, err := ioutil.TempDir("", "")
-	test.That(t, err, test.ShouldBeNil)
+	tempDir1 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir1) // clean up
-	tempDir2, err := ioutil.TempDir("", "")
-	test.That(t, err, test.ShouldBeNil)
+	tempDir2 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir2) // clean up
 
 	prevSysPaths := usb.SysPaths
@@ -36,18 +34,12 @@ func TestDevices(t *testing.T) {
 		usb.SysPaths = prevSysPaths
 	}()
 
-	dev1Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev2Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev3Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev1, err := ioutil.TempDir(dev1Root, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev2, err := ioutil.TempDir(dev2Root, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev3, err := ioutil.TempDir(dev3Root, "")
-	test.That(t, err, test.ShouldBeNil)
+	dev1Root := testutils.TempDir(t, tempDir1, "")
+	dev2Root := testutils.TempDir(t, tempDir1, "")
+	dev3Root := testutils.TempDir(t, tempDir1, "")
+	dev1 := testutils.TempDir(t, dev1Root, "")
+	dev2 := testutils.TempDir(t, dev2Root, "")
+	dev3 := testutils.TempDir(t, dev3Root, "")
 
 	test.That(t, os.WriteFile(filepath.Join(dev1Root, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
@@ -62,11 +54,11 @@ func TestDevices(t *testing.T) {
 
 	for i, tc := range []struct {
 		Paths    []string
-		Expected []api.Component
+		Expected []api.ComponentConfig
 	}{
 		{nil, nil},
 		{[]string{"/"}, nil},
-		{[]string{tempDir2}, []api.Component{
+		{[]string{tempDir2}, []api.ComponentConfig{
 			{
 				Type:  api.ComponentTypeLidar,
 				Host:  "/dev/one",
