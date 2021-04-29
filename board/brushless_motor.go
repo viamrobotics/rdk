@@ -201,14 +201,30 @@ func (m *BrushlessMotor) motorManager() {
 
 	motorCmd := brushlessMotorCmd{}
 
-	for {
-		// Check to see if we have any new commands, without blocking.
+	nextCommand := func(block bool) bool {
+		if block {
+			select {
+			case <-m.done:
+				m.startedMgr = false
+				return false
+			case motorCmd = <-m.commands:
+			}
+			return true
+		}
 		select {
 		case <-m.done:
 			m.startedMgr = false
-			return
+			return false
 		case motorCmd = <-m.commands:
 		default:
+		}
+		return true
+	}
+
+	for {
+		// block if our non-cont command is complete
+		if cont := nextCommand(!motorCmd.cont && motorCmd.steps <= 0); !cont {
+			return
 		}
 
 		// Perform one set of steps, then check again for new commands.
