@@ -1,7 +1,5 @@
 {
-  ".DS_Store": "be7d94b4b17457fc17d8d73d6877220f",
   "align": {
-    ".DS_Store": "b0bb314ae204f32e91ba5cb402b577bd",
     "gripper1": {
       "align-test-1615760748.both.gz": "a4b99c91c6bc68b734499799c05367e7",
       "align-test-1615761783.both.gz": "4d68902ed4ee155b4abcc0ff9ae3a800",
@@ -997,7 +995,6 @@
     }
   },
   "segmentation": {
-    ".DS_Store": "a1ef71817ce39ef6766a1c598dd9e79e",
     "planes": {
       "align-test-1615473489.both.gz": "3796226d21137c904e3ee7933e3c915f",
       "chairs.both.gz": "c5d43ec2e5c15540a3c3b2ddbb39f529",
@@ -1070,7 +1067,6 @@
     }
   },
   "slam": {
-    ".DS_Store": "ff7588abc7d1e03b9d893a32a25a8195",
     "0_0_0_1_0.png": "b26ef5308fe690e032e9d633801d8818",
     "0_0_0_1_120.png": "6c2f70ba76fa836d8a18454e4ea13592",
     "0_0_0_1_135.png": "d8d22bb7aa73a513cb80a94760e93122",
