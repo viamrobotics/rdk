@@ -57,7 +57,7 @@ func TestSegmentPlane(t *testing.T) {
 	}
 	// Segment Plane
 	nIter := 3000
-	_, _, eq, err := SegmentPlane(cloud, nIter, 0.0025)
+	_, _, eq, err := SegmentPlane(cloud, nIter, 0.5)
 	if err != nil {
 		t.Fatal(err)
 	}
