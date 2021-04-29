@@ -15,6 +15,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/testutils"
 )
 
 type MultipleImageTestDebugger struct {
@@ -93,17 +94,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAlign
 	d.name = prefix + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)
-
-	var err error
-	d.out, err = filepath.Abs("out")
-	if err != nil {
-		panic(err)
-	}
-
-	if err := os.MkdirAll(d.out, 0775); err != nil {
-		panic(err)
-	}
-
+	d.out = testutils.TempDir(t, "", strings.ReplaceAll(prefix, "/", "_"))
 	return &d
 }
 

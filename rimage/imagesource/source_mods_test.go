@@ -3,11 +3,22 @@ package imagesource
 import (
 	"context"
 	"image"
+	"io/ioutil"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
+
+var outDir string
+
+func init() {
+	var err error
+	outDir, err = ioutil.TempDir("", "rimage_imagesource")
+	if err != nil {
+		panic(err)
+	}
+}
 
 func TestRotateSource(t *testing.T) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
@@ -23,7 +34,7 @@ func TestRotateSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = rimage.WriteImageToFile("out/test_rotate_source.png", rawImage)
+	err = rimage.WriteImageToFile(outDir+"/test_rotate_source.png", rawImage)
 	if err != nil {
 		t.Fatal(err)
 	}

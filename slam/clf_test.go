@@ -5,12 +5,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
-
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 // http://ais.informatik.uni-freiburg.de/slamevaluation/index.php
@@ -77,8 +78,8 @@ func TestAcesCLF(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	os.Mkdir("out", 0755)
-	err = rimage.WriteImageToFile("out/foo.png", AreaToImage(area))
+	outDir := testutils.TempDir(t, "", "slam")
+	err = rimage.WriteImageToFile(outDir+"/foo.png", AreaToImage(area))
 	if err != nil {
 		t.Fatal(err)
 	}

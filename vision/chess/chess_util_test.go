@@ -1,7 +1,7 @@
 package chess
 
 import (
-	"os"
+	"io/ioutil"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -9,6 +9,16 @@ import (
 
 	"github.com/edaniels/golog"
 )
+
+var outDir string
+
+func init() {
+	var err error
+	outDir, err = ioutil.TempDir("", "vision_chess")
+	if err != nil {
+		panic(err)
+	}
+}
 
 func TestGetMinChessCorner(t *testing.T) {
 	x := getMinChessCorner("a8")
@@ -45,7 +55,6 @@ func _testBoardHeight(t *testing.T, game *Game, board *Board, square string, min
 
 func TestWarpColorAndDepthToChess1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board1", true, logger)
@@ -53,7 +62,7 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = theBoard.WriteDebugImages("out/board1")
+	err = theBoard.WriteDebugImages(outDir + "/board1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,12 +77,11 @@ func TestWarpColorAndDepthToChess1(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board1")  // bishop
 
 	annotated := theBoard.Annotate()
-	rimage.WriteImageToFile("out/board1_annotated.png", annotated)
+	rimage.WriteImageToFile(outDir+"/board1_annotated.png", annotated)
 }
 
 func TestWarpColorAndDepthToChess2(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board2", true, logger)
@@ -95,14 +103,14 @@ func TestWarpColorAndDepthToChess2(t *testing.T) {
 	_testBoardHeight(t, game, theBoard, "c1", 50, 71, "board2")  // bishop
 
 	annotated := theBoard.Annotate()
-	rimage.WriteImageToFile("out/board2_annotated.png", annotated)
+	rimage.WriteImageToFile(outDir+"/board2_annotated.png", annotated)
 
 	nextBoard, err := FindAndWarpBoardFromFiles(artifact.MustPath("vision/chess/board3.png"), artifact.MustPath("vision/chess/board3.dat.gz"), true, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	rimage.WriteImageToFile("out/board3_annotated.png", nextBoard.Annotate())
+	rimage.WriteImageToFile(outDir+"/board3_annotated.png", nextBoard.Annotate())
 
 	_testBoardHeight(t, game, nextBoard, "b1", -1, 1, "board3")   // empty
 	_testBoardHeight(t, game, nextBoard, "e1", 70, 100, "board3") // king
@@ -118,7 +126,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rimage.WriteImageToFile("out/board-1605543520.png", theBoard.Annotate())
+	rimage.WriteImageToFile(outDir+"/board-1605543520.png", theBoard.Annotate())
 
 	game, err := NewGame(theBoard)
 	if err != nil {
@@ -139,7 +147,7 @@ func TestWarpColorAndDepthToChess3(t *testing.T) {
 	_testBoardHeight(t, game, nextBoard, "e2", 20, 40, "board-1605543783")  // pawn
 	_testBoardHeight(t, game, nextBoard, "c1", 45, 74, "board-1605543783")  // bishop
 
-	rimage.WriteImageToFile("out/board-1605543783.png", nextBoard.Annotate())
+	rimage.WriteImageToFile(outDir+"/board-1605543783.png", nextBoard.Annotate())
 
 	//crapPlayWithKmeans(nextBoard)
 }
@@ -156,13 +164,12 @@ func TestArmBlock1(t *testing.T) {
 	}
 
 	annotated := board.Annotate()
-	rimage.WriteImageToFile("out/armblock1_annotated.png", annotated)
+	rimage.WriteImageToFile(outDir+"/armblock1_annotated.png", annotated)
 
 }
 
 func TestWarpColorAndDepthToChess4(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board-1610063549", true, logger)
@@ -170,7 +177,7 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rimage.WriteImageToFile("out/board-20210107-a.png", theBoard.Annotate())
+	rimage.WriteImageToFile(outDir+"/board-20210107-a.png", theBoard.Annotate())
 
 	e := theBoard.SquareCenterEdges("a1")
 	if e < EdgeThreshold {
@@ -191,7 +198,6 @@ func TestWarpColorAndDepthToChess4(t *testing.T) {
 
 func TestWarpColorAndDepthToChess5(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	os.MkdirAll("out", 0775)
 
 	chessPath := artifact.MustPath("vision/chess")
 	theBoard, err := FindAndWarpBoardFromFilesRoot(chessPath+"/board5", true, logger)
@@ -199,7 +205,7 @@ func TestWarpColorAndDepthToChess5(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = theBoard.WriteDebugImages("out/board5")
+	err = theBoard.WriteDebugImages(outDir + "/board5")
 	if err != nil {
 		t.Fatal(err)
 	}
