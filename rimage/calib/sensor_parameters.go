@@ -8,8 +8,6 @@ import (
 	"os"
 
 	"go.viam.com/robotcore/api"
-
-	"github.com/edaniels/golog"
 )
 
 type DistortionModel struct {
@@ -62,7 +60,7 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap, logger golog.Logger) (*DepthColorIntrinsicsExtrinsics, error) {
+func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 
 	if attrs.Has("matrices") {

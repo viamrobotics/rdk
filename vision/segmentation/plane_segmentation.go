@@ -3,7 +3,6 @@ package segmentation
 import (
 	"fmt"
 	"image"
-	"image/color"
 	"math"
 
 	pc "go.viam.com/robotcore/pointcloud"
@@ -25,7 +24,7 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 }
 
 // Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.
-func PointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud, pc.PointCloud, error) {
+func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud, pc.PointCloud, error) {
 	mapCloud := pc.New()
 	nonMapCloud := pc.New()
 	var err error
@@ -99,7 +98,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 			bestInliers = currentInliers
 		}
 	}
-	planeCloud, nonPlaneCloud, err := PointCloudSplit(cloud, bestInliers)
+	planeCloud, nonPlaneCloud, err := pointCloudSplit(cloud, bestInliers)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -109,17 +108,20 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 // GetPlanesInPointCloud takes in a point cloud and outputs an array of the plane pointclouds and a point cloud of
 // the leftover points.
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
-// minPoints is the minimum number of points necessary in the found plane.
+// minPoints is the minimum number of points necessary to be considered a plane.
 func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]pc.PointCloud, pc.PointCloud, error) {
 	planes := make([]pc.PointCloud, 0)
 	var err error
-	planeCloud, nonPlaneCloud, _, err := SegmentPlane(cloud, 1500, threshold)
+	planeCloud, nonPlaneCloud, _, err := SegmentPlane(cloud, 2000, threshold)
 	if err != nil {
 		return nil, nil, err
 	}
+	if planeCloud.Size() <= minPoints {
+		return planes, cloud, nil
+	}
 	planes = append(planes, planeCloud)
 	for planeCloud.Size() > minPoints {
-		planeCloud, nonPlaneCloud, _, err = SegmentPlane(nonPlaneCloud, 1500, threshold)
+		planeCloud, nonPlaneCloud, _, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -130,7 +132,7 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 
 // PointCloudSegmentsToMask takes in an instrinsic camera matrix and a slice of pointclouds and projects
 // each pointcloud down to an image.
-func PointCloudSegmentsToMask(params calib.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
+func pointCloudSegmentsToMask(params calib.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
 	img := newSegmentedImage(rimage.NewImage(params.Width, params.Height))
 	visitedPoints := make(map[pc.Vec3]bool)
 	var err error
@@ -142,41 +144,18 @@ func PointCloudSegmentsToMask(params calib.PinholeCameraIntrinsics, segments []p
 				return false
 			}
 			visitedPoints[pos] = true
-			x, y := params.PointToPixel(pos.X, pos.Y, pos.Z)
-			x, y = math.Round(x), math.Round(y)
-			img.set(image.Point{int(x), int(y)}, i+1)
+			px, py := params.PointToPixel(pos.X, pos.Y, pos.Z)
+			px, py = math.Round(px), math.Round(py)
+			x, y := int(px), int(py)
+			if x >= 0 && x < params.Width && y >= 0 && y < params.Height {
+				img.set(image.Point{x, y}, i+1)
+			}
 			return true
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
+	img.createPalette()
 	return img, nil
-}
-
-// utils for 3D float Points transforms
-// Get plane 2D mask obtained from depth data in RGB image coordinates
-func GetPlaneMaskRGBPointCloud(depthImage *rimage.DepthMap, coordinates pc.PointCloud) image.Image {
-	h, w := depthImage.Height(), depthImage.Width()
-	upLeft := image.Point{0, 0}
-	lowRight := image.Point{w, h}
-
-	maskPlane := image.NewGray(image.Rectangle{upLeft, lowRight})
-
-	// Colors are defined by Red, Green, Blue, Alpha uint8 values.
-	black := color.Gray{0}
-
-	// Set color for each pixel.
-	for x := 0; x < w; x++ {
-		for y := 0; y < h; y++ {
-			maskPlane.Set(y, x, black)
-		}
-	}
-	white := color.Gray{255}
-	coordinates.Iterate(func(pt pc.Point) bool {
-		j, i := pt.Position().X, pt.Position().Y
-		maskPlane.Set(int(j), int(i), white)
-		return true
-	})
-	return maskPlane
 }

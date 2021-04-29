@@ -6,12 +6,14 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/artifact"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
 	"go.viam.com/robotcore/utils"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
@@ -212,7 +214,7 @@ func TestPointCloudSplit(t *testing.T) {
 		{1, 1, 1}: true,
 		{0, 0, 0}: true,
 	}
-	mapCloud, nonMapCloud, err := PointCloudSplit(cloud, map1)
+	mapCloud, nonMapCloud, err := pointCloudSplit(cloud, map1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 2)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 2)
@@ -223,13 +225,13 @@ func TestPointCloudSplit(t *testing.T) {
 		{-1, -2, -1}: true,
 		{1, 0, -1}:   true,
 	}
-	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map2)
+	mapCloud, nonMapCloud, err = pointCloudSplit(cloud, map2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 4)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 0)
 	// empty map
 	map3 := map[pc.Vec3]bool{}
-	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map3)
+	mapCloud, nonMapCloud, err = pointCloudSplit(cloud, map3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 0)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 4)
@@ -238,28 +240,73 @@ func TestPointCloudSplit(t *testing.T) {
 		{1, 1, 1}: true,
 		{0, 2, 0}: true,
 	}
-	mapCloud, nonMapCloud, err = PointCloudSplit(cloud, map4)
+	mapCloud, nonMapCloud, err = pointCloudSplit(cloud, map4)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, mapCloud, test.ShouldBeNil)
 	test.That(t, nonMapCloud, test.ShouldBeNil)
 }
 
-func TestPlaneMaskRGBPointCloud(t *testing.T) {
-	cloud := pc.New()
-	err := cloud.Set(pc.NewColoredPoint(1, 1, 1, color.NRGBA{255, 0, 0, 255}))
-	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(2, 4, 8, color.NRGBA{0, 255, 0, 255}))
-	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(3, 3, 7, color.NRGBA{0, 0, 255, 255}))
-	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(0, 1, 4, color.NRGBA{0, 0, 0, 255}))
-	test.That(t, err, test.ShouldBeNil)
+// Test finding the planes in an image with depth
+type segmentTestHelper struct {
+	attrs        api.AttributeMap
+	cameraParams *calib.DepthColorIntrinsicsExtrinsics
+}
 
-	dm := rimage.NewEmptyDepthMap(10, 10)
-	mask := GetPlaneMaskRGBPointCloud(&dm, cloud)
-	test.That(t, mask.At(1, 1), test.ShouldResemble, color.Gray{255})
-	test.That(t, mask.At(2, 4), test.ShouldResemble, color.Gray{255})
-	test.That(t, mask.At(3, 3), test.ShouldResemble, color.Gray{255})
-	test.That(t, mask.At(0, 1), test.ShouldResemble, color.Gray{255})
-	test.That(t, mask.At(5, 1), test.ShouldResemble, color.Gray{0})
+func (h *segmentTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+	var err error
+	ii := rimage.ConvertToImageWithDepth(img)
+
+	if h.cameraParams == nil {
+		t.Fatal("no camera parameters set for alignment")
+	}
+
+	fixed, err := h.cameraParams.AlignImageWithDepth(ii)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.GotDebugImage(fixed.Overlay(), "overlay")
+
+	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+
+	cloud, err := fixed.ToPointCloud()
+	if err != nil {
+		t.Fatal(err)
+	}
+	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 50, 150000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	planes = append([]pc.PointCloud{nonPlane}, planes...)
+	segImage, err := pointCloudSegmentsToMask(h.cameraParams.ColorCamera, planes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d.GotDebugImage(segImage, "from-pointcloud")
+
+	return nil
+}
+
+func TestPlaneSegmentImageWithDepth(t *testing.T) {
+	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c := config.FindComponent("front")
+	if c == nil {
+		t.Fatal("no front")
+	}
+
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes", "*.both.gz", false)
+	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = d.Process(t, &segmentTestHelper{c.Attributes, aligner})
+	if err != nil {
+		t.Fatal(err)
+	}
 }

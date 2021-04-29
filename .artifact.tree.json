@@ -1,5 +1,7 @@
 {
+  ".DS_Store": "be7d94b4b17457fc17d8d73d6877220f",
   "align": {
+    ".DS_Store": "b0bb314ae204f32e91ba5cb402b577bd",
     "gripper1": {
       "align-test-1615760748.both.gz": "a4b99c91c6bc68b734499799c05367e7",
       "align-test-1615761783.both.gz": "4d68902ed4ee155b4abcc0ff9ae3a800",
@@ -995,6 +997,12 @@
     }
   },
   "segmentation": {
+    ".DS_Store": "a1ef71817ce39ef6766a1c598dd9e79e",
+    "planes": {
+      "align-test-1615473489.both.gz": "3796226d21137c904e3ee7933e3c915f",
+      "chairs.both.gz": "c5d43ec2e5c15540a3c3b2ddbb39f529",
+      "shelf.both.gz": "be0cb012e8d1a8c28e2725b241d5f776"
+    },
     "set_game": {
       "data_00000.both.gz": "74fd61ef0beabcb5fe3c4e4758ff09b6",
       "data_00000.both.json": "a68d90c7f78b5822836dbc798b0b8205",
@@ -1036,11 +1044,14 @@
       "1occ.both.json": "a68d90c7f78b5822836dbc798b0b8205",
       "20210111.1459.32.both.gz": "610c43752629a1d44ad0f0760949e3fe",
       "20210111.1459.32.both.json": "46f16caefdd3419aed39d51116515bf0",
+      "20210111.1459.32.both.json~": "a68d90c7f78b5822836dbc798b0b8205",
       "back5.jpg": "f49f408f5d154ae8d0372bd93eea81d7",
       "back5.json": "388a1fc918d3cabf3cdd2594e73d608a",
+      "back5.json~": "6c62272e07bb014262b821756295c58d",
       "data_00126.both.gz": "8ed9495fccda83b4369bea95fd6d4b83",
       "data_00126.both.json": "a2df7a5f126616de8e218d04bc09f258",
       "office1.json": "a68d90c7f78b5822836dbc798b0b8205",
+      "office1.json~": "6c62272e07bb014262b821756295c58d",
       "office1.png": "84c523b832e9a9e259a477b94a2f5804",
       "rover_backwards.both.gz": "b3b154b2a0ec9096ebccc3e2cbee04d9",
       "rover_backwards.both.json": "395d5e2e1248ea72f76f860f3ff68e7b",
@@ -1049,14 +1060,17 @@
       "rover_stuff.both.gz": "54b731552662f5a917837977a83e9900",
       "rover_stuff.both.json": "a68d90c7f78b5822836dbc798b0b8205",
       "warped-board-1605543525.json": "e59e109ae3954cd5a1c714afdc84693d",
+      "warped-board-1605543525.json~": "e817b657be208c18acfec3e334c90981",
       "warped-board-1605543525.png": "35a6fa8537aaa117c88b458b84b03196",
       "warped-board1.json": "2d0ac77e6bffaf0d7f716c6e10852a2b",
+      "warped-board1.json~": "4db66daba942bff38bc73d70fb6db221",
       "warped-board1.png": "7834440b99ae313b8a2c8645e0aaf133",
       "warped-board2.both.gz": "3433366ba5cae0eca1e9ba474dc9faac",
       "warped-board2.both.json": "bcb99b0ea0f053c0f4e8fd25504736bc"
     }
   },
   "slam": {
+    ".DS_Store": "ff7588abc7d1e03b9d893a32a25a8195",
     "0_0_0_1_0.png": "b26ef5308fe690e032e9d633801d8818",
     "0_0_0_1_120.png": "6c2f70ba76fa836d8a18454e4ea13592",
     "0_0_0_1_135.png": "d8d22bb7aa73a513cb80a94760e93122",
