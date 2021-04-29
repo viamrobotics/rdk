@@ -8,8 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
-	"path/filepath"
-	"runtime"
+	"os"
 	"time"
 
 	apiserver "go.viam.com/robotcore/api/server"
@@ -32,6 +31,22 @@ import (
 	"goji.io/pat"
 )
 
+func ResolveSharedDir(argDir string) string {
+	calledBinary, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	if argDir != "" {
+		return argDir
+	} else if calledBinary == "/usr/bin/viam-server" {
+		if _, err := os.Stat("/usr/share/viam"); !os.IsNotExist(err) {
+			return "/usr/share/viam"
+		}
+	}
+	return utils.ResolveFile("robot/web/runtime-shared")
+}
+
 type robotWebApp struct {
 	template *template.Template
 	views    []gostream.View
@@ -41,17 +56,6 @@ type robotWebApp struct {
 }
 
 func (app *robotWebApp) Init() error {
-	var templateDir string
-	var err error
-	if app.options.TemplateDir != "" {
-		templateDir, err = filepath.Abs(app.options.TemplateDir)
-	} else {
-		_, thisFilePath, _, _ := runtime.Caller(0)
-		templateDir, err = filepath.Abs(filepath.Dir(thisFilePath))
-	}
-	if err != nil {
-		return err
-	}
 	t, err := template.New("foo").Funcs(template.FuncMap{
 		"jsSafe": func(js string) template.JS {
 			return template.JS(js)
@@ -59,7 +63,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", templateDir))
+	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", ResolveSharedDir(app.options.SharedDir)+"/templates"))
 	if err != nil {
 		return err
 	}
@@ -220,7 +224,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
-	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(utils.ResolveFile("robot/web/frontend/dist")))))
+	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
 	for _, view := range views {

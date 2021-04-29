@@ -64,7 +64,8 @@ deb-server: server
 	mkdir packaging/work/
 	cp -r packaging/viam-server-0.1/ packaging/work/
 	install -D $(BIN_OUTPUT_PATH)/server packaging/work/viam-server-0.1/usr/bin/viam-server
-	install -m 644 -D robot/web/*.html --target-directory=packaging/work/viam-server-0.1/usr/share/viam/
+	install -m 644 -D robot/web/runtime-shared/templates/* --target-directory=packaging/work/viam-server-0.1/usr/share/viam/templates/
+	install -m 644 -D robot/web/runtime-shared/static/* --target-directory=packaging/work/viam-server-0.1/usr/share/viam/static/
 	cd packaging/work/viam-server-0.1/ \
 	&& dch -v 0.1+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
