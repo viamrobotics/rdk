@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"sort"
 
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -13,6 +14,8 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+var sortPositions bool
+
 // Extract the positions of the points from the pointcloud into an r3 slice.
 func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	positions := make([]pc.Vec3, 0, cloud.Size())
@@ -20,6 +23,9 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 		positions = append(positions, pt.Position())
 		return true
 	})
+	if sortPositions {
+		sort.Sort(pc.Vec3s(positions))
+	}
 	return positions
 }
 
