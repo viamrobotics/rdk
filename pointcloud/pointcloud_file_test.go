@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"bytes"
 	"encoding/binary"
 	"image/color"
 	"io/ioutil"
@@ -13,6 +14,16 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
+
+func BenchmarkNewFromFile(b *testing.B) {
+	logger := golog.NewLogger("pointcloud_benchmark")
+	for i := 0; i < b.N; i++ {
+		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func TestNewFromFile(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -33,6 +44,41 @@ func TestNewFromFile(t *testing.T) {
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
 }
 
+func TestPCD(t *testing.T) {
+	cloud := New()
+	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
+	/*
+		The expected string is below, cannot do direct comparison because maps print out in random order.
+		"VERSION .7\n" +
+		"FIELDS x y z rgb\n" +
+		"SIZE 4 4 4 4\n" +
+		"TYPE F F F I\n" +
+		"COUNT 1 1 1 1\n" +
+		"WIDTH 8162\n" +
+		"HEIGHT 1\n" +
+		"VIEWPOINT 0 0 0 1 0 0 0\n" +
+		"POINTS 3\n" +
+		"DATA ascii\n" +
+		"0.000000 0.000000 1.000000 16711938\n" +
+		"1.000000 1.000000 0.000000 16711938\n" +
+		"0.013722 0.571429 0.200000 16711938\n"
+	*/
+
+	// write to .pcd
+	var buf bytes.Buffer
+	err := cloud.ToPCD(&buf)
+	test.That(t, err, test.ShouldBeNil)
+	gotPCD := buf.String()
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 8162")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.000000 0.000000 1.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "1.000000 1.000000 0.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.013722 0.571429 0.200000 16711938\n")
+}
+
 func TestRoundTripFileWithColorFloat(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cloud := New()
@@ -42,14 +88,15 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 
-	bytes := make([]byte, 8)
+	byts := make([]byte, 8)
 	v := 1.4
 	bits := math.Float64bits(v)
-	binary.LittleEndian.PutUint64(bytes, bits)
-	outBits := binary.LittleEndian.Uint64(bytes)
+	binary.LittleEndian.PutUint64(byts, bits)
+	outBits := binary.LittleEndian.Uint64(byts)
 	outV := math.Float64frombits(outBits)
 	test.That(t, outV, test.ShouldEqual, v)
 
+	// write to .las
 	temp, err := ioutil.TempFile("", "*.las")
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())

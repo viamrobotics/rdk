@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image/color"
+	"io"
 	"path/filepath"
 
 	"github.com/edaniels/golog"
@@ -172,4 +173,68 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 	}
 
 	return
+}
+
+func _colorToPCDInt(pt Point) int {
+	r, g, b := pt.RGB255()
+	x := 0
+
+	x = x | (int(r) << 16)
+	x = x | (int(g) << 8)
+	x = x | (int(b) << 0)
+	return x
+}
+
+func (pc *basicPointCloud) ToPCD(out io.Writer) error {
+	if !pc.HasColor() {
+		return fmt.Errorf("no color data")
+	}
+	var err error
+	minZ, maxZ := pc.MinZ(), pc.MaxZ()
+	minX, maxX := pc.MinX(), pc.MaxX()
+	minY, maxY := pc.MinY(), pc.MaxY()
+	width := maxX - minX
+	height := maxY - minY
+	depth := maxZ - minZ
+
+	_, err = fmt.Fprintf(out, "VERSION .7\n"+
+		"FIELDS x y z rgb\n"+
+		"SIZE 4 4 4 4\n"+
+		"TYPE F F F I\n"+
+		"COUNT 1 1 1 1\n"+
+		"WIDTH %d\n"+
+		"HEIGHT %d\n"+
+		"VIEWPOINT 0 0 0 1 0 0 0\n"+
+		"POINTS %d\n"+
+		"DATA ascii\n",
+		int(width*height),
+		1,
+		pc.Size(),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	pc.Iterate(func(pt Point) bool {
+		if !pt.HasColor() {
+			return true
+		}
+		position := pt.Position()
+		scaledWidth := (position.X - minX) / width
+		scaledHeight := (position.Y - minY) / height
+		scaledDepth := (position.Z - minZ) / depth
+
+		_, err = fmt.Fprintf(out, "%f %f %f %d\n",
+			scaledWidth,
+			scaledHeight,
+			scaledDepth,
+			_colorToPCDInt(pt))
+		return err == nil
+	})
+
+	if err != nil {
+		return err
+	}
+	return nil
 }

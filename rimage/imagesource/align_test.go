@@ -30,7 +30,7 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 		}
 	}
 
-	fixed, err := h.dc.aligner.ToAlignedImageWithDepth(ii, logger)
+	fixed, err := h.dc.aligner.AlignImageWithDepth(ii)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +39,22 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	d.GotDebugImage(fixed.Overlay(), "overlay")
+
+	pc, err := fixed.ToPointCloud()
+	if err != nil {
+		t.Fatal(err)
+	}
+	roundTrip, err := h.dc.aligner.PointCloudToImageWithDepth(pc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
+
 	return nil
 }
 
 func TestAlignIntelWarp(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
 	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +72,7 @@ func TestAlignIntelMatrices(t *testing.T) {
 		t.Fatal("no front")
 	}
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +90,7 @@ func TestAlignGripper(t *testing.T) {
 		t.Fatal("no combined")
 	}
 
-	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
 	if err != nil {
 		t.Fatal(err)

@@ -140,7 +140,7 @@ func TestDepthRotate90(t *testing.T) {
 }
 
 func TestToGray16Picture(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"))
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	if err != nil {
 		t.Fatal(err)
 	}

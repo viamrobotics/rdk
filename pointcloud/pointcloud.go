@@ -2,6 +2,7 @@ package pointcloud
 
 import (
 	"fmt"
+	"io"
 	"math"
 
 	"go.viam.com/robotcore/utils"
@@ -27,6 +28,7 @@ type PointCloud interface {
 	Iterate(fn func(p Point) bool)
 	// util functions
 	WriteToFile(fn string) error
+	ToPCD(out io.Writer) error
 	DenseZ(zIdx float64) (*mat.Dense, error)
 	ToVec2Matrix() (*utils.Vec2Matrix, error)
 }

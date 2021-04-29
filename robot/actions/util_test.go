@@ -20,7 +20,7 @@ func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn
 		return err
 	}
 
-	pc := &rimage.ImageWithDepth{rimage.ConvertImage(img), dm}
+	pc := rimage.MakeImageWithDepth(rimage.ConvertImage(img), dm, false, nil)
 
 	pc, err = pc.CropToDepthData()
 	if err != nil {
@@ -36,7 +36,7 @@ func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn
 }
 
 func TestAutoDrive1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png")
+	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png", false)
 	err := d.Process(t, MyDebug{})
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger,
 }
 
 func TestCharge1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz")
+	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz", false)
 	err := d.Process(t, ChargeDebug{})
 	if err != nil {
 		t.Fatal(err)

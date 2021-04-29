@@ -11,7 +11,8 @@
             "type": "camera",
             "attributes": {
                 "color": "artifact_data/vision/chess/board3.png",
-                "depth": "artifact_data/vision/chess/board3.dat.gz"
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
             }
         },
         {

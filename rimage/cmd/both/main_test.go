@@ -20,7 +20,7 @@ func TestBothMain(t *testing.T) {
 	os.MkdirAll("out", 0775)
 
 	out := "out/board1.both.gz"
-	err := realMain([]string{"merge", artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), out})
+	err := realMain([]string{"merge", artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), out, "-aligned"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +31,9 @@ func TestBothMain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out2 := "out/board1.las"
-	err = realMain([]string{"to-las", out, out2})
+	out2 := "out/shelf.las"
+	jsonFilePath := "../../../robots/configs/intel515_parameters.json"
+	err = realMain([]string{"to-las", artifact.MustPath("align/intel515/shelf.both.gz"), jsonFilePath, out2})
 	if err != nil {
 		t.Fatal(err)
 	}

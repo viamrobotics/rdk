@@ -2,6 +2,7 @@ package utils
 
 import (
 	"math"
+	"math/rand"
 	"sort"
 )
 
@@ -113,4 +114,9 @@ func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
 	x := distance * math.Sin(angleRad)
 	y := distance * math.Cos(angleRad)
 	return x, y
+}
+
+// Function to sample a random integer within a range given by [min, max]
+func SampleRandomIntRange(min, max int) int {
+	return rand.Intn(max-min+1) + min
 }
