@@ -1,7 +1,7 @@
 package rimage
 
 import (
-	"os"
+	"io/ioutil"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -9,15 +9,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var outDir string
+
+func init() {
+	var err error
+	outDir, err = ioutil.TempDir("", "rimage")
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestPCRoundTrip(t *testing.T) {
 	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	os.MkdirAll("out", 0775)
-
-	fn := "out/roundtrip1.both.gz"
+	fn := outDir + "/roundtrip1.both.gz"
 	err = pc.WriteTo(fn)
 	if err != nil {
 		t.Fatal(err)
@@ -40,9 +48,7 @@ func TestImageWithDepthFromImages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	os.MkdirAll("out", 0775)
-
-	err = iwd.WriteTo("out/shelf.both.gz")
+	err = iwd.WriteTo(outDir + "/shelf.both.gz")
 	if err != nil {
 		t.Fatal(err)
 	}

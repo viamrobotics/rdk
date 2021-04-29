@@ -24,7 +24,7 @@ func TestPiece1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = theBoard.WriteDebugImages("out/board2")
+	err = theBoard.WriteDebugImages(outDir + "/board2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestPiece1(t *testing.T) {
 	_testPieceStatusHelper(t, game, nextBoard, "e5", "black")
 	_testPieceStatusHelper(t, game, nextBoard, "e7", "black")
 
-	err = nextBoard.WriteDebugImages("out/board3")
+	err = nextBoard.WriteDebugImages(outDir + "/board3")
 	if err != nil {
 		t.Fatal(err)
 	}
