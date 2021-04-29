@@ -13,10 +13,11 @@ type chunkImageDebug struct {
 
 func (cid *chunkImageDebug) Process(
 	t *testing.T,
-	d *rimage.MultipleImageTestDebugger,
+	pCtx *rimage.ProcessorContext,
 	fn string,
 	imgraw image.Image,
-	logger golog.Logger) error {
+	logger golog.Logger,
+) error {
 
 	iwd := rimage.ConvertToImageWithDepth(imgraw)
 	img := iwd.Color
@@ -32,14 +33,14 @@ func (cid *chunkImageDebug) Process(
 	}
 
 	cfg := imgConfig{}
-	err := d.CurrentImgConfig(&cfg)
+	err := pCtx.CurrentImgConfig(&cfg)
 	if err != nil {
 		return err
 	}
 
 	if true {
 		out := img.InterestingPixels(.2)
-		d.GotDebugImage(out, "t")
+		pCtx.GotDebugImage(out, "t")
 	}
 
 	if true {
@@ -55,7 +56,7 @@ func (cid *chunkImageDebug) Process(
 			if err != nil {
 				return err
 			}
-			d.GotDebugImage(out, "shapes-noclean")
+			pCtx.GotDebugImage(out, "shapes-noclean")
 		}
 
 		out, err := ShapeWalkMultiple(iwd, starts, ShapeWalkOptions{}, logger)
@@ -63,7 +64,7 @@ func (cid *chunkImageDebug) Process(
 			return err
 		}
 
-		d.GotDebugImage(out, "shapes")
+		pCtx.GotDebugImage(out, "shapes")
 
 		for idx, s := range cfg.Shapes {
 			numPixels := out.PixelsInSegmemnt(idx + 1)
@@ -99,15 +100,15 @@ func (cid *chunkImageDebug) Process(
 		if err != nil {
 			return err
 		}
-		d.GotDebugImage(out, "entire")
+		pCtx.GotDebugImage(out, "entire")
 	}
 
 	if iwd.Depth != nil {
 		x := iwd.Depth.ToPrettyPicture(0, 0)
-		d.GotDebugImage(x, "depth")
+		pCtx.GotDebugImage(x, "depth")
 
 		x2 := iwd.Depth.InterestingPixels(2)
-		d.GotDebugImage(x2, "depth-interesting")
+		pCtx.GotDebugImage(x2, "depth-interesting")
 
 	}
 

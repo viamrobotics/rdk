@@ -15,7 +15,7 @@ type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (dd ChessImageProcessDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err
@@ -24,7 +24,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 	swOptions := segmentation.ShapeWalkOptions{}
 	swOptions.MaxRadius = 50
 
-	d.GotDebugImage(out, "corners")
+	pCtx.GotDebugImage(out, "corners")
 
 	if corners != nil {
 		warped, err := warpColorAndDepthToChess(rimage.ConvertToImageWithDepth(img), corners)
@@ -32,7 +32,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 			return err
 		}
 
-		d.GotDebugImage(warped.Color, "warped")
+		pCtx.GotDebugImage(warped.Color, "warped")
 
 		starts := []image.Point{}
 		for x := 50; x <= 750; x += 100 {
@@ -46,7 +46,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 			return err
 		}
 
-		d.GotDebugImage(res, "shapes")
+		pCtx.GotDebugImage(res, "shapes")
 
 		if true {
 			out := rimage.NewImageFromBounds(res.Bounds())
@@ -62,12 +62,12 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 
 			}
 
-			d.GotDebugImage(out, "marked")
+			pCtx.GotDebugImage(out, "marked")
 		}
 
 		if warped.Depth != nil {
-			d.GotDebugImage(warped.Depth.ToPrettyPicture(0, 10000), "depth1")
-			d.GotDebugImage(warped.Overlay(), "depth2")
+			pCtx.GotDebugImage(warped.Depth.ToPrettyPicture(0, 10000), "depth1")
+			pCtx.GotDebugImage(warped.Overlay(), "depth2")
 		}
 
 		if false {
@@ -78,7 +78,7 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, d *rimage.MultipleImageTe
 
 			clustered := rimage.ClusterImage(clusters, warped.Color)
 
-			d.GotDebugImage(clustered, "kmeans")
+			pCtx.GotDebugImage(clustered, "kmeans")
 		}
 	}
 

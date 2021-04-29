@@ -14,7 +14,7 @@ import (
 type MyDebug struct {
 }
 
-func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (ddd MyDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	dm, err := rimage.ParseDepthMap(strings.Replace(fn, ".png", ".dat.gz", 1))
 	if err != nil {
 		return err
@@ -26,11 +26,11 @@ func (ddd MyDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn
 	if err != nil {
 		return err
 	}
-	d.GotDebugImage(pc.Color, "cropped")
-	d.GotDebugImage(pc.Depth.ToPrettyPicture(0, 0), "cropped-depth")
+	pCtx.GotDebugImage(pc.Color, "cropped")
+	pCtx.GotDebugImage(pc.Depth.ToPrettyPicture(0, 0), "cropped-depth")
 
 	walked, _ := roverWalk(pc, true, logger)
-	d.GotDebugImage(walked, "depth2")
+	pCtx.GotDebugImage(walked, "depth2")
 
 	return nil
 }
@@ -49,18 +49,18 @@ func TestAutoDrive1(t *testing.T) {
 type ChargeDebug struct {
 }
 
-func (cd ChargeDebug) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (cd ChargeDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	iwd := rimage.ConvertToImageWithDepth(img).Rotate(180)
-	d.GotDebugImage(iwd, "rotated")
+	pCtx.GotDebugImage(iwd, "rotated")
 
 	m2, err := segmentation.ShapeWalkEntireDebug(iwd, segmentation.ShapeWalkOptions{}, logger)
 	if err != nil {
 		return err
 	}
-	d.GotDebugImage(m2, "segments")
+	pCtx.GotDebugImage(m2, "segments")
 
 	if iwd.Depth != nil {
-		d.GotDebugImage(iwd.Depth.ToPrettyPicture(0, 0), "depth")
+		pCtx.GotDebugImage(iwd.Depth.ToPrettyPicture(0, 0), "depth")
 	}
 
 	return nil
