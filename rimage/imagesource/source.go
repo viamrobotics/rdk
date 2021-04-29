@@ -27,17 +27,25 @@ func init() {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
-		aligned, has := config.Attributes["aligned"]
+		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, fmt.Errorf("camera 'url' needs bool attribute 'aligned'")
+		}
+		aligned, ok := x.(bool)
+		if !ok {
+			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
 		}
 		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
 	})
 
 	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
-		aligned, has := config.Attributes["aligned"]
+		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, fmt.Errorf("config for file needs bool attribute 'aligned'")
+		}
+		aligned, ok := x.(bool)
+		if !ok {
+			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
 		}
 		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
 	})
