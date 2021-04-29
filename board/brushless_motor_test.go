@@ -3,10 +3,13 @@ package board
 import (
 	"context"
 	"testing"
+	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,6 +22,9 @@ func TestBrushlessMotor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		test.That(t, utils.TryClose(m), test.ShouldBeNil)
+	}()
 
 	assert.Nil(t, m.Off(ctx))
 	assert.Equal(t, false, b.gpio["1"])
@@ -33,14 +39,23 @@ func TestBrushlessMotor(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, supported)
 
-	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50.0, 40.0))
-	steps, err := m.Position(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, 0.005, steps)
+	waitTarget := func(target float64) {
+		steps, err := m.Position(ctx)
+		assert.Nil(t, err)
+		var attempts int
+		maxAttempts := 5
+		for steps != target && attempts < maxAttempts {
+			time.Sleep(time.Second)
+			attempts++
+			steps, err = m.Position(ctx)
+			assert.Nil(t, err)
+		}
+		assert.Equal(t, target, steps)
+	}
 
-	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 50.0, 20.0))
-	steps, err = m.Position(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, 0.015, steps)
+	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 200.0, 2.0))
+	waitTarget(2)
 
+	assert.Nil(t, m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 200.0, 4.0))
+	waitTarget(-2)
 }
