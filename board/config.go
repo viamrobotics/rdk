@@ -20,23 +20,23 @@ func (config *Config) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
 	}
-	for idx, config := range config.Motors {
-		if err := config.Validate(fmt.Sprintf("%s.%s.%d", path, "motors", idx)); err != nil {
+	for idx, conf := range config.Motors {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "motors", idx)); err != nil {
 			return err
 		}
 	}
-	for idx, config := range config.Servos {
-		if err := config.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
+	for idx, conf := range config.Servos {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
 			return err
 		}
 	}
-	for idx, config := range config.Analogs {
-		if err := config.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
 			return err
 		}
 	}
-	for idx, config := range config.DigitalInterrupts {
-		if err := config.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+	for idx, conf := range config.DigitalInterrupts {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
 			return err
 		}
 	}

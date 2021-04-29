@@ -43,6 +43,19 @@ func TestNewConfigWatcherFile(t *testing.T) {
 	watcher, err := NewConfigWatcher(&Config{ConfigFilePath: temp.Name()}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	writeConf := func(conf *Config) {
+		md, err := json.Marshal(&conf)
+		test.That(t, err, test.ShouldBeNil)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, f.Close(), test.ShouldBeNil)
+		}()
+		_, err = f.Write(md)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.Sync(), test.ShouldBeNil)
+	}
+
 	confToWrite := Config{
 		Components: []ComponentConfig{
 			{
@@ -59,11 +72,7 @@ func TestNewConfigWatcherFile(t *testing.T) {
 			},
 		},
 	}
-	go func() {
-		md, err := json.Marshal(&confToWrite)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ioutil.WriteFile(temp.Name(), md, 0755), test.ShouldBeNil)
-	}()
+	go writeConf(&confToWrite)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -84,17 +93,20 @@ func TestNewConfigWatcherFile(t *testing.T) {
 			},
 		},
 	}
-	go func() {
-		md, err := json.Marshal(&confToWrite)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ioutil.WriteFile(temp.Name(), md, 0755), test.ShouldBeNil)
-	}()
+	go writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	go func() {
-		test.That(t, ioutil.WriteFile(temp.Name(), []byte("blahblah"), 0755), test.ShouldBeNil)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, f.Close(), test.ShouldBeNil)
+		}()
+		_, err = f.Write([]byte("blahblah"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, f.Sync(), test.ShouldBeNil)
 	}()
 
 	timer := time.NewTimer(time.Second)
@@ -121,11 +133,7 @@ func TestNewConfigWatcherFile(t *testing.T) {
 			},
 		},
 	}
-	go func() {
-		md, err := json.Marshal(&confToWrite)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ioutil.WriteFile(temp.Name(), md, 0755), test.ShouldBeNil)
-	}()
+	go writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -182,9 +190,10 @@ func TestNewConfigWatcherCloud(t *testing.T) {
 	}()
 
 	cloudConf := &CloudConfig{
-		Path:   fmt.Sprintf("http://%s", listener.Addr().String()),
-		ID:     "my_id",
-		Secret: "my_secret",
+		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
+		ID:              "my_id",
+		Secret:          "my_secret",
+		RefreshInterval: time.Second,
 	}
 	confToReturn = Config{
 		Cloud: cloudConf,

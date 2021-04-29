@@ -103,7 +103,7 @@ func (config *CloudConfig) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "secret")
 	}
 	if config.RefreshInterval == 0 {
-		config.RefreshInterval = time.Second
+		config.RefreshInterval = 10 * time.Second
 	}
 	return nil
 }
