@@ -142,7 +142,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 			currentFile := f
 			d.logger.Debug(currentFile)
 
-			t.Run(currentFile, func(t *testing.T) {
+			t.Run(filepath.Base(f), func(t *testing.T) {
 				t.Parallel()
 				img, err := readImageFromFile(currentFile, d.imagesAligned)
 				if err != nil {
