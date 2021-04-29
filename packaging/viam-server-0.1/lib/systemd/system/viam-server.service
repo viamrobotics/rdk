@@ -11,7 +11,7 @@ Type=simple
 Restart=always
 RestartSec=1
 User=root
-ExecStart=/usr/bin/viam-server -templatedir /usr/share/viam /etc/viam.json
+ExecStart=/usr/bin/viam-server /etc/viam.json
 
 [Install]
 WantedBy=multi-user.target
