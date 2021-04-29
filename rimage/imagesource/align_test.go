@@ -17,11 +17,11 @@ type alignTestHelper struct {
 	dc    *DepthComposed
 }
 
-func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
-	d.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
+	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
 	if h.dc == nil {
 		h.dc, err = NewDepthComposed(nil, nil, h.attrs, logger)
@@ -35,10 +35,10 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 		t.Fatal(err)
 	}
 
-	d.GotDebugImage(fixed.Color, "color-fixed")
-	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+	pCtx.GotDebugImage(fixed.Color, "color-fixed")
+	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	d.GotDebugImage(fixed.Overlay(), "overlay")
+	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
 	pc, err := fixed.ToPointCloud()
 	if err != nil {
@@ -48,7 +48,7 @@ func (h *alignTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebug
 	if err != nil {
 		t.Fatal(err)
 	}
-	d.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
+	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
 
 	return nil
 }

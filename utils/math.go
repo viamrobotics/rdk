@@ -116,7 +116,8 @@ func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
 	return x, y
 }
 
-// Function to sample a random integer within a range given by [min, max]
-func SampleRandomIntRange(min, max int) int {
-	return rand.Intn(max-min+1) + min
+// SampleRandomInt samples a random integer within a range given by [min, max]
+// using the given rand.Rand
+func SampleRandomIntRange(min, max int, r *rand.Rand) int {
+	return r.Intn(max-min+1) + min
 }

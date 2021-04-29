@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,26 +18,32 @@ import (
 )
 
 type MultipleImageTestDebugger struct {
+	mu            sync.Mutex
 	name          string
 	glob          string
 	inroot        string
 	out           string
 	imagesAligned bool
 
-	html        strings.Builder
-	currentFile string
+	html strings.Builder
 
 	pendingImages int32
 	logger        golog.Logger
 }
 
-func (d *MultipleImageTestDebugger) currentImgConfigFile() string {
-	idx := strings.LastIndexByte(d.currentFile, '.')
-	return fmt.Sprintf("%s.json", d.currentFile[0:idx])
+type ProcessorContext struct {
+	d           *MultipleImageTestDebugger
+	currentFile string
+	html        strings.Builder
 }
 
-func (d *MultipleImageTestDebugger) CurrentImgConfig(out interface{}) error {
-	fn := d.currentImgConfigFile()
+func (pCtx *ProcessorContext) currentImgConfigFile() string {
+	idx := strings.LastIndexByte(pCtx.currentFile, '.')
+	return fmt.Sprintf("%s.json", pCtx.currentFile[0:idx])
+}
+
+func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
+	fn := pCtx.currentImgConfigFile()
 
 	file, err := os.Open(fn)
 	if err != nil {
@@ -48,32 +55,37 @@ func (d *MultipleImageTestDebugger) CurrentImgConfig(out interface{}) error {
 	return decoder.Decode(out)
 }
 
-func (d *MultipleImageTestDebugger) GotDebugImage(img image.Image, name string) {
-	outFile := filepath.Join(d.out, name+"-"+filepath.Base(d.currentFile))
+func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
+	outFile := filepath.Join(pCtx.d.out, name+"-"+filepath.Base(pCtx.currentFile))
 	if !strings.HasSuffix(outFile, ".png") {
 		outFile = outFile + ".png"
 	}
-	atomic.AddInt32(&d.pendingImages, 1)
+	atomic.AddInt32(&pCtx.d.pendingImages, 1)
 	go func() {
 		err := WriteImageToFile(outFile, img)
-		atomic.AddInt32(&d.pendingImages, -1)
+		atomic.AddInt32(&pCtx.d.pendingImages, -1)
 		if err != nil {
 			panic(err)
 		}
 	}()
-	d.addImageCell(outFile)
+	pCtx.addImageCell(outFile)
 }
 
-func (d *MultipleImageTestDebugger) addImageCell(f string) {
-	d.html.WriteString(fmt.Sprintf("<td><img src='%s' width=300/></td>", f))
+func (pCtx *ProcessorContext) addImageCell(f string) {
+	pCtx.html.WriteString(fmt.Sprintf("<td><img src='%s' width=300/></td>", f))
 }
 
 type MultipleImageTestDebuggerProcessor interface {
-	Process(t *testing.T, d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
+	Process(
+		t *testing.T,
+		pCtx *ProcessorContext,
+		fn string,
+		img image.Image,
+		logger golog.Logger,
+	) error
 }
 
-func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAligned bool) MultipleImageTestDebugger {
-
+func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAligned bool) *MultipleImageTestDebugger {
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
 	d.imagesAligned = imagesAligned
 	d.glob = glob
@@ -92,7 +104,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAlign
 		panic(err)
 	}
 
-	return d
+	return &d
 }
 
 func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) error {
@@ -118,39 +130,47 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 
 	numFiles := 0
 
-	for _, f := range files {
-		if !IsImageFile(f) {
-			continue
-		}
-
-		numFiles++
-
-		d.currentFile = f
-		d.logger.Debug(f)
-
-		cont := t.Run(f, func(t *testing.T) {
-			img, err := readImageFromFile(f, d.imagesAligned)
-			if err != nil {
-				t.Fatalf("cannot read %s : %s", f, err)
+	// group and block parallel runs by having a subtest parent
+	t.Run("files", func(t *testing.T) {
+		for _, f := range files {
+			if !IsImageFile(f) {
+				continue
 			}
 
-			d.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", f))
-			d.html.WriteString("<tr>")
-			d.GotDebugImage(img, "raw")
+			numFiles++
 
-			logger := golog.NewTestLogger(t)
-			err = x.Process(t, d, f, img, logger)
-			if err != nil {
-				t.Fatalf("error processing file %s : %s", f, err)
-			}
+			currentFile := f
+			d.logger.Debug(currentFile)
 
-			d.html.WriteString("</tr>")
-		})
+			t.Run(currentFile, func(t *testing.T) {
+				t.Parallel()
+				img, err := readImageFromFile(currentFile, d.imagesAligned)
+				if err != nil {
+					t.Fatalf("cannot read %s : %s", currentFile, err)
+				}
 
-		if !cont {
-			return nil
+				pCtx := &ProcessorContext{
+					d:           d,
+					currentFile: currentFile,
+				}
+
+				pCtx.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", currentFile))
+				pCtx.html.WriteString("<tr>")
+				pCtx.GotDebugImage(img, "raw")
+
+				logger := golog.NewTestLogger(t)
+				err = x.Process(t, pCtx, currentFile, img, logger)
+				if err != nil {
+					t.Fatalf("error processing file %s : %s", currentFile, err)
+				}
+
+				pCtx.html.WriteString("</tr>")
+				d.mu.Lock()
+				d.html.WriteString(pCtx.html.String())
+				d.mu.Unlock()
+			})
 		}
-	}
+	})
 
 	if numFiles == 0 {
 		t.Skip("no input files")

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"math/rand"
+	"sort"
 
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
@@ -13,6 +15,8 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+var sortPositions bool
+
 // Extract the positions of the points from the pointcloud into an r3 slice.
 func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	positions := make([]pc.Vec3, 0, cloud.Size())
@@ -20,6 +24,9 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 		positions = append(positions, pt.Position())
 		return true
 	})
+	if sortPositions {
+		sort.Sort(pc.Vec3s(positions))
+	}
 	return positions
 }
 
@@ -59,6 +66,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 // This function returns 2 pointclouds, the pointcloud of the plane and one without the plane
 // It also returns the equation of the found plane
 func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.PointCloud, pc.PointCloud, []float64, error) {
+	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
 	bestEquation := make([]float64, 4)
@@ -67,7 +75,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
-		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1), utils.SampleRandomIntRange(1, nPoints-1), utils.SampleRandomIntRange(1, nPoints-1)
+		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r), utils.SampleRandomIntRange(1, nPoints-1, r)
 		p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
 
 		// get 2 vectors that are going to define the plane
