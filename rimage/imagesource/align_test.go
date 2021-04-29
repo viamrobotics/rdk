@@ -14,7 +14,6 @@ import (
 
 type alignTestHelper struct {
 	attrs api.AttributeMap
-	dc    *DepthComposed
 }
 
 func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -23,14 +22,12 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
-	if h.dc == nil {
-		h.dc, err = NewDepthComposed(nil, nil, h.attrs, logger)
-		if err != nil {
-			t.Fatal(err)
-		}
+	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	fixed, err := h.dc.aligner.AlignImageWithDepth(ii)
+	fixed, err := dc.aligner.AlignImageWithDepth(ii)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +41,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	if err != nil {
 		t.Fatal(err)
 	}
-	roundTrip, err := h.dc.aligner.PointCloudToImageWithDepth(pc)
+	roundTrip, err := dc.aligner.PointCloudToImageWithDepth(pc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +52,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
-	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}, nil})
+	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +70,7 @@ func TestAlignIntelMatrices(t *testing.T) {
 	}
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
+	err = d.Process(t, &alignTestHelper{c.Attributes})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +88,7 @@ func TestAlignGripper(t *testing.T) {
 	}
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{c.Attributes, nil})
+	err = d.Process(t, &alignTestHelper{c.Attributes})
 	if err != nil {
 		t.Fatal(err)
 	}
