@@ -48,6 +48,36 @@ func newRobotParts(logger golog.Logger) *robotParts {
 	}
 }
 
+// partsForRemoteRobot integrates all parts from a given robot
+// except for its remotes. This is for a remote robot to integrate
+// which should be unaware of remotes.
+// Be sure to update this function if robotParts grows.
+func partsForRemoteRobot(robot api.Robot) *robotParts {
+	parts := newRobotParts(robot.Logger().Named("parts"))
+	for _, name := range robot.ArmNames() {
+		parts.AddArm(robot.ArmByName(name), api.ComponentConfig{Name: name})
+	}
+	for _, name := range robot.BaseNames() {
+		parts.AddBase(robot.BaseByName(name), api.ComponentConfig{Name: name})
+	}
+	for _, name := range robot.BoardNames() {
+		parts.AddBoard(robot.BoardByName(name), board.Config{Name: name})
+	}
+	for _, name := range robot.CameraNames() {
+		parts.AddCamera(robot.CameraByName(name), api.ComponentConfig{Name: name})
+	}
+	for _, name := range robot.GripperNames() {
+		parts.AddGripper(robot.GripperByName(name), api.ComponentConfig{Name: name})
+	}
+	for _, name := range robot.LidarDeviceNames() {
+		parts.AddLidar(robot.LidarDeviceByName(name), api.ComponentConfig{Name: name})
+	}
+	for _, name := range robot.SensorNames() {
+		parts.AddSensor(robot.SensorByName(name), api.ComponentConfig{Name: name})
+	}
+	return parts
+}
+
 // fixType ensures that the component has correct type information.
 func fixType(c api.ComponentConfig, whichType api.ComponentType, pos int) api.ComponentConfig {
 	if c.Type == "" {
@@ -199,6 +229,69 @@ func (parts *robotParts) SensorNames() []string {
 		names = append(names, k)
 	}
 	return parts.mergeNamesWithRemotes(names, api.Robot.SensorNames)
+}
+
+// Clone provides a shallow copy of each part.
+func (parts *robotParts) Clone() *robotParts {
+	var clonedParts robotParts
+	if len(parts.remotes) != 0 {
+		clonedParts.remotes = make(map[string]api.RemoteRobot, len(parts.remotes))
+		for k, v := range parts.remotes {
+			clonedParts.remotes[k] = v
+		}
+	}
+	if len(parts.boards) != 0 {
+		clonedParts.boards = make(map[string]board.Board, len(parts.boards))
+		for k, v := range parts.boards {
+			clonedParts.boards[k] = v
+		}
+	}
+	if len(parts.arms) != 0 {
+		clonedParts.arms = make(map[string]api.Arm, len(parts.arms))
+		for k, v := range parts.arms {
+			clonedParts.arms[k] = v
+		}
+	}
+	if len(parts.grippers) != 0 {
+		clonedParts.grippers = make(map[string]api.Gripper, len(parts.grippers))
+		for k, v := range parts.grippers {
+			clonedParts.grippers[k] = v
+		}
+	}
+	if len(parts.cameras) != 0 {
+		clonedParts.cameras = make(map[string]gostream.ImageSource, len(parts.cameras))
+		for k, v := range parts.cameras {
+			clonedParts.cameras[k] = v
+		}
+	}
+	if len(parts.lidarDevices) != 0 {
+		clonedParts.lidarDevices = make(map[string]lidar.Device, len(parts.lidarDevices))
+		for k, v := range parts.lidarDevices {
+			clonedParts.lidarDevices[k] = v
+		}
+	}
+	if len(parts.bases) != 0 {
+		clonedParts.bases = make(map[string]api.Base, len(parts.bases))
+		for k, v := range parts.bases {
+			clonedParts.bases[k] = v
+		}
+	}
+	if len(parts.sensors) != 0 {
+		clonedParts.sensors = make(map[string]sensor.Device, len(parts.sensors))
+		for k, v := range parts.sensors {
+			clonedParts.sensors[k] = v
+		}
+	}
+	if len(parts.providers) != 0 {
+		clonedParts.providers = make(map[string]api.Provider, len(parts.providers))
+		for k, v := range parts.providers {
+			clonedParts.providers[k] = v
+		}
+	}
+	if parts.processManager != nil {
+		clonedParts.processManager = parts.processManager.Clone()
+	}
+	return &clonedParts
 }
 
 // Close attempts to close/stop all parts.
@@ -523,3 +616,269 @@ func (parts *robotParts) ProviderByName(name string) api.Provider {
 	return nil
 }
 
+// PartsMergeResult is the result of merging in parts together.
+type PartsMergeResult struct {
+	ReplacedProcesses []rexec.ManagedProcess
+}
+
+// Process integrates the results into the given parts.
+func (result *PartsMergeResult) Process(parts *robotParts) error {
+	for _, proc := range result.ReplacedProcesses {
+		if replaced, err := parts.processManager.AddProcess(context.Background(), proc, false); err != nil {
+			return err
+		} else if replaced != nil {
+			return fmt.Errorf("unexpected process replacement %v", replaced)
+		}
+	}
+	return nil
+}
+
+// MergeAdd merges in the given added parts and returns results for
+// later processing.
+func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) {
+	if len(toAdd.remotes) != 0 {
+		if parts.remotes == nil {
+			parts.remotes = make(map[string]api.RemoteRobot, len(toAdd.remotes))
+		}
+		for k, v := range toAdd.remotes {
+			parts.remotes[k] = v
+		}
+	}
+
+	if len(toAdd.boards) != 0 {
+		if parts.boards == nil {
+			parts.boards = make(map[string]board.Board, len(toAdd.boards))
+		}
+		for k, v := range toAdd.boards {
+			parts.boards[k] = v
+		}
+	}
+
+	if len(toAdd.arms) != 0 {
+		if parts.arms == nil {
+			parts.arms = make(map[string]api.Arm, len(toAdd.arms))
+		}
+		for k, v := range toAdd.arms {
+			parts.arms[k] = v
+		}
+	}
+
+	if len(toAdd.grippers) != 0 {
+		if parts.grippers == nil {
+			parts.grippers = make(map[string]api.Gripper, len(toAdd.grippers))
+		}
+		for k, v := range toAdd.grippers {
+			parts.grippers[k] = v
+		}
+	}
+
+	if len(toAdd.cameras) != 0 {
+		if parts.cameras == nil {
+			parts.cameras = make(map[string]gostream.ImageSource, len(toAdd.cameras))
+		}
+		for k, v := range toAdd.cameras {
+			parts.cameras[k] = v
+		}
+	}
+
+	if len(toAdd.lidarDevices) != 0 {
+		if parts.lidarDevices == nil {
+			parts.lidarDevices = make(map[string]lidar.Device, len(toAdd.lidarDevices))
+		}
+		for k, v := range toAdd.lidarDevices {
+			parts.lidarDevices[k] = v
+		}
+	}
+
+	if len(toAdd.bases) != 0 {
+		if parts.bases == nil {
+			parts.bases = make(map[string]api.Base, len(toAdd.bases))
+		}
+		for k, v := range toAdd.bases {
+			parts.bases[k] = v
+		}
+	}
+
+	if len(toAdd.sensors) != 0 {
+		if parts.sensors == nil {
+			parts.sensors = make(map[string]sensor.Device, len(toAdd.sensors))
+		}
+		for k, v := range toAdd.sensors {
+			parts.sensors[k] = v
+		}
+	}
+
+	if len(toAdd.providers) != 0 {
+		if parts.providers == nil {
+			parts.providers = make(map[string]api.Provider, len(toAdd.providers))
+		}
+		for k, v := range toAdd.providers {
+			parts.providers[k] = v
+		}
+	}
+
+	var result PartsMergeResult
+	if toAdd.processManager != nil {
+		// assume parts.processManager is non-nil
+		replaced, err := rexec.MergeAddProcessManagers(parts.processManager, toAdd.processManager)
+		if err != nil {
+			return nil, err
+		}
+		result.ReplacedProcesses = replaced
+	}
+
+	return &result, nil
+}
+
+// MergeModify merges in the given modified parts and returns results for
+// later processing.
+func (parts *robotParts) MergeModify(toModify *robotParts) (*PartsMergeResult, error) {
+	// modifications treated as replacements, so we can just add
+	return parts.MergeAdd(toModify)
+}
+
+// MergeRemove merges in the given removed parts but does no work
+// to stop the individual parts.
+func (parts *robotParts) MergeRemove(toRemove *robotParts) {
+	if len(toRemove.remotes) != 0 {
+		for k := range toRemove.remotes {
+			delete(parts.remotes, k)
+		}
+	}
+
+	if len(toRemove.boards) != 0 {
+		for k := range toRemove.boards {
+			delete(parts.boards, k)
+		}
+	}
+
+	if len(toRemove.arms) != 0 {
+		for k := range toRemove.arms {
+			delete(parts.arms, k)
+		}
+	}
+
+	if len(toRemove.grippers) != 0 {
+		for k := range toRemove.grippers {
+			delete(parts.grippers, k)
+		}
+	}
+
+	if len(toRemove.cameras) != 0 {
+		for k := range toRemove.cameras {
+			delete(parts.cameras, k)
+		}
+	}
+
+	if len(toRemove.lidarDevices) != 0 {
+		for k := range toRemove.lidarDevices {
+			delete(parts.lidarDevices, k)
+		}
+	}
+
+	if len(toRemove.bases) != 0 {
+		for k := range toRemove.bases {
+			delete(parts.bases, k)
+		}
+	}
+
+	if len(toRemove.sensors) != 0 {
+		for k := range toRemove.sensors {
+			delete(parts.sensors, k)
+		}
+	}
+
+	if len(toRemove.providers) != 0 {
+		for k := range toRemove.providers {
+			delete(parts.providers, k)
+		}
+	}
+
+	if toRemove.processManager != nil {
+		// assume parts.processManager is non-nil
+		rexec.MergeRemoveProcessManagers(parts.processManager, toRemove.processManager)
+	}
+}
+
+// FilterFromConfig returns a shallow copy of the parts reflecting
+// a given config.
+func (parts *robotParts) FilterFromConfig(config *api.Config, logger golog.Logger) (*robotParts, error) {
+	filtered := newRobotParts(logger)
+
+	for _, conf := range config.Processes {
+		proc, ok := parts.processManager.ProcessByID(conf.ID)
+		if !ok {
+			continue
+		}
+		if _, err := filtered.processManager.AddProcess(context.Background(), proc, false); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, conf := range config.Remotes {
+		part := parts.RemoteByName(conf.Name)
+		if part == nil {
+			continue
+		}
+		filtered.AddRemote(part, conf)
+	}
+
+	for _, conf := range config.Boards {
+		part := parts.BoardByName(conf.Name)
+		if part == nil {
+			continue
+		}
+		filtered.AddBoard(part, conf)
+	}
+
+	for _, conf := range config.Components {
+		switch conf.Type {
+		case api.ComponentTypeProvider:
+			part := parts.ProviderByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddProvider(part, conf)
+		case api.ComponentTypeBase:
+			part := parts.BaseByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddBase(part, conf)
+		case api.ComponentTypeArm:
+			part := parts.ArmByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddArm(part, conf)
+		case api.ComponentTypeGripper:
+			part := parts.GripperByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddGripper(part, conf)
+		case api.ComponentTypeCamera:
+			part := parts.CameraByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddCamera(part, conf)
+		case api.ComponentTypeLidar:
+			part := parts.LidarDeviceByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddLidar(part, conf)
+		case api.ComponentTypeSensor:
+			part := parts.SensorByName(conf.Name)
+			if part == nil {
+				continue
+			}
+			filtered.AddSensor(part, conf)
+		default:
+			return nil, fmt.Errorf("unknown component type: %v", conf.Type)
+		}
+	}
+
+	return filtered, nil
+}

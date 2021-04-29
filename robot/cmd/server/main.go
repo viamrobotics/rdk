@@ -231,11 +231,44 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
+	// watch for and deliver changes to the robot
+	watcher, err := api.NewConfigWatcher(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, watcher.Close())
+	}()
+	onWatchDone := make(chan struct{})
+	go func() {
+		defer close(onWatchDone)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case config := <-watcher.Config():
+				if err := myRobot.Reconfigure(ctx, config); err != nil {
+					logger.Errorw("error reconfiguring robot", "error", err)
+				}
+			}
+		}
+	}()
+
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 
-	return web.RunWeb(ctx, myRobot, options, logger)
+	err = web.RunWeb(ctx, myRobot, options, logger)
+	if err != nil {
+		logger.Errorw("error running web", "error", err)
+	}
+	<-onWatchDone
+	return err
 }

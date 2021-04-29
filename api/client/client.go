@@ -149,7 +149,8 @@ func (rc *RobotClient) getCachedStatus() *pb.Status {
 }
 
 func (rc *RobotClient) RemoteByName(name string) api.RemoteRobot {
-	return nil
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (rc *RobotClient) ArmByName(name string) api.Arm {
@@ -475,11 +476,13 @@ func (bc *boardClient) Servo(name string) board.Servo {
 }
 
 func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
-	return nil
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
-	return nil
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {

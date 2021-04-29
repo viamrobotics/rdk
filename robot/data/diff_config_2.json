@@ -1,0 +1,89 @@
+{
+    "boards":
+    [
+        {
+            "analogs":
+            [
+                {
+                    "name": "analog1",
+                    "pin": "1"
+                }
+            ],
+            "digitalInterrupts":
+            [
+                {
+                    "name": "encoder",
+                    "pin": "15"
+                }
+            ],
+            "model": "fake",
+            "motors":
+            [
+                {
+                    "encoder": "encoder",
+                    "name": "h",
+                    "pins":
+                    {
+                        "a": "2",
+                        "b": "3",
+                        "pwm": "4"
+                    },
+                    "ticksPerRotation": 101
+                }
+            ],
+            "name": "board1",
+            "servos":
+            [
+                {
+                    "name": "servo1",
+                    "pin": "13"
+                }
+            ]
+        }
+    ],
+    "components":
+    [
+        {
+            "model": "fake",
+            "name": "arm1",
+            "type": "arm",
+            "attributes": {
+                "one": 2
+            }
+        },
+        {
+            "model": "fake",
+            "name": "base1",
+            "type": "base",
+            "attributes": {
+                "three": 4
+            }
+        }
+    ],
+    "processes":
+    [
+        {
+            "id": "1",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world",
+                "again"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "2",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world",
+                "again",
+                "other"
+            ],
+            "one_shot": true
+        }
+    ]
+}
