@@ -19,7 +19,7 @@ type Robot interface {
 	ProviderByName(name string) Provider
 	AddProvider(p Provider, config ComponentConfig)
 
-	RemoteByName(name string) Robot
+	RemoteByName(name string) RemoteRobot
 	ArmByName(name string) Arm
 	BaseByName(name string) Base
 	GripperByName(name string) Gripper
@@ -52,4 +52,14 @@ type Provider interface {
 	// Ready does any provider/platform initialization once robot configuration is
 	// finishing.
 	Ready(r Robot) error
+}
+
+// A RemoteRobot is a robot controlled over a network.
+type RemoteRobot interface {
+	Robot
+
+	// Refresh instructs the RemoteRobot to manually refresh
+	// the details of itself based on what the remote endpoint
+	// can provide.
+	Refresh(ctx context.Context) error
 }
