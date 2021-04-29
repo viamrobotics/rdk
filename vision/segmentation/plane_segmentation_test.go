@@ -252,7 +252,7 @@ type segmentTestHelper struct {
 	cameraParams *calib.DepthColorIntrinsicsExtrinsics
 }
 
-func (h *segmentTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error {
+func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
@@ -265,9 +265,9 @@ func (h *segmentTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDeb
 		t.Fatal(err)
 	}
 
-	d.GotDebugImage(fixed.Overlay(), "overlay")
+	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
-	d.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	cloud, err := fixed.ToPointCloud()
 	if err != nil {
@@ -283,7 +283,7 @@ func (h *segmentTestHelper) Process(t *testing.T, d *rimage.MultipleImageTestDeb
 		t.Fatal(err)
 	}
 
-	d.GotDebugImage(segImage, "from-pointcloud")
+	pCtx.GotDebugImage(segImage, "from-pointcloud")
 
 	return nil
 }
