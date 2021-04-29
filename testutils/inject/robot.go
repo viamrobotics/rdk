@@ -38,6 +38,7 @@ type Robot struct {
 	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
 	CloseFunc             func() error
+	RefreshFunc           func(ctx context.Context) error
 }
 
 func (r *Robot) ProviderByName(name string) api.Provider {
@@ -55,7 +56,7 @@ func (r *Robot) AddProvider(p api.Provider, c api.ComponentConfig) {
 	r.AddProviderFunc(p, c)
 }
 
-func (r *Robot) RemoteByName(name string) api.Robot {
+func (r *Robot) RemoteByName(name string) api.RemoteRobot {
 	if r.RemoteByNameFunc == nil {
 		return r.Robot.RemoteByName(name)
 	}
@@ -193,4 +194,13 @@ func (r *Robot) Close() error {
 		return utils.TryClose(r.Robot)
 	}
 	return r.CloseFunc()
+}
+
+func (r *Robot) Refresh(ctx context.Context) error {
+	if r.RefreshFunc == nil {
+		if remote, ok := r.Robot.(api.RemoteRobot); ok {
+			return remote.Refresh(ctx)
+		}
+	}
+	return r.RefreshFunc(ctx)
 }
