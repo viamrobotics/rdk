@@ -19,7 +19,7 @@
          },
          {
             "id": 1,
-            "parent": "fixed0",
+            "parent": "joint0",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -33,7 +33,7 @@
          },
          {
             "id": 2,
-            "parent": "fixed1",
+            "parent": "joint1",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -47,7 +47,7 @@
          },
          {
             "id": 3,
-            "parent": "fixed2",
+            "parent": "joint2",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -61,7 +61,7 @@
          },
          {
             "id": 4,
-            "parent": "fixed3",
+            "parent": "joint3",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -75,7 +75,7 @@
          },
          {
             "id": 5,
-            "parent": "fixed4",
+            "parent": "joint4",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -89,7 +89,7 @@
          },
          {
             "id": 6,
-            "parent": "fixed5",
+            "parent": "joint5",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -106,10 +106,7 @@
          {
             "id": 0,
             "type": "revolute",
-            "between": {
-               "a": "fixed0",
-               "b": "fixed1"
-            },
+            "parent": "fixed0",
             "axis": {
                "x": 0,
                "y": 0,
@@ -121,10 +118,7 @@
          {
             "id": 1,
             "type": "revolute",
-            "between": {
-               "a": "fixed1",
-               "b": "fixed2"
-            },
+            "parent": "fixed1",
             "axis": {
                "x": 0,
                "y": 1,
@@ -136,10 +130,7 @@
          {
             "id": 2,
             "type": "revolute",
-            "between": {
-               "a": "fixed2",
-               "b": "fixed3"
-            },
+            "parent": "fixed2",
             "axis": {
                "x": 0,
                "y": 1,
@@ -151,10 +142,7 @@
          {
             "id": 3,
             "type": "revolute",
-            "between": {
-               "a": "fixed3",
-               "b": "fixed4"
-            },
+            "parent": "fixed3",
             "axis": {
                "x": 1,
                "y": 0,
@@ -166,10 +154,7 @@
          {
             "id": 4,
             "type": "revolute",
-            "between": {
-               "a": "fixed4",
-               "b": "fixed5"
-            },
+            "parent": "fixed4",
             "axis": {
                "x": 0,
                "y": 1,
@@ -181,10 +166,7 @@
          {
             "id": 5,
             "type": "revolute",
-            "between": {
-               "a": "fixed5",
-               "b": "fixed6"
-            },
+            "parent": "fixed5",
             "axis": {
                "x": 1,
                "y": 0,
