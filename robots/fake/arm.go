@@ -11,21 +11,24 @@ import (
 )
 
 func init() {
-	api.RegisterArm("fake", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Arm, error) {
-		return NewArm(), nil
+	api.RegisterArm("fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
+		return NewArm(config.Name), nil
 	})
 }
 
-func NewArm() *Arm {
+func NewArm(name string) *Arm {
 	return &Arm{
+		Name:     name,
 		position: &pb.ArmPosition{},
 		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 	}
 }
 
 type Arm struct {
-	position *pb.ArmPosition
-	joints   *pb.JointPositions
+	Name       string
+	position   *pb.ArmPosition
+	joints     *pb.JointPositions
+	CloseCount int
 }
 
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
@@ -48,4 +51,9 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 
 func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	return fmt.Errorf("arm JointMoveDelta does nothing")
+}
+
+func (a *Arm) Close() error {
+	a.CloseCount++
+	return nil
 }

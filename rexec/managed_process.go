@@ -3,11 +3,8 @@ package rexec
 import (
 	"bufio"
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"os"
 	"os/exec"
@@ -40,16 +37,9 @@ type ManagedProcess interface {
 
 // NewManagedProcess returns a new, unstarted, from the given configuration.
 func NewManagedProcess(config ProcessConfig, logger golog.Logger) ManagedProcess {
-	// TODO(erd): this isn't really unique, need more info to make it unique
-	// or just some UUID passed in.
-	pHash, err := hashObj(config)
-	if err != nil {
-		panic(err) // this should never fail and a panic is okay if it does
-	}
-
-	logger = logger.Named(fmt.Sprintf("process.%s_%s", config.Name, pHash[:6]))
+	logger = logger.Named(fmt.Sprintf("process.%s_%s", config.ID, config.Name))
 	return &managedProcess{
-		id:         pHash,
+		id:         config.ID,
 		name:       config.Name,
 		args:       config.Args,
 		cwd:        config.CWD,
@@ -220,8 +210,9 @@ func (p *managedProcess) manage(stdOut, stdErr io.ReadCloser) {
 	// Otherwise, let's try restarting the process.
 	if err != nil {
 		// Right now we are assuming that any wait error implies the process is no longer
-		// alive. TODO(erd): Verify that this is actually true. If it's false, we could
-		// be multiply spawning processes where all are orphaned but one.
+		// alive. TODO(https://github.com/viamrobotics/robotcore/issues/46): Verify that
+		// this is actually true. If it's false, we could be multiply spawning processes
+		// where all are orphaned but one.
 		p.logger.Errorw("error waiting for process during manage", "error", err)
 	}
 
@@ -324,18 +315,4 @@ func (p *managedProcess) Stop() error {
 		return p.lastWaitErr
 	}
 	return fmt.Errorf("non-successful exit code: %d", p.cmd.ProcessState.ExitCode())
-}
-
-// hashObj provides a simple means to identify processes uniquely.
-func hashObj(obj interface{}) (string, error) {
-	md, err := json.Marshal(obj)
-	if err != nil {
-		return "", err
-	}
-	hasher := fnv.New128a()
-	_, err = hasher.Write(md)
-	if err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
 }

@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 
 	f := api.SensorLookup(compass.DeviceType, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, api.Component{
+	_, err = f(context.Background(), nil, api.ComponentConfig{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		return injectDev
 	}
 
-	dev, err := f(context.Background(), nil, api.Component{
+	dev, err := f(context.Background(), nil, api.ComponentConfig{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -108,7 +108,7 @@ func TestClient(t *testing.T) {
 		return injectRelDev
 	}
 
-	dev, err = f(context.Background(), nil, api.Component{
+	dev, err = f(context.Background(), nil, api.ComponentConfig{
 		Host: listener3.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener3.Addr().(*net.TCPAddr).Port,
 	}, logger)

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"go.uber.org/multierr"
@@ -36,4 +37,16 @@ func FilterOutError(err, target error) error {
 		newErrs = append(newErrs, e)
 	}
 	return multierr.Combine(newErrs...)
+}
+
+// NewConfigValidationError returns a config validation error
+// occurring at a given path.
+func NewConfigValidationError(path string, err error) error {
+	return fmt.Errorf("error validating %q: %w", path, err)
+}
+
+// NewConfigValidationFieldRequiredError returns a config validation
+// error for a field missing at a given path.
+func NewConfigValidationFieldRequiredError(path, field string) error {
+	return NewConfigValidationError(path, fmt.Errorf("%q is required", field))
 }

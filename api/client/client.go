@@ -264,9 +264,9 @@ func (rc *RobotClient) SensorNames() []string {
 	return copyStringSlice(rc.sensorNames)
 }
 
-func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
+func (rc *RobotClient) GetConfig(ctx context.Context) (*api.Config, error) {
 	debug.PrintStack()
-	return api.Config{}, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
@@ -288,7 +288,7 @@ func (rc *RobotClient) ProviderByModel(model string) api.Provider {
 	return nil
 }
 
-func (rc *RobotClient) AddProvider(p api.Provider, c api.Component) {}
+func (rc *RobotClient) AddProvider(p api.Provider, c api.ComponentConfig) {}
 
 func (rc *RobotClient) Logger() golog.Logger {
 	return nil

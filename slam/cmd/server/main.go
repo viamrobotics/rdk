@@ -41,11 +41,11 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         utils.NetPortFlag   `flag:"0"`
-	BaseType     baseTypeFlag        `flag:"base-type,default=,usage=type of mobile base"`
-	LidarDevices []api.Component     `flag:"lidar,usage=lidar devices"`
-	LidarOffsets []slam.DeviceOffset `flag:"lidar-offset,usage=lidar device offets relative to first"`
-	Compass      api.Component       `flag:"compass,usage=compass device"`
+	Port         utils.NetPortFlag     `flag:"0"`
+	BaseType     baseTypeFlag          `flag:"base-type,default=,usage=type of mobile base"`
+	LidarDevices []api.ComponentConfig `flag:"lidar,usage=lidar devices"`
+	LidarOffsets []slam.DeviceOffset   `flag:"lidar-offset,usage=lidar device offets relative to first"`
+	Compass      api.ComponentConfig   `flag:"compass,usage=compass device"`
 }
 
 type baseTypeFlag string
@@ -104,7 +104,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if len(argsParsed.LidarDevices) == 0 {
 		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
-			api.Component{
+			api.ComponentConfig{
 				Type:  api.ComponentTypeLidar,
 				Host:  "0",
 				Model: string(lidar.DeviceTypeFake),
@@ -152,7 +152,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		components = append(components, args.Compass)
 	}
 
-	r, err := robot.NewRobot(ctx, api.Config{Components: components}, logger)
+	r, err := robot.NewRobot(ctx, &api.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}

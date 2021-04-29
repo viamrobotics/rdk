@@ -5,7 +5,8 @@ import (
 
 	"github.com/edaniels/test"
 	"github.com/mitchellh/mapstructure"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/rexec"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -21,8 +22,8 @@ func TestConfigRobot(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, len(cfg.Remotes))
-	assert.Equal(t, Remote{Name: "one", Address: "foo", Prefix: true}, cfg.Remotes[0])
-	assert.Equal(t, Remote{Address: "bar"}, cfg.Remotes[1])
+	assert.Equal(t, RemoteConfig{Name: "one", Address: "foo", Prefix: true}, cfg.Remotes[0])
+	assert.Equal(t, RemoteConfig{Name: "two", Address: "bar"}, cfg.Remotes[1])
 }
 
 func TestConfig2(t *testing.T) {
@@ -95,64 +96,6 @@ func TestConfigLoad1(t *testing.T) {
 	assert.Equal(t, 5.1, c2.Attributes["matrics"].(map[string]interface{})["a"])
 }
 
-func TestComponentFlag(t *testing.T) {
-	type MyStruct struct {
-		Comp  Component `flag:"comp"`
-		Comp2 Component `flag:"0"`
-	}
-	var myStruct MyStruct
-	err := utils.ParseFlags([]string{"main", "--comp=foo"}, &myStruct)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
-
-	err = utils.ParseFlags([]string{"main", "--comp=host=foo"}, &myStruct)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
-
-	err = utils.ParseFlags([]string{"main", "--comp=type=foo,host=bar,attr=wee:woo"}, &myStruct)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp.Type, test.ShouldEqual, ComponentType("foo"))
-	test.That(t, myStruct.Comp.Host, test.ShouldEqual, "bar")
-	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, AttributeMap{
-		"wee": "woo",
-	})
-
-	err = utils.ParseFlags([]string{"main", "type=foo,host=bar,attr=wee:woo"}, &myStruct)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, ComponentType("foo"))
-	test.That(t, myStruct.Comp2.Host, test.ShouldEqual, "bar")
-	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, AttributeMap{
-		"wee": "woo",
-	})
-}
-
-func TestParseComponentFlag(t *testing.T) {
-	_, err := ParseComponentFlag("foo")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
-
-	_, err = ParseComponentFlag("host=foo")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
-
-	_, err = ParseComponentFlag("port=foo")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
-
-	comp, err := ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,attr=one:two")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, comp.Name, test.ShouldEqual, "baz")
-	test.That(t, comp.Host, test.ShouldEqual, "bar")
-	test.That(t, comp.Port, test.ShouldEqual, 5)
-	test.That(t, comp.Type, test.ShouldEqual, ComponentType("foo"))
-	test.That(t, comp.SubType, test.ShouldEqual, "who")
-	test.That(t, comp.Model, test.ShouldEqual, "bar")
-	test.That(t, comp.Attributes, test.ShouldResemble, AttributeMap{
-		"wee": "woo",
-		"one": "two",
-	})
-}
-
 func TestCreateCloudRequest(t *testing.T) {
 	cfg := CloudConfig{
 		ID:     "a",
@@ -166,4 +109,70 @@ func TestCreateCloudRequest(t *testing.T) {
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
 	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
+}
+
+func TestConfigValidate(t *testing.T) {
+	var emptyConfig Config
+	test.That(t, emptyConfig.Validate(), test.ShouldBeNil)
+
+	invalidCloud := Config{
+		Cloud: &CloudConfig{},
+	}
+	err := invalidCloud.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	invalidCloud.Cloud.ID = "some_id"
+	err = invalidCloud.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
+	invalidCloud.Cloud.Secret = "my_secret"
+	test.That(t, invalidCloud.Validate(), test.ShouldBeNil)
+
+	invalidRemotes := Config{
+		Remotes: []RemoteConfig{{}},
+	}
+	err = invalidRemotes.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	invalidRemotes.Remotes[0].Name = "foo"
+	err = invalidRemotes.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"address" is required`)
+	invalidRemotes.Remotes[0].Address = "bar"
+	test.That(t, invalidRemotes.Validate(), test.ShouldBeNil)
+
+	invalidBoards := Config{
+		Boards: []board.Config{{}},
+	}
+	err = invalidBoards.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `boards.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	invalidBoards.Boards[0].Name = "foo"
+	test.That(t, invalidBoards.Validate(), test.ShouldBeNil)
+
+	invalidComponents := Config{
+		Components: []ComponentConfig{{}},
+	}
+	err = invalidComponents.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	invalidComponents.Components[0].Name = "foo"
+	test.That(t, invalidComponents.Validate(), test.ShouldBeNil)
+
+	invalidProcesses := Config{
+		Processes: []rexec.ProcessConfig{{}},
+	}
+	err = invalidProcesses.Validate()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	invalidProcesses.Processes[0].ID = "bar"
+	err = invalidProcesses.Validate()
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	invalidProcesses.Processes[0].Name = "foo"
+	test.That(t, invalidProcesses.Validate(), test.ShouldBeNil)
 }

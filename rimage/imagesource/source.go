@@ -18,12 +18,12 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
 	})
 	api.RegisterCamera("eliot", api.CameraLookup("intel"))
 
-	api.RegisterCamera("url", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("url", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		if len(config.Attributes) == 0 {
 			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
@@ -38,7 +38,7 @@ func init() {
 		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
 	})
 
-	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, fmt.Errorf("config for file needs bool attribute 'aligned'")

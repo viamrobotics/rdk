@@ -15,10 +15,10 @@ func (p *Provider) Ready(r api.Robot) error {
 }
 
 func getProviderOrCreate(r api.Robot) *Provider {
-	p := r.ProviderByModel("wx250s")
+	p := r.ProviderByName("wx250s")
 	if p == nil {
 		p = &Provider{&sync.Mutex{}}
-		r.AddProvider(p, api.Component{})
+		r.AddProvider(p, api.ComponentConfig{})
 	}
 	return p.(*Provider)
 }

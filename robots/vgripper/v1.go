@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("viam", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper("viam", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, fmt.Errorf("viam gripper requires a board called local")

@@ -22,11 +22,11 @@ func TestDevices(t *testing.T) {
 
 	for i, tc := range []struct {
 		Output   string
-		Expected []api.Component
+		Expected []api.ComponentConfig
 	}{
 		{"", nil},
 		{"text", nil},
-		{out1, []api.Component{
+		{out1, []api.ComponentConfig{
 			{
 				Type:  api.ComponentTypeLidar,
 				Host:  "/dev/tty.usbserial-0001",
