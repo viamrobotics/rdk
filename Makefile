@@ -38,13 +38,13 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
 cover:
-	go test -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -coverprofile=coverage.txt ./...
 
 test:
 	go test ./...
 
 testpi:
-	sudo go test $(TAGS) -coverprofile=coverage.txt -covermode=atomic go.viam.com/robotcore/board/pi
+	sudo go test $(TAGS) -coverprofile=coverage.txt go.viam.com/robotcore/board/pi
 
 dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
