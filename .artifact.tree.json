@@ -995,6 +995,11 @@
     }
   },
   "segmentation": {
+    "planes": {
+      "align-test-1615473489.both.gz": "3796226d21137c904e3ee7933e3c915f",
+      "chairs.both.gz": "c5d43ec2e5c15540a3c3b2ddbb39f529",
+      "shelf.both.gz": "be0cb012e8d1a8c28e2725b241d5f776"
+    },
     "set_game": {
       "data_00000.both.gz": "74fd61ef0beabcb5fe3c4e4758ff09b6",
       "data_00000.both.json": "a68d90c7f78b5822836dbc798b0b8205",
@@ -1044,8 +1049,6 @@
       "office1.png": "84c523b832e9a9e259a477b94a2f5804",
       "rover_backwards.both.gz": "b3b154b2a0ec9096ebccc3e2cbee04d9",
       "rover_backwards.both.json": "395d5e2e1248ea72f76f860f3ff68e7b",
-      "rover_backwards.both.json~": "2e83b0c7994db63a7d4219718a33b7d8",
-      "rover_backwards.json~": "a68d90c7f78b5822836dbc798b0b8205",
       "rover_stuff.both.gz": "54b731552662f5a917837977a83e9900",
       "rover_stuff.both.json": "a68d90c7f78b5822836dbc798b0b8205",
       "warped-board-1605543525.json": "e59e109ae3954cd5a1c714afdc84693d",

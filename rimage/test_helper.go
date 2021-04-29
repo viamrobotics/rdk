@@ -17,10 +17,11 @@ import (
 )
 
 type MultipleImageTestDebugger struct {
-	name   string
-	glob   string
-	inroot string
-	out    string
+	name          string
+	glob          string
+	inroot        string
+	out           string
+	imagesAligned bool
 
 	html        strings.Builder
 	currentFile string
@@ -71,9 +72,10 @@ type MultipleImageTestDebuggerProcessor interface {
 	Process(t *testing.T, d *MultipleImageTestDebugger, fn string, img image.Image, logger golog.Logger) error
 }
 
-func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string) MultipleImageTestDebugger {
+func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAligned bool) MultipleImageTestDebugger {
 
 	d := MultipleImageTestDebugger{logger: golog.NewTestLogger(t)}
+	d.imagesAligned = imagesAligned
 	d.glob = glob
 	d.inroot = artifact.MustPath(prefix)
 	d.name = prefix + "-" + t.Name()
@@ -127,7 +129,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 		d.logger.Debug(f)
 
 		cont := t.Run(f, func(t *testing.T) {
-			img, err := ReadImageFromFile(f)
+			img, err := readImageFromFile(f, d.imagesAligned)
 			if err != nil {
 				t.Fatalf("cannot read %s : %s", f, err)
 			}

@@ -174,7 +174,12 @@ func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer closer()
 
 	iwd := rimage.ConvertToImageWithDepth(img)
-	err = iwd.ToPCD(w)
+	pc, err := iwd.ToPointCloud()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error converting image to pointcloud: %s", err), http.StatusInternalServerError)
+		return
+	}
+	err = pc.ToPCD(w)
 	if err != nil {
 		h.app.logger.Debugf("error converting to pcd: %s", err)
 		http.Error(w, fmt.Sprintf("error writing pcd: %s", err), http.StatusInternalServerError)

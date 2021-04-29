@@ -50,6 +50,7 @@ func TestHTTPSource(t *testing.T) {
 	s := &HTTPSource{
 		fmt.Sprintf("http://%s/pic.ppm", root),
 		fmt.Sprintf("http://%s/depth.dat", root),
+		true,
 	}
 
 	doHTTPSourceTest(t, s)

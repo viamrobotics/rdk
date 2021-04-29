@@ -90,7 +90,7 @@ func doCannyTest(t *testing.T, root string) {
 }
 
 func BenchmarkConvertImage(b *testing.B) {
-	img, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func imageToYCbCr(dst *image.YCbCr, src image.Image) {
 }
 
 func TestConvertYCbCr(t *testing.T) {
-	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestConvertYCbCr(t *testing.T) {
 }
 
 func BenchmarkConvertImageYCbCr(b *testing.B) {
-	orig, err := ReadImageFromFile(artifact.MustPath("rimage/canny1.png"))
+	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -189,7 +189,7 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 }
 
 func TestCanny(t *testing.T) {
-	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"))
+	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +198,7 @@ func TestCanny(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gtOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/test_canny.png"))
+	gtOriginal, err := readImageFromFile(artifact.MustPath("rimage/test_canny.png"), false)
 	gt := ConvertImage(gtOriginal)
 	if err != nil {
 		t.Fatal(err)
@@ -214,7 +214,7 @@ func TestCanny(t *testing.T) {
 
 func TestCannyBlocks(t *testing.T) {
 	// load test image and GT
-	imgOriginal, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_image.png"))
+	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/edge_test_image.png"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,12 +222,12 @@ func TestCannyBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	gtGradient, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"))
+	gtGradient, err := readImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"), false)
 	gtGrad := ConvertImage(gtGradient)
 	if err != nil {
 		t.Fatal(err)
 	}
-	gtNonMaxSup, err := ReadImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"))
+	gtNonMaxSup, err := readImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"), false)
 	gtNms := ConvertImage(gtNonMaxSup)
 	if err != nil {
 		t.Fatal(err)

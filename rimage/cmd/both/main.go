@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/calib"
 )
 
 var logger = golog.NewDevelopmentLogger("rimage_both")
@@ -18,12 +19,12 @@ func main() {
 	}
 }
 
-func merge(flags *flag.FlagSet) error {
+func merge(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("merge needs <color in> <depth in> <out>")
+		return fmt.Errorf("merge needs <color in> <depth in> [optional -aligned]")
 	}
 
-	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2))
+	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2), aligned)
 	if err != nil {
 		return err
 	}
@@ -31,12 +32,12 @@ func merge(flags *flag.FlagSet) error {
 	return img.WriteTo(flags.Arg(3))
 }
 
-func combineRGBAndZ16(flags *flag.FlagSet) error {
+func combineRGBAndZ16(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out>")
+		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out> [optional -aligned]")
 	}
 
-	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2))
+	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2), aligned)
 	if err != nil {
 		return err
 	}
@@ -44,26 +45,31 @@ func combineRGBAndZ16(flags *flag.FlagSet) error {
 	return img.WriteTo(flags.Arg(3))
 }
 
-func toLas(flags *flag.FlagSet) error {
+func toLas(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 3 {
-		return fmt.Errorf("to-las needs <both in> <las out>")
+		return fmt.Errorf("to-las needs <both in> <aligner config> <las out> [optional -aligned]")
 	}
 
-	img, err := rimage.BothReadFromFile(flags.Arg(1))
+	img, err := rimage.BothReadFromFile(flags.Arg(1), aligned)
+	if err != nil {
+		return err
+	}
+	cameraMatrices, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(flags.Arg(2))
 	if err != nil {
 		return err
 	}
 
-	pc, err := img.ToPointCloud()
+	pc, err := cameraMatrices.ImageWithDepthToPointCloud(img)
 	if err != nil {
 		return err
 	}
 
-	return pc.WriteToFile(flags.Arg(2))
+	return pc.WriteToFile(flags.Arg(3))
 }
 
 func realMain(args []string) error {
 	flags := flag.NewFlagSet("", flag.ContinueOnError)
+	aligned := flags.Bool("aligned", false, "color and depth image are already aligned")
 	err := flags.Parse(args)
 	if err != nil {
 		return err
@@ -77,11 +83,11 @@ func realMain(args []string) error {
 
 	switch cmd {
 	case "merge":
-		return merge(flags)
+		return merge(flags, *aligned)
 	case "combineRGBAndZ16":
-		return combineRGBAndZ16(flags)
+		return combineRGBAndZ16(flags, *aligned)
 	case "to-las":
-		return toLas(flags)
+		return toLas(flags, *aligned)
 	default:
 		return fmt.Errorf("unknown command: [%s]", cmd)
 	}

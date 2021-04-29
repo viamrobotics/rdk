@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func BothReadFromBytes(allData []byte) (*ImageWithDepth, error) {
+func BothReadFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) {
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
@@ -25,10 +25,10 @@ func BothReadFromBytes(allData []byte) (*ImageWithDepth, error) {
 		return nil, err
 	}
 
-	return &ImageWithDepth{ConvertImage(img), depth}, nil
+	return &ImageWithDepth{ConvertImage(img), depth, isAligned, nil}, nil
 }
 
-func BothReadFromFile(fn string) (*ImageWithDepth, error) {
+func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if !strings.HasSuffix(fn, ".both.gz") {
 		return nil, fmt.Errorf("bad extension")
 	}
@@ -52,7 +52,7 @@ func BothReadFromFile(fn string) (*ImageWithDepth, error) {
 		return nil, err
 	}
 
-	return BothReadFromBytes(allData)
+	return BothReadFromBytes(allData, isAligned)
 }
 
 func BothWriteToFile(i *ImageWithDepth, fn string) error {

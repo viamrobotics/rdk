@@ -25,7 +25,7 @@ func main() {
 
 	fn := flag.Arg(0)
 	if strings.HasSuffix(fn, ".both.gz") {
-		pc, err = rimage.BothReadFromFile(fn)
+		pc, err = rimage.BothReadFromFile(fn, false) // just extracting depth data
 		if pc != nil {
 			dm = pc.Depth
 		}

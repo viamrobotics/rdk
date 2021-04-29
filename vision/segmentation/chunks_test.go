@@ -115,7 +115,7 @@ func (cid *chunkImageDebug) Process(
 }
 
 func TestChunk1(t *testing.T) {
-	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*")
+	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
 	err := d.Process(t, &chunkImageDebug{})
 	if err != nil {
 		t.Fatal(err)

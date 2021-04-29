@@ -7,8 +7,14 @@ import (
 )
 
 type ImageWithDepth struct {
-	Color *Image
-	Depth *DepthMap
+	Color   *Image
+	Depth   *DepthMap
+	aligned bool
+	aligner DepthColorAligner
+}
+
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, aligner DepthColorAligner) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned, aligner}
 }
 
 func (i *ImageWithDepth) Bounds() image.Rectangle {
@@ -32,7 +38,7 @@ func (i *ImageWithDepth) Height() int {
 }
 
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount)}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.aligner}
 }
 
 func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
@@ -46,7 +52,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = &dm2
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.aligner}
 }
 
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
@@ -149,25 +155,21 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 	return BothWriteToFile(i, fn)
 }
 
-func NewImageWithDepthFromImages(colorFN, depthFN string) (*ImageWithDepth, error) {
+func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
 		return nil, err
 	}
 
-	depthImg, err := ReadImageFromFile(depthFN)
-	if err != nil {
-		return nil, err
-	}
-	dm, err := ConvertImageToDepthMap(depthImg)
+	dm, err := NewDepthMapFromImageFile(depthFN)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ImageWithDepth{img, dm}, nil
+	return &ImageWithDepth{img, dm, isAligned, nil}, nil
 }
 
-func NewImageWithDepth(colorFN, depthFN string) (*ImageWithDepth, error) {
+func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
 		return nil, err
@@ -183,7 +185,7 @@ func NewImageWithDepth(colorFN, depthFN string) (*ImageWithDepth, error) {
 			img.Width(), img.Height(), dm.Width(), dm.Height())
 	}
 
-	return &ImageWithDepth{img, dm}, nil
+	return &ImageWithDepth{img, dm, isAligned, nil}, nil
 }
 
 func imageToDepthMap(img image.Image) *DepthMap {
@@ -204,24 +206,13 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	return &dm
 }
 
-func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
-	switch ii := img.(type) {
-	case *ImageWithDepth:
-		return ii.Depth, nil
-	case *image.Gray16:
-		return imageToDepthMap(ii), nil
-	default:
-		return nil, fmt.Errorf("don't know how to make DepthMap from %T", img)
-	}
-}
-
 func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	switch x := img.(type) {
 	case *ImageWithDepth:
 		return x
 	case *Image:
-		return &ImageWithDepth{x, nil}
+		return &ImageWithDepth{x, nil, false, nil}
 	default:
-		return &ImageWithDepth{ConvertImage(img), nil}
+		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
 	}
 }

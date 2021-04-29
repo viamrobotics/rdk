@@ -63,19 +63,20 @@ var alignCurrentlyWriting = false
 
 type DepthComposed struct {
 	color, depth gostream.ImageSource
-	aligner      calib.DepthColorAligner
+	aligner      rimage.DepthColorAligner
 	debug        bool
 	logger       golog.Logger
 }
 
 func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	var dcaligner calib.DepthColorAligner
+	var dcaligner rimage.DepthColorAligner
 	var err error
 
 	if attrs.Has("config") {
-		dcaligner, err = calib.NewDepthColorWarpTransforms(attrs, logger)
+		config := attrs["config"].(*calib.AlignConfig)
+		dcaligner, err = calib.NewDepthColorWarpTransforms(config, logger)
 	} else if attrs.Has("matrices") {
-		dcaligner, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs, logger)
+		dcaligner, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs)
 	} else {
 		return nil, fmt.Errorf("no alignment config")
 	}
@@ -109,9 +110,9 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	ii := &rimage.ImageWithDepth{rimage.ConvertImage(c), dm}
+	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, false, nil)
 
-	_, span := trace.StartSpan(ctx, "ToAlignedImageWithDepth")
+	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
 	if dc.debug {
 		if !alignCurrentlyWriting {
@@ -128,7 +129,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			}()
 		}
 	}
-	aligned, err := dc.aligner.ToAlignedImageWithDepth(ii, dc.logger)
+	aligned, err := dc.aligner.AlignImageWithDepth(ii)
 
 	return aligned, func() {}, err
 
