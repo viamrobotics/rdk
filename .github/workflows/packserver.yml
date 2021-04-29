@@ -8,8 +8,6 @@ on:
     paths-ignore:
       - '**/Dockerfile.fortest'
       - '**/.github/workflows/docker.yml'
-  pull_request:
-    branches: [ master ]
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
