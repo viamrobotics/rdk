@@ -8,6 +8,24 @@ import (
 
 type Vec3 r3.Vector
 
+type Vec3s []Vec3
+
+func (vs Vec3s) Len() int {
+	return len(vs)
+}
+
+func (vs Vec3s) Swap(i, j int) {
+	vs[i], vs[j] = vs[j], vs[i]
+}
+
+func (vs Vec3s) Less(i, j int) bool {
+	cmp := (r3.Vector)(vs[i]).Cmp((r3.Vector)(vs[j]))
+	if cmp == 0 {
+		return false
+	}
+	return cmp < 0
+}
+
 type Point interface {
 	Position() Vec3
 	ChangePosition(p Vec3)

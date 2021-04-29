@@ -130,48 +130,47 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 
 	numFiles := 0
 
-	for _, f := range files {
-		if !IsImageFile(f) {
-			continue
+	// group and block parallel runs by having a subtest parent
+	t.Run("files", func(t *testing.T) {
+		for _, f := range files {
+			if !IsImageFile(f) {
+				continue
+			}
+
+			numFiles++
+
+			currentFile := f
+			d.logger.Debug(currentFile)
+
+			t.Run(currentFile, func(t *testing.T) {
+				t.Parallel()
+				img, err := readImageFromFile(currentFile, d.imagesAligned)
+				if err != nil {
+					t.Fatalf("cannot read %s : %s", currentFile, err)
+				}
+
+				pCtx := &ProcessorContext{
+					d:           d,
+					currentFile: currentFile,
+				}
+
+				pCtx.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", currentFile))
+				pCtx.html.WriteString("<tr>")
+				pCtx.GotDebugImage(img, "raw")
+
+				logger := golog.NewTestLogger(t)
+				err = x.Process(t, pCtx, currentFile, img, logger)
+				if err != nil {
+					t.Fatalf("error processing file %s : %s", currentFile, err)
+				}
+
+				pCtx.html.WriteString("</tr>")
+				d.mu.Lock()
+				d.html.WriteString(pCtx.html.String())
+				d.mu.Unlock()
+			})
 		}
-
-		numFiles++
-
-		currentFile := f
-		d.logger.Debug(currentFile)
-
-		cont := t.Run(currentFile, func(t *testing.T) {
-			t.Parallel()
-			img, err := readImageFromFile(currentFile, d.imagesAligned)
-			if err != nil {
-				t.Fatalf("cannot read %s : %s", currentFile, err)
-			}
-
-			pCtx := &ProcessorContext{
-				d:           d,
-				currentFile: currentFile,
-			}
-
-			pCtx.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", currentFile))
-			pCtx.html.WriteString("<tr>")
-			pCtx.GotDebugImage(img, "raw")
-
-			logger := golog.NewTestLogger(t)
-			err = x.Process(t, pCtx, currentFile, img, logger)
-			if err != nil {
-				t.Fatalf("error processing file %s : %s", currentFile, err)
-			}
-
-			pCtx.html.WriteString("</tr>")
-			d.mu.Lock()
-			d.html.WriteString(pCtx.html.String())
-			d.mu.Unlock()
-		})
-
-		if !cont {
-			return nil
-		}
-	}
+	})
 
 	if numFiles == 0 {
 		t.Skip("no input files")

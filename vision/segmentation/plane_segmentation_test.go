@@ -17,6 +17,10 @@ import (
 	"github.com/edaniels/test"
 )
 
+func init() {
+	sortPositions = true
+}
+
 func TestSegmentPlane(t *testing.T) {
 	// Intel Sensor Extrinsic data from manufacturer
 	// Intel sensor depth 1024x768 to  RGB 1280x720
