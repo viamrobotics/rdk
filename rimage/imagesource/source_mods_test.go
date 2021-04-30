@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
@@ -18,6 +19,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	golog.Global.Debugf("out dir: %q", outDir)
 }
 
 func TestRotateSource(t *testing.T) {

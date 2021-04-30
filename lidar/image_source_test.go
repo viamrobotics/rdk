@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
@@ -45,6 +46,7 @@ func TestImageSource(t *testing.T) {
 	defer release()
 
 	outDir := testutils.TempDir(t, "", "lidar")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = rimage.WriteImageToFile(outDir+"/out.png", img)
 	test.That(t, err, test.ShouldBeNil)
 

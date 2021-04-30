@@ -7,6 +7,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,6 +20,7 @@ func TestBothMain(t *testing.T) {
 	assert.Error(t, realMain([]string{"xxx"}))
 
 	outDir := testutils.TempDir(t, "", "rimage_cmd_both")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 
 	out := outDir + "/board1.both.gz"
 	err := realMain([]string{"merge", artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), out, "-aligned"})
