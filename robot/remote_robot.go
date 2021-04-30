@@ -2,7 +2,9 @@ package robot
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -10,28 +12,31 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/sensor"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 )
 
-// A remoteRobot implements wraps an api.RemoteRobot. It
+var errUnimplemented = errors.New("unimplemented")
+
+// A remoteRobot implements wraps an api.Robot. It
 // assists in the un/prefixing of part names for RemoteRobots that
 // are not aware they are integrated elsewhere.
-// We intentionally do not promote the underlying api.RemoteRobot
+// We intentionally do not promote the underlying api.Robot
 // so that any future changes are forced to consider un/prefixing
 // of names.
 type remoteRobot struct {
 	mu     sync.Mutex
-	robot  api.RemoteRobot
+	robot  api.Robot
 	config api.RemoteConfig
 	parts  *robotParts
 }
 
-// newRemoteRobot returns a new remote robot wrapping a given api.RemoteRobot
+// newRemoteRobot returns a new remote robot wrapping a given api.Robot
 // and its configuration.
-func newRemoteRobot(robot api.RemoteRobot, config api.RemoteConfig) *remoteRobot {
+func newRemoteRobot(robot api.Robot, config api.RemoteConfig) *remoteRobot {
 	// We pull the parts out here such that we correctly return nil for
 	// when parts are accessed. This is because a networked robot client
 	// may just return a non-nil wrapper for a part they may not exist.
@@ -133,8 +138,9 @@ func (rr *remoteRobot) SensorNames() []string {
 	return rr.prefixNames(rr.parts.SensorNames())
 }
 
-func (rr *remoteRobot) RemoteByName(name string) api.RemoteRobot {
-	return nil
+func (rr *remoteRobot) RemoteByName(name string) api.Robot {
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (rr *remoteRobot) ArmByName(name string) api.Arm {
@@ -177,6 +183,10 @@ func (rr *remoteRobot) SensorByName(name string) sensor.Device {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.SensorByName(rr.unprefixName(name))
+}
+
+func (rr *remoteRobot) ProcessManager() rexec.ProcessManager {
+	return rexec.NoopProcessManager
 }
 
 func (rr *remoteRobot) GetConfig(ctx context.Context) (*api.Config, error) {

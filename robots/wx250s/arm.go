@@ -22,7 +22,11 @@ import (
 
 func init() {
 	api.RegisterArm("wx250s", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
-		return NewArm(config.Attributes, getProviderOrCreate(r).moveLock, logger)
+		mut, err := api.RobotAsMutable(r)
+		if err != nil {
+			return nil, err
+		}
+		return NewArm(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
 	})
 }
 

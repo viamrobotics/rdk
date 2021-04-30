@@ -11,11 +11,11 @@ import (
 	"os"
 	"time"
 
+	"go.viam.com/robotcore/api"
 	apiserver "go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/utils"
@@ -50,7 +50,7 @@ func ResolveSharedDir(argDir string) string {
 type robotWebApp struct {
 	template *template.Template
 	views    []gostream.View
-	theRobot *robot.Robot
+	theRobot api.Robot
 	logger   golog.Logger
 	options  Options
 }
@@ -114,7 +114,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ---------------
 
-func allSourcesToDisplay(ctx context.Context, theRobot *robot.Robot) ([]gostream.ImageSource, []string, error) {
+func allSourcesToDisplay(ctx context.Context, theRobot api.Robot) ([]gostream.ImageSource, []string, error) {
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
@@ -188,7 +188,7 @@ func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // returns a closer func to be called when done
-func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, options Options, logger golog.Logger) (func(), error) {
+func installWeb(ctx context.Context, mux *goji.Mux, theRobot api.Robot, options Options, logger golog.Logger) (func(), error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, err
@@ -273,8 +273,8 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot *robot.Robot, optio
 /*
 helper if you don't need to customize at all
 */
-func RunWeb(ctx context.Context, theRobot *robot.Robot, options Options, logger golog.Logger) error {
-	defer theRobot.Close()
+func RunWeb(ctx context.Context, theRobot api.Robot, options Options, logger golog.Logger) error {
+	defer utils.TryClose(theRobot)
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
 	if err != nil {

@@ -2,6 +2,7 @@ package rexec
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -190,4 +191,42 @@ func MergeRemoveProcessManagers(dst, src ProcessManager) {
 	for _, id := range ids {
 		dst.RemoveProcessByID(id)
 	}
+}
+
+type noopProcessManager struct{}
+
+// NoopProcessManager does nothing and is useful for places that
+// need to return some ProcessManager.
+var NoopProcessManager = &noopProcessManager{}
+
+func (noop noopProcessManager) ProcessIDs() []string {
+	return nil
+}
+
+func (noop noopProcessManager) ProcessByID(id string) (ManagedProcess, bool) {
+	return nil, false
+}
+
+func (noop noopProcessManager) RemoveProcessByID(id string) bool {
+	return false
+}
+
+func (noop noopProcessManager) Start(ctx context.Context) error {
+	return nil
+}
+
+func (noop noopProcessManager) AddProcess(ctx context.Context, proc ManagedProcess, start bool) (ManagedProcess, error) {
+	return nil, errors.New("unsupported")
+}
+
+func (noop noopProcessManager) AddProcessFromConfig(ctx context.Context, config ProcessConfig) (ManagedProcess, error) {
+	return nil, errors.New("unsupported")
+}
+
+func (noop noopProcessManager) Stop() error {
+	return nil
+}
+
+func (noop noopProcessManager) Clone() ProcessManager {
+	return noop
 }

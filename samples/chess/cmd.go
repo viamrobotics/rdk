@@ -86,7 +86,7 @@ func moveTo(myArm api.Arm, chess string, heightMod float64) error {
 	return myArm.MoveToPosition(context.TODO(), where)
 }
 
-func movePiece(boardState boardStateGuesser, robot *robot.Robot, myArm api.Arm, myGripper api.Gripper, from, to string) error {
+func movePiece(boardState boardStateGuesser, robot api.Robot, myArm api.Arm, myGripper api.Gripper, from, to string) error {
 
 	if to[0] != '-' {
 		toHeight, err := boardState.game.GetPieceHeight(boardState.NewestBoard(), to)
@@ -340,7 +340,7 @@ func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.Im
 
 }
 
-func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) error {
+func lookForBoard(ctx context.Context, myArm api.Arm, myRobot api.Robot) error {
 	debugNumber := 0
 
 	wristCam := myRobot.CameraByName("wristCam")
@@ -388,7 +388,7 @@ func lookForBoard(ctx context.Context, myArm api.Arm, myRobot *robot.Robot) erro
 
 }
 
-func adjustArmInsideSquare(ctx context.Context, robot *robot.Robot) error {
+func adjustArmInsideSquare(ctx context.Context, robot api.Robot) error {
 	time.Sleep(500 * time.Millisecond) // wait for camera to focus
 
 	cam := robot.CameraByName("gripperCam")

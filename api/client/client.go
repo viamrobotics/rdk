@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
@@ -148,7 +149,7 @@ func (rc *RobotClient) getCachedStatus() *pb.Status {
 	return rc.cachedStatus
 }
 
-func (rc *RobotClient) RemoteByName(name string) api.RemoteRobot {
+func (rc *RobotClient) RemoteByName(name string) api.Robot {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
@@ -190,6 +191,7 @@ func (rc *RobotClient) SensorByName(name string) sensor.Device {
 	}
 }
 
+// TODO(https://github.com/viamrobotics/robotcore/issues/57) - do not use status
 func (rc *RobotClient) Refresh(ctx context.Context) error {
 	status, err := rc.status(ctx)
 	if err != nil {
@@ -305,6 +307,10 @@ func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.sensorNames)
+}
+
+func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
+	return rexec.NoopProcessManager
 }
 
 func (rc *RobotClient) GetConfig(ctx context.Context) (*api.Config, error) {

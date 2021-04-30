@@ -52,7 +52,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return logger
 	}
 
-	injectRobot.RemoteByNameFunc = func(name string) api.RemoteRobot {
+	injectRobot.RemoteByNameFunc = func(name string) api.Robot {
 		if _, ok := utils.NewStringSet(injectRobot.RemoteNames()...)[name]; !ok {
 			return nil
 		}
