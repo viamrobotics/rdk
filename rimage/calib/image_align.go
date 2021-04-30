@@ -138,7 +138,6 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimTop, trimFirstTop, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
 		return nil, nil, err
 	}
 	// trim bottom (rotated 90: trim from left)
@@ -150,7 +149,6 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
 		return nil, nil, err
 	}
 	// trim left (rotated 90: trim from top)
@@ -162,7 +160,6 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimLeft, trimFirstLeft, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
 		return nil, nil, err
 	}
 	// trim right (rotated 90: trim from bottom)
@@ -174,7 +171,6 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("error: %s", err)
 		return nil, nil, err
 	}
 	// Set the crop coorindates for the images
