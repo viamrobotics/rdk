@@ -22,18 +22,19 @@ type NloptIK struct {
 	Goals         []Goal
 	opt           *nlopt.NLopt
 	ID            int
-	halt          bool
+	requestHaltCh chan struct{}
+	haltedCh      chan struct{}
 	logger        golog.Logger
 }
 
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik := &NloptIK{logger: logger}
+	ik.resetHalting()
 	ik.Mdl = mdl
 	// How close we want to get to the goal
 	ik.epsilon = 0.0001
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	//~ floatEpsilon := ik.epsilon * ik.epsilon * 0.1
 	ik.maxIterations = 50000
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
@@ -68,8 +69,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		}
 
 		if len(gradient) > 0 {
-			//~ // mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
-			//~ // out into a bunch of variables instead of being nicely composed.
+			// mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
+			// out into a bunch of variables instead of being nicely composed.
 			ik.Mdl.CalculateJacobian()
 			j := ik.Mdl.GetJacobian()
 			grad2 := mgl64.NewVecN(len(dx))
@@ -120,6 +121,7 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
+	ik.resetHalting()
 }
 
 func (ik *NloptIK) SetID(id int) {
@@ -136,25 +138,44 @@ func (ik *NloptIK) GetMdl() *Model {
 
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
+	ik.resetHalting()
 }
 
 func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
+func (ik *NloptIK) resetHalting() {
+	ik.requestHaltCh = make(chan struct{})
+	ik.haltedCh = make(chan struct{})
+}
+
 func (ik *NloptIK) Halt() {
-	ik.halt = true
+	close(ik.requestHaltCh)
 	err := ik.opt.ForceStop()
 	if err != nil {
 		ik.logger.Info("nlopt halt error: ", err)
 	}
+	<-ik.haltedCh
+	ik.resetHalting()
 }
 
 func (ik *NloptIK) Solve() bool {
-	ik.halt = false
+	select {
+	case <-ik.haltedCh:
+		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
+		return false
+	default:
+	}
+	defer close(ik.haltedCh)
 	ik.iterations = 0
 	origJointPos := ik.Mdl.GetPosition()
-	for ik.iterations < ik.maxIterations && !ik.halt {
+	for ik.iterations < ik.maxIterations {
+		select {
+		case <-ik.requestHaltCh:
+			return false
+		default:
+		}
 		ik.iterations++
 		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
 		if err != nil {

@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"sync"
 
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/utils"
@@ -10,6 +11,7 @@ import (
 )
 
 type LidarDevice struct {
+	sync.Mutex
 	lidar.Device
 	InfoFunc              func(ctx context.Context) (map[string]interface{}, error)
 	StartFunc             func(ctx context.Context) error
@@ -50,10 +52,13 @@ func (ld *LidarDevice) Close() error {
 }
 
 func (ld *LidarDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
-	if ld.ScanFunc == nil {
+	ld.Lock()
+	scanFunc := ld.ScanFunc
+	ld.Unlock()
+	if scanFunc == nil {
 		return ld.Device.Scan(ctx, options)
 	}
-	return ld.ScanFunc(ctx, options)
+	return scanFunc(ctx, options)
 }
 
 func (ld *LidarDevice) Range(ctx context.Context) (float64, error) {

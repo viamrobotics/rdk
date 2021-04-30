@@ -197,7 +197,6 @@ func ResetBoxSteps(theRobot api.Robot, shakes int) error {
 	if resetBoard == nil {
 		return fmt.Errorf("robot does not have a resetDriveBoard")
 	}
-	//~ time.Sleep(10000 * time.Millisecond)
 	// Dump object into the resetter
 	err := OpenBox(resetBoard, true)
 	if err != nil {
@@ -235,8 +234,6 @@ func ResetBoxSteps(theRobot api.Robot, shakes int) error {
 	if err != nil {
 		return err
 	}
-
-	//~ TiltField(resetBoard)
 
 	// Grab the object where it ought to be and replace it onto the field
 	return ReplaceObject(theRobot)

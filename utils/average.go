@@ -1,12 +1,14 @@
 package utils
 
+import "sync/atomic"
+
 type RollingAverage struct {
-	data []int
-	pos  int
+	data []int64
+	pos  int64
 }
 
 func NewRollingAverage(numSamples int) *RollingAverage {
-	return &RollingAverage{data: make([]int, numSamples), pos: 0}
+	return &RollingAverage{data: make([]int64, numSamples), pos: 0}
 }
 
 func (ra *RollingAverage) NumSamples() int {
@@ -14,19 +16,17 @@ func (ra *RollingAverage) NumSamples() int {
 }
 
 func (ra *RollingAverage) Add(x int) {
-	ra.data[ra.pos] = x
-	ra.pos++
-	if ra.pos >= len(ra.data) {
-		ra.pos = 0
-	}
+	atomic.StoreInt64(&ra.data[ra.pos], int64(x))
+	atomic.AddInt64(&ra.pos, 1)
+	atomic.CompareAndSwapInt64(&ra.pos, int64(len(ra.data)), 0)
 }
 
 func (ra *RollingAverage) Average() int {
-	sum := 0
+	var sum int64 = 0
 
-	for _, d := range ra.data {
-		sum += d
+	for i := range ra.data {
+		sum += atomic.LoadInt64(&ra.data[i])
 	}
 
-	return sum / len(ra.data)
+	return int(sum / int64(len(ra.data)))
 }

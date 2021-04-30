@@ -201,30 +201,31 @@ func (db *dummyBoard) Close() error {
 func TestNewRobotTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
+	modelName := utils.RandomAlphaString(8)
 	var dummyBoard1 dummyBoard
-	board.RegisterBoard("dummy", func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
+	board.RegisterBoard(modelName, func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
 	})
-	api.RegisterGripper("dummy", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+	api.RegisterGripper(modelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		return nil, errors.New("whoops")
 	})
 
-	const failingConfig = `{
+	var failingConfig = fmt.Sprintf(`{
 	"boards": [
 		{
-			"model": "dummy",
+			"model": "%[1]s",
 			"name": "board1"
 		}
 	],
     "components": [
         {
-            "model": "dummy",
+            "model": "%[1]s",
             "name": "gripper1",
             "type": "gripper"
         }
     ]
 }
-`
+`, modelName)
 	cfg, err := api.ReadConfigFromReader("", strings.NewReader(failingConfig))
 	test.That(t, err, test.ShouldBeNil)
 

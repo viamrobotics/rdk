@@ -70,10 +70,6 @@ func BenchCombinedIKinematics(t *testing.B) {
 		err = wxArm.SetForwardPosition(rPos)
 		if err == nil {
 			solved++
-			//~ } else {
-			//~ fmt.Println("from: ", startPos)
-			//~ fmt.Println("to: ", jPos)
-			//~ fmt.Println(err)
 		}
 	}
 	fmt.Println("combined solved: ", solved)

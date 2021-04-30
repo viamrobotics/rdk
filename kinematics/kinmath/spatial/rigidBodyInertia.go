@@ -9,11 +9,3 @@ type RigidBodyInertia struct {
 	Cog     mgl64.Vec3
 	Mass    mgl64.Vec3
 }
-
-//~ func (r *RigidBodyInertia) Times (other *MotionVector) ForceVector {
-//~ res := ForceVector{}
-//~ res.Moment = r.Inertia * other.Angular + r.Cog.cross(other.Linear)
-//~ res.Force = r.Mass * other.Linear - r.Cog.cross(other.Angular)
-
-//~ return res
-//~ }

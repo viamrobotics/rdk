@@ -253,7 +253,7 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 	}
 	// Note- clamping should be disabled for now. We are better able to solve IK if the joints are mathematically
 	// allowed to spin freely. Normalization and validity checking will prevent limits from being exceeded.
-	//~ posvec2 = j.Clamp(posvec2)
+	// posvec2 = j.Clamp(posvec2)
 	return posvec2
 }
 

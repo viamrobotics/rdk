@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -156,6 +157,7 @@ func TestNewConfigWatcherCloud(t *testing.T) {
 
 	var confToReturn Config
 	var confErr bool
+	var confErrMu sync.Mutex
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			panic(err)
@@ -170,11 +172,14 @@ func TestNewConfigWatcherCloud(t *testing.T) {
 			w.Write([]byte("bad secret"))
 			return
 		}
+		confErrMu.Lock()
 		if confErr {
+			confErrMu.Unlock()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		confErr = true
+		confErrMu.Unlock()
 		md, err := json.Marshal(&confToReturn)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -236,7 +241,9 @@ func TestNewConfigWatcherCloud(t *testing.T) {
 			},
 		},
 	}
+	confErrMu.Lock()
 	confErr = false
+	confErrMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToReturn)
@@ -266,7 +273,9 @@ func TestNewConfigWatcherCloud(t *testing.T) {
 			},
 		},
 	}
+	confErrMu.Lock()
 	confErr = false
+	confErrMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToReturn)

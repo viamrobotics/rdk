@@ -335,12 +335,6 @@ func (a *Arm) WaitForMovement() error {
 }
 
 func setServoDefaults(newServo *servo.Servo) error {
-	// Set some nice-to-have settings
-	//~ err := newServo.SetMovingThreshold(0)
-	//~ newServo.SetMovingThreshold(0)
-	//~ if err != nil {
-	//~ return fmt.Errorf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
-	//~ }
 	dm, err := newServo.DriveMode()
 	if err != nil {
 		return fmt.Errorf("error DriveMode servo %d: %v", newServo.ID, err)
