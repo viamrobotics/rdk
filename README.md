@@ -18,7 +18,9 @@
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
 * [pointcloud](./pointcloud)
+* [rexec](./rexec) - Operating system process management tooling
 * [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data
+* [rlog](./rlog) - Logging helpers
 * [robot](./robot) - Implementation of ([api](./api))
   * [web](./robot/web) - Web server for using robots
 * [robots](./robots) - Implementations of specific robots, arms, grippers
