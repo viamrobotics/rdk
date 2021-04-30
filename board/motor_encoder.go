@@ -123,21 +123,26 @@ func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 	if m.startedRPMMonitor {
 		return
 	}
-	go m.rpmMonitor(ctx)
+	started := make(chan struct{})
+	go m.rpmMonitor(ctx, func() {
+		close(started)
+	})
+	<-started
 }
 
-func (m *encodedMotor) startRegulatorThread(ctx context.Context) {
+func (m *encodedMotor) startRegulatorThread(ctx context.Context, onStart func()) {
 	if m.encoderB == nil {
-		m.startSingleEncoderThread(ctx)
+		m.startSingleEncoderThread(ctx, onStart)
 	} else {
-		m.startRotaryEncoderThread(ctx)
+		m.startRotaryEncoderThread(ctx, onStart)
 	}
 }
 
-func (m *encodedMotor) startSingleEncoderThread(ctx context.Context) {
+func (m *encodedMotor) startSingleEncoderThread(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
 	go func() {
+		onStart()
 		for {
 			stop := false
 
@@ -164,7 +169,7 @@ func (m *encodedMotor) startSingleEncoderThread(ctx context.Context) {
 	}()
 }
 
-func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context) {
+func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart func()) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
@@ -172,6 +177,7 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context) {
 	m.encoderB.AddCallback(chanB)
 
 	go func() {
+		onStart()
 		aLevel := true
 		bLevel := true
 
@@ -226,7 +232,7 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context) {
 
 }
 
-func (m *encodedMotor) rpmMonitor(ctx context.Context) {
+func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 	if m.encoder == nil {
 		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
 	}
@@ -237,7 +243,7 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context) {
 	m.startedRPMMonitor = true
 
 	// just a convenient place to start the encoder listener
-	m.startRegulatorThread(ctx)
+	m.startRegulatorThread(ctx, onStart)
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()

@@ -3,15 +3,21 @@ package board
 import (
 	"context"
 	"testing"
-	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/testutils"
 
 	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMotorEncoder1(t *testing.T) {
+	prevRPMSleep := rpmSleep
+	prevRPMDebug := rpmDebug
+	defer func() {
+		rpmSleep = prevRPMSleep
+		rpmDebug = prevRPMDebug
+	}()
 	rpmSleep = 1
 	rpmDebug = false
 
@@ -53,23 +59,27 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 	assert.Less(t, float32(0), real.powerPct)
 
-	time.Sleep(20 * time.Millisecond)
-	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, float32(1), real.powerPct)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Less(t, int64(10), motor.rpmMonitorCalls)
+		assert.Equal(t, float32(1), real.powerPct)
+	})
 
 	encoder.ticks(99, nowNanosTest())
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 	encoder.Tick(true, nowNanosTest())
-	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.d)
+
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.d)
+	})
 
 	// when we're in the middle of a GoFor and then call Go, don't turn off
 	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1))
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
 	assert.Less(t, float32(0), real.powerPct)
 
-	time.Sleep(20 * time.Millisecond)
-	assert.Equal(t, float32(1), real.powerPct)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Equal(t, float32(1), real.powerPct)
+	})
 
 	// we didn't hit the set point
 	encoder.ticks(99, nowNanosTest())
@@ -82,9 +92,10 @@ func TestMotorEncoder1(t *testing.T) {
 	encoder.ticks(1000, nowNanosTest())
 
 	// we should still be moving at the previous force
-	time.Sleep(500 * time.Millisecond)
-	assert.Equal(t, float32(.25), real.powerPct)
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Equal(t, float32(.25), real.powerPct)
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.d)
+	})
 
 	assert.Nil(t, motor.Off(context.Background()))
 
@@ -93,18 +104,28 @@ func TestMotorEncoder1(t *testing.T) {
 	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)
 	assert.Less(t, float32(0), real.powerPct)
 
-	time.Sleep(20 * time.Millisecond)
-	assert.Less(t, int64(10), motor.rpmMonitorCalls)
-	assert.Equal(t, float32(1), real.powerPct)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Less(t, int64(10), motor.rpmMonitorCalls)
+		assert.Equal(t, float32(1), real.powerPct)
+	})
 
 	encoder.ticks(99, nowNanosTest())
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.d)
+	})
 	encoder.Tick(true, nowNanosTest())
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.d)
-
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.d)
+	})
 }
 
 func TestMotorEncoderHall(t *testing.T) {
+	prevRPMSleep := rpmSleep
+	prevRPMDebug := rpmDebug
+	defer func() {
+		rpmSleep = prevRPMSleep
+		rpmDebug = prevRPMDebug
+	}()
 	rpmSleep = 1
 	rpmDebug = false
 
@@ -121,34 +142,36 @@ func TestMotorEncoderHall(t *testing.T) {
 	}
 
 	motor.rpmMonitorStart(context.Background())
-	time.Sleep(20 * time.Millisecond)
-
-	pos, err := motor.Position(context.Background())
-	assert.Nil(t, err)
-	assert.Equal(t, 0.0, pos)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		pos, err := motor.Position(context.Background())
+		assert.Nil(t, err)
+		assert.Equal(t, 0.0, pos)
+	})
 
 	encoderA.Tick(true, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
-	time.Sleep(20 * time.Millisecond)
-	pos, err = motor.Position(context.Background())
-	assert.Nil(t, err)
-	assert.InEpsilon(t, -.01, pos, .00001)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		pos, err := motor.Position(context.Background())
+		assert.Nil(t, err)
+		assert.InEpsilon(t, -.01, pos, .00001)
+	})
 
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
-	time.Sleep(20 * time.Millisecond)
-	pos, err = motor.Position(context.Background())
-	assert.Nil(t, err)
-	assert.Equal(t, 0.0, pos)
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		pos, err := motor.Position(context.Background())
+		assert.Nil(t, err)
+		assert.Equal(t, 0.0, pos)
+	})
 
 	encoderB.Tick(false, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
-	time.Sleep(210 * time.Millisecond)
-	pos, err = motor.Position(context.Background())
-	assert.Nil(t, err)
-	assert.Equal(t, .01, pos)
-
+	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+		pos, err := motor.Position(context.Background())
+		assert.Nil(t, err)
+		assert.Equal(t, .01, pos)
+	})
 }
 
 func TestMotorEncoderWrap(t *testing.T) {
