@@ -4,7 +4,7 @@
       "name": "wx250s",
       "links": [
          {
-            "id": 0,
+            "id": "base",
             "parent": "world",
             "rotation": {
                "x": 0,
@@ -18,22 +18,8 @@
             }
          },
          {
-            "id": 1,
-            "parent": "link0",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
-         },
-         {
-            "id": 2,
-            "parent": "joint0",
+            "id": "base_top",
+            "parent": "waist",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -46,8 +32,8 @@
             }
          },
          {
-            "id": 3,
-            "parent": "joint1",
+            "id": "upper_arm",
+            "parent": "shoulder",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -60,22 +46,8 @@
             }
          },
          {
-            "id": 4,
-            "parent": "joint2",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
-         },
-         {
-            "id": 5,
-            "parent": "joint3",
+            "id": "forearm",
+            "parent": "elbow",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -86,27 +58,13 @@
                "y": 0,
                "z": 0
             }
-         },
-         {
-            "id": 6,
-            "parent": "joint4",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
          }
       ],
       "joints": [
          {
-            "id": 0,
+            "id": "waist",
             "type": "revolute",
-            "parent": "link1",
+            "parent": "base",
             "axis": {
                "x": 0,
                "y": 0,
@@ -116,9 +74,9 @@
             "min": -179
          },
          {
-            "id": 1,
+            "id": "shoulder",
             "type": "revolute",
-            "parent": "link2",
+            "parent": "base_top",
             "axis": {
                "x": 0,
                "y": 1,
@@ -128,9 +86,9 @@
             "min": -108
          },
          {
-            "id": 2,
+            "id": "elbow",
             "type": "revolute",
-            "parent": "link3",
+            "parent": "upper_arm",
             "axis": {
                "x": 0,
                "y": 1,
@@ -140,9 +98,9 @@
             "min": -123
          },
          {
-            "id": 3,
+            "id": "forearm_rot",
             "type": "revolute",
-            "parent": "link4",
+            "parent": "forearm",
             "axis": {
                "x": 1,
                "y": 0,
@@ -152,9 +110,9 @@
             "min": -179
          },
          {
-            "id": 4,
+            "id": "wrist",
             "type": "revolute",
-            "parent": "link5",
+            "parent": "forearm_rot",
             "axis": {
                "x": 0,
                "y": 1,
