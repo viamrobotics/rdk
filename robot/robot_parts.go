@@ -20,7 +20,7 @@ import (
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes        map[string]api.RemoteRobot
+	remotes        map[string]api.Robot
 	boards         map[string]board.Board
 	arms           map[string]api.Arm
 	grippers       map[string]api.Gripper
@@ -35,7 +35,7 @@ type robotParts struct {
 // newRobotParts returns a properly initialized set of parts.
 func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
-		remotes:        map[string]api.RemoteRobot{},
+		remotes:        map[string]api.Robot{},
 		boards:         map[string]board.Board{},
 		arms:           map[string]api.Arm{},
 		grippers:       map[string]api.Gripper{},
@@ -89,7 +89,7 @@ func fixType(c api.ComponentConfig, whichType api.ComponentType, pos int) api.Co
 }
 
 // AddRemote adds a remote to the parts.
-func (parts *robotParts) AddRemote(remote api.RemoteRobot, c api.RemoteConfig) {
+func (parts *robotParts) AddRemote(remote api.Robot, c api.RemoteConfig) {
 	parts.remotes[c.Name] = remote
 }
 
@@ -235,7 +235,7 @@ func (parts *robotParts) SensorNames() []string {
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
 	if len(parts.remotes) != 0 {
-		clonedParts.remotes = make(map[string]api.RemoteRobot, len(parts.remotes))
+		clonedParts.remotes = make(map[string]api.Robot, len(parts.remotes))
 		for k, v := range parts.remotes {
 			clonedParts.remotes[k] = v
 		}
@@ -350,7 +350,7 @@ func (parts *robotParts) Close() error {
 func (parts *robotParts) processConfig(
 	ctx context.Context,
 	config *api.Config,
-	robot *Robot,
+	robot *mutableRobot,
 	logger golog.Logger,
 ) error {
 	if err := parts.newProcesses(ctx, config.Processes); err != nil {
@@ -409,7 +409,7 @@ func (parts *robotParts) newBoards(ctx context.Context, boards []board.Config, l
 }
 
 // newComponents constructs all components defined.
-func (parts *robotParts) newComponents(ctx context.Context, components []api.ComponentConfig, r *Robot) error {
+func (parts *robotParts) newComponents(ctx context.Context, components []api.ComponentConfig, r *mutableRobot) error {
 	for _, c := range components {
 		switch c.Type {
 		case api.ComponentTypeProvider:
@@ -474,7 +474,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []api.Com
 
 // RemoteByName returns the given remote robot by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) RemoteByName(name string) api.RemoteRobot {
+func (parts *robotParts) RemoteByName(name string) api.Robot {
 	part, ok := parts.remotes[name]
 	if ok {
 		return part
@@ -638,7 +638,7 @@ func (result *PartsMergeResult) Process(parts *robotParts) error {
 func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) {
 	if len(toAdd.remotes) != 0 {
 		if parts.remotes == nil {
-			parts.remotes = make(map[string]api.RemoteRobot, len(toAdd.remotes))
+			parts.remotes = make(map[string]api.Robot, len(toAdd.remotes))
 		}
 		for k, v := range toAdd.remotes {
 			parts.remotes[k] = v
