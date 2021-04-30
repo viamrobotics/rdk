@@ -324,29 +324,29 @@
         <h3>Arm ${arm.name}</h3>
         <table border="1">
           <tr>
-            <th colspan="4"><h5>GRID</h5></th>
-            <th colspan="4"><h5>JOINTS</h5></th>
+            <th colspan="4"><h5>GRID (mms)</h5></th>
+            <th colspan="4"><h5>JOINTS (degrees)</h5></th>
           </tr>
           <tr v-for="aa in arm.pieces" :key="aa.joint">
             <th>${aa.grid[0]}</th>
             <td>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], -2 )">--</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
               <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
               <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], 2 )">++</button>
+              <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
             </td>
-            <td>${aa.gridValue}</td>
+            <td>${aa.gridValue.toFixed(2)}</td>
 
             <td></td>
             
             <th>Joint ${aa.joint}</th>
             <td>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -2 )">--</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
               <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
               <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 2 )">++</button>
+              <button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</button>
             </td>
-            <td>${aa.jointValue}</td>
+            <td>${aa.jointValue.toFixed(2)}</td>
           </tr>
           <tr>
             <th colspan="8"> 
