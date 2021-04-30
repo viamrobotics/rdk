@@ -14,7 +14,7 @@ func (p *Provider) Ready(r api.Robot) error {
 	return nil
 }
 
-func getProviderOrCreate(r api.Robot) *Provider {
+func getProviderOrCreate(r api.MutableRobot) *Provider {
 	p := r.ProviderByName("wx250s")
 	if p == nil {
 		p = &Provider{&sync.Mutex{}}

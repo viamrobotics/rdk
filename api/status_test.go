@@ -74,7 +74,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		}
 		remote1 := setupInjectRobotHelper(logger, false, false, true)
 		remote2 := setupInjectRobotHelper(logger, false, refreshFail, true)
-		injectRobot.RemoteByNameFunc = func(name string) api.RemoteRobot {
+		injectRobot.RemoteByNameFunc = func(name string) api.Robot {
 			switch name {
 			case "remote1":
 				return remote1

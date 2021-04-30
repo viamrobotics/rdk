@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/sensor"
 
 	"github.com/edaniels/golog"
@@ -15,11 +17,7 @@ import (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
-	// providers are for singletons for a whole name
-	ProviderByName(name string) Provider
-	AddProvider(p Provider, config ComponentConfig)
-
-	RemoteByName(name string) RemoteRobot
+	RemoteByName(name string) Robot
 	ArmByName(name string) Arm
 	BaseByName(name string) Base
 	GripperByName(name string) Gripper
@@ -27,6 +25,7 @@ type Robot interface {
 	LidarDeviceByName(name string) lidar.Device
 	BoardByName(name string) board.Board
 	SensorByName(name string) sensor.Device
+	ProviderByName(name string) Provider
 
 	RemoteNames() []string
 	ArmNames() []string
@@ -37,13 +36,40 @@ type Robot interface {
 	BoardNames() []string
 	SensorNames() []string
 
+	ProcessManager() rexec.ProcessManager
+
 	// this is allowed to be partial or empty
 	GetConfig(ctx context.Context) (*Config, error)
 
 	// use CreateStatus helper in most cases
 	Status(ctx context.Context) (*pb.Status, error)
 
+	// Refresh instructs the Robot to manually refresh the details of itself.
+	Refresh(ctx context.Context) error
+
 	Logger() golog.Logger
+}
+
+type MutableRobot interface {
+	Robot
+	AddRemote(remote Robot, c RemoteConfig)
+	AddBoard(b board.Board, c board.Config)
+	AddArm(a Arm, c ComponentConfig)
+	AddGripper(g Gripper, c ComponentConfig)
+	AddCamera(camera gostream.ImageSource, c ComponentConfig)
+	AddLidar(device lidar.Device, c ComponentConfig)
+	AddBase(b Base, c ComponentConfig)
+	AddSensor(s sensor.Device, c ComponentConfig)
+	AddProvider(p Provider, c ComponentConfig)
+	Reconfigure(ctx context.Context, newConfig *Config) error
+	Close() error
+}
+
+func RobotAsMutable(r Robot) (MutableRobot, error) {
+	if m, ok := r.(MutableRobot); ok {
+		return m, nil
+	}
+	return nil, fmt.Errorf("expected %T to be a MutableRobot", r)
 }
 
 // A Provider is responsible for providing functionality to parts in a
@@ -52,14 +78,4 @@ type Provider interface {
 	// Ready does any provider/platform initialization once robot configuration is
 	// finishing.
 	Ready(r Robot) error
-}
-
-// A RemoteRobot is a robot controlled over a network.
-type RemoteRobot interface {
-	Robot
-
-	// Refresh instructs the RemoteRobot to manually refresh
-	// the details of itself based on what the remote endpoint
-	// can provide.
-	Refresh(ctx context.Context) error
 }

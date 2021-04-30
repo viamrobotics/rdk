@@ -7,6 +7,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/utils"
 
@@ -16,9 +17,7 @@ import (
 
 type Robot struct {
 	api.Robot
-	ProviderByNameFunc    func(name string) api.Provider
-	AddProviderFunc       func(p api.Provider, c api.ComponentConfig)
-	RemoteByNameFunc      func(name string) api.RemoteRobot
+	RemoteByNameFunc      func(name string) api.Robot
 	ArmByNameFunc         func(name string) api.Arm
 	BaseByNameFunc        func(name string) api.Base
 	GripperByNameFunc     func(name string) api.Gripper
@@ -26,6 +25,7 @@ type Robot struct {
 	LidarDeviceByNameFunc func(name string) lidar.Device
 	BoardByNameFunc       func(name string) board.Board
 	SensorByNameFunc      func(name string) sensor.Device
+	ProviderByNameFunc    func(name string) api.Provider
 	RemoteNamesFunc       func() []string
 	ArmNamesFunc          func() []string
 	GripperNamesFunc      func() []string
@@ -34,6 +34,7 @@ type Robot struct {
 	BaseNamesFunc         func() []string
 	BoardNamesFunc        func() []string
 	SensorNamesFunc       func() []string
+	ProcessManagerFunc    func() rexec.ProcessManager
 	GetConfigFunc         func(ctx context.Context) (*api.Config, error)
 	StatusFunc            func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc            func() golog.Logger
@@ -41,22 +42,7 @@ type Robot struct {
 	RefreshFunc           func(ctx context.Context) error
 }
 
-func (r *Robot) ProviderByName(name string) api.Provider {
-	if r.ProviderByNameFunc == nil {
-		return r.Robot.ProviderByName(name)
-	}
-	return r.ProviderByNameFunc(name)
-}
-
-func (r *Robot) AddProvider(p api.Provider, c api.ComponentConfig) {
-	if r.AddProviderFunc == nil {
-		r.Robot.AddProvider(p, c)
-		return
-	}
-	r.AddProviderFunc(p, c)
-}
-
-func (r *Robot) RemoteByName(name string) api.RemoteRobot {
+func (r *Robot) RemoteByName(name string) api.Robot {
 	if r.RemoteByNameFunc == nil {
 		return r.Robot.RemoteByName(name)
 	}
@@ -110,6 +96,13 @@ func (r *Robot) SensorByName(name string) sensor.Device {
 		return r.Robot.SensorByName(name)
 	}
 	return r.SensorByNameFunc(name)
+}
+
+func (r *Robot) ProviderByName(name string) api.Provider {
+	if r.ProviderByNameFunc == nil {
+		return r.Robot.ProviderByName(name)
+	}
+	return r.ProviderByNameFunc(name)
 }
 
 func (r *Robot) RemoteNames() []string {
@@ -168,6 +161,13 @@ func (r *Robot) SensorNames() []string {
 	return r.SensorNamesFunc()
 }
 
+func (r *Robot) ProcessManager() rexec.ProcessManager {
+	if r.ProcessManagerFunc == nil {
+		return r.Robot.ProcessManager()
+	}
+	return r.ProcessManagerFunc()
+}
+
 func (r *Robot) GetConfig(ctx context.Context) (*api.Config, error) {
 	if r.GetConfigFunc == nil {
 		return r.Robot.GetConfig(ctx)
@@ -198,7 +198,7 @@ func (r *Robot) Close() error {
 
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
-		if remote, ok := r.Robot.(api.RemoteRobot); ok {
+		if remote, ok := r.Robot.(api.Robot); ok {
 			return remote.Refresh(ctx)
 		}
 	}
