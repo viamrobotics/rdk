@@ -34,7 +34,7 @@
                   newArm.pieces.push( { grid : fieldSetters[j],
                                         joint : j,
                                         gridValue : armValue.gridPosition[fieldSetters[j][0]],
-                                        jointValue : armValue.jointPositions.degreesList[j],
+                                        jointValue : armValue.jointPositions.degreesList[j] || 0,
                                       });
               }
               
