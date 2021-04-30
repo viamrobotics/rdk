@@ -2,7 +2,7 @@
    "model": {
       "manufacturer": "Trossen Robotics",
       "name": "wx250s",
-      "fixeds": [
+      "links": [
          {
             "id": 0,
             "parent": "world",
@@ -19,7 +19,7 @@
          },
          {
             "id": 1,
-            "parent": "fixed0",
+            "parent": "link0",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -120,7 +120,7 @@
          {
             "id": 0,
             "type": "revolute",
-            "parent": "fixed1",
+            "parent": "link1",
             "axis": {
                "x": 0,
                "y": 0,
@@ -132,7 +132,7 @@
          {
             "id": 1,
             "type": "revolute",
-            "parent": "fixed2",
+            "parent": "link2",
             "axis": {
                "x": 0,
                "y": 1,
@@ -144,7 +144,7 @@
          {
             "id": 2,
             "type": "revolute",
-            "parent": "fixed3",
+            "parent": "link3",
             "axis": {
                "x": 0,
                "y": 1,
@@ -156,7 +156,7 @@
          {
             "id": 3,
             "type": "revolute",
-            "parent": "fixed4",
+            "parent": "link4",
             "axis": {
                "x": 1,
                "y": 0,
@@ -168,7 +168,7 @@
          {
             "id": 4,
             "type": "revolute",
-            "parent": "fixed5",
+            "parent": "link5",
             "axis": {
                "x": 0,
                "y": 1,
@@ -180,7 +180,7 @@
          {
             "id": 5,
             "type": "revolute",
-            "parent": "fixed6",
+            "parent": "link6",
             "axis": {
                "x": 1,
                "y": 0,
