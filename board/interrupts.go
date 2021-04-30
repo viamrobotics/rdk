@@ -2,6 +2,7 @@ package board
 
 import (
 	"fmt"
+	"sync/atomic"
 
 	"github.com/erh/scheme"
 
@@ -74,10 +75,11 @@ func (i *BasicDigitalInterrupt) Config() DigitalInterruptConfig {
 }
 
 func (i *BasicDigitalInterrupt) Value() int64 {
+	count := atomic.LoadInt64(&i.count)
 	if i.pp != nil {
-		return i.pp(i.count)
+		return i.pp(count)
 	}
-	return i.count
+	return count
 }
 
 // really just for testing
@@ -89,7 +91,7 @@ func (i *BasicDigitalInterrupt) ticks(num int, now uint64) {
 
 func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
 	if high {
-		i.count++
+		atomic.AddInt64(&i.count, 1)
 	}
 
 	for _, c := range i.callbacks {

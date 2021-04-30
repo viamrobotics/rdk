@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -77,7 +78,7 @@ type BrushlessMotor struct {
 	Board      GPIOBoard
 	PWMs       []string
 	A, B, C, D string
-	steps      int
+	steps      int64
 	on         bool
 	startedMgr bool
 	commands   chan brushlessMotorCmd
@@ -88,7 +89,7 @@ type BrushlessMotor struct {
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
 //           This should eventually be a supported feature.
 func (m *BrushlessMotor) Position(ctx context.Context) (float64, error) {
-	return float64(m.steps) / float64(m.cfg.TicksPerRotation), nil
+	return float64(atomic.LoadInt64(&m.steps)) / float64(m.cfg.TicksPerRotation), nil
 }
 
 func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
@@ -120,7 +121,7 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			if err := m.setStep(seq[i]); err != nil {
 				return err
 			}
-			m.steps++
+			atomic.AddInt64(&m.steps, 1)
 			// Waiting between each setStep() call is the best way to adjust motor speed.
 			// See the comment above in NewBrushlessMotor() for why to not use PWM.
 			time.Sleep(wait)
@@ -130,7 +131,7 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			if err := m.setStep(seq[i]); err != nil {
 				return err
 			}
-			m.steps--
+			atomic.AddInt64(&m.steps, -1)
 			time.Sleep(wait)
 		}
 	}

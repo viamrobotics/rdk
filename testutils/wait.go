@@ -28,7 +28,7 @@ func WaitForAssertion(t *testing.T, assertion func(assert.TestingT)) {
 		assertion(noFailT)
 		checkOk = !noFailT.Failed
 		if checkOk {
-			break
+			return
 		}
 		time.Sleep(50 * time.Millisecond)
 		attempts++

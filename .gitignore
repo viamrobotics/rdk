@@ -36,6 +36,7 @@ dist/js/storage/
 
 # Test data
 coverage.txt
+coverage2.txt
 slam/data/*new*
 slam/data/*diff*
 
