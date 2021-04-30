@@ -24,7 +24,7 @@ func TestForwardKinematics(t *testing.T) {
 	actual := m.Get6dPosition(0)
 
 	if floatDelta(expect, actual) > 0.00001 {
-		t.Fatalf("Starting 6d position incorrect")
+		t.Fatalf("wx250s_test starting 6d position incorrect, got: %v", actual)
 	}
 
 	// Test the 6dof arm we actually have
@@ -37,7 +37,7 @@ func TestForwardKinematics(t *testing.T) {
 	actual = m.Get6dPosition(0)
 
 	if floatDelta(expect, actual) > 0.00001 {
-		t.Fatalf("Starting 6d position incorrect")
+		t.Fatalf("wx250s starting 6d position incorrect, got: %v", actual)
 	}
 
 	newPos := []float64{0.7854, -0.7854, 0, 0, 0, 0}
