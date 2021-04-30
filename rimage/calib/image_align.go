@@ -138,7 +138,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimTop, trimFirstTop, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
+		return nil, nil, err
 	}
 	// trim bottom (rotated 90: trim from left)
 	distA, distB = (img1Size.Y-1)-img1Points[1].Y, (img1Size.Y-1)-img1Points[0].Y
@@ -149,7 +149,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimBot, trimFirstBot, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
+		return nil, nil, err
 	}
 	// trim left (rotated 90: trim from top)
 	distA, distB = img1Points[1].X, img1Points[0].X
@@ -160,7 +160,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimLeft, trimFirstLeft, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("image_align error: %s", err)
+		return nil, nil, err
 	}
 	// trim right (rotated 90: trim from bottom)
 	distA, distB = (img1Size.X-1)-img1Points[0].X, (img1Size.X-1)-img1Points[1].X
@@ -171,35 +171,39 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	}
 	trimRight, trimFirstRight, err := trim(distA, distB, dist1, dist2)
 	if err != nil {
-		logger.Debugf("error: %s", err)
+		return nil, nil, err
 	}
 	// Set the crop coorindates for the images
-	img1Points[0].X, img1Points[0].Y = trimLeft*trimFirstLeft, trimTop*trimFirstTop
-	img1Points[1].X, img1Points[1].Y = (img1Size.X-1)-trimRight*trimFirstRight, (img1Size.Y-1)-trimBot*trimFirstBot
+	newImg1Points := make([]image.Point, len(img1Points))
+	copy(newImg1Points, img1Points)
+	newImg2Points := make([]image.Point, len(img2Points))
+	copy(newImg2Points, img2Points)
+	newImg1Points[0].X, newImg1Points[0].Y = trimLeft*trimFirstLeft, trimTop*trimFirstTop
+	newImg1Points[1].X, newImg1Points[1].Y = (img1Size.X-1)-trimRight*trimFirstRight, (img1Size.Y-1)-trimBot*trimFirstBot
 	if rotated {
-		img2Points[0].X, img2Points[0].Y = trimBot*(1-trimFirstBot), trimLeft*(1-trimFirstLeft)
-		img2Points[1].X, img2Points[1].Y = (img2Size.X-1)-trimTop*(1-trimFirstTop), (img2Size.Y-1)-trimRight*(1-trimFirstRight)
+		newImg2Points[0].X, newImg2Points[0].Y = trimBot*(1-trimFirstBot), trimLeft*(1-trimFirstLeft)
+		newImg2Points[1].X, newImg2Points[1].Y = (img2Size.X-1)-trimTop*(1-trimFirstTop), (img2Size.Y-1)-trimRight*(1-trimFirstRight)
 	} else {
-		img2Points[0].X, img2Points[0].Y = trimLeft*(1-trimFirstLeft), trimTop*(1-trimFirstTop)
-		img2Points[1].X, img2Points[1].Y = (img2Size.X-1)-trimRight*(1-trimFirstRight), (img2Size.Y-1)-trimBot*(1-trimFirstBot)
+		newImg2Points[0].X, newImg2Points[0].Y = trimLeft*(1-trimFirstLeft), trimTop*(1-trimFirstTop)
+		newImg2Points[1].X, newImg2Points[1].Y = (img2Size.X-1)-trimRight*(1-trimFirstRight), (img2Size.Y-1)-trimBot*(1-trimFirstBot)
 	}
 
 	if debug {
-		logger.Debugf("img1 size: %v img1 points: %v", img1Size, img1Points)
-		logger.Debugf("img2 size: %v img2 points: %v", img2Size, img2Points)
-		if !rimage.AllPointsIn(img1Size, img1Points) || !rimage.AllPointsIn(img2Size, img2Points) {
-			logger.Debugf("Points are not contained in the images: %v %v", rimage.AllPointsIn(img1Size, img1Points), rimage.AllPointsIn(img2Size, img2Points))
+		logger.Debugf("img1 size: %v img1 points: %v", img1Size, newImg1Points)
+		logger.Debugf("img2 size: %v img2 points: %v", img2Size, newImg2Points)
+		if !rimage.AllPointsIn(img1Size, newImg1Points) || !rimage.AllPointsIn(img2Size, newImg2Points) {
+			logger.Debugf("Points are not contained in the images: %v %v", rimage.AllPointsIn(img1Size, newImg1Points), rimage.AllPointsIn(img2Size, newImg2Points))
 		}
 	}
-	img1Points = fixPoints(img1Points)
-	img2Points = fixPoints(img2Points)
+	newImg1Points = fixPoints(newImg1Points)
+	newImg2Points = fixPoints(newImg2Points)
 
 	if rotated {
 		// TODO(erh): handle flipped
-		img2Points = rotatePoints(img2Points)
+		newImg2Points = rotatePoints(newImg2Points)
 	}
 
-	return img1Points, img2Points, nil
+	return newImg1Points, newImg2Points, nil
 }
 
 func rotatePoints(pts []image.Point) []image.Point {
