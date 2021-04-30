@@ -4,6 +4,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
 )
@@ -42,6 +43,7 @@ func TestColorSegment1(t *testing.T) {
 	}
 
 	outDir := testutils.TempDir(t, "", "rimage")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
 	if err != nil {
 		t.Fatal(err)

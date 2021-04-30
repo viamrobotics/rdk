@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
+	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,6 +18,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	golog.Global.Debugf("out dir: %q", outDir)
 }
 
 func TestPCRoundTrip(t *testing.T) {
