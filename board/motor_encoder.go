@@ -15,7 +15,7 @@ import (
 var (
 	_rpmDebugMu sync.Mutex
 	_rpmSleep   = 50 * time.Millisecond // really just for testing
-	_rpmDebug   = false
+	_rpmDebug   = true
 )
 
 func getRPMSleepDebug() (time.Duration, bool) {
@@ -97,12 +97,13 @@ type encodedMotor struct {
 // encodedMotorState is the core, non-statistical state for the motor.
 // Multiple values should be updated atomically at the same time.
 type encodedMotorState struct {
-	regulated    bool
-	desiredRPM   float64 // <= 0 means thread should do nothing
-	lastPowerPct float32
-	curDirection pb.DirectionRelative
-	setPoint     int64
-	curPosition  int64
+	regulated       bool
+	desiredRPM      float64 // <= 0 means thread should do nothing
+	lastPowerPct    float32
+	curDirection    pb.DirectionRelative
+	setPoint        int64
+	curPosition     int64
+	timeLeftSeconds float64
 }
 
 func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
@@ -274,15 +275,27 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 			}
 
 			if m.state.regulated {
-				stop := (m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD && m.state.curPosition >= m.state.setPoint) ||
-					(m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD && m.state.curPosition <= m.state.setPoint)
+				var ticksLeft int64
+
+				if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+					ticksLeft = m.state.setPoint - m.state.curPosition
+				} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+					ticksLeft = m.state.curPosition - m.state.setPoint
+				}
+				rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
+
+				stop := rotationsLeft <= 0.0
 
 				if stop {
+					m.state.timeLeftSeconds = 0
 					err := m.off(ctx)
 					if err != nil {
 						m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 					}
+				} else {
+					m.state.timeLeftSeconds = 60.0 * rotationsLeft / m.state.desiredRPM
 				}
+
 			}
 			m.stateMu.Unlock()
 
@@ -325,6 +338,14 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 
 		m.stateMu.Lock()
 		desiredRPM := m.state.desiredRPM
+		if m.state.timeLeftSeconds > 0 {
+			if m.state.timeLeftSeconds < .5 {
+				desiredRPM = desiredRPM / 2
+			}
+			if m.state.timeLeftSeconds < .1 {
+				desiredRPM = desiredRPM / 2
+			}
+		}
 		lastPowerPct := m.state.lastPowerPct
 
 		if desiredRPM > 0 {
