@@ -71,28 +71,32 @@ func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap) (*DepthColorIntri
 	return matrices, nil
 }
 
-func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
+func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
+	// Parse into map
+	err := json.Unmarshal(byteJSON, intrinsics)
+	if err != nil {
+		err = fmt.Errorf("error parsing byte array - %s", err)
+		return nil, err
+	}
+	return intrinsics, nil
+}
+
+func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
 		err = fmt.Errorf("error opening JSON file - %s", err)
-		return intrinsics, err
+		return nil, err
 	}
 	defer jsonFile.Close()
 	// read our opened jsonFile as a byte array.
-	byteValue, err2 := ioutil.ReadAll(jsonFile)
-	if err2 != nil {
-		err2 = fmt.Errorf("error reading JSON data - %s", err2)
-		return intrinsics, err2
-	}
-	// Parse into map
-	err = json.Unmarshal(byteValue, intrinsics)
+	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
-		err = fmt.Errorf("error parsing JSON string - %s", err)
-		return intrinsics, err
+		err = fmt.Errorf("error reading JSON data - %s", err)
+		return nil, err
 	}
-	return intrinsics, nil
+	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
 }
 
 func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
