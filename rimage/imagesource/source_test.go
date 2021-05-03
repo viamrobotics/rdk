@@ -62,7 +62,9 @@ func TestHTTPSource(t *testing.T) {
 }
 
 func TestHTTPSource2(t *testing.T) {
-	s := NewIntelServerSource("127.0.0.1", 8181, nil)
-
+	s, err := NewIntelServerSource("127.0.0.1", 8181, nil)
+	if err != nil {
+		t.Error(err)
+	}
 	doHTTPSourceTest(t, s)
 }
