@@ -211,7 +211,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 	lastTick = rawTick
 
 	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
-	//logger.Debugf("pigpioInterruptCallback gpio: %v level: %v rawTick: %v tick: %v", gpio, level, rawTick, tick)
+	//golog.Global.Debugf("pigpioInterruptCallback gpio: %v level: %v rawTick: %v tick: %v", gpio, level, rawTick, tick)
 
 	i := piInstance.interruptsHW[uint(gpio)]
 	if i == nil {
