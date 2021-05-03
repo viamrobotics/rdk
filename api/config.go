@@ -1,210 +1,109 @@
 package api
 
 import (
-	"errors"
 	"fmt"
-	"strconv"
-	"strings"
+	"time"
 
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rexec"
+	"go.viam.com/robotcore/utils"
 )
 
-type ComponentType string
-
-const (
-	ComponentTypeBase     = ComponentType("base")
-	ComponentTypeArm      = ComponentType("arm")
-	ComponentTypeGripper  = ComponentType("gripper")
-	ComponentTypeCamera   = ComponentType("camera")
-	ComponentTypeLidar    = ComponentType("lidar")
-	ComponentTypeSensor   = ComponentType("sensor")
-	ComponentTypeProvider = ComponentType("provider")
-)
-
-type AttributeMap map[string]interface{}
-
-func (am AttributeMap) Has(name string) bool {
-	_, has := am[name]
-	return has
+// A Config describes the configuration of a robot.
+type Config struct {
+	ConfigFilePath string
+	Cloud          *CloudConfig          `json:"cloud,omitempty"`
+	Remotes        []RemoteConfig        `json:"remotes,omitempty"`
+	Boards         []board.Config        `json:"boards,omitempty"`
+	Components     []ComponentConfig     `json:"components,omitempty"`
+	Processes      []rexec.ProcessConfig `json:"processes,omitempty"`
 }
 
-func (am AttributeMap) GetString(name string) string {
-	if am == nil {
-		return ""
-	}
-	x := am[name]
-	if x == nil {
-		return ""
-	}
-
-	s, ok := x.(string)
-	if ok {
-		return s
+// Validate ensures all parts of the config are valid.
+func (c Config) Validate() error {
+	if c.Cloud != nil {
+		if err := c.Cloud.Validate("cloud"); err != nil {
+			return err
+		}
 	}
 
-	panic(fmt.Errorf("wanted a string for (%s) but got (%v) %T", name, x, x))
-}
-
-func (am AttributeMap) GetInt(name string, def int) int {
-	if am == nil {
-		return def
-	}
-	x, has := am[name]
-	if !has {
-		return def
+	for idx, config := range c.Remotes {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+			return err
+		}
 	}
 
-	v, ok := x.(int)
-	if ok {
-		return v
+	for idx, config := range c.Boards {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "boards", idx)); err != nil {
+			return err
+		}
 	}
 
-	v2, ok := x.(float64)
-	if ok {
-		// TODO(erh): is this safe? json defaults to float64, so seems nice
-		return int(v2)
+	for idx, config := range c.Components {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "components", idx)); err != nil {
+			return err
+		}
 	}
 
-	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
-}
-
-func (am AttributeMap) GetFloat64(name string, def float64) float64 {
-	if am == nil {
-		return def
-	}
-	x, has := am[name]
-	if !has {
-		return def
+	for idx, config := range c.Processes {
+		if err := config.Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			return err
+		}
 	}
 
-	v, ok := x.(float64)
-	if ok {
-		return v
-	}
-
-	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
-}
-
-func (am AttributeMap) GetBool(name string, def bool) bool {
-	if am == nil {
-		return def
-	}
-	x, has := am[name]
-	if !has {
-		return def
-	}
-
-	v, ok := x.(bool)
-	if ok {
-		return v
-	}
-
-	panic(fmt.Errorf("wanted a bool for (%s) but got (%v) %T", name, x, x))
-}
-
-type Component struct {
-	Name string
-
-	Host string
-	Port int
-
-	Type    ComponentType
-	SubType string
-	Model   string
-
-	Attributes AttributeMap
-}
-
-func (desc *Component) String() string {
-	return fmt.Sprintf("%#v", desc)
-}
-
-func (desc *Component) Set(val string) error {
-	parsed, err := ParseComponentFlag(val)
-	if err != nil {
-		return err
-	}
-	*desc = parsed
 	return nil
 }
 
-func (desc *Component) Get() interface{} {
-	return desc
-}
-
-// ParseComponentFlag parses a component flag from command line arguments.
-func ParseComponentFlag(flag string) (Component, error) {
-	cmp := Component{}
-	componentParts := strings.Split(flag, ",")
-	for _, part := range componentParts {
-		keyVal := strings.SplitN(part, "=", 2)
-		if len(keyVal) != 2 {
-			return Component{}, errors.New("wrong component format; use type=name,host=host,attr=key:value")
-		}
-		switch keyVal[0] {
-		case "name":
-			cmp.Name = keyVal[1]
-		case "host":
-			cmp.Host = keyVal[1]
-		case "port":
-			port, err := strconv.ParseInt(keyVal[1], 10, 64)
-			if err != nil {
-				return Component{}, fmt.Errorf("error parsing port: %w", err)
-			}
-			cmp.Port = int(port)
-		case "type":
-			cmp.Type = ComponentType(keyVal[1])
-		case "subtype":
-			cmp.SubType = keyVal[1]
-		case "model":
-			cmp.Model = keyVal[1]
-		case "attr":
-			if cmp.Attributes == nil {
-				cmp.Attributes = AttributeMap{}
-			}
-			attrKeyVal := strings.SplitN(keyVal[1], ":", 2)
-			if len(attrKeyVal) != 2 {
-				return Component{}, errors.New("wrong attribute format; use attr=key:value")
-			}
-			cmp.Attributes[attrKeyVal[0]] = attrKeyVal[1]
-		}
-	}
-	if string(cmp.Type) == "" {
-		return Component{}, errors.New("component type is required")
-	}
-	return cmp, nil
-}
-
-type Remote struct {
-	Name    string
-	Address string
-	Prefix  bool
-}
-
-// configuration for how to fetch the actual config from a cloud source
-// the cloud source could be anything that supports http
-// url is constructed as $Path?id=ID and secret is put in a http header
-type CloudConfig struct {
-	ID      string
-	Secret  string
-	Path    string // optional, defaults to viam cloud otherwise
-	LogPath string // optional, defaults to viam cloud otherwise
-}
-
-type Config struct {
-	Remotes    []Remote
-	Boards     []board.Config
-	Components []Component
-	Cloud      CloudConfig
-	Processes  []rexec.ProcessConfig
-}
-
-func (c Config) FindComponent(name string) *Component {
+// FindComponent finds a particular component by name.
+func (c Config) FindComponent(name string) *ComponentConfig {
 	for _, cmp := range c.Components {
 		if cmp.Name == name {
 			return &cmp
 		}
+	}
+	return nil
+}
+
+// A RemoteConfig describes a remote robot that should be integrated.
+type RemoteConfig struct {
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Prefix  bool   `json:"prefix"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *RemoteConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if config.Address == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "address")
+	}
+	return nil
+}
+
+// A CloudConfig describes how to configure a robot controlled by the
+// cloud.
+// The cloud source could be anything that supports http.
+// URL is constructed as $Path?id=ID and secret is put in a http header.
+type CloudConfig struct {
+	ID              string        `json:"id"`
+	Secret          string        `json:"secret"`
+	Path            string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
+	LogPath         string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
+	RefreshInterval time.Duration `json:"refresh_interval,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *CloudConfig) Validate(path string) error {
+	if config.ID == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "id")
+	}
+	if config.Secret == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "secret")
+	}
+	if config.RefreshInterval == 0 {
+		config.RefreshInterval = 10 * time.Second
 	}
 	return nil
 }

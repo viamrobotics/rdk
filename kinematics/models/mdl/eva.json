@@ -2,65 +2,10 @@
    "model": {
       "manufacturer": "Automata",
       "name": "Eva",
-      "framecount": 8,
-      "bodies": [
+      "links": [
          {
-            "id": 0,
-            "ignores": [
-               1
-            ]
-         },
-         {
-            "id": 1,
-            "ignores": [
-               0,
-               2
-            ]
-         },
-         {
-            "id": 2,
-            "ignores": [
-               1,
-               3
-            ]
-         },
-         {
-            "id": 3,
-            "ignores": [
-               2,
-               4
-            ]
-         },
-         {
-            "id": 4,
-            "ignores": [
-               3,
-               5,
-               6
-            ]
-         },
-         {
-            "id": 5,
-            "ignores": [
-               4,
-               6
-            ]
-         },
-         {
-            "id": 6,
-            "ignores": [
-               4,
-               5
-            ]
-         }
-      ],
-      "fixeds": [
-         {
-            "id": 0,
-            "frame": {
-               "a": "world",
-               "b": "body0"
-            },
+            "id": "base",
+            "parent": "world",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -73,28 +18,8 @@
             }
          },
          {
-            "id": 1,
-            "frame": {
-               "a": "body0",
-               "b": "frame0"
-            },
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
-         },
-         {
-            "id": 2,
-            "frame": {
-               "a": "frame1",
-               "b": "body1"
-            },
+            "id": "base_top",
+            "parent": "waist",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -107,11 +32,8 @@
             }
          },
          {
-            "id": 3,
-            "frame": {
-               "a": "frame2",
-               "b": "body2"
-            },
+            "id": "upper_arm",
+            "parent": "shoulder",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -124,11 +46,8 @@
             }
          },
          {
-            "id": 4,
-            "frame": {
-               "a": "frame3",
-               "b": "body3"
-            },
+            "id": "upper_forearm",
+            "parent": "elbow",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -141,11 +60,8 @@
             }
          },
          {
-            "id": 5,
-            "frame": {
-               "a": "frame4",
-               "b": "body4"
-            },
+            "id": "lower_forearm",
+            "parent": "forearm_rot",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -158,11 +74,8 @@
             }
          },
          {
-            "id": 6,
-            "frame": {
-               "a": "frame5",
-               "b": "body5"
-            },
+            "id": "gripper_mount",
+            "parent": "wrist",
             "rotation": {
                "x": 0,
                "y": 0,
@@ -173,50 +86,13 @@
                "y": 0,
                "z": 104
             }
-         },
-         {
-            "id": 7,
-            "frame": {
-               "a": "frame6",
-               "b": "body6"
-            },
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
-         },
-         {
-            "id": 8,
-            "frame": {
-               "a": "body6",
-               "b": "frame7"
-            },
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
-            "translation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            }
          }
       ],
       "joints": [
          {
-            "id": 0,
+            "id": "waist",
             "type": "revolute",
-            "frame": {
-               "a": "frame0",
-               "b": "frame1"
-            },
+            "parent": "base",
             "axis": {
                "x": 0,
                "y": 0,
@@ -226,12 +102,9 @@
             "min": -179
          },
          {
-            "id": 1,
+            "id": "shoulder",
             "type": "revolute",
-            "frame": {
-               "a": "body1",
-               "b": "frame2"
-            },
+            "parent": "base_top",
             "axis": {
                "x": 0,
                "y": 1,
@@ -241,12 +114,9 @@
             "min": -155
          },
          {
-            "id": 2,
+            "id": "elbow",
             "type": "revolute",
-            "frame": {
-               "a": "body2",
-               "b": "frame3"
-            },
+            "parent": "upper_arm",
             "axis": {
                "x": 0,
                "y": 1,
@@ -256,12 +126,9 @@
             "min": -160
          },
          {
-            "id": 3,
+            "id": "forearm_rot",
             "type": "revolute",
-            "frame": {
-               "a": "body3",
-               "b": "frame4"
-            },
+            "parent": "upper_forearm",
             "axis": {
                "x": 0,
                "y": 0,
@@ -271,12 +138,9 @@
             "min": -179
          },
          {
-            "id": 4,
+            "id": "wrist",
             "type": "revolute",
-            "frame": {
-               "a": "body4",
-               "b": "frame5"
-            },
+            "parent": "lower_forearm",
             "axis": {
                "x": 0,
                "y": 1,
@@ -286,12 +150,9 @@
             "min": -155
          },
          {
-            "id": 5,
+            "id": "gripper_rot",
             "type": "revolute",
-            "frame": {
-               "a": "body5",
-               "b": "frame6"
-            },
+            "parent": "gripper_mount",
             "axis": {
                "x": 0,
                "y": 0,

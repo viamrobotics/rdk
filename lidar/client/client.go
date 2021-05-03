@@ -16,7 +16,7 @@ const ModelNameClient = "grpc"
 const DeviceTypeClient = lidar.DeviceType(ModelNameClient)
 
 func init() {
-	api.RegisterLidarDevice(ModelNameClient, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+	api.RegisterLidarDevice(ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)

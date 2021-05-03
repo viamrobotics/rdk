@@ -16,7 +16,7 @@ import (
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
 	r, err := NewRobot(ctx,
-		api.Config{
+		&api.Config{
 			Boards: []board.Config{
 				{
 					Name:  "local",
@@ -36,10 +36,10 @@ func TestFourWheelBase1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = CreateFourWheelBase(context.Background(), r, api.Component{}, golog.Global)
+	_, err = CreateFourWheelBase(context.Background(), r, api.ComponentConfig{}, golog.Global)
 	assert.NotNil(t, err)
 
-	cfg := api.Component{
+	cfg := api.ComponentConfig{
 		Attributes: api.AttributeMap{
 			"widthMillis":              100,
 			"wheelCircumferenceMillis": 1000,

@@ -1,0 +1,102 @@
+{
+    "remotes":
+    [
+        {
+            "name": "remote1",
+            "address": "addr3"
+        },
+        {
+            "name": "remote2",
+            "address": "addr4"
+        }
+    ],
+    "boards":
+    [
+        {
+            "analogs":
+            [
+                {
+                    "name": "analog1",
+                    "pin": "1"
+                }
+            ],
+            "digitalInterrupts":
+            [
+                {
+                    "name": "encoder",
+                    "pin": "15"
+                }
+            ],
+            "model": "fake",
+            "motors":
+            [
+                {
+                    "encoder": "encoder",
+                    "name": "h",
+                    "pins":
+                    {
+                        "a": "2",
+                        "b": "3",
+                        "pwm": "4"
+                    },
+                    "ticksPerRotation": 101
+                }
+            ],
+            "name": "board1",
+            "servos":
+            [
+                {
+                    "name": "servo1",
+                    "pin": "13"
+                }
+            ]
+        },
+        {
+            "name": "board2",
+            "servos":
+            [
+                {
+                    "name": "servo2",
+                    "pin": "14"
+                }
+            ]
+        }
+    ],
+    "components":
+    [
+        {
+            "model": "fake2",
+            "name": "arm1",
+            "type": "arm"
+        },
+        {
+            "model": "fake2",
+            "name": "base2",
+            "type": "base"
+        }
+    ],
+    "processes":
+    [
+        {
+            "id": "1",
+            "name": "echo",
+            "args":
+            [
+                "hello",
+                "world",
+                "again"
+            ],
+            "one_shot": true
+        },
+        {
+            "id": "3",
+            "name": "bash",
+            "args":
+            [
+                "-c",
+                "trap \"exit 0\" SIGINT; while true; do echo world; sleep 2; done"
+            ],
+            "log": true
+        }
+    ]
+}

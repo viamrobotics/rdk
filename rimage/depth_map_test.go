@@ -73,9 +73,7 @@ func TestDepthMap2(t *testing.T) {
 		t.Errorf("wrong depth %v", m.GetDepth(300, 300))
 	}
 
-	os.MkdirAll("out", 0775)
-
-	fn := "out/board2-rt.dat.gz"
+	fn := outDir + "/board2-rt.dat.gz"
 
 	err = m.WriteToFile(fn)
 	if err != nil {
@@ -144,13 +142,12 @@ func TestToGray16Picture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.MkdirAll("out", 0775)
 	gimg := iwd.Depth.ToGray16Picture()
 
 	assert.Equal(t, iwd.Depth.Width(), gimg.Bounds().Max.X)
 	assert.Equal(t, iwd.Depth.Height(), gimg.Bounds().Max.Y)
 
-	file, err := os.Create("out/board2_gray.png")
+	file, err := os.Create(outDir + "/board2_gray.png")
 	if err != nil {
 		t.Fatal(err)
 	}

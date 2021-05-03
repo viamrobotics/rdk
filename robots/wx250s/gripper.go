@@ -17,8 +17,12 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("wx250s", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (api.Gripper, error) {
-		return NewGripper(config.Attributes, getProviderOrCreate(r).moveLock, logger)
+	api.RegisterGripper("wx250s", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+		mut, err := api.RobotAsMutable(r)
+		if err != nil {
+			return nil, err
+		}
+		return NewGripper(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
 	})
 }
 

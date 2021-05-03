@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
@@ -16,6 +17,14 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 		Cameras:      map[string]bool{},
 		LidarDevices: map[string]bool{},
 		Sensors:      map[string]*pb.SensorStatus{},
+	}
+
+	// manually refresh all remotes to get an up to date status
+	for _, name := range r.RemoteNames() {
+		remote := r.RemoteByName(name)
+		if err := remote.Refresh(ctx); err != nil {
+			return nil, fmt.Errorf("error refreshing remote %q: %w", name, err)
+		}
 	}
 
 	for _, name := range r.ArmNames() {

@@ -4,6 +4,6 @@ package search
 
 import "go.viam.com/robotcore/api"
 
-func Devices() []api.Component {
+func Devices() []api.ComponentConfig {
 	return nil
 }

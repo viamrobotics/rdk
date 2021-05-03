@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 )
@@ -44,8 +45,9 @@ func TestImageSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	os.MkdirAll("out", 0775)
-	err = rimage.WriteImageToFile("out/out.png", img)
+	outDir := testutils.TempDir(t, "", "lidar")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
+	err = rimage.WriteImageToFile(outDir+"/out.png", img)
 	test.That(t, err, test.ShouldBeNil)
 
 	delta := 8

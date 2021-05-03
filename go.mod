@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
-	github.com/adrianmo/go-nmea v1.3.0 // indirect
+	github.com/adrianmo/go-nmea v1.3.0
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.4
@@ -45,6 +45,7 @@ require (
 	github.com/pion/mediadevices v0.1.18-0.20210305000905-3d3830f7ffa2
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/sbinet/go-python v0.1.0
+	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.0.2 // indirect

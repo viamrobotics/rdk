@@ -8,16 +8,16 @@ import (
 	"go.viam.com/robotcore/usb"
 )
 
-func Devices() []api.Component {
+func Devices() []api.ComponentConfig {
 	usbDevices := usb.SearchDevices(
 		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
 			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
 		})
-	var lidarComponents []api.Component
+	var lidarComponents []api.ComponentConfig
 	for _, dev := range usbDevices {
 		devType := lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
-		lidarComponents = append(lidarComponents, api.Component{
+		lidarComponents = append(lidarComponents, api.ComponentConfig{
 			Type:  api.ComponentTypeLidar,
 			Host:  dev.Path,
 			Model: string(devType),

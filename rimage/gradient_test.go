@@ -16,7 +16,6 @@ func writePicture(img image.Image, p string) error {
 	if err != nil {
 		return err
 	}
-	os.MkdirAll("out", 0775)
 	defer file.Close()
 	png.Encode(file, img)
 	return nil
@@ -71,7 +70,7 @@ func TestSobelFilter(t *testing.T) {
 	assert.Equal(t, 3.*math.Pi/2., gradients.GetVec2D(149, 26).Direction())
 
 	img := gradients.ToPrettyPicture()
-	err = writePicture(img, "out/circle_gradient.png")
+	err = writePicture(img, outDir+"/circle_gradient.png")
 	if err != nil {
 		t.Fatal(err)
 	}

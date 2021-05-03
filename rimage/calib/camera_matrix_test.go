@@ -1,13 +1,26 @@
 package calib
 
 import (
+	"io/ioutil"
 	"math"
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
+
+var outDir string
+
+func init() {
+	var err error
+	outDir, err = ioutil.TempDir("", "rimage_calib")
+	if err != nil {
+		panic(err)
+	}
+	golog.Global.Debugf("out dir: %q", outDir)
+}
 
 func TestPC1(t *testing.T) {
 	iwd, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), true)
@@ -27,9 +40,7 @@ func TestPC1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	os.MkdirAll("out", 0775)
-
-	file, err := os.OpenFile("out/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
+	file, err := os.OpenFile(outDir+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,9 +67,8 @@ func TestPC2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.MkdirAll("out", 0775)
 
-	err = pc.WriteToFile("out/board2.las")
+	err = pc.WriteToFile(outDir + "/board2.las")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
@@ -27,9 +28,11 @@ import (
 var errUnimplemented = errors.New("unimplemented")
 
 type RobotClient struct {
-	conn   rpc.ClientConn
-	client pb.RobotServiceClient
+	address string
+	conn    rpc.ClientConn
+	client  pb.RobotServiceClient
 
+	namesMu          sync.Mutex
 	armNames         []string
 	baseNames        []string
 	gripperNames     []string
@@ -50,8 +53,8 @@ type RobotClient struct {
 }
 
 type RobotClientOptions struct {
-	RefreshStatusEvery time.Duration
-	Secure             bool
+	RefreshEvery time.Duration
+	Secure       bool
 }
 
 func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
@@ -75,21 +78,22 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
+		address:                 address,
 		conn:                    conn,
 		client:                  client,
 		sensorTypes:             map[string]sensor.DeviceType{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
 	}
-	if err := rc.populateNames(ctx); err != nil {
+	if err := rc.Refresh(ctx); err != nil {
 		return nil, err
 	}
-	if opts.RefreshStatusEvery != 0 {
+	if opts.RefreshEvery != 0 {
 		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
 		go func() {
 			defer rc.activeBackgroundWorkers.Done()
-			rc.refreshStatusEvery(closeCtx, opts.RefreshStatusEvery)
+			rc.RefreshEvery(closeCtx, opts.RefreshEvery)
 		}()
 	}
 	return rc, nil
@@ -105,7 +109,7 @@ func (rc *RobotClient) Close() error {
 	return rc.conn.Close()
 }
 
-func (rc *RobotClient) refreshStatusEvery(ctx context.Context, every time.Duration) {
+func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
@@ -121,12 +125,9 @@ func (rc *RobotClient) refreshStatusEvery(ctx context.Context, every time.Durati
 		case <-ticker.C:
 		}
 
-		status, err := rc.status(ctx)
-		if err != nil {
+		if err := rc.Refresh(ctx); err != nil {
 			rc.logger.Errorw("failed to refresh status", "error", err)
-			continue
 		}
-		rc.storeStatus(status)
 	}
 }
 
@@ -190,8 +191,9 @@ func (rc *RobotClient) SensorByName(name string) sensor.Device {
 	}
 }
 
-func (rc *RobotClient) populateNames(ctx context.Context) error {
-	status, err := rc.Status(ctx)
+// TODO(https://github.com/viamrobotics/robotcore/issues/57) - do not use status
+func (rc *RobotClient) Refresh(ctx context.Context) error {
+	status, err := rc.status(ctx)
 	if err != nil {
 		return fmt.Errorf("status call failed: %w", err)
 	}
@@ -200,34 +202,63 @@ func (rc *RobotClient) populateNames(ctx context.Context) error {
 	}
 
 	rc.storeStatus(status)
-	for name := range status.Arms {
-		rc.armNames = append(rc.armNames, name)
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	rc.armNames = nil
+	if len(status.Arms) != 0 {
+		rc.armNames = make([]string, 0, len(status.Arms))
+		for name := range status.Arms {
+			rc.armNames = append(rc.armNames, name)
+		}
 	}
-	for name := range status.Bases {
-		rc.baseNames = append(rc.baseNames, name)
+	rc.baseNames = nil
+	if len(status.Bases) != 0 {
+		rc.baseNames = make([]string, 0, len(status.Bases))
+		for name := range status.Bases {
+			rc.baseNames = append(rc.baseNames, name)
+		}
 	}
-	for name := range status.Grippers {
-		rc.gripperNames = append(rc.gripperNames, name)
+	rc.gripperNames = nil
+	if len(status.Grippers) != 0 {
+		rc.gripperNames = make([]string, 0, len(status.Grippers))
+		for name := range status.Grippers {
+			rc.gripperNames = append(rc.gripperNames, name)
+		}
 	}
-	for name := range status.Boards {
-		rc.boardNames = append(rc.boardNames, name)
+	rc.boardNames = nil
+	if len(status.Boards) != 0 {
+		rc.boardNames = make([]string, 0, len(status.Boards))
+		for name := range status.Boards {
+			rc.boardNames = append(rc.boardNames, name)
+		}
 	}
-	for name := range status.Cameras {
-		rc.cameraNames = append(rc.cameraNames, name)
+	rc.cameraNames = nil
+	if len(status.Cameras) != 0 {
+		rc.cameraNames = make([]string, 0, len(status.Cameras))
+		for name := range status.Cameras {
+			rc.cameraNames = append(rc.cameraNames, name)
+		}
 	}
-	for name := range status.LidarDevices {
-		rc.lidarDeviceNames = append(rc.lidarDeviceNames, name)
+	rc.lidarDeviceNames = nil
+	if len(status.LidarDevices) != 0 {
+		rc.lidarDeviceNames = make([]string, 0, len(status.LidarDevices))
+		for name := range status.LidarDevices {
+			rc.lidarDeviceNames = append(rc.lidarDeviceNames, name)
+		}
 	}
-	for name, sensorStatus := range status.Sensors {
-		rc.sensorNames = append(rc.sensorNames, name)
-		rc.sensorTypes[name] = sensor.DeviceType(sensorStatus.Type)
+	rc.sensorNames = nil
+	if len(status.Sensors) != 0 {
+		rc.sensorNames = make([]string, 0, len(status.Sensors))
+		for name, sensorStatus := range status.Sensors {
+			rc.sensorNames = append(rc.sensorNames, name)
+			rc.sensorTypes[name] = sensor.DeviceType(sensorStatus.Type)
+		}
 	}
 	return nil
 }
 
 func (rc *RobotClient) RemoteNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return nil
 }
 
 func copyStringSlice(src []string) []string {
@@ -237,36 +268,54 @@ func copyStringSlice(src []string) []string {
 }
 
 func (rc *RobotClient) ArmNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.armNames)
 }
 
 func (rc *RobotClient) GripperNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.gripperNames)
 }
 
 func (rc *RobotClient) CameraNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.cameraNames)
 }
 
 func (rc *RobotClient) LidarDeviceNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.lidarDeviceNames)
 }
 
 func (rc *RobotClient) BaseNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.baseNames)
 }
 
 func (rc *RobotClient) BoardNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.boardNames)
 }
 
 func (rc *RobotClient) SensorNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.sensorNames)
 }
 
-func (rc *RobotClient) GetConfig(ctx context.Context) (api.Config, error) {
+func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
+	return rexec.NoopProcessManager
+}
+
+func (rc *RobotClient) GetConfig(ctx context.Context) (*api.Config, error) {
 	debug.PrintStack()
-	return api.Config{}, errUnimplemented
+	return nil, errUnimplemented
 }
 
 func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
@@ -284,14 +333,14 @@ func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
 	return rc.status(ctx)
 }
 
-func (rc *RobotClient) ProviderByModel(model string) api.Provider {
+func (rc *RobotClient) ProviderByName(name string) api.Provider {
 	return nil
 }
 
-func (rc *RobotClient) AddProvider(p api.Provider, c api.Component) {}
+func (rc *RobotClient) AddProvider(p api.Provider, c api.ComponentConfig) {}
 
 func (rc *RobotClient) Logger() golog.Logger {
-	return nil
+	return rc.logger
 }
 
 type baseClient struct {

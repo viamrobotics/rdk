@@ -13,27 +13,27 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	pf := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Provider, error) {
+	pf := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Provider, error) {
 		return nil, nil
 	}
 
-	af := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Arm, error) {
+	af := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Arm, error) {
 		return nil, nil
 	}
 
-	cf := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error) {
+	cf := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		return nil, nil
 	}
 
-	gf := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Gripper, error) {
+	gf := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Gripper, error) {
 		return nil, nil
 	}
 
-	lf := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (lidar.Device, error) {
+	lf := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		return nil, nil
 	}
 
-	sf := func(ctx context.Context, r Robot, config Component, logger golog.Logger) (sensor.Device, error) {
+	sf := func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		return nil, nil
 	}
 

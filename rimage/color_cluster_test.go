@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"os"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -18,10 +17,8 @@ func doTest(t *testing.T, fn string, numClusters int) {
 		t.Fatal(err)
 	}
 
-	os.Mkdir("out", 0755)
-
 	res := ClusterImage(clusters, img)
-	err = WriteImageToFile("out/"+fn, res)
+	err = WriteImageToFile(outDir+"/"+fn, res)
 	if err != nil {
 		t.Fatal(err)
 	}

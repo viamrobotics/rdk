@@ -43,7 +43,7 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
-func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
+func NewNetLogger(config *api.CloudConfig) (zapcore.Core, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func NewNetLogger(config api.CloudConfig) (zapcore.Core, error) {
 
 type netLogger struct {
 	hostname string
-	cfg      api.CloudConfig
+	cfg      *api.CloudConfig
 
 	toLogMutex sync.Mutex
 	toLog      []interface{}
@@ -161,7 +161,7 @@ func (nl *netLogger) Sync() error {
 
 }
 
-func addCloudLogger(logger golog.Logger, cfg api.CloudConfig) (golog.Logger, error) {
+func addCloudLogger(logger golog.Logger, cfg *api.CloudConfig) (golog.Logger, error) {
 	nl, err := NewNetLogger(cfg)
 	if err != nil {
 		return nil, err
@@ -214,7 +214,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	if cfg.Cloud.LogPath != "" {
+	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
 		logger, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
@@ -231,11 +231,44 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
+	// watch for and deliver changes to the robot
+	watcher, err := api.NewConfigWatcher(cfg, logger)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, watcher.Close())
+	}()
+	onWatchDone := make(chan struct{})
+	go func() {
+		defer close(onWatchDone)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case config := <-watcher.Config():
+				if err := myRobot.Reconfigure(ctx, config); err != nil {
+					logger.Errorw("error reconfiguring robot", "error", err)
+				}
+			}
+		}
+	}()
+
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 
-	return web.RunWeb(ctx, myRobot, options, logger)
+	err = web.RunWeb(ctx, myRobot, options, logger)
+	if err != nil {
+		logger.Errorw("error running web", "error", err)
+	}
+	<-onWatchDone
+	return err
 }

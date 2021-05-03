@@ -19,7 +19,7 @@ import (
 const LidarDeviceType = ModelName
 
 func init() {
-	api.RegisterLidarDevice(LidarDeviceType, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+	api.RegisterLidarDevice(LidarDeviceType, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		if config.Host == "" {
 			config.Host = "0"
 		}
@@ -28,7 +28,7 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		device := NewLidar()
+		device := NewLidar(config.Name)
 		device.SetSeed(seed)
 		return device, nil
 	})
@@ -36,14 +36,15 @@ func init() {
 
 // A Lidar outputs noisy scans based on its current position and seed.
 type Lidar struct {
+	Name       string
 	mu         sync.Mutex
 	posX, posY float64
 	started    bool
 	seed       int64
 }
 
-func NewLidar() *Lidar {
-	return &Lidar{}
+func NewLidar(name string) *Lidar {
+	return &Lidar{Name: name}
 }
 
 func (l *Lidar) SetPosition(pos r2.Point) {
