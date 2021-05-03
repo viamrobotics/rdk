@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -14,8 +13,7 @@ import (
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm
-	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
@@ -28,7 +26,7 @@ func TestForwardKinematics(t *testing.T) {
 	}
 
 	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"), logger)
+	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
@@ -71,8 +69,7 @@ func floatDelta(l1, l2 []float64) float64 {
 func TestJacobian_5DOF(t *testing.T) {
 	j1 := []float64{0, 300, 0, 0, 0, 1, 250, 0, -300, 0, 1, 0, 0, 0, -250, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0}
 	j2 := []float64{-112.20691814553123, 72.04723359799343, -3.552713678800501e-15, -0.6728542729024067, -0.1870245270979385, 0.14245346744036697, -72.57466434750532, -113.02834286904155, -133.34615235859556, -0.188440196136817, 0.4604125568357335, -0.6422462939518608, -122.82387410847048, -191.28685030857324, 104.03670913678563, -0.188440196136817, 0.4604125568357335, -0.6422462939518608, 1.5059727577447855e-14, -1.4873437542892977e-14, -1.9288441471654887e-15, 0.6431552845883316, -0.1870245270979384, -0.24367425562605577, 2.931395015491471e-15, -2.3723263558860777e-15, -7.144119634710407e-15, 0.07619642011560578, 0.9708076900883328, -0.1870245270979385}
-	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"), logger)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 	newPos := []float64{0, 0, 0, 0, 0}
 	m.SetPosition(newPos)
@@ -100,8 +97,7 @@ func TestJacobian_5DOF(t *testing.T) {
 func TestJacobian_6DOF(t *testing.T) {
 	j1 := []float64{0, 365, 0, 0, 0, 1, 250, 0, -365, 0, 1, 0, 0, 0, -315, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -65, 0, 1, 0, 0, 0, 0, 1, 0, 0}
 	j2 := []float64{-102.16440483663916, 10.903395944418287, 0, -0.5601207763322, -0.4051355255220106, 0.4627905443295226, -83.18413050443456, -129.55160741630795, -91.85951232076194, -0.3217838668680013, -0.031119176509585317, -0.6839728452644256, -133.43334026539975, -207.81011485583966, 145.52334917461928, -0.3217838668680013, -0.031119176509585317, -0.6839728452644256, -2.255527239861759, 51.18283846598304, -19.153063348748443, 0.6256300318405804, 0.036251775629715, -0.3790931178783241, -21.891693959310256, 20.60132073450243, 57.63106210704488, -0.1915798198060357, 0.7357375249055091, -0.6083204737253887, 1.0838659909342689e-14, -1.0848734169643908e-14, -2.6105742847895922e-14, 0.11975650035482571, -0.4090529397652003, -0.5601207763321999}
-	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"), logger)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 	newPos := []float64{0, 0, 0, 0, 0, 0}
 	m.SetPosition(newPos)
