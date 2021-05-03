@@ -64,6 +64,7 @@ var alignCurrentlyWriting = false
 type DepthComposed struct {
 	color, depth gostream.ImageSource
 	aligner      rimage.DepthColorAligner
+	aligned      bool
 	debug        bool
 	logger       golog.Logger
 }
@@ -83,7 +84,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 	if err != nil {
 		return nil, err
 	}
-	return &DepthComposed{color, depth, dcaligner, attrs.GetBool("debug", false), logger}, nil
+	return &DepthComposed{color, depth, dcaligner, attrs.GetBool("aligned", false), attrs.GetBool("debug", false), logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {
@@ -110,7 +111,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, false, nil)
+	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned, dc.aligner)
 
 	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
