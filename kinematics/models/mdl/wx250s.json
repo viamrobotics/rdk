@@ -6,11 +6,6 @@
          {
             "id": "base",
             "parent": "world",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 0,
                "y": 0,
@@ -20,11 +15,6 @@
          {
             "id": "base_top",
             "parent": "waist",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 0,
                "y": 0,
@@ -34,11 +24,6 @@
          {
             "id": "upper_arm",
             "parent": "shoulder",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 50,
                "y": 0,
@@ -48,11 +33,6 @@
          {
             "id": "forearm",
             "parent": "elbow",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 250,
                "y": 0,
@@ -62,11 +42,6 @@
          {
             "id": "wrist_link",
             "parent": "wrist",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 65,
                "y": 0,
@@ -76,11 +51,6 @@
          {
             "id": "gripper",
             "parent": "wrist_rot",
-            "rotation": {
-               "x": 0,
-               "y": 0,
-               "z": 0
-            },
             "translation": {
                "x": 0,
                "y": 0,
