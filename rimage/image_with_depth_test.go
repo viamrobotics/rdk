@@ -1,25 +1,14 @@
+// +build !race
+
 package rimage
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
 )
-
-var outDir string
-
-func init() {
-	var err error
-	outDir, err = ioutil.TempDir("", "rimage")
-	if err != nil {
-		panic(err)
-	}
-	golog.Global.Debugf("out dir: %q", outDir)
-}
 
 func TestPCRoundTrip(t *testing.T) {
 	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
