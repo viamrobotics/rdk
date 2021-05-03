@@ -90,7 +90,7 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 		logger:   logger,
 	}
 
-	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
+	return kinematics.NewArmJSONFile(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
