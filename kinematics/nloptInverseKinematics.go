@@ -1,11 +1,14 @@
 package kinematics
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/go-nlopt/nlopt"
+	"go.uber.org/multierr"
+
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
 
@@ -21,12 +24,6 @@ type NloptIK struct {
 	ID            int
 	halt          bool
 	logger        golog.Logger
-}
-
-func errCheck(err error, logger golog.Logger) {
-	if err != nil {
-		logger.Error("nlopt init error: ", err)
-	}
 }
 
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
@@ -46,8 +43,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
 	if err != nil {
-		logger.Error("nlopt creation error: ", err)
-		return &NloptIK{}
+		panic(fmt.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
 	ik.opt = opt
 
@@ -100,15 +96,22 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		}
 		return SquaredNorm(dx)
 	}
-	errCheck(opt.SetFtolAbs(floatEpsilon), logger)
-	errCheck(opt.SetFtolRel(floatEpsilon), logger)
-	errCheck(opt.SetLowerBounds(ik.lowerBound), logger)
-	errCheck(opt.SetMinObjective(nloptMinFunc), logger)
-	errCheck(opt.SetStopVal(ik.epsilon*ik.epsilon), logger)
-	errCheck(opt.SetUpperBounds(ik.upperBound), logger)
-	errCheck(opt.SetXtolAbs1(floatEpsilon), logger)
-	errCheck(opt.SetXtolRel(floatEpsilon), logger)
-	errCheck(opt.SetMaxEval(8001), logger)
+
+	err = multierr.Combine(
+		opt.SetFtolAbs(floatEpsilon),
+		opt.SetFtolRel(floatEpsilon),
+		opt.SetLowerBounds(ik.lowerBound),
+		opt.SetMinObjective(nloptMinFunc),
+		opt.SetStopVal(ik.epsilon*ik.epsilon),
+		opt.SetUpperBounds(ik.upperBound),
+		opt.SetXtolAbs1(floatEpsilon),
+		opt.SetXtolRel(floatEpsilon),
+		opt.SetMaxEval(8001),
+	)
+
+	if err != nil {
+		panic(err) // TODO(biotinker): return error?
+	}
 
 	return ik
 }
