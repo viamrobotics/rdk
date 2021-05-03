@@ -13,6 +13,10 @@ int doAnalogRead(int h, int channel) {
 }
 
 void interruptCallback(int gpio, int level, uint32_t tick) {
+    if (level==2) {
+        // watchdog
+        return;
+    }
     pigpioInterruptCallback(gpio, level, tick);
 }
 
