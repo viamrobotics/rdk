@@ -56,14 +56,14 @@ func TestPCD(t *testing.T) {
 		"SIZE 4 4 4 4\n" +
 		"TYPE F F F I\n" +
 		"COUNT 1 1 1 1\n" +
-		"WIDTH 8162\n" +
+		"WIDTH 3\n" +
 		"HEIGHT 1\n" +
 		"VIEWPOINT 0 0 0 1 0 0 0\n" +
 		"POINTS 3\n" +
 		"DATA ascii\n" +
-		"0.000000 0.000000 1.000000 16711938\n" +
-		"1.000000 1.000000 0.000000 16711938\n" +
-		"0.013722 0.571429 0.200000 16711938\n"
+		"-1.000000 2.000000 -5.000000 16711938\n" +
+		"582.000000 -12.000000 -0.000000 16711938\n" +
+		"7.000000 -6.000000 -1.000000 16711938\n"
 	*/
 
 	// write to .pcd
@@ -71,12 +71,12 @@ func TestPCD(t *testing.T) {
 	err := cloud.ToPCD(&buf)
 	test.That(t, err, test.ShouldBeNil)
 	gotPCD := buf.String()
-	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 8162")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "0.000000 0.000000 1.000000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "1.000000 1.000000 0.000000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "0.013722 0.571429 0.200000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "-1.000000 2.000000 -5.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "582.000000 -12.000000 -0.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "7.000000 -6.000000 -1.000000 16711938\n")
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
