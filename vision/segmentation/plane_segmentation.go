@@ -17,7 +17,7 @@ import (
 
 var sortPositions bool
 
-// Extract the positions of the points from the pointcloud into an r3 slice.
+// Extract the positions of the points from the pointcloud into a Vec3 slice.
 func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	positions := make([]pc.Vec3, 0, cloud.Size())
 	cloud.Iterate(func(pt pc.Point) bool {
@@ -62,9 +62,10 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 
 // Function to segment the biggest plane in the 3D Pointcloud.
 // nIterations is the number of iteration for ransac
+// nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
 // This function returns 2 pointclouds, the pointcloud of the plane and one without the plane
-// It also returns the equation of the found plane
+// It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
 func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.PointCloud, pc.PointCloud, []float64, error) {
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
