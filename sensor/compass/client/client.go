@@ -5,12 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
+
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 const ModelNameClient = "grpc"
@@ -32,7 +34,7 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Devi
 	}
 	names := robotClient.SensorNames()
 	if len(names) == 0 {
-		return nil, errors.New("no sensor devices found")
+		return nil, multierr.Combine(errors.New("no sensor devices found"), robotClient.Close())
 	}
 	var compassDevice compass.Device
 	for _, name := range names {
@@ -43,7 +45,7 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Devi
 		}
 	}
 	if compassDevice == nil {
-		return nil, errors.New("no compass devices found")
+		return nil, multierr.Combine(errors.New("no compass devices found"), robotClient.Close())
 	}
 
 	if rel, ok := compassDevice.(compass.RelativeDevice); ok {

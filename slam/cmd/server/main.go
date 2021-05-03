@@ -156,6 +156,9 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = multierr.Combine(err, r.Close())
+	}()
 	lidarNames := r.LidarDeviceNames()
 	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
 	for _, name := range lidarNames {

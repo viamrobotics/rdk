@@ -33,6 +33,11 @@ func TestConfig1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := r.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	pic, _, err := r.CameraByName("c1").Next(context.Background())
 	if err != nil {

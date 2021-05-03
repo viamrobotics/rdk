@@ -48,10 +48,15 @@ func doHTTPSourceTest(t *testing.T, s gostream.ImageSource) {
 func TestHTTPSource(t *testing.T) {
 	root := "127.0.0.1:8181"
 	s := &HTTPSource{
-		fmt.Sprintf("http://%s/pic.ppm", root),
-		fmt.Sprintf("http://%s/depth.dat", root),
-		true,
+		ColorURL:  fmt.Sprintf("http://%s/pic.ppm", root),
+		DepthURL:  fmt.Sprintf("http://%s/depth.dat", root),
+		isAligned: true,
 	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	doHTTPSourceTest(t, s)
 }

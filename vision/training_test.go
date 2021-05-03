@@ -18,6 +18,11 @@ func TestTraining1(t *testing.T) {
 		t.Skipf("cannot run TestTraining1 because no mongo: %s\n", err)
 		return
 	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	err = store.reset(ctx)
 	if err != nil {
 		t.Skipf("couldn't reset training collection %s", err)

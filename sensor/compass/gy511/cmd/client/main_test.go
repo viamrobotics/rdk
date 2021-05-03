@@ -17,7 +17,7 @@ import (
 	"github.com/edaniels/test"
 )
 
-func TestMain(t *testing.T) {
+func TestMainMain(t *testing.T) {
 	defaultSearchDevicesFunc := func(filter serial.SearchFilter) []serial.DeviceDescription {
 		return nil
 	}

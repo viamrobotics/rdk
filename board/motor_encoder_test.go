@@ -6,8 +6,10 @@ import (
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/testutils"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,6 +22,9 @@ func TestMotorEncoder1(t *testing.T) {
 	encoder := &BasicDigitalInterrupt{}
 
 	motor := newEncodedMotor(cfg, real, encoder)
+	defer func() {
+		test.That(t, motor.Close(), test.ShouldBeNil)
+	}()
 
 	// test some basic defaults
 	isOn, err := motor.IsOn(context.Background())
@@ -125,6 +130,9 @@ func TestMotorEncoderHall(t *testing.T) {
 	encoderB := &BasicDigitalInterrupt{}
 
 	motor := newEncodedMotorTwoEncoders(cfg, real, encoderA, encoderB)
+	defer func() {
+		test.That(t, motor.Close(), test.ShouldBeNil)
+	}()
 
 	motor.rpmMonitorStart(context.Background())
 	testutils.WaitForAssertion(t, func(t assert.TestingT) {
@@ -167,11 +175,13 @@ func TestMotorEncoderWrap(t *testing.T) {
 	m, err := WrapMotorWithEncoder(context.Background(), nil, MotorConfig{}, real, logger)
 	assert.Nil(t, err)
 	assert.Equal(t, real, m)
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need TicksPerRotation
 	m, err = WrapMotorWithEncoder(context.Background(), nil, MotorConfig{Encoder: "a"}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b, err := NewFakeBoard(context.Background(), Config{}, golog.Global)
 	if err != nil {
@@ -182,20 +192,23 @@ func TestMotorEncoderWrap(t *testing.T) {
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b.digitals["a"] = &BasicDigitalInterrupt{}
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
 	assert.Nil(t, err)
 	_, ok := m.(*encodedMotor)
 	assert.True(t, ok)
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need encoder b
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
 	assert.NotNil(t, err)
 	assert.Nil(t, m)
-
+	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 }

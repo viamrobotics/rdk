@@ -52,6 +52,7 @@ require (
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	go.mongodb.org/mongo-driver v1.4.4
 	go.opencensus.io v0.23.0
+	go.uber.org/goleak v1.1.10
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4

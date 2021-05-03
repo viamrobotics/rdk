@@ -1,6 +1,8 @@
 package kinematics
 
 import (
+	"sync"
+
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
@@ -76,19 +78,29 @@ func (ik *CombinedIK) GetSolvers() []InverseKinematics {
 	return ik.solvers
 }
 
-func runSolver(solver InverseKinematics, c chan ReturnTest) {
+func runSolver(solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}) {
 	solved := solver.Solve()
-	c <- ReturnTest{solver.GetID(), solved}
+	select {
+	case c <- ReturnTest{solver.GetID(), solved}:
+	case <-noMoreSolutions:
+	}
 }
 
 func (ik *CombinedIK) Solve() bool {
 	pos := ik.Mdl.GetPosition()
 	c := make(chan ReturnTest)
 
+	noMoreSolutions := make(chan struct{})
+	var activeSolvers sync.WaitGroup
+	activeSolvers.Add(len(ik.solvers))
 	for _, solver := range ik.solvers {
 		solver.GetMdl().SetPosition(pos)
 		solver.GetMdl().ForwardPosition()
-		go runSolver(solver, c)
+		thisSolver := solver
+		go func() {
+			defer activeSolvers.Done()
+			runSolver(thisSolver, c, noMoreSolutions)
+		}()
 	}
 
 	returned := 0
@@ -99,10 +111,12 @@ func (ik *CombinedIK) Solve() bool {
 		myRT = <-c
 		returned++
 		if myRT.Success {
-			ik.Halt()
 			ik.Mdl.SetPosition(ik.solvers[myRT.ID].GetMdl().GetPosition())
 			ik.Mdl.ForwardPosition()
 		}
 	}
+	ik.Halt()
+	close(noMoreSolutions)
+	activeSolvers.Wait()
 	return myRT.Success
 }

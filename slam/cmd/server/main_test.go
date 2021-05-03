@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestMain(t *testing.T) {
+func TestMainMain(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()

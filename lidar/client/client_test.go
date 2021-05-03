@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	}
 
 	go gServer1.Serve(listener1)
-	defer gServer2.Stop()
+	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 

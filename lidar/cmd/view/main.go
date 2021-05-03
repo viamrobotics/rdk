@@ -154,7 +154,7 @@ func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, 
 
 	compassDone, err := startCompass(ctx, lidarDevices, components)
 	if err != nil {
-		return err
+		return multierr.Combine(err, server.Stop(context.Background()))
 	}
 
 	utils.ContextMainReadyFunc(ctx)()
