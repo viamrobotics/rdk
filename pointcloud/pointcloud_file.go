@@ -190,12 +190,6 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 		return fmt.Errorf("no color data")
 	}
 	var err error
-	minZ, maxZ := pc.MinZ(), pc.MaxZ()
-	minX, maxX := pc.MinX(), pc.MaxX()
-	minY, maxY := pc.MinY(), pc.MaxY()
-	width := maxX - minX
-	height := maxY - minY
-	depth := maxZ - minZ
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
 		"FIELDS x y z rgb\n"+
@@ -207,7 +201,7 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 		"VIEWPOINT 0 0 0 1 0 0 0\n"+
 		"POINTS %d\n"+
 		"DATA ascii\n",
-		int(width*height),
+		pc.Size(),
 		1,
 		pc.Size(),
 	)
@@ -221,14 +215,14 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 			return true
 		}
 		position := pt.Position()
-		scaledWidth := (position.X - minX) / width
-		scaledHeight := (position.Y - minY) / height
-		scaledDepth := (position.Z - minZ) / depth
+		width := position.X
+		height := -position.Y
+		depth := -position.Z
 
 		_, err = fmt.Fprintf(out, "%f %f %f %d\n",
-			scaledWidth,
-			scaledHeight,
-			scaledDepth,
+			width,
+			height,
+			depth,
 			_colorToPCDInt(pt))
 		return err == nil
 	})
