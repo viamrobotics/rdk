@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed" // for embedding camera parameters
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -12,20 +13,18 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
-	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	_ "github.com/lmittmann/ppm" // register ppm
 )
 
+//go:embed intel515_parameters.json
+var intel515json []byte
+
 func init() {
 	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
-		intelSource, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
-		if err != nil {
-			return nil, err
-		}
-		return intelSource, nil
+		return NewIntelServerSource(config.Host, config.Port, config.Attributes)
 	})
 	api.RegisterCamera("eliot", api.CameraLookup("intel"))
 
@@ -174,7 +173,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 	if has {
 		num = numString.(string)
 	}
-	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
 	if err != nil {
 		return nil, err
 	}
