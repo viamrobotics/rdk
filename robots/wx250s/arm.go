@@ -90,7 +90,7 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 		logger:   logger,
 	}
 
-	return kinematics.NewArm(newArm, attributes.GetString("modelJSON"), 4, logger)
+	return kinematics.NewArmJSONFile(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
@@ -335,12 +335,6 @@ func (a *Arm) WaitForMovement() error {
 }
 
 func setServoDefaults(newServo *servo.Servo) error {
-	// Set some nice-to-have settings
-	//~ err := newServo.SetMovingThreshold(0)
-	//~ newServo.SetMovingThreshold(0)
-	//~ if err != nil {
-	//~ return fmt.Errorf("error SetMovingThreshold servo %d: %v\n", newServo.ID, err)
-	//~ }
 	dm, err := newServo.DriveMode()
 	if err != nil {
 		return fmt.Errorf("error DriveMode servo %d: %v", newServo.ID, err)

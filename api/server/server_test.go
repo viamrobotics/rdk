@@ -131,10 +131,12 @@ func TestServer(t *testing.T) {
 		streamServer.fail = false
 		var streamErr error
 		start := time.Now()
+		done := make(chan struct{})
 		go func() {
 			streamErr = server.StatusStream(&pb.StatusStreamRequest{
 				Every: durationpb.New(dur),
 			}, streamServer)
+			close(done)
 		}()
 		var messages []*pb.StatusStreamResponse
 		messages = append(messages, <-messageCh)
@@ -148,7 +150,8 @@ func TestServer(t *testing.T) {
 		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
 		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
 		cancel()
-		test.That(t, streamErr, test.ShouldBeNil)
+		<-done
+		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
 		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()

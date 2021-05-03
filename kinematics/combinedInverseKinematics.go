@@ -1,8 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
-	//~ "github.com/edaniels/golog"
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/kinematics/kinmath"
 )
@@ -96,7 +94,7 @@ func (ik *CombinedIK) Solve() bool {
 	returned := 0
 	myRT := ReturnTest{-1, false}
 
-	//~ // Wait until either 1) we have a success or 2) all solvers have returned false
+	// Wait until either 1) we have a success or 2) all solvers have returned false
 	for !myRT.Success && returned < len(ik.solvers) {
 		myRT = <-c
 		returned++
@@ -104,7 +102,6 @@ func (ik *CombinedIK) Solve() bool {
 			ik.Halt()
 			ik.Mdl.SetPosition(ik.solvers[myRT.ID].GetMdl().GetPosition())
 			ik.Mdl.ForwardPosition()
-			//~ fmt.Println("solved by", myRT.ID)
 		}
 	}
 	return myRT.Success

@@ -30,7 +30,7 @@ func init() {
 
 type Device struct {
 	lidar.Device
-	markedRotatedMats atomic.Value
+	markedRotatedMats atomic.Value // [][]rotatedMat
 }
 
 func From(lidarDevice lidar.Device) compass.RelativeDevice {
@@ -66,7 +66,11 @@ func (d *Device) Close() (err error) {
 
 func (d *Device) clone() *Device {
 	cloned := *d
-	cloned.markedRotatedMats.Store(d.markedRotatedMats.Load())
+	marked := d.markedRotatedMats.Load()
+	if marked == nil {
+		return &cloned
+	}
+	cloned.markedRotatedMats.Store(marked)
 	return &cloned
 }
 

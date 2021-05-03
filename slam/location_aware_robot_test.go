@@ -1019,11 +1019,13 @@ func TestRobotActive(t *testing.T) {
 		}
 		test.That(t, measurments, test.ShouldHaveLength, expectedNumMeasurements)
 		count := 0
+		th.lidarDev.Lock()
 		th.lidarDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			m := measurments[count]
 			count++
 			return lidar.Measurements{m}, nil
 		}
+		th.lidarDev.Unlock()
 		<-waitCh
 		test.That(t, th.bot.Stop(), test.ShouldBeNil)
 
@@ -1074,11 +1076,13 @@ func TestRobotActive(t *testing.T) {
 			lidar.NewMeasurement(80, .9),
 		}
 		test.That(t, measurments, test.ShouldHaveLength, expectedNumMeasurements)
+		th.lidarDev.Lock()
 		th.lidarDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			m := measurments[count]
 			count++
 			return lidar.Measurements{m}, nil
 		}
+		th.lidarDev.Unlock()
 
 		<-swap
 		test.That(t, th.bot.rootArea.PointCloud().Size(), test.ShouldEqual, 0)

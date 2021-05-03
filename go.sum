@@ -271,8 +271,8 @@ github.com/go-ini/ini v1.25.4/go.mod h1:ByCAeIL28uOIIG0E3PJtZPDL8WnHpFKFOtgjp+3I
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
 github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V4qmtdjCk=
-github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c h1:ThNGI1akD1cT7QUEeHjbmlywUG7PvS40Xa6A8+ZBUo8=
-github.com/go-nlopt/nlopt v0.0.0-20210301200439-7a900255de5c/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
+github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737 h1:DNL8Yg5ns224JuSMYbMeO/UA29OUhgbHl93wa2BwKnQ=
+github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737/go.mod h1:crLzNxWuUkZODn9zme0coCcBvPQrM3hnbQWR3uolF8o=
 github.com/go-ole/go-ole v1.2.1/go.mod h1:7FAglXiTm7HKlQRDeOQ6ZNUHidzCWXuZWq/1dTyBNF8=
 github.com/go-ole/go-ole v1.2.4/go.mod h1:XCwSNxSkXRo4vlyPy93sltvi/qJq0jqQhjqQNIwKuxM=
 github.com/go-playground/assert/v2 v2.0.1/go.mod h1:VDjEfimB/XKnb+ZQfWdccd7VUvScMdVu0Titje2rxJ4=
