@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 
 	"go.viam.com/robotcore/api"
@@ -21,8 +22,16 @@ type Arm struct {
 	effectorID int
 }
 
+func NewArmJSONFile(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
+	jsonData, err := ioutil.ReadFile(jsonFile)
+	if err != nil {
+		return nil, err
+	}
+	return NewArm(real, jsonData, cores, logger)
+}
+
 // Returns a new kinematics.Model from a correctly formatted JSON file
-func NewArm(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
+func NewArm(real api.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm, error) {
 	// We want to make (cores + 1) copies of our model
 	// Our master copy, plus one for each of the IK engines to work with
 	// We create them all now because deep copies of sufficiently complicated structs is a pain
@@ -32,7 +41,7 @@ func NewArm(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm
 	}
 	models := make([]*Model, cores+1)
 	for i := 0; i <= cores; i++ {
-		model, err := ParseJSONFile(jsonFile, logger)
+		model, err := ParseJSON(jsonData)
 		if err != nil {
 			return nil, err
 		}

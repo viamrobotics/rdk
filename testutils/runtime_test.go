@@ -3,6 +3,7 @@ package testutils
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap/zaptest/observer"
@@ -117,8 +118,11 @@ func TestTestMain(t *testing.T) {
 		fatal = prevFatal
 		tError = prevError
 	}()
+	var mu sync.Mutex
 	fatal = func(t *testing.T, args ...interface{}) {
+		mu.Lock()
 		captured = args
+		mu.Unlock()
 	}
 	tError = fatal
 

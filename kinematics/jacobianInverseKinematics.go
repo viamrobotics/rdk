@@ -9,17 +9,19 @@ import (
 )
 
 type JacobianIK struct {
-	Mdl        *Model
-	epsilon    float64
-	iterations int
-	svd        bool
-	Goals      []Goal
-	ID         int
-	halt       bool
+	Mdl           *Model
+	epsilon       float64
+	iterations    int
+	svd           bool
+	Goals         []Goal
+	ID            int
+	requestHaltCh chan struct{}
+	haltedCh      chan struct{}
 }
 
 func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
-	ik := JacobianIK{}
+	var ik JacobianIK
+	ik.resetHalting()
 	ik.Mdl = mdl
 	ik.epsilon = 0.0001
 	ik.iterations = 3000
@@ -31,6 +33,7 @@ func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
+	ik.resetHalting()
 }
 
 func (ik *JacobianIK) SetID(id int) {
@@ -47,18 +50,32 @@ func (ik *JacobianIK) GetMdl() *Model {
 
 func (ik *JacobianIK) ClearGoals() {
 	ik.Goals = []Goal{}
+	ik.resetHalting()
 }
 
 func (ik *JacobianIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
+func (ik *JacobianIK) resetHalting() {
+	ik.requestHaltCh = make(chan struct{})
+	ik.haltedCh = make(chan struct{})
+}
+
 func (ik *JacobianIK) Halt() {
-	ik.halt = true
+	close(ik.requestHaltCh)
+	<-ik.haltedCh
+	ik.resetHalting()
 }
 
 func (ik *JacobianIK) Solve() bool {
-	ik.halt = false
+	select {
+	case <-ik.haltedCh:
+		golog.Global.Info("solver halted before solving start; possibly solving twice in a row?")
+		return false
+	default:
+	}
+	defer close(ik.haltedCh)
 	// q is the position over which we will iterate
 	q := ik.Mdl.GetPosition()
 
@@ -72,8 +89,13 @@ func (ik *JacobianIK) Solve() bool {
 	jointAmt := 0.05
 	var dxDelta []float64
 
-	for iteration < ik.iterations && !ik.halt {
-		for iteration < ik.iterations && !ik.halt {
+	for iteration < ik.iterations {
+		for iteration < ik.iterations {
+			select {
+			case <-ik.requestHaltCh:
+				return false
+			default:
+			}
 			iteration++
 			ik.Mdl.ForwardPosition()
 			dx := make([]float64, ik.Mdl.GetOperationalDof()*6)

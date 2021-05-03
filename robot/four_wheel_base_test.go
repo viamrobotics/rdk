@@ -200,7 +200,7 @@ func TestFourWheelBase1(t *testing.T) {
 	t.Run("spin block", func(t *testing.T) {
 		go func() {
 			time.Sleep(time.Millisecond * 10)
-			err = base.Stop(ctx)
+			err := base.Stop(ctx)
 			if err != nil {
 				panic(err)
 			}

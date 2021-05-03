@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -34,12 +35,26 @@ type AnalogSmoother struct {
 	AverageOverMillis int
 	SamplesPerSecond  int
 	data              *utils.RollingAverage
-	lastError         error
+	lastError         atomic.Value // errValue
 	logger            golog.Logger
 }
 
+type errValue struct {
+	present bool
+	err     error
+}
+
 func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
-	return as.data.Average(), as.lastError
+	avg := as.data.Average()
+	lastErr := as.lastError.Load()
+	if lastErr == nil {
+		return avg, nil
+	}
+	lastErrVal := lastErr.(errValue)
+	if lastErrVal.present {
+		return avg, lastErrVal.err
+	}
+	return avg, nil
 }
 
 func (as *AnalogSmoother) Start(ctx context.Context) {
@@ -67,7 +82,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 		for {
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx)
-			as.lastError = err
+			as.lastError.Store(errValue{err != nil, err})
 			if err != nil {
 				if err == ErrStopReading {
 					break

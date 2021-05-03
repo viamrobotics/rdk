@@ -274,5 +274,5 @@ func NewEva(host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, 
 
 	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArm(e, attrs.GetString("modelJSON"), 4, logger)
+	return kinematics.NewArmJSONFile(e, attrs.GetString("modelJSON"), 4, logger)
 }

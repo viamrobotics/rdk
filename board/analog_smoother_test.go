@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,11 +12,14 @@ import (
 )
 
 type testReader struct {
+	mu   sync.Mutex
 	r    *rand.Rand
 	stop bool
 }
 
 func (t *testReader) Read(ctx context.Context) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.stop {
 		return 0, ErrStopReading
 	}
@@ -26,10 +30,13 @@ func (t *testReader) Read(ctx context.Context) (int, error) {
 func TestAnalogSmoother1(t *testing.T) {
 
 	testReader := testReader{
-		rand.New(rand.NewSource(11)),
-		false,
+		r: rand.New(rand.NewSource(11)),
 	}
-	defer func() { testReader.stop = true }()
+	defer func() {
+		testReader.mu.Lock()
+		defer testReader.mu.Unlock()
+		testReader.stop = true
+	}()
 
 	logger := golog.NewTestLogger(t)
 	tmp := AnalogSmootherWrap(context.Background(), &testReader, AnalogConfig{}, logger)

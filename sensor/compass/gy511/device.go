@@ -30,10 +30,9 @@ func init() {
 }
 
 type Device struct {
-	mu            sync.Mutex
 	rwc           io.ReadWriteCloser
-	heading       atomic.Value
-	calibrating   bool
+	heading       atomic.Value // float64
+	calibrating   uint32
 	closeCh       chan struct{}
 	activeWorkers sync.WaitGroup
 }
@@ -116,17 +115,13 @@ func (d *Device) Desc() sensor.DeviceDescription {
 }
 
 func (d *Device) StartCalibration(ctx context.Context) error {
-	d.mu.Lock()
-	d.calibrating = true
-	d.mu.Unlock()
+	atomic.StoreUint32(&d.calibrating, 1)
 	_, err := d.rwc.Write([]byte{'1'})
 	return err
 }
 
 func (d *Device) StopCalibration(ctx context.Context) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.calibrating = false
+	atomic.StoreUint32(&d.calibrating, 0)
 	_, err := d.rwc.Write([]byte{'0'})
 	return err
 }
@@ -140,12 +135,14 @@ func (d *Device) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 func (d *Device) Heading(ctx context.Context) (float64, error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if d.calibrating {
+	if atomic.LoadUint32(&d.calibrating) == 1 {
 		return math.NaN(), nil
 	}
-	return d.heading.Load().(float64), nil
+	heading, ok := d.heading.Load().(float64)
+	if !ok {
+		return math.NaN(), nil
+	}
+	return heading, nil
 }
 
 func (d *Device) Close() error {
@@ -158,10 +155,9 @@ func (d *Device) Close() error {
 // RawDevice demonstrates the binary protocol used to talk to a GY511
 // based on the arduino code in the directory below.
 type RawDevice struct {
-	mu          sync.Mutex
-	calibrating bool
-	heading     float64
-	failAfter   int
+	calibrating uint32
+	heading     atomic.Value // float64
+	failAfter   int32
 }
 
 func NewRawDevice() *RawDevice {
@@ -169,35 +165,29 @@ func NewRawDevice() *RawDevice {
 }
 
 func (rd *RawDevice) SetHeading(heading float64) {
-	rd.mu.Lock()
-	rd.heading = heading
-	rd.mu.Unlock()
+	rd.heading.Store(heading)
 }
 
 func (rd *RawDevice) SetFailAfter(after int) {
-	rd.mu.Lock()
-	rd.failAfter = after
-	rd.mu.Unlock()
+	atomic.StoreInt32(&rd.failAfter, int32(after))
 }
 
 func (rd *RawDevice) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, errors.New("expected read data to be non-empty")
 	}
-	rd.mu.Lock()
-	failAfter := rd.failAfter
+	failAfter := atomic.LoadInt32(&rd.failAfter)
 	if failAfter == 0 {
-		rd.mu.Unlock()
 		return 0, errors.New("read fail")
 	}
-	rd.failAfter--
-	rd.mu.Unlock()
-	if rd.calibrating {
+	atomic.AddInt32(&rd.failAfter, -1)
+	if atomic.LoadUint32(&rd.calibrating) == 1 {
 		return 0, nil
 	}
-	rd.mu.Lock()
-	heading := rd.heading
-	rd.mu.Unlock()
+	heading, ok := rd.heading.Load().(float64)
+	if !ok {
+		return 0, nil
+	}
 	val := []byte(fmt.Sprintf("%0.3f\n", heading))
 	copy(p, val)
 	n := len(val)
@@ -211,20 +201,17 @@ func (rd *RawDevice) Write(p []byte) (int, error) {
 	if len(p) > 1 {
 		return 0, errors.New("write data must be one byte")
 	}
-	rd.mu.Lock()
-	failAfter := rd.failAfter
+	failAfter := atomic.LoadInt32(&rd.failAfter)
 	if failAfter == 0 {
-		rd.mu.Unlock()
 		return 0, errors.New("write fail")
 	}
-	rd.failAfter--
-	rd.mu.Unlock()
+	atomic.AddInt32(&rd.failAfter, -1)
 	c := p[0]
 	switch c {
 	case '0':
-		rd.calibrating = false
+		atomic.StoreUint32(&rd.calibrating, 0)
 	case '1':
-		rd.calibrating = true
+		atomic.StoreUint32(&rd.calibrating, 1)
 	default:
 		return 0, fmt.Errorf("unknown command on write: %q", c)
 	}
