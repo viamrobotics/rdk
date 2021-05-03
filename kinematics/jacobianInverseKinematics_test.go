@@ -8,13 +8,11 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
 )
 
 func TestCreateJacIKSolver(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"), logger)
+	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateJacobianIKSolver(m)
 	m.SetPosition([]float64{1, 0, 0, 0, 0, 1})
