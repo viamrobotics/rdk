@@ -14,11 +14,11 @@ func (p *Provider) Ready(r api.Robot) error {
 	return nil
 }
 
-func getProviderOrCreate(r api.Robot) *Provider {
-	p := r.ProviderByModel("vx300s")
+func getProviderOrCreate(r api.MutableRobot) *Provider {
+	p := r.ProviderByName("vx300s")
 	if p == nil {
 		p = &Provider{&sync.Mutex{}}
-		r.AddProvider(p, api.Component{})
+		r.AddProvider(p, api.ComponentConfig{})
 	}
 	return p.(*Provider)
 }

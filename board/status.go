@@ -8,67 +8,74 @@ import (
 )
 
 func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
-	s := &pb.BoardStatus{
-		Motors:            map[string]*pb.MotorStatus{},
-		Servos:            map[string]*pb.ServoStatus{},
-		Analogs:           map[string]*pb.AnalogStatus{},
-		DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{},
-	}
+	var status pb.BoardStatus
 
 	cfg, err := b.GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, c := range cfg.Motors {
-		name := c.Name
-		x := b.Motor(name)
-		isOn, err := x.IsOn(ctx)
-		if err != nil {
-			return nil, err
-		}
-		position, err := x.Position(ctx)
-		if err != nil {
-			return nil, err
-		}
-		positionSupported, err := x.PositionSupported(ctx)
-		if err != nil {
-			return nil, err
-		}
-		s.Motors[name] = &pb.MotorStatus{
-			On:                isOn,
-			Position:          position,
-			PositionSupported: positionSupported,
-		}
-	}
-
-	for _, c := range cfg.Servos {
-		name := c.Name
-		x := b.Servo(name)
-		current, err := x.Current(ctx)
-		if err != nil {
-			return nil, err
-		}
-		s.Servos[name] = &pb.ServoStatus{
-			Angle: uint32(current),
+	if len(cfg.Motors) != 0 {
+		status.Motors = make(map[string]*pb.MotorStatus, len(cfg.Motors))
+		for _, c := range cfg.Motors {
+			name := c.Name
+			x := b.Motor(name)
+			isOn, err := x.IsOn(ctx)
+			if err != nil {
+				return nil, err
+			}
+			position, err := x.Position(ctx)
+			if err != nil {
+				return nil, err
+			}
+			positionSupported, err := x.PositionSupported(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.Motors[name] = &pb.MotorStatus{
+				On:                isOn,
+				Position:          position,
+				PositionSupported: positionSupported,
+			}
 		}
 	}
 
-	for _, c := range cfg.Analogs {
-		name := c.Name
-		x := b.AnalogReader(name)
-		val, err := x.Read(ctx)
-		if err != nil {
-			return s, fmt.Errorf("couldn't read analog (%s) : %s", name, err)
+	if len(cfg.Servos) != 0 {
+		status.Servos = make(map[string]*pb.ServoStatus, len(cfg.Servos))
+		for _, c := range cfg.Servos {
+			name := c.Name
+			x := b.Servo(name)
+			current, err := x.Current(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.Servos[name] = &pb.ServoStatus{
+				Angle: uint32(current),
+			}
 		}
-		s.Analogs[name] = &pb.AnalogStatus{Value: int32(val)}
 	}
 
-	for _, c := range cfg.DigitalInterrupts {
-		name := c.Name
-		x := b.DigitalInterrupt(name)
-		s.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
+	if len(cfg.Analogs) != 0 {
+		status.Analogs = make(map[string]*pb.AnalogStatus, len(cfg.Analogs))
+		for _, c := range cfg.Analogs {
+			name := c.Name
+			x := b.AnalogReader(name)
+			val, err := x.Read(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't read analog (%s) : %s", name, err)
+			}
+			status.Analogs[name] = &pb.AnalogStatus{Value: int32(val)}
+		}
 	}
 
-	return s, nil
+	if len(cfg.DigitalInterrupts) != 0 {
+		status.DigitalInterrupts = make(map[string]*pb.DigitalInterruptStatus, len(cfg.DigitalInterrupts))
+		for _, c := range cfg.DigitalInterrupts {
+			name := c.Name
+			x := b.DigitalInterrupt(name)
+			status.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
+		}
+	}
+
+	return &status, nil
 }

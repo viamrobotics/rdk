@@ -23,18 +23,18 @@ import (
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	// unknown type
-	_, err := New(context.Background(), api.Component{Attributes: api.AttributeMap{"type": "what"}}, logger)
+	_, err := New(context.Background(), api.ComponentConfig{Attributes: api.AttributeMap{"type": "what"}}, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
-	var newFunc func(config api.Component) (lidar.Device, error)
-	api.RegisterLidarDevice(string(devType), func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (lidar.Device, error) {
+	var newFunc func(config api.ComponentConfig) (lidar.Device, error)
+	api.RegisterLidarDevice(string(devType), func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		return newFunc(config)
 	})
 
-	config := api.Component{Host: "somewhere", Attributes: api.AttributeMap{"type": string(devType)}}
+	config := api.ComponentConfig{Host: "somewhere", Attributes: api.AttributeMap{"type": string(devType)}}
 	newErr := errors.New("woof")
-	newFunc = func(innerConfig api.Component) (lidar.Device, error) {
+	newFunc = func(innerConfig api.ComponentConfig) (lidar.Device, error) {
 		test.That(t, innerConfig, test.ShouldResemble, config)
 		return nil, newErr
 	}
@@ -43,7 +43,7 @@ func TestNew(t *testing.T) {
 	test.That(t, err, test.ShouldEqual, newErr)
 
 	injectDev := &inject.LidarDevice{}
-	newFunc = func(config api.Component) (lidar.Device, error) {
+	newFunc = func(config api.ComponentConfig) (lidar.Device, error) {
 		return injectDev, nil
 	}
 	injectDev.StartFunc = func(ctx context.Context) error {

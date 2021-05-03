@@ -23,7 +23,7 @@ import (
 const ModelName = "lidar"
 
 func init() {
-	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		return New(ctx, config, logger)
 	})
 }
@@ -37,7 +37,7 @@ func From(lidarDevice lidar.Device) compass.RelativeDevice {
 	return &Device{Device: lidarDevice}
 }
 
-func New(ctx context.Context, config api.Component, logger golog.Logger) (compass.RelativeDevice, error) {
+func New(ctx context.Context, config api.ComponentConfig, logger golog.Logger) (compass.RelativeDevice, error) {
 	lidarType := config.Attributes.GetString("type")
 	f := api.LidarDeviceLookup(lidarType)
 	if f == nil {

@@ -4,13 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
 	"runtime"
 	"strings"
-
-	"github.com/edaniels/golog"
 )
 
 type AttributeConverter func(val interface{}) (interface{}, error)
@@ -84,7 +83,6 @@ func createRequest(cloudCfg *CloudConfig) (*http.Request, error) {
 	}
 
 	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
-	golog.Global.Debugf("reading config from %s", url)
 
 	r, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -110,48 +108,65 @@ func createRequest(cloudCfg *CloudConfig) (*http.Request, error) {
 	return r, nil
 }
 
-func ReadConfigFromCloud(cloudCfg CloudConfig) (Config, error) {
-	cfg := Config{}
-
-	r, err := createRequest(&cloudCfg)
+func ReadConfigFromCloud(cloudCfg *CloudConfig) (*Config, error) {
+	r, err := createRequest(cloudCfg)
 	if err != nil {
-		return cfg, err
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		return cfg, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	cfg, err = ReadConfigFromReader("", resp.Body)
+	if resp.StatusCode != 200 {
+		rd, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		if len(rd) != 0 {
+			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+		}
+		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+	}
+
+	cfg, err := readConfigFromReader("", resp.Body, true)
+	if err != nil {
+		return nil, err
+	}
 	cfg.Cloud = cloudCfg
 	return cfg, err
 }
 
-// TODO(erh): should make this return a *Config (and all downstream)
-func ReadConfig(fn string) (Config, error) {
-	cfg := Config{}
-
+func ReadConfig(fn string) (*Config, error) {
 	file, err := os.Open(fn)
 	if err != nil {
-		return cfg, err
+		return nil, err
 	}
 	defer file.Close()
 
 	return ReadConfigFromReader(fn, file)
 }
 
-func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
+func ReadConfigFromReader(originalPath string, r io.Reader) (*Config, error) {
+	return readConfigFromReader(originalPath, r, false)
+}
+
+func readConfigFromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, error) {
 	cfg := Config{}
+	cfg.ConfigFilePath = originalPath
 
 	decoder := json.NewDecoder(r)
 	err := decoder.Decode(&cfg)
 	if err != nil {
-		return cfg, fmt.Errorf("cannot parse config %w", err)
+		return nil, fmt.Errorf("cannot parse config %w", err)
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
-	if cfg.Cloud.ID != "" {
+	if !skipCloud && cfg.Cloud != nil {
 		return ReadConfigFromCloud(cfg.Cloud)
 	}
 
@@ -163,7 +178,7 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 				loaded := false
 				v, loaded, err = loadSubFromFile(originalPath, s)
 				if err != nil {
-					return cfg, err
+					return nil, err
 				}
 				if loaded {
 					cfg.Components[idx].Attributes[k] = v
@@ -174,7 +189,7 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 			if r != nil {
 				n, err := r.f(v)
 				if err != nil {
-					return cfg, fmt.Errorf("error fixing type for (%s, %s, %s) %w", c.Type, c.Model, k, err)
+					return nil, fmt.Errorf("error fixing type for (%s, %s, %s) %w", c.Type, c.Model, k, err)
 				}
 				cfg.Components[idx].Attributes[k] = n
 			}
@@ -182,5 +197,8 @@ func ReadConfigFromReader(originalPath string, r io.Reader) (Config, error) {
 		}
 	}
 
-	return cfg, nil
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }

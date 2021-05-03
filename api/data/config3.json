@@ -1,6 +1,7 @@
 {
   "components": [
       {
+          "name": "thing",
           "model": "eliot",
           "type": "foo",
           "attributes" : {

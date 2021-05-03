@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robots/fake"
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/test"
@@ -101,16 +102,15 @@ func TestRobotNext(t *testing.T) {
 
 	t.Run("precomputed", func(t *testing.T) {
 		getDataFileName := func(testName string) string {
-			artifact.Path(fmt.Sprintf("slam/%s.png", testName)) // attempt to load it
 			return artifact.MustPath(fmt.Sprintf("slam/%s.png", testName))
 		}
+
+		tempDir := testutils.TempDir(t, "", "slam")
 		getNewDataFileName := func(testName string) string {
-			// vcs ignored
-			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_new.png", testName))
+			return fmt.Sprintf("%s/%s_new.png", tempDir, testName)
 		}
 		getDiffDataFileName := func(testName string) string {
-			// vcs ignored
-			return utils.ResolveFile(fmt.Sprintf("slam/data/%s_diff.png", testName))
+			return fmt.Sprintf("%s/%s_diff.png", tempDir, testName)
 		}
 
 		for _, tc := range []struct {
@@ -149,7 +149,7 @@ func TestRobotNext(t *testing.T) {
 		} {
 			testName := fmt.Sprintf("%d_%v_%v_%d_%d", tc.Seed, tc.BasePosX, tc.BasePosY, tc.Zoom, tc.Orientation)
 			t.Run(testName, func(t *testing.T) {
-				fakeLidar := fake.NewLidar()
+				fakeLidar := fake.NewLidar("lidar1")
 				fakeLidar.SetSeed(tc.Seed)
 				test.That(t, fakeLidar.Start(context.Background()), test.ShouldBeNil)
 				harness := newTestHarnessWithLidarAndSize(t, fakeLidar, 10, 10)

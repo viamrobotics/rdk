@@ -1,37 +1,103 @@
 package board
 
+import (
+	"fmt"
+
+	"go.viam.com/robotcore/utils"
+)
+
+type Config struct {
+	Name              string                   `json:"name"`
+	Model             string                   `json:"model"` // example: "pi"
+	Motors            []MotorConfig            `json:"motors"`
+	Servos            []ServoConfig            `json:"servos"`
+	Analogs           []AnalogConfig           `json:"analogs"`
+	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	for idx, conf := range config.Motors {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "motors", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.Servos {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.Analogs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.DigitalInterrupts {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type MotorConfig struct {
-	Name             string
-	Pins             map[string]string
-	Encoder          string // name of the digital interrupt that is the encoder
-	EncoderB         string // name of the digital interrupt that is hall encoder b
-	TicksPerRotation int
+	Name             string            `json:"name"`
+	Pins             map[string]string `json:"pins"`
+	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
+	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
+	TicksPerRotation int               `json:"ticksPerRotation"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *MotorConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }
 
 type ServoConfig struct {
-	Name string
-	Pin  string
+	Name string `json:"name"`
+	Pin  string `json:"pin"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *ServoConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }
 
 type AnalogConfig struct {
-	Name              string
-	Pin               string
-	AverageOverMillis int
-	SamplesPerSecond  int
+	Name              string `json:"name"`
+	Pin               string `json:"pin"`
+	AverageOverMillis int    `json:"averageOverMillis"`
+	SamplesPerSecond  int    `json:"samplesPerSecond"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AnalogConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }
 
 type DigitalInterruptConfig struct {
-	Name    string
-	Pin     string
-	Type    string // e.g. basic, servo
-	Formula string
+	Name    string `json:"name"`
+	Pin     string `json:"pin"`
+	Type    string `json:"type"` // e.g. basic, servo
+	Formula string `json:"formula"`
 }
 
-type Config struct {
-	Name              string
-	Model             string // example: "pi"
-	Motors            []MotorConfig
-	Servos            []ServoConfig
-	Analogs           []AnalogConfig
-	DigitalInterrupts []DigitalInterruptConfig
+// Validate ensures all parts of the config are valid.
+func (config *DigitalInterruptConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
 }

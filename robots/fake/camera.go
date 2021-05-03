@@ -12,12 +12,14 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("fake", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
-		return &Camera{}, nil
+	api.RegisterCamera("fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+		return &Camera{Name: config.Name}, nil
 	})
 }
 
-type Camera struct{}
+type Camera struct {
+	Name string
+}
 
 func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	img := image.NewNRGBA(image.Rect(0, 0, 32, 32))

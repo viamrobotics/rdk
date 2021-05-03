@@ -2,23 +2,21 @@ package serial
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
 
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/usb"
 
 	"github.com/edaniels/test"
 )
 
 func TestSearchDevices(t *testing.T) {
-	tempDir1, err := ioutil.TempDir("", "")
-	test.That(t, err, test.ShouldBeNil)
+	tempDir1 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir1)
-	tempDir2, err := ioutil.TempDir("", "")
-	test.That(t, err, test.ShouldBeNil)
+	tempDir2 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir2)
 
 	prevSysPaths := usb.SysPaths
@@ -29,22 +27,16 @@ func TestSearchDevices(t *testing.T) {
 	defer func() {
 		devPath = prevDebPath
 	}()
-	devPathDir, err := ioutil.TempDir("", "")
-	test.That(t, err, test.ShouldBeNil)
+	devPathDir := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(devPathDir)
 	jetsonPath := filepath.Join(devPathDir, "ttyTHS0")
 	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0666), test.ShouldBeNil)
 
-	dev2Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev3Root, err := ioutil.TempDir(tempDir1, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev1, err := ioutil.TempDir(tempDir2, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev2, err := ioutil.TempDir(dev2Root, "")
-	test.That(t, err, test.ShouldBeNil)
-	dev3, err := ioutil.TempDir(dev3Root, "")
-	test.That(t, err, test.ShouldBeNil)
+	dev2Root := testutils.TempDir(t, tempDir1, "")
+	dev3Root := testutils.TempDir(t, tempDir1, "")
+	dev1 := testutils.TempDir(t, tempDir2, "")
+	dev2 := testutils.TempDir(t, dev2Root, "")
+	dev3 := testutils.TempDir(t, dev3Root, "")
 
 	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)

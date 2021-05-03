@@ -36,12 +36,14 @@ func (a *fakeAnalog) Read(context.Context) (int, error) {
 }
 
 type FakeBoard struct {
+	Name     string
 	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
 	analogs  map[string]*fakeAnalog
 	digitals map[string]DigitalInterrupt
 
-	cfg Config
+	cfg        Config
+	CloseCount int
 }
 
 func (b *FakeBoard) Motor(name string) Motor {
@@ -72,10 +74,16 @@ func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return CreateStatus(ctx, b)
 }
 
+func (b *FakeBoard) Close() error {
+	b.CloseCount++
+	return nil
+}
+
 func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBoard, error) {
 	var err error
 
 	b := &FakeBoard{
+		Name:     cfg.Name,
 		cfg:      cfg,
 		motors:   map[string]*FakeMotor{},
 		servos:   map[string]*fakeServo{},

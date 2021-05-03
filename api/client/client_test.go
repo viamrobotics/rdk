@@ -83,6 +83,94 @@ var emptyStatus = &pb.Status{
 	},
 }
 
+var finalStatus = &pb.Status{
+	Arms: map[string]*pb.ArmStatus{
+		"arm2": {
+			GridPosition: &pb.ArmPosition{
+				X:  0.0,
+				Y:  0.0,
+				Z:  0.0,
+				RX: 0.0,
+				RY: 0.0,
+				RZ: 0.0,
+			},
+			JointPositions: &pb.JointPositions{
+				Degrees: []float64{0, 0, 0, 0, 0, 0},
+			},
+		},
+		"arm3": {
+			GridPosition: &pb.ArmPosition{
+				X:  0.0,
+				Y:  0.0,
+				Z:  0.0,
+				RX: 0.0,
+				RY: 0.0,
+				RZ: 0.0,
+			},
+			JointPositions: &pb.JointPositions{
+				Degrees: []float64{0, 0, 0, 0, 0, 0},
+			},
+		},
+	},
+	Bases: map[string]bool{
+		"base2": true,
+		"base3": true,
+	},
+	Grippers: map[string]bool{
+		"gripper2": true,
+		"gripper3": true,
+	},
+	Cameras: map[string]bool{
+		"camera2": true,
+		"camera3": true,
+	},
+	LidarDevices: map[string]bool{
+		"lidar2": true,
+		"lidar3": true,
+	},
+	Sensors: map[string]*pb.SensorStatus{
+		"compass2": {
+			Type: compass.DeviceType,
+		},
+		"compass3": {
+			Type: compass.DeviceType,
+		},
+		"compass4": {
+			Type: compass.RelativeDeviceType,
+		},
+	},
+	Boards: map[string]*pb.BoardStatus{
+		"board2": {
+			Motors: map[string]*pb.MotorStatus{
+				"g": {},
+			},
+			Servos: map[string]*pb.ServoStatus{
+				"servo1": {},
+			},
+			Analogs: map[string]*pb.AnalogStatus{
+				"analog1": {},
+			},
+			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+				"encoder": {},
+			},
+		},
+		"board3": {
+			Motors: map[string]*pb.MotorStatus{
+				"g": {},
+			},
+			Servos: map[string]*pb.ServoStatus{
+				"servo2": {},
+			},
+			Analogs: map[string]*pb.AnalogStatus{
+				"analog2": {},
+			},
+			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+				"encoder": {},
+			},
+		},
+	},
+}
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -546,7 +634,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestClientRefreshStatus(t *testing.T) {
+func TestClientReferesh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -569,6 +657,9 @@ func TestClientRefreshStatus(t *testing.T) {
 			close(calledEnough)
 		}
 		callCount++
+		if callCount > 5 {
+			return finalStatus, nil
+		}
 		return emptyStatus, nil
 	}
 
@@ -577,7 +668,7 @@ func TestClientRefreshStatus(t *testing.T) {
 	client, err := NewRobotClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshStatusEvery: dur},
+		RobotClientOptions{RefreshEvery: dur},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -587,10 +678,53 @@ func TestClientRefreshStatus(t *testing.T) {
 
 	status, err := client.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
+	test.That(t, status.String(), test.ShouldResemble, finalStatus.String())
+
+	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm2", "arm3"))
+	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper2", "gripper3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
+	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
+	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
+
+	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		return emptyStatus, nil
+	}
+	client, err = NewRobotClientWithOptions(
+		context.Background(),
+		listener.Addr().String(),
+		RobotClientOptions{RefreshEvery: dur},
+		logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1"))
+	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper1"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1"))
+	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
+	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
+
+	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
+		return finalStatus, nil
+	}
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+
+	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm2", "arm3"))
+	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper2", "gripper3"))
+	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
+	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
+	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
+	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
 }
 
 func TestClientDialerOption(t *testing.T) {

@@ -2,7 +2,6 @@ package rimage
 
 import (
 	"image"
-	"os"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -74,8 +73,7 @@ func TestWarp2(t *testing.T) {
 
 	out := WarpImage(img, m, image.Point{size, size})
 
-	os.MkdirAll("out", 0775)
-	err = WriteImageToFile("out/canny1-warped.png", out)
+	err = WriteImageToFile(outDir+"/canny1-warped.png", out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +153,7 @@ func TestWarpSmall1(t *testing.T) {
 		ArrayToPoints([]image.Point{{0, 0}, {outputSize.X - 1, outputSize.Y - 1}}),
 	), outputSize)
 
-	err = WriteImageToFile("out/warpsmall1.png", x)
+	err = WriteImageToFile(outDir+"/warpsmall1.png", x)
 	if err != nil {
 		t.Fatal(err)
 	}

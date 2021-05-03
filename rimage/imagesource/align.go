@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthComposed", func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	api.RegisterCamera("depthComposed", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.GetString("color")
@@ -84,7 +84,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 	if err != nil {
 		return nil, err
 	}
-	return &DepthComposed{color, depth, dcaligner, attrs.GetBool("debug", false), attrs.GetBool("debug", false), logger}, nil
+	return &DepthComposed{color, depth, dcaligner, attrs.GetBool("aligned", false), attrs.GetBool("debug", false), logger}, nil
 }
 
 func (dc *DepthComposed) Close() error {

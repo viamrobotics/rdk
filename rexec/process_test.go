@@ -27,3 +27,20 @@ func TestProcessConfigRoundTripJSON(t *testing.T) {
 	test.That(t, json.Unmarshal(bytes.ToLower(md), &rtLower), test.ShouldBeNil)
 	test.That(t, rtLower, test.ShouldResemble, config)
 }
+
+func TestProcessConfigValidate(t *testing.T) {
+	var emptyConfig ProcessConfig
+	err := emptyConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+
+	invalidConfig := ProcessConfig{
+		ID: "id1",
+	}
+	err = invalidConfig.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+	invalidConfig.Name = "foo"
+
+	test.That(t, invalidConfig.Validate("path"), test.ShouldBeNil)
+}

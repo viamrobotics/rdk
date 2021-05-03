@@ -43,9 +43,9 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         utils.NetPortFlag `flag:"0"`
-	LidarDevices []api.Component   `flag:"device,usage=lidar devices"`
-	SaveToDisk   string            `flag:"save,usage=save data to disk (LAS)"`
+	Port         utils.NetPortFlag     `flag:"0"`
+	LidarDevices []api.ComponentConfig `flag:"device,usage=lidar devices"`
+	SaveToDisk   string                `flag:"save,usage=save data to disk (LAS)"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
@@ -74,7 +74,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if len(argsParsed.LidarDevices) == 0 {
 		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
-			api.Component{
+			api.ComponentConfig{
 				Type:  api.ComponentTypeLidar,
 				Host:  "0",
 				Model: string(lidar.DeviceTypeFake),
@@ -84,8 +84,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return viewLidar(ctx, int(argsParsed.Port), argsParsed.LidarDevices, argsParsed.SaveToDisk, logger)
 }
 
-func viewLidar(ctx context.Context, port int, components []api.Component, saveToDisk string, logger golog.Logger) (err error) {
-	r, err := robot.NewRobot(ctx, api.Config{Components: components}, logger)
+func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, saveToDisk string, logger golog.Logger) (err error) {
+	r, err := robot.NewRobot(ctx, &api.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}
@@ -177,7 +177,7 @@ func viewLidar(ctx context.Context, port int, components []api.Component, saveTo
 	return nil
 }
 
-func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarComponents []api.Component) (<-chan struct{}, error) {
+func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarComponents []api.ComponentConfig) (<-chan struct{}, error) {
 	bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidarDevices)
 	if err != nil {
 		return nil, err

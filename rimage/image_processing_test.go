@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"os"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -32,7 +31,7 @@ func doCannyTest(t *testing.T, root string) {
 
 	for a := 0.01; a <= .05; a += .005 {
 
-		outfn := fmt.Sprintf("out/%s-%v.png", root, int(1000*a))
+		outfn := fmt.Sprintf(outDir+"/%s-%v.png", root, int(1000*a))
 		fmt.Println(outfn)
 
 		out, err := SimpleEdgeDetection(img, a, 3.0)
@@ -40,7 +39,6 @@ func doCannyTest(t *testing.T, root string) {
 			t.Fatal(err)
 		}
 
-		os.MkdirAll("out", 0775)
 		err = WriteImageToFile(outfn, out)
 		if err != nil {
 			t.Fatal(err)
@@ -158,7 +156,7 @@ func TestConvertYCbCr(t *testing.T) {
 	var yuvImg image.YCbCr
 	imageToYCbCr(&yuvImg, orig)
 
-	err = WriteImageToFile("out/canny1-ycbcr.png", &yuvImg)
+	err = WriteImageToFile(outDir+"/canny1-ycbcr.png", &yuvImg)
 	if err != nil {
 		t.Fatal(err)
 	}

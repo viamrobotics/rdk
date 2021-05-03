@@ -24,7 +24,7 @@ import (
 const ModelName = "gy511"
 
 func init() {
-	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.Component, logger golog.Logger) (sensor.Device, error) {
+	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		return New(ctx, config.Host, logger)
 	})
 }

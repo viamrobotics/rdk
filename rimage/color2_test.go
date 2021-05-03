@@ -2,10 +2,11 @@ package rimage
 
 import (
 	"image"
-	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/testutils"
 )
 
 func TestColorSegment1(t *testing.T) {
@@ -41,9 +42,9 @@ func TestColorSegment1(t *testing.T) {
 		}
 	}
 
-	os.MkdirAll("out", 0775)
-
-	err = diffs.WriteTo("out/foo.html")
+	outDir := testutils.TempDir(t, "", "rimage")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
+	err = diffs.WriteTo(outDir + "/foo.html")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,5 +58,5 @@ func TestColorSegment1(t *testing.T) {
 		}
 	}
 
-	out.WriteTo("out/foo.png")
+	out.WriteTo(outDir + "/foo.png")
 }

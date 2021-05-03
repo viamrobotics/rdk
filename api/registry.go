@@ -10,13 +10,13 @@ import (
 	"go.viam.com/robotcore/sensor"
 )
 
-type CreateProvider func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Provider, error)
-type CreateCamera func(ctx context.Context, r Robot, config Component, logger golog.Logger) (gostream.ImageSource, error)
-type CreateArm func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Arm, error)
-type CreateGripper func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Gripper, error)
-type CreateBase func(ctx context.Context, r Robot, config Component, logger golog.Logger) (Base, error)
-type CreateLidarDevice func(ctx context.Context, r Robot, config Component, logger golog.Logger) (lidar.Device, error)
-type CreateSensor func(ctx context.Context, r Robot, config Component, logger golog.Logger) (sensor.Device, error)
+type CreateProvider func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Provider, error)
+type CreateCamera func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (gostream.ImageSource, error)
+type CreateArm func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Arm, error)
+type CreateGripper func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Gripper, error)
+type CreateBase func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Base, error)
+type CreateLidarDevice func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (lidar.Device, error)
+type CreateSensor func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (sensor.Device, error)
 
 var (
 	cameraRegistry      = map[string]CreateCamera{}
