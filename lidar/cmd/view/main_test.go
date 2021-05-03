@@ -24,7 +24,7 @@ import (
 	"github.com/golang/geo/r2"
 )
 
-func TestMain(t *testing.T) {
+func TestMainMain(t *testing.T) {
 	api.RegisterLidarDevice("fail_info", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
 		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
@@ -88,6 +88,7 @@ func TestMain(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		resp, err := http.DefaultClient.Do(req)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Body.Close(), test.ShouldBeNil)
 		test.That(t, resp.StatusCode, test.ShouldEqual, http.StatusOK)
 	}
 	testutils.TestMain(t, mainWithArgs, []testutils.MainTestCase{

@@ -301,6 +301,12 @@ func (parts *robotParts) Close() error {
 		allErrs = multierr.Combine(allErrs, fmt.Errorf("error stopping process manager: %w", err))
 	}
 
+	for _, x := range parts.remotes {
+		if err := utils.TryClose(x); err != nil {
+			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing remote: %w", err))
+		}
+	}
+
 	for _, x := range parts.arms {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing arm: %w", err))

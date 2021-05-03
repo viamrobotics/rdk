@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func TestMain(t *testing.T) {
+func TestMainMain(t *testing.T) {
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
@@ -63,7 +63,7 @@ func TestMain(t *testing.T) {
 	}
 
 	go gServer1.Serve(listener1)
-	defer gServer2.Stop()
+	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 

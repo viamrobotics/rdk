@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/sensor"
+
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*SensorClient, error) {
@@ -17,7 +19,7 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Senso
 	}
 	names := robotClient.SensorNames()
 	if len(names) == 0 {
-		return nil, errors.New("no sensor devices found")
+		return nil, multierr.Combine(errors.New("no sensor devices found"), robotClient.Close())
 	}
 	return &SensorClient{robotClient.SensorByName(names[0]), robotClient}, nil
 }

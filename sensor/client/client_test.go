@@ -59,7 +59,7 @@ func TestClient(t *testing.T) {
 	}
 
 	go gServer1.Serve(listener1)
-	defer gServer2.Stop()
+	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 	go gServer3.Serve(listener3)
@@ -91,6 +91,7 @@ func TestClient(t *testing.T) {
 	test.That(t, heading, test.ShouldEqual, 5.2)
 
 	test.That(t, utils.TryClose(compassDev), test.ShouldBeNil)
+	test.That(t, dev.Close(), test.ShouldBeNil)
 
 	injectRelDev := &inject.RelativeCompass{}
 	injectRelDev.HeadingFunc = func(ctx context.Context) (float64, error) {
@@ -121,4 +122,5 @@ func TestClient(t *testing.T) {
 	test.That(t, compassRelDev.Mark(context.Background()), test.ShouldBeNil)
 
 	test.That(t, utils.TryClose(compassRelDev), test.ShouldBeNil)
+	test.That(t, dev.Close(), test.ShouldBeNil)
 }

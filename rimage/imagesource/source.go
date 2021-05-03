@@ -35,7 +35,11 @@ func init() {
 		if !ok {
 			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
 		}
-		return &HTTPSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
+		return &HTTPSource{
+			ColorURL:  config.Attributes.GetString("color"),
+			DepthURL:  config.Attributes.GetString("depth"),
+			isAligned: aligned,
+		}, nil
 	})
 
 	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
@@ -87,6 +91,7 @@ func (fs *FileSource) Close() error {
 // -------
 
 type HTTPSource struct {
+	client    http.Client
 	ColorURL  string // this is for a generic image
 	DepthURL  string // this is for my bizarre custom data format for depth data
 	isAligned bool   // are the color and depth image already aligned
@@ -96,8 +101,8 @@ func (hs *HTTPSource) IsAligned() bool {
 	return hs.isAligned
 }
 
-func readyBytesFromURL(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
+	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +112,7 @@ func readyBytesFromURL(url string) ([]byte, error) {
 }
 
 func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
-	colorData, err := readyBytesFromURL(hs.ColorURL)
+	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't ready color url: %s", err)
 	}
@@ -121,7 +126,7 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, nil
 	}
 
-	depthData, err := readyBytesFromURL(hs.DepthURL)
+	depthData, err := readyBytesFromURL(hs.client, hs.DepthURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't ready depth url: %s", err)
 	}
@@ -135,12 +140,14 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (hs *HTTPSource) Close() error {
+	hs.client.CloseIdleConnections()
 	return nil
 }
 
 // ------
 
 type IntelServerSource struct {
+	client    http.Client
 	BothURL   string
 	host      string
 	isAligned bool // are the color and depth image already aligned
@@ -156,7 +163,11 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) *IntelS
 	if has {
 		num = numString.(string)
 	}
-	return &IntelServerSource{fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num), host, attrs.GetBool("aligned", true)}
+	return &IntelServerSource{
+		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
+		host:      host,
+		isAligned: attrs.GetBool("aligned", true),
+	}
 }
 
 func (s *IntelServerSource) Close() error {
@@ -164,7 +175,7 @@ func (s *IntelServerSource) Close() error {
 }
 
 func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	allData, err := readyBytesFromURL(s.BothURL)
+	allData, err := readyBytesFromURL(s.client, s.BothURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
 	}

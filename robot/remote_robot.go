@@ -14,6 +14,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/sensor"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -248,4 +249,8 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 
 func (rr *remoteRobot) Logger() golog.Logger {
 	return rr.robot.Logger()
+}
+
+func (rr *remoteRobot) Close() error {
+	return utils.TryClose(rr.robot)
 }

@@ -725,6 +725,9 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
+
+	err = client.Close()
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {

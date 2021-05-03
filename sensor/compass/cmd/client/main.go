@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/sensor/compass/client"
 	"go.viam.com/robotcore/utils"
 
@@ -30,11 +31,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return readCompass(ctx, argsParsed.DeviceAddress, logger)
 }
 
-func readCompass(ctx context.Context, deviceAddress string, logger golog.Logger) error {
+func readCompass(ctx context.Context, deviceAddress string, logger golog.Logger) (err error) {
 	sensor, err := client.New(ctx, deviceAddress, logger)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = multierr.Combine(err, utils.TryClose(sensor))
+	}()
 
 	tickRate := 100 * time.Millisecond
 	ticker := time.NewTicker(tickRate)

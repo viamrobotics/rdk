@@ -50,6 +50,10 @@ func (its *ImageTrainingStore) reset(ctx context.Context) error {
 	return its.BuildIndexes(ctx)
 }
 
+func (its *ImageTrainingStore) Close() error {
+	return its.theClient.Disconnect(context.Background())
+}
+
 func (its *ImageTrainingStore) BuildIndexes(ctx context.Context) error {
 	// TODO(erh): build indexes
 	return nil

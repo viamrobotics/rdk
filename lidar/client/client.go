@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/client"
 	apiclient "go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/lidar"
+
+	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 const ModelNameClient = "grpc"
@@ -32,7 +34,7 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.
 	}
 	names := robotClient.LidarDeviceNames()
 	if len(names) == 0 {
-		return nil, errors.New("no lidar devices found")
+		return nil, multierr.Combine(errors.New("no lidar devices found"), robotClient.Close())
 	}
 	lidarDevice := robotClient.LidarDeviceByName(names[0])
 	return &wrappedLidarDevice{lidarDevice, robotClient}, nil

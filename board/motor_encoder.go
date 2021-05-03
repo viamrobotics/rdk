@@ -75,14 +75,16 @@ func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB 
 		real:     real,
 		encoder:  encoderA,
 		encoderB: encoderB,
+		killCh:   make(chan struct{}),
 	}
 }
 
 type encodedMotor struct {
-	cfg      MotorConfig
-	real     Motor
-	encoder  DigitalInterrupt
-	encoderB DigitalInterrupt
+	activeBackgroundWorkers sync.WaitGroup
+	cfg                     MotorConfig
+	real                    Motor
+	encoder                 DigitalInterrupt
+	encoderB                DigitalInterrupt
 
 	stateMu sync.RWMutex
 	state   encodedMotorState
@@ -92,6 +94,7 @@ type encodedMotor struct {
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
+	killCh          chan struct{}
 }
 
 // encodedMotorState is the core, non-statistical state for the motor.
@@ -182,6 +185,7 @@ func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 		return
 	}
 	started := make(chan struct{})
+	m.activeBackgroundWorkers.Add(1)
 	go m.rpmMonitor(ctx, func() {
 		close(started)
 	})
@@ -199,13 +203,24 @@ func (m *encodedMotor) startRegulatorThread(ctx context.Context, onStart func())
 func (m *encodedMotor) startSingleEncoderThread(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
+	m.activeBackgroundWorkers.Add(1)
 	go func() {
+		defer m.activeBackgroundWorkers.Done()
 		onStart()
 		_, rpmDebug := getRPMSleepDebug()
 		for {
 			stop := false
+			select {
+			case <-m.killCh:
+				return
+			default:
+			}
 
-			<-encoderChannel
+			select {
+			case <-m.killCh:
+				return
+			case <-encoderChannel:
+			}
 
 			m.stateMu.Lock()
 			if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
@@ -236,7 +251,9 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 	m.encoder.AddCallback(chanA)
 	m.encoderB.AddCallback(chanB)
 
+	m.activeBackgroundWorkers.Add(1)
 	go func() {
+		defer m.activeBackgroundWorkers.Done()
 		onStart()
 		aLevel := true
 		bLevel := true
@@ -245,10 +262,18 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 
 		for {
 
+			select {
+			case <-m.killCh:
+				return
+			default:
+			}
+
 			var level bool
 			var isA bool
 
 			select {
+			case <-m.killCh:
+				return
 			case level = <-chanA:
 				isA = true
 				aLevel = level
@@ -305,6 +330,7 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 }
 
 func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
+	defer m.activeBackgroundWorkers.Done()
 	if m.encoder == nil {
 		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
 	}
@@ -326,7 +352,19 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 	rpmSleep, rpmDebug := getRPMSleepDebug()
 	for {
 
-		time.Sleep(rpmSleep)
+		select {
+		case <-m.killCh:
+			return
+		default:
+		}
+
+		timer := time.NewTimer(rpmSleep)
+		select {
+		case <-m.killCh:
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
 
 		count := m.encoder.Value()
 		now := time.Now().UnixNano()
@@ -473,4 +511,10 @@ func (m *encodedMotor) Off(ctx context.Context) error {
 
 func (m *encodedMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.real.IsOn(ctx)
+}
+
+func (m *encodedMotor) Close() error {
+	close(m.killCh)
+	m.activeBackgroundWorkers.Wait()
+	return nil
 }
