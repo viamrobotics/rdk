@@ -22,7 +22,7 @@ func (i *ImageWithDepth) Aligner() DepthColorAligner {
 
 func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 	if i.aligner == nil {
-		return nil, fmt.Errorf("no DepthColorAligner set in ImageWithDepth")
+		return nil, fmt.Errorf("no DepthColorAligner set in ImageWithDepth for projections")
 	}
 	pc, err := i.aligner.ImageWithDepthToPointCloud(i)
 	if err != nil {
