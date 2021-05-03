@@ -38,13 +38,15 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
 cover:
-	go test -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"`
-	go test -coverprofile=coverage2.txt go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...
+	(trap 'kill 0' INT;\
+		go test -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"` &\
+		go test -coverprofile=coverage2.txt go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...)
 	sed '1d' coverage2.txt >> coverage.txt
 
 test:
-	go test -race `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"`
-	go test go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...
+	(trap 'kill 0' INT;\
+		go test -race `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"` &\
+		go test go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...)
 
 testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/robotcore/board/pi
