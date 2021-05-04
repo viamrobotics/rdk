@@ -21,12 +21,17 @@ type PointCloud interface {
 	MaxY() float64
 	MinZ() float64
 	MaxZ() float64
+
 	// point setting and getting methods
+
 	Set(p Point) error
 	Unset(x, y, z float64)
 	At(x, y, z float64) Point
 	Iterate(fn func(p Point) bool)
-	// util functions
+
+	// utils
+
+	// Writes to a LAS file
 	WriteToFile(fn string) error
 	ToPCD(out io.Writer) error
 	DenseZ(zIdx float64) (*mat.Dense, error)
