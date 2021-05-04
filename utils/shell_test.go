@@ -2,15 +2,12 @@ package utils
 
 import (
 	"testing"
+
+	"github.com/edaniels/test"
 )
 
 func TestExecuteShellCommand(t *testing.T) {
 	res, err := ExecuteShellCommand("ls")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(res) == 0 {
-		t.Error("no results")
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldNotBeEmpty)
 }

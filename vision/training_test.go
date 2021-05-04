@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 )
 
@@ -19,9 +20,7 @@ func TestTraining1(t *testing.T) {
 		return
 	}
 	defer func() {
-		if err := store.Close(); err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, store.Close(), test.ShouldBeNil)
 	}()
 	err = store.reset(ctx)
 	if err != nil {
@@ -30,49 +29,32 @@ func TestTraining1(t *testing.T) {
 	}
 
 	w1, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/white1.png"), []string{"white"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	w2, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/white2.png"), []string{"white"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	b1, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/black1.png"), []string{"black"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	b2, err := store.StoreImageFromDisk(ctx, artifact.MustPath("vision/black2.png"), []string{"black"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	fmt.Printf("%s %s %s %s\n", w1, w2, b1, b2)
 
 	temp, err := store.GetImage(ctx, w1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(temp.Labels) != 1 || temp.Labels[0] != "white" {
-		t.Fatalf("wtf")
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, temp.Labels, test.ShouldHaveLength, 1)
+	test.That(t, temp.Labels[0], test.ShouldEqual, "white")
 
 	labels, err := store.GetLabels(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
-	if len(labels) != 2 || labels["white"] != 2 || labels["black"] != 2 {
-		t.Fatalf("labels wrong :( %d %d %d", len(labels), labels["white"], labels["black"])
-	}
+	test.That(t, labels, test.ShouldHaveLength, 2)
+	test.That(t, labels["white"], test.ShouldEqual, 2)
+	test.That(t, labels["black"], test.ShouldEqual, 2)
 
 	ws, err := store.GetImagesForLabel(ctx, "white")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(ws) != 2 {
-		t.Fatalf("ws wrong %d", len(ws))
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ws, test.ShouldHaveLength, 2)
 }

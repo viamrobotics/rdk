@@ -8,25 +8,21 @@ import (
 	"go.viam.com/robotcore/artifact"
 
 	"github.com/edaniels/golog"
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func Test1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	data, err := ioutil.ReadFile(artifact.MustPath("robots/universalrobots/test1.raw"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	state, err := readRobotStateMessage(data, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
-	assert.Equal(t, 90, int(math.Round(state.Joints[0].AngleDegrees())), "joint 0 is wrong")
-	assert.Equal(t, -90, int(math.Round(state.Joints[1].AngleDegrees())), "joint 1 is wrong")
-	assert.Equal(t, 5, int(math.Round(state.Joints[2].AngleDegrees())), "joint 2 is wrong")
-	assert.Equal(t, 10, int(math.Round(state.Joints[3].AngleDegrees())), "joint 3 is wrong")
-	assert.Equal(t, 15, int(math.Round(state.Joints[4].AngleDegrees())), "joint 4 is wrong")
-	assert.Equal(t, 20, int(math.Round(state.Joints[5].AngleDegrees())), "joint 5 is wrong")
+	test.That(t, int(math.Round(state.Joints[0].AngleDegrees())), test.ShouldEqual, 90)
+	test.That(t, int(math.Round(state.Joints[1].AngleDegrees())), test.ShouldEqual, -90)
+	test.That(t, int(math.Round(state.Joints[2].AngleDegrees())), test.ShouldEqual, 5)
+	test.That(t, int(math.Round(state.Joints[3].AngleDegrees())), test.ShouldEqual, 10)
+	test.That(t, int(math.Round(state.Joints[4].AngleDegrees())), test.ShouldEqual, 15)
+	test.That(t, int(math.Round(state.Joints[5].AngleDegrees())), test.ShouldEqual, 20)
 }

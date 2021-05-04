@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 )
 
 type MyDebug struct {
@@ -38,9 +39,7 @@ func (ddd MyDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn strin
 func TestAutoDrive1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png", false)
 	err := d.Process(t, MyDebug{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }
 
@@ -69,8 +68,6 @@ func (cd ChargeDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn st
 func TestCharge1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz", false)
 	err := d.Process(t, ChargeDebug{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }

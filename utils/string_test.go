@@ -23,7 +23,5 @@ func TestRandomAlphaString(t *testing.T) {
 func TestStringSet(t *testing.T) {
 	ss := NewStringSet("foo")
 	_, ok := ss["foo"]
-	if !ok {
-		t.Errorf("why isn't foo in the set")
-	}
+	test.That(t, ok, test.ShouldBeTrue)
 }

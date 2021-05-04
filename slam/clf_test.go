@@ -12,6 +12,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 )
 
 // http://ais.informatik.uni-freiburg.de/slamevaluation/index.php
@@ -19,17 +20,13 @@ import (
 func TestAcesCLF(t *testing.T) {
 	fn := artifact.MustPath("slam/aces.clf")
 	f, err := os.Open(fn)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	defer f.Close()
 
 	unitsPerMeter := 20.
 
 	area, err := NewSquareArea(200, unitsPerMeter, golog.Global)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	clf := utils.NewCLFReader(f)
 
@@ -74,14 +71,10 @@ func TestAcesCLF(t *testing.T) {
 
 		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	outDir := testutils.TempDir(t, "", "slam")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = rimage.WriteImageToFile(outDir+"/foo.png", AreaToImage(area))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }

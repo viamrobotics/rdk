@@ -16,6 +16,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
 )
@@ -138,9 +139,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 			t.Run(filepath.Base(f), func(t *testing.T) {
 				t.Parallel()
 				img, err := readImageFromFile(currentFile, d.imagesAligned)
-				if err != nil {
-					t.Fatalf("cannot read %s : %s", currentFile, err)
-				}
+				test.That(t, err, test.ShouldBeNil)
 
 				pCtx := &ProcessorContext{
 					d:           d,
@@ -153,9 +152,7 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 
 				logger := golog.NewTestLogger(t)
 				err = x.Process(t, pCtx, currentFile, img, logger)
-				if err != nil {
-					t.Fatalf("error processing file %s : %s", currentFile, err)
-				}
+				test.That(t, err, test.ShouldBeNil)
 
 				pCtx.html.WriteString("</tr>")
 				d.mu.Lock()

@@ -3,16 +3,16 @@ package varm
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 var epsilon = .01
 
 func TestArmMath1(t *testing.T) {
-	assert.InDelta(t, 0.0, computeInnerJointAngle(0, 0), epsilon)
-	assert.InDelta(t, -90.0, computeInnerJointAngle(0, -90), epsilon)
-	assert.InDelta(t, -135.0, computeInnerJointAngle(-45, -90), epsilon)
-	assert.InDelta(t, -45.0, computeInnerJointAngle(45, -90), epsilon)
+	test.That(t, computeInnerJointAngle(0, 0), test.ShouldAlmostEqual, 0.0, epsilon)
+	test.That(t, computeInnerJointAngle(0, -90), test.ShouldAlmostEqual, -90.0, epsilon)
+	test.That(t, computeInnerJointAngle(-45, -90), test.ShouldAlmostEqual, -135.0, epsilon)
+	test.That(t, computeInnerJointAngle(45, -90), test.ShouldAlmostEqual, -45.0, epsilon)
 
 	j := joint{
 		posMin: 0.0,
@@ -21,12 +21,12 @@ func TestArmMath1(t *testing.T) {
 		degMax: 90.0,
 	}
 
-	assert.InDelta(t, 0.0, j.positionToDegrees(0.0), epsilon)
-	assert.InDelta(t, 45, j.positionToDegrees(0.5), epsilon)
-	assert.InDelta(t, 90, j.positionToDegrees(1.0), epsilon)
+	test.That(t, j.positionToDegrees(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
+	test.That(t, j.positionToDegrees(0.5), test.ShouldAlmostEqual, 45, epsilon)
+	test.That(t, j.positionToDegrees(1.0), test.ShouldAlmostEqual, 90, epsilon)
 
-	assert.InDelta(t, 0.0, j.degreesToPosition(0.0), epsilon)
-	assert.InDelta(t, 0.5, j.degreesToPosition(45.0), epsilon)
-	assert.InDelta(t, 1.0, j.degreesToPosition(90.0), epsilon)
+	test.That(t, j.degreesToPosition(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
+	test.That(t, j.degreesToPosition(45.0), test.ShouldAlmostEqual, 0.5, epsilon)
+	test.That(t, j.degreesToPosition(90.0), test.ShouldAlmostEqual, 1.0, epsilon)
 
 }

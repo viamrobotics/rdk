@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/sensor"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
+	"github.com/edaniels/test"
 )
 
 func TestRegistry(t *testing.T) {
@@ -44,10 +44,10 @@ func TestRegistry(t *testing.T) {
 	RegisterLidarDevice("x", lf)
 	RegisterSensor(sensor.DeviceType("x"), "y", sf)
 
-	assert.NotNil(t, ProviderLookup("x"))
-	assert.NotNil(t, CameraLookup("x"))
-	assert.NotNil(t, ArmLookup("x"))
-	assert.NotNil(t, GripperLookup("x"))
-	assert.NotNil(t, LidarDeviceLookup("x"))
-	assert.NotNil(t, SensorLookup(sensor.DeviceType("x"), "y"))
+	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
+	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
+	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
+	test.That(t, LidarDeviceLookup("x"), test.ShouldNotBeNil)
+	test.That(t, SensorLookup(sensor.DeviceType("x"), "y"), test.ShouldNotBeNil)
 }

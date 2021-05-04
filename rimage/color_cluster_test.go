@@ -3,25 +3,20 @@ package rimage
 import (
 	"testing"
 
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {
 	img, err := NewImageFromFile(artifact.MustPath("rimage/" + fn))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	clusters, err := ClusterFromImage(img, numClusters)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	res := ClusterImage(clusters, img)
 	err = WriteImageToFile(outDir+"/"+fn, res)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCluster1(t *testing.T) {

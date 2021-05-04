@@ -21,9 +21,7 @@ func TestForwardKinematics(t *testing.T) {
 	expect := []float64{300, 0, 360.25, 0, 0, 0}
 	actual := m.Get6dPosition(0)
 
-	if floatDelta(expect, actual) > 0.00001 {
-		t.Fatalf("wx250s_test starting 6d position incorrect, got: %v", actual)
-	}
+	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test the 6dof arm we actually have
 	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
@@ -34,9 +32,7 @@ func TestForwardKinematics(t *testing.T) {
 	expect = []float64{365, 0, 360.25, 0, 0, 0}
 	actual = m.Get6dPosition(0)
 
-	if floatDelta(expect, actual) > 0.00001 {
-		t.Fatalf("wx250s starting 6d position incorrect, got: %v", actual)
-	}
+	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	newPos := []float64{0.7854, -0.7854, 0, 0, 0, 0}
 	m.SetPosition(newPos)
@@ -44,18 +40,14 @@ func TestForwardKinematics(t *testing.T) {
 	actual = m.Get6dPosition(0)
 
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, -45, 45}
-	if floatDelta(expect, actual) > 0.01 {
-		t.Fatalf("rotation 1 incorrect")
-	}
+	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
 	actual = m.Get6dPosition(0)
 
 	expect = []float64{258.0935, -258.0935, 360.25, 45, 0, -45}
-	if floatDelta(expect, actual) > 0.01 {
-		t.Fatalf("rotation 2 incorrect")
-	}
+	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 }
 
 func floatDelta(l1, l2 []float64) float64 {
@@ -78,9 +70,7 @@ func TestJacobian_5DOF(t *testing.T) {
 	m.CalculateJacobian()
 	j := m.GetJacobian()
 
-	if floatDelta(j.Raw(), j1) > 0.00001 {
-		t.Fatalf("5DOF 0-pos jacobian incorrect")
-	}
+	test.That(t, floatDelta(j.Raw(), j1), test.ShouldBeLessThanOrEqualTo, 0.00001)
 	// Convenient position at askew angle
 	newPos = []float64{1, 1, 1, 1, 1}
 	m.SetPosition(newPos)
@@ -89,9 +79,7 @@ func TestJacobian_5DOF(t *testing.T) {
 	m.CalculateJacobian()
 	j = m.GetJacobian()
 
-	if floatDelta(j.Raw(), j2) > 0.00001 {
-		t.Fatalf("5DOF 1-pos jacobian incorrect")
-	}
+	test.That(t, floatDelta(j.Raw(), j2), test.ShouldBeLessThanOrEqualTo, 0.00001)
 }
 
 func TestJacobian_6DOF(t *testing.T) {
@@ -106,9 +94,7 @@ func TestJacobian_6DOF(t *testing.T) {
 	m.CalculateJacobian()
 	j := m.GetJacobian()
 
-	if floatDelta(j.Raw(), j1) > 0.00001 {
-		t.Fatalf("6DOF 0-pos jacobian incorrect")
-	}
+	test.That(t, floatDelta(j.Raw(), j1), test.ShouldBeLessThanOrEqualTo, 0.00001)
 	// Convenient position at askew angle
 	newPos = []float64{1, 1, 1, 1, 1, 1}
 	m.SetPosition(newPos)
@@ -116,9 +102,7 @@ func TestJacobian_6DOF(t *testing.T) {
 
 	m.CalculateJacobian()
 	j = m.GetJacobian()
-	if floatDelta(j.Raw(), j2) > 0.00001 {
-		t.Fatalf("6DOF 1-pos jacobian incorrect")
-	}
+	test.That(t, floatDelta(j.Raw(), j2), test.ShouldBeLessThanOrEqualTo, 0.00001)
 }
 
 const derivEqualityEpsilon = 1e-16

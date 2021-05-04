@@ -6,25 +6,25 @@ import (
 
 	"go.viam.com/robotcore/utils"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestArmPosition(t *testing.T) {
 	p := NewPositionFromMetersAndRadians(1.0, 2.0, 3.0, 0, math.Pi/2, math.Pi)
 
-	assert.Equal(t, 0.0, p.RX)
-	assert.Equal(t, 90.0, p.RY)
-	assert.Equal(t, 180.0, p.RZ)
+	test.That(t, p.RX, test.ShouldEqual, 0.0)
+	test.That(t, p.RY, test.ShouldEqual, 90.0)
+	test.That(t, p.RZ, test.ShouldEqual, 180.0)
 
-	assert.Equal(t, 0.0, utils.DegToRad(p.RX))
-	assert.Equal(t, math.Pi/2, utils.DegToRad(p.RY))
-	assert.Equal(t, math.Pi, utils.DegToRad(p.RZ))
+	test.That(t, utils.DegToRad(p.RX), test.ShouldEqual, 0.0)
+	test.That(t, utils.DegToRad(p.RY), test.ShouldEqual, math.Pi/2)
+	test.That(t, utils.DegToRad(p.RZ), test.ShouldEqual, math.Pi)
 }
 
 func TestJointPositions(t *testing.T) {
 	in := []float64{0, math.Pi}
 	j := JointPositionsFromRadians(in)
-	assert.Equal(t, 0.0, j.Degrees[0])
-	assert.Equal(t, 180.0, j.Degrees[1])
-	assert.Equal(t, in, JointPositionsToRadians(j))
+	test.That(t, j.Degrees[0], test.ShouldEqual, 0.0)
+	test.That(t, j.Degrees[1], test.ShouldEqual, 180.0)
+	test.That(t, JointPositionsToRadians(j), test.ShouldResemble, in)
 }

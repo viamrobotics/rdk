@@ -53,9 +53,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 	nCPU := runtime.NumCPU()
 	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), nCPU, logger)
-	if err != nil {
-		t.Fatal("Failed to initialize arm")
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
@@ -97,9 +95,7 @@ func TestNloptIKinematics(t *testing.T) {
 func BenchNloptIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("nloptBenchmark")
 	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
-	if err != nil {
-		t.Fatal("Failed to initialize arm")
-	}
+	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
 
@@ -134,9 +130,7 @@ func TestJacobianIKinematics(t *testing.T) {
 func BenchJacobianIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("jacobianBenchmark")
 	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
-	if err != nil {
-		t.Fatal("Failed to initialize arm")
-	}
+	test.That(t, err, test.ShouldBeNil)
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
 

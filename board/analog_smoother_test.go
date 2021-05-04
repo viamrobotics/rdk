@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/utils"
 )
 
@@ -42,25 +42,21 @@ func TestAnalogSmoother1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{}, logger)
 	_, ok := tmp.(*AnalogSmoother)
-	assert.False(t, ok)
+	test.That(t, ok, test.ShouldBeFalse)
 
 	as := AnalogSmootherWrap(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)
 	_, ok = as.(*AnalogSmoother)
-	assert.True(t, ok)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	time.Sleep(200 * time.Millisecond)
 
 	v, err := as.Read(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.InDelta(t, 50.0, v, 10.0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, v, test.ShouldAlmostEqual, 50.0, 10.0)
 
 	err = utils.TryClose(as)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }

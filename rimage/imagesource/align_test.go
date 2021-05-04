@@ -10,6 +10,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 )
 
 type alignTestHelper struct {
@@ -23,14 +24,10 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
 	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	fixed, err := dc.aligner.AlignImageWithDepth(ii)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(fixed.Color, "color-fixed")
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
@@ -38,13 +35,9 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
 	pc, err := fixed.ToPointCloud()
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	roundTrip, err := dc.aligner.PointCloudToImageWithDepth(pc)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
 
 	return nil
@@ -53,43 +46,29 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
 	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestAlignIntelMatrices(t *testing.T) {
 	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
-	if c == nil {
-		t.Fatal("no front")
-	}
+	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestAlignGripper(t *testing.T) {
 	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
-	if c == nil {
-		t.Fatal("no combined")
-	}
+	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &alignTestHelper{c.Attributes})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }

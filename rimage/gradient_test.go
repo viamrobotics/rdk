@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 )
 
@@ -36,52 +36,44 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			p := image.Point{x, y}
-			assert.Equal(t, vf.Get(p).Magnitude(), magMat.At(y, x))
-			assert.Equal(t, vf.Get(p).Direction(), dirMat.At(y, x))
+			test.That(t, magMat.At(y, x), test.ShouldEqual, vf.Get(p).Magnitude())
+			test.That(t, dirMat.At(y, x), test.ShouldEqual, vf.Get(p).Direction())
 		}
 	}
 	// turn back into VectorField2D
 	vf2, err := VectorField2DFromDense(magMat, dirMat)
-	if err != nil {
-		t.Error(err)
-	}
-	assert.Equal(t, &vf, vf2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vf2, test.ShouldResemble, &vf)
 
 }
 
 func TestSobelFilter(t *testing.T) {
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	gradients := SobelFilter(dm)
-	assert.Equal(t, dm.Height()-2, gradients.Height())
-	assert.Equal(t, dm.Width()-2, gradients.Width())
+	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height()-2)
+	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width()-2)
 	// reminder: left-handed coordinate system. +x is right, +y is down.
 	// (223,100) is right edge of circle
-	assert.Equal(t, 0., gradients.GetVec2D(223, 100).Direction())
+	test.That(t, gradients.GetVec2D(223, 100).Direction(), test.ShouldEqual, 0.)
 	// (149,173) is bottom edge of circle
-	assert.Equal(t, math.Pi/2., gradients.GetVec2D(149, 173).Direction())
+	test.That(t, gradients.GetVec2D(149, 173).Direction(), test.ShouldEqual, math.Pi/2.)
 	// (76,100) is left edge of circle
-	assert.Equal(t, math.Pi, gradients.GetVec2D(76, 100).Direction())
+	test.That(t, gradients.GetVec2D(76, 100).Direction(), test.ShouldEqual, math.Pi)
 	// (149,26) is top edge of circle
-	assert.Equal(t, 3.*math.Pi/2., gradients.GetVec2D(149, 26).Direction())
+	test.That(t, gradients.GetVec2D(149, 26).Direction(), test.ShouldEqual, 3.*math.Pi/2.)
 
 	img := gradients.ToPrettyPicture()
 	err = writePicture(img, outDir+"/circle_gradient.png")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }
 
 func BenchmarkSobelFilter(b *testing.B) {
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/shelf_grayscale.png"))
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		_ = SobelFilter(dm)
 	}

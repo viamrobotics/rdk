@@ -10,7 +10,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 
 	"github.com/edaniels/golog"
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestFourWheelBase1(t *testing.T) {
@@ -32,12 +32,10 @@ func TestFourWheelBase1(t *testing.T) {
 		},
 		golog.Global,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = CreateFourWheelBase(context.Background(), r, api.ComponentConfig{}, golog.Global)
-	assert.NotNil(t, err)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := api.ComponentConfig{
 		Attributes: api.AttributeMap{
@@ -50,94 +48,80 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	basebase, err := CreateFourWheelBase(context.Background(), r, cfg, golog.Global)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.NotNil(t, basebase)
-	base, ok := basebase.(*fourWheelBase)
-	assert.True(t, ok)
+	baseBase, err := CreateFourWheelBase(context.Background(), r, cfg, golog.Global)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, baseBase, test.ShouldNotBeNil)
+	base, ok := baseBase.(*fourWheelBase)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
 		temp, err := base.WidthMillis(ctx)
-		assert.Nil(t, err)
-		assert.Equal(t, 100, temp)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, temp, test.ShouldEqual, 100)
 	})
 
 	t.Run("math", func(t *testing.T) {
 		d, rpm, rotations := base.straightDistanceToMotorInfo(1000, 1000)
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, d)
-		assert.Equal(t, 60.0, rpm)
-		assert.Equal(t, 1.0, rotations)
+		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpm, test.ShouldEqual, 60.0)
+		test.That(t, rotations, test.ShouldEqual, 1.0)
 
 		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, 1000)
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, d)
-		assert.Equal(t, 60.0, rpm)
-		assert.Equal(t, 1.0, rotations)
+		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rpm, test.ShouldEqual, 60.0)
+		test.That(t, rotations, test.ShouldEqual, 1.0)
 
 		d, rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, d)
-		assert.Equal(t, 60.0, rpm)
-		assert.Equal(t, 1.0, rotations)
+		test.That(t, d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rpm, test.ShouldEqual, 60.0)
+		test.That(t, rotations, test.ShouldEqual, 1.0)
 	})
 
 	t.Run("waitForMotorsToStop", func(t *testing.T) {
 		err := base.Stop(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 		err = base.allMotors[0].Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 		isOn, err := base.allMotors[0].IsOn(context.Background())
-		assert.Nil(t, err)
-		assert.True(t, isOn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, isOn, test.ShouldBeTrue)
 
 		err = base.waitForMotorsToStop(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.False(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
 		}
 
 		err = base.waitForMotorsToStop(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.False(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
 		}
 
 	})
 
-	assert.Nil(t, base.Close())
+	test.That(t, base.Close(), test.ShouldBeNil)
 
 	t.Run("go no block", func(t *testing.T) {
 		moved, err := base.MoveStraight(ctx, 10000, 1000, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, moved, 10000)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moved, test.ShouldEqual, 10000)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.True(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeTrue)
 		}
 
 		err = base.Stop(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 	})
 
@@ -151,15 +135,13 @@ func TestFourWheelBase1(t *testing.T) {
 		}()
 
 		moved, err := base.MoveStraight(ctx, 10000, 1000, true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, moved, 10000)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, moved, test.ShouldEqual, 10000)
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.False(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
 		}
 
 	})
@@ -168,32 +150,28 @@ func TestFourWheelBase1(t *testing.T) {
 		// i'm only testing pieces that are correct
 
 		leftDirection, _, rotations := base.spinMath(90, 10)
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, leftDirection)
-		assert.InEpsilon(t, .0785, rotations, .001)
+		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
 		leftDirection, _, rotations = base.spinMath(-90, 10)
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, leftDirection)
-		assert.InEpsilon(t, .0785, rotations, .001)
+		test.That(t, leftDirection, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+		test.That(t, rotations, test.ShouldAlmostEqual, .0785, .001)
 
 	})
 
 	t.Run("spin no block", func(t *testing.T) {
 		spun, err := base.Spin(ctx, 5, 5, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, spun, float64(5))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spun, test.ShouldEqual, float64(5))
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.True(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeTrue)
 		}
 
 		err = base.Stop(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 	})
 
@@ -207,15 +185,13 @@ func TestFourWheelBase1(t *testing.T) {
 		}()
 
 		spun, err := base.Spin(ctx, 5, 5, true)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, spun, float64(5))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spun, test.ShouldEqual, float64(5))
 
 		for _, m := range base.allMotors {
 			isOn, err := m.IsOn(context.Background())
-			assert.Nil(t, err)
-			assert.False(t, isOn)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
 		}
 
 	})

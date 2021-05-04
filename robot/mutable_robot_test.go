@@ -19,74 +19,51 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := api.ReadConfig("data/cfgtest1.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robot.NewRobot(context.Background(), cfg, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		if err := r.Close(); err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, r.Close(), test.ShouldBeNil)
 	}()
 
 	pic, _, err := r.CameraByName("c1").Next(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	bounds := pic.Bounds()
 
-	if bounds.Max.X < 100 {
-		t.Errorf("pictures seems wrong %d %d", bounds.Max.X, bounds.Max.Y)
-	}
+	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 100)
 
-	assert.Equal(t, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")), cfg.Components[0].Attributes["bar"])
+	test.That(t, cfg.Components[0].Attributes["bar"], test.ShouldEqual, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")))
 }
 
 func TestConfigFake(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := api.ReadConfig("data/fake.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robot.NewRobot(context.Background(), cfg, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := r.Close(); err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r.Close(), test.ShouldBeNil)
 }
 
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg, err := api.ReadConfig("data/fake.json")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robot.NewRobot(context.Background(), cfg, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	port, err := utils.TryReserveRandomPort()
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Port = port
 
@@ -111,14 +88,10 @@ func TestConfigRemote(t *testing.T) {
 	}
 
 	r2, err := robot.NewRobot(context.Background(), remoteConfig, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	status, err := r2.Status(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatus := &pb.Status{
 		Arms: map[string]*pb.ArmStatus{
@@ -184,13 +157,8 @@ func TestConfigRemote(t *testing.T) {
 	cancel()
 	<-webDone
 
-	if err := r.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := r2.Close(); err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, r.Close(), test.ShouldBeNil)
+	test.That(t, r2.Close(), test.ShouldBeNil)
 }
 
 type dummyBoard struct {
