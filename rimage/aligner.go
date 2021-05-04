@@ -25,12 +25,37 @@ func (i *ImageWithDepth) SetAligner(al DepthColorAligner) {
 }
 
 func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
+	pc := pointcloud.New()
+	var err error
 	if i.aligner == nil {
-		return nil, fmt.Errorf("no DepthColorAligner set in ImageWithDepth for projections")
+		pc, err = defaultToPointCloud(i)
+	} else {
+		pc, err = i.aligner.ImageWithDepthToPointCloud(i)
 	}
-	pc, err := i.aligner.ImageWithDepthToPointCloud(i)
 	if err != nil {
 		err = fmt.Errorf("error calling ToPointCloud() on ImageWithDepth - %s", err)
 	}
 	return pc, err
+}
+
+// Projections to pointclouds are done in a naive way that don't take any camera parameters into account
+func defaultToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
+	pc := pointcloud.New()
+	height := ii.Height()
+	width := ii.Width()
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			z := ii.Depth.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			c := ii.Color.GetXY(x, y)
+			r, g, b := c.RGB255()
+			err := pc.Set(pointcloud.NewColoredPoint(float64(x), float64(y), float64(z), color.NRGBA{r, g, b, 255}))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return pc, nil
 }
