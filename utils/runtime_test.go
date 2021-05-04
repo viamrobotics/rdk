@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.uber.org/multierr"
 )
 

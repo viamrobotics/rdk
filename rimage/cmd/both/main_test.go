@@ -8,7 +8,7 @@ import (
 	"go.viam.com/robotcore/testutils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestBothMain(t *testing.T) {

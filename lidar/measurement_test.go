@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/utils"
 	"gonum.org/v1/gonum/mat"
 )

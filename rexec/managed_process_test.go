@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"github.com/fsnotify/fsnotify"
 )
 

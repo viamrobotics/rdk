@@ -8,7 +8,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func Test1(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"github.com/lucasb-eyer/go-colorful"
 )
 

@@ -6,7 +6,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestRegistration(t *testing.T) {

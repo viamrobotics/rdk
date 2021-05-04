@@ -14,7 +14,7 @@ import (
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestMainMain(t *testing.T) {

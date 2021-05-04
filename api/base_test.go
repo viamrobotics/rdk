@@ -8,7 +8,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/testutils/inject"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDoMove(t *testing.T) {

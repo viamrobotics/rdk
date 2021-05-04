@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestWaitSuccessfulDial(t *testing.T) {

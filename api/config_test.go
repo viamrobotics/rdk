@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rexec"

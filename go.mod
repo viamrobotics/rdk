@@ -12,7 +12,6 @@ require (
 	github.com/edaniels/golinters v0.0.4
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
 	github.com/edaniels/gostream v0.0.0-20210409151622-7dff6175faa1
-	github.com/edaniels/test v0.0.0-20210504172934-6a4c5b5d074f
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -51,6 +50,7 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
+	go.viam.com/test v1.1.0
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030

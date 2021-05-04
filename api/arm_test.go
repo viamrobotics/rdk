@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestArmPosition(t *testing.T) {

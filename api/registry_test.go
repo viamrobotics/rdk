@@ -9,7 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestRegistry(t *testing.T) {

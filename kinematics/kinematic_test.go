@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 )
 

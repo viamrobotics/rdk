@@ -8,7 +8,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestCreateJacIKSolver(t *testing.T) {

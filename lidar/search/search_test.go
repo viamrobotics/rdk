@@ -5,7 +5,7 @@ package search
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDevices(t *testing.T) {

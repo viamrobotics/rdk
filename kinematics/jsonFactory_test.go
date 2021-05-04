@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 // Tests that yml files are properly parsed and correctly loaded into the model

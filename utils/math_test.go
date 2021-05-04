@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestAbs1(t *testing.T) {

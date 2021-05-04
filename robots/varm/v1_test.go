@@ -3,7 +3,7 @@ package varm
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 var epsilon = .01

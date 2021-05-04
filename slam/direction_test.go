@@ -6,7 +6,7 @@ import (
 
 	pb "go.viam.com/robotcore/proto/slam/v1"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDirectionFromXY(t *testing.T) {

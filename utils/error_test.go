@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.uber.org/multierr"
 )
 

@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestPiPigpio(t *testing.T) {

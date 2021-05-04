@@ -9,7 +9,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestHTTPSourceNoDepth(t *testing.T) {

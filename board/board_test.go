@@ -3,7 +3,7 @@ package board
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 

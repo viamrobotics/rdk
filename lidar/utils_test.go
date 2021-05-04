@@ -9,7 +9,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/testutils/inject"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestBestAngularResolution(t *testing.T) {
