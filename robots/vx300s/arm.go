@@ -18,6 +18,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
@@ -116,7 +117,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 	}
 
 	a.moveLock.Unlock()
-	return a.WaitForMovement()
+	return a.WaitForMovement(ctx)
 }
 
 // CurrentJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics
@@ -144,12 +145,12 @@ func (a *Arm) Close() error {
 		}
 	}
 	if !alreadyAtSleep {
-		err = a.HomePosition()
+		err = a.HomePosition(context.Background())
 		if err != nil {
 			a.logger.Errorf("Home position error: %s", err)
 		}
 	}
-	err = a.SleepPosition()
+	err = a.SleepPosition(context.Background())
 	if err != nil {
 		a.logger.Errorf("Sleep pos error: %s", err)
 	}
@@ -282,7 +283,7 @@ func (a *Arm) JointTo(jointName string, pos int, block bool) {
 }
 
 //Go back to the sleep position, ready to turn off torque
-func (a *Arm) SleepPosition() error {
+func (a *Arm) SleepPosition(ctx context.Context) error {
 	a.moveLock.Lock()
 	sleepWait := false
 	a.JointTo("Waist", 2048, sleepWait)
@@ -292,7 +293,7 @@ func (a *Arm) SleepPosition() error {
 	a.JointTo("Forearm_rot", 2048, sleepWait)
 	a.JointTo("Elbow", 3090, sleepWait)
 	a.moveLock.Unlock()
-	return a.WaitForMovement()
+	return a.WaitForMovement(ctx)
 }
 
 func (a *Arm) GetMoveLock() *sync.Mutex {
@@ -300,7 +301,7 @@ func (a *Arm) GetMoveLock() *sync.Mutex {
 }
 
 //Go to the home position
-func (a *Arm) HomePosition() error {
+func (a *Arm) HomePosition(ctx context.Context) error {
 	a.moveLock.Lock()
 
 	wait := false
@@ -308,17 +309,19 @@ func (a *Arm) HomePosition() error {
 		a.JointTo(jointName, 2048, wait)
 	}
 	a.moveLock.Unlock()
-	return a.WaitForMovement()
+	return a.WaitForMovement(ctx)
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving
-func (a *Arm) WaitForMovement() error {
+func (a *Arm) WaitForMovement(ctx context.Context) error {
 	a.moveLock.Lock()
 	defer a.moveLock.Unlock()
 	allAtPos := false
 
 	for !allAtPos {
-		time.Sleep(100 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return ctx.Err()
+		}
 		allAtPos = true
 		for _, s := range a.GetAllServos() {
 			isMoving, err := s.Moving()

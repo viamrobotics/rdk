@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"go.viam.com/robotcore/utils"
+
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
@@ -62,13 +64,13 @@ func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
 		outFile = outFile + ".png"
 	}
 	atomic.AddInt32(&pCtx.d.pendingImages, 1)
-	go func() {
+	utils.PanicCapturingGo(func() {
 		err := WriteImageToFile(outFile, img)
 		atomic.AddInt32(&pCtx.d.pendingImages, -1)
 		if err != nil {
 			panic(err)
 		}
-	}()
+	})
 	pCtx.addImageCell(outFile)
 }
 

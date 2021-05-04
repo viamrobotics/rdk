@@ -15,13 +15,14 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
 func init() {
 	api.RegisterArm("eva", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
-		return NewEva(config.Host, config.Attributes, logger)
+		return NewEva(ctx, config.Host, config.Attributes, logger)
 	})
 }
 
@@ -62,7 +63,7 @@ type eva struct {
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	data, err := e.DataSnapshot()
+	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
@@ -80,7 +81,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := api.JointPositionsToRadians(newPositions)
 
-	err := e.doMoveJoints(radians)
+	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
 		return nil
 	}
@@ -89,25 +90,25 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPo
 		return err
 	}
 
-	err2 := e.resetErrors()
+	err2 := e.resetErrors(ctx)
 	if err2 != nil {
 		return fmt.Errorf("move failure, and couldn't reset errors %s %s", err, err2)
 	}
 
-	return e.doMoveJoints(radians)
+	return e.doMoveJoints(ctx, radians)
 }
 
-func (e *eva) doMoveJoints(joints []float64) error {
+func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	e.moveLock.Lock()
 	defer e.moveLock.Unlock()
 
-	err := e.apiLock()
+	err := e.apiLock(ctx)
 	if err != nil {
 		return err
 	}
-	defer e.apiUnlock()
+	defer e.apiUnlock(ctx)
 
-	return e.apiControlGoTo(joints, true)
+	return e.apiControlGoTo(ctx, joints, true)
 }
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
@@ -118,11 +119,11 @@ func (e *eva) Close() error {
 	return nil
 }
 
-func (e *eva) apiRequest(method string, path string, payload interface{}, auth bool, out interface{}) error {
-	return e.apiRequestLower(method, path, payload, auth, out, true)
+func (e *eva) apiRequest(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}) error {
+	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }
 
-func (e *eva) apiRequestLower(method string, path string, payload interface{}, auth bool, out interface{}, retry bool) error {
+func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}, retry bool) error {
 	fullPath := fmt.Sprintf("http://%s/api/%s/%s", e.host, e.version, path)
 
 	var reqReader io.Reader = nil
@@ -138,6 +139,7 @@ func (e *eva) apiRequestLower(method string, path string, payload interface{}, a
 	if err != nil {
 		return err
 	}
+	req = req.WithContext(ctx)
 
 	if auth {
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", e.sessionToken))
@@ -160,13 +162,13 @@ func (e *eva) apiRequestLower(method string, path string, payload interface{}, a
 			Token string
 		}
 		t := Temp{}
-		err = e.apiRequestLower("POST", "auth", map[string]string{"token": e.token}, false, &t, false)
+		err = e.apiRequestRetry(ctx, "POST", "auth", map[string]string{"token": e.token}, false, &t, false)
 		if err != nil {
 			return err
 		}
 
 		e.sessionToken = t.Token
-		return e.apiRequestLower(method, path, payload, auth, out, false)
+		return e.apiRequestRetry(ctx, method, path, payload, auth, out, false)
 	}
 
 	if res.StatusCode != 200 {
@@ -194,13 +196,13 @@ func (e *eva) apiRequestLower(method string, path string, payload interface{}, a
 	return decoder.Decode(out)
 }
 
-func (e *eva) apiName() (string, error) {
+func (e *eva) apiName(ctx context.Context) (string, error) {
 	type Temp struct {
 		Name string
 	}
 	t := Temp{}
 
-	err := e.apiRequest("GET", "name", nil, false, &t)
+	err := e.apiRequest(ctx, "GET", "name", nil, false, &t)
 
 	if err != nil {
 		return "", err
@@ -209,57 +211,62 @@ func (e *eva) apiName() (string, error) {
 	return t.Name, nil
 }
 
-func (e *eva) resetErrors() error {
+func (e *eva) resetErrors(ctx context.Context) error {
 	e.moveLock.Lock()
 	defer e.moveLock.Unlock()
 
-	err := e.apiLock()
+	err := e.apiLock(ctx)
 	if err != nil {
 		return err
 	}
-	defer e.apiUnlock()
+	defer e.apiUnlock(ctx)
 
-	err = e.apiRequest("POST", "controls/reset_errors", nil, true, nil)
-	time.Sleep(100 * time.Millisecond)
-	return err
+	err = e.apiRequest(ctx, "POST", "controls/reset_errors", nil, true, nil)
+	if err != nil {
+		return err
+	}
+	utils.SelectContextOrWait(ctx, 100*time.Millisecond)
+	return ctx.Err()
 }
 
-func (e *eva) DataSnapshot() (evaData, error) {
+func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	type Temp struct {
 		Snapshot evaData
 	}
 	res := Temp{}
 
-	err := e.apiRequest("GET", "data/snapshot", nil, true, &res)
+	err := e.apiRequest(ctx, "GET", "data/snapshot", nil, true, &res)
 	return res.Snapshot, err
 }
 
-func (e *eva) apiControlGoTo(joints []float64, block bool) error {
+func (e *eva) apiControlGoTo(ctx context.Context, joints []float64, block bool) error {
 	body := map[string]interface{}{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
-	err := e.apiRequest("POST", "controls/go_to", &body, true, nil)
+	err := e.apiRequest(ctx, "POST", "controls/go_to", &body, true, nil)
 	if err != nil {
 		return err
 	}
 
 	if block {
 		e.logger.Debugf("i don't know how to block")
-		time.Sleep(1000 * time.Millisecond)
+		if utils.SelectContextOrWait(ctx, time.Second) {
+			return ctx.Err()
+		}
 	}
 	return nil
 }
 
-func (e *eva) apiLock() error {
-	return e.apiRequest("POST", "controls/lock", nil, true, nil)
+func (e *eva) apiLock(ctx context.Context) error {
+	return e.apiRequest(ctx, "POST", "controls/lock", nil, true, nil)
 }
 
-func (e *eva) apiUnlock() {
-	err := e.apiRequest("DELETE", "controls/lock", nil, true, nil)
+func (e *eva) apiUnlock(ctx context.Context) {
+	err := e.apiRequest(ctx, "DELETE", "controls/lock", nil, true, nil)
 	if err != nil {
 		e.logger.Debugf("eva unlock failed: %s", err)
 	}
 }
 
-func NewEva(host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, error) {
+func NewEva(ctx context.Context, host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, error) {
 	e := &eva{
 		host:    host,
 		version: "v1",
@@ -267,7 +274,7 @@ func NewEva(host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, 
 		logger:  logger,
 	}
 
-	name, err := e.apiName()
+	name, err := e.apiName(ctx)
 	if err != nil {
 		return nil, err
 	}

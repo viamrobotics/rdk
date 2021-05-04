@@ -32,7 +32,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 	if millisPerSec != 0 {
 		b.robot.logger.Info("Base.MoveStraight does not support speed")
 	}
-	if err := b.TranslateBy(float64(distanceMillis)/1000, block); err != nil {
+	if err := b.TranslateBy(ctx, float64(distanceMillis)/1000, block); err != nil {
 		return 0, err
 	}
 	return distanceMillis, nil
@@ -42,7 +42,7 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	if degsPerSec != 0 {
 		b.robot.logger.Info("Base.Spin does not support degsPerSec")
 	}
-	if err := b.RotateBy(angleDeg, block); err != nil {
+	if err := b.RotateBy(ctx, angleDeg, block); err != nil {
 		return math.NaN(), err
 	}
 	return angleDeg, nil
@@ -63,7 +63,7 @@ func (b *Base) Close() error {
 
 const baseTranslateSpeed = 1.0 / 6 // m/sec
 
-func (b *Base) TranslateBy(meters float64, block bool) error {
+func (b *Base) TranslateBy(ctx context.Context, meters float64, block bool) error {
 	b.baseObj.CallMethod("translate_by", python.PyFloat_FromDouble(meters))
 	if err := checkPythonErr(); err != nil {
 		return err
@@ -72,14 +72,16 @@ func (b *Base) TranslateBy(meters float64, block bool) error {
 		return err
 	}
 	if block {
-		time.Sleep(time.Duration(math.Ceil(math.Abs(meters)/baseTranslateSpeed)) * time.Second)
+		if !utils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(meters)/baseTranslateSpeed))*time.Second) {
+			return ctx.Err()
+		}
 	}
 	return nil
 }
 
 const baseRotateSpeed = 2 * math.Pi / 5 // rad/sec
 
-func (b *Base) RotateBy(angleDeg float64, block bool) error {
+func (b *Base) RotateBy(ctx context.Context, angleDeg float64, block bool) error {
 	rads := -utils.DegToRad(angleDeg)
 	b.baseObj.CallMethod("rotate_by", python.PyFloat_FromDouble(rads))
 	if err := checkPythonErr(); err != nil {
@@ -89,7 +91,9 @@ func (b *Base) RotateBy(angleDeg float64, block bool) error {
 		return err
 	}
 	if block {
-		time.Sleep(time.Duration(math.Ceil(math.Abs(rads)/baseRotateSpeed)) * time.Second)
+		if !utils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(rads)/baseRotateSpeed))*time.Second) {
+			return ctx.Err()
+		}
 	}
 	return nil
 }

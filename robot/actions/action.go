@@ -1,12 +1,13 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 
 	"go.viam.com/robotcore/api"
 )
 
-type Action func(r api.Robot)
+type Action func(ctx context.Context, r api.Robot)
 
 var (
 	actionRegistry = map[string]Action{}

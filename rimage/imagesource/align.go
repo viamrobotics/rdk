@@ -10,6 +10,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -118,7 +119,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	if dc.debug {
 		if !alignCurrentlyWriting {
 			alignCurrentlyWriting = true
-			go func() {
+			utils.PanicCapturingGo(func() {
 				defer func() { alignCurrentlyWriting = false }()
 				fn := artifact.MustNewPath(fmt.Sprintf("rimage/imagesource/align-test-%d.both.gz", time.Now().Unix()))
 				err := ii.WriteTo(fn)
@@ -127,7 +128,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 				} else {
 					dc.logger.Debugf("wrote debug file to %s", fn)
 				}
-			}()
+			})
 		}
 	}
 	aligned, err := dc.aligner.AlignImageWithDepth(ii)

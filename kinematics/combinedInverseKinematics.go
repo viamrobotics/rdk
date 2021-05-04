@@ -3,8 +3,10 @@ package kinematics
 import (
 	"sync"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/utils"
+
+	"github.com/edaniels/golog"
 )
 
 type CombinedIK struct {
@@ -97,10 +99,10 @@ func (ik *CombinedIK) Solve() bool {
 		solver.GetMdl().SetPosition(pos)
 		solver.GetMdl().ForwardPosition()
 		thisSolver := solver
-		go func() {
+		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 			runSolver(thisSolver, c, noMoreSolutions)
-		}()
+		})
 	}
 
 	returned := 0

@@ -189,7 +189,7 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarCompone
 	compassDone := make(chan struct{})
 
 	quitSignaler := utils.ContextMainQuitSignal(ctx)
-	go func() {
+	utils.PanicCapturingGo(func() {
 		defer close(compassDone)
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -230,7 +230,7 @@ func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarCompone
 				return
 			}
 		}
-	}()
+	})
 
 	return compassDone, nil
 }

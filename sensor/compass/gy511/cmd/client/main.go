@@ -68,27 +68,21 @@ func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription,
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()
 			}
-			select {
-			case <-ctx.Done():
+			if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
 				return ctx.Err()
-			default:
 			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-ticker.C:
-				readings, err := sensor.Readings(ctx)
-				if err != nil {
-					logger.Errorw("failed to get sensor reading", "error", err)
-				} else {
-					logger.Infow("readings", "data", readings)
-				}
-				heading, err := sensor.Heading(ctx)
-				if err != nil {
-					logger.Errorw("failed to get sensor heading", "error", err)
-				} else {
-					logger.Infow("heading", "data", heading)
-				}
+
+			readings, err := sensor.Readings(ctx)
+			if err != nil {
+				logger.Errorw("failed to get sensor reading", "error", err)
+			} else {
+				logger.Infow("readings", "data", readings)
+			}
+			heading, err := sensor.Heading(ctx)
+			if err != nil {
+				logger.Errorw("failed to get sensor heading", "error", err)
+			} else {
+				logger.Infow("heading", "data", heading)
 			}
 			return nil
 		}()

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/serial"
+	"go.viam.com/robotcore/utils"
 
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
@@ -87,8 +88,7 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev *Device, er
 	}
 
 	d.activeWorkers.Add(1)
-	go func() {
-		defer d.activeWorkers.Done()
+	utils.ManagedGo(func() {
 		for {
 			select {
 			case <-d.closeCh:
@@ -106,7 +106,7 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev *Device, er
 			ma.Add(heading)
 			d.heading.Store(ma.Avg())
 		}
-	}()
+	}, d.activeWorkers.Done)
 	return d, nil
 }
 

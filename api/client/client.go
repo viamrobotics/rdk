@@ -18,6 +18,7 @@ import (
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -91,10 +92,11 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	if opts.RefreshEvery != 0 {
 		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
-		go func() {
-			defer rc.activeBackgroundWorkers.Done()
+		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, opts.RefreshEvery)
-		}()
+		}, func() {
+			rc.activeBackgroundWorkers.Done()
+		})
 	}
 	return rc, nil
 }
@@ -113,16 +115,8 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-ctx.Done():
+		if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
 			return
-		default:
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
 		}
 
 		if err := rc.Refresh(ctx); err != nil {

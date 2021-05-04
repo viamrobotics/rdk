@@ -54,14 +54,14 @@ func contextualMain(main func(ctx context.Context, args []string, logger golog.L
 	var startOnce sync.Once
 	start := func() {
 		startOnce.Do(func() {
-			go func() {
+			utils.PanicCapturingGo(func() {
 				// if main is not a daemon like function or does not error out, just be "ready"
 				// after execution is complete.
 				defer readyF()
 				defer close(mainDone)
 				err = main(ctx, append([]string{"main"}, args...), logger)
 				doneC <- err
-			}()
+			})
 		})
 	}
 	earlyDone := func(t *testing.T) {
@@ -93,7 +93,7 @@ func contextualMain(main func(ctx context.Context, args []string, logger golog.L
 			}
 		}
 	}
-	go discardIter()
+	utils.PanicCapturingGo(discardIter)
 
 	return ContextualMainExecution{
 		Ready: readyC,
@@ -113,7 +113,7 @@ func contextualMain(main func(ctx context.Context, args []string, logger golog.L
 			started := make(chan struct{})
 			close(closeDiscard)
 			<-discardClosed
-			go func() {
+			utils.PanicCapturingGo(func() {
 				defer expectMu.Unlock()
 				waitIters = make(chan struct{})
 				totalIters := 0
@@ -136,10 +136,10 @@ func contextualMain(main func(ctx context.Context, args []string, logger golog.L
 					// swap to discard
 					closeDiscard = make(chan struct{})
 					discardClosed = make(chan struct{})
-					go discardIter()
+					utils.PanicCapturingGo(discardIter)
 					return
 				}
-			}()
+			})
 			<-started
 		},
 		WaitIters: func(t *testing.T) {
@@ -189,7 +189,7 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 			cancelCtx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			var doneErr error
-			go func() {
+			utils.PanicCapturingGo(func() {
 				err := utils.FilterOutError(<-exec.Done, context.Canceled)
 				doneErr = err
 				waitMu.Lock()
@@ -204,7 +204,7 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 				}
 				waitMu.Unlock()
 				done <- err
-			}()
+			})
 			if tc.During != nil {
 				tc.During(cancelCtx, t, &exec)
 				waitMu.Lock()

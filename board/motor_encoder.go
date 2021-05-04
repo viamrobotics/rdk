@@ -8,6 +8,7 @@ import (
 	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -101,7 +102,7 @@ type encodedMotor struct {
 // Multiple values should be updated atomically at the same time.
 type encodedMotorState struct {
 	regulated       bool
-	desiredRPM      float64 // <= 0 means thread should do nothing
+	desiredRPM      float64 // <= 0 means worker should do nothing
 	lastPowerPct    float32
 	curDirection    pb.DirectionRelative
 	setPoint        int64
@@ -186,26 +187,31 @@ func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 	}
 	started := make(chan struct{})
 	m.activeBackgroundWorkers.Add(1)
-	go m.rpmMonitor(ctx, func() {
-		close(started)
-	})
+	var closeOnce bool
+	utils.ManagedGo(func() {
+		m.rpmMonitor(ctx, func() {
+			if !closeOnce {
+				closeOnce = true
+				close(started)
+			}
+		})
+	}, m.activeBackgroundWorkers.Done)
 	<-started
 }
 
-func (m *encodedMotor) startRegulatorThread(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startRegulatorWorker(ctx context.Context, onStart func()) {
 	if m.encoderB == nil {
-		m.startSingleEncoderThread(ctx, onStart)
+		m.startSingleEncoderWorker(ctx, onStart)
 	} else {
-		m.startRotaryEncoderThread(ctx, onStart)
+		m.startRotaryEncoderWorker(ctx, onStart)
 	}
 }
 
-func (m *encodedMotor) startSingleEncoderThread(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart func()) {
 	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
 	m.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer m.activeBackgroundWorkers.Done()
+	utils.ManagedGo(func() {
 		onStart()
 		_, rpmDebug := getRPMSleepDebug()
 		for {
@@ -241,10 +247,10 @@ func (m *encodedMotor) startSingleEncoderThread(ctx context.Context, onStart fun
 			}
 			m.stateMu.Unlock()
 		}
-	}()
+	}, m.activeBackgroundWorkers.Done)
 }
 
-func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart func()) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
@@ -252,8 +258,7 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 	m.encoderB.AddCallback(chanB)
 
 	m.activeBackgroundWorkers.Add(1)
-	go func() {
-		defer m.activeBackgroundWorkers.Done()
+	utils.ManagedGo(func() {
 		onStart()
 		aLevel := true
 		bLevel := true
@@ -325,12 +330,10 @@ func (m *encodedMotor) startRotaryEncoderThread(ctx context.Context, onStart fun
 			m.stateMu.Unlock()
 
 		}
-	}()
-
+	}, m.activeBackgroundWorkers.Done)
 }
 
 func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
-	defer m.activeBackgroundWorkers.Done()
 	if m.encoder == nil {
 		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
 	}
@@ -344,7 +347,7 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 	m.startedRPMMonitorMu.Unlock()
 
 	// just a convenient place to start the encoder listener
-	m.startRegulatorThread(ctx, onStart)
+	m.startRegulatorWorker(ctx, onStart)
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()

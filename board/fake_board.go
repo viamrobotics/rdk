@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
@@ -76,7 +78,23 @@ func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (b *FakeBoard) Close() error {
 	b.CloseCount++
-	return nil
+	var err error
+	for _, motor := range b.motors {
+		err = multierr.Combine(err, utils.TryClose(motor))
+	}
+
+	for _, servo := range b.servos {
+		err = multierr.Combine(err, utils.TryClose(servo))
+	}
+
+	for _, analog := range b.analogs {
+		err = multierr.Combine(err, utils.TryClose(analog))
+	}
+
+	for _, digital := range b.digitals {
+		err = multierr.Combine(err, utils.TryClose(digital))
+	}
+	return err
 }
 
 func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBoard, error) {

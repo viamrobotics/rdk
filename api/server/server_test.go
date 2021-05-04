@@ -171,7 +171,21 @@ func TestServer(t *testing.T) {
 
 		actionName := utils.RandomAlphaString(5)
 		called := make(chan api.Robot)
-		actions.RegisterAction(actionName, func(r api.Robot) {
+		actions.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
+			called <- r
+		})
+
+		_, err = server.DoAction(context.Background(), &pb.DoActionRequest{
+			Name: actionName,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, <-called, test.ShouldEqual, injectRobot)
+
+		actionName = utils.RandomAlphaString(5)
+		called = make(chan api.Robot)
+		actions.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
+			go utils.TryClose(server)
+			<-ctx.Done()
 			called <- r
 		})
 

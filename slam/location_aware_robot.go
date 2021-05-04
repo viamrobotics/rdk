@@ -488,17 +488,15 @@ func (lar *LocationAwareRobot) updateLoop() {
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	go func() {
+	utils.PanicCapturingGo(func() {
 		select {
 		case <-cancelCtx.Done():
 			return
 		case <-lar.closeCh:
 			cancelFunc()
 		}
-	}()
-	go func() {
-		defer lar.activeWorkers.Done()
-		defer ticker.Stop()
+	})
+	utils.ManagedGo(func() {
 		for {
 			select {
 			case <-lar.closeCh:
@@ -533,7 +531,10 @@ func (lar *LocationAwareRobot) updateLoop() {
 				}
 			}()
 		}
-	}()
+	}, func() {
+		lar.activeWorkers.Done()
+		ticker.Stop()
+	})
 }
 
 const cullTTL = 3

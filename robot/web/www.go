@@ -237,25 +237,25 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot api.Robot, options 
 		mux.Handle(pat.New("/"+handler.Name), handler.Func)
 	}
 
-	// start background threads
+	// start background workers
 
 	if autoCameraTiler != nil {
 		for _, src := range displaySources {
 			autoCameraTiler.AddSource(src)
 		}
 		waitCh := make(chan struct{})
-		go func() {
+		utils.PanicCapturingGo(func() {
 			close(waitCh)
 			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", views[0])
-		}()
+		})
 		<-waitCh
 	} else {
 		for idx, view := range views {
 			waitCh := make(chan struct{})
-			go func() {
+			utils.PanicCapturingGo(func() {
 				close(waitCh)
 				gostream.StreamNamedSource(ctx, displaySources[idx], displayNames[idx], view)
-			}()
+			})
 			<-waitCh
 		}
 	}
@@ -323,7 +323,7 @@ func RunWeb(ctx context.Context, theRobot api.Robot, options Options, logger gol
 		Handler:        h2c.NewHandler(mux, h2s),
 	}
 
-	go func() {
+	utils.PanicCapturingGo(func() {
 		<-ctx.Done()
 		webCloser()
 		defer func() {
@@ -334,12 +334,12 @@ func RunWeb(ctx context.Context, theRobot api.Robot, options Options, logger gol
 		if err := httpServer.Shutdown(context.Background()); err != nil {
 			theRobot.Logger().Errorw("error shutting down", "error", err)
 		}
-	}()
-	go func() {
+	})
+	utils.PanicCapturingGo(func() {
 		if err := rpcServer.Start(); err != nil {
 			theRobot.Logger().Errorw("error starting", "error", err)
 		}
-	}()
+	})
 
 	theRobot.Logger().Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
 	if err := httpServer.Serve(listener); err != http.ErrServerClosed {

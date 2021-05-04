@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -15,33 +16,43 @@ var (
 	ErrStopReading = errors.New("stop reading")
 )
 
-func AnalogSmootherWrap(ctx context.Context, r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
+func AnalogSmootherWrap(r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
 	if c.AverageOverMillis <= 0 {
 		return r
 	}
 
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	as := &AnalogSmoother{
 		Raw:               r,
 		AverageOverMillis: c.AverageOverMillis,
 		SamplesPerSecond:  c.SamplesPerSecond,
 		logger:            logger,
+		cancel:            cancel,
 	}
-	as.Start(ctx)
+	as.Start(cancelCtx)
 	return as
 }
 
 type AnalogSmoother struct {
-	Raw               AnalogReader
-	AverageOverMillis int
-	SamplesPerSecond  int
-	data              *utils.RollingAverage
-	lastError         atomic.Value // errValue
-	logger            golog.Logger
+	Raw                     AnalogReader
+	AverageOverMillis       int
+	SamplesPerSecond        int
+	data                    *utils.RollingAverage
+	lastError               atomic.Value // errValue
+	logger                  golog.Logger
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 type errValue struct {
 	present bool
 	err     error
+}
+
+func (as *AnalogSmoother) Close() error {
+	as.cancel()
+	as.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
@@ -78,7 +89,8 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	as.data = utils.NewRollingAverage(numSamples)
 	nanosBetween := 1e9 / as.SamplesPerSecond
 
-	go func() {
+	as.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
 		for {
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx)
@@ -97,7 +109,9 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			end := time.Now()
 
 			toSleep := int64(nanosBetween) - (end.UnixNano() - start.UnixNano())
-			time.Sleep(time.Duration(toSleep))
+			if !utils.SelectContextOrWait(ctx, time.Duration(toSleep)) {
+				return
+			}
 		}
-	}()
+	}, as.activeBackgroundWorkers.Done)
 }

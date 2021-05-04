@@ -14,6 +14,7 @@ import (
 	"go.viam.com/dynamixel/servo/s_model"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
@@ -65,7 +66,9 @@ func (g *Gripper) Open(ctx context.Context) error {
 			return err
 		}
 		if pos < 2800 {
-			time.Sleep(50 * time.Millisecond)
+			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+				return ctx.Err()
+			}
 		} else {
 			atPos = true
 		}

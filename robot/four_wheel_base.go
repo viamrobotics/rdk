@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -115,7 +116,9 @@ func (base *fourWheelBase) Spin(ctx context.Context, angleDeg float64, degsPerSe
 
 func (base *fourWheelBase) waitForMotorsToStop(ctx context.Context) error {
 	for {
-		time.Sleep(10 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
 
 		anyOn := false
 		anyOff := false

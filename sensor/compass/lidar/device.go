@@ -239,7 +239,7 @@ func (d *Device) groupWorkParallel(ctx context.Context, before beforeParallelGro
 	wait.Add(numGroups)
 	for groupNum := 0; groupNum < numGroups; groupNum++ {
 		groupNumCopy := groupNum
-		go func() {
+		utils.PanicCapturingGo(func() {
 			defer wait.Done()
 			groupNum := groupNumCopy
 
@@ -252,7 +252,7 @@ func (d *Device) groupWorkParallel(ctx context.Context, before beforeParallelGro
 				memberNum++
 			}
 			groupWorkDone()
-		}()
+		})
 	}
 	wait.Wait()
 	return nil

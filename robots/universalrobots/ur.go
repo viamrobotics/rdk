@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/multierr"
 	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
@@ -19,48 +20,89 @@ import (
 
 func init() {
 	api.RegisterArm("ur", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
-		return URArmConnect(config.Host, logger)
+		return URArmConnect(ctx, config.Host, logger)
 	})
 }
 
 type URArm struct {
-	mu       sync.Mutex
-	conn     net.Conn
-	state    RobotState
-	debug    bool
-	haveData bool
-	logger   golog.Logger
+	mu                      sync.Mutex
+	conn                    net.Conn
+	state                   RobotState
+	debug                   bool
+	haveData                bool
+	logger                  golog.Logger
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
+const waitBackgroundWorkersDur = 5 * time.Second
+
 func (arm *URArm) Close() error {
-	// TODO(erh): stop thread
-	// TODO(erh): close socket
+	arm.cancel()
+
+	closeConn := func() {
+		if err := arm.conn.Close(); err != nil && err != net.ErrClosed {
+			arm.logger.Errorw("error closing arm connection", "error", err)
+		}
+	}
+
+	// give the worker some time to close but otherwise we must close the connection
+	// since net.Conns do not utilize contexts.
+	waitCtx, cancel := context.WithTimeout(context.Background(), waitBackgroundWorkersDur)
+	defer cancel()
+	utils.PanicCapturingGo(func() {
+		<-waitCtx.Done()
+		if waitCtx.Err() == context.DeadlineExceeded {
+			closeConn()
+		}
+	})
+
+	arm.activeBackgroundWorkers.Wait()
+	cancel()
+	closeConn()
+
 	return nil
 }
 
-func URArmConnect(host string, logger golog.Logger) (*URArm, error) {
-	conn, err := net.Dial("tcp", host+":30001")
+func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm, error) {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
 		return nil, err
 	}
 
-	arm := &URArm{conn: conn, debug: false, haveData: false, logger: logger}
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	arm := &URArm{
+		conn:     conn,
+		debug:    false,
+		haveData: false,
+		logger:   logger,
+		cancel:   cancel,
+	}
 
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
-	go reader(conn, arm, func() {
-		onDataOnce.Do(func() {
-			close(onData)
-		})
-	}) // TODO(erh): how to shutdown
+	arm.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		if err := reader(cancelCtx, conn, arm, func() {
+			onDataOnce.Do(func() {
+				close(onData)
+			})
+		}); err != nil {
+			logger.Errorw("reader failed", "error", err)
+		}
+	}, arm.activeBackgroundWorkers.Done)
 
 	respondTimeout := 2 * time.Second
 	timer := time.NewTimer(respondTimeout)
+	defer timer.Stop()
 	select {
+	case <-ctx.Done():
+		return nil, multierr.Combine(ctx.Err(), arm.Close())
+	case <-timer.C:
+		return nil, multierr.Combine(fmt.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
 		return arm, nil
-	case <-timer.C:
-		return nil, fmt.Errorf("arm failed to respond in time (%s)", respondTimeout)
 	}
 }
 
@@ -163,7 +205,10 @@ func (arm *URArm) MoveToJointPositionRadians(ctx context.Context, radians []floa
 			)
 		}
 
-		time.Sleep(10 * time.Millisecond) // TODO(erh): make responsive on new message
+		// TODO(erh): make responsive on new message
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
 		slept += 10
 	}
 
@@ -214,8 +259,9 @@ func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error
 				state.CartesianInfo.Rx, state.CartesianInfo.Ry, state.CartesianInfo.Rz)
 
 		}
-		time.Sleep(10 * time.Millisecond)
-
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
 
 }
@@ -227,15 +273,20 @@ func (arm *URArm) AddToLog(msg string) error {
 	return err
 }
 
-func reader(conn io.Reader, arm *URArm, onHaveData func()) {
+func reader(ctx context.Context, conn io.Reader, arm *URArm, onHaveData func()) error {
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		buf := make([]byte, 4)
 		n, err := conn.Read(buf)
 		if err == nil && n != 4 {
 			err = fmt.Errorf("didn't read full int, got: %d", n)
 		}
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		//msgSize := binary.BigEndian.Uint32(buf)
@@ -248,14 +299,14 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 			err = fmt.Errorf("didn't read full msg, got: %d instead of %d", n, restToRead)
 		}
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		switch buf[0] {
 		case 16:
 			state, err := readRobotStateMessage(buf[1:], arm.logger)
 			if err != nil {
-				panic(err)
+				return err
 			}
 			arm.setState(state)
 			onHaveData()
@@ -279,7 +330,7 @@ func reader(conn io.Reader, arm *URArm, onHaveData func()) {
 		case 20:
 			err := readURRobotMessage(buf, arm.logger)
 			if err != nil {
-				panic(err)
+				return err
 			}
 		case 5: // MODBUS_INFO_MESSAGE
 			data := binary.BigEndian.Uint32(buf[1:])
