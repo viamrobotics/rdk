@@ -1,7 +1,7 @@
 package rimage
 
 import (
-	"fmt"
+	"image/color"
 
 	"go.viam.com/robotcore/pointcloud"
 )
@@ -25,21 +25,14 @@ func (i *ImageWithDepth) SetAligner(al DepthColorAligner) {
 }
 
 func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
-	pc := pointcloud.New()
-	var err error
 	if i.aligner == nil {
-		pc, err = defaultToPointCloud(i)
-	} else {
-		pc, err = i.aligner.ImageWithDepthToPointCloud(i)
+		return defaultToPointCloud(i)
 	}
-	if err != nil {
-		err = fmt.Errorf("error calling ToPointCloud() on ImageWithDepth - %s", err)
-	}
-	return pc, err
+	return i.aligner.ImageWithDepthToPointCloud(i)
 }
 
 // Projections to pointclouds are done in a naive way that don't take any camera parameters into account
-func defaultToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
+func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 	height := ii.Height()
 	width := ii.Width()
