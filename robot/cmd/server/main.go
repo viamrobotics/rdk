@@ -55,9 +55,7 @@ func newNetLogger(config *api.CloudConfig) (*netLogger, error) {
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		nl.backgroundWorker(cancelCtx)
-	}, func() {
-		nl.activeBackgroundWorkers.Done()
-	})
+	}, nl.activeBackgroundWorkers.Done)
 	return nl, nil
 }
 
