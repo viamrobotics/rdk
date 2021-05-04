@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	_ "embed" // for embedding camera parameters
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -11,15 +12,19 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rimage/calib"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	_ "github.com/lmittmann/ppm" // register ppm
 )
 
+//go:embed intel515_parameters.json
+var intel515json []byte
+
 func init() {
 	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
-		return NewIntelServerSource(config.Host, config.Port, config.Attributes), nil
+		return NewIntelServerSource(config.Host, config.Port, config.Attributes)
 	})
 	api.RegisterCamera("eliot", api.CameraLookup("intel"))
 
@@ -151,23 +156,33 @@ type IntelServerSource struct {
 	BothURL   string
 	host      string
 	isAligned bool // are the color and depth image already aligned
+	aligner   rimage.DepthColorAligner
 }
 
 func (s *IntelServerSource) IsAligned() bool {
 	return s.isAligned
 }
 
-func NewIntelServerSource(host string, port int, attrs api.AttributeMap) *IntelServerSource {
+func (s *IntelServerSource) Aligner() rimage.DepthColorAligner {
+	return s.aligner
+}
+
+func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*IntelServerSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
 	if has {
 		num = numString.(string)
 	}
+	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
+	if err != nil {
+		return nil, err
+	}
 	return &IntelServerSource{
 		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
 		host:      host,
 		isAligned: attrs.GetBool("aligned", true),
-	}
+		aligner:   aligner,
+	}, nil
 }
 
 func (s *IntelServerSource) Close() error {
@@ -181,5 +196,6 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	}
 
 	img, err := rimage.BothReadFromBytes(allData, s.IsAligned())
+	img.SetAligner(s.Aligner())
 	return img, func() {}, err
 }
