@@ -3,6 +3,8 @@ package api
 import (
 	"time"
 
+	"go.viam.com/robotcore/utils"
+
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"
 )
@@ -48,9 +50,7 @@ func newCloudConfigWatcher(config *CloudConfig, logger golog.Logger) *cloudConfi
 	// supports gRPC streams, use that instead for pushed config updates;
 	// for now just do a small interval.
 	ticker := time.NewTicker(config.RefreshInterval)
-	go func() {
-		defer ticker.Stop()
-		defer close(watcherDoneCh)
+	utils.ManagedGo(func() {
 		for {
 			select {
 			case <-killCh:
@@ -68,7 +68,10 @@ func newCloudConfigWatcher(config *CloudConfig, logger golog.Logger) *cloudConfi
 				}
 			}
 		}
-	}()
+	}, func() {
+		ticker.Stop()
+		close(watcherDoneCh)
+	})
 	return &cloudConfigWatcher{
 		configCh:      configCh,
 		watcherDoneCh: watcherDoneCh,
@@ -107,8 +110,7 @@ func newFSConfigWatcher(configPath string, logger golog.Logger) (*fsConfigWatche
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	killCh := make(chan struct{})
-	go func() {
-		defer close(watcherDoneCh)
+	utils.ManagedGo(func() {
 		for {
 			select {
 			case <-killCh:
@@ -128,7 +130,9 @@ func newFSConfigWatcher(configPath string, logger golog.Logger) (*fsConfigWatche
 				}
 			}
 		}
-	}()
+	}, func() {
+		close(watcherDoneCh)
+	})
 	return &fsConfigWatcher{
 		fsWatcher:     fsWatcher,
 		configCh:      configCh,

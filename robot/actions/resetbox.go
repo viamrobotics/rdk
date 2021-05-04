@@ -8,6 +8,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
@@ -67,7 +68,7 @@ func navigateWx250sFromDuck() []*pb.JointPositions {
 	return positions
 }
 
-func OpenBox(b board.Board, gentle bool) error {
+func OpenBox(ctx context.Context, b board.Board, gentle bool) error {
 	lSwitch := b.DigitalInterrupt("open")
 	currentValue := lSwitch.Value()
 	startValue := lSwitch.Value()
@@ -84,13 +85,15 @@ func OpenBox(b board.Board, gentle bool) error {
 
 	// Back off in case we're already at the limit switch
 	if gentle {
-		err := shakeServo.Move(context.TODO(), 100)
+		err := shakeServo.Move(ctx, 100)
 		if err != nil {
 			return err
 		}
-		time.Sleep(300 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 300*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
-	err := shakeServo.Move(context.TODO(), uint8(servoSpeed))
+	err := shakeServo.Move(ctx, uint8(servoSpeed))
 	if err != nil {
 		return err
 	}
@@ -99,20 +102,20 @@ func OpenBox(b board.Board, gentle bool) error {
 		currentValue = lSwitch.Value()
 	}
 
-	err = shakeServo.Move(context.TODO(), 90)
+	err = shakeServo.Move(ctx, 90)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func CloseBox(b board.Board) error {
+func CloseBox(ctx context.Context, b board.Board) error {
 	lSwitch := b.DigitalInterrupt("closed")
 	currentValue := lSwitch.Value()
 	startValue := lSwitch.Value()
 
 	shakeServo := b.Servo("shake")
-	err := shakeServo.Move(context.TODO(), 110)
+	err := shakeServo.Move(ctx, 110)
 	if err != nil {
 		return err
 	}
@@ -122,125 +125,137 @@ func CloseBox(b board.Board) error {
 		currentValue = lSwitch.Value()
 	}
 
-	err = shakeServo.Move(context.TODO(), 90)
+	err = shakeServo.Move(ctx, 90)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func TiltField(b board.Board) error {
+func TiltField(ctx context.Context, b board.Board) error {
 	tiltServo := b.Servo("tilt")
-	return tiltServo.Move(context.TODO(), 70)
+	return tiltServo.Move(ctx, 70)
 }
 
-func FlatField(b board.Board) error {
+func FlatField(ctx context.Context, b board.Board) error {
 	tiltServo := b.Servo("tilt")
-	return tiltServo.Move(context.TODO(), 32)
+	return tiltServo.Move(ctx, 32)
 }
 
-func ReplaceObject(theRobot api.Robot) error {
+func ReplaceObject(ctx context.Context, theRobot api.Robot) error {
 	myArm := theRobot.ArmByName("pieceArm")
 	myGripper := theRobot.GripperByName("pieceGripper")
-	err := myGripper.Open(context.TODO())
+	err := myGripper.Open(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	err = myArm.MoveToJointPositions(ctx, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 	if err != nil {
 		return err
 	}
 
 	toDuckPositions := navigateWx250sToDuck()
 	for _, intPosition := range toDuckPositions {
-		err = myArm.MoveToJointPositions(context.TODO(), intPosition)
+		err = myArm.MoveToJointPositions(ctx, intPosition)
 		if err != nil {
 			return err
 		}
 	}
 	// TODO(pl): search pattern, additional shaking, etc if gripper grabs nothing
-	_, err = myGripper.Grab(context.TODO())
+	_, err = myGripper.Grab(ctx)
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, time.Second) {
+		return ctx.Err()
+	}
 	fromDuckPositions := navigateWx250sFromDuck()
 	for _, intPosition := range fromDuckPositions {
-		err = myArm.MoveToJointPositions(context.TODO(), intPosition)
+		err = myArm.MoveToJointPositions(ctx, intPosition)
 		if err != nil {
 			return err
 		}
 	}
-	err = myGripper.Open(context.TODO())
+	err = myGripper.Open(ctx)
 	if err != nil {
 		return err
 	}
 
-	time.Sleep(1000 * time.Millisecond)
-	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{-86, 5, 5, 0, 70, 0}})
+	if !utils.SelectContextOrWait(ctx, time.Second) {
+		return ctx.Err()
+	}
+	err = myArm.MoveToJointPositions(ctx, &pb.JointPositions{Degrees: []float64{-86, 5, 5, 0, 70, 0}})
 	if err != nil {
 		return err
 	}
 
-	err = myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{-77, 0, 0, 0, 0, 0}})
+	err = myArm.MoveToJointPositions(ctx, &pb.JointPositions{Degrees: []float64{-77, 0, 0, 0, 0, 0}})
 	if err != nil {
 		return err
 	}
 
-	return myArm.MoveToJointPositions(context.TODO(), &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
+	return myArm.MoveToJointPositions(ctx, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}})
 }
 
-func ResetBoxSteps(theRobot api.Robot, shakes int) error {
+func ResetBoxSteps(ctx context.Context, theRobot api.Robot, shakes int) error {
 	resetBoard := theRobot.BoardByName("resetDriveBoard")
 	if resetBoard == nil {
 		return fmt.Errorf("robot does not have a resetDriveBoard")
 	}
 	// Dump object into the resetter
-	err := OpenBox(resetBoard, true)
+	err := OpenBox(ctx, resetBoard, true)
 	if err != nil {
 		return err
 	}
-	err = TiltField(resetBoard)
+	err = TiltField(ctx, resetBoard)
 	if err != nil {
 		return err
 	}
-	time.Sleep(2000 * time.Millisecond)
-	err = FlatField(resetBoard)
+	if !utils.SelectContextOrWait(ctx, 2*time.Second) {
+		return ctx.Err()
+	}
+	err = FlatField(ctx, resetBoard)
 	if err != nil {
 		return err
 	}
 
 	// Shake the resetter the specified number of times
 	for i := 0; i < shakes-1; i++ {
-		err = CloseBox(resetBoard)
+		err = CloseBox(ctx, resetBoard)
 		if err != nil {
 			return err
 		}
-		time.Sleep(500 * time.Millisecond)
-		err = OpenBox(resetBoard, false)
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
+		err = OpenBox(ctx, resetBoard, false)
 		if err != nil {
 			return err
 		}
-		time.Sleep(500 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
-	err = CloseBox(resetBoard)
+	err = CloseBox(ctx, resetBoard)
 	if err != nil {
 		return err
 	}
-	time.Sleep(500 * time.Millisecond)
-	err = OpenBox(resetBoard, true)
+	if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		return ctx.Err()
+	}
+	err = OpenBox(ctx, resetBoard, true)
 	if err != nil {
 		return err
 	}
 
 	// Grab the object where it ought to be and replace it onto the field
-	return ReplaceObject(theRobot)
+	return ReplaceObject(ctx, theRobot)
 }
 
-func ResetBox(theRobot api.Robot) {
-	err := ResetBoxSteps(theRobot, 4)
+func ResetBox(ctx context.Context, theRobot api.Robot) {
+	err := ResetBoxSteps(ctx, theRobot, 4)
 	if err != nil {
 		theRobot.Logger().Errorf("error resetting box: %s", err)
 	}

@@ -11,6 +11,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -108,17 +109,21 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 		return 0.0, err
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		return math.NaN(), ctx.Err()
+	}
 
 	positions := []float64{}
 
 	bigger := false
 
 	for i := 0; i < 500; i++ {
-		time.Sleep(25 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
+			return math.NaN(), ctx.Err()
+		}
 		pos, err := m.Position(ctx)
 		if err != nil {
-			return 0.0, motorOffError(ctx, m, err)
+			return math.NaN(), motorOffError(ctx, m, err)
 		}
 
 		positions = append(positions, pos)
@@ -136,7 +141,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 				positions = []float64{}
 				err := m.Go(ctx, dir, TestingForce*2)
 				if err != nil {
-					return 0.0, motorOffError(ctx, m, err)
+					return math.NaN(), motorOffError(ctx, m, err)
 				}
 
 			}
@@ -144,7 +149,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 
 	}
 
-	return 0.0, motorOffError(ctx, m, fmt.Errorf("testing joint limit timed out"))
+	return math.NaN(), motorOffError(ctx, m, fmt.Errorf("testing joint limit timed out"))
 }
 
 func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (api.Arm, error) {

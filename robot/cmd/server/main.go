@@ -44,14 +44,20 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
-func NewNetLogger(config *api.CloudConfig) (zapcore.Core, error) {
+func newNetLogger(config *api.CloudConfig) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
 
-	nl := &netLogger{hostname: hostname, cfg: config}
-	go nl.backgroundThread()
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	nl := &netLogger{hostname: hostname, cfg: config, cancel: cancel}
+	nl.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		nl.backgroundWorker(cancelCtx)
+	}, func() {
+		nl.activeBackgroundWorkers.Done()
+	})
 	return nl, nil
 }
 
@@ -61,6 +67,15 @@ type netLogger struct {
 
 	toLogMutex sync.Mutex
 	toLog      []interface{}
+
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
+}
+
+func (nl *netLogger) Close() error {
+	nl.cancel()
+	nl.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -119,9 +134,11 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 	return nil
 }
 
-func (nl *netLogger) backgroundThread() {
+func (nl *netLogger) backgroundWorker(ctx context.Context) {
 	for {
-		time.Sleep(100 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return
+		}
 		err := nl.Sync()
 		if err != nil {
 			// fall back to regular logging
@@ -162,16 +179,16 @@ func (nl *netLogger) Sync() error {
 
 }
 
-func addCloudLogger(logger golog.Logger, cfg *api.CloudConfig) (golog.Logger, error) {
-	nl, err := NewNetLogger(cfg)
+func addCloudLogger(logger golog.Logger, cfg *api.CloudConfig) (golog.Logger, func() error, error) {
+	nl, err := newNetLogger(cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	l := logger.Desugar()
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nil
+	return l.Sugar(), nl.Close, nil
 }
 
 // Arguments for the command.
@@ -216,10 +233,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		logger, err = addCloudLogger(logger, cfg.Cloud)
+		var cleanup func() error
+		logger, cleanup, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = multierr.Combine(err, cleanup())
+		}()
 	}
 
 	rpcDialer := rpc.NewCachedDialer()
@@ -241,8 +262,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(err, watcher.Close())
 	}()
 	onWatchDone := make(chan struct{})
-	go func() {
-		defer close(onWatchDone)
+	utils.ManagedGo(func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -258,7 +278,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 				}
 			}
 		}
-	}()
+	}, func() {
+		close(onWatchDone)
+	})
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile

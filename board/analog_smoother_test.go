@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/stretchr/testify/assert"
+	"go.viam.com/robotcore/utils"
 )
 
 type testReader struct {
@@ -39,11 +40,11 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := golog.NewTestLogger(t)
-	tmp := AnalogSmootherWrap(context.Background(), &testReader, AnalogConfig{}, logger)
+	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{}, logger)
 	_, ok := tmp.(*AnalogSmoother)
 	assert.False(t, ok)
 
-	as := AnalogSmootherWrap(context.Background(), &testReader, AnalogConfig{
+	as := AnalogSmootherWrap(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)
@@ -57,4 +58,9 @@ func TestAnalogSmoother1(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.InDelta(t, 50.0, v, 10.0)
+
+	err = utils.TryClose(as)
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -58,16 +58,10 @@ func readCompass(ctx context.Context, deviceAddress string, logger golog.Logger)
 				once = true
 				defer utils.ContextMainReadyFunc(ctx)()
 			}
-			select {
-			case <-ctx.Done():
+			if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
 				return false
-			default:
 			}
-			select {
-			case <-ctx.Done():
-				return false
-			case <-ticker.C:
-			}
+
 			heading, err := sensor.Heading(context.Background())
 			if err != nil {
 				logger.Errorw("failed to get sensor heading", "error", err)

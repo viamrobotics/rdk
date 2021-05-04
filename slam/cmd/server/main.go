@@ -251,11 +251,11 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		return err
 	}
 
-	go func() {
+	utils.PanicCapturingGo(func() {
 		if err := rpcServer.Start(); err != nil {
 			logger.Errorw("error starting", "error", err)
 		}
-	}()
+	})
 
 	grpcConn, err := grpc.DialContext(ctx, rpcServer.InternalAddr().String(), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -295,10 +295,10 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	robotViewMatSource := gostream.ResizeImageSource{lar, clientWidth, clientHeight}
 	worldViewMatSource := gostream.ResizeImageSource{areaViewer, clientWidth, clientHeight}
 	started := make(chan struct{})
-	go func() {
+	utils.PanicCapturingGo(func() {
 		close(started)
 		gostream.StreamNamedSource(ctx, robotViewMatSource, "robot perspective", remoteView)
-	}()
+	})
 	<-started
 
 	utils.ContextMainReadyFunc(ctx)()

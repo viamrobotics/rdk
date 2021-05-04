@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
@@ -123,4 +124,83 @@ func TestContextWithIterFunc(t *testing.T) {
 	go func1()
 	go func1()
 	<-sig
+}
+
+func TestPanicCapturingGo(t *testing.T) {
+	running := make(chan struct{})
+	PanicCapturingGo(func() {
+		close(running)
+		panic("dead")
+	})
+	<-running
+	time.Sleep(time.Second)
+}
+
+func TestPanicCapturingGoWithCallback(t *testing.T) {
+	running := make(chan struct{})
+	errCh := make(chan interface{})
+	PanicCapturingGoWithCallback(func() {
+		close(running)
+		panic("dead")
+	}, func(err interface{}) {
+		errCh <- err
+	})
+	<-running
+	test.That(t, <-errCh, test.ShouldEqual, "dead")
+}
+
+func TestSelectContextOrWait(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	ok := SelectContextOrWait(ctx, time.Hour)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(time.Second)
+		cancel()
+	}()
+	ok = SelectContextOrWait(ctx, time.Hour)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	ok = SelectContextOrWait(context.Background(), time.Second)
+	test.That(t, ok, test.ShouldBeTrue)
+}
+
+func TestSelectContextOrWaitChan(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	timer := time.NewTimer(time.Second)
+	timer.Stop()
+	ok := SelectContextOrWaitChan(ctx, timer.C)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(time.Second)
+		cancel()
+	}()
+	ok = SelectContextOrWaitChan(ctx, timer.C)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	timer = time.NewTimer(time.Second)
+	defer timer.Stop()
+	ok = SelectContextOrWaitChan(context.Background(), timer.C)
+	test.That(t, ok, test.ShouldBeTrue)
+}
+
+func TestManagedGo(t *testing.T) {
+	dieCount := 3
+	done := make(chan struct{})
+	ManagedGo(func() {
+		time.Sleep(50 * time.Millisecond)
+		if dieCount == 0 {
+			return
+		}
+		dieCount--
+		panic(dieCount)
+	}, func() {
+		close(done)
+	})
+	<-done
 }

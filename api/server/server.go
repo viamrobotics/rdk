@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"math"
+	"sync"
 	"time"
 
 	"go.viam.com/robotcore/api"
@@ -16,17 +17,32 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/robotcore/utils"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	r api.Robot
+	r                       api.Robot
+	activeBackgroundWorkers sync.WaitGroup
+	cancelCtx               context.Context
+	cancel                  func()
 }
 
 func New(r api.Robot) pb.RobotServiceServer {
-	return &Server{r: r}
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	return &Server{
+		r:         r,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
+	}
+}
+
+func (s *Server) Close() error {
+	s.cancel()
+	s.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
@@ -72,7 +88,11 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 	if action == nil {
 		return nil, fmt.Errorf("unknown action name [%s]", req.Name)
 	}
-	go action(s.r)
+	s.activeBackgroundWorkers.Add(1)
+	utils.PanicCapturingGo(func() {
+		defer s.activeBackgroundWorkers.Done()
+		action(s.cancelCtx, s.r)
+	})
 	return &pb.DoActionResponse{}, nil
 }
 

@@ -14,8 +14,10 @@ import (
 	"strconv"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/utils"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
@@ -191,7 +193,28 @@ func (pi *piPigpio) Close() error {
 	C.gpioTerminate()
 	pi.logger.Debug("Pi GPIO terminated properly.")
 	piInstance = nil
-	return nil
+
+	var err error
+	for _, motor := range pi.motors {
+		err = multierr.Combine(err, utils.TryClose(motor))
+	}
+
+	for _, servo := range pi.servos {
+		err = multierr.Combine(err, utils.TryClose(servo))
+	}
+
+	for _, analog := range pi.analogs {
+		err = multierr.Combine(err, utils.TryClose(analog))
+	}
+
+	for _, interrupt := range pi.interrupts {
+		err = multierr.Combine(err, utils.TryClose(interrupt))
+	}
+
+	for _, interruptHW := range pi.interruptsHW {
+		err = multierr.Combine(err, utils.TryClose(interruptHW))
+	}
+	return err
 }
 func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
@@ -266,7 +289,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel}
-		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ctx, ar, ac, logger)
+		piInstance.analogs[ac.Name] = board.AnalogSmootherWrap(ar, ac, logger)
 	}
 
 	// setup interrupts

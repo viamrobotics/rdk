@@ -9,11 +9,12 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
 	api.RegisterGripper("robotiq", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
-		return NewGripper(context.TODO(), config.Host, logger)
+		return NewGripper(ctx, config.Host, logger)
 	})
 }
 
@@ -38,7 +39,7 @@ func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper
 		{"FOR", "200"}, // force (0-255)
 		{"SPE", "255"}, // speed (0-255)
 	}
-	err = g.MultiSet(init)
+	err = g.MultiSet(ctx, init)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +52,7 @@ func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper
 	return g, nil
 }
 
-func (g *Gripper) MultiSet(cmds [][]string) error {
+func (g *Gripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	for _, i := range cmds {
 		err := g.Set(i[0], i[1])
 		if err != nil {
@@ -59,10 +60,14 @@ func (g *Gripper) MultiSet(cmds [][]string) error {
 		}
 
 		// TODO(erh): the next 5 lines are infuriatng, help!
+		var waitTime time.Duration
 		if i[0] == "ACT" {
-			time.Sleep(1600 * time.Millisecond)
+			waitTime = 1600 * time.Millisecond
 		} else {
-			time.Sleep(500 * time.Millisecond)
+			waitTime = 500 * time.Millisecond
+		}
+		if !utils.SelectContextOrWait(ctx, waitTime) {
+			return ctx.Err()
 		}
 	}
 
@@ -116,7 +121,7 @@ func (g *Gripper) read() (string, error) {
 // --------------
 
 // return true iff reached desired position
-func (g *Gripper) SetPos(pos string) (bool, error) {
+func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {
 	err := g.Set("POS", pos)
 	if err != nil {
 		return false, err
@@ -144,24 +149,26 @@ func (g *Gripper) SetPos(pos string) (bool, error) {
 		}
 		prev = x
 
-		time.Sleep(100 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return false, ctx.Err()
+		}
 	}
 
 }
 
 func (g *Gripper) Open(ctx context.Context) error {
-	_, err := g.SetPos(g.openLimit)
+	_, err := g.SetPos(ctx, g.openLimit)
 	return err
 }
 
 func (g *Gripper) Close() error {
-	_, err := g.SetPos(g.closeLimit)
+	_, err := g.SetPos(context.Background(), g.closeLimit)
 	return err
 }
 
 // return true iff grabbed something
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
-	res, err := g.SetPos(g.closeLimit)
+	res, err := g.SetPos(ctx, g.closeLimit)
 	if err != nil {
 		return false, err
 	}

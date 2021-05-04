@@ -51,7 +51,9 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, degs
 		if err != nil {
 			return totalSpin, err
 		}
-		time.Sleep(1 * time.Second)
+		if !utils.SelectContextOrWait(ctx, time.Second) {
+			return totalSpin, ctx.Err()
+		}
 		endHeading, err := compass.MedianHeading(ctx, wc.compass)
 		if err != nil {
 			return totalSpin, err

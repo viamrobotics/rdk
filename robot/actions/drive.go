@@ -10,6 +10,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/utils"
 )
 
 func init() {
@@ -73,17 +74,19 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 	return err
 }
 
-func RandomWalk(theRobot api.Robot) {
+func RandomWalk(ctx context.Context, theRobot api.Robot) {
 	defer func() { theRobot.Logger().Debugf("RandomWalk done") }()
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second*time.Duration(60))
+	ctx, cancelFunc := context.WithTimeout(ctx, 60*time.Second)
 	defer cancelFunc()
 	for {
 		err := randomWalkIncrement(ctx, theRobot)
 
 		if err != nil {
 			theRobot.Logger().Debugf("error doing random walk, trying again: %s", err)
-			time.Sleep(2000 * time.Millisecond)
+			if !utils.SelectContextOrWait(ctx, 2*time.Second) {
+				return
+			}
 			continue
 		}
 	}

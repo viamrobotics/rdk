@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -81,7 +82,9 @@ func (g *Gripper) Open(ctx context.Context) error {
 	}
 
 	for {
-		time.Sleep(time.Millisecond * 10) // REMOVE
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		} // REMOVE
 
 		val, err := g.psi.Read(ctx)
 		if err != nil {
@@ -92,7 +95,9 @@ func (g *Gripper) Open(ctx context.Context) error {
 			break
 		}
 
-		time.Sleep(time.Millisecond * 10)
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
 	}
 
 	return g.Stop()
@@ -109,7 +114,9 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 
 	for {
 
-		time.Sleep(time.Millisecond * 100) // REMOVE
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return false, ctx.Err()
+		} // REMOVE
 
 		val, err := g.psi.Read(ctx)
 		if err != nil {
@@ -120,7 +127,9 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 			break
 		}
 
-		time.Sleep(time.Millisecond * 10)
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return false, ctx.Err()
+		}
 	}
 
 	return false, g.Stop()

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -105,7 +106,9 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		time.Sleep(time.Duration(msPer) * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
+			return ctx.Err()
+		}
 		now, err := vg.motor.Position(ctx)
 		if err != nil {
 			return err
@@ -131,7 +134,9 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		time.Sleep(time.Duration(msPer) * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
+			return false, ctx.Err()
+		}
 		now, err := vg.motor.Position(ctx)
 		if err != nil {
 			return false, err
@@ -229,7 +234,9 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 		return -1, false, err
 	}
 
-	time.Sleep(500 * time.Millisecond)
+	if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+		return -1, false, ctx.Err()
+	}
 
 	for {
 		now, err := vg.motor.Position(ctx)
@@ -251,12 +258,16 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			if err != nil {
 				return -1, false, err
 			}
-			time.Sleep(1000 * time.Millisecond)
+			if !utils.SelectContextOrWait(ctx, time.Second) {
+				return -1, false, ctx.Err()
+			}
 			return now, hasPressure, err
 		}
 		last = now
 
-		time.Sleep(100 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return -1, false, ctx.Err()
+		}
 	}
 
 }

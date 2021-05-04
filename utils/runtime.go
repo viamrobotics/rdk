@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/edaniels/golog"
 )
@@ -98,4 +99,75 @@ func ContextMainIterFunc(ctx context.Context) func() {
 		return func() {}
 	}
 	return iterFunc.(func())
+}
+
+// PanicCapturingGo spawns a goroutine to run the given function and captures
+// any panic that occurs and logs it.
+func PanicCapturingGo(f func()) {
+	PanicCapturingGoWithCallback(f, nil)
+}
+
+const waitDur = 3 * time.Second
+
+// PanicCapturingGoWithCallback spawns a goroutine to run the given function and captures
+// any panic that occurs, logs it, and calls the given callback. The callback can be
+// used for restart functionality.
+func PanicCapturingGoWithCallback(f func(), callback func(err interface{})) {
+	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				golog.Global.Errorw("panic while running function", "error", err)
+				if callback == nil {
+					return
+				}
+				golog.Global.Infow("waiting a bit to call callback", "wait", waitDur.String())
+				time.Sleep(waitDur)
+				callback(err)
+			}
+		}()
+		f()
+	}()
+}
+
+// ManagedGo keeps the given function alive in the background until
+// it terminates normally.
+func ManagedGo(f func(), onComplete func()) {
+	PanicCapturingGoWithCallback(func() {
+		defer func() {
+			if err := recover(); err == nil && onComplete != nil {
+				onComplete()
+			} else if err != nil {
+				// repanick
+				panic(err)
+			}
+		}()
+		f()
+	}, func(_ interface{}) {
+		ManagedGo(f, onComplete)
+	})
+}
+
+// SelectContextOrWait either terminates because the given context is done
+// or the given duration elapses. It returns true if the duration elapsed.
+func SelectContextOrWait(ctx context.Context, dur time.Duration) bool {
+	timer := time.NewTimer(dur)
+	defer timer.Stop()
+	return SelectContextOrWaitChan(ctx, timer.C)
+}
+
+// SelectContextOrWaitChan either terminates because the given context is done
+// or the given time channel is received on. It returns true if the channel
+// was received on.
+func SelectContextOrWaitChan(ctx context.Context, c <-chan time.Time) bool {
+	select {
+	case <-ctx.Done():
+		return false
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return false
+	case <-c:
+	}
+	return true
 }

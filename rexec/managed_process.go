@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/utils"
 )
 
 var errAlreadyStopped = errors.New("already stopped")
@@ -138,7 +139,9 @@ func (p *managedProcess) Start(ctx context.Context) error {
 	p.cmd = cmd
 
 	// It's okay to not wait for management to start.
-	go p.manage(stdOut, stdErr)
+	utils.ManagedGo(func() {
+		p.manage(stdOut, stdErr)
+	}, nil)
 	return nil
 }
 
@@ -185,8 +188,12 @@ func (p *managedProcess) manage(stdOut, stdErr io.ReadCloser) {
 			}
 		}
 		activeLoggers.Add(2)
-		go logPipe("StdOut", stdOut)
-		go logPipe("StdErr", stdErr)
+		utils.PanicCapturingGo(func() {
+			logPipe("StdOut", stdOut)
+		})
+		utils.PanicCapturingGo(func() {
+			logPipe("StdErr", stdErr)
+		})
 	}
 
 	err := p.cmd.Wait()

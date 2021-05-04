@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -22,6 +24,7 @@ func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logg
 
 	commandChan := make(chan brushlessMotorCmd)
 	closech := make(chan struct{})
+	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	// Technically you can have the two jumpers set to keep ENA and ENB always-on on a dual H-bridge.
 	// Note that this may cause unwanted heat buildup on the H-bridge, so we require PWM control.
@@ -31,17 +34,19 @@ func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logg
 	// being controlled via the timing of the ABCD pins. Otherwise we risk partial steps and getting the
 	// motor coils into a bad state.
 	m := &BrushlessMotor{
-		cfg:      mc,
-		Board:    b,
-		A:        pins["a"],
-		B:        pins["b"],
-		C:        pins["c"],
-		D:        pins["d"],
-		PWMs:     []string{pins["pwm"]},
-		on:       false,
-		commands: commandChan,
-		logger:   logger,
-		done:     closech,
+		cfg:       mc,
+		Board:     b,
+		A:         pins["a"],
+		B:         pins["b"],
+		C:         pins["c"],
+		D:         pins["d"],
+		PWMs:      []string{pins["pwm"]},
+		on:        false,
+		commands:  commandChan,
+		logger:    logger,
+		done:      closech,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
 	}
 	if _, ok := pins["pwmb"]; ok {
 		// The two PWM inputs can be controlled by one pin whose output is forked, above, or two individual pins.
@@ -74,16 +79,19 @@ type brushlessMotorCmd struct {
 }
 
 type BrushlessMotor struct {
-	cfg        MotorConfig
-	Board      GPIOBoard
-	PWMs       []string
-	A, B, C, D string
-	steps      int64
-	on         bool
-	startedMgr bool
-	commands   chan brushlessMotorCmd
-	logger     golog.Logger
-	done       chan struct{}
+	cfg                     MotorConfig
+	Board                   GPIOBoard
+	PWMs                    []string
+	A, B, C, D              string
+	steps                   int64
+	on                      bool
+	startedMgr              bool
+	commands                chan brushlessMotorCmd
+	logger                  golog.Logger
+	done                    chan struct{}
+	cancelCtx               context.Context
+	cancel                  func()
+	activeBackgroundWorkers sync.WaitGroup
 }
 
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
@@ -111,7 +119,7 @@ func (m *BrushlessMotor) setStep(pins []bool) error {
 }
 
 // This will power on the motor if necessary, and make one full step sequence (4 steps) in the specified direction.
-func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error {
+func (m *BrushlessMotor) step(ctx context.Context, d pb.DirectionRelative, wait time.Duration) error {
 	seq := stepSequence()
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
@@ -124,7 +132,9 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 			atomic.AddInt64(&m.steps, 1)
 			// Waiting between each setStep() call is the best way to adjust motor speed.
 			// See the comment above in NewBrushlessMotor() for why to not use PWM.
-			time.Sleep(wait)
+			if !utils.SelectContextOrWait(ctx, wait) {
+				return ctx.Err()
+			}
 		}
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		for i := len(seq) - 1; i >= 0; i-- {
@@ -132,7 +142,9 @@ func (m *BrushlessMotor) step(d pb.DirectionRelative, wait time.Duration) error 
 				return err
 			}
 			atomic.AddInt64(&m.steps, -1)
-			time.Sleep(wait)
+			if !utils.SelectContextOrWait(ctx, wait) {
+				return ctx.Err()
+			}
 		}
 	}
 	return nil
@@ -193,7 +205,7 @@ func (m *BrushlessMotor) Off(ctx context.Context) error {
 	return nil
 }
 
-func (m *BrushlessMotor) motorManager() {
+func (m *BrushlessMotor) motorManager(ctx context.Context) {
 	var err error
 	if m.startedMgr {
 		return
@@ -230,17 +242,19 @@ func (m *BrushlessMotor) motorManager() {
 
 		// Perform one set of steps, then check again for new commands.
 		if motorCmd.d == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED || (!motorCmd.cont && motorCmd.steps <= 0) {
-			if err = m.Off(context.Background()); err != nil {
+			if err = m.Off(ctx); err != nil {
 				m.logger.Warnf("error turning off: %s", err)
 			}
 		} else {
 			if err = m.turnOnOrOff(true); err != nil {
 				m.logger.Warnf("error turning on: %s", err)
 				// If we couldn't turn on for some reason, we'll wait a moment then try the whole thing over again
-				time.Sleep(500 * time.Millisecond)
+				if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+					return
+				}
 				continue
 			}
-			if err = m.step(motorCmd.d, motorCmd.wait); err != nil {
+			if err = m.step(ctx, motorCmd.d, motorCmd.wait); err != nil {
 				m.logger.Warnf("error performing step: %s", err)
 			} else {
 				// TODO(pl): remember what step we're on so we can do one at a time instead of 4
@@ -254,10 +268,15 @@ func (m *BrushlessMotor) motorManagerStart() {
 	if m.startedMgr {
 		return
 	}
-	go m.motorManager()
+	m.activeBackgroundWorkers.Add(1)
+	utils.ManagedGo(func() {
+		m.motorManager(m.cancelCtx)
+	}, m.activeBackgroundWorkers.Done)
 }
 
 func (m *BrushlessMotor) Close() error {
+	m.cancel()
 	close(m.done)
+	m.activeBackgroundWorkers.Wait()
 	return m.turnOnOrOff(false)
 }
