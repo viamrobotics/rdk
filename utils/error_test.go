@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/test"
 	"go.uber.org/multierr"
+	"go.viam.com/test"
 )
 
 func TestFilterOutError(t *testing.T) {

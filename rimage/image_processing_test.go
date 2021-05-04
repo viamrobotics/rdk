@@ -9,8 +9,8 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"go.viam.com/test"
 	"github.com/lucasb-eyer/go-colorful"
+	"go.viam.com/test"
 )
 
 func TestCanny1(t *testing.T) {

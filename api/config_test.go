@@ -3,10 +3,10 @@ package api
 import (
 	"testing"
 
-	"go.viam.com/test"
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rexec"
+	"go.viam.com/test"
 )
 
 func TestConfigRobot(t *testing.T) {

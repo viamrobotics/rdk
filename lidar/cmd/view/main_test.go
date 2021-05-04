@@ -20,8 +20,8 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 )
 
 func TestMainMain(t *testing.T) {

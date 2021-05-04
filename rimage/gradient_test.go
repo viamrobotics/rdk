@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/test"
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/test"
 )
 
 func writePicture(img image.Image, p string) error {

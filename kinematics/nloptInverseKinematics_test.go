@@ -8,8 +8,8 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/test"
 )
 
 func TestCreateNloptIKSolver(t *testing.T) {

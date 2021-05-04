@@ -12,8 +12,8 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.uber.org/zap/zaptest/observer"
+	"go.viam.com/test"
 )
 
 // ContextualMainExecution reflects the execution of a main function
