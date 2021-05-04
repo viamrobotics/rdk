@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
+
 	"go.viam.com/robotcore/sensor/compass/client"
 	"go.viam.com/robotcore/utils"
 

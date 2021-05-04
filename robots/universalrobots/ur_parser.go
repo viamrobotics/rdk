@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/utils"
 )
 

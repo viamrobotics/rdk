@@ -12,14 +12,15 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/protobuf/types/known/structpb"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
-	"google.golang.org/genproto/googleapis/api/httpbody"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Server struct {

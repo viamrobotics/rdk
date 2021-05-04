@@ -3,8 +3,9 @@ package board
 import (
 	"testing"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/test"
+
+	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
 func TestFlipDirection(t *testing.T) {

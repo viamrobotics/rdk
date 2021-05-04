@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap/zaptest/observer"
+
 	"go.viam.com/robotcore/sensor/compass/gy511"
 	"go.viam.com/robotcore/serial"
 	"go.viam.com/robotcore/testutils"

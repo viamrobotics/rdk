@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/slam/v1"

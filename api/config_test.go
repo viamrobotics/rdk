@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
+	"go.viam.com/test"
+
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/rexec"
-	"go.viam.com/test"
 )
 
 func TestConfigRobot(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.uber.org/multierr"
+
 	"go.viam.com/robotcore/api"
 )
 

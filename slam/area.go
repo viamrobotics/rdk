@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/pointcloud"
 )
 

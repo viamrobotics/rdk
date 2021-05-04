@@ -5,6 +5,7 @@ import (
 	"image"
 
 	"github.com/edaniels/gostream"
+
 	"go.viam.com/robotcore/utils"
 )
 

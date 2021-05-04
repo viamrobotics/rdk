@@ -7,6 +7,7 @@ import (
 	"math"
 
 	"github.com/fogleman/gg"
+
 	"go.viam.com/robotcore/rimage"
 )
 

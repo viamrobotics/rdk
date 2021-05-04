@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"go.uber.org/multierr"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/api/client"
 	"go.viam.com/robotcore/board"

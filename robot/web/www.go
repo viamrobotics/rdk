@@ -11,6 +11,9 @@ import (
 	"os"
 	"time"
 
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
+
 	"go.viam.com/robotcore/api"
 	apiserver "go.viam.com/robotcore/api/server"
 	"go.viam.com/robotcore/lidar"
@@ -19,8 +22,6 @@ import (
 	"go.viam.com/robotcore/robot/actions"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/utils"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
