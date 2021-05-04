@@ -147,10 +147,13 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 		return planes, cloud, nil
 	}
 	planes = append(planes, planeCloud)
-	for planeCloud.Size() > minPoints {
+	for {
 		planeCloud, nonPlaneCloud, _, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
 		if err != nil {
 			return nil, nil, err
+		}
+		if planeCloud.Size() <= minPoints {
+			break
 		}
 		planes = append(planes, planeCloud)
 	}
