@@ -30,6 +30,10 @@ func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	return positions
 }
 
+func distance(equation []float64, pt pc.Vec3) float64 {
+	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / equation[4]
+}
+
 // Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.
 func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud, pc.PointCloud, error) {
 	mapCloud := pc.New()
@@ -70,9 +74,9 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
+
 	bestEquation := make([]float64, 4)
-	currentEquation := make([]float64, 4)
-	bestInliers := make(map[pc.Vec3]bool)
+	bestInliers := 0
 
 	for i := 0; i < nIterations; i++ {
 		// sample 3 Points from the slice of 3D Points
@@ -89,25 +93,39 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 		// cross[0]*x + cross[1]*y + cross[2]*z + d = 0
 		// to find d, we just need to pick a point and deduce d from the plane equation (vec orth to p1, p2, p3)
 		d := -vec.Dot(p2)
+
 		// current plane equation
-		currentEquation[0], currentEquation[1], currentEquation[2], currentEquation[3] = vec.X, vec.Y, vec.Z, d
+		currentEquation := []float64{vec.X, vec.Y, vec.Z, d, vec.Norm()}
 
 		// compute distance to plane of each point in the cloud
-		currentInliers := make(map[pc.Vec3]bool)
+		//currentInliers := make([]pc.Vec3, len(bestInliers))
+		currentInliers := 0
+
 		// store all the Points that are below a certain distance to the plane
 		for _, pt := range pts {
-			dist := (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
+			//dist := (currentEquation[0]*pt.X + currentEquation[1]*pt.Y + currentEquation[2]*pt.Z + currentEquation[3]) / vec.Norm()
+			dist := distance(currentEquation, pt)
 			if math.Abs(dist) < threshold {
-				currentInliers[pt] = true
+				currentInliers++
+				//currentInliers = append(currentInliers, pt)
 			}
 		}
 		// if the current plane contains more pixels than the previously stored one, save this one as the biggest plane
-		if len(currentInliers) > len(bestInliers) {
+		if currentInliers > bestInliers {
 			bestEquation = currentEquation
 			bestInliers = currentInliers
 		}
 	}
-	planeCloud, nonPlaneCloud, err := pointCloudSplit(cloud, bestInliers)
+
+	bestInliersMap := make(map[pc.Vec3]bool)
+	for _, pt := range pts {
+		dist := distance(bestEquation, pt)
+		if math.Abs(dist) < threshold {
+			bestInliersMap[pt] = true
+		}
+	}
+
+	planeCloud, nonPlaneCloud, err := pointCloudSplit(cloud, bestInliersMap)
 	if err != nil {
 		return nil, nil, nil, err
 	}
