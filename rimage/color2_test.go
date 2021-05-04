@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
-	"go.viam.com/test"
 )
 
 func TestColorSegment1(t *testing.T) {

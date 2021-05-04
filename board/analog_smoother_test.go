@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/utils"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/utils"
 )
 
 type testReader struct {

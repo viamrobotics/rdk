@@ -5,8 +5,9 @@ import (
 	"io"
 	"math"
 
-	"go.viam.com/robotcore/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/robotcore/utils"
 )
 
 type key Vec3

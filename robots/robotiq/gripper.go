@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/utils"
 )

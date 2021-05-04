@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/utils"
-	"go.viam.com/test"
 )
 
 func TestNewConfigWatcherNoop(t *testing.T) {

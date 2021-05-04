@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/artifact"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {

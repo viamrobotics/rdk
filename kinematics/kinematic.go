@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
+
 	"go.viam.com/robotcore/kinematics/kinmath"
 
 	"gonum.org/v1/gonum/mat"

@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/sensor"
 )

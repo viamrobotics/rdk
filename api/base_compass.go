@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 )

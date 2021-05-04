@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"go.uber.org/zap/zaptest/observer"
+
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"

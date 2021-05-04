@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
 )

@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/robotcore/artifact"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func TestTraining1(t *testing.T) {

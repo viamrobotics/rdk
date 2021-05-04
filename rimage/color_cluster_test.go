@@ -3,8 +3,9 @@ package rimage
 import (
 	"testing"
 
-	"go.viam.com/robotcore/artifact"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/artifact"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {

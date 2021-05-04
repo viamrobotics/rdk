@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/robotcore/rimage"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/rimage"
 )
 
 type chunkImageDebug struct {

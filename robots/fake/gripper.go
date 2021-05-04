@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/robotcore/api"
 )
 
