@@ -94,9 +94,7 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, opts.RefreshEvery)
-		}, func() {
-			rc.activeBackgroundWorkers.Done()
-		})
+		}, rc.activeBackgroundWorkers.Done)
 	}
 	return rc, nil
 }
