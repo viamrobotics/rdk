@@ -12,7 +12,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 // http://ais.informatik.uni-freiburg.de/slamevaluation/index.php

@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 // TempDir creates a temporary directory and fails the test if it cannot.

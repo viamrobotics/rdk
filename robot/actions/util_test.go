@@ -9,7 +9,7 @@ import (
 	"go.viam.com/robotcore/vision/segmentation"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 type MyDebug struct {

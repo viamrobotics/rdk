@@ -15,7 +15,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {

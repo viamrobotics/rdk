@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestTryReserveRandomPort(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/usb"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDevices(t *testing.T) {

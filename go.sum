@@ -236,8 +236,6 @@ github.com/edaniels/gostream v0.0.0-20210409151622-7dff6175faa1 h1:f3e3LCRqy7ySa
 github.com/edaniels/gostream v0.0.0-20210409151622-7dff6175faa1/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
-github.com/edaniels/test v0.0.0-20210504172934-6a4c5b5d074f h1:P2g2meoGsCmibASE/gw1Qn8dGyzmAFqR76yApoyR9zU=
-github.com/edaniels/test v0.0.0-20210504172934-6a4c5b5d074f/go.mod h1:XD1PxSyMhPTXvNd7GBPgSHW2vZp8j64WTXOY9LCLf2M=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
@@ -1190,6 +1188,8 @@ go.uber.org/zap v1.16.0 h1:uFRZXykJGK9lLY4HtgSw44DnIcAM+kRBP7x5m+NpAOM=
 go.uber.org/zap v1.16.0/go.mod h1:MA8QOfq0BHJwdXa996Y4dYkAqRKB8/1K1QMMZVaNZjQ=
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4 h1:YG1xrvr+VkEifpj4tmxp/KxFZP4kbJQNpG6ON9kppaE=
 go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFgCYKWJkCU0r+lkOvTQLeLaFcw8AFghE=
+go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
+go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestResolveFile(t *testing.T) {

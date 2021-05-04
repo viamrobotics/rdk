@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils"

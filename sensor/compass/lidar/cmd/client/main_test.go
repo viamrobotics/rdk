@@ -20,7 +20,7 @@ import (
 	_ "go.viam.com/robotcore/lidar/client"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"github.com/golang/geo/r2"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"

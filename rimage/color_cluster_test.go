@@ -3,7 +3,7 @@ package rimage
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/artifact"
 )
 

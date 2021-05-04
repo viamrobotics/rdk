@@ -18,7 +18,7 @@ import (
 	_ "go.viam.com/robotcore/rimage/imagesource"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestConfig1(t *testing.T) {

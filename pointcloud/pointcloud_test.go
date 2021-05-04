@@ -3,7 +3,7 @@ package pointcloud
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestPointCloudBasic(t *testing.T) {

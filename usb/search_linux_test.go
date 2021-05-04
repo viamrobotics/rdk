@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/robotcore/testutils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestSearchDevices(t *testing.T) {

@@ -5,7 +5,7 @@ package serial
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestSearchDevices(t *testing.T) {

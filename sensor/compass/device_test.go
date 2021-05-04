@@ -8,7 +8,7 @@ import (
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestMedianHeading(t *testing.T) {

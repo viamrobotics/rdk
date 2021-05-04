@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDepthMap1(t *testing.T) {

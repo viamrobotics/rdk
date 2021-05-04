@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/rexec"
 	"go.viam.com/robotcore/utils"
 )

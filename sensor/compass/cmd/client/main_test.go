@@ -16,7 +16,7 @@ import (
 	"go.viam.com/robotcore/testutils/inject"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"

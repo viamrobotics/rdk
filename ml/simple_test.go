@@ -3,7 +3,7 @@ package ml
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func _makeSimpleTest() ([][]float64, []int) {

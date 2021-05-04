@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
 )

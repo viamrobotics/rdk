@@ -22,7 +22,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"github.com/golang/geo/r2"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"

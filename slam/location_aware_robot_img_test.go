@@ -17,7 +17,7 @@ import (
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestRobotNext(t *testing.T) {

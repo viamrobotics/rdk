@@ -7,7 +7,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 type alignImageHelper struct {

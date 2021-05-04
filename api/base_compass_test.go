@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/testutils/inject"
 )

@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestRolling1(t *testing.T) {

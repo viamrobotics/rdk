@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestReadConfigFromReaderValidate(t *testing.T) {

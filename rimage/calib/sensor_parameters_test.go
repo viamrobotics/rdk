@@ -3,7 +3,7 @@ package calib
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {

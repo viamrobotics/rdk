@@ -18,7 +18,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot {

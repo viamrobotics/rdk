@@ -3,7 +3,7 @@ package serial
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestCheckProductDeviceIDs(t *testing.T) {

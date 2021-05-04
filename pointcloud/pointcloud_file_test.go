@@ -12,7 +12,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func BenchmarkNewFromFile(b *testing.B) {

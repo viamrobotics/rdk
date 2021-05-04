@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/edaniels/test"
+	"go.viam.com/test"
 )
 
 func TestParseFlags(t *testing.T) {
