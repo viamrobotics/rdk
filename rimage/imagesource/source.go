@@ -177,7 +177,12 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 	if err != nil {
 		return nil, err
 	}
-	return &IntelServerSource{fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num), host, attrs.GetBool("aligned", true), aligner}, nil
+	return &IntelServerSource{
+		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
+		host:      host,
+		isAligned: attrs.GetBool("aligned", true),
+		aligner:   aligner,
+	}, nil
 }
 
 func (s *IntelServerSource) Close() error {
