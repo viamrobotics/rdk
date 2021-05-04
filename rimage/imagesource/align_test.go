@@ -26,7 +26,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	fixed, err := dc.aligner.AlignImageWithDepth(ii)
+	fixed, err := dc.camera.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(fixed.Color, "color-fixed")
@@ -36,7 +36,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 	pc, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
-	roundTrip, err := dc.aligner.PointCloudToImageWithDepth(pc)
+	roundTrip, err := dc.camera.PointCloudToImageWithDepth(pc)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
 

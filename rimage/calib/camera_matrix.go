@@ -8,7 +8,6 @@ import (
 
 	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/utils"
 )
 
 // Function to take an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
@@ -30,7 +29,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 }
 
 // Function that changes the coordinate system of the depth map to be in same coordinate system
-// as the color image, and then crop both images to be the size of the color image.
+// as the color image
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
 		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
@@ -39,8 +38,6 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
 	}
 	inmap := img.Depth
-	// keep track of the bounds of the new depth image, then use these to crop the image
-	xMin, xMax, yMin, yMax := dcie.ColorCamera.Width, 0, dcie.ColorCamera.Height, 0
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	for dy := 0; dy < dcie.DepthCamera.Height; dy++ {
 		for dx := 0; dx < dcie.DepthCamera.Width; dx++ {
@@ -58,8 +55,6 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			if cx0 < 0 || cy0 < 0 || cx1 > dcie.ColorCamera.Width-1 || cy1 > dcie.ColorCamera.Height-1 {
 				continue
 			}
-			xMin, yMin = utils.MinInt(xMin, cx0), utils.MinInt(yMin, cy0)
-			xMax, yMax = utils.MaxInt(xMax, cx1), utils.MaxInt(yMax, cy1)
 			z := rimage.Depth((cz0 + cz1) / 2.0) // average of depth within color pixel
 			for y := cy0; y <= cy1; y++ {
 				for x := cx0; x <= cx1; x++ {
@@ -71,7 +66,8 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	return rimage.MakeImageWithDepth(img.Color, &outmap, true, dcie), nil
 }
 
-// Function that takes an aligned or unaligned ImageWithDepth and uses the camera parameters to project it to a pointcloud.
+// Function that takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
+// Aligns it if it isn't already aligned.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
