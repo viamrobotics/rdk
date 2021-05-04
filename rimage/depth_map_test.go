@@ -10,101 +10,60 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestDepthMap1(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	m.Smooth()
 
-	if m.width != 1280 {
-		t.Errorf("wrong width")
-	}
-	if m.height != 720 {
-		t.Errorf("wrong height")
-	}
+	test.That(t, m.width, test.ShouldEqual, 1280)
+	test.That(t, m.height, test.ShouldEqual, 720)
 
 	origHeight := m.GetDepth(300, 300)
-	if origHeight != 749 {
-		t.Errorf("wrong depth %v", m.GetDepth(300, 300))
-	}
+	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	buf := bytes.Buffer{}
 	err = m.WriteTo(&buf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	m, err = ReadDepthMap(bufio.NewReader(&buf))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m.width != 1280 {
-		t.Errorf("wrong width")
-	}
-	if m.height != 720 {
-		t.Errorf("wrong height")
-	}
-	if origHeight != 749 {
-		t.Errorf("wrong depth")
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.width, test.ShouldEqual, 1280)
+	test.That(t, m.height, test.ShouldEqual, 720)
 
 }
 
 func TestDepthMap2(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	m.Smooth()
 
-	if m.width != 1280 {
-		t.Errorf("wrong width")
-	}
-	if m.height != 720 {
-		t.Errorf("wrong height")
-	}
+	test.That(t, m.width, test.ShouldEqual, 1280)
+	test.That(t, m.height, test.ShouldEqual, 720)
 
 	origHeight := m.GetDepth(300, 300)
-	if origHeight != 749 {
-		t.Errorf("wrong depth %v", m.GetDepth(300, 300))
-	}
+	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	fn := outDir + "/board2-rt.dat.gz"
 
 	err = m.WriteToFile(fn)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	m, err = ParseDepthMap(fn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if m.width != 1280 {
-		t.Errorf("wrong width")
-	}
-	if m.height != 720 {
-		t.Errorf("wrong height")
-	}
-	if origHeight != 749 {
-		t.Errorf("wrong depth")
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.width, test.ShouldEqual, 1280)
+	test.That(t, m.height, test.ShouldEqual, 720)
 
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
-	if m.width != 1280 || m.height != 720 {
-		t.Errorf("width and height wrong %v %v", m.width, m.height)
-	}
+	test.That(t, m.width, test.ShouldEqual, 1280)
+	test.That(t, m.height, test.ShouldEqual, 720)
 
 	numZero := 0
 
@@ -113,16 +72,11 @@ func TestDepthMapNewFormat(t *testing.T) {
 		if d == 0 {
 			numZero = numZero + 1
 		} else {
-			if d < 100 || d > 5000 {
-				t.Errorf("weird depth %v", d)
-			}
+			test.That(t, d, test.ShouldBeBetween, 100, 5000)
 		}
-
 	}
 
-	if numZero == 0 || numZero >= m.width {
-		t.Errorf("numZero wrong %v", numZero)
-	}
+	test.That(t, numZero, test.ShouldBeBetween, 0, m.width)
 }
 
 func TestDepthRotate90(t *testing.T) {
@@ -134,23 +88,19 @@ func TestDepthRotate90(t *testing.T) {
 
 	dm2 := dm.Rotate90(true)
 
-	assert.Equal(t, Depth(1), dm2.GetDepth(0, 0))
+	test.That(t, dm2.GetDepth(0, 0), test.ShouldEqual, Depth(1))
 }
 
 func TestToGray16Picture(t *testing.T) {
 	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	gimg := iwd.Depth.ToGray16Picture()
 
-	assert.Equal(t, iwd.Depth.Width(), gimg.Bounds().Max.X)
-	assert.Equal(t, iwd.Depth.Height(), gimg.Bounds().Max.Y)
+	test.That(t, gimg.Bounds().Max.X, test.ShouldEqual, iwd.Depth.Width())
+	test.That(t, gimg.Bounds().Max.Y, test.ShouldEqual, iwd.Depth.Height())
 
 	file, err := os.Create(outDir + "/board2_gray.png")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 	png.Encode(file, gimg)
 }
@@ -212,20 +162,18 @@ func TestSubImage(t *testing.T) {
 	for _, rec := range tests {
 		originalImg, expectedCrop := makeImagesForSubImageTest(rec.Original, rec.Crop)
 		crop := originalImg.SubImage(rec.Crop)
-		assert.Equal(t, expectedCrop, crop)
+		test.That(t, crop, test.ShouldResemble, expectedCrop)
 	}
 	for _, rec := range tests {
 		originalDM, expectedCrop := makeDepthMapsForSubImageTest(rec.Original, rec.Crop)
 		crop := originalDM.SubImage(rec.Crop)
-		assert.Equal(t, expectedCrop, crop)
+		test.That(t, crop, test.ShouldResemble, expectedCrop)
 	}
 }
 
 func BenchmarkDepthMapRotate90(b *testing.B) {
 	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
 
@@ -237,9 +185,7 @@ func BenchmarkDepthMapRotate90(b *testing.B) {
 
 func BenchmarkDepthMapRotate180(b *testing.B) {
 	dm, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
 
@@ -258,21 +204,21 @@ func TestDepthMapStats(t *testing.T) {
 	}
 
 	d, a := dm.AverageDepthAndStats(image.Point{1, 1}, 0)
-	assert.Equal(t, 11.0, d)
-	assert.Equal(t, 0.0, a)
+	test.That(t, d, test.ShouldEqual, 11.0)
+	test.That(t, a, test.ShouldEqual, 0.0)
 
 	d, a = dm.AverageDepthAndStats(image.Point{1, 1}, 1)
-	assert.Equal(t, 12.375, d)
-	assert.Equal(t, 6.46875, a)
+	test.That(t, d, test.ShouldEqual, 12.375)
+	test.That(t, a, test.ShouldEqual, 6.46875)
 
 	d, a = dm.AverageDepthAndStats(image.Point{3, 3}, 1)
-	assert.Equal(t, 22.0, d)
-	assert.Equal(t, 0.0, a)
+	test.That(t, d, test.ShouldEqual, 22.0)
+	test.That(t, a, test.ShouldEqual, 0.0)
 
 	img := dm.InterestingPixels(5)
-	assert.Equal(t, uint8(255), img.GrayAt(1, 1).Y)
+	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(255))
 
 	img = dm.InterestingPixels(10)
-	assert.Equal(t, uint8(0), img.GrayAt(1, 1).Y)
+	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
 
 }

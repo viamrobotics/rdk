@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func nowNanosTest() uint64 {
@@ -18,27 +18,25 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 	}
 
 	i, err := CreateDigitalInterrupt(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, "i1", i.Config().Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, i.Config().Name, test.ShouldEqual, "i1")
 
-	assert.Equal(t, int64(1), i.Value())
+	test.That(t, i.Value(), test.ShouldEqual, int64(1))
 	i.Tick(true, nowNanosTest())
-	assert.Equal(t, int64(2), i.Value())
+	test.That(t, i.Value(), test.ShouldEqual, int64(2))
 	i.Tick(false, nowNanosTest())
-	assert.Equal(t, int64(2), i.Value())
+	test.That(t, i.Value(), test.ShouldEqual, int64(2))
 
 	c := make(chan bool)
 	i.AddCallback(c)
 
 	go func() { i.Tick(true, nowNanosTest()) }()
 	v := <-c
-	assert.Equal(t, true, v)
+	test.That(t, v, test.ShouldBeTrue)
 
 	go func() { i.Tick(true, nowNanosTest()) }()
 	v = <-c
-	assert.Equal(t, true, v)
+	test.That(t, v, test.ShouldBeTrue)
 
 }
 
@@ -49,10 +47,8 @@ func TestServoInterrupt(t *testing.T) {
 	}
 
 	s, err := CreateDigitalInterrupt(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, "s1", s.Config().Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.Config().Name, test.ShouldEqual, "s1")
 
 	now := uint64(0)
 	for i := 0; i < 20; i++ {
@@ -62,7 +58,7 @@ func TestServoInterrupt(t *testing.T) {
 		now += 1000 * 1000 * 1000 // this is between measuremenats
 	}
 
-	assert.Equal(t, int64(1500), s.Value())
+	test.That(t, s.Value(), test.ShouldEqual, int64(1500))
 }
 
 func TestServoInterruptWithPP(t *testing.T) {
@@ -73,10 +69,8 @@ func TestServoInterruptWithPP(t *testing.T) {
 	}
 
 	s, err := CreateDigitalInterrupt(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, "s1", s.Config().Name)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.Config().Name, test.ShouldEqual, "s1")
 
 	now := uint64(0)
 	for i := 0; i < 20; i++ {
@@ -86,5 +80,5 @@ func TestServoInterruptWithPP(t *testing.T) {
 		now += 1000 * 1000 * 1000 // this is between measuremenats
 	}
 
-	assert.Equal(t, int64(1501), s.Value())
+	test.That(t, s.Value(), test.ShouldEqual, int64(1501))
 }

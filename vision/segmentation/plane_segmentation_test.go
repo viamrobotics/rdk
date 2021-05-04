@@ -38,33 +38,23 @@ func TestSegmentPlane(t *testing.T) {
 	//Focal Length            : 734.938, 735.516
 	// get depth map
 	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
 	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
 	_, _, eq, err := SegmentPlane(cloud, nIter, 0.5)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// assign gt plane equation - obtained from open3d library with the same parameters
 	gtPlaneEquation := make([]float64, 4)
 	//gtPlaneEquation =  0.02x + 1.00y + 0.09z + -1.12 = 0, obtained from Open3D
@@ -75,83 +65,54 @@ func TestSegmentPlane(t *testing.T) {
 
 	dot := eq[0]*gtPlaneEquation[0] + eq[1]*gtPlaneEquation[1] + eq[2]*gtPlaneEquation[2]
 	tol := 0.75
-	if math.Abs(dot) < tol {
-		t.Errorf("The estimated plane normal differs from the GT normal vector too much. Got %.3f expected > %v", math.Abs(dot), tol)
-	}
+	test.That(t, math.Abs(dot), test.ShouldBeGreaterThanOrEqualTo, tol)
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
 	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
 	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if pc.Size() != 456371 {
-		t.Error("Size of Point Cloud does not correspond to the GT point cloud size.")
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc.Size(), test.ShouldEqual, 456371)
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	rgb := rgbd.Color
 	h, w := rgb.Height(), rgb.Width()
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	// Pixel to Meter
 	pixel2meter := 0.001
 	// Select depth range
 	// Get 3D Points
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
 	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// Get rigid body transform between Depth and RGB sensor
 	sensorParams, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// Apply RBT
 	transformedPoints, err := calib.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
 	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	coordinatesRGB, err := calib.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// fill image
 	upLeft := image.Point{0, 0}
 	lowRight := image.Point{w, h}
@@ -165,39 +126,27 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	})
 
 	maxPt := img.Bounds().Max
-	if maxPt.X != rgb.Width() {
-		t.Error("Projected Depth map does not have the right width.")
-	}
-	if maxPt.Y != rgb.Height() {
-		t.Error("Projected Depth map does not have the right height.")
-	}
+	test.That(t, maxPt.X, test.ShouldEqual, rgb.Width())
+	test.That(t, maxPt.Y, test.ShouldEqual, rgb.Height())
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color
 
 	// Pixel to Meter
 	pixel2meter := 0.001
 	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
 	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
 		_, _, _, err := SegmentPlane(pts, 2500, 0.0025)
-		if err != nil {
-			b.Fatal(err)
-		}
+		test.That(b, err, test.ShouldBeNil)
 	}
 }
 
@@ -260,32 +209,22 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
-	if h.cameraParams == nil {
-		t.Fatal("no camera parameters set for alignment")
-	}
+	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
 	fixed, err := h.cameraParams.AlignImageWithDepth(ii)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	cloud, err := fixed.ToPointCloud()
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 50, 150000)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	planes = append([]pc.PointCloud{nonPlane}, planes...)
 	segImage, err := pointCloudSegmentsToMask(h.cameraParams.ColorCamera, planes)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(segImage, "from-pointcloud")
 
@@ -294,23 +233,15 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 
 func TestPlaneSegmentImageWithDepth(t *testing.T) {
 	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
-	if c == nil {
-		t.Fatal("no front")
-	}
+	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes", "*.both.gz", false)
 	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	err = d.Process(t, &segmentTestHelper{c.Attributes, aligner})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }

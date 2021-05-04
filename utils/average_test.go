@@ -3,17 +3,17 @@ package utils
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestRolling1(t *testing.T) {
 	ra := NewRollingAverage(2)
 	ra.Add(5)
 	ra.Add(9)
-	assert.Equal(t, 7, ra.Average())
+	test.That(t, ra.Average(), test.ShouldEqual, 7)
 
 	ra.Add(11)
-	assert.Equal(t, 10, ra.Average())
+	test.That(t, ra.Average(), test.ShouldEqual, 10)
 
-	assert.Equal(t, 2, ra.NumSamples())
+	test.That(t, ra.NumSamples(), test.ShouldEqual, 2)
 }

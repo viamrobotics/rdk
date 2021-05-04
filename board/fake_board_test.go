@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestFakeRegistry(t *testing.T) {
 	b, err := NewBoard(context.Background(), Config{Model: "fake"}, golog.Global)
-	assert.Nil(t, err)
+	test.That(t, err, test.ShouldBeNil)
 	_, ok := b.(*FakeBoard)
-	assert.True(t, ok)
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 func TestFakeBoard(t *testing.T) {
@@ -41,16 +40,12 @@ func TestFakeBoard(t *testing.T) {
 	}
 
 	b, err := NewFakeBoard(context.Background(), cfg, golog.Global)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
-	assert.Nil(t, b.Servo("s1").Move(context.Background(), 15))
+	test.That(t, b.Servo("s1").Move(context.Background(), 15), test.ShouldBeNil)
 
 	status, err := b.Status(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, 15, int(status.Servos["s1"].Angle))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, int(status.Servos["s1"].Angle), test.ShouldEqual, 15)
 
 }

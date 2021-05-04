@@ -7,7 +7,7 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 
 	"github.com/edaniels/golog"
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 type testGPIOBoard struct {
@@ -37,54 +37,52 @@ func TestMotor1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}}, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
-	assert.Nil(t, m.Off(ctx))
-	assert.Equal(t, false, b.gpio["1"])
-	assert.Equal(t, false, b.gpio["2"])
+	test.That(t, m.Off(ctx), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldEqual, false)
+	test.That(t, b.gpio["2"], test.ShouldEqual, false)
 	on, err := m.IsOn(ctx)
-	assert.Nil(t, err)
-	assert.False(t, on)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, on, test.ShouldBeFalse)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .43))
-	assert.Equal(t, true, b.gpio["1"])
-	assert.Equal(t, false, b.gpio["2"])
-	assert.Equal(t, byte(109), b.pwm["3"])
+	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .43), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldEqual, true)
+	test.That(t, b.gpio["2"], test.ShouldEqual, false)
+	test.That(t, b.pwm["3"], test.ShouldEqual, byte(109))
 	on, err = m.IsOn(ctx)
-	assert.Nil(t, err)
-	assert.True(t, on)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, on, test.ShouldBeTrue)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44))
-	assert.Equal(t, false, b.gpio["1"])
-	assert.Equal(t, true, b.gpio["2"])
-	assert.Equal(t, byte(112), b.pwm["3"])
+	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldEqual, false)
+	test.That(t, b.gpio["2"], test.ShouldEqual, true)
+	test.That(t, b.pwm["3"], test.ShouldEqual, byte(112))
 	on, err = m.IsOn(ctx)
-	assert.Nil(t, err)
-	assert.True(t, on)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, on, test.ShouldBeTrue)
 
-	assert.Nil(t, m.Power(ctx, .45))
-	assert.Equal(t, byte(114), b.pwm["3"])
+	test.That(t, m.Power(ctx, .45), test.ShouldBeNil)
+	test.That(t, b.pwm["3"], test.ShouldEqual, byte(114))
 
-	assert.Nil(t, m.Off(ctx))
-	assert.Equal(t, false, b.gpio["1"])
-	assert.Equal(t, false, b.gpio["2"])
+	test.That(t, m.Off(ctx), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldEqual, false)
+	test.That(t, b.gpio["2"], test.ShouldEqual, false)
 	on, err = m.IsOn(ctx)
-	assert.Nil(t, err)
-	assert.False(t, on)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, on, test.ShouldBeFalse)
 
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44))
-	assert.Equal(t, false, b.gpio["1"])
-	assert.Equal(t, true, b.gpio["2"])
-	assert.Nil(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, .47))
-	assert.False(t, b.gpio["1"])
-	assert.False(t, b.gpio["2"])
+	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, .44), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldEqual, false)
+	test.That(t, b.gpio["2"], test.ShouldEqual, true)
+	test.That(t, m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, .47), test.ShouldBeNil)
+	test.That(t, b.gpio["1"], test.ShouldBeFalse)
+	test.That(t, b.gpio["2"], test.ShouldBeFalse)
 
 	pos, err := m.Position(ctx)
-	assert.Nil(t, err)
-	assert.Equal(t, 0.0, pos)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.0)
 	supported, err := m.PositionSupported(ctx)
-	assert.Nil(t, err)
-	assert.False(t, supported)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, supported, test.ShouldBeFalse)
 }

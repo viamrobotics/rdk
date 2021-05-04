@@ -8,42 +8,34 @@ import (
 	"go.viam.com/robotcore/testutils"
 
 	"github.com/edaniels/golog"
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestBothMain(t *testing.T) {
-	assert.Error(t, realMain([]string{}))
-	assert.Error(t, realMain([]string{"merge"}))
-	assert.Error(t, realMain([]string{"merge", "x"}))
-	assert.Error(t, realMain([]string{"to-las"}))
-	assert.Error(t, realMain([]string{"to-las", "x"}))
-	assert.Error(t, realMain([]string{"xxx"}))
+	test.That(t, realMain([]string{}), test.ShouldBeError)
+	test.That(t, realMain([]string{"merge"}), test.ShouldBeError)
+	test.That(t, realMain([]string{"merge", "x"}), test.ShouldBeError)
+	test.That(t, realMain([]string{"to-las"}), test.ShouldBeError)
+	test.That(t, realMain([]string{"to-las", "x"}), test.ShouldBeError)
+	test.That(t, realMain([]string{"xxx"}), test.ShouldBeError)
 
 	outDir := testutils.TempDir(t, "", "rimage_cmd_both")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 
 	out := outDir + "/board1.both.gz"
 	err := realMain([]string{"merge", artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), out, "-aligned"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	out3 := outDir + "/shelf.both.gz"
 	err = realMain([]string{"combineRGBAndZ16", artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), out3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	out2 := outDir + "/shelf.las"
 	jsonFilePath := "../../../robots/configs/intel515_parameters.json"
 	err = realMain([]string{"to-las", artifact.MustPath("align/intel515/shelf.both.gz"), jsonFilePath, out2})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	s, err := os.Stat(out2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Less(t, int64(0), s.Size())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.Size(), test.ShouldBeGreaterThan, int64(0))
 }

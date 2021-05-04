@@ -19,9 +19,7 @@ func BenchmarkNewFromFile(b *testing.B) {
 	logger := golog.NewLogger("pointcloud_benchmark")
 	for i := 0; i < b.N; i++ {
 		_, err := NewFromFile(artifact.MustPath("pointcloud/test.las"), logger)
-		if err != nil {
-			b.Fatal(err)
-		}
+		test.That(b, err, test.ShouldBeNil)
 	}
 }
 

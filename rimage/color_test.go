@@ -9,8 +9,8 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
+	"github.com/edaniels/test"
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/stretchr/testify/assert"
 )
 
 func _checkAllDifferent(t *testing.T, colors []Color) {
@@ -18,13 +18,9 @@ func _checkAllDifferent(t *testing.T, colors []Color) {
 		for j, c2 := range colors {
 			d := c1.Distance(c2)
 			if i == j {
-				if d != 0 {
-					t.Errorf("dumb")
-				}
+				test.That(t, d, test.ShouldEqual, 0)
 			} else {
-				if d < 1 {
-					t.Errorf("colors too close distance: %v\n%v\n%v", d, c1, c2)
-				}
+				test.That(t, d, test.ShouldBeGreaterThanOrEqualTo, 1)
 			}
 		}
 	}
@@ -40,9 +36,7 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 		for _, c2 := range colors {
 			if !_assertClose(t, c1, c2, maxDistance) {
 				numErrors++
-				if numErrors > 20 {
-					t.Fatalf("stopping after %d errors", numErrors)
-				}
+				test.That(t, numErrors, test.ShouldBeLessThanOrEqualTo, 20)
 			}
 		}
 	}
@@ -50,7 +44,7 @@ func _checkAllClose(t *testing.T, colors []Color, maxDistance float64) {
 
 func _testColorFailure(t *testing.T, a, b Color, threshold float64, comparison string) {
 	d := a.distanceDebug(b, true)
-	t.Errorf("%v(%s) %v(%s) difference should be %s %f, but is %f https://www.viam.com/color.html?#1=%s&2=%s",
+	t.Fatalf("%v(%s) %v(%s) difference should be %s %f, but is %f https://www.viam.com/color.html?#1=%s&2=%s",
 		a, a.Hex(), b, b.Hex(), comparison, threshold, d, a.Hex(), b.Hex())
 }
 
@@ -102,73 +96,54 @@ func _assertNotSame(t *testing.T, a, b Color) {
 
 func TestColorHSVColorConversion(t *testing.T) {
 	c, err := colorful.Hex("#ff0000")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.Hex() != "#ff0000" {
-		t.Errorf(c.Hex())
-	}
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c.Hex(), test.ShouldEqual, "#ff0000")
 	r, g, b := c.RGB255()
-	if r != 255 || g != 0 || b != 0 {
-		t.Errorf("%d %d %d", r, g, b)
-	}
+	test.That(t, r, test.ShouldEqual, 255)
+	test.That(t, g, test.ShouldEqual, 0)
+	test.That(t, b, test.ShouldEqual, 0)
 
 	H, S, V := c.Hsv()
 	c2 := colorful.Hsv(H, S, V)
-	if c.Hex() != c2.Hex() {
-		t.Errorf(c2.Hex())
-	}
+	test.That(t, c2.Hex(), test.ShouldEqual, c.Hex())
 
-	if c.Hex() != Red.Hex() {
-		t.Errorf("3 %#v %s", c, Red)
-	}
-
-	if Red.Hex() != "#ff0000" {
-		t.Errorf("red hex wrong %s", Red.Hex())
-	}
+	test.That(t, c.Hex(), test.ShouldEqual, Red.Hex())
+	test.That(t, Red.Hex(), test.ShouldEqual, "#ff0000")
 
 	c5, ok := colorful.MakeColor(Red)
-	if !ok {
-		t.Fatal(err)
-	}
-	if c5.Hex() != Red.Hex() {
-		t.Errorf(c5.Hex())
-	}
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, c5.Hex(), test.ShouldEqual, Red.Hex())
 
-	c6hex := "#123456"
-	c6, err := NewColorFromHex(c6hex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c6hex != c6.Hex() {
-		t.Errorf("wtf %s %s", c6hex, c6.Hex())
-	}
+	c6Hex := "#123456"
+	c6, err := NewColorFromHex(c6Hex)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, c6Hex, test.ShouldEqual, c6.Hex())
 }
 
 func TestColorBits(t *testing.T) {
 	c := newcolor(1, 2, 3, 10001, 5, 6)
 	r, g, b := c.RGB255()
 	h, s, v := c.hsv()
-	assert.Equal(t, 1, int(r))
-	assert.Equal(t, 2, int(g))
-	assert.Equal(t, 3, int(b))
-	assert.Equal(t, 10001, int(h))
-	assert.Equal(t, 5, int(s))
-	assert.Equal(t, 6, int(v))
+	test.That(t, int(r), test.ShouldEqual, 1)
+	test.That(t, int(g), test.ShouldEqual, 2)
+	test.That(t, int(b), test.ShouldEqual, 3)
+	test.That(t, int(h), test.ShouldEqual, 10001)
+	test.That(t, int(s), test.ShouldEqual, 5)
+	test.That(t, int(v), test.ShouldEqual, 6)
 
 }
 
 func TestColorRoundTrip(t *testing.T) {
 	c := NewColor(17, 83, 133)
 	c2 := NewColorFromColor(c)
-	assert.Equal(t, c.Hex(), c2.Hex())
-	assert.Equal(t, "#115385", c2.Hex())
+	test.That(t, c2.Hex(), test.ShouldEqual, c.Hex())
+	test.That(t, c2.Hex(), test.ShouldEqual, "#115385")
 
 	c2 = NewColorFromColor(color.RGBA{17, 83, 133, 255})
-	assert.Equal(t, c.Hex(), c2.Hex())
+	test.That(t, c2.Hex(), test.ShouldEqual, c.Hex())
 
 	c2 = NewColorFromColor(color.NRGBA{17, 83, 133, 255})
-	assert.Equal(t, c.Hex(), c2.Hex())
+	test.That(t, c2.Hex(), test.ShouldEqual, c.Hex())
 }
 
 func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
@@ -182,30 +157,20 @@ func TestColorHSVDistanceSanityCheckDiff(t *testing.T) {
 
 	for _, x := range data {
 		d := _loopedDiff(x[0], x[1])
-		if math.Abs(d-x[2]) > .0001 {
-			t.Errorf("input: %v output: %f", x, d)
-		}
+		test.That(t, math.Abs(d-x[2]), test.ShouldBeLessThanOrEqualTo, .0001)
 	}
 
 }
 
 func TestColorHSVDistanceSanityCheck(t *testing.T) {
 	_, s, v := Red.hsv()
-	if s != 255 {
-		t.Errorf("%v %v", Red, s)
-	}
-	if v != 255 {
-		t.Errorf("%v %v", Red, v)
-	}
+	test.That(t, s, test.ShouldEqual, 255)
+	test.That(t, v, test.ShouldEqual, 255)
 	h, _, _ := Green.hsv()
-	if h != 21845 {
-		t.Errorf("%v %v", Green, h)
-	}
+	test.That(t, h, test.ShouldEqual, 21845)
 
 	d := White.Distance(Gray)
-	if d < 1 {
-		t.Fatalf("Wtf %v", d)
-	}
+	test.That(t, d, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	_checkAllDifferent(t, Colors)
 
@@ -277,24 +242,18 @@ func TestColorHSVDistanceDarks(t *testing.T) {
 	mostlyDarkBlue := NewColorFromHexOrPanic("#09202d")
 
 	d := veryDarkBlue.Distance(mostlyDarkBlue)
-	if d > 1 {
-		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
-	}
+	test.That(t, d, test.ShouldBeLessThanOrEqualTo, 1)
 
 	mostlyDarkBlue2 := NewColorFromHexOrPanic("#093051")
 	blackish := NewColorFromHexOrPanic("#201b0e")
 
 	d = mostlyDarkBlue2.Distance(blackish)
-	if d < 1 {
-		t.Errorf("mostlyDarkBlue2 and blackish too close: %f", d)
-	}
+	test.That(t, d, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	veryDarkBlue = NewColorFromHexOrPanic("#11314c")
 
 	d = mostlyDarkBlue2.Distance(veryDarkBlue)
-	if d > 1 {
-		t.Errorf("veryDarkBlue is not equal to mostlyDarkBlue %f", d)
-	}
+	test.That(t, d, test.ShouldBeLessThanOrEqualTo, 1)
 
 }
 
@@ -313,9 +272,7 @@ func TestColorRatioOffFrom135Finish(t *testing.T) {
 
 	for _, d := range data {
 		res := _ratioOffFrom135Finish(d[0])
-		if res != d[1] {
-			t.Errorf("_ratioOffFrom135Finish(%f) should be %f got %f", d[0], d[1], res)
-		}
+		test.That(t, res, test.ShouldEqual, d[1])
 	}
 
 }
@@ -335,9 +292,7 @@ func TestColorRatioOffFrom135(t *testing.T) {
 
 	for _, x := range data {
 		res := _ratioOffFrom135(x[0], x[1])
-		if res != x[2] {
-			t.Errorf("got %v for %v", res, x)
-		}
+		test.That(t, res, test.ShouldEqual, x[2])
 	}
 }
 
@@ -347,9 +302,7 @@ func TestColorHSVDistanceChess1(t *testing.T) {
 	x2 := NewColor(176, 154, 101)
 
 	xd := x1.Distance(x2)
-	if xd < 1 {
-		t.Errorf("too close %v %v %v", x1, x2, xd)
-	}
+	test.That(t, xd, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	w1 := NewColor(132, 120, 75)
 	w2 := NewColor(184, 159, 110)
@@ -373,33 +326,22 @@ func TestColorHSVDistanceChess2(t *testing.T) {
 
 func TestColorHSVDistanceChess3(t *testing.T) {
 	pieceColor, err := NewColorFromHex("#8e7e51")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	harbinger := NewColorFromHexOrPanic("#a49470")
 	distance := pieceColor.Distance(harbinger)
-	if distance < 1 {
-		t.Fatalf("harbinger and other are too close %f\n", distance)
-	}
+	test.That(t, distance, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	harbinger = NewColorFromHexOrPanic("#857657")
 	distance = pieceColor.Distance(harbinger)
-	if distance < 1 {
-		t.Fatalf("harbinger2 and other are too close %f\n", distance)
-	}
+	test.That(t, distance, test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess3.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	for _, myColor := range allColors {
 		distance := pieceColor.Distance(myColor)
-
-		if distance < 1 {
-			t.Errorf("%s %f\n", myColor.Hex(), distance)
-		}
+		test.That(t, distance, test.ShouldBeGreaterThanOrEqualTo, 1)
 	}
 
 	_checkAllClose(t, allColors, 2)
@@ -408,21 +350,14 @@ func TestColorHSVDistanceChess3(t *testing.T) {
 
 func TestColorHSVDistanceChess4(t *testing.T) {
 	pieceColor, err := NewColorFromHex("#052e50")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess4.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	for _, myColor := range allColors {
 		distance := pieceColor.Distance(myColor)
-
-		if distance > 1 {
-			t.Errorf("%s %f\n", myColor.Hex(), distance)
-		}
+		test.That(t, distance, test.ShouldBeLessThanOrEqualTo, 1)
 	}
 
 	_checkAllClose(t, allColors, 2)
@@ -431,9 +366,7 @@ func TestColorHSVDistanceChess4(t *testing.T) {
 
 func TestColorHSVDistanceChess5(t *testing.T) {
 	allColors, err := readColorsFromFile(artifact.MustPath("rimage/hsvdistancechess5.txt"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	_checkAllClose(t, allColors, 2)
 }
@@ -526,10 +459,10 @@ func TestColorConvert(t *testing.T) {
 		r1, g1, b1, a1 := c.RGBA()
 		r2, g2, b2, a2 := cc.RGBA()
 
-		assert.InDelta(t, r1, r2, okError)
-		assert.InDelta(t, g1, g2, okError)
-		assert.InDelta(t, b1, b2, okError)
-		assert.InDelta(t, a1, a2, okError)
+		test.That(t, r2, test.ShouldAlmostEqual, r1, okError)
+		test.That(t, g2, test.ShouldAlmostEqual, g1, okError)
+		test.That(t, b2, test.ShouldAlmostEqual, b1, okError)
+		test.That(t, a2, test.ShouldAlmostEqual, a1, okError)
 	}
 
 	testRoundTrip(Red)
@@ -548,16 +481,14 @@ func TestHSVConvert(t *testing.T) {
 	tt := func(c color.Color) {
 		me := NewColorFromColor(c)
 		them, ok := colorful.MakeColor(c)
-		if !ok {
-			t.Fatalf("what? %v", c)
-		}
+		test.That(t, ok, test.ShouldBeTrue)
 
 		h1, s1, v1 := me.HsvNormal()
 		h2, s2, v2 := them.Hsv()
 
-		assert.InDelta(t, h2, h1, .1)
-		assert.InDelta(t, s2, s1, .01)
-		assert.InDelta(t, v2, v1, .01)
+		test.That(t, h1, test.ShouldAlmostEqual, h2, .1)
+		test.That(t, s1, test.ShouldAlmostEqual, s2, .01)
+		test.That(t, v1, test.ShouldAlmostEqual, v2, .01)
 	}
 
 	tt(color.NRGBA{128, 128, 128, 255})

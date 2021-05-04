@@ -132,9 +132,9 @@ func TestMainMain(t *testing.T) {
 			openDeviceFunc = func(devicePath string) (io.ReadWriteCloser, error) {
 				return failingDevice, nil
 			}
+			failingDevice.SetFailAfter(4)
 			exec.ExpectIters(t, 2)
 		}, func(ctx context.Context, t *testing.T, exec *testutils.ContextualMainExecution) {
-			failingDevice.SetFailAfter(0)
 			exec.WaitIters(t)
 		}, func(t *testing.T, logs *observer.ObservedLogs) {
 			test.That(t, len(logs.FilterMessageSnippet("heading").All()), test.ShouldBeGreaterThanOrEqualTo, 1)

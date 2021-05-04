@@ -9,8 +9,8 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
+	"github.com/edaniels/test"
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCanny1(t *testing.T) {
@@ -23,9 +23,7 @@ func TestCanny2(t *testing.T) {
 
 func doCannyTest(t *testing.T, root string) {
 	img, err := NewImageFromFile(artifact.MustPath(fmt.Sprintf("rimage/%s.png", root)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	goodOnes := 0
 
@@ -35,14 +33,10 @@ func doCannyTest(t *testing.T, root string) {
 		fmt.Println(outfn)
 
 		out, err := SimpleEdgeDetection(img, a, 3.0)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 		err = WriteImageToFile(outfn, out)
-		if err != nil {
-			t.Fatal(err)
-		}
+		test.That(t, err, test.ShouldBeNil)
 
 		bad := false
 
@@ -82,16 +76,12 @@ func doCannyTest(t *testing.T, root string) {
 		break
 	}
 
-	if goodOnes == 0 {
-		t.Errorf("no good ones found for root %s", root)
-	}
+	test.That(t, goodOnes, test.ShouldNotEqual, 0)
 }
 
 func BenchmarkConvertImage(b *testing.B) {
 	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	b.ResetTimer()
 
@@ -149,32 +139,24 @@ func imageToYCbCr(dst *image.YCbCr, src image.Image) {
 
 func TestConvertYCbCr(t *testing.T) {
 	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	var yuvImg image.YCbCr
 	imageToYCbCr(&yuvImg, orig)
 
 	err = WriteImageToFile(outDir+"/canny1-ycbcr.png", &yuvImg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	c1, b1 := colorful.MakeColor(orig.At(100, 100))
 	c2, b2 := colorful.MakeColor(yuvImg.At(100, 100))
-	if !b1 || !b2 {
-		t.Fatalf("can't convert")
-	}
+	test.That(t, b1 || b2, test.ShouldBeTrue)
 
-	assert.Equal(t, c1.Hex(), c2.Hex())
+	test.That(t, c2.Hex(), test.ShouldEqual, c1.Hex())
 }
 
 func BenchmarkConvertImageYCbCr(b *testing.B) {
 	orig, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	var yuvImg image.YCbCr
 	imageToYCbCr(&yuvImg, orig)
@@ -188,48 +170,34 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 
 func TestCanny(t *testing.T) {
 	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/canny_test_1.jpg"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	img := ConvertImage(imgOriginal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	gtOriginal, err := readImageFromFile(artifact.MustPath("rimage/test_canny.png"), false)
 	gt := ConvertImage(gtOriginal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	cannyDetector := NewCannyDericheEdgeDetector()
 	edgesMat, _ := cannyDetector.DetectEdges(img, 0.5)
 	edges := ConvertImage(edgesMat)
-	assert.Equal(t, len(edges.data), len(gt.data))
-	assert.Equal(t, edges.data, gt.data)
+	test.That(t, len(gt.data), test.ShouldEqual, len(edges.data))
+	test.That(t, gt.data, test.ShouldResemble, edges.data)
 
 }
 
 func TestCannyBlocks(t *testing.T) {
 	// load test image and GT
 	imgOriginal, err := readImageFromFile(artifact.MustPath("rimage/edge_test_image.png"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	img := ConvertImage(imgOriginal)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	gtGradient, err := readImageFromFile(artifact.MustPath("rimage/edge_test_gradient.png"), false)
 	gtGrad := ConvertImage(gtGradient)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	gtNonMaxSup, err := readImageFromFile(artifact.MustPath("rimage/edge_test_nms.png"), false)
 	gtNms := ConvertImage(gtNonMaxSup)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// Compute forward gradient
 	imgGradient, _ := ForwardGradient(img, 0., false)
 	magData := imgGradient.Magnitude.RawMatrix().Data
@@ -266,8 +234,8 @@ func TestCannyBlocks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
-			assert.Equal(t, len(tt.dataOut), len(tt.dataGT))
-			assert.Equal(t, tt.dataOut, tt.dataOut)
+			test.That(t, len(tt.dataGT), test.ShouldEqual, len(tt.dataOut))
+			test.That(t, tt.dataOut, test.ShouldResemble, tt.dataOut)
 		})
 	}
 }

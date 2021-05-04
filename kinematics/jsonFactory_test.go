@@ -16,13 +16,9 @@ func TestParseJSONFile(t *testing.T) {
 	model, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	if len(model.Joints) != 6 {
-		t.Fatalf("Incorrect number of joints loaded for wx250s")
-	}
+	test.That(t, len(model.Joints), test.ShouldEqual, 6)
 	model, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	if len(model.Joints) != 5 {
-		t.Fatalf("Incorrect number of joints loaded")
-	}
+	test.That(t, len(model.Joints), test.ShouldEqual, 5)
 }

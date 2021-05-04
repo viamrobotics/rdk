@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/rimage"
 )
 
@@ -118,8 +119,6 @@ func (cid *chunkImageDebug) Process(
 func TestChunk1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
 	err := d.Process(t, &chunkImageDebug{})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }

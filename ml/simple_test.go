@@ -2,6 +2,8 @@ package ml
 
 import (
 	"testing"
+
+	"github.com/edaniels/test"
 )
 
 func _makeSimpleTest() ([][]float64, []int) {
@@ -33,12 +35,8 @@ func _makeSimpleTest() ([][]float64, []int) {
 func _checkCorrectness(t *testing.T, desc string, theClassifier Classifier, data [][]float64, correct []int) {
 	for x, row := range data {
 		got, err := theClassifier.Classify(row)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got != correct[x] {
-			t.Errorf("wrong result for row %d, data: %v correct: %v got: %v", x, row, correct[x], got)
-		}
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldResemble, correct[x])
 	}
 
 }
@@ -53,9 +51,7 @@ func TestGLSimple1(t *testing.T) {
 
 	c := &GoLearnClassifier{}
 	err := c.Train(data, correct)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	_checkCorrectness(t, "TestGLSimple1", c, data, correct)
 }
@@ -65,9 +61,7 @@ func TestGLSimpleNN1(t *testing.T) {
 
 	c := &GoLearnNNClassifier{}
 	err := c.Train(data, correct)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	_checkCorrectness(t, "TestGLSimpleNN1 - a", c, data, correct)
 

@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
 )
 
 func TestColorSegment1(t *testing.T) {
 	img, err := NewImageFromFile(artifact.MustPath("rimage/chess-segment1.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	all := []Color{}
 
@@ -25,9 +24,7 @@ func TestColorSegment1(t *testing.T) {
 	}
 
 	clusters, err := ClusterHSV(all, 4)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	diffs := ColorDiffs{}
 
@@ -45,9 +42,7 @@ func TestColorSegment1(t *testing.T) {
 	outDir := testutils.TempDir(t, "", "rimage")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	out := NewImage(img.Width(), img.Height())
 	for x := 0; x < img.Width(); x++ {

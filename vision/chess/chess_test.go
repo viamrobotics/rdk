@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/vision/segmentation"
 )
@@ -88,7 +89,5 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, pCtx *rimage.ProcessorCon
 func TestChessCheatRed1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "chess/boardseliot2", "*", true)
 	err := d.Process(t, &ChessImageProcessDebug{FindChessCornersPinkCheat})
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 }

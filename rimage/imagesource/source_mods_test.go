@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
 )
@@ -24,22 +25,16 @@ func init() {
 
 func TestRotateSource(t *testing.T) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	source := &StaticSource{pc}
 	rs := &RotateImageDepthSource{source}
 
 	rawImage, _, err := rs.Next(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	err = rimage.WriteImageToFile(outDir+"/test_rotate_source.png", rawImage)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	img := rimage.ConvertImage(rawImage)
 
@@ -51,25 +46,19 @@ func TestRotateSource(t *testing.T) {
 		b := img.Get(p2)
 
 		d := a.Distance(b)
-		if d != 0 {
-			t.Errorf("colors don't match %v %v", a, b)
-		}
+		test.That(t, d, test.ShouldEqual, 0)
 
 		d1 := pc.Depth.Get(p1)
 		d2 := rawImage.(*rimage.ImageWithDepth).Depth.Get(p2)
 
-		if d1 != d2 {
-			t.Errorf("depth doesn't match %v %v", d1, d2)
-		}
+		test.That(t, d1, test.ShouldEqual, d2)
 	}
 
 }
 
 func BenchmarkRotate(b *testing.B) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	source := &StaticSource{pc}
 	rs := &RotateImageDepthSource{source}

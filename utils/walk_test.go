@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"testing"
+
+	"github.com/edaniels/test"
 )
 
 func TestWalk1(t *testing.T) {
@@ -16,13 +18,11 @@ func TestWalk1(t *testing.T) {
 		return nil
 	})
 
-	if len(m) != 9 {
-		t.Errorf("wrong number %d", len(m))
-	}
+	test.That(t, m, test.ShouldHaveLength, 9)
 
 	for k, v := range m {
-		if v != 1 {
-			t.Errorf("wrong %s %d", k, v)
-		}
+		t.Run(k, func(t *testing.T) {
+			test.That(t, v, test.ShouldEqual, 1)
+		})
 	}
 }

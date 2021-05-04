@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -36,24 +36,22 @@ func TestWarp1(t *testing.T) {
 
 	m2 := GetPerspectiveTransform(src, dst)
 	r, c := m2.Dims()
-	assert.Equal(t, 3, r, c)
-	assert.Equal(t, 3, r, c)
-	assert.InEpsilon(t, 0.5999999999999999, m2.At(0, 0), .01)
+	test.That(t, r, test.ShouldEqual, 3)
+	test.That(t, c, test.ShouldEqual, 3)
+	test.That(t, m2.At(0, 0), test.ShouldAlmostEqual, 0.5999999999999999, .01)
 
 	input := mat.NewDense(size, size, increasingArray(0, 1, size*size))
 
 	res := mat.NewDense(size, size, nil)
 	Warp(&WarpMatrixConnector{input, res}, m2)
 
-	assert.InEpsilon(t, 6.0, res.At(0, 0), .01)
-	assert.InEpsilon(t, 20.4, res.At(4, 4), .01)
+	test.That(t, res.At(0, 0), test.ShouldAlmostEqual, 6.0, .01)
+	test.That(t, res.At(4, 4), test.ShouldAlmostEqual, 20.4, .01)
 }
 
 func TestWarp2(t *testing.T) {
 	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	size := 800
 
@@ -74,17 +72,13 @@ func TestWarp2(t *testing.T) {
 	out := WarpImage(img, m, image.Point{size, size})
 
 	err = WriteImageToFile(outDir+"/canny1-warped.png", out)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }
 
 func BenchmarkWarp(b *testing.B) {
 	img, err := NewImageFromFile(artifact.MustPath("rimage/canny1.png"))
-	if err != nil {
-		b.Fatal(err)
-	}
+	test.That(b, err, test.ShouldBeNil)
 
 	size := 800
 
@@ -123,9 +117,11 @@ func TestWarpInvert(t *testing.T) {
 
 	doTest := func(inSlice, correct []float64) {
 		input := mat.NewDense(3, 3, inSlice)
-		output := invert(input)
-		assert.InDeltaSlice(t, correct, toSlice(output), .01)
-
+		output := toSlice(invert(input))
+		test.That(t, output, test.ShouldHaveLength, len(correct))
+		for i := 0; i < len(correct); i++ {
+			test.That(t, output[i], test.ShouldAlmostEqual, correct[i], .01)
+		}
 	}
 
 	doTest(
@@ -143,9 +139,7 @@ func TestWarpSmall1(t *testing.T) {
 	// this is mostly making sure this test actually runs
 	// as it requires a non-standard matrix invert
 	img, err := readImageFromFile(artifact.MustPath("rimage/warpsmall1.jpg"), false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	outputSize := image.Point{100, 100}
 	x := WarpImage(img, GetPerspectiveTransform(
@@ -154,8 +148,6 @@ func TestWarpSmall1(t *testing.T) {
 	), outputSize)
 
 	err = WriteImageToFile(outDir+"/warpsmall1.png", x)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 }

@@ -7,6 +7,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/test"
 )
 
 type alignImageHelper struct {
@@ -79,23 +80,19 @@ func makeTestCases() []alignImageHelper {
 func expectedImageAlignOutput(a alignImageHelper, t *testing.T, logger golog.Logger) {
 
 	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints, logger)
-	if err != nil {
-		t.Error(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	// If scaling changes expected pixel boundaries by 1 pixel, that can be explained by rounding
 	for i := range colorOutput {
 		Xdiff := Abs(colorOutput[i].X - a.expectedColorOutput[i].X)
 		Ydiff := Abs(colorOutput[i].Y - a.expectedColorOutput[i].Y)
-		if Xdiff > 1 || Ydiff > 1 {
-			t.Errorf("%s color got: %v color exp: %v", a.name, colorOutput, a.expectedColorOutput)
-		}
+		test.That(t, Xdiff, test.ShouldBeLessThanOrEqualTo, 1)
+		test.That(t, Ydiff, test.ShouldBeLessThanOrEqualTo, 1)
 	}
 	for i := range depthOutput {
 		Xdiff := Abs(depthOutput[i].X - a.expectedDepthOutput[i].X)
 		Ydiff := Abs(depthOutput[i].Y - a.expectedDepthOutput[i].Y)
-		if Xdiff > 1 || Ydiff > 1 {
-			t.Errorf("%s depth got: %v depth exp: %v", a.name, depthOutput, a.expectedDepthOutput)
-		}
+		test.That(t, Xdiff, test.ShouldBeLessThanOrEqualTo, 1)
+		test.That(t, Ydiff, test.ShouldBeLessThanOrEqualTo, 1)
 	}
 }
 
@@ -103,7 +100,9 @@ func TestAlignImage(t *testing.T) {
 	cases := makeTestCases()
 	for _, c := range cases {
 		logger := golog.NewTestLogger(t)
-		expectedImageAlignOutput(c, t, logger)
+		t.Run(c.name, func(t *testing.T) {
+			expectedImageAlignOutput(c, t, logger)
+		})
 	}
 
 }

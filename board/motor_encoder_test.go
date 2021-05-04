@@ -10,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/test"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMotorEncoder1(t *testing.T) {
@@ -28,57 +27,57 @@ func TestMotorEncoder1(t *testing.T) {
 
 	// test some basic defaults
 	isOn, err := motor.IsOn(context.Background())
-	assert.Nil(t, err)
-	assert.Equal(t, false, isOn)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, isOn, test.ShouldBeFalse)
 	supported, err := motor.PositionSupported(context.Background())
-	assert.Nil(t, err)
-	assert.True(t, supported)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, supported, test.ShouldBeTrue)
 
-	assert.Equal(t, false, motor.isRegulated())
+	test.That(t, motor.isRegulated(), test.ShouldBeFalse)
 	motor.setRegulated(true)
-	assert.Equal(t, true, motor.isRegulated())
+	test.That(t, motor.isRegulated(), test.ShouldBeTrue)
 	motor.setRegulated(false)
-	assert.Equal(t, false, motor.isRegulated())
+	test.That(t, motor.isRegulated(), test.ShouldBeFalse)
 
 	// when we go forward things work
-	assert.Nil(t, motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .01))
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
-	assert.Equal(t, float32(.01), real.PowerPct())
+	test.That(t, motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .01), test.ShouldBeNil)
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	test.That(t, real.PowerPct(), test.ShouldEqual, float32(.01))
 
 	// stop
-	assert.Nil(t, motor.Off(context.Background()))
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.Direction())
+	test.That(t, motor.Off(context.Background()), test.ShouldBeNil)
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
 
 	// now test basic control
-	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1))
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
-	assert.Less(t, float32(0), real.PowerPct())
+	test.That(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1), test.ShouldBeNil)
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	test.That(t, real.PowerPct(), test.ShouldBeGreaterThan, float32(0))
 
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Less(t, int64(10), motor.RPMMonitorCalls())
-		assert.Equal(t, float32(1), real.PowerPct())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, int64(10))
+		test.That(t, real.PowerPct(), test.ShouldEqual, float32(1))
 	})
 
 	encoder.ticks(99, nowNanosTest())
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 	encoder.Tick(true, nowNanosTest())
 
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.Direction())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
 	})
 
 	// when we're in the middle of a GoFor and then call Go, don't turn off
-	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1))
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
-	assert.Less(t, float32(0), real.PowerPct())
+	test.That(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 1), test.ShouldBeNil)
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	test.That(t, real.PowerPct(), test.ShouldBeGreaterThan, float32(0))
 
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Equal(t, float32(1), real.PowerPct())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, real.PowerPct(), test.ShouldEqual, float32(1))
 	})
 
 	// we didn't hit the set point
 	encoder.ticks(99, nowNanosTest())
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 
 	// go to non controlled
 	motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .25)
@@ -87,36 +86,36 @@ func TestMotorEncoder1(t *testing.T) {
 	encoder.ticks(1000, nowNanosTest())
 
 	// we should still be moving at the previous force
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Equal(t, float32(.25), real.PowerPct())
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, real.Direction())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, real.PowerPct(), test.ShouldEqual, float32(.25))
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 	})
 
-	assert.Nil(t, motor.Off(context.Background()))
+	test.That(t, motor.Off(context.Background()), test.ShouldBeNil)
 
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos, err := motor.Position(context.Background())
-		assert.Nil(t, err)
-		assert.Equal(t, 11.99, pos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 11.99)
 	})
 
 	// same thing, but backwards
-	assert.Nil(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 1000, 1))
-	assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.Direction())
-	assert.Less(t, float32(0), real.PowerPct())
+	test.That(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 1000, 1), test.ShouldBeNil)
+	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+	test.That(t, real.PowerPct(), test.ShouldBeGreaterThan, float32(0))
 
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Less(t, int64(10), motor.RPMMonitorCalls())
-		assert.Equal(t, float32(1), real.PowerPct())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, int64(10))
+		test.That(t, real.PowerPct(), test.ShouldEqual, float32(1))
 	})
 
 	encoder.ticks(99, nowNanosTest())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, real.Direction())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 	})
 	encoder.Tick(true, nowNanosTest())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
-		assert.Equal(t, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, real.Direction())
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
 	})
 }
 
@@ -135,35 +134,35 @@ func TestMotorEncoderHall(t *testing.T) {
 	}()
 
 	motor.rpmMonitorStart(context.Background())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos, err := motor.Position(context.Background())
-		assert.Nil(t, err)
-		assert.Equal(t, 0.0, pos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0.0)
 	})
 
 	encoderA.Tick(true, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos, err := motor.Position(context.Background())
-		assert.Nil(t, err)
-		assert.InEpsilon(t, -.01, pos, .00001)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldAlmostEqual, -.01, .00001)
 	})
 
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos, err := motor.Position(context.Background())
-		assert.Nil(t, err)
-		assert.Equal(t, 0.0, pos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, 0.0)
 	})
 
 	encoderB.Tick(false, nowNanosTest())
 	encoderB.Tick(true, nowNanosTest())
 	encoderA.Tick(true, nowNanosTest())
-	testutils.WaitForAssertion(t, func(t assert.TestingT) {
+	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos, err := motor.Position(context.Background())
-		assert.Nil(t, err)
-		assert.Equal(t, .01, pos)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldEqual, .01)
 	})
 }
 
@@ -173,42 +172,40 @@ func TestMotorEncoderWrap(t *testing.T) {
 
 	// don't wrap with no encoder
 	m, err := WrapMotorWithEncoder(context.Background(), nil, MotorConfig{}, real, logger)
-	assert.Nil(t, err)
-	assert.Equal(t, real, m)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m, test.ShouldEqual, real)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need TicksPerRotation
 	m, err = WrapMotorWithEncoder(context.Background(), nil, MotorConfig{Encoder: "a"}, real, logger)
-	assert.NotNil(t, err)
-	assert.Nil(t, m)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b, err := NewFakeBoard(context.Background(), Config{}, golog.Global)
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 
 	// enforce need encoder
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
-	assert.NotNil(t, err)
-	assert.Nil(t, m)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	b.digitals["a"] = &BasicDigitalInterrupt{}
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100}, real, logger)
-	assert.Nil(t, err)
+	test.That(t, err, test.ShouldBeNil)
 	_, ok := m.(*encodedMotor)
-	assert.True(t, ok)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	// enforce need encoder b
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"}, real, logger)
-	assert.NotNil(t, err)
-	assert.Nil(t, m)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
 	m, err = WrapMotorWithEncoder(context.Background(), b, MotorConfig{Encoder: "a", EncoderB: "b", TicksPerRotation: 100}, real, logger)
-	assert.NotNil(t, err)
-	assert.Nil(t, m)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 }

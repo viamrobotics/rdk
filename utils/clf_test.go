@@ -6,14 +6,12 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/edaniels/test"
 )
 
 func TestCLF(t *testing.T) {
 	f, err := os.Open(artifact.MustPath("utils/aces_sample.clf"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	test.That(t, err, test.ShouldBeNil)
 	defer f.Close()
 
 	clf := NewCLFReader(f)
@@ -27,9 +25,7 @@ func TestCLF(t *testing.T) {
 		}
 		return nil
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, 20, numMessages)
-	assert.True(t, haveAnOdom)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numMessages, test.ShouldEqual, 20)
+	test.That(t, haveAnOdom, test.ShouldBeTrue)
 }

@@ -6,22 +6,21 @@ import (
 	"testing"
 
 	"github.com/edaniels/test"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestAbs1(t *testing.T) {
-	assert.Equal(t, 5, AbsInt(5))
-	assert.Equal(t, 5, AbsInt(-5))
-	assert.Equal(t, 0, AbsInt(0))
+	test.That(t, AbsInt(5), test.ShouldEqual, 5)
+	test.That(t, AbsInt(-5), test.ShouldEqual, 5)
+	test.That(t, AbsInt(0), test.ShouldEqual, 0)
 
-	assert.Equal(t, int64(5), AbsInt64(5))
-	assert.Equal(t, int64(5), AbsInt64(-5))
-	assert.Equal(t, int64(0), AbsInt64(0))
+	test.That(t, AbsInt64(5), test.ShouldEqual, int64(5))
+	test.That(t, AbsInt64(-5), test.ShouldEqual, int64(5))
+	test.That(t, AbsInt64(0), test.ShouldEqual, int64(0))
 }
 
 func TestSquare1(t *testing.T) {
-	assert.Equal(t, 4.0, Square(2.0))
-	assert.Equal(t, 4, SquareInt(2))
+	test.That(t, Square(2.0), test.ShouldEqual, 4.0)
+	test.That(t, SquareInt(2), test.ShouldEqual, 4)
 }
 
 func TestDegToRad(t *testing.T) {
@@ -57,11 +56,11 @@ func TestRadToDeg(t *testing.T) {
 }
 
 func TestDegrees(t *testing.T) {
-	assert.Equal(t, 0.0, DegToRad(0))
-	assert.Equal(t, 0.0, RadToDeg(DegToRad(0)))
+	test.That(t, DegToRad(0), test.ShouldEqual, 0.0)
+	test.That(t, RadToDeg(DegToRad(0)), test.ShouldEqual, 0.0)
 
-	assert.Equal(t, math.Pi, DegToRad(180))
-	assert.Equal(t, 180.0, RadToDeg(DegToRad(180)))
+	test.That(t, DegToRad(180), test.ShouldEqual, math.Pi)
+	test.That(t, RadToDeg(DegToRad(180)), test.ShouldEqual, 180.0)
 }
 
 func TestAngleDiffDeg(t *testing.T) {
@@ -147,36 +146,36 @@ func TestMedian(t *testing.T) {
 }
 
 func TestMinMax(t *testing.T) {
-	assert.Equal(t, 5, MaxInt(0, 5))
-	assert.Equal(t, 5, MaxInt(-12, 5))
-	assert.Equal(t, 5, MaxInt(5, 4))
+	test.That(t, MaxInt(0, 5), test.ShouldEqual, 5)
+	test.That(t, MaxInt(-12, 5), test.ShouldEqual, 5)
+	test.That(t, MaxInt(5, 4), test.ShouldEqual, 5)
 
-	assert.Equal(t, 0, MinInt(0, 5))
-	assert.Equal(t, -12, MinInt(-12, 5))
-	assert.Equal(t, 4, MinInt(5, 4))
+	test.That(t, MinInt(0, 5), test.ShouldEqual, 0)
+	test.That(t, MinInt(-12, 5), test.ShouldEqual, -12)
+	test.That(t, MinInt(5, 4), test.ShouldEqual, 4)
 
-	assert.Equal(t, uint8(5), MaxUint8(0, 5))
-	assert.Equal(t, uint8(5), MaxUint8(1, 5))
-	assert.Equal(t, uint8(5), MaxUint8(5, 4))
+	test.That(t, MaxUint8(0, 5), test.ShouldEqual, uint8(5))
+	test.That(t, MaxUint8(1, 5), test.ShouldEqual, uint8(5))
+	test.That(t, MaxUint8(5, 4), test.ShouldEqual, uint8(5))
 
-	assert.Equal(t, uint8(0), MinUint8(0, 5))
-	assert.Equal(t, uint8(1), MinUint8(1, 5))
-	assert.Equal(t, uint8(4), MinUint8(5, 4))
+	test.That(t, MinUint8(0, 5), test.ShouldEqual, uint8(0))
+	test.That(t, MinUint8(1, 5), test.ShouldEqual, uint8(1))
+	test.That(t, MinUint8(5, 4), test.ShouldEqual, uint8(4))
 }
 
 func TestScaleByPct(t *testing.T) {
-	assert.Equal(t, 0, ScaleByPct(0, 0))
-	assert.Equal(t, 0, ScaleByPct(255, 0))
-	assert.Equal(t, 255, ScaleByPct(255, 1))
-	assert.Equal(t, 127, ScaleByPct(255, .5))
-	assert.Equal(t, 0, ScaleByPct(255, -2))
+	test.That(t, ScaleByPct(0, 0), test.ShouldEqual, 0)
+	test.That(t, ScaleByPct(255, 0), test.ShouldEqual, 0)
+	test.That(t, ScaleByPct(255, 1), test.ShouldEqual, 255)
+	test.That(t, ScaleByPct(255, .5), test.ShouldEqual, 127)
+	test.That(t, ScaleByPct(255, -2), test.ShouldEqual, 0)
 }
 
 func TestRayToUpwardCWCartesian(t *testing.T) {
 	tt := func(angle, distance, X, Y float64) {
 		x, y := RayToUpwardCWCartesian(angle, 1)
-		assert.InDelta(t, X, x, 00001)
-		assert.InDelta(t, Y, y, 00001)
+		test.That(t, x, test.ShouldAlmostEqual, X, .00001)
+		test.That(t, y, test.ShouldAlmostEqual, Y, .00001)
 	}
 
 	tt(0, 1, 0, 1)
@@ -185,12 +184,12 @@ func TestRayToUpwardCWCartesian(t *testing.T) {
 	tt(270, 1, -1, 0)
 
 	tt(360, 1, 0, 1)
-	tt(90+90, 1, 1, 0)
+	tt(90+90, 1, 0, -1)
 	tt(360+180, 1, 0, -1)
 	tt(360+270, 1, -1, 0)
 
-	tt(45, math.Sqrt(2), 1, 1)
-	tt(135, math.Sqrt(2), 1, -1)
-	tt(225, math.Sqrt(2), -1, -1)
-	tt(315, math.Sqrt(2), -1, 1)
+	tt(45, 1, math.Sqrt(2)/2, math.Sqrt(2)/2)
+	tt(135, 1, math.Sqrt(2)/2, -math.Sqrt(2)/2)
+	tt(225, 1, -math.Sqrt(2)/2, -math.Sqrt(2)/2)
+	tt(315, 1, -math.Sqrt(2)/2, math.Sqrt(2)/2)
 }
