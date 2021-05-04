@@ -22,8 +22,8 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/gostream"
-	"go.viam.com/test"
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 )

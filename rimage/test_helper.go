@@ -16,9 +16,9 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
+	"go.viam.com/test"
 )
 
 type MultipleImageTestDebugger struct {

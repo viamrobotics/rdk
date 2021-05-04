@@ -6,8 +6,8 @@ import (
 	"sort"
 	"testing"
 
-	"go.viam.com/test"
 	"go.viam.com/robotcore/utils"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/mat"
 )
 

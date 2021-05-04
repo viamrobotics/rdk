@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/test"
 )
 
 func TestAugmentReduce(t *testing.T) {

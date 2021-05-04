@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"github.com/fsnotify/fsnotify"
+	"go.viam.com/test"
 )
 
 func TestManagedProcessID(t *testing.T) {

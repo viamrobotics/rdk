@@ -24,8 +24,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"go.viam.com/test"
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 	"google.golang.org/grpc"
 )
 

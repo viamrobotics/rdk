@@ -9,12 +9,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
+	"go.viam.com/test"
 )
 
 func TestImageSource(t *testing.T) {

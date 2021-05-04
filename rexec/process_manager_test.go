@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/robotcore/utils"
+	"go.viam.com/test"
 )
 
 func TestProcessManagerProcessIDs(t *testing.T) {

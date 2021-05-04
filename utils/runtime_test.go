@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 	"go.uber.org/multierr"
+	"go.viam.com/test"
 )
 
 func TestContextualMain(t *testing.T) {

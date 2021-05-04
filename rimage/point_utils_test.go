@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 )
 
 func TestPointDistance(t *testing.T) {
