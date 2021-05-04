@@ -34,7 +34,7 @@ func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 
 // Projections to pointclouds are done in a naive way that don't take any camera parameters into account
 func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
-	if !ii.isAligned() {
+	if !ii.IsAligned() {
 		return nil, fmt.Errorf("input ImageWithDepth is not aligned")
 	}
 	pc := pointcloud.New()
