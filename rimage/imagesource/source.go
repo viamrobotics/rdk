@@ -157,7 +157,6 @@ type IntelServerSource struct {
 	host      string
 	isAligned bool // are the color and depth image already aligned
 	aligner   rimage.DepthColorAligner
-	aligner   rimage.DepthColorAligner
 }
 
 func (s *IntelServerSource) IsAligned() bool {
