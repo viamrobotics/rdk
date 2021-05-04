@@ -34,7 +34,7 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
-    - name: Verify no newly generated files
+    - name: Verify no new changes
       run: |
         go install google.golang.org/protobuf/cmd/protoc-gen-go \
           google.golang.org/grpc/cmd/protoc-gen-go-grpc \
@@ -42,9 +42,10 @@ jobs:
         git init
         git add .
         make buf
+        make goformat
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
-            echo '"buf generate" resulted in changes not in git' 1>&2
+            echo '"buf generate or goformat" resulted in changes not in git' 1>&2
             echo "$GEN_DIFF" 1>&2
             exit 1
         fi
