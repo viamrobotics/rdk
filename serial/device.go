@@ -14,9 +14,10 @@ type DeviceDescription struct {
 type DeviceType string
 
 const (
-	DeviceTypeUnknown = "unknown"
-	DeviceTypeArduino = "arduino"
-	DeviceTypeJetson  = "nvidia-jetson"
+	DeviceTypeUnknown    = "unknown"
+	DeviceTypeArduino    = "arduino"
+	DeviceTypeJetson     = "nvidia-jetson"
+	DeviceTypeNumatoGPIO = "numato-gpio"
 )
 
 var OpenDevice = func(devicePath string) (io.ReadWriteCloser, error) {
