@@ -56,6 +56,7 @@ require (
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197 // indirect
+	golang.org/x/tools v0.1.0
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
 	google.golang.org/api v0.36.0
