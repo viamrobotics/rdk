@@ -7,6 +7,7 @@ binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
 
 goformat:
+	go install golang.org/x/tools/cmd/goimports
 	gofmt -s -w .
 	goimports -w -local=go.viam.com/robotcore `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
