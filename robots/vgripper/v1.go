@@ -147,7 +147,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.Stop(ctx)
 		}
 
-		pressure, err := vg.hasPressure(ctx)
+		pressure, _, err := vg.hasPressure(ctx)
 		if err != nil {
 			return false, err
 		}
@@ -186,21 +186,21 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 }
 
 func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < .18
+	return math.Abs(b-a) < .1
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
 	return vg.pressure.Read(ctx)
 }
 
-func (vg *GripperV1) hasPressure(ctx context.Context) (bool, error) {
+func (vg *GripperV1) hasPressure(ctx context.Context) (bool, int, error) {
 	p, err := vg.readPressure(ctx)
-	return p < vg.pressureLimit, err
+	return p < vg.pressureLimit, p, err
 }
 
 // return hasPressure, current
-func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, current int, err error) {
-	hasPressure, err = vg.hasPressure(ctx)
+func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, current int, err error) {
+	hasPressure, pressure, err = vg.hasPressure(ctx)
 	if err != nil {
 		return
 	}
@@ -244,13 +244,13 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			return -1, false, err
 		}
 
-		hasPressure, _, err := vg.analogs(ctx)
+		hasPressure, pressure, _, err := vg.analogs(ctx)
 		if err != nil {
 			return -1, false, err
 		}
 
-		vg.logger.Debugf("dir: %v last: %v now: %v hasPressure: %v",
-			dir, last, now, hasPressure)
+		vg.logger.Debugf("dir: %v last: %v now: %v hasPressure: %v pressure: %v",
+			dir, last, now, hasPressure, pressure)
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
@@ -261,6 +261,15 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			if !utils.SelectContextOrWait(ctx, time.Second) {
 				return -1, false, ctx.Err()
 			}
+
+			hasPressure, pressure, _, err := vg.analogs(ctx)
+			if err != nil {
+				return -1, false, err
+			}
+
+			vg.logger.Debugf("inner dir: %v last: %v now: %v hasPressure: %v pressure: %v",
+				dir, last, now, hasPressure, pressure)
+
 			return now, hasPressure, err
 		}
 		last = now
