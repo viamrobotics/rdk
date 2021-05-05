@@ -66,7 +66,7 @@ func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap) (*DepthColorIntri
 	if attrs.Has("matrices") {
 		matrices = attrs["matrices"].(*DepthColorIntrinsicsExtrinsics)
 	} else {
-		return nil, fmt.Errorf("no alignment config")
+		return nil, fmt.Errorf("no camera config")
 	}
 	return matrices, nil
 }

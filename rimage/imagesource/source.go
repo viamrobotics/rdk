@@ -156,15 +156,15 @@ type IntelServerSource struct {
 	BothURL   string
 	host      string
 	isAligned bool // are the color and depth image already aligned
-	aligner   rimage.DepthColorAligner
+	camera    rimage.CameraSystem
 }
 
 func (s *IntelServerSource) IsAligned() bool {
 	return s.isAligned
 }
 
-func (s *IntelServerSource) Aligner() rimage.DepthColorAligner {
-	return s.aligner
+func (s *IntelServerSource) GetCameraSystem() rimage.CameraSystem {
+	return s.camera
 }
 
 func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*IntelServerSource, error) {
@@ -173,7 +173,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 	if has {
 		num = numString.(string)
 	}
-	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
+	camera, err := calib.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
 		host:      host,
 		isAligned: attrs.GetBool("aligned", true),
-		aligner:   aligner,
+		camera:    camera,
 	}, nil
 }
 
@@ -196,6 +196,6 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	}
 
 	img, err := rimage.BothReadFromBytes(allData, s.IsAligned())
-	img.SetAligner(s.Aligner())
+	img.SetCameraSystem(s.GetCameraSystem())
 	return img, func() {}, err
 }
