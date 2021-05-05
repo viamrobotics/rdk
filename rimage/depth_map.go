@@ -577,8 +577,13 @@ type dmWarpConnector struct {
 	Out DepthMap
 }
 
-func (w *dmWarpConnector) Get(x, y int, buf []float64) {
-	buf[0] = float64(w.In.GetDepth(x, y))
+func (w *dmWarpConnector) Get(x, y int, buf []float64) bool {
+	d := w.In.GetDepth(x, y)
+	if d == 0 {
+		return false
+	}
+	buf[0] = float64(d)
+	return true
 }
 
 func (w *dmWarpConnector) Set(x, y int, data []float64) {
