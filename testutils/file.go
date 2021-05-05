@@ -11,7 +11,13 @@ import (
 // TempDir creates a temporary directory and fails the test if it cannot.
 func TempDir(t *testing.T, dir, pattern string) string {
 	t.Helper()
-	dir = filepath.Join("/tmp", "robotcore_test", os.Getenv("USER"), dir, pattern)
+
+	root := "/tmp"
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		root = os.TempDir()
+	}
+
+	dir = filepath.Join(root, "robotcore_test", os.Getenv("USER"), dir, pattern)
 	err := os.MkdirAll(dir, 0770)
 	test.That(t, err, test.ShouldBeNil)
 	return dir
