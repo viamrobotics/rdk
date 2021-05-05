@@ -153,7 +153,7 @@ func (a *Arm) Close() error {
 		if err != nil {
 			a.logger.Errorf("Home position error: %s", err)
 		}
-		err = a.SleepPosition()
+		err = a.SleepPosition(context.Background())
 		if err != nil {
 			a.logger.Errorf("Sleep pos error: %s", err)
 		}
