@@ -35,7 +35,7 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	for i, solver := range ik.solvers {
 		solver.SetID(i)
 	}
-	
+
 	return ik
 }
 

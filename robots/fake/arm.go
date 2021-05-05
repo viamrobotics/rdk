@@ -53,6 +53,10 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) err
 	return fmt.Errorf("arm JointMoveDelta does nothing")
 }
 
+func (a *Arm) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	return fmt.Errorf("fake arm does not support setting dist config")
+}
+
 func (a *Arm) Close() error {
 	a.CloseCount++
 	return nil

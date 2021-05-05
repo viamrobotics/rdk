@@ -433,6 +433,14 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 	return resp.Positions, nil
 }
 
+func (ac *armClient) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	_, err := ac.rc.client.ArmSetIkConfig(ctx, &pb.ArmSetIkConfigRequest{
+		Name: ac.name,
+		To:   pos,
+	})
+	return err
+}
+
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	debug.PrintStack()
 	return errUnimplemented

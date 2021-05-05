@@ -43,5 +43,7 @@ type Arm interface {
 	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
 	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
+	SetDistConfig(ctx context.Context, pos *pb.IKConfig) error
+
 	JointMoveDelta(ctx context.Context, joint int, amount float64) error // TODO(erh): make it clear the units
 }

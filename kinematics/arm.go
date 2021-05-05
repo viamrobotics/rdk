@@ -56,6 +56,11 @@ func (k *Arm) Close() error {
 	return utils.TryClose(k.real) // TODO(erh): who owns this?
 }
 
+func (k *Arm) SetDistConfig(ctx context.Context, cfg *pb.IKConfig) error {
+	k.ik.SetDistConfig(DistanceConfig{XYZWeights{cfg.X, cfg.Y, cfg.Z}, XYZWeights{cfg.RX, cfg.RY, cfg.RZ}})
+	return nil
+}
+
 // Returns the end effector's current Position
 func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	k.Model.ForwardPosition()

@@ -40,7 +40,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
-	ik.distConfig = DistanceConfig{XYZWeights{1,1,1},XYZWeights{1,1,1}}
+	ik.distConfig = DistanceConfig{XYZWeights{1, 1, 1}, XYZWeights{1, 1, 1}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one

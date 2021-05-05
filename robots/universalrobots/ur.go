@@ -64,6 +64,10 @@ func URArmConnect(host string, logger golog.Logger) (*URArm, error) {
 	}
 }
 
+func (arm *URArm) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	return fmt.Errorf("UR5 arm does not support setting dist config")
+}
+
 func (arm *URArm) setState(state RobotState) {
 	arm.mu.Lock()
 	arm.state = state
