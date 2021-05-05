@@ -158,12 +158,12 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot read color file (%s): %w", colorFN, err)
 	}
 
 	dm, err := NewDepthMapFromImageFile(depthFN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot read depth file (%s): %w", depthFN, err)
 	}
 
 	return &ImageWithDepth{img, dm, isAligned, nil}, nil
@@ -172,17 +172,19 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot read color file (%s): %w", colorFN, err)
 	}
 
 	dm, err := ParseDepthMap(depthFN)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot read depth file (%s): %w", depthFN, err)
 	}
 
-	if img.Width() != dm.Width() || img.Height() != dm.Height() {
-		return nil, fmt.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
-			img.Width(), img.Height(), dm.Width(), dm.Height())
+	if isAligned {
+		if img.Width() != dm.Width() || img.Height() != dm.Height() {
+			return nil, fmt.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
+				img.Width(), img.Height(), dm.Width(), dm.Height())
+		}
 	}
 
 	return &ImageWithDepth{img, dm, isAligned, nil}, nil
