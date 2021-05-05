@@ -11,6 +11,7 @@ import (
 	"image"
 	"image/draw"
 	"image/jpeg"
+	"image/png"
 	"math"
 	"sync"
 	"time"
@@ -243,9 +244,14 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case "", "image/jpeg":
+	case "image/jpeg":
 		resp.MimeType = "image/jpeg"
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
+			return nil, err
+		}
+	case "", "image/png":
+		resp.MimeType = "image/png"
+		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
 		}
 	default:
