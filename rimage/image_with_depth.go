@@ -10,11 +10,11 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
-	aligner DepthColorAligner
+	camera  CameraSystem
 }
 
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, aligner DepthColorAligner) *ImageWithDepth {
-	return &ImageWithDepth{img, dm, aligned, aligner}
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera CameraSystem) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned, camera}
 }
 
 func (i *ImageWithDepth) Bounds() image.Rectangle {
@@ -38,7 +38,7 @@ func (i *ImageWithDepth) Height() int {
 }
 
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.aligner}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.camera}
 }
 
 func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
@@ -52,7 +52,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = &dm2
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.aligner}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
 }
 
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
