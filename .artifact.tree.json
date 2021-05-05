@@ -8,7 +8,8 @@
       "align-test-1615761793.both.gz": "d4a8814121f88435e12e678f54377797",
       "align-test-1615761796.both.gz": "b6a14822a01c3459b9fafa984c855864",
       "align-test-1615761799.both.gz": "4bacef2b5032023628d5fd3786c1c31b",
-      "align-test-1615761802.both.gz": "6cd19e5c9fb75faeac4676ce2b26c9a3"
+      "align-test-1615761802.both.gz": "6cd19e5c9fb75faeac4676ce2b26c9a3",
+      "gripper-big1.both.gz": "e09120e237eb6010ec4f9c9248abbbc0"
     },
     "intel515": {
       "align-test-1615172036.both.gz": "f41441e697fc09065c7d0e3ce4cae611",
@@ -1045,6 +1046,8 @@
       "back5.json": "388a1fc918d3cabf3cdd2594e73d608a",
       "data_00126.both.gz": "8ed9495fccda83b4369bea95fd6d4b83",
       "data_00126.both.json": "a2df7a5f126616de8e218d04bc09f258",
+      "gripper1.both.gz": "c2b2f06c0c8482d192d4eb621e7e7a61",
+      "gripper1.both.json": "b3506c1258945912a393fee68c117557",
       "office1.json": "a68d90c7f78b5822836dbc798b0b8205",
       "office1.png": "84c523b832e9a9e259a477b94a2f5804",
       "rover_backwards.both.gz": "b3b154b2a0ec9096ebccc3e2cbee04d9",
