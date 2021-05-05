@@ -40,7 +40,8 @@ func newTransformationMatrix(m mat.Matrix) TransformationMatrix {
 }
 
 type WarpConnector interface {
-	Get(x, y int, buf []float64)
+	// return is if the point is valid or not
+	Get(x, y int, buf []float64) bool
 	Set(x, y int, data []float64)
 	OutputDims() (int, int)
 	NumFields() int // how many float64 are in the buffers above
@@ -53,8 +54,9 @@ type WarpMatrixConnector struct {
 	Output *mat.Dense
 }
 
-func (c *WarpMatrixConnector) Get(x, y int, buf []float64) {
+func (c *WarpMatrixConnector) Get(x, y int, buf []float64) bool {
 	buf[0] = c.Input.At(x, y)
+	return true
 }
 
 func (c *WarpMatrixConnector) Set(x, y int, data []float64) {
@@ -76,11 +78,12 @@ type WarpImageConnector struct {
 	Output *Image
 }
 
-func (c *WarpImageConnector) Get(x, y int, buf []float64) {
+func (c *WarpImageConnector) Get(x, y int, buf []float64) bool {
 	// Note: this isn't quite correct, as we're going to averge rgb, and hsv differently.
 	// I'm not sure if it matters or not, but it might
 	cc := c.Input.GetXY(x, y)
 	cc.RawFloatArrayFill(buf)
+	return true
 }
 
 func (c *WarpImageConnector) Set(x, y int, data []float64) {
@@ -156,17 +159,22 @@ func invert(m mat.Matrix) *mat.Dense {
 	return d
 }
 
-func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) {
+// returns good area
+func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) float64 {
 	area := dx * dy
 	if area <= .00001 {
-		return
+		return area
 	}
 
-	input.Get(int(rp), int(cp), buf)
+	if !input.Get(int(rp), int(cp), buf) {
+		// point is invalid, what do we do!!!
+		return 0
+	}
 
 	for idx, vv := range buf {
 		out[idx] += vv * area
 	}
+	return area
 }
 
 func getRoundedValue(input WarpConnector, r, c float64, total, buf []float64) []float64 {
@@ -175,10 +183,18 @@ func getRoundedValue(input WarpConnector, r, c float64, total, buf []float64) []
 	c0 := math.Floor(c)
 	c1 := c0 + 1
 
-	getRoundedValueHelp(input, r1-r, c1-c, r0, c0, total, buf)
-	getRoundedValueHelp(input, r-r0, c1-c, r1, c0, total, buf)
-	getRoundedValueHelp(input, r-r0, c-c0, r1, c1, total, buf)
-	getRoundedValueHelp(input, r1-r, c-c0, r0, c1, total, buf)
+	goodArea := 0.0
+
+	goodArea += getRoundedValueHelp(input, r1-r, c1-c, r0, c0, total, buf)
+	goodArea += getRoundedValueHelp(input, r-r0, c1-c, r1, c0, total, buf)
+	goodArea += getRoundedValueHelp(input, r-r0, c-c0, r1, c1, total, buf)
+	goodArea += getRoundedValueHelp(input, r1-r, c-c0, r0, c1, total, buf)
+
+	if goodArea < .99 {
+		for idx := range total {
+			total[idx] /= goodArea
+		}
+	}
 
 	return total
 }
