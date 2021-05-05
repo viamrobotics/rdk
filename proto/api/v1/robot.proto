@@ -29,6 +29,12 @@ service RobotService {
 
 	// Arm
 
+	rpc ArmSetIkConfig(ArmSetIkConfigRequest) returns (ArmSetIkConfigResponse) {
+		option (google.api.http) = {
+			get: "/v1/arm/{name}/set_ik_config"
+		};	
+	}
+
 	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
 		option (google.api.http) = {
 			get: "/v1/arm/{name}/current_position"
@@ -258,6 +264,13 @@ message ArmPosition {
 message JointPositions {
 	repeated double degrees = 1;
 }
+
+message ArmSetIkConfigRequest {
+	string name = 1;
+	ArmPosition to = 2;
+}
+
+message ArmSetIkConfigResponse {}
 
 message ArmCurrentPositionRequest {
 	string name = 1;

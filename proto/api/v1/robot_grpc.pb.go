@@ -22,6 +22,7 @@ type RobotServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (RobotService_StatusStreamClient, error)
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
+	ArmSetIkConfig(ctx context.Context, in *ArmSetIkConfigRequest, opts ...grpc.CallOption) (*ArmSetIkConfigResponse, error)
 	ArmCurrentPosition(ctx context.Context, in *ArmCurrentPositionRequest, opts ...grpc.CallOption) (*ArmCurrentPositionResponse, error)
 	ArmMoveToPosition(ctx context.Context, in *ArmMoveToPositionRequest, opts ...grpc.CallOption) (*ArmMoveToPositionResponse, error)
 	ArmCurrentJointPositions(ctx context.Context, in *ArmCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmCurrentJointPositionsResponse, error)
@@ -103,6 +104,15 @@ func (x *robotServiceStatusStreamClient) Recv() (*StatusStreamResponse, error) {
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
 	out := new(DoActionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/DoAction", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) ArmSetIkConfig(ctx context.Context, in *ArmSetIkConfigRequest, opts ...grpc.CallOption) (*ArmSetIkConfigResponse, error) {
+	out := new(ArmSetIkConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmSetIkConfig", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -359,6 +369,7 @@ type RobotServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
+	ArmSetIkConfig(context.Context, *ArmSetIkConfigRequest) (*ArmSetIkConfigResponse, error)
 	ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error)
 	ArmMoveToPosition(context.Context, *ArmMoveToPositionRequest) (*ArmMoveToPositionResponse, error)
 	ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error)
@@ -401,6 +412,9 @@ func (UnimplementedRobotServiceServer) StatusStream(*StatusStreamRequest, RobotS
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
+}
+func (UnimplementedRobotServiceServer) ArmSetIkConfig(context.Context, *ArmSetIkConfigRequest) (*ArmSetIkConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ArmSetIkConfig not implemented")
 }
 func (UnimplementedRobotServiceServer) ArmCurrentPosition(context.Context, *ArmCurrentPositionRequest) (*ArmCurrentPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ArmCurrentPosition not implemented")
@@ -549,6 +563,24 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_ArmSetIkConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmSetIkConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ArmSetIkConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ArmSetIkConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ArmSetIkConfig(ctx, req.(*ArmSetIkConfigRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1053,6 +1085,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
+		},
+		{
+			MethodName: "ArmSetIkConfig",
+			Handler:    _RobotService_ArmSetIkConfig_Handler,
 		},
 		{
 			MethodName: "ArmCurrentPosition",

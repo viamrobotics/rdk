@@ -318,6 +318,86 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.doAction =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ArmSetIkConfigRequest,
+ *   !proto.proto.api.v1.ArmSetIkConfigResponse>}
+ */
+const methodDescriptor_RobotService_ArmSetIkConfig = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/ArmSetIkConfig',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ArmSetIkConfigRequest,
+  proto.proto.api.v1.ArmSetIkConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmSetIkConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmSetIkConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ArmSetIkConfigRequest,
+ *   !proto.proto.api.v1.ArmSetIkConfigResponse>}
+ */
+const methodInfo_RobotService_ArmSetIkConfig = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ArmSetIkConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.ArmSetIkConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ArmSetIkConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ArmSetIkConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ArmSetIkConfigResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ArmSetIkConfigResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.armSetIkConfig =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ArmSetIkConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ArmSetIkConfig,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ArmSetIkConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ArmSetIkConfigResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.armSetIkConfig =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/ArmSetIkConfig',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_ArmSetIkConfig);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.ArmCurrentPositionRequest,
  *   !proto.proto.api.v1.ArmCurrentPositionResponse>}
  */
