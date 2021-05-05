@@ -12,6 +12,7 @@ import (
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 func init() {
@@ -23,6 +24,13 @@ func init() {
 		return NewGripperV1(ctx, b, config.Attributes.GetInt("pressureLimit", 800), logger)
 	})
 }
+
+const (
+	MaxCurrent              = 300
+	CurrentBadReadingCounts = 6
+	MinRotationGap          = 2.0
+	MaxRotationGap          = 3.0
+)
 
 type GripperV1 struct {
 	motor    board.Motor
@@ -37,6 +45,8 @@ type GripperV1 struct {
 
 	closeDirection, openDirection pb.DirectionRelative
 	logger                        golog.Logger
+
+	numBadCurrentReadings int
 }
 
 func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
@@ -45,8 +55,8 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           theBoard.Motor("g"),
 		current:         theBoard.AnalogReader("current"),
 		pressure:        theBoard.AnalogReader("pressure"),
-		defaultPowerPct: 25,
-		holdingPressure: 6,
+		defaultPowerPct: 1.0,
+		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
 	}
@@ -91,7 +101,11 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		vg.openPos = posA
 		vg.closePos = posB
+	}
 
+	rotationGap := math.Abs(vg.openPos - vg.closePos)
+	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
+		return nil, fmt.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
 	}
 
 	return vg, vg.Open(ctx)
@@ -107,20 +121,28 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 	total := 0
 	for {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
-			return ctx.Err()
+			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		now, err := vg.motor.Position(ctx)
 		if err != nil {
-			return err
+			return vg.stopAfterError(ctx, err)
 		}
 		if vg.encoderSame(now, vg.openPos) {
 			return vg.Stop(ctx)
 		}
 
+		current, err := vg.readCurrent(ctx)
+		if err != nil {
+			return vg.stopAfterError(ctx, err)
+		}
+		err = vg.processCurrentReading(ctx, current, "opening")
+		if err != nil {
+			return vg.stopAfterError(ctx, err)
+		}
+
 		total += msPer
 		if total > 5000 {
-			err = vg.Stop(ctx)
-			return fmt.Errorf("open timed out, wanted: %f at: %f stop error: %s", vg.openPos, now, err)
+			return vg.stopAfterError(ctx, fmt.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now))
 		}
 	}
 }
@@ -135,11 +157,11 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	total := 0
 	for {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
-			return false, ctx.Err()
+			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		now, err := vg.motor.Position(ctx)
 		if err != nil {
-			return false, err
+			return false, vg.stopAfterError(ctx, err)
 		}
 
 		if vg.encoderSame(now, vg.closePos) {
@@ -147,9 +169,13 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.Stop(ctx)
 		}
 
-		pressure, _, err := vg.hasPressure(ctx)
+		pressure, _, current, err := vg.analogs(ctx)
 		if err != nil {
-			return false, err
+			return false, vg.stopAfterError(ctx, err)
+		}
+		err = vg.processCurrentReading(ctx, current, "grabbing")
+		if err != nil {
+			return false, vg.stopAfterError(ctx, err)
 		}
 
 		if pressure {
@@ -160,21 +186,33 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 
 		total += msPer
 		if total > 5000 {
-			err = vg.Stop(ctx)
-			if err != nil {
-				return false, err
-			}
 			pressureRaw, err := vg.readPressure(ctx)
 			if err != nil {
 				return false, err
 			}
-			return false, fmt.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw)
+			return false, vg.stopAfterError(ctx, fmt.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
 		}
 	}
 }
 
+func (vg *GripperV1) processCurrentReading(ctx context.Context, current int, where string) error {
+	if current < MaxCurrent {
+		vg.numBadCurrentReadings = 0
+		return nil
+	}
+	vg.numBadCurrentReadings++
+	if vg.numBadCurrentReadings < CurrentBadReadingCounts {
+		return nil
+	}
+	return fmt.Errorf("current too high for too long, currently %d during %s", current, where)
+}
+
 func (vg *GripperV1) Close() error {
 	return vg.Stop(context.Background())
+}
+
+func (vg *GripperV1) stopAfterError(ctx context.Context, other error) error {
+	return multierr.Combine(other, vg.motor.Off(ctx))
 }
 
 func (vg *GripperV1) Stop(ctx context.Context) error {
@@ -244,7 +282,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			return -1, false, err
 		}
 
-		hasPressure, pressure, _, err := vg.analogs(ctx)
+		hasPressure, pressure, current, err := vg.analogs(ctx)
 		if err != nil {
 			return -1, false, err
 		}
@@ -254,11 +292,11 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
-			err := vg.motor.Power(ctx, 128)
+			err := vg.motor.Power(ctx, vg.defaultPowerPct*2)
 			if err != nil {
 				return -1, false, err
 			}
-			if !utils.SelectContextOrWait(ctx, time.Second) {
+			if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
 				return -1, false, ctx.Err()
 			}
 
@@ -273,6 +311,11 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			return now, hasPressure, err
 		}
 		last = now
+
+		err = vg.processCurrentReading(ctx, current, "init")
+		if err != nil {
+			return -1, false, err
+		}
 
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return -1, false, ctx.Err()
