@@ -1,7 +1,8 @@
 package testutils
 
 import (
-	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"go.viam.com/test"
@@ -10,7 +11,8 @@ import (
 // TempDir creates a temporary directory and fails the test if it cannot.
 func TempDir(t *testing.T, dir, pattern string) string {
 	t.Helper()
-	dir, err := ioutil.TempDir(dir, pattern)
+	dir = filepath.Join("/tmp", "robotcore_test", os.Getenv("USER"), dir, pattern)
+	err := os.MkdirAll(dir, 0770)
 	test.That(t, err, test.ShouldBeNil)
 	return dir
 }
