@@ -1,10 +1,11 @@
 package rimage
 
 import (
+	_ "embed" // for test_helper.html
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"image"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,18 +20,56 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/testutils"
 )
 
+//go:embed test_helper.html
+var testHelperHTML string
+
+type oneTestOutput struct {
+	Images []string
+	PCDs   []string
+}
+
+func (one *oneTestOutput) addImageCell(outputFile string) {
+	one.Images = append(one.Images, filepath.Base(outputFile))
+}
+
+func (one *oneTestOutput) addPCDCell(outputFile string) {
+	one.PCDs = append(one.PCDs, filepath.Base(outputFile))
+}
+
+type testOutput struct {
+	mu    sync.Mutex
+	Files map[string]*oneTestOutput
+}
+
+func (to *testOutput) getFile(testFile string) *oneTestOutput {
+	to.mu.Lock()
+	defer to.mu.Unlock()
+
+	if to.Files == nil {
+		to.Files = map[string]*oneTestOutput{}
+	}
+
+	one := to.Files[testFile]
+	if one == nil {
+		one = &oneTestOutput{}
+		to.Files[testFile] = one
+	}
+
+	return one
+}
+
 type MultipleImageTestDebugger struct {
-	mu            sync.Mutex
 	name          string
 	glob          string
 	inroot        string
 	out           string
 	imagesAligned bool
 
-	html strings.Builder
+	output testOutput
 
 	pendingImages int32
 	logger        golog.Logger
@@ -39,7 +78,7 @@ type MultipleImageTestDebugger struct {
 type ProcessorContext struct {
 	d           *MultipleImageTestDebugger
 	currentFile string
-	html        strings.Builder
+	output      *testOutput
 }
 
 func (pCtx *ProcessorContext) currentImgConfigFile() string {
@@ -73,11 +112,30 @@ func (pCtx *ProcessorContext) GotDebugImage(img image.Image, name string) {
 			panic(err)
 		}
 	})
-	pCtx.addImageCell(outFile)
+	pCtx.output.getFile(pCtx.currentFile).addImageCell(outFile)
 }
 
-func (pCtx *ProcessorContext) addImageCell(f string) {
-	pCtx.html.WriteString(fmt.Sprintf("<td><img src='%s' width=300/></td>", f))
+// in order to use this, you'll have to run a webserver from the output directory of the html
+// something like: python3 -m http.server will work
+func (pCtx *ProcessorContext) GotDebugPointCloud(pc pointcloud.PointCloud, name string) {
+	outFile := filepath.Join(pCtx.d.out, name+"-"+filepath.Base(pCtx.currentFile))
+	if !strings.HasSuffix(outFile, ".pcd") {
+		outFile = outFile + ".pcd"
+	}
+	atomic.AddInt32(&pCtx.d.pendingImages, 1)
+	go func() {
+		f, err := os.OpenFile(outFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			panic(err)
+		}
+		err = pc.ToPCD(f)
+		if err != nil {
+			panic(err)
+		}
+
+		atomic.AddInt32(&pCtx.d.pendingImages, -1)
+	}()
+	pCtx.output.getFile(pCtx.currentFile).addPCDCell(outFile)
 }
 
 type MultipleImageTestDebuggerProcessor interface {
@@ -107,8 +165,6 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	if err != nil {
 		return err
 	}
-
-	d.html.WriteString("<html><body><table>")
 
 	defer func() {
 		for {
@@ -145,20 +201,14 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 				pCtx := &ProcessorContext{
 					d:           d,
 					currentFile: currentFile,
+					output:      &d.output,
 				}
 
-				pCtx.html.WriteString(fmt.Sprintf("<tr><td colspan=100>%s</td></tr>", currentFile))
-				pCtx.html.WriteString("<tr>")
 				pCtx.GotDebugImage(img, "raw")
 
 				logger := golog.NewTestLogger(t)
 				err = x.Process(t, pCtx, currentFile, img, logger)
 				test.That(t, err, test.ShouldBeNil)
-
-				pCtx.html.WriteString("</tr>")
-				d.mu.Lock()
-				d.html.WriteString(pCtx.html.String())
-				d.mu.Unlock()
 			})
 		}
 	})
@@ -168,10 +218,19 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 		return nil
 	}
 
-	d.html.WriteString("</table></body></html>")
+	theTemplate := template.New("foo")
+	_, err = theTemplate.Parse(testHelperHTML)
+	if err != nil {
+		return err
+	}
 
 	htmlOutFile := filepath.Join(d.out, d.name+".html")
 	d.logger.Debug(htmlOutFile)
 
-	return ioutil.WriteFile(htmlOutFile, []byte(d.html.String()), 0640)
+	outFile, err := os.OpenFile(htmlOutFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer outFile.Close()
+	return theTemplate.Execute(outFile, &d.output)
 }

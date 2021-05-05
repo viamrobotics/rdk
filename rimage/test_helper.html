@@ -1,0 +1,90 @@
+<html>
+  <head>
+    <script>
+      pcds = [];
+      function renderPCDs() {
+          pcds.forEach(displayPCD);
+      }
+    </script>
+
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'></script>
+    <script src='https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/loaders/PCDLoader.js'></script>
+    <script src='https://cdn.rawgit.com/mrdoob/three.js/master/examples/js/controls/OrbitControls.js'></script>
+    
+    <script type="module">
+      
+      function displayPCD(path) {
+          console.log(path);
+          
+          var scene = new THREE.Scene();
+          var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .1, 2000 );
+          var renderer = new THREE.WebGLRenderer();
+
+          renderer.setSize( 300, 300);
+          document.getElementById(path).appendChild(renderer.domElement);
+
+          var controls = new THREE.OrbitControls( camera, renderer.domElement );
+          camera.position.set( 0, 0, 1 );
+          controls.update();
+
+          
+          function animate() {
+	          renderer.render( scene, camera );
+              controls.update();
+              requestAnimationFrame( animate );
+          }
+      
+          var loader = new THREE.PCDLoader();
+          
+          loader.load(
+              path,
+              
+	          // called when the resource is loaded
+	          function ( mesh ) {
+                  scene.clear();
+		          scene.add( mesh );
+                  animate();
+	          },
+	          // called when loading is in progresses
+	          function ( xhr ) {
+		          //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+	          },
+	          // called when loading has errors
+	          function ( error ) {
+		          console.log(error);
+	          }
+          );
+
+      }
+
+      console.log("hi");
+      window.displayPCD = displayPCD;
+    </script>
+  </head>
+  <body onLoad="renderPCDs()">
+    <table>
+      {{ range $testFile, $one := .Files }}
+      <tr>
+        <td colspan=100>{{$testFile}}</td>
+      </tr>
+      <tr>
+        {{ range $i := $one.Images}}
+        <td>
+          <img width=300 src="{{$i}}"/>
+        </td>
+        {{ end }}
+
+        {{ range $i := $one.PCDs}}
+        <td>
+          <div id="{{$i}}" class="pcd_display"></div>
+          <script>
+            pcds.push("{{$i}}");
+          </script>
+        </td>
+        {{ end }}
+
+      </tr>
+      {{ end }}
+    </table>
+  </body>
+</html>

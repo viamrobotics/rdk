@@ -112,6 +112,18 @@ func (cid *chunkImageDebug) Process(
 		x2 := iwd.Depth.InterestingPixels(2)
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
+		pc, err := iwd.ToPointCloud()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		plane, removed, _, err := SegmentPlane(pc, 3000, 5)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		pCtx.GotDebugPointCloud(plane, "only-plane")
+		pCtx.GotDebugPointCloud(removed, "plane-removed")
 	}
 
 	return nil
