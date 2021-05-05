@@ -1,3 +1,4 @@
+// Package main contains a command to view a gy511 compass.
 package main
 
 import (

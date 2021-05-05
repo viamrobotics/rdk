@@ -1,3 +1,4 @@
+// Package eva implements the Eva robot from Automata.
 package eva
 
 import (

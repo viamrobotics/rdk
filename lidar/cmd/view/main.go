@@ -1,3 +1,4 @@
+// Package main provides a command for viewing the output of a LiDAR device.
 package main
 
 import (

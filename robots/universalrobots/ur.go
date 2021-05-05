@@ -1,3 +1,4 @@
+// Package universalrobots implements the UR arm from Universal Robots.
 package universalrobots
 
 import (

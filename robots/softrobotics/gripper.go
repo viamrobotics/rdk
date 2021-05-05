@@ -1,3 +1,4 @@
+// Package softrobotics implements the vacuum gripper from Soft Robotics.
 package softrobotics
 
 import (

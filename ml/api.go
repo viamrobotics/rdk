@@ -1,3 +1,4 @@
+// Package ml provides some fundamental machine learning primitives.
 package ml
 
 // TODO(erh): this is all wrong, I just need a pivot point in the sand

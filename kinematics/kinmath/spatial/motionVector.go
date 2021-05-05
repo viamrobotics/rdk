@@ -1,3 +1,5 @@
+// Package spatial defines mathematical operations useful in kinematics specifically
+// concerning spatial manipulations/representations.
 package spatial
 
 import (

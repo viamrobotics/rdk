@@ -1,3 +1,4 @@
+// Package rlog defines common logging utilities.
 package rlog
 
 import "github.com/edaniels/golog"

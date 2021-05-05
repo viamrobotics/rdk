@@ -1,3 +1,4 @@
+// Package robotiq implements the gripper from robotiq.
 package robotiq
 
 import (

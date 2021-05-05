@@ -1,3 +1,4 @@
+// Package main runs a server running the SLAM algorithm.
 package main
 
 import (

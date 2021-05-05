@@ -1,3 +1,8 @@
+// Package pointcloud defines a point cloud and provides an implementation for one.
+//
+// Its implementation is dictionary based is not yet efficient. The current focus is
+// to make it useful and as such the API is experimenetal and subject to change
+// considerably.
 package pointcloud
 
 import (

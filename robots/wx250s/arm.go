@@ -1,3 +1,4 @@
+// Package wx250s implements the WidowX 250 Robot Arm from Trossen Robotics.
 package wx250s
 
 import (

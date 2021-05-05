@@ -1,3 +1,4 @@
+// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
 import (
@@ -19,7 +20,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot/actions"
+	"go.viam.com/robotcore/robot/action"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/utils"
 
@@ -96,7 +97,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	temp := Temp{
-		Actions: actions.AllActionNames(),
+		Actions: action.AllActionNames(),
 	}
 
 	for _, view := range app.views {

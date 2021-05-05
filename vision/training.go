@@ -1,3 +1,4 @@
+// Package vision implements computer vision algorithms.
 package vision
 
 import (

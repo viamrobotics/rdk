@@ -1,3 +1,4 @@
+// Package client contains a gRPC based api.Robot client.
 package client
 
 import (

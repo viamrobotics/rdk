@@ -1,3 +1,7 @@
+// Package imagesource defines various image sources typically registered as cameras in the API.
+//
+// Some sources are specific to a type of camera while some are general purpose sources that
+// act as a component in an image transformation pipeline.
 package imagesource
 
 import (
@@ -12,7 +16,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -173,7 +177,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 	if has {
 		num = numString.(string)
 	}
-	camera, err := calib.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
 	if err != nil {
 		return nil, err
 	}

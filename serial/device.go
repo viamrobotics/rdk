@@ -1,3 +1,4 @@
+// Package serial provides utilities for searching for and working with serial based devices.
 package serial
 
 import (

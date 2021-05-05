@@ -10,7 +10,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -46,10 +46,10 @@ func TestSegmentPlane(t *testing.T) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	cloud, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	cloud, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	// Segment Plane
 	nIter := 3000
@@ -76,10 +76,10 @@ func TestDepthMapToPointCloud(t *testing.T) {
 
 	test.That(t, err, test.ShouldBeNil)
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(0), rimage.Depth(math.MaxUint16)
-	pc, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pc, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 456371)
 }
@@ -97,21 +97,21 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	pixel2meter := 0.001
 	// Select depth range
 	// Get 3D Points
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	test.That(t, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(200), rimage.Depth(2000)
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(t, err, test.ShouldBeNil)
 	// Get rigid body transform between Depth and RGB sensor
-	sensorParams, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 	// Apply RBT
-	transformedPoints, err := calib.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
+	transformedPoints, err := transform.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
 	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
-	colorIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
+	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
 	test.That(t, err, test.ShouldBeNil)
-	coordinatesRGB, err := calib.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
+	coordinatesRGB, err := transform.ProjectPointCloudToRGBPlane(transformedPoints, h, w, *colorIntrinsics, pixel2meter)
 	test.That(t, err, test.ShouldBeNil)
 	// fill image
 	upLeft := image.Point{0, 0}
@@ -138,10 +138,10 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 
 	// Pixel to Meter
 	pixel2meter := 0.001
-	depthIntrinsics, err := calib.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
+	depthIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "depth")
 	test.That(b, err, test.ShouldBeNil)
 	depthMin, depthMax := rimage.Depth(100), rimage.Depth(2000)
-	pts, err := calib.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
+	pts, err := transform.DepthMapToPointCloud(m, pixel2meter, depthIntrinsics, depthMin, depthMax)
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
 		// Segment Plane
@@ -202,7 +202,7 @@ func TestPointCloudSplit(t *testing.T) {
 // Test finding the planes in an image with depth
 type segmentTestHelper struct {
 	attrs        api.AttributeMap
-	cameraParams *calib.DepthColorIntrinsicsExtrinsics
+	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
 func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -239,7 +239,7 @@ func TestPlaneSegmentImageWithDepth(t *testing.T) {
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/planes", "*.both.gz", false)
-	aligner, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	aligner, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	err = d.Process(t, &segmentTestHelper{c.Attributes, aligner})

@@ -1,3 +1,5 @@
+// Package compass defines the interfaces of a Compass and a Relative Compass which
+// provide yaw measurements.
 package compass
 
 import (

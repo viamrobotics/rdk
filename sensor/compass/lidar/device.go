@@ -1,3 +1,7 @@
+// Package lidar defines a slow, inefficient LiDAR based relative compass.
+//
+// It is useful in scenarios where an IMU is not present or another source of yaw measurement
+// is desired.
 package lidar
 
 import (
