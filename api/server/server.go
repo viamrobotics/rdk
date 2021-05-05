@@ -78,6 +78,15 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 
 // Arm
 
+func (s *Server) ArmSetIkConfig(ctx context.Context, req *pb.ArmSetIkConfigRequest) (*pb.ArmSetIkConfigResponse, error) {
+	arm := s.r.ArmByName(req.Name)
+	if arm == nil {
+		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+	}
+
+	return &pb.ArmSetIkConfigResponse{}, arm.SetDistConfig(ctx, req.To)
+}
+
 func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {

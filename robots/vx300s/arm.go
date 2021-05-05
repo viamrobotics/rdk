@@ -43,7 +43,7 @@ var SleepAngles = map[string]float64{
 // OffAngles are the angles the arm falls into after torque is off
 var OffAngles = map[string]float64{
 	"Waist":       2048,
-	"Shoulder":    795,
+	"Shoulder":    811,
 	"Elbow":       3091,
 	"Forearm_rot": 2048,
 	"Wrist":       2566,
@@ -140,6 +140,7 @@ func (a *Arm) Close() error {
 	alreadyAtSleep := true
 	for _, joint := range a.JointOrder() {
 		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
+			fmt.Println(joint, angles[joint], SleepAngles[joint], OffAngles[joint])
 			alreadyAtSleep = false
 		}
 	}
@@ -148,10 +149,10 @@ func (a *Arm) Close() error {
 		if err != nil {
 			a.logger.Errorf("Home position error: %s", err)
 		}
-	}
-	err = a.SleepPosition()
-	if err != nil {
-		a.logger.Errorf("Sleep pos error: %s", err)
+		err = a.SleepPosition()
+		if err != nil {
+			a.logger.Errorf("Sleep pos error: %s", err)
+		}
 	}
 	err = a.TorqueOff()
 	if err != nil {
@@ -369,10 +370,10 @@ func setServoDefaults(newServo *servo.Servo) error {
 	if err != nil {
 		return fmt.Errorf("error SetIGain servo %d: %v", newServo.ID, err)
 	}
-	err = newServo.SetTorqueEnable(true)
-	if err != nil {
-		return fmt.Errorf("error SetTorqueEnable servo %d: %v", newServo.ID, err)
-	}
+	//~ err = newServo.SetTorqueEnable(true)
+	//~ if err != nil {
+		//~ return fmt.Errorf("error SetTorqueEnable servo %d: %v", newServo.ID, err)
+	//~ }
 	err = newServo.SetProfileVelocity(50)
 	if err != nil {
 		return fmt.Errorf("error SetProfileVelocity servo %d: %v", newServo.ID, err)

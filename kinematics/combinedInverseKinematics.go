@@ -35,12 +35,19 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	for i, solver := range ik.solvers {
 		solver.SetID(i)
 	}
+	
 	return ik
 }
 
 func (ik *CombinedIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	for _, solver := range ik.solvers {
 		solver.AddGoal(trans, effectorID)
+	}
+}
+
+func (ik *CombinedIK) SetDistConfig(dc DistanceConfig) {
+	for _, solver := range ik.solvers {
+		solver.SetDistConfig(dc)
 	}
 }
 
@@ -72,7 +79,7 @@ func (ik *CombinedIK) GetGoals() []Goal {
 	return ik.solvers[0].GetGoals()
 }
 
-func (ik *CombinedIK) GetSolvers() []InverseKinematics {
+func (ik *CombinedIK) Solvers() []InverseKinematics {
 	return ik.solvers
 }
 

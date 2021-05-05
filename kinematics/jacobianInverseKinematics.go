@@ -17,6 +17,7 @@ type JacobianIK struct {
 	ID            int
 	requestHaltCh chan struct{}
 	haltedCh      chan struct{}
+	distConfig    DistanceConfig
 }
 
 func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
@@ -26,6 +27,7 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	ik.epsilon = 0.0001
 	ik.iterations = 3000
 	ik.svd = true
+	ik.distConfig = DistanceConfig{XYZWeights{1,1,1},XYZWeights{1,1,1}}
 	return &ik
 }
 
@@ -38,6 +40,10 @@ func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 
 func (ik *JacobianIK) SetID(id int) {
 	ik.ID = id
+}
+
+func (ik *JacobianIK) SetDistConfig(dc DistanceConfig) {
+	ik.distConfig = dc
 }
 
 func (ik *JacobianIK) GetID() int {
@@ -110,7 +116,7 @@ func (ik *JacobianIK) Solve() bool {
 			}
 
 			// Check if q is valid for our desired position
-			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
+			if WeightedSquaredNorm(dx, ik.distConfig) < ik.epsilon*ik.epsilon {
 				ik.Mdl.SetPosition(q)
 				q = ik.Mdl.ZeroInlineRotation(q)
 				if ik.Mdl.IsValid(q) {

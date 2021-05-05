@@ -25,6 +25,7 @@ type NloptIK struct {
 	requestHaltCh chan struct{}
 	haltedCh      chan struct{}
 	logger        golog.Logger
+	distConfig    DistanceConfig
 }
 
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
@@ -39,6 +40,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
+	ik.distConfig = DistanceConfig{XYZWeights{1,1,1},XYZWeights{1,1,1}}
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -93,9 +95,9 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
-			return SquaredNorm(dx)
+			return WeightedSquaredNorm(dx, ik.distConfig)
 		}
-		return SquaredNorm(dx)
+		return WeightedSquaredNorm(dx, ik.distConfig)
 	}
 
 	err = multierr.Combine(
@@ -126,6 +128,10 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 
 func (ik *NloptIK) SetID(id int) {
 	ik.ID = id
+}
+
+func (ik *NloptIK) SetDistConfig(dc DistanceConfig) {
+	ik.distConfig = dc
 }
 
 func (ik *NloptIK) GetID() int {
