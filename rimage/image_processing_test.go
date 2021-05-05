@@ -235,7 +235,7 @@ func TestCannyBlocks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			test.That(t, len(tt.dataGT), test.ShouldEqual, len(tt.dataOut))
-			test.That(t, tt.dataOut, test.ShouldResemble, tt.dataOut)
+			test.That(t, tt.dataGT, test.ShouldResemble, tt.dataOut)
 		})
 	}
 }
