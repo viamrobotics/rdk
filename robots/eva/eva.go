@@ -246,6 +246,26 @@ func (e *eva) apiControlGoTo(ctx context.Context, joints []float64) error {
 		return err
 	}
 
+	// we have to poll till we're done to unlock safely
+	return e.loopTillNotRunning(ctx)
+}
+
+func (e *eva) loopTillNotRunning(ctx context.Context) error {
+	for {
+		data, err := e.DataSnapshot(ctx)
+		if err != nil {
+			return err
+		}
+
+		if data.Control["run_mode"] == "not_running" {
+			break
+		}
+
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return ctx.Err()
+		}
+	}
+
 	return nil
 }
 
