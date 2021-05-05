@@ -1,3 +1,4 @@
+// Package client contains a gRPC based lidar.Device client.
 package client
 
 import (

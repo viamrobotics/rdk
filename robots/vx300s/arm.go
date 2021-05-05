@@ -1,3 +1,4 @@
+// Package vx300s implements the ViperX 300 Robot Arm from Trossen Robotics.
 package vx300s
 
 import (

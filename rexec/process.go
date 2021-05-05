@@ -1,3 +1,8 @@
+// Package rexec defines process management utilities to be used as a library within
+// a go process wishing to own sub-processes.
+//
+// It helps manage the lifecycle of processes by keeping them up as long as possible
+// when configured.
 package rexec
 
 import "go.viam.com/robotcore/utils"

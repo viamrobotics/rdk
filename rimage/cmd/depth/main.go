@@ -1,3 +1,4 @@
+// Package main is a command that takes a file and produces visual depth data.
 package main
 
 import (

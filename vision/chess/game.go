@@ -1,3 +1,4 @@
+// Package chess implements computer vision algorithms useful in chess.
 package chess
 
 import (

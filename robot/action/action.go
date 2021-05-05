@@ -1,4 +1,7 @@
-package actions
+// Package action defines a registry for high-level actions to perform on any Robot.
+//
+// For example, an action might be to walk around for a few minutes.
+package action
 
 import (
 	"context"

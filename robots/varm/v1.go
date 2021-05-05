@@ -1,3 +1,4 @@
+// Package varm implements versions of the Viam arm.
 package varm
 
 import (

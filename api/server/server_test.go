@@ -16,7 +16,7 @@ import (
 	"go.viam.com/robotcore/board"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/robot/actions"
+	"go.viam.com/robotcore/robot/action"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
@@ -171,7 +171,7 @@ func TestServer(t *testing.T) {
 
 		actionName := utils.RandomAlphaString(5)
 		called := make(chan api.Robot)
-		actions.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
+		action.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
 			called <- r
 		})
 
@@ -183,7 +183,7 @@ func TestServer(t *testing.T) {
 
 		actionName = utils.RandomAlphaString(5)
 		called = make(chan api.Robot)
-		actions.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
+		action.RegisterAction(actionName, func(ctx context.Context, r api.Robot) {
 			go utils.TryClose(server)
 			<-ctx.Done()
 			called <- r

@@ -1,3 +1,4 @@
+// Package inject provides dependency injected structures for mocking interfaces.
 package inject
 
 import (

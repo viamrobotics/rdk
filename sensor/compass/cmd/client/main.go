@@ -1,3 +1,4 @@
+// Package main contains a command to view a gRPC based sensor.Compass client.
 package main
 
 import (

@@ -1,3 +1,5 @@
+// Package main contains a command to view a gRPC based lidar.Device client
+// acting as a compass.
 package main
 
 import (

@@ -1,3 +1,4 @@
+// Package api defines the interfaces to configure and work with a robot along with all of its parts.
 package api
 
 import (

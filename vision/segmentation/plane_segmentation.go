@@ -1,3 +1,4 @@
+// Package segmentation implements object segmentation algorithms.
 package segmentation
 
 import (
@@ -9,7 +10,7 @@ import (
 
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/golang/geo/r3"
@@ -162,7 +163,7 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 
 // PointCloudSegmentsToMask takes in an instrinsic camera matrix and a slice of pointclouds and projects
 // each pointcloud down to an image.
-func pointCloudSegmentsToMask(params calib.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
+func pointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
 	img := newSegmentedImage(rimage.NewImage(params.Width, params.Height))
 	visitedPoints := make(map[pc.Vec3]bool)
 	var err error

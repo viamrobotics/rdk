@@ -1,3 +1,7 @@
+// Package robot defines implementations of api.Robot and api.MutableRobot.
+//
+// It also provides a remote robot implementation that is aware that the api.Robot
+// it is working with is not on the same physical system.
 package robot
 
 import (

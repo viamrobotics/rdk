@@ -1,3 +1,4 @@
+// Package main streams a specific camera over WebRTC.
 package main
 
 import (

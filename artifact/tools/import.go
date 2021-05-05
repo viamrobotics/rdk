@@ -1,3 +1,4 @@
+// Package tools implements the sub-commands for the artifact CLI.
 package tools
 
 import "go.viam.com/robotcore/artifact"

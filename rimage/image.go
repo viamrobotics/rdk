@@ -1,3 +1,9 @@
+// Package rimage defines fundamental image and color processing primitives.
+//
+// The golang standard library, while useful, is not very productive when it
+// comes to handling/comparing colors of different spaces, transforming images,
+// and drawing images. This package aims to rectify these issues with a few
+// unified interfaces/structures.
 package rimage
 
 import (

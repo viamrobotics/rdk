@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -45,7 +45,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
-	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &calib.IntelConfig}})
+	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &transform.IntelConfig}})
 	test.That(t, err, test.ShouldBeNil)
 }
 

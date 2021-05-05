@@ -1,3 +1,4 @@
+// Package utils contains all utility functions that currently have no better home than here.
 package utils
 
 import (

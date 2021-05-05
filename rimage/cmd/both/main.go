@@ -1,3 +1,4 @@
+// Package main is a command providing various utilities to work with color and depth data.
 package main
 
 import (
@@ -8,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 )
 
 var logger = golog.NewDevelopmentLogger("rimage_both")
@@ -55,7 +56,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 	if err != nil {
 		return err
 	}
-	cameraMatrices, err := calib.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(flags.Arg(2))
+	cameraMatrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(flags.Arg(2))
 	if err != nil {
 		return err
 	}

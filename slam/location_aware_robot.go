@@ -1,3 +1,6 @@
+// Package slam is a naive SLAM implementation that is controlled via an RPC API.
+//
+// It uses LiDAR devices and an optional IMU to operate.
 package slam
 
 import (

@@ -9,7 +9,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/calib"
+	"go.viam.com/robotcore/rimage/transform"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -38,7 +38,7 @@ func init() {
 	})
 
 	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
-		config := &calib.AlignConfig{}
+		config := &transform.AlignConfig{}
 		err := mapstructure.Decode(val, config)
 		if err == nil {
 			err = config.CheckValid()
@@ -47,7 +47,7 @@ func init() {
 	})
 
 	api.Register(api.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
-		matrices := &calib.DepthColorIntrinsicsExtrinsics{}
+		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {
 			return nil, err
@@ -75,10 +75,10 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 	var err error
 
 	if attrs.Has("config") {
-		config := attrs["config"].(*calib.AlignConfig)
-		camera, err = calib.NewDepthColorWarpTransforms(config, logger)
+		config := attrs["config"].(*transform.AlignConfig)
+		camera, err = transform.NewDepthColorWarpTransforms(config, logger)
 	} else if attrs.Has("matrices") {
-		camera, err = calib.NewDepthColorIntrinsicsExtrinsics(attrs)
+		camera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
 	} else {
 		return nil, fmt.Errorf("no camera system config")
 	}

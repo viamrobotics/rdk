@@ -1,3 +1,8 @@
+// Package board defines the interfaces that typically live on a single-board computer
+// such as a Raspberry Pi.
+//
+// Besides the board itself, some other interfaces it defines are motors, servos,
+// analog readers, and digital interrupts.
 package board
 
 import (

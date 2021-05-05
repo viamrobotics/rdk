@@ -1,3 +1,4 @@
+// Package kinmath defines mathematical operations useful in kinematics.
 package kinmath
 
 import (

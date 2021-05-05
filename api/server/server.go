@@ -1,3 +1,6 @@
+// Package server contains a gRPC based api.Robot server implementation.
+//
+// It should be used by an rpc.Server.
 package server
 
 import (
@@ -18,7 +21,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/robot/actions"
+	"go.viam.com/robotcore/robot/action"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
 )
@@ -85,14 +88,14 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 }
 
 func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoActionResponse, error) {
-	action := actions.LookupAction(req.Name)
-	if action == nil {
+	act := action.LookupAction(req.Name)
+	if act == nil {
 		return nil, fmt.Errorf("unknown action name [%s]", req.Name)
 	}
 	s.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer s.activeBackgroundWorkers.Done()
-		action(s.cancelCtx, s.r)
+		act(s.cancelCtx, s.r)
 	})
 	return &pb.DoActionResponse{}, nil
 }

@@ -1,4 +1,7 @@
-package calib
+// Package transform provides image transformation utilities relying on camera parameters.
+//
+// It also understands how to work with multiple images originating from different cameras.
+package transform
 
 import (
 	"fmt"

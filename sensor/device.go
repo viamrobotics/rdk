@@ -1,3 +1,4 @@
+// Package sensor defines an abstract sensing device that can provide measurement readings.
 package sensor
 
 import (

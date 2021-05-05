@@ -1,3 +1,4 @@
+// Package main provides the artifact CLI for importing and exporting artifacts.
 package main
 
 import (

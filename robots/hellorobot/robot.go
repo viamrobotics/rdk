@@ -1,3 +1,4 @@
+// Package hellorobot implements the Stretch robot from hello robot.
 package hellorobot
 
 import (

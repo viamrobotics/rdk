@@ -1,3 +1,4 @@
+// Package client contains a gRPC based sensor.Compass client.
 package client
 
 import (
