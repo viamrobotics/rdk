@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
-	"image/jpeg"
+	"image/png"
 	"math"
 	"testing"
 	"time"
@@ -800,7 +800,7 @@ func TestServer(t *testing.T) {
 
 		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 		var imgBuf bytes.Buffer
-		test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 		var released bool
 		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -812,17 +812,17 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
 		resp, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
 			Name:     "camera1",
-			MimeType: "image/jpeg",
+			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
@@ -865,7 +865,7 @@ func TestServer(t *testing.T) {
 
 		img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 		var imgBuf bytes.Buffer
-		test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
+		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 		var released bool
 		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -877,17 +877,17 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
 		resp, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
 			Name:     "camera1",
-			MimeType: "image/jpeg",
+			MimeType: "image/png",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, released, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
 
 		released = false
