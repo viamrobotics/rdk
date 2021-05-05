@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,13 +13,14 @@ import (
 func TempDir(t *testing.T, dir, pattern string) string {
 	t.Helper()
 
-	root := "/tmp"
-	if os.Getenv("USER") == "" {
-		root = os.TempDir()
-	}
+	var err error
 
-	dir = filepath.Join(root, "robotcore_test", os.Getenv("USER"), dir, pattern)
-	err := os.MkdirAll(dir, 0770)
+	if os.Getenv("USER") == "" {
+		dir, err = ioutil.TempDir(dir, pattern)
+	} else {
+		dir = filepath.Join("/tmp", "robotcore_test", os.Getenv("USER"), dir, pattern)
+		err = os.MkdirAll(dir, 0770)
+	}
 	test.That(t, err, test.ShouldBeNil)
 	return dir
 }
