@@ -108,7 +108,7 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	}
 	defer e.apiUnlock(ctx)
 
-	return e.apiControlGoTo(ctx, joints, true)
+	return e.apiControlGoTo(ctx, joints)
 }
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
@@ -239,19 +239,13 @@ func (e *eva) DataSnapshot(ctx context.Context) (evaData, error) {
 	return res.Snapshot, err
 }
 
-func (e *eva) apiControlGoTo(ctx context.Context, joints []float64, block bool) error {
+func (e *eva) apiControlGoTo(ctx context.Context, joints []float64) error {
 	body := map[string]interface{}{"joints": joints, "mode": "teach"} // TODO(erh): change to automatic
 	err := e.apiRequest(ctx, "POST", "controls/go_to", &body, true, nil)
 	if err != nil {
 		return err
 	}
 
-	if block {
-		e.logger.Debugf("i don't know how to block")
-		if utils.SelectContextOrWait(ctx, time.Second) {
-			return ctx.Err()
-		}
-	}
 	return nil
 }
 
