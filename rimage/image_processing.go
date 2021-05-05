@@ -207,13 +207,14 @@ func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray,
 }
 
 // Luminance compute the luminance value from the R,G and B values.
-// It is defined as 0.299*R + 0.587*G + 0.114*B
+// It is defined as (299*R + 587*G + 114*B) / 1000 in order to avoid floating point math issue b/w different
+// architectures
 // Formula from : https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale - luma coding
 func Luminance(aColor Color) float64 {
 	r, g, b := aColor.RGB255()
 
 	// need to convert uint32 to float64
-	return 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+	return (299*float64(r) + 587*float64(g) + 114*float64(b)) / 1000
 
 }
 
