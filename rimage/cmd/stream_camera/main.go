@@ -19,7 +19,8 @@ func main() {
 }
 
 var (
-	logger = golog.NewDevelopmentLogger("stream_camera")
+	defaultPort = 5555
+	logger      = golog.NewDevelopmentLogger("stream_camera")
 )
 
 // Arguments for the command.
@@ -36,6 +37,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
+	}
+	if argsParsed.Port == 0 {
+		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
 
 	if argsParsed.Dump {
