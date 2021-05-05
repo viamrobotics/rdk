@@ -32,8 +32,8 @@ type DistanceConfig struct {
 	Orient XYZWeights
 }
 
-// Returns the DistanceConfig as a slice with the components in teh same order as the array returned from ToDelta
-func (dc *DistanceConfig) toArray() []float64{
+// Returns the DistanceConfig as a slice with the components in the same order as the array returned from ToDelta
+func (dc *DistanceConfig) toArray() []float64 {
 	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, dc.Orient.X, dc.Orient.Y, dc.Orient.Z}
 }
 

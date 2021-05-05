@@ -204,6 +204,10 @@ func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, fmt.Errorf("no CurrentPosition support")
 }
 
+func (a *ArmV1) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	return fmt.Errorf("v1 arm does not support setting dist config")
+}
+
 func (a *ArmV1) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	return fmt.Errorf("no MoveToPosition support")
 }

@@ -77,6 +77,10 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	return fmt.Errorf("eva low level doesn't support kinematics")
 }
 
+func (e *eva) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	return fmt.Errorf("eva arm does not support setting dist config")
+}
+
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := api.JointPositionsToRadians(newPositions)
 

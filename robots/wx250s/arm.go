@@ -93,6 +93,10 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 	return kinematics.NewArmJSONFile(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
+func (a *Arm) SetDistConfig(ctx context.Context, pos *pb.IKConfig) error {
+	return fmt.Errorf("wx250s arm does not support setting dist config")
+}
+
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, fmt.Errorf("wx250s dosn't support kinematics")
 }

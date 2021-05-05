@@ -261,13 +261,25 @@ message ArmPosition {
 	double r_z = 6;
 }
 
+message IKConfig {
+	// tolerances for translation
+	double x = 1;
+	double y = 2;
+	double z = 3;
+
+	// tolerances for angular orientations
+	double r_x = 4;
+	double r_y = 5;
+	double r_z = 6;
+}
+
 message JointPositions {
 	repeated double degrees = 1;
 }
 
 message ArmSetIkConfigRequest {
 	string name = 1;
-	ArmPosition to = 2;
+	IKConfig to = 2;
 }
 
 message ArmSetIkConfigResponse {}

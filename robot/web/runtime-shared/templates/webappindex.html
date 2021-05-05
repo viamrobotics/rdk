@@ -124,7 +124,20 @@
                   },
                   armSetTol : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
-                      console.log(arm)
+                      var newConf = new robotApi.IKConfig();
+                      var elems = ["x", "y", "z", "rX", "rY", "rZ"];
+                      for(var i = 0; i < elems.length; i++) {
+                        var elem = elems[i];
+                        var tol_elem = name + "_" + elem;
+                        //~ newConf.push(document.getElementById(tol_elem).value);
+                        var getterSetter = elem.toUpperCase();
+                        const setter = `set${getterSetter}`;
+                        newConf[setter](document.getElementById(tol_elem).value);
+                      }
+                      const req = new robotApi.ArmSetIkConfigRequest();
+                      req.setName(name);
+                      req.setTo(newConf);
+                      consumeClientCall(robotService.armSetIkConfig(req));
                   },
                   gripperAction : function(name, action) {
                       let req;
@@ -341,7 +354,7 @@
               <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
             </td>
             <td>${aa.gridValue.toFixed(2)}</td>
-            <td><input :name="arm.name + aa.grid[0]" size=5 value=1.0></td>
+            <td><input :id="arm.name + '_' + aa.grid[0]" size=5 value=1.0></td>
 
             <td></td>
             

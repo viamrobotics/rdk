@@ -93,6 +93,10 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 	return kinematics.NewArmJSONFile(newArm, attributes.GetString("modelJSON"), 4, logger)
 }
 
+func (a *Arm) SetDistConfig(ctx context.Context, cfg *pb.IKConfig) error {
+	return fmt.Errorf("vx300s dosn't support kinematics")
+}
+
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, fmt.Errorf("vx300s dosn't support kinematics")
 }
@@ -140,7 +144,7 @@ func (a *Arm) Close() error {
 	alreadyAtSleep := true
 	for _, joint := range a.JointOrder() {
 		if !within(angles[joint], SleepAngles[joint], 15) && !within(angles[joint], OffAngles[joint], 15) {
-			fmt.Println(joint, angles[joint], SleepAngles[joint], OffAngles[joint])
+			//~ fmt.Println(joint, angles[joint], SleepAngles[joint], OffAngles[joint])
 			alreadyAtSleep = false
 		}
 	}
@@ -370,10 +374,10 @@ func setServoDefaults(newServo *servo.Servo) error {
 	if err != nil {
 		return fmt.Errorf("error SetIGain servo %d: %v", newServo.ID, err)
 	}
-	//~ err = newServo.SetTorqueEnable(true)
-	//~ if err != nil {
-		//~ return fmt.Errorf("error SetTorqueEnable servo %d: %v", newServo.ID, err)
-	//~ }
+	err = newServo.SetTorqueEnable(true)
+	if err != nil {
+		return fmt.Errorf("error SetTorqueEnable servo %d: %v", newServo.ID, err)
+	}
 	err = newServo.SetProfileVelocity(50)
 	if err != nil {
 		return fmt.Errorf("error SetProfileVelocity servo %d: %v", newServo.ID, err)

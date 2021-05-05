@@ -27,7 +27,7 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	ik.epsilon = 0.0001
 	ik.iterations = 3000
 	ik.svd = true
-	ik.distConfig = DistanceConfig{XYZWeights{1,1,1},XYZWeights{1,1,1}}
+	ik.distConfig = DistanceConfig{XYZWeights{1, 1, 1}, XYZWeights{1, 1, 1}}
 	return &ik
 }
 
