@@ -13,7 +13,7 @@ func TempDir(t *testing.T, dir, pattern string) string {
 	t.Helper()
 
 	root := "/tmp"
-	if _, err := os.Stat(root); os.IsNotExist(err) {
+	if os.Getenv("USER") == "" {
 		root = os.TempDir()
 	}
 
