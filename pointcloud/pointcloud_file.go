@@ -186,9 +186,6 @@ func _colorToPCDInt(pt Point) int {
 }
 
 func (pc *basicPointCloud) ToPCD(out io.Writer) error {
-	if !pc.HasColor() {
-		return fmt.Errorf("no color data")
-	}
 	var err error
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
@@ -211,9 +208,6 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 	}
 
 	pc.Iterate(func(pt Point) bool {
-		if !pt.HasColor() {
-			return true
-		}
 		position := pt.Position()
 		// point positions in mm, convert to meters for optimal viewing
 		width := position.X / 1000.
