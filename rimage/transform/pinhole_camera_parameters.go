@@ -57,9 +57,9 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
-		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
-		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
-		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
+		ColorCamera:  PinholeCameraIntrinsics{"", 0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
+		DepthCamera:  PinholeCameraIntrinsics{"", 0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
+		ExtrinsicD2C: Extrinsics{"", "", []float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
 	}
 }
 
