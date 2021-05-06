@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"fmt"
 	"image/color"
 
 	"github.com/golang/geo/r3"

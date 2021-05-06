@@ -177,10 +177,7 @@ func ApplyRigidBodyTransform(cloud pointcloud.PointCloud, unit2meter float64, ex
 			return false
 		}
 		err = transformedCloud.Set(transformedPt)
-		if err != nil {
-			return false
-		}
-		return true
+		return err == nil
 	})
 	if err != nil {
 		return nil, err
@@ -190,7 +187,7 @@ func ApplyRigidBodyTransform(cloud pointcloud.PointCloud, unit2meter float64, ex
 
 // Function to project points in a pointcloud to a given camera image plane
 func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params PinholeCameraIntrinsics, pixel2meter float64) (pointcloud.PointCloud, error) {
-	if pts.Frame() != paras.Frame {
+	if pts.Frame() != params.Frame {
 		return nil, fmt.Errorf("frame '%s' of camera intrinsics do not match frame '%s' of pointcloud", params.Frame, pts.Frame())
 	}
 	coordinates := pointcloud.New(params.Frame)

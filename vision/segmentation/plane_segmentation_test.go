@@ -106,7 +106,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	sensorParams, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 	// Apply RBT
-	transformedPoints, err := transform.ApplyRigidBodyTransform(pts, &sensorParams.ExtrinsicD2C)
+	transformedPoints, err := transform.ApplyRigidBodyTransform(pts, pixel2meter, &sensorParams.ExtrinsicD2C)
 	test.That(t, err, test.ShouldBeNil)
 	// Re-project 3D Points in RGB Plane
 	colorIntrinsics, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"), "color")
