@@ -59,9 +59,9 @@ func TestPCD(t *testing.T) {
 		"VIEWPOINT 0 0 0 1 0 0 0\n" +
 		"POINTS 3\n" +
 		"DATA ascii\n" +
-		"-1.000000 2.000000 -5.000000 16711938\n" +
-		"582.000000 -12.000000 -0.000000 16711938\n" +
-		"7.000000 -6.000000 -1.000000 16711938\n"
+		"-0.001000 0.002000 -0.005000 16711938\n" +
+		"0.582000 -0.012000 -0.000000 16711938\n" +
+		"0.007000 -0.006000 -0.001000 16711938\n"
 	*/
 
 	// write to .pcd
@@ -72,9 +72,9 @@ func TestPCD(t *testing.T) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "-1.000000 2.000000 -5.000000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "582.000000 -12.000000 -0.000000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "7.000000 -6.000000 -1.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 0.002000 -0.005000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 -0.012000 -0.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 -0.006000 -0.001000 16711938\n")
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
