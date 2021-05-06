@@ -157,10 +157,7 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 			// add the failed planeCloud back into the nonPlaneCloud
 			planeCloud.Iterate(func(pt pc.Point) bool {
 				err = nonPlaneCloud.Set(pt)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			})
 			if err != nil {
 				return nil, nil, err
