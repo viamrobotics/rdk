@@ -86,7 +86,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 		return nil, fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
 			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
-	pc := pointcloud.New()
+	pc := pointcloud.New("color") // all aligned ImagesWithDepth are in color frame
 
 	for y := 0; y < iwd.Color.Height(); y++ {
 		for x := 0; x < iwd.Color.Width(); x++ {
@@ -133,7 +133,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 // Converts a Depth Map to a PointCloud using the depth camera parameters
 func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params *PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (pointcloud.PointCloud, error) {
 	// create new point cloud
-	pcOut := pointcloud.New()
+	pcOut := pointcloud.New(params.Frame)
 	// go through depth map pixels and get 3D Points
 	for y := 0; y < depthImage.Height(); y++ {
 		for x := 0; x < depthImage.Width(); x++ {
@@ -160,24 +160,24 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 	return pcOut, nil
 }
 
-// Function to project 3D point in a given camera image plane
-// Return new pointclouds leaving original unchanged
-func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (pointcloud.PointCloud, error) {
-	transformedPoints := pointcloud.New()
+// Function to change the coordinates of a 3D point cloud to another camera's coordinates, given the camera's extrinsics.
+// Return a new point cloud leaving the original unchanged
+// Extrinsic matrices are usually in meters, must transform points to meters and then back.
+func ApplyRigidBodyTransform(cloud pointcloud.PointCloud, unit2meter float64, extrinsics *Extrinsics) (pointcloud.PointCloud, error) {
+	transformedCloud := pointcloud.New(extrinsics.To)
 	var err error
-	pts.Iterate(func(pt pointcloud.Point) bool {
-		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
-		var ptTransformed pointcloud.Point
-		if pt.HasColor() {
-			ptTransformed = pointcloud.NewColoredPoint(x, y, z, pt.Color().(color.NRGBA))
-		} else if pt.HasValue() {
-			ptTransformed = pointcloud.NewValuePoint(x, y, z, pt.Value())
-		} else {
-			ptTransformed = pointcloud.NewBasicPoint(x, y, z)
-		}
-		err = transformedPoints.Set(ptTransformed)
+	cloud.Iterate(func(pt pointcloud.Point) bool {
+		var transformedPt pointcloud.Point
+		pos := pt.Position()
+		x, y, z := pos.X*unit2meter, pos.Y*unit2meter, pos.Z*unit2meter
+		x, y, z = extrinsics.TransformPointToPoint(x, y, z)
+		x, y, z = x/unit2meter, y/unit2meter, z/unit2meter
+		transformedPt, err = pointcloud.ChangePointPosition(pt, pointcloud.Vec3{x, y, z})
 		if err != nil {
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
+			return false
+		}
+		err = transformedCloud.Set(transformedPt)
+		if err != nil {
 			return false
 		}
 		return true
@@ -185,12 +185,15 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	if err != nil {
 		return nil, err
 	}
-	return transformedPoints, nil
+	return transformedCloud, nil
 }
 
 // Function to project points in a pointcloud to a given camera image plane
 func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params PinholeCameraIntrinsics, pixel2meter float64) (pointcloud.PointCloud, error) {
-	coordinates := pointcloud.New()
+	if pts.Frame() != paras.Frame {
+		return nil, fmt.Errorf("frame '%s' of camera intrinsics do not match frame '%s' of pointcloud", params.Frame, pts.Frame())
+	}
+	coordinates := pointcloud.New(params.Frame)
 	var err error
 	pts.Iterate(func(pt pointcloud.Point) bool {
 		j, i := params.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)

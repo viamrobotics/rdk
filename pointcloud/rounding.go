@@ -15,13 +15,13 @@ type RoundingPointCloud struct {
 	*basicPointCloud
 }
 
-func NewRoundingPointCloud() PointCloud {
-	return &RoundingPointCloud{New().(*basicPointCloud)}
+func NewRoundingPointCloud(frame string) PointCloud {
+	return &RoundingPointCloud{New(frame).(*basicPointCloud)}
 }
 
 func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	var err error
-	roundingPc := NewRoundingPointCloud()
+	roundingPc := NewRoundingPointCloud("base")
 	pc, err := NewFromFile(fn, logger)
 	if err != nil {
 		return nil, fmt.Errorf("error creating NewRoundingPointCloudFromFile - %s", err)

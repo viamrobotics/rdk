@@ -37,8 +37,8 @@ func distance(equation []float64, pt pc.Vec3) float64 {
 
 // Return two pointclouds, one with points found in a map of point positions, and the other with those not in the map.
 func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud, pc.PointCloud, error) {
-	mapCloud := pc.New()
-	nonMapCloud := pc.New()
+	mapCloud := pc.New(cloud.Frame())
+	nonMapCloud := pc.New(cloud.Frame())
 	var err error
 	seen := make(map[pc.Vec3]bool)
 	cloud.Iterate(func(pt pc.Point) bool {

@@ -19,6 +19,7 @@ type DistortionModel struct {
 }
 
 type PinholeCameraIntrinsics struct {
+	Frame      string          `json:"frame"`
 	Width      int             `json:"width"`
 	Height     int             `json:"height"`
 	Fx         float64         `json:"fx"`
@@ -29,6 +30,8 @@ type PinholeCameraIntrinsics struct {
 }
 
 type Extrinsics struct {
+	From              string    `json:"from"`
+	To                string    `json:"to"`
 	RotationMatrix    []float64 `json:"rotation"`
 	TranslationVector []float64 `json:"translation"`
 }

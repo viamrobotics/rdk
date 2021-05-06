@@ -43,7 +43,7 @@ func TestNewFromFile(t *testing.T) {
 }
 
 func TestPCD(t *testing.T) {
-	cloud := New()
+	cloud := New("base")
 	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
@@ -79,7 +79,7 @@ func TestPCD(t *testing.T) {
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cloud := New()
+	cloud := New("base")
 	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)

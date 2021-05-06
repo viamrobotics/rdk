@@ -42,7 +42,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 		}
 	}
 
-	pc := New()
+	pc := New("base")
 	for i := 0; i < lf.Header.NumberPoints; i++ {
 		p, err := lf.LasPoint(i)
 		if err != nil {

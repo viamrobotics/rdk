@@ -7,7 +7,7 @@ import (
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	pc := New()
+	pc := New("base")
 	p0 := NewBasicPoint(0, 0, 0)
 	test.That(t, pc.Set(p0), test.ShouldBeNil)
 	pAt := pc.At(0, 0, 0)

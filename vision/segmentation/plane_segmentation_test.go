@@ -152,7 +152,7 @@ func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
 
 func TestPointCloudSplit(t *testing.T) {
 	// make a simple point cloud
-	cloud := pc.New()
+	cloud := pc.New("test")
 	var err error
 	err = cloud.Set(pc.NewColoredPoint(1, 1, 1, color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)

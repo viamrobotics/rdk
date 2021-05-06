@@ -1,5 +1,6 @@
 {
   "color": {
+    "frame": "color",
     "height": 720,
     "width": 1280,
     "fx": 900.538000,
@@ -15,6 +16,7 @@
     }
   },
   "depth": {
+    "frame": "depth",
     "height": 768,
     "width": 1024,
     "fx": 734.938,
@@ -30,6 +32,8 @@
     }
   },
   "extrinsicsDepthToColor": {
+    "from":"depth",
+    "to":"color",
     "rotation": [
       0.999958,
       -0.00838489,

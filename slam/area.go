@@ -11,7 +11,7 @@ import (
 )
 
 func NewSquareArea(sizeMeters float64, unitsPerMeter float64, logger golog.Logger) (*SquareArea, error) {
-	cloud := pointcloud.NewRoundingPointCloud()
+	cloud := pointcloud.NewRoundingPointCloud("base")
 	return SquareAreaFromPointCloud(cloud, sizeMeters, unitsPerMeter)
 }
 
