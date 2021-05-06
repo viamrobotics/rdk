@@ -8,6 +8,17 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
+type XYZWeights struct {
+	X float64
+	Y float64
+	Z float64
+}
+
+type DistanceConfig struct {
+	Trans  XYZWeights
+	Orient XYZWeights
+}
+
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
@@ -34,6 +45,7 @@ type Model struct {
 	Jacobian         *mgl64.MatMxN
 	InvJacobian      *mgl64.MatMxN
 	RandSeed         *rand.Rand
+	DistCfg          DistanceConfig
 }
 
 // Constructor for a model
@@ -43,6 +55,7 @@ func NewModel() *Model {
 	m.Nodes = make(map[int64]*Frame)
 	m.Edges = make(map[graph.Edge]Link)
 	m.RandSeed = rand.New(rand.NewSource(1))
+	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZWeights{1.0, 1.0, 1.0}}
 	return &m
 }
 

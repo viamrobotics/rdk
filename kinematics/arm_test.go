@@ -149,3 +149,32 @@ func BenchJacobianIKinematics(t *testing.B) {
 	}
 	fmt.Println("jacob solved: ", solved)
 }
+
+func TestIKTolerances(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	nCPU := runtime.NumCPU()
+	v1Arm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/v1_notol_test.json"), nCPU, logger)
+	test.That(t, err, test.ShouldBeNil)
+	v1Arm.SetJointPositions([]float64{5, 0})
+
+	// Test inability to arrive at another position due to orientation
+	pos := &pb.ArmPosition{
+		X:  -46,
+		Y:  0,
+		Z:  372,
+		RX: -178,
+		RY: -33,
+		RZ: -111,
+	}
+	err = v1Arm.SetForwardPosition(pos)
+
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Now verify that setting tolerances to zero allows the same arm to reach that position
+	v1Arm, err = NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/v1_tol_test.json"), nCPU, logger)
+	test.That(t, err, test.ShouldBeNil)
+	v1Arm.SetJointPositions([]float64{5, 0})
+	err = v1Arm.SetForwardPosition(pos)
+
+	test.That(t, err, test.ShouldBeNil)
+}
