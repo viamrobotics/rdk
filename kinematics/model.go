@@ -14,6 +14,13 @@ type XYZWeights struct {
 	Z float64 `json:"z"`
 }
 
+// These values are used to augment the distance check for a given IK solution.
+// For each component of a 6d pose, the distance from current position to goal is
+// squared and then multiplied by the corresponding weight in this struct. The results
+// are summed and that sum must be below a certain threshold.
+// So values > 1 forces the IK algorithm to get that value closer to perfect than it
+// otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
+// that dimension to not be considered at all.
 type DistanceConfig struct {
 	Trans  XYZWeights `json:"translation"`
 	Orient XYZWeights `json:"orientation"`
