@@ -8,6 +8,24 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
+type XYZWeights struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
+// These values are used to augment the distance check for a given IK solution.
+// For each component of a 6d pose, the distance from current position to goal is
+// squared and then multiplied by the corresponding weight in this struct. The results
+// are summed and that sum must be below a certain threshold.
+// So values > 1 forces the IK algorithm to get that value closer to perfect than it
+// otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
+// that dimension to not be considered at all.
+type DistanceConfig struct {
+	Trans  XYZWeights `json:"translation"`
+	Orient XYZWeights `json:"orientation"`
+}
+
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
@@ -34,6 +52,7 @@ type Model struct {
 	Jacobian         *mgl64.MatMxN
 	InvJacobian      *mgl64.MatMxN
 	RandSeed         *rand.Rand
+	DistCfg          DistanceConfig
 }
 
 // Constructor for a model
@@ -43,6 +62,7 @@ func NewModel() *Model {
 	m.Nodes = make(map[int64]*Frame)
 	m.Edges = make(map[graph.Edge]Link)
 	m.RandSeed = rand.New(rand.NewSource(1))
+	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZWeights{1.0, 1.0, 1.0}}
 	return &m
 }
 
