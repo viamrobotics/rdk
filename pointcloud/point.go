@@ -99,3 +99,17 @@ func NewColoredPoint(x, y, z float64, c color.NRGBA) *BasicPoint {
 func NewValuePoint(x, y, z float64, v int) *BasicPoint {
 	return &BasicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
 }
+
+// A clunky work around to changing a point's position
+func ChangePointPosition(pt Point, q Vec3) (Point, error) {
+	switch pt := pt.(type) {
+	case *BasicPoint:
+		newBpt := *pt
+		newBpt.position = q
+		var newPt Point
+		newPt = &newBpt
+		return newPt, nil
+	default:
+		return nil, fmt.Errorf("point was not of type BasicPoint")
+	}
+}
