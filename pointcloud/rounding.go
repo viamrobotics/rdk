@@ -41,7 +41,10 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
-	p.ChangePosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
+	p, err := ChangePointPosition(p, Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
+	if err != nil {
+		return err
+	}
 	cloud.points[key(p.Position())] = p
 	if p.HasColor() {
 		cloud.hasColor = true

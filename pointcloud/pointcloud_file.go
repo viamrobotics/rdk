@@ -215,9 +215,10 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 			return true
 		}
 		position := pt.Position()
-		width := position.X
-		height := -position.Y
-		depth := -position.Z
+		// point positions in mm, convert to meters for optimal viewing
+		width := position.X / 1000.
+		height := -position.Y / 1000.
+		depth := -position.Z / 1000.
 
 		_, err = fmt.Fprintf(out, "%f %f %f %d\n",
 			width,
