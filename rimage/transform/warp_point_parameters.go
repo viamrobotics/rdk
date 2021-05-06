@@ -28,8 +28,8 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 			return nil, err
 		}
 	}
-	// All points now in Common frame
-	pc := pointcloud.New()
+	// All points now in Common Color frame
+	pc := pointcloud.New("color")
 
 	height := iwd.Height()
 	width := iwd.Width()

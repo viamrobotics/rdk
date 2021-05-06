@@ -18,7 +18,7 @@ import (
 type key Vec3
 
 type PointCloud interface {
-	Frame() string
+	Frame() string // coordinate frame
 	Size() int
 	HasColor() bool
 	HasValue() bool
@@ -74,6 +74,7 @@ func (cloud *basicPointCloud) Frame() string {
 	return cloud.frame
 }
 
+// Specify the coordinate frame that points will be measured from
 func (cloud *basicPointCloud) ChangeFrame(frame string) {
 	cloud.frame = frame
 }

@@ -41,7 +41,7 @@ func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
 	if !ii.IsAligned() {
 		return nil, fmt.Errorf("input ImageWithDepth is not aligned")
 	}
-	pc := pointcloud.New()
+	pc := pointcloud.New("color") // All aligned ImagesWithDepth are in color frame
 	height := ii.Height()
 	width := ii.Width()
 	for y := 0; y < height; y++ {
