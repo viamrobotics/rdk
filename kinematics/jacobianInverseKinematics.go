@@ -110,7 +110,7 @@ func (ik *JacobianIK) Solve() bool {
 			}
 
 			// Check if q is valid for our desired position
-			if SquaredNorm(dx) < ik.epsilon*ik.epsilon {
+			if WeightedSquaredNorm(dx, ik.Mdl.DistCfg) < ik.epsilon*ik.epsilon {
 				ik.Mdl.SetPosition(q)
 				q = ik.Mdl.ZeroInlineRotation(q)
 				if ik.Mdl.IsValid(q) {

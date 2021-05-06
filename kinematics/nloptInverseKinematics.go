@@ -93,9 +93,9 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// We need to use gradient to make the linter happy
 		if len(gradient) > 0 {
-			return SquaredNorm(dx)
+			return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 		}
-		return SquaredNorm(dx)
+		return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 	}
 
 	err = multierr.Combine(
