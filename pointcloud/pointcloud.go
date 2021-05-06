@@ -18,6 +18,7 @@ import (
 type key Vec3
 
 type PointCloud interface {
+	Frame() string
 	Size() int
 	HasColor() bool
 	HasValue() bool
@@ -37,6 +38,7 @@ type PointCloud interface {
 
 	// utils
 
+	ChangeFrame(string)
 	// Writes to a LAS file
 	WriteToFile(fn string) error
 	ToPCD(out io.Writer) error
@@ -46,6 +48,7 @@ type PointCloud interface {
 
 // basicPointCloud is the basic implementation of the PointCloud interface
 type basicPointCloud struct {
+	frame      string
 	points     map[key]Point
 	hasColor   bool
 	hasValue   bool
@@ -54,8 +57,9 @@ type basicPointCloud struct {
 	minZ, maxZ float64
 }
 
-func New() PointCloud {
+func New(frame string) PointCloud {
 	return &basicPointCloud{
+		frame:  frame,
 		points: map[key]Point{},
 		minX:   math.MaxFloat64,
 		minY:   math.MaxFloat64,
@@ -64,6 +68,14 @@ func New() PointCloud {
 		maxY:   -math.MaxFloat64,
 		maxZ:   -math.MaxFloat64,
 	}
+}
+
+func (cloud *basicPointCloud) Frame() string {
+	return cloud.frame
+}
+
+func (cloud *basicPointCloud) ChangeFrame(frame string) {
+	cloud.frame = frame
 }
 
 func (cloud *basicPointCloud) Size() int {
