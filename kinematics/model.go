@@ -9,14 +9,14 @@ import (
 )
 
 type XYZWeights struct {
-	X float64
-	Y float64
-	Z float64
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
 }
 
 type DistanceConfig struct {
-	Trans  XYZWeights
-	Orient XYZWeights
+	Trans  XYZWeights `json:"translation"`
+	Orient XYZWeights `json:"orientation"`
 }
 
 // Generally speaking, a Joint will attach a Body to a Frame
