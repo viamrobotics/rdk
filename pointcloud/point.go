@@ -29,7 +29,6 @@ func (vs Vec3s) Less(i, j int) bool {
 
 type Point interface {
 	Position() Vec3
-	ChangePosition(p Vec3)
 
 	HasColor() bool
 	RGB255() (uint8, uint8, uint8)
@@ -51,10 +50,6 @@ type BasicPoint struct {
 
 func (bp *BasicPoint) Position() Vec3 {
 	return bp.position
-}
-
-func (bp *BasicPoint) ChangePosition(p Vec3) {
-	bp.position = p
 }
 
 func (bp *BasicPoint) SetColor(c color.NRGBA) *BasicPoint {
