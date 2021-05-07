@@ -16,6 +16,7 @@ import (
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rexec"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rpc"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
@@ -586,14 +587,23 @@ type cameraClient struct {
 func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 	resp, err := cc.rc.client.CameraFrame(ctx, &pb.CameraFrameRequest{
 		Name:     cc.name,
-		MimeType: "image/raw-rgba",
+		MimeType: "image/viambest",
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
-	img.Pix = resp.Frame
-	return img, func() {}, err
+	switch resp.MimeType {
+	case "image/raw-rgba":
+		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
+		img.Pix = resp.Frame
+		return img, func() {}, nil
+	case "image/raw-iwd":
+		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
+		return img, func() {}, err
+	default:
+		return nil, nil, fmt.Errorf("do not how to decode MimeType %s", resp.MimeType)
+	}
+
 }
 
 func (cc *cameraClient) Close() error {

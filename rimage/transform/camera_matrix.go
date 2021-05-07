@@ -63,7 +63,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(img.Color, &outmap, true, dcie), nil
+	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
 }
 
 // Function that takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -126,7 +126,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, &depth, true, dcie), nil
+	return rimage.MakeImageWithDepth(color, depth, true, dcie), nil
 
 }
 

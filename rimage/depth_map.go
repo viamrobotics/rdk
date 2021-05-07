@@ -562,8 +562,8 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	return out
 }
 
-func NewEmptyDepthMap(width, height int) DepthMap {
-	dm := DepthMap{
+func NewEmptyDepthMap(width, height int) *DepthMap {
+	dm := &DepthMap{
 		width:  width,
 		height: height,
 		data:   make([]Depth, width*height),
@@ -574,7 +574,7 @@ func NewEmptyDepthMap(width, height int) DepthMap {
 
 type dmWarpConnector struct {
 	In  *DepthMap
-	Out DepthMap
+	Out *DepthMap
 }
 
 func (w *dmWarpConnector) Get(x, y int, buf []float64) bool {
@@ -598,7 +598,7 @@ func (w *dmWarpConnector) NumFields() int {
 	return 1
 }
 
-func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) DepthMap {
+func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap {
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)
 	return conn.Out
