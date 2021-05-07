@@ -24,9 +24,9 @@ func TestCombinedIKinematics(t *testing.T) {
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
-		X:  -46.445827416798814,
-		Y:  -133.99229347583582,
-		Z:  372.4849299627513,
+		X:  -46,
+		Y:  -133,
+		Z:  372,
 		RX: -178.88747811107424,
 		RY: -33.160094626838045,
 		RZ: -111.02282693533935,
@@ -39,9 +39,9 @@ func TestCombinedIKinematics(t *testing.T) {
 	t.Skip("Skipping problematic position, too few CPUs to solve; fails often")
 	// }
 	pos = &pb.ArmPosition{
-		X:  -66.445827416798814,
-		Y:  -133.99229347583582,
-		Z:  372.4849299627513,
+		X:  -66,
+		Y:  -133,
+		Z:  372,
 		RX: -178.88747811107424,
 		RY: -33.160094626838045,
 		RZ: -111.02282693533935,

@@ -63,9 +63,9 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	pos := &pb.ArmPosition{}
-	pos.X = pos6d[0]
-	pos.Y = pos6d[1]
-	pos.Z = pos6d[2]
+	pos.X = int64(pos6d[0])
+	pos.Y = int64(pos6d[1])
+	pos.Z = int64(pos6d[2])
 	pos.RX = pos6d[3]
 	pos.RY = pos6d[4]
 	pos.RZ = pos6d[5]
@@ -81,9 +81,9 @@ func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 
 	// Spatial displacements represented in dual quaternions have their distances divided by two
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
-	transform.SetX(pos.X / 2)
-	transform.SetY(pos.Y / 2)
-	transform.SetZ(pos.Z / 2)
+	transform.SetX(float64(pos.X) / 2)
+	transform.SetY(float64(pos.Y) / 2)
+	transform.SetZ(float64(pos.Z) / 2)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
