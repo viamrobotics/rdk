@@ -1,6 +1,9 @@
 # robotcore
 
-[![codecov](https://codecov.io/gh/viamrobotics/robotcore/branch/master/graph/badge.svg?token=99YH0M8YOA)](https://codecov.io/gh/viamrobotics/robotcore)
+<p align="center">
+  <a href="https://go.viam.com/pkg/go.viam.com/robotcore/"><img src="https://pkg.go.dev/badge/go.viam.com/robotcore" alt="PkgGoDev"></a>
+  <a href="https://codecov.io/gh/viamrobotics/robotcore"><img src="https://codecov.io/gh/viamrobotics/robotcore/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
+</p>
 
 * [Packages](#packages)
 * [Programs](#programs)
