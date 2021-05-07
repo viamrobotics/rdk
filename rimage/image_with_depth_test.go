@@ -19,9 +19,9 @@ func TestPCRoundTrip(t *testing.T) {
 		test.That(t, other.Depth.Width(), test.ShouldEqual, pc.Depth.Width())
 		test.That(t, other.Depth.Height(), test.ShouldEqual, pc.Depth.Height())
 
-		test.That(t, other.Depth.GetDepth(111,111), test.ShouldEqual, pc.Depth.GetDepth(111,111))
+		test.That(t, other.Depth.GetDepth(111, 111), test.ShouldEqual, pc.Depth.GetDepth(111, 111))
 	}
-	
+
 	fn := outDir + "/roundtrip1.both.gz"
 	err = pc.WriteTo(fn)
 	test.That(t, err, test.ShouldBeNil)

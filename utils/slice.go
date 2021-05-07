@@ -1,32 +1,29 @@
 package utils
 
 import (
+	"fmt"
 	"reflect"
 	"unsafe"
 )
 
-// usage:
-// x := []int{ 5, 5}
-// foo := ByteSliceFromPrimitivePointer(unsafe.Pointer(&x[0]), 2, 4)
-func ByteSliceFromPrimitivePointer(p unsafe.Pointer, lengthOfSlice, sizeOfPrimitive int) []byte {
-	size := lengthOfSlice * sizeOfPrimitive
-	header := unsafe.Pointer(&reflect.SliceHeader{
+// RawBytesFromSlice returns a view of the given slice value. It is valid
+// as long as the given value stays within GC.
+func RawBytesFromSlice(val interface{}) []byte {
+	valV := reflect.ValueOf(val)
+	if valV.Kind() != reflect.Slice {
+		panic(fmt.Errorf("expected slice but got %T", val))
+	}
+	if valV.Len() == 0 {
+		return nil
+	}
+
+	size := valV.Len() * int(valV.Type().Elem().Size())
+	firstElem := valV.Index(0).UnsafeAddr()
+	//nolint
+	header := &reflect.SliceHeader{
 		Len:  size,
 		Cap:  size,
-		Data: uintptr(p),
-	})
-
-	return *(*[]byte)(header)
-}
-
-// usage:
-// b := []byte{ ... }
-// foo := *(*[]uint32)(ByteSliceToPrimitivePointer(b, 4))
-func ByteSliceToPrimitivePointer(b []byte, sizeOfPrimitive int) unsafe.Pointer {
-	header := &reflect.SliceHeader{
-		Len:  len(b) / sizeOfPrimitive,
-		Cap:  len(b) / sizeOfPrimitive,
-		Data: (uintptr)(unsafe.Pointer(&b[0])),
+		Data: firstElem,
 	}
-	return unsafe.Pointer(header)
+	return *(*[]byte)(unsafe.Pointer(header))
 }
