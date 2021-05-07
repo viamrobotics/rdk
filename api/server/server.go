@@ -221,6 +221,12 @@ func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*
 
 // Camera
 
+const (
+	mimeTypeViamBest = "image/viambest"
+	mimeTypeRawIWD   = "image/raw-iwd"
+	mimeTypeRawRGBA  = "image/raw-rgba"
+)
+
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
@@ -233,12 +239,12 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	}
 	defer release()
 
-	if req.MimeType == "image/viambest" {
+	if req.MimeType == mimeTypeViamBest {
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if ok && iwd.Depth != nil && iwd.Color != nil {
-			req.MimeType = "image/raw-iwd"
+			req.MimeType = mimeTypeRawIWD
 		} else {
-			req.MimeType = "image/raw-rgba"
+			req.MimeType = mimeTypeRawRGBA
 		}
 	}
 
@@ -251,12 +257,13 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 
 	var buf bytes.Buffer
 	switch req.MimeType {
-	case "image/raw-rgba":
+	case mimeTypeRawRGBA:
+		resp.MimeType = mimeTypeRawRGBA
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case "image/raw-iwd":
-		resp.MimeType = "image/raw-iwd"
+	case mimeTypeRawIWD:
+		resp.MimeType = mimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
 			return nil, fmt.Errorf("want image/raw-want don't have ImageWithDepth")
