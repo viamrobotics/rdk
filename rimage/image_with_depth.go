@@ -1,9 +1,12 @@
 package rimage
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
+
+	"go.viam.com/robotcore/utils"
 )
 
 type ImageWithDepth struct {
@@ -48,8 +51,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 
 	var warpedDepth *DepthMap
 	if i.Depth != nil && i.Depth.Width() > 0 {
-		dm2 := i.Depth.Warp(m2, newSize)
-		warpedDepth = &dm2
+		warpedDepth = i.Depth.Warp(m2, newSize)
 	}
 
 	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
@@ -205,7 +207,7 @@ func imageToDepthMap(img image.Image) *DepthMap {
 		}
 	}
 
-	return &dm
+	return dm
 }
 
 func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
@@ -217,4 +219,54 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	default:
 		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
 	}
+}
+
+func (i *ImageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
+	if i.Color == nil || i.Depth == nil {
+		return fmt.Errorf("for raw bytes need depth and color info")
+	}
+
+	if i.Color.Width() != i.Depth.Width() {
+		return fmt.Errorf("widths don't match")
+	}
+
+	if i.Color.Height() != i.Depth.Height() {
+		return fmt.Errorf("heights don't match")
+	}
+
+	buf.Write(utils.RawBytesFromSlice(i.Depth.data))
+	buf.Write(utils.RawBytesFromSlice(i.Color.data))
+	if i.IsAligned() {
+		buf.WriteByte(0x1)
+	} else {
+		buf.WriteByte(0x0)
+	}
+
+	return nil
+}
+
+func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, error) {
+	iwd := &ImageWithDepth{}
+
+	// depth
+	iwd.Depth = NewEmptyDepthMap(width, height)
+	dst := utils.RawBytesFromSlice(iwd.Depth.data)
+	read := copy(dst, b)
+	if read != width*height*2 {
+		return nil, fmt.Errorf("invalid copy of depth data read: %d x: %d y: %d", read, width, height)
+	}
+	b = b[read:]
+
+	iwd.Color = NewImage(width, height)
+	dst = utils.RawBytesFromSlice(iwd.Color.data)
+	read = copy(dst, b)
+	if read != width*height*8 {
+		return nil, fmt.Errorf("invalid copy of color data read: %d x: %d y: %d", read, width, height)
+	}
+	b = b[read:]
+
+	iwd.aligned = b[0] == 0x1
+
+	return iwd, nil
+
 }

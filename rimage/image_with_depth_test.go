@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"bytes"
 	"testing"
 
 	"go.viam.com/robotcore/artifact"
@@ -12,6 +13,15 @@ func TestPCRoundTrip(t *testing.T) {
 	pc, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
+	same := func(other *ImageWithDepth) {
+		test.That(t, other.Color.Width(), test.ShouldEqual, pc.Color.Width())
+		test.That(t, other.Color.Height(), test.ShouldEqual, pc.Color.Height())
+		test.That(t, other.Depth.Width(), test.ShouldEqual, pc.Depth.Width())
+		test.That(t, other.Depth.Height(), test.ShouldEqual, pc.Depth.Height())
+
+		test.That(t, other.Depth.GetDepth(111, 111), test.ShouldEqual, pc.Depth.GetDepth(111, 111))
+	}
+
 	fn := outDir + "/roundtrip1.both.gz"
 	err = pc.WriteTo(fn)
 	test.That(t, err, test.ShouldBeNil)
@@ -19,10 +29,14 @@ func TestPCRoundTrip(t *testing.T) {
 	pc2, err := BothReadFromFile(fn, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, pc2.Color.Width(), test.ShouldEqual, pc.Color.Width())
-	test.That(t, pc2.Color.Height(), test.ShouldEqual, pc.Color.Height())
-	test.That(t, pc2.Depth.Width(), test.ShouldEqual, pc.Depth.Width())
-	test.That(t, pc2.Depth.Height(), test.ShouldEqual, pc.Depth.Height())
+	same(pc2)
+
+	var buf bytes.Buffer
+	test.That(t, pc.RawBytesWrite(&buf), test.ShouldBeNil)
+
+	pc3, err := ImageWithDepthFromRawBytes(pc.Color.Width(), pc.Color.Height(), buf.Bytes())
+	test.That(t, err, test.ShouldBeNil)
+	same(pc3)
 }
 
 func TestDefaultToPointCloud(t *testing.T) {
