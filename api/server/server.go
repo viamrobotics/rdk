@@ -22,6 +22,7 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/robot/action"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/utils"
@@ -220,6 +221,12 @@ func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*
 
 // Camera
 
+const (
+	mimeTypeViamBest = "image/viambest"
+	mimeTypeRawIWD   = "image/raw-iwd"
+	mimeTypeRawRGBA  = "image/raw-rgba"
+)
+
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
@@ -232,18 +239,52 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	}
 	defer release()
 
+	if req.MimeType == mimeTypeViamBest {
+		iwd, ok := img.(*rimage.ImageWithDepth)
+		if ok && iwd.Depth != nil && iwd.Color != nil {
+			req.MimeType = mimeTypeRawIWD
+		} else {
+			req.MimeType = mimeTypeRawRGBA
+		}
+	}
+
 	bounds := img.Bounds()
 	resp := pb.CameraFrameResponse{
 		MimeType: req.MimeType,
 		DimX:     int64(bounds.Dx()),
 		DimY:     int64(bounds.Dy()),
 	}
+
 	var buf bytes.Buffer
 	switch req.MimeType {
-	case "image/raw-rgba":
+	case mimeTypeRawRGBA:
+		resp.MimeType = mimeTypeRawRGBA
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
+	case mimeTypeRawIWD:
+		resp.MimeType = mimeTypeRawIWD
+		iwd, ok := img.(*rimage.ImageWithDepth)
+		if !ok {
+			return nil, fmt.Errorf("want image/raw-want don't have ImageWithDepth")
+		}
+		err := iwd.RawBytesWrite(&buf)
+		if err != nil {
+			return nil, fmt.Errorf("error writing image/raw-want: %w", err)
+		}
+
+	case "image/both":
+		resp.MimeType = "image/both"
+		iwd, ok := img.(*rimage.ImageWithDepth)
+		if !ok {
+			return nil, fmt.Errorf("want image/both don't have ImageWithDepth")
+		}
+		if iwd.Color == nil || iwd.Depth == nil {
+			return nil, fmt.Errorf("for image/both need depth and color info")
+		}
+		if err := rimage.BothEncode(iwd, &buf); err != nil {
+			return nil, err
+		}
 	case "image/jpeg":
 		resp.MimeType = "image/jpeg"
 		if err := jpeg.Encode(&buf, img, nil); err != nil {

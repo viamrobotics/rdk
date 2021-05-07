@@ -36,6 +36,7 @@ lint: goformat
       github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
 	buf lint
 	go install github.com/edaniels/golinters/cmd/combined
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
