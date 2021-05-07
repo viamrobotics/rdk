@@ -77,7 +77,7 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 	c2 := rimage.WarpImage(ii, dct.ColorTransform, dct.OutputSize)
 	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)
 
-	return rimage.MakeImageWithDepth(c2, &dm2, true, dct), nil
+	return rimage.MakeImageWithDepth(c2, dm2, true, dct), nil
 }
 
 // Function that takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
@@ -106,7 +106,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, &depth, true, dct), nil
+	return rimage.MakeImageWithDepth(color, depth, true, dct), nil
 
 }
 
