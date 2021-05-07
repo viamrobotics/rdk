@@ -31,6 +31,7 @@ import (
  */
 const (
 	TestingForce = .5
+	TestingRPM   = 20.0
 )
 
 //go:embed v1.json
@@ -105,7 +106,7 @@ func motorOffError(ctx context.Context, m board.Motor, other error) error {
 
 func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative, logger golog.Logger) (float64, error) {
 	logger.Debugf("testJointLimit dir: %v", dir)
-	err := m.Go(ctx, dir, TestingForce)
+	err := m.GoFor(ctx, dir, TestingRPM, 0)
 	if err != nil {
 		return 0.0, err
 	}
@@ -140,7 +141,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 				}
 				bigger = true
 				positions = []float64{}
-				err := m.Go(ctx, dir, TestingForce*2)
+				err := m.Go(ctx, dir, TestingForce)
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
@@ -225,6 +226,7 @@ func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, 
 	}
 
 	return m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 30.0, delta)
+
 }
 
 func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
@@ -237,10 +239,37 @@ func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions
 		return err
 	}
 
-	return multierr.Combine(
+	err = multierr.Combine(
 		a.moveJointToDegrees(ctx, a.j0Motor, a.j0, cur.Degrees[0], pos.Degrees[0]),
 		a.moveJointToDegrees(ctx, a.j1Motor, a.j1, cur.Degrees[1], pos.Degrees[1]),
 	)
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < 100; i++ {
+		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
+			return ctx.Err()
+		}
+
+		on, err := a.IsOn(ctx)
+		if err != nil {
+			return err
+		}
+
+		if !on {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("arm moved timed out, wanted: %v", pos)
+}
+
+func (a *ArmV1) IsOn(ctx context.Context) (bool, error) {
+	on0, err0 := a.j0Motor.IsOn(ctx)
+	on1, err1 := a.j0Motor.IsOn(ctx)
+
+	return on0 || on1, multierr.Combine(err0, err1)
 }
 
 func jointToDegrees(ctx context.Context, m board.Motor, j joint) (float64, error) {
