@@ -200,6 +200,9 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	}
 
 	img, err := rimage.BothReadFromBytes(allData, s.IsAligned())
+	if err != nil {
+		return nil, nil, err
+	}
 	img.SetCameraSystem(s.GetCameraSystem())
 	return img, func() {}, err
 }
