@@ -9,9 +9,9 @@ import (
 
 func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
-		X:  x,
-		Y:  y,
-		Z:  z,
+		X:  int64(x * 1000),
+		Y:  int64(y * 1000),
+		Z:  int64(z * 1000),
 		RX: utils.RadToDeg(rx),
 		RY: utils.RadToDeg(ry),
 		RZ: utils.RadToDeg(rz),

@@ -34,15 +34,15 @@ import (
 )
 
 type pos struct {
-	x float64
-	y float64
+	x int64
+	y int64
 }
 
 var (
-	BoardWidth     = .381
-	Center         = pos{-.435, .0}
-	BoardHeight    = -.23
-	SafeMoveHeight = BoardHeight + .15
+	BoardWidth     = int64(381)
+	Center         = pos{-435, 0}
+	BoardHeight    = int64(-230)
+	SafeMoveHeight = BoardHeight + 150
 
 	wantPicture = int32(0)
 
@@ -61,16 +61,16 @@ func getCoord(chess string) pos {
 	x = (3.5 - x) / 7.0
 	y = (3.5 - y) / 7.0
 
-	return pos{Center.x + (x * BoardWidth), Center.y + (y * BoardWidth)} // HARD CODED
+	return pos{Center.x + int64((x * float64(BoardWidth))), Center.y + int64((y * float64(BoardWidth)))} // HARD CODED
 }
 
-func moveTo(ctx context.Context, myArm api.Arm, chess string, heightMod float64) error {
+func moveTo(ctx context.Context, myArm api.Arm, chess string, heightModMillis int64) error {
 	// first make sure in safe position
 	where, err := myArm.CurrentPosition(ctx)
 	if err != nil {
 		return err
 	}
-	where.Z = SafeMoveHeight + heightMod
+	where.Z = SafeMoveHeight + heightModMillis
 	err = myArm.MoveToPosition(ctx, where)
 	if err != nil {
 		return err
@@ -79,8 +79,8 @@ func moveTo(ctx context.Context, myArm api.Arm, chess string, heightMod float64)
 	// move
 	if chess == "-" {
 		f := getCoord("a8")
-		where.X = f.x - (.06 * float64(numPiecesCaptured)) // HARD CODED
-		where.Y = f.y - (BoardWidth / 5)                   // HARD CODED
+		where.X = f.x - int64(60*numPiecesCaptured) // HARD CODED
+		where.Y = f.y - (BoardWidth / 5)            // HARD CODED
 		numPiecesCaptured = numPiecesCaptured + 1
 	} else {
 		f := getCoord(chess)
@@ -127,7 +127,7 @@ func movePiece(ctx context.Context, boardState boardStateGuesser, robot api.Robo
 	if err != nil {
 		return err
 	}
-	where.Z = BoardHeight + (height / 1000) + .01
+	where.Z = BoardHeight + int64(height) + int64(10)
 	myArm.MoveToPosition(ctx, where)
 
 	// grab piece
@@ -150,7 +150,7 @@ func movePiece(ctx context.Context, boardState boardStateGuesser, robot api.Robo
 		if err != nil {
 			return err
 		}
-		where.Z = where.Z - .01
+		where.Z = where.Z - 10
 		if where.Z <= BoardHeight {
 			return fmt.Errorf("no piece")
 		}
@@ -180,7 +180,7 @@ func movePiece(ctx context.Context, boardState boardStateGuesser, robot api.Robo
 		return initArm(ctx, myArm) // this is to get joint position right
 	}
 
-	err = moveTo(ctx, myArm, to, .1)
+	err = moveTo(ctx, myArm, to, 100)
 	if err != nil {
 		return err
 	}
@@ -218,7 +218,7 @@ func moveOutOfWay(ctx context.Context, myArm api.Arm) error {
 	}
 	where.X = foo.x
 	where.Y = foo.y
-	where.Z = SafeMoveHeight + .3 // HARD CODED
+	where.Z = SafeMoveHeight + 300 // HARD CODED
 
 	return myArm.MoveToPosition(ctx, where)
 }
@@ -323,8 +323,8 @@ func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.Im
 			Center = pos{where.X, where.Y}
 
 			// These are hard coded based on camera orientation
-			Center.x += .026
-			Center.y -= .073
+			Center.x += 26
+			Center.y -= 73
 
 			logger.Debugf("Center: %v", Center)
 			logger.Debugf("a1: %v", getCoord("a1"))
@@ -332,8 +332,8 @@ func lookForBoardAdjust(ctx context.Context, myArm api.Arm, wristCam gostream.Im
 			return nil
 		}
 
-		where.X += xMove
-		where.Y += yMove
+		where.X += int64(xMove * 1000)
+		where.Y += int64(yMove * 1000)
 		err = myArm.MoveToPosition(ctx, where)
 		if err != nil {
 			return err
@@ -362,9 +362,9 @@ func lookForBoard(ctx context.Context, myArm api.Arm, myRobot api.Robot) error {
 		if err != nil {
 			return err
 		}
-		where.X = -0.42
-		where.Y = 0.02
-		where.Z = 0.6
+		where.X = -420
+		where.Y = 20
+		where.Z = 600
 		where.RX = -2.600206
 		where.RY = -0.007839
 		where.RZ = -0.061827
@@ -414,7 +414,7 @@ func adjustArmInsideSquare(ctx context.Context, robot api.Robot) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("starting at: %0.3f,%0.3f\n", where.X, where.Y)
+		fmt.Printf("starting at: %v,%v\n", where.X, where.Y)
 
 		raw, release, err := cam.Next(ctx)
 		if err != nil {
@@ -450,10 +450,10 @@ func adjustArmInsideSquare(ctx context.Context, robot api.Robot) error {
 
 		fmt.Printf("\t offsetX: %v offsetY: %v diff: %v\n", offsetX, offsetY, diff)
 
-		where.X += float64(offsetX) / -2000
-		where.Y += float64(offsetY) / 2000
+		where.X += int64(offsetX / -2)
+		where.Y += int64(offsetY / 2)
 
-		fmt.Printf("\t moving to %0.3f,%0.3f\n", where.X, where.Y)
+		fmt.Printf("\t moving to %v,%v\n", where.X, where.Y)
 
 		err = arm.MoveToPosition(ctx, where)
 		if err != nil {

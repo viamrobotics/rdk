@@ -2914,9 +2914,9 @@ proto.proto.api.v1.ArmPosition.prototype.toObject = function(opt_includeInstance
  */
 proto.proto.api.v1.ArmPosition.toObject = function(includeInstance, msg) {
   var f, obj = {
-    x: jspb.Message.getFloatingPointFieldWithDefault(msg, 1, 0.0),
-    y: jspb.Message.getFloatingPointFieldWithDefault(msg, 2, 0.0),
-    z: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0),
+    x: jspb.Message.getFieldWithDefault(msg, 1, 0),
+    y: jspb.Message.getFieldWithDefault(msg, 2, 0),
+    z: jspb.Message.getFieldWithDefault(msg, 3, 0),
     rX: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
     rY: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
     rZ: jspb.Message.getFloatingPointFieldWithDefault(msg, 6, 0.0)
@@ -2957,15 +2957,15 @@ proto.proto.api.v1.ArmPosition.deserializeBinaryFromReader = function(msg, reade
     var field = reader.getFieldNumber();
     switch (field) {
     case 1:
-      var value = /** @type {number} */ (reader.readDouble());
+      var value = /** @type {number} */ (reader.readInt64());
       msg.setX(value);
       break;
     case 2:
-      var value = /** @type {number} */ (reader.readDouble());
+      var value = /** @type {number} */ (reader.readInt64());
       msg.setY(value);
       break;
     case 3:
-      var value = /** @type {number} */ (reader.readDouble());
+      var value = /** @type {number} */ (reader.readInt64());
       msg.setZ(value);
       break;
     case 4:
@@ -3010,22 +3010,22 @@ proto.proto.api.v1.ArmPosition.prototype.serializeBinary = function() {
 proto.proto.api.v1.ArmPosition.serializeBinaryToWriter = function(message, writer) {
   var f = undefined;
   f = message.getX();
-  if (f !== 0.0) {
-    writer.writeDouble(
+  if (f !== 0) {
+    writer.writeInt64(
       1,
       f
     );
   }
   f = message.getY();
-  if (f !== 0.0) {
-    writer.writeDouble(
+  if (f !== 0) {
+    writer.writeInt64(
       2,
       f
     );
   }
   f = message.getZ();
-  if (f !== 0.0) {
-    writer.writeDouble(
+  if (f !== 0) {
+    writer.writeInt64(
       3,
       f
     );
@@ -3055,11 +3055,11 @@ proto.proto.api.v1.ArmPosition.serializeBinaryToWriter = function(message, write
 
 
 /**
- * optional double x = 1;
+ * optional int64 x = 1;
  * @return {number}
  */
 proto.proto.api.v1.ArmPosition.prototype.getX = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 1, 0.0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 1, 0));
 };
 
 
@@ -3068,16 +3068,16 @@ proto.proto.api.v1.ArmPosition.prototype.getX = function() {
  * @return {!proto.proto.api.v1.ArmPosition} returns this
  */
 proto.proto.api.v1.ArmPosition.prototype.setX = function(value) {
-  return jspb.Message.setProto3FloatField(this, 1, value);
+  return jspb.Message.setProto3IntField(this, 1, value);
 };
 
 
 /**
- * optional double y = 2;
+ * optional int64 y = 2;
  * @return {number}
  */
 proto.proto.api.v1.ArmPosition.prototype.getY = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 2, 0.0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 2, 0));
 };
 
 
@@ -3086,16 +3086,16 @@ proto.proto.api.v1.ArmPosition.prototype.getY = function() {
  * @return {!proto.proto.api.v1.ArmPosition} returns this
  */
 proto.proto.api.v1.ArmPosition.prototype.setY = function(value) {
-  return jspb.Message.setProto3FloatField(this, 2, value);
+  return jspb.Message.setProto3IntField(this, 2, value);
 };
 
 
 /**
- * optional double z = 3;
+ * optional int64 z = 3;
  * @return {number}
  */
 proto.proto.api.v1.ArmPosition.prototype.getZ = function() {
-  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
+  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
 };
 
 
@@ -3104,7 +3104,7 @@ proto.proto.api.v1.ArmPosition.prototype.getZ = function() {
  * @return {!proto.proto.api.v1.ArmPosition} returns this
  */
 proto.proto.api.v1.ArmPosition.prototype.setZ = function(value) {
-  return jspb.Message.setProto3FloatField(this, 3, value);
+  return jspb.Message.setProto3IntField(this, 3, value);
 };
 
 

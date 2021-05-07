@@ -51,13 +51,13 @@ func upAndDown(ctx context.Context, r api.Robot) error {
 			return err
 		}
 
-		pos.Z += .30
+		pos.Z += 30
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
 
-		pos.Z -= .30
+		pos.Z -= 30
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err

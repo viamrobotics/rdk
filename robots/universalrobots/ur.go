@@ -217,9 +217,9 @@ func (arm *URArm) MoveToJointPositionRadians(ctx context.Context, radians []floa
 }
 
 func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	x := pos.X
-	y := pos.Y
-	z := pos.Z
+	x := float64(pos.X) / 1000
+	y := float64(pos.Y) / 1000
+	z := float64(pos.Z) / 1000
 	rx := utils.DegToRad(pos.RX)
 	ry := utils.DegToRad(pos.RY)
 	rz := utils.DegToRad(pos.RZ)
