@@ -105,6 +105,7 @@ func TestParseFlags(t *testing.T) {
 		test.That(t, ps3.C, test.ShouldEqual, 2)
 		test.That(t, ps3.D, test.ShouldEqual, 1)
 		test.That(t, ps3.E, test.ShouldEqual, "whatisup")
+		test.That(t, ps3.F, test.ShouldBeTrue)
 
 		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct4{})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -113,6 +114,36 @@ func TestParseFlags(t *testing.T) {
 		err = ParseFlags([]string{"1", "--a=hey there"}, &parseStruct5{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+		err = ParseFlags([]string{"1", "--A=hey there", "--b=one", "--c=2", "5"}, &ps3)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
+
+		err = ParseFlags([]string{"1", "--A=hey there", "--b=one", "--c=2", "false"}, &ps3)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ps3.A, test.ShouldEqual, "hey there")
+		test.That(t, ps3.B, test.ShouldEqual, "one")
+		test.That(t, ps3.C, test.ShouldEqual, 2)
+		test.That(t, ps3.D, test.ShouldEqual, 1)
+		test.That(t, ps3.E, test.ShouldEqual, "whatisup")
+		test.That(t, ps3.F, test.ShouldBeFalse)
+
+		err = ParseFlags([]string{"1", "--A=hey there", "--b=one", "--c=2", "false", "more"}, &ps3)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unspecified")
+
+		var ps6 parseStruct6
+		err = ParseFlags([]string{"1", "true", "two", "three", "four"}, &ps6)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ps6.A, test.ShouldBeTrue)
+		test.That(t, ps6.B, test.ShouldEqual, "two")
+		test.That(t, ps6.Extra, test.ShouldResemble, []string{"three", "four"})
+
+		var ps7 parseStruct7
+		err = ParseFlags([]string{"1", "true", "two", "three", "four"}, &ps7)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "more than one extra")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Extra")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "Extra2")
 	})
 }
 
@@ -153,6 +184,7 @@ type parseStruct3 struct {
 	C int        `flag:"c,required,usage=hello bob"`
 	D int        `flag:"d,default=1,usage=hello charlie"`
 	E stringFlag `flag:"e,default="`
+	F bool       `flag:"0,default=true"`
 }
 
 type parseStruct4 struct {
@@ -161,6 +193,19 @@ type parseStruct4 struct {
 
 type parseStruct5 struct {
 	A bool `flag:",default=foo"`
+}
+
+type parseStruct6 struct {
+	A     bool     `flag:"0"`
+	B     string   `flag:"1"`
+	Extra []string `flag:",extra"`
+}
+
+type parseStruct7 struct {
+	A      bool     `flag:"0"`
+	B      string   `flag:"1"`
+	Extra  []string `flag:",extra"`
+	Extra2 []string `flag:",extra"`
 }
 
 type parseStructNet struct {

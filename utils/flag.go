@@ -40,6 +40,12 @@ var errRequiredFlagUnspecified = errors.New("flag required but not specified")
 
 // UnmarshalFlags unmarshals parsed flags into the given value.
 func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
+	numPositionalsTotal := len(flagSet.Args())
+	numPositionalsLeft := make(map[int]struct{}, numPositionalsTotal)
+	for i := 0; i < numPositionalsTotal; i++ {
+		numPositionalsLeft[i] = struct{}{}
+	}
+
 	v := reflect.ValueOf(into)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -47,6 +53,8 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 	if v.Type().Kind() != reflect.Struct || !v.CanAddr() {
 		return fmt.Errorf("expected %T to be an addressable struct", into)
 	}
+	var extraField reflect.Value
+	var extraFieldName string
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -58,10 +66,21 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 		if err != nil {
 			return err
 		}
+		if info.Extra {
+			if extraField.IsValid() {
+				return fmt.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
+			}
+			extraField = v.Field(i)
+			extraFieldName = field.Name
+			continue
+		}
 		var val interface{}
 		var flagValIsSet bool
 		if info.Positional {
 			strVal := flagSet.Arg(info.Position)
+			if info.Position < numPositionalsTotal {
+				delete(numPositionalsLeft, info.Position)
+			}
 			if info.IsFlagVal {
 				if strVal == "" {
 					val = info.Default
@@ -81,6 +100,12 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 							return fmt.Errorf("error parsing positional argument %d: %w", info.Position, err)
 						}
 						val = int(conv)
+					case reflect.Bool:
+						conv, err := strconv.ParseBool(strVal)
+						if err != nil {
+							return fmt.Errorf("error parsing positional argument %d: %w", info.Position, err)
+						}
+						val = conv
 					default:
 						return fmt.Errorf("error parsing positional argument %d for %s: do not know how to unmarshal a %q",
 							info.Position,
@@ -162,6 +187,16 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			}
 		}
 	}
+	if len(numPositionalsLeft) != 0 {
+		remArgs := make([]string, 0, len(numPositionalsLeft))
+		for idx := range numPositionalsLeft {
+			remArgs = append(remArgs, flagSet.Arg(idx))
+		}
+		if !extraField.IsValid() {
+			return fmt.Errorf("unspecified arguments provided: %v", remArgs)
+		}
+		extraField.Set(reflect.ValueOf(remArgs))
+	}
 	return nil
 }
 
@@ -175,6 +210,7 @@ type flagInfo struct {
 	Positional bool
 	Position   int
 	IsFlagVal  bool
+	Extra      bool
 }
 
 func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
@@ -230,6 +266,11 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: usage must have usage string", fieldName)
 			}
 			info.Usage = parted[1]
+		case "extra":
+			if field.Type != reflect.TypeOf([]string(nil)) {
+				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: extra field must be []string", fieldName)
+			}
+			info.Extra = true
 		}
 	}
 	return info, nil
@@ -273,6 +314,8 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 	if t.Kind() != reflect.Struct || !v.CanAddr() {
 		return fmt.Errorf("expected %T to be an addressable struct", from)
 	}
+	var extraField reflect.Value
+	var extraFieldName string
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.PkgPath != "" {
@@ -285,6 +328,14 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		info, err := parseFlagInfo(field, flagStr)
 		if err != nil {
 			return err
+		}
+		if info.Extra {
+			if extraField.IsValid() {
+				return fmt.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
+			}
+			extraField = v.Field(i)
+			extraFieldName = field.Name
+			continue
 		}
 		fieldT := field.Type
 		if fieldT.Kind() == reflect.Ptr {
