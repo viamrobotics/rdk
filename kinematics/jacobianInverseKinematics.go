@@ -23,7 +23,7 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	var ik JacobianIK
 	ik.resetHalting()
 	ik.Mdl = mdl
-	ik.epsilon = 0.0001
+	ik.epsilon = 0.01
 	ik.iterations = 3000
 	ik.svd = true
 	return &ik

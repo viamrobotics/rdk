@@ -32,7 +32,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.resetHalting()
 	ik.Mdl = mdl
 	// How close we want to get to the goal
-	ik.epsilon = 0.0001
+	ik.epsilon = 0.01
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 50000
