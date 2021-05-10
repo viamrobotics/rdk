@@ -13,6 +13,8 @@ import (
 	"fmt"
 )
 
+// Path returns the local file system path to the given artifact path. It
+// errors if it does not exist or cannot be ensured to exist.
 func Path(to string) (string, error) {
 	cache, err := GlobalCache()
 	if err != nil {
@@ -25,6 +27,7 @@ func Path(to string) (string, error) {
 	return actualPath, nil
 }
 
+// MustPath works like Path but panics if any error occurs. Useful in tests.
 func MustPath(to string) string {
 	resolved, err := Path(to)
 	if err != nil {
@@ -33,6 +36,7 @@ func MustPath(to string) string {
 	return resolved
 }
 
+// NewPath returns the would be path to an artifact on the local file system.
 func NewPath(to string) (string, error) {
 	cache, err := GlobalCache()
 	if err != nil {
@@ -41,6 +45,7 @@ func NewPath(to string) (string, error) {
 	return cache.NewPath(to), nil
 }
 
+// MustNewPath works like NewPath but panics if any error occurs. Useful in tests.
 func MustNewPath(to string) string {
 	resolved, err := NewPath(to)
 	if err != nil {
