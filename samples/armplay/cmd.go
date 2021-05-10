@@ -8,15 +8,19 @@ import (
 	"time"
 
 	"go.viam.com/robotcore/api"
+	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/action"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/utils"
 
-	_ "go.viam.com/robotcore/robots/eva"             // load eva
-	_ "go.viam.com/robotcore/robots/universalrobots" // load eva
+	_ "go.viam.com/robotcore/board/detector"         // load boards
+	_ "go.viam.com/robotcore/robots/eva"             // load arm
+	_ "go.viam.com/robotcore/robots/universalrobots" // load arm
+	_ "go.viam.com/robotcore/robots/varm"            // load arm
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 var logger = golog.NewDevelopmentLogger("armplay")
@@ -29,6 +33,13 @@ func init() {
 		}
 	})
 
+	action.RegisterAction("chrisCirlce", func(ctx context.Context, r api.Robot) {
+		err := chrisCirlce(ctx, r)
+		if err != nil {
+			logger.Errorf("error: %s", err)
+		}
+	})
+
 	action.RegisterAction("upAndDown", func(ctx context.Context, r api.Robot) {
 		err := upAndDown(ctx, r)
 		if err != nil {
@@ -36,6 +47,21 @@ func init() {
 		}
 	})
 
+}
+
+func chrisCirlce(ctx context.Context, r api.Robot) error {
+	if len(r.ArmNames()) != 1 {
+		return fmt.Errorf("need 1 arm name")
+	}
+
+	arm := r.ArmByName(r.ArmNames()[0])
+
+	return multierr.Combine(
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 480}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -200, Z: 300}),
+		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 300}),
+	)
 }
 
 func upAndDown(ctx context.Context, r api.Robot) error {
@@ -46,18 +72,19 @@ func upAndDown(ctx context.Context, r api.Robot) error {
 	arm := r.ArmByName(r.ArmNames()[0])
 
 	for i := 0; i < 1000; i++ {
+		logger.Debugf("upAndDown loop %d", i)
 		pos, err := arm.CurrentPosition(ctx)
 		if err != nil {
 			return err
 		}
 
-		pos.Z += 30
+		pos.Z += 100
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
 
-		pos.Z -= 30
+		pos.Z -= 100
 		err = arm.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
