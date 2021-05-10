@@ -208,7 +208,8 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 	return state, nil
 }
 
-func readURRobotMessage(buf []byte, logger golog.Logger) error {
+// return userErr, error
+func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
 	ts := binary.BigEndian.Uint64(buf[1:])
 	//messageSource := buf[9]
 	robotMessageType := buf[10]
@@ -265,10 +266,16 @@ func readURRobotMessage(buf []byte, logger golog.Logger) error {
 			logger.Debugf("KeyMessage robotMessageCode: %d robotMessageArgument: %d robotMessageTitle: %s keyTextMessage: %s\n",
 				robotMessageCode, robotMessageArgument, robotMessageTitle, keyTextMessage)
 		}
+	case 10: // ROBOT_MESSAGE_TYPE_RUNTIME_EXCEPTION
+		scriptLineNumber := binary.BigEndian.Uint32(buf)
+		scriptColumnNumber := binary.BigEndian.Uint32(buf[4:])
+		msg := string(buf[9:])
+		runtimeErr := fmt.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
+		return runtimeErr, nil
 	default:
 		logger.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)
-		return nil
+		return nil, nil
 	}
 
-	return nil
+	return nil, nil
 }
