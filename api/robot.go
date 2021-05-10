@@ -51,6 +51,7 @@ type Robot interface {
 	Logger() golog.Logger
 }
 
+// A MutableRobot is a Robot that can have its parts modified.
 type MutableRobot interface {
 	Robot
 	AddRemote(remote Robot, c RemoteConfig)
@@ -66,6 +67,8 @@ type MutableRobot interface {
 	Close() error
 }
 
+// RobotAsMutable returns a mutable version of the given robot if it
+// supports it.
 func RobotAsMutable(r Robot) (MutableRobot, error) {
 	if m, ok := r.(MutableRobot); ok {
 		return m, nil

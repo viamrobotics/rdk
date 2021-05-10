@@ -34,14 +34,14 @@ func makeConstraints(attrs api.AttributeMap, debug bool, logger golog.Logger) me
 	idealHeight := 1080
 
 	if attrs.Has("width") {
-		w := attrs.GetInt("width", idealWidth)
+		w := attrs.Int("width", idealWidth)
 		minWidth = w
 		maxWidth = w
 		idealWidth = w
 	}
 
 	if attrs.Has("height") {
-		h := attrs.GetInt("height", idealHeight)
+		h := attrs.Int("height", idealHeight)
 		minHeight = h
 		maxHeight = h
 		idealHeight = h
@@ -54,7 +54,7 @@ func makeConstraints(attrs api.AttributeMap, debug bool, logger golog.Logger) me
 			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
-			if !attrs.Has("format") || attrs.GetString("format") == "" {
+			if !attrs.Has("format") || attrs.String("format") == "" {
 				constraint.FrameFormat = prop.FrameFormatOneOf{
 					frame.FormatI420,
 					frame.FormatI444,
@@ -66,7 +66,7 @@ func makeConstraints(attrs api.AttributeMap, debug bool, logger golog.Logger) me
 					frame.FormatNV21,
 				}
 			} else {
-				constraint.FrameFormat = prop.FrameFormatExact(attrs.GetString("format"))
+				constraint.FrameFormat = prop.FrameFormatExact(attrs.String("format"))
 			}
 
 			if debug {
@@ -83,17 +83,17 @@ type Aligner interface {
 func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	var err error
 
-	debug := attrs.GetBool("debug", false)
+	debug := attrs.Bool("debug", false)
 
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Has("path") {
-		return tryWebcamOpen(attrs.GetString("path"), debug, constraints)
+		return tryWebcamOpen(attrs.String("path"), debug, constraints)
 	}
 
 	var pattern *regexp.Regexp
 	if attrs.Has("path_pattern") {
-		pattern, err = regexp.Compile(attrs.GetString("path_pattern"))
+		pattern, err = regexp.Compile(attrs.String("path_pattern"))
 		if err != nil {
 			return nil, err
 		}

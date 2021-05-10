@@ -12,7 +12,7 @@ import (
 
 func init() {
 	api.RegisterSensor(compass.DeviceType, "fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
-		if config.Attributes.GetBool("relative", false) {
+		if config.Attributes.Bool("relative", false) {
 			return &RelativeCompass{&Compass{Name: config.Name}}, nil
 		}
 		return &Compass{Name: config.Name}, nil
