@@ -28,8 +28,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+// errUnimplemented is used for any unimplemented methods that should
+// eventually be implemented server side or faked client side.
 var errUnimplemented = errors.New("unimplemented")
 
+// RobotClient satisfies the api.Robot interface through a gRPC based
+// client conforming to the robot.proto contract.
 type RobotClient struct {
 	address string
 	conn    rpc.ClientConn
@@ -55,29 +59,39 @@ type RobotClient struct {
 	cachedStatusMu sync.Mutex
 }
 
+// RobotClientOptions are extra construction time options.
 type RobotClientOptions struct {
+	// RefreshEvery is how often to refresh the status/parts of the
+	// robot. If unset, it will not be refreshed automatically.
 	RefreshEvery time.Duration
-	Secure       bool
+	// Secure determines if the gRPC connection is TLS based.
+	Secure bool
 }
 
+// NewRobotClientWithOptions constructs a new RobotClient that is served at the given address. The given
+// context can be used to cancel the operation. Additionally, construction time options can be given.
 func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
+
 	var conn rpc.ClientConn
-	var err error
-	dialOpts := []grpc.DialOption{grpc.WithBlock()}
-	// if this is secure, there's no way via RobotClientOptions to set credentials yet
-	if !opts.Secure {
-		dialOpts = append(dialOpts, grpc.WithInsecure())
+	{
+		var err error
+		dialOpts := []grpc.DialOption{grpc.WithBlock()}
+		// if this is secure, there's no way via RobotClientOptions to set credentials yet
+		if !opts.Secure {
+			dialOpts = append(dialOpts, grpc.WithInsecure())
+		}
+		if dialer := rpc.ContextDialer(ctx); dialer != nil {
+			conn, err = dialer.Dial(ctx, address, dialOpts...)
+		} else {
+			conn, err = grpc.DialContext(ctx, address, dialOpts...)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
-	if dialer := rpc.ContextDialer(ctx); dialer != nil {
-		conn, err = dialer.Dial(ctx, address, dialOpts...)
-	} else {
-		conn, err = grpc.DialContext(ctx, address, dialOpts...)
-	}
-	if err != nil {
-		return nil, err
-	}
+
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
@@ -88,6 +102,7 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
 	}
+	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, err
 	}
@@ -101,16 +116,22 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	return rc, nil
 }
 
+// NewRobotClient constructs a new RobotClient that is served at the given address. The given
+// context can be used to cancel the operation.
 func NewRobotClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
 	return NewRobotClientWithOptions(ctx, address, RobotClientOptions{}, logger)
 }
 
+// Close cleanly closes the underlying connections and stops the refresh goroutine
+// if it is running.
 func (rc *RobotClient) Close() error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 	return rc.conn.Close()
 }
 
+// RefreshEvery refreshes the robot on the interval given by every until the
+// given context is done.
 func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
@@ -120,11 +141,15 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		}
 
 		if err := rc.Refresh(ctx); err != nil {
+			// we want to keep refreshing and hopefully the ticker is not
+			// too fast so that we do not thrash.
 			rc.logger.Errorw("failed to refresh status", "error", err)
 		}
 	}
 }
 
+// storeStatus atomically stores the status response from a robot server if and only
+// if we are automatically refreshing.
 func (rc *RobotClient) storeStatus(status *pb.Status) {
 	if !rc.cachingStatus {
 		return
@@ -134,6 +159,8 @@ func (rc *RobotClient) storeStatus(status *pb.Status) {
 	rc.cachedStatusMu.Unlock()
 }
 
+// storeStatus atomically gets the status response from a robot server if and only
+// if we are automatically refreshing.
 func (rc *RobotClient) getCachedStatus() *pb.Status {
 	if !rc.cachingStatus {
 		return nil
@@ -143,35 +170,71 @@ func (rc *RobotClient) getCachedStatus() *pb.Status {
 	return rc.cachedStatus
 }
 
+// status actually gets the latest status from the server.
+func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
+	resp, err := rc.client.Status(ctx, &pb.StatusRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Status, nil
+}
+
+// Status either gets a cached or latest version of the status of the remote
+// robot.
+func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
+	if status := rc.getCachedStatus(); status != nil {
+		return status, nil
+	}
+	return rc.status(ctx)
+}
+
+// RemoteByName returns a remote robot by name. It is assumed to exist on the
+// other end. Right now this method is unimplemented.
 func (rc *RobotClient) RemoteByName(name string) api.Robot {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
+// ArmByName returns a arm by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) ArmByName(name string) api.Arm {
 	return &armClient{rc, name}
 }
 
+// BaseByName returns a base by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) BaseByName(name string) api.Base {
 	return &baseClient{rc, name}
 }
 
+// GripperByName returns a gripper by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) GripperByName(name string) api.Gripper {
 	return &gripperClient{rc, name}
 }
 
+// CameraByName returns a camera by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) CameraByName(name string) gostream.ImageSource {
 	return &cameraClient{rc, name}
 }
 
+// LidarDeviceByName returns a lidar device by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) LidarDeviceByName(name string) lidar.Device {
 	return &lidarDeviceClient{rc, name}
 }
 
+// BoardByName returns a board by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) BoardByName(name string) board.Board {
 	return &boardClient{rc, name}
 }
 
+// SensorByName returns a sensor by name. It is assumed to exist on the
+// other end. Based on the known sensor names and types, a type specific
+// sensor is attempted to be returned; otherwise it's a general purpose
+// sensor.
 func (rc *RobotClient) SensorByName(name string) sensor.Device {
 	sensorType := rc.sensorTypes[name]
 	sc := &sensorClient{rc, name, sensorType}
@@ -185,14 +248,15 @@ func (rc *RobotClient) SensorByName(name string) sensor.Device {
 	}
 }
 
+// Refresh manually updates the underlying parts of the robot based
+// on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/robotcore/issues/57) - do not use status
+// as we plan on making it a more expensive request with more details than
+// needed for the purposes of this method.
 func (rc *RobotClient) Refresh(ctx context.Context) error {
 	status, err := rc.status(ctx)
 	if err != nil {
 		return fmt.Errorf("status call failed: %w", err)
-	}
-	if status == nil {
-		return fmt.Errorf("status returned nil")
 	}
 
 	rc.storeStatus(status)
@@ -251,92 +315,101 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	return nil
 }
 
-func (rc *RobotClient) RemoteNames() []string {
-	return nil
-}
-
+// copyStringSlice is a helper to simply copy a string slice
+// so that no one mutates it.
 func copyStringSlice(src []string) []string {
 	out := make([]string, len(src))
 	copy(out, src)
 	return out
 }
 
+// RemoteNames returns the names of all known remotes.
+func (rc *RobotClient) RemoteNames() []string {
+	return nil
+}
+
+// RemoteNames returns the names of all known arms.
 func (rc *RobotClient) ArmNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.armNames)
 }
 
+// GripperNames returns the names of all known grippers.
 func (rc *RobotClient) GripperNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.gripperNames)
 }
 
+// CameraNames returns the names of all known cameras.
 func (rc *RobotClient) CameraNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.cameraNames)
 }
 
+// LidarDeviceNames returns the names of all known lidar devices.
 func (rc *RobotClient) LidarDeviceNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.lidarDeviceNames)
 }
 
+// BaseNames returns the names of all known bases.
 func (rc *RobotClient) BaseNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.baseNames)
 }
 
+// BoardNames returns the names of all known boards.
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.boardNames)
 }
 
+// SensorNames returns the names of all known sensors.
 func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.sensorNames)
 }
 
+// ProcessManager returns a useless process manager for the sake of
+// satisfying the api.Robot interface. Maybe it should not be part
+// of the interface!
 func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
 	return rexec.NoopProcessManager
 }
 
+// GetConfig is not yet implemented and probably will not be due to it not
+// making much sense in a remote context.
 func (rc *RobotClient) GetConfig(ctx context.Context) (*api.Config, error) {
 	debug.PrintStack()
 	return nil, errUnimplemented
 }
 
-func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
-	resp, err := rc.client.Status(ctx, &pb.StatusRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
-	if status := rc.getCachedStatus(); status != nil {
-		return status, nil
-	}
-	return rc.status(ctx)
-}
-
+// ProviderByName is not yet implemented and probably will not be due to it not
+// making much sense in a remote context.
 func (rc *RobotClient) ProviderByName(name string) api.Provider {
 	return nil
 }
 
-func (rc *RobotClient) AddProvider(p api.Provider, c api.ComponentConfig) {}
+// AddProvider is not yet implemented and probably will not be due to it not
+// making much sense in a remote context.
+func (rc *RobotClient) AddProvider(p api.Provider, c api.ComponentConfig) {
 
+}
+
+// Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
+// baseClient satisfies a gRPC based api.Base. Refer to the interface
+// for descriptions of its methods.
 type baseClient struct {
 	rc   *RobotClient
 	name string
@@ -381,11 +454,14 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
+// WidthMillis needs to be implemented.
 func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
 }
 
+// armClient satisfies a gRPC based api.Arm. Refer to the interface
+// for descriptions of its methods.
 type armClient struct {
 	rc   *RobotClient
 	name string
@@ -427,11 +503,14 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 	return resp.Positions, nil
 }
 
+// JointMoveDelta needs to be implemented.
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
 
+// gripperClient satisfies a gRPC based api.Gripper. Refer to the interface
+// for descriptions of its methods.
 type gripperClient struct {
 	rc   *RobotClient
 	name string
@@ -454,6 +533,8 @@ func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
 	return resp.Grabbed, nil
 }
 
+// boardClient satisfies a gRPC based board.Board. Refer to the interface
+// for descriptions of its methods.
 type boardClient struct {
 	rc   *RobotClient
 	name string
@@ -475,21 +556,27 @@ func (bc *boardClient) Servo(name string) board.Servo {
 	}
 }
 
+// AnalogReader needs to be implemented.
 func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
+// DigitalInterrupt needs to be implemented.
 func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
+// GetConfig is not yet implemented and probably will not be due to it not
+// making much sense in a remote context.
 func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {
 	debug.PrintStack()
 	return board.Config{}, errUnimplemented
 }
 
+// Status uses the parent robot client's cached status or a newly fetched
+// board status to return the state of the board.
 func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	if status := bc.rc.getCachedStatus(); status != nil {
 		boardStatus, ok := status.Boards[bc.name]
@@ -507,12 +594,15 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return resp.Status, nil
 }
 
+// motorClient satisfies a gRPC based board.Motor. Refer to the interface
+// for descriptions of its methods.
 type motorClient struct {
 	rc        *RobotClient
 	boardName string
 	motorName string
 }
 
+// Power needs to be implemented.
 func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	debug.PrintStack()
 	return errUnimplemented
@@ -539,26 +629,32 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	return err
 }
 
+// Position needs to be implemented.
 func (mc *motorClient) Position(ctx context.Context) (float64, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
 }
 
+// PositionSupported needs to be implemented.
 func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
 	debug.PrintStack()
 	return false, errUnimplemented
 }
 
+// Off needs to be implemented.
 func (mc *motorClient) Off(ctx context.Context) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
 
+// IsOn needs to be implemented.
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
 	debug.PrintStack()
 	return false, errUnimplemented
 }
 
+// servoClient satisfies a gRPC based board.Servo. Refer to the interface
+// for descriptions of its methods.
 type servoClient struct {
 	rc        *RobotClient
 	boardName string
@@ -574,11 +670,14 @@ func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
 	return err
 }
 
+// Current needs to be implemented.
 func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
 	debug.PrintStack()
 	return 0, errUnimplemented
 }
 
+// cameraClient satisfies a gRPC based gostream.ImageSource. Refer to the interface
+// for descriptions of its methods.
 type cameraClient struct {
 	rc   *RobotClient
 	name string
@@ -610,6 +709,8 @@ func (cc *cameraClient) Close() error {
 	return nil
 }
 
+// lidarDeviceClient satisfies a gRPC based lidar.Device. Refer to the interface
+// for descriptions of its methods.
 type lidarDeviceClient struct {
 	rc   *RobotClient
 	name string
@@ -681,18 +782,22 @@ func (ldc *lidarDeviceClient) AngularResolution(ctx context.Context) (float64, e
 	return resp.AngularResolution, nil
 }
 
-func MeasurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
+func measurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
 	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
 }
 
+// MeasurementsFromProto converts proto based LiDAR measurements to the
+// interface.
 func MeasurementsFromProto(pms []*pb.LidarMeasurement) lidar.Measurements {
 	ms := make(lidar.Measurements, 0, len(pms))
 	for _, pm := range pms {
-		ms = append(ms, MeasurementFromProto(pm))
+		ms = append(ms, measurementFromProto(pm))
 	}
 	return ms
 }
 
+// sensorClient satisfies a gRPC based sensor.Device. Refer to the interface
+// for descriptions of its methods.
 type sensorClient struct {
 	rc         *RobotClient
 	name       string
@@ -717,6 +822,8 @@ func (sc *sensorClient) Desc() sensor.DeviceDescription {
 	return sensor.DeviceDescription{sc.sensorType, ""}
 }
 
+// compassClient satisfies a gRPC based compas.Device. Refer to the interface
+// for descriptions of its methods.
 type compassClient struct {
 	*sensorClient
 }
@@ -757,6 +864,8 @@ func (cc *compassClient) Desc() sensor.DeviceDescription {
 	return sensor.DeviceDescription{compass.DeviceType, ""}
 }
 
+// relativeCompassClient satisfies a gRPC based compas.RelativeDevice. Refer to the interface
+// for descriptions of its methods.
 type relativeCompassClient struct {
 	*compassClient
 }
