@@ -30,6 +30,7 @@ type URArm struct {
 	mu                      sync.Mutex
 	conn                    net.Conn
 	state                   RobotState
+	runtimeError            error
 	debug                   bool
 	haveData                bool
 	logger                  golog.Logger
@@ -106,6 +107,20 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm
 	case <-onData:
 		return arm, nil
 	}
+}
+
+func (arm *URArm) setRuntimeError(re error) {
+	arm.mu.Lock()
+	arm.runtimeError = re
+	arm.mu.Unlock()
+}
+
+func (arm *URArm) getAndResetRuntimeError() error {
+	arm.mu.Lock()
+	defer arm.mu.Unlock()
+	re := arm.runtimeError
+	arm.runtimeError = nil
+	return re
 }
 
 func (arm *URArm) setState(state RobotState) {
@@ -235,15 +250,20 @@ func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error
 
 	slept := 0
 	for {
-		state := arm.State()
-		if math.Round(x*100) == math.Round(state.CartesianInfo.X*100) &&
-			math.Round(y*100) == math.Round(state.CartesianInfo.Y*100) &&
-			math.Round(z*100) == math.Round(state.CartesianInfo.Z*100) &&
-			math.Round(rx*20) == math.Round(state.CartesianInfo.Rx*20) &&
-			math.Round(ry*20) == math.Round(state.CartesianInfo.Ry*20) &&
-			math.Round(rz*20) == math.Round(state.CartesianInfo.Rz*20) {
+		cur, err := arm.CurrentPosition(ctx)
+		if err != nil {
+			return err
+		}
+		if api.ArmPositionGridDiff(pos, cur) <= 1.5 &&
+			api.ArmPositionRotationDiff(pos, cur) <= 1.0 {
 			return nil
 		}
+
+		err = arm.getAndResetRuntimeError()
+		if err != nil {
+			return err
+		}
+
 		slept = slept + 10
 
 		if slept > 5000 && !retried {
@@ -255,11 +275,9 @@ func (arm *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error
 		}
 
 		if slept > 10000 {
-			return fmt.Errorf("can't reach position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
-				x, y, z, rx, ry, rz,
-				state.CartesianInfo.X, state.CartesianInfo.Y, state.CartesianInfo.Z,
-				state.CartesianInfo.Rx, state.CartesianInfo.Ry, state.CartesianInfo.Rz)
-
+			return fmt.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
+				pos, cur,
+				api.ArmPositionGridDiff(pos, cur), api.ArmPositionRotationDiff(pos, cur))
 		}
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
@@ -282,24 +300,17 @@ func reader(ctx context.Context, conn io.Reader, arm *URArm, onHaveData func()) 
 			return ctx.Err()
 		default:
 		}
-		buf := make([]byte, 4)
-		n, err := conn.Read(buf)
-		if err == nil && n != 4 {
-			err = fmt.Errorf("didn't read full int, got: %d", n)
-		}
+		sizeBuf, err := utils.ReadBytes(conn, 4)
 		if err != nil {
 			return err
 		}
 
-		//msgSize := binary.BigEndian.Uint32(buf)
-		msgSize := binary.BigEndian.Uint32(buf)
-
-		restToRead := msgSize - 4
-		buf = make([]byte, restToRead)
-		n, err = conn.Read(buf)
-		if err == nil && n != int(restToRead) {
-			err = fmt.Errorf("didn't read full msg, got: %d instead of %d", n, restToRead)
+		msgSize := binary.BigEndian.Uint32(sizeBuf)
+		if msgSize <= 4 || msgSize > 10000 {
+			return fmt.Errorf("invalid msg size: %d", msgSize)
 		}
+
+		buf, err := utils.ReadBytes(conn, int(msgSize-4))
 		if err != nil {
 			return err
 		}
@@ -330,16 +341,18 @@ func reader(ctx context.Context, conn io.Reader, arm *URArm, onHaveData func()) 
 					state.CartesianInfo.Rz)
 			}
 		case 20:
-			err := readURRobotMessage(buf, arm.logger)
+			userErr, err := readURRobotMessage(buf, arm.logger)
 			if err != nil {
 				return err
+			}
+			if userErr != nil {
+				arm.setRuntimeError(userErr)
 			}
 		case 5: // MODBUS_INFO_MESSAGE
 			data := binary.BigEndian.Uint32(buf[1:])
 			if data != 0 {
 				arm.logger.Debugf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
 			}
-
 		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
 			break
 		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
