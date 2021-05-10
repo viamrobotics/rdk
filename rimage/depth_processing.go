@@ -92,14 +92,14 @@ func makeStructuringElement(k int) *DepthMap {
 // Erode takes in a point, a depth map and a kernel and applies the operation erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the kernel
 func Erode(center image.Point, dm, kernel *DepthMap) Depth {
-	xRange, yRange := makeRangeArray(kernel.Width), makeRangeArray(kernel.Height)
+	xRange, yRange := makeRangeArray(kernel.Width()), makeRangeArray(kernel.Height())
 	depth := int(MaxDepth)
 	for y, dy := range yRange {
-		for x, dy := range xRange {
-			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width || center.Y+dy >= dm.Height {
+		for x, dx := range xRange {
+			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() {
 				continue
 			}
-			depth = utils.MinInt(int(dm.GetDepth(center.X+dm, center.Y+dy)-kernel.GetDepth(x, y)), depth)
+			depth = utils.MinInt(int(dm.GetDepth(center.X+dx, center.Y+dy)-kernel.GetDepth(x, y)), depth)
 
 		}
 	}
@@ -110,14 +110,14 @@ func Erode(center image.Point, dm, kernel *DepthMap) Depth {
 // Dilate takes in a point, a depth map and a kernel and applies the operation dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the kernel
 func Dilate(center image.Point, dm, kernel *DepthMap) Depth {
-	xRange, yRange := makeRangeArray(kernel.Width), makeRangeArray(kernel.Height)
+	xRange, yRange := makeRangeArray(kernel.Width()), makeRangeArray(kernel.Height())
 	depth := 0
 	for y, dy := range yRange {
-		for x, dy := range xRange {
-			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width || center.Y+dy >= dm.Height {
+		for x, dx := range xRange {
+			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() {
 				continue
 			}
-			depth = math.MaxInt(int(dm.GetDepth(center.X+dm, center.Y+dy)+kernel.GetDepth(x, y)), depth)
+			depth = utils.MaxInt(int(dm.GetDepth(center.X+dx, center.Y+dy)+kernel.GetDepth(x, y)), depth)
 
 		}
 	}
@@ -128,7 +128,7 @@ func Dilate(center image.Point, dm, kernel *DepthMap) Depth {
 // Morphological Filter takes in a pointer of the input depth map, the output depth map, the size of the kernel, the number of times to apply the filter, and the filter to apply. Morphological filters are used in image preprocessing to smooth, prune, and fill in noise in the image.
 func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func(center image.Point, dm, kernel *DepthMap) Depth) error {
 	if kernelSize%2 != 0 {
-		fmt.Errorf("kernelSize must be an odd number")
+		return fmt.Errorf("kernelSize must be an odd number")
 	}
 	width, height := inDM.Width(), inDM.Height()
 	widthOut, heightOut := outDM.Width(), outDM.Height()
@@ -136,9 +136,9 @@ func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func
 		return fmt.Errorf("dimensions of inDM and outDM must match. in(%d,%d) != out(%d,%d)", width, height, widthOut, heightOut)
 	}
 	kernel := makeStructuringElement(kernelSize)
-	tempDM := NewEmptyDepthMap(width, height)
 	*outDM = *inDM
 	for n := 0; n < iterations; n++ {
+		tempDM := NewEmptyDepthMap(width, height)
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
 				val := process(image.Point{x, y}, outDM, kernel)
@@ -153,12 +153,13 @@ func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func
 // A closing morphological transform is a Dilation followed by an Erosion.
 // Closing smooths an image by fusing narrow breaks and filling small holes and gaps.
 func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
-	outDM := NewEmptyDepthMap(dm.Width, dm.Height)
-	err := MorphFilter(dm, outDM, kernelSize, iterations, Dilate)
+	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
+	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
+	err := MorphFilter(dm, tempDM, kernelSize, iterations, Dilate)
 	if err != nil {
 		return nil, err
 	}
-	err = MorphFilter(outDM, outDM, kernelSize, iterations, Erode)
+	err = MorphFilter(tempDM, outDM, kernelSize, iterations, Erode)
 	if err != nil {
 		return nil, err
 	}
@@ -168,12 +169,13 @@ func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 // An opening morphological transform is a Erosion followed by a Dilation.
 // Opening smooths an image by eliminating thin protrusions and narrow outcroppings.
 func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
-	outDM := NewEmptyDepthMap(dm.Width, dm.Height)
-	err = MorphFilter(dm, outDM, kernelSize, iterations, Erode)
+	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
+	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
+	err := MorphFilter(dm, tempDM, kernelSize, iterations, Erode)
 	if err != nil {
 		return nil, err
 	}
-	err := MorphFilter(outDM, outDM, kernelSize, iterations, Dilate)
+	err = MorphFilter(tempDM, outDM, kernelSize, iterations, Dilate)
 	if err != nil {
 		return nil, err
 	}
