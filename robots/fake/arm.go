@@ -49,7 +49,7 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	return a.joints, nil
 }
 
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return fmt.Errorf("arm JointMoveDelta does nothing")
 }
 

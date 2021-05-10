@@ -4,13 +4,24 @@ import (
 	"context"
 )
 
+// A Base represents a physical base of a robot.
 type Base interface {
+	// MoveStraight moves the robot straight a given distance at a given speed. The method
+	// can be requested to block until the move is complete.
 	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
+
+	// Spin spins the robot by a given angle in degrees at a given speed. The method
+	// can be requested to block until the move is complete.
 	Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
+
+	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+
+	// WidthMillis returns the width of the base.
 	WidthMillis(ctx context.Context) (int, error)
 }
 
+// A Move describes instructions for a robot to spin followed by moving straight.
 type Move struct {
 	DistanceMillis int
 	MillisPerSec   float64
@@ -19,10 +30,11 @@ type Move struct {
 	Block          bool
 }
 
-func DoMove(ctx context.Context, move Move, device Base) (float64, int, error) {
+// DoMove performs the given move on the given base.
+func DoMove(ctx context.Context, move Move, base Base) (float64, int, error) {
 	var spunAmout float64
 	if move.AngleDeg != 0 {
-		spun, err := device.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
+		spun, err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
 		if err != nil {
 			return spun, 0, err
 		}
@@ -31,7 +43,7 @@ func DoMove(ctx context.Context, move Move, device Base) (float64, int, error) {
 
 	var movedAmount int
 	if move.DistanceMillis != 0 {
-		moved, err := device.MoveStraight(ctx, move.DistanceMillis, move.MillisPerSec, move.Block)
+		moved, err := base.MoveStraight(ctx, move.DistanceMillis, move.MillisPerSec, move.Block)
 		if err != nil {
 			return spunAmout, moved, err
 		}

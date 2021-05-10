@@ -33,7 +33,7 @@ type Gripper struct {
 }
 
 func NewGripper(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
-	jServo := findServo(attributes.GetString("usbPort"), attributes.GetString("baudRate"), logger)
+	jServo := findServo(attributes.String("usbPort"), attributes.String("baudRate"), logger)
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}

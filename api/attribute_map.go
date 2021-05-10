@@ -12,9 +12,9 @@ func (am AttributeMap) Has(name string) bool {
 	return has
 }
 
-// GetString attempts to return a string present in the map with
+// String attempts to return a string present in the map with
 // the given name; returns an empty string otherwise.
-func (am AttributeMap) GetString(name string) string {
+func (am AttributeMap) String(name string) string {
 	if am == nil {
 		return ""
 	}
@@ -23,17 +23,16 @@ func (am AttributeMap) GetString(name string) string {
 		return ""
 	}
 
-	s, ok := x.(string)
-	if ok {
+	if s, ok := x.(string); ok {
 		return s
 	}
 
 	panic(fmt.Errorf("wanted a string for (%s) but got (%v) %T", name, x, x))
 }
 
-// GetInt attempts to return an integer present in the map with
+// Int attempts to return an integer present in the map with
 // the given name; returns the given default otherwise.
-func (am AttributeMap) GetInt(name string, def int) int {
+func (am AttributeMap) Int(name string, def int) int {
 	if am == nil {
 		return def
 	}
@@ -42,23 +41,20 @@ func (am AttributeMap) GetInt(name string, def int) int {
 		return def
 	}
 
-	v, ok := x.(int)
-	if ok {
+	if v, ok := x.(int); ok {
 		return v
 	}
 
-	v2, ok := x.(float64)
-	if ok {
-		// TODO(erh): is this safe? json defaults to float64, so seems nice
-		return int(v2)
+	if v, ok := x.(float64); ok && v == float64(int64(v)) {
+		return int(v)
 	}
 
 	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
 }
 
-// GetFloat64 attempts to return a float64 present in the map with
+// Float64 attempts to return a float64 present in the map with
 // the given name; returns the given default otherwise.
-func (am AttributeMap) GetFloat64(name string, def float64) float64 {
+func (am AttributeMap) Float64(name string, def float64) float64 {
 	if am == nil {
 		return def
 	}
@@ -67,17 +63,16 @@ func (am AttributeMap) GetFloat64(name string, def float64) float64 {
 		return def
 	}
 
-	v, ok := x.(float64)
-	if ok {
+	if v, ok := x.(float64); ok {
 		return v
 	}
 
 	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
 }
 
-// GetBool attempts to return a boolean present in the map with
+// Bool attempts to return a boolean present in the map with
 // the given name; returns the given default otherwise.
-func (am AttributeMap) GetBool(name string, def bool) bool {
+func (am AttributeMap) Bool(name string, def bool) bool {
 	if am == nil {
 		return def
 	}
@@ -86,8 +81,7 @@ func (am AttributeMap) GetBool(name string, def bool) bool {
 		return def
 	}
 
-	v, ok := x.(bool)
-	if ok {
+	if v, ok := x.(bool); ok {
 		return v
 	}
 

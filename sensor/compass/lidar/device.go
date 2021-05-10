@@ -42,7 +42,7 @@ func From(lidarDevice lidar.Device) compass.RelativeDevice {
 }
 
 func New(ctx context.Context, config api.ComponentConfig, logger golog.Logger) (compass.RelativeDevice, error) {
-	lidarType := config.Attributes.GetString("type")
+	lidarType := config.Attributes.String("type")
 	f := api.LidarDeviceLookup(lidarType)
 	if f == nil {
 		return nil, fmt.Errorf("unknown lidar model: %s", lidarType)

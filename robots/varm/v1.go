@@ -289,7 +289,7 @@ func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, 
 	return joints, multierr.Combine(e1, e2)
 }
 
-func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return err
@@ -299,7 +299,7 @@ func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amount float64) e
 		return fmt.Errorf("invalid joint number (%d) len: %d", joint, len(joints.Degrees))
 	}
 
-	joints.Degrees[joint] += amount
+	joints.Degrees[joint] += amountDegs
 
 	return a.MoveToJointPositions(ctx, joints)
 }

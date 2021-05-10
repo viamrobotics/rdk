@@ -16,7 +16,7 @@ import (
 
 func init() {
 	api.RegisterCamera("rotate", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
-		sourceName := config.Attributes.GetString("source")
+		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
 			return nil, fmt.Errorf("cannot find source camera for rotate (%s)", sourceName)
@@ -26,14 +26,14 @@ func init() {
 	})
 
 	api.RegisterCamera("resize", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
-		sourceName := config.Attributes.GetString("source")
+		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
 			return nil, fmt.Errorf("cannot find source camera for resize (%s)", sourceName)
 		}
 
-		width := config.Attributes.GetInt("width", 800)
-		height := config.Attributes.GetInt("height", 640)
+		width := config.Attributes.Int("width", 800)
+		height := config.Attributes.Int("height", 640)
 
 		return gostream.ResizeImageSource{source, width, height}, nil
 	})

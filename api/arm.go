@@ -7,6 +7,26 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+// An Arm represents a physical robotic arm that exists in three-dimensional space.
+type Arm interface {
+	// CurrentPosition returns the current position of the arm.
+	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
+
+	// MoveToPosition moves the arm to the given absolute position.
+	MoveToPosition(ctx context.Context, c *pb.ArmPosition) error
+
+	// MoveToJointPositions moves the arm's joints to the given positions.
+	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
+
+	// CurrentJointPositions returns the current joint positions of the arm.
+	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
+
+	// JointMoveDelta moves a specific join of the arm by the given amount.
+	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
+}
+
+// NewPositionFromMetersAndRadians returns a three-dimensional arm position
+// defined by a point in space in meters and an orientation defined in radians.
 func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
 		X:  int64(x * 1000),
@@ -18,6 +38,8 @@ func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) *pb.ArmPositio
 	}
 }
 
+// JointPositionsToRadians converts the given positions into a slice
+// of radians.
 func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
 	n := make([]float64, len(jp.Degrees))
 	for idx, d := range jp.Degrees {
@@ -26,6 +48,8 @@ func JointPositionsToRadians(jp *pb.JointPositions) []float64 {
 	return n
 }
 
+// JointPositionsFromRadians converts the given slice of radians into
+// joint positions (represented in degrees).
 func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	n := make([]float64, len(radians))
 	for idx, a := range radians {
@@ -34,7 +58,8 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	return &pb.JointPositions{Degrees: n}
 }
 
-// return millimeters away
+// ArmPositionGridDiff returns the euclidean distance between
+// two arm positions in millimeters.
 func ArmPositionGridDiff(a, b *pb.ArmPosition) float64 {
 	diff := utils.Square(float64(a.X-b.X)) +
 		utils.Square(float64(a.Y-b.Y)) +
@@ -43,23 +68,12 @@ func ArmPositionGridDiff(a, b *pb.ArmPosition) float64 {
 	return utils.CubeRoot(diff)
 }
 
-// return degrees away?
+// ArmPositionRotationDiff returns the rotational distance
+// between two arm positions in degrees.
 func ArmPositionRotationDiff(a, b *pb.ArmPosition) float64 {
 	diff := utils.Square(a.RX-b.RX) +
 		utils.Square(a.RY-b.RY) +
 		utils.Square(a.RZ-b.RZ)
 
 	return utils.CubeRoot(diff)
-}
-
-// -----
-
-type Arm interface {
-	CurrentPosition(ctx context.Context) (*pb.ArmPosition, error)
-	MoveToPosition(ctx context.Context, c *pb.ArmPosition) error
-
-	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
-	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
-
-	JointMoveDelta(ctx context.Context, joint int, amount float64) error // TODO(erh): make it clear the units
 }

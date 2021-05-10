@@ -37,6 +37,7 @@ type ComponentConfig struct {
 	Attributes AttributeMap `json:"attributes"`
 }
 
+// Ensure ComponentConfig comforms to flag.Value.
 var _ = flag.Value(&ComponentConfig{})
 
 // String returns a verbose representation of the config.

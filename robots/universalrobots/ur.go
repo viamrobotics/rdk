@@ -149,7 +149,7 @@ func (arm *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) 
 	return api.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
-func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	if joint < 0 || joint > 5 {
 		return fmt.Errorf("invalid joint")
 	}
@@ -160,7 +160,7 @@ func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amount float64)
 		radians = append(radians, j.Qactual)
 	}
 
-	radians[joint] += amount
+	radians[joint] += utils.DegToRad(amountDegs)
 
 	return arm.MoveToJointPositionRadians(ctx, radians)
 }

@@ -46,11 +46,11 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	return a.CurrentJointPositionsFunc(ctx)
 }
 
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	if a.JointMoveDeltaFunc == nil {
-		return a.Arm.JointMoveDelta(ctx, joint, amount)
+		return a.Arm.JointMoveDelta(ctx, joint, amountDegs)
 	}
-	return a.JointMoveDeltaFunc(ctx, joint, amount)
+	return a.JointMoveDeltaFunc(ctx, joint, amountDegs)
 }
 
 func (a *Arm) Close() error {

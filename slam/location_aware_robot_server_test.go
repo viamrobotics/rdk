@@ -97,7 +97,7 @@ func TestServer(t *testing.T) {
 			headingCount++
 			return math.NaN(), nil
 		}
-		baseWithCompass := api.BaseWithCompass(injectBase, theCompass, th.logger)
+		baseWithCompass := api.AugmentBaseWithCompass(injectBase, theCompass, th.logger)
 		th.bot.baseDevice = baseWithCompass
 		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 			return angleDeg, nil

@@ -11,7 +11,7 @@ import (
 
 func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStore, error) {
 	var opts []option.ClientOption
-	if _, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS"); !ok {
+	if path, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS"); !ok || path == "" {
 		opts = append(opts, option.WithoutAuthentication())
 	}
 	client, err := storage.NewClient(context.Background(), opts...)

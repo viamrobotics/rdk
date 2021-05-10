@@ -48,9 +48,9 @@ func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config ap
 		theBoard:  b,
 		gpioBoard: g,
 		psi:       b.AnalogReader("psi"),
-		pinOpen:   config.Attributes.GetString("open"),
-		pinClose:  config.Attributes.GetString("close"),
-		pinPower:  config.Attributes.GetString("power"),
+		pinOpen:   config.Attributes.String("open"),
+		pinClose:  config.Attributes.String("close"),
+		pinPower:  config.Attributes.String("power"),
 		logger:    logger,
 	}
 

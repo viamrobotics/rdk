@@ -112,7 +112,7 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	return e.apiControlGoTo(ctx, joints)
 }
 
-func (e *eva) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return fmt.Errorf("not done yet")
 }
 
@@ -285,7 +285,7 @@ func NewEva(ctx context.Context, host string, attrs api.AttributeMap, logger gol
 	e := &eva{
 		host:    host,
 		version: "v1",
-		token:   attrs.GetString("token"),
+		token:   attrs.String("token"),
 		logger:  logger,
 	}
 
@@ -296,5 +296,5 @@ func NewEva(ctx context.Context, host string, attrs api.AttributeMap, logger gol
 
 	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArmJSONFile(e, attrs.GetString("modelJSON"), 4, logger)
+	return kinematics.NewArmJSONFile(e, attrs.String("modelJSON"), 4, logger)
 }

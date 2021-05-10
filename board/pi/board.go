@@ -256,7 +256,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	}
 
 	// this is so we can run it inside a daemon
-	internals := C.gpioCfgGetInternals()
+	internals := C.gpioCfgInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER
 	resCode := C.gpioCfgSetInternals(internals)
 	if resCode < 0 {

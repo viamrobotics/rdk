@@ -45,13 +45,13 @@ func TestConfig3(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 1)
-	test.That(t, cfg.Components[0].Attributes.GetInt("foo", 0), test.ShouldEqual, 5)
-	test.That(t, cfg.Components[0].Attributes.GetBool("foo2", false), test.ShouldEqual, true)
-	test.That(t, cfg.Components[0].Attributes.GetBool("foo3", false), test.ShouldEqual, false)
-	test.That(t, cfg.Components[0].Attributes.GetBool("xxxx", true), test.ShouldEqual, true)
-	test.That(t, cfg.Components[0].Attributes.GetBool("xxxx", false), test.ShouldEqual, false)
-	test.That(t, cfg.Components[0].Attributes.GetString("foo4"), test.ShouldEqual, "no")
-	test.That(t, cfg.Components[0].Attributes.GetString("xxxx"), test.ShouldEqual, "")
+	test.That(t, cfg.Components[0].Attributes.Int("foo", 0), test.ShouldEqual, 5)
+	test.That(t, cfg.Components[0].Attributes.Bool("foo2", false), test.ShouldEqual, true)
+	test.That(t, cfg.Components[0].Attributes.Bool("foo3", false), test.ShouldEqual, false)
+	test.That(t, cfg.Components[0].Attributes.Bool("xxxx", true), test.ShouldEqual, true)
+	test.That(t, cfg.Components[0].Attributes.Bool("xxxx", false), test.ShouldEqual, false)
+	test.That(t, cfg.Components[0].Attributes.String("foo4"), test.ShouldEqual, "no")
+	test.That(t, cfg.Components[0].Attributes.String("xxxx"), test.ShouldEqual, "")
 	test.That(t, cfg.Components[0].Attributes.Has("foo"), test.ShouldEqual, true)
 	test.That(t, cfg.Components[0].Attributes.Has("xxxx"), test.ShouldEqual, false)
 
@@ -60,8 +60,8 @@ func TestConfig3(t *testing.T) {
 	test.That(t, b.X, test.ShouldEqual, 6)
 	test.That(t, b.Y, test.ShouldEqual, "eliot")
 
-	test.That(t, cfg.Components[0].Attributes.GetFloat64("bar5", 1.1), test.ShouldEqual, 5.17)
-	test.That(t, cfg.Components[0].Attributes.GetFloat64("bar5-no", 1.1), test.ShouldEqual, 1.1)
+	test.That(t, cfg.Components[0].Attributes.Float64("bar5", 1.1), test.ShouldEqual, 5.17)
+	test.That(t, cfg.Components[0].Attributes.Float64("bar5-no", 1.1), test.ShouldEqual, 1.1)
 }
 
 func TestConfigLoad1(t *testing.T) {
@@ -86,7 +86,7 @@ func TestCreateCloudRequest(t *testing.T) {
 		Secret: "b",
 		Path:   "c",
 	}
-	r, err := createRequest(&cfg)
+	r, err := createCloudConfigRequest(&cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
