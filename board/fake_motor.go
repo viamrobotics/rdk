@@ -7,6 +7,8 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
+// A FakeMotor allows setting and reading a set power percentage and
+// direction.
 type FakeMotor struct {
 	mu       sync.Mutex
 	powerPct float32

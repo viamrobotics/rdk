@@ -19,7 +19,7 @@ const ModelNameClient = "grpc"
 const DeviceTypeClient = lidar.DeviceType(ModelNameClient)
 
 func init() {
-	api.RegisterLidarDevice(ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+	api.RegisterLidar(ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)
@@ -33,19 +33,19 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.
 	if err != nil {
 		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
 	}
-	names := robotClient.LidarDeviceNames()
+	names := robotClient.LidarNames()
 	if len(names) == 0 {
-		return nil, multierr.Combine(errors.New("no lidar devices found"), robotClient.Close())
+		return nil, multierr.Combine(errors.New("no lidars found"), robotClient.Close())
 	}
-	lidarDevice := robotClient.LidarDeviceByName(names[0])
-	return &wrappedLidarDevice{lidarDevice, robotClient}, nil
+	lidar := robotClient.LidarByName(names[0])
+	return &wrappedLidar{lidar, robotClient}, nil
 }
 
-type wrappedLidarDevice struct {
+type wrappedLidar struct {
 	lidar.Device
 	robotClient *client.RobotClient
 }
 
-func (wld *wrappedLidarDevice) Close() error {
+func (wld *wrappedLidar) Close() error {
 	return wld.robotClient.Close()
 }

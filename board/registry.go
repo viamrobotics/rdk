@@ -13,19 +13,22 @@ var (
 	boardRegistry = map[string]CreateBoard{}
 )
 
-func RegisterBoard(name string, c CreateBoard) {
+// RegisterBoard register a board model to a creator.
+func RegisterBoard(name string, creator CreateBoard) {
 	_, old := boardRegistry[name]
 	if old {
 		panic(fmt.Errorf("board model [%s] already registered", name))
 	}
 
-	boardRegistry[name] = c
+	boardRegistry[name] = creator
 }
 
+// NewBoard constructs a new board based on the given config. The model within the
+// config must be associated to a registered creator.
 func NewBoard(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
-	c, have := boardRegistry[cfg.Model]
+	creator, have := boardRegistry[cfg.Model]
 	if !have {
 		return nil, fmt.Errorf("unknown board model: %v", cfg.Model)
 	}
-	return c(ctx, cfg, logger)
+	return creator(ctx, cfg, logger)
 }

@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"time"
@@ -80,7 +81,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap,
 	} else if attrs.Has("matrices") {
 		camera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
 	} else {
-		return nil, fmt.Errorf("no camera system config")
+		return nil, errors.New("no camera system config")
 	}
 	if err != nil {
 		return nil, err

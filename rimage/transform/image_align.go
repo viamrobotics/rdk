@@ -4,6 +4,7 @@
 package transform
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"math"
@@ -95,7 +96,7 @@ func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	debug := true
 
 	if len(img1Points) != 2 || len(img2Points) != 2 {
-		return nil, nil, fmt.Errorf("need exactly 2 matching points")
+		return nil, nil, errors.New("need exactly 2 matching points")
 	}
 
 	fixPoints := func(pts []image.Point) []image.Point {

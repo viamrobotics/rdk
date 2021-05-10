@@ -1,6 +1,8 @@
 package segmentation
 
 import (
+	"errors"
+	"fmt"
 	"image"
 	"math"
 
@@ -490,7 +492,11 @@ func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOp
 			return nil
 		}
 
-		start := found.(MyWalkError).pos
+		var walkErr MyWalkError
+		if !errors.As(found, &walkErr) {
+			return fmt.Errorf("expected %T but got %w", walkErr, found)
+		}
+		start := walkErr.pos
 		numPixels := ws.piece(start, nextColor)
 		if options.Debug && numPixels < 10 {
 			ws.logger.Debugf("only found %d pixels in the cluster @ %v", numPixels, start)

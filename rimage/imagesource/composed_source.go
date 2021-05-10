@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 
@@ -38,7 +39,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	defer closer()
 	ii := rimage.ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
-		return nil, nil, fmt.Errorf("no depth")
+		return nil, nil, errors.New("no depth")
 	}
 	return ii.Overlay(), func() {}, nil
 }
@@ -68,7 +69,7 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	defer closer()
 	ii := rimage.ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
-		return nil, nil, fmt.Errorf("no depth")
+		return nil, nil, errors.New("no depth")
 	}
 	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }

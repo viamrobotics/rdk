@@ -2,6 +2,7 @@ package action
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -20,12 +21,12 @@ func init() {
 func setup(theRobot api.Robot) (api.Base, gostream.ImageSource, error) {
 	baseNames := theRobot.BaseNames()
 	if len(baseNames) == 0 {
-		return nil, nil, fmt.Errorf("no bases, can't drive")
+		return nil, nil, errors.New("no bases, can't drive")
 	}
 
 	cameraNames := theRobot.CameraNames()
 	if len(cameraNames) == 0 {
-		return nil, nil, fmt.Errorf("no cameras, can't drive")
+		return nil, nil, errors.New("no cameras, can't drive")
 	}
 
 	return theRobot.BaseByName(baseNames[0]), theRobot.CameraByName(cameraNames[0]), nil
@@ -46,7 +47,7 @@ func randomWalkIncrement(ctx context.Context, theRobot api.Robot) error {
 
 	pc := rimage.ConvertToImageWithDepth(raw)
 	if pc.Depth == nil {
-		return fmt.Errorf("no depth data")
+		return errors.New("no depth data")
 	}
 	pc, err = pc.CropToDepthData()
 

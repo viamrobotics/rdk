@@ -18,29 +18,29 @@ import (
 
 type Robot struct {
 	api.Robot
-	RemoteByNameFunc      func(name string) api.Robot
-	ArmByNameFunc         func(name string) api.Arm
-	BaseByNameFunc        func(name string) api.Base
-	GripperByNameFunc     func(name string) api.Gripper
-	CameraByNameFunc      func(name string) gostream.ImageSource
-	LidarDeviceByNameFunc func(name string) lidar.Device
-	BoardByNameFunc       func(name string) board.Board
-	SensorByNameFunc      func(name string) sensor.Device
-	ProviderByNameFunc    func(name string) api.Provider
-	RemoteNamesFunc       func() []string
-	ArmNamesFunc          func() []string
-	GripperNamesFunc      func() []string
-	CameraNamesFunc       func() []string
-	LidarDeviceNamesFunc  func() []string
-	BaseNamesFunc         func() []string
-	BoardNamesFunc        func() []string
-	SensorNamesFunc       func() []string
-	ProcessManagerFunc    func() rexec.ProcessManager
-	GetConfigFunc         func(ctx context.Context) (*api.Config, error)
-	StatusFunc            func(ctx context.Context) (*pb.Status, error)
-	LoggerFunc            func() golog.Logger
-	CloseFunc             func() error
-	RefreshFunc           func(ctx context.Context) error
+	RemoteByNameFunc   func(name string) api.Robot
+	ArmByNameFunc      func(name string) api.Arm
+	BaseByNameFunc     func(name string) api.Base
+	GripperByNameFunc  func(name string) api.Gripper
+	CameraByNameFunc   func(name string) gostream.ImageSource
+	LidarByNameFunc    func(name string) lidar.Device
+	BoardByNameFunc    func(name string) board.Board
+	SensorByNameFunc   func(name string) sensor.Device
+	ProviderByNameFunc func(name string) api.Provider
+	RemoteNamesFunc    func() []string
+	ArmNamesFunc       func() []string
+	GripperNamesFunc   func() []string
+	CameraNamesFunc    func() []string
+	LidarNamesFunc     func() []string
+	BaseNamesFunc      func() []string
+	BoardNamesFunc     func() []string
+	SensorNamesFunc    func() []string
+	ProcessManagerFunc func() rexec.ProcessManager
+	GetConfigFunc      func(ctx context.Context) (*api.Config, error)
+	StatusFunc         func(ctx context.Context) (*pb.Status, error)
+	LoggerFunc         func() golog.Logger
+	CloseFunc          func() error
+	RefreshFunc        func(ctx context.Context) error
 }
 
 func (r *Robot) RemoteByName(name string) api.Robot {
@@ -78,11 +78,11 @@ func (r *Robot) CameraByName(name string) gostream.ImageSource {
 	return r.CameraByNameFunc(name)
 }
 
-func (r *Robot) LidarDeviceByName(name string) lidar.Device {
-	if r.LidarDeviceByNameFunc == nil {
-		return r.Robot.LidarDeviceByName(name)
+func (r *Robot) LidarByName(name string) lidar.Device {
+	if r.LidarByNameFunc == nil {
+		return r.Robot.LidarByName(name)
 	}
-	return r.LidarDeviceByNameFunc(name)
+	return r.LidarByNameFunc(name)
 }
 
 func (r *Robot) BoardByName(name string) board.Board {
@@ -134,11 +134,11 @@ func (r *Robot) CameraNames() []string {
 	return r.CameraNamesFunc()
 }
 
-func (r *Robot) LidarDeviceNames() []string {
-	if r.LidarDeviceNamesFunc == nil {
-		return r.Robot.LidarDeviceNames()
+func (r *Robot) LidarNames() []string {
+	if r.LidarNamesFunc == nil {
+		return r.Robot.LidarNames()
 	}
-	return r.LidarDeviceNamesFunc()
+	return r.LidarNamesFunc()
 }
 
 func (r *Robot) BaseNames() []string {

@@ -28,7 +28,7 @@ func TestNew(t *testing.T) {
 
 	devType := lidar.DeviceType(utils.RandomAlphaString(5))
 	var newFunc func(config api.ComponentConfig) (lidar.Device, error)
-	api.RegisterLidarDevice(string(devType), func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+	api.RegisterLidar(string(devType), func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		return newFunc(config)
 	})
 
@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 	_, err = New(context.Background(), config, logger)
 	test.That(t, err, test.ShouldEqual, newErr)
 
-	injectDev := &inject.LidarDevice{}
+	injectDev := &inject.Lidar{}
 	newFunc = func(config api.ComponentConfig) (lidar.Device, error) {
 		return injectDev, nil
 	}
@@ -56,14 +56,14 @@ func TestNew(t *testing.T) {
 }
 
 func TestFrom(t *testing.T) {
-	dev := &inject.LidarDevice{}
+	dev := &inject.Lidar{}
 	compassDev := From(dev)
 	var relDev *compass.RelativeDevice = nil
 	test.That(t, compassDev, test.ShouldImplement, relDev)
 }
 
-func getInjected() (*Device, *inject.LidarDevice) {
-	dev := &inject.LidarDevice{}
+func getInjected() (*Device, *inject.Lidar) {
+	dev := &inject.Lidar{}
 	return From(dev).(*Device), dev
 }
 
@@ -216,7 +216,7 @@ func TestHeading(t *testing.T) {
 		scannedM, err := compassDev.scanToVec2Matrix(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		setup := func(t *testing.T) (*Device, *inject.LidarDevice) {
+		setup := func(t *testing.T) (*Device, *inject.Lidar) {
 			t.Helper()
 			_, injectDev := getInjected()
 			injectDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {

@@ -452,9 +452,9 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
+		th.bot.devices = append(th.bot.devices, &inject.Lidar{})
 		var started2 bool
-		th.bot.devices[1].(*inject.LidarDevice).StartFunc = func(ctx context.Context) error {
+		th.bot.devices[1].(*inject.Lidar).StartFunc = func(ctx context.Context) error {
 			test.That(t, started2, test.ShouldBeFalse)
 			started2 = true
 			return nil
@@ -495,9 +495,9 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
+		th.bot.devices = append(th.bot.devices, &inject.Lidar{})
 		var stopped2 bool
-		th.bot.devices[1].(*inject.LidarDevice).StopFunc = func(ctx context.Context) error {
+		th.bot.devices[1].(*inject.Lidar).StopFunc = func(ctx context.Context) error {
 			test.That(t, stopped2, test.ShouldBeFalse)
 			stopped2 = true
 			return nil
@@ -536,7 +536,7 @@ func TestServer(t *testing.T) {
 
 		th.bot.devices[0] = &fake.Lidar{}
 		th.bot.devices = append(th.bot.devices, &fake.Lidar{})
-		th.bot.devices = append(th.bot.devices, &inject.LidarDevice{})
+		th.bot.devices = append(th.bot.devices, &inject.Lidar{})
 		getResp, err := server.GetLidarSeed(context.Background(), &pb.GetLidarSeedRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, getResp, test.ShouldResemble, &pb.GetLidarSeedResponse{Seeds: []string{"0", "0", "real-device"}})

@@ -1,6 +1,7 @@
 package artifact
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -50,8 +51,8 @@ func NewErrArtifactNotFoundPath(path string) error {
 // IsErrArtifactNotFound returns if the given error is any kind of
 // artifact not found error.
 func IsErrArtifactNotFound(err error) bool {
-	_, ok := err.(*errArtifactNotFound)
-	return ok
+	var errArt *errArtifactNotFound
+	return errors.As(err, &errArt)
 }
 
 // An errArtifactNotFound is used when an artifact can not be found.

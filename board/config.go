@@ -6,6 +6,7 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+// A Config describes the configuration of a board and all of its connected parts.
 type Config struct {
 	Name              string                   `json:"name"`
 	Model             string                   `json:"model"` // example: "pi"
@@ -43,6 +44,7 @@ func (config *Config) Validate(path string) error {
 	return nil
 }
 
+// MotorConfig describes the configuration of a motor on a board.
 type MotorConfig struct {
 	Name             string            `json:"name"`
 	Pins             map[string]string `json:"pins"`
@@ -59,6 +61,7 @@ func (config *MotorConfig) Validate(path string) error {
 	return nil
 }
 
+// ServoConfig describes the configuration of a servo on a board.
 type ServoConfig struct {
 	Name string `json:"name"`
 	Pin  string `json:"pin"`
@@ -72,6 +75,7 @@ func (config *ServoConfig) Validate(path string) error {
 	return nil
 }
 
+// AnalogConfig describes the configuration of an analog reader on a board.
 type AnalogConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`
@@ -87,6 +91,7 @@ func (config *AnalogConfig) Validate(path string) error {
 	return nil
 }
 
+// DigitalInterruptConfig describes the configuration of digital interrupt for a board.
 type DigitalInterruptConfig struct {
 	Name    string `json:"name"`
 	Pin     string `json:"pin"`

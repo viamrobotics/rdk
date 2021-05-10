@@ -2,7 +2,7 @@ package fake
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"go.viam.com/robotcore/api"
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -50,7 +50,7 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 }
 
 func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return fmt.Errorf("arm JointMoveDelta does nothing")
+	return errors.New("arm JointMoveDelta does nothing")
 }
 
 func (a *Arm) Close() error {

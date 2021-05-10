@@ -37,8 +37,10 @@ lint: goformat
 	buf lint
 	go install github.com/edaniels/golinters/cmd/combined
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint
-	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go vet -vettool=`go env GOPATH`/bin/combined
-	go list -f '{{.Dir}}' ./... | grep -v gen | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
+	go install github.com/polyfloyd/go-errorlint
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs `go env GOPATH`/bin/go-errorlint -errorf
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
 
 cover:
 	(trap 'kill 0' INT;\

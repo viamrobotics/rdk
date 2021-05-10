@@ -33,7 +33,7 @@ func main() {
 
 // Arguments for the command.
 type Arguments struct {
-	LidarDevice *api.ComponentConfig `flag:"device,usage=lidar device"`
+	Lidar *api.ComponentConfig `flag:"device,usage=lidar"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
@@ -43,23 +43,23 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	var components []api.ComponentConfig
-	if argsParsed.LidarDevice == nil {
+	if argsParsed.Lidar == nil {
 		components = search.Devices()
 		if len(components) != 0 {
-			logger.Debugf("detected %d lidar devices", len(components))
+			logger.Debugf("detected %d lidars", len(components))
 			for _, comp := range components {
 				logger.Debug(comp)
 			}
 		}
 	} else {
-		if argsParsed.LidarDevice.Type != api.ComponentTypeLidar {
+		if argsParsed.Lidar.Type != api.ComponentTypeLidar {
 			return errors.New("device must be a lidar component")
 		}
-		components = []api.ComponentConfig{*argsParsed.LidarDevice}
+		components = []api.ComponentConfig{*argsParsed.Lidar}
 	}
 
 	if len(components) == 0 {
-		return errors.New("no suitable lidar device found")
+		return errors.New("no suitable lidar found")
 	}
 
 	return readCompass(ctx, components, logger)
@@ -73,12 +73,12 @@ func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, log
 	defer func() {
 		err = multierr.Combine(err, r.Close())
 	}()
-	lidarNames := r.LidarDeviceNames()
-	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
+	lidarNames := r.LidarNames()
+	lidars := make([]lidar.Device, 0, len(lidarNames))
 	for _, name := range lidarNames {
-		lidarDevices = append(lidarDevices, r.LidarDeviceByName(name))
+		lidars = append(lidars, r.LidarByName(name))
 	}
-	for _, lidarDev := range lidarDevices {
+	for _, lidarDev := range lidars {
 		if err := lidarDev.Start(ctx); err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, log
 		}()
 	}
 
-	bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidarDevices)
+	bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidars)
 	if err != nil {
 		return err
 	}

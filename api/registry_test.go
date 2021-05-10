@@ -41,13 +41,13 @@ func TestRegistry(t *testing.T) {
 	RegisterCamera("x", cf)
 	RegisterArm("x", af)
 	RegisterGripper("x", gf)
-	RegisterLidarDevice("x", lf)
+	RegisterLidar("x", lf)
 	RegisterSensor(sensor.DeviceType("x"), "y", sf)
 
 	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
 	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
-	test.That(t, LidarDeviceLookup("x"), test.ShouldNotBeNil)
+	test.That(t, LidarLookup("x"), test.ShouldNotBeNil)
 	test.That(t, SensorLookup(sensor.DeviceType("x"), "y"), test.ShouldNotBeNil)
 }

@@ -122,8 +122,6 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Bases:  map[string]bool{},
-		Boards: map[string]*pb.BoardStatus{},
 		Grippers: map[string]bool{
 			"pieceGripper":     true,
 			"foo.pieceGripper": true,
@@ -132,7 +130,7 @@ func TestConfigRemote(t *testing.T) {
 			"cameraOver":     true,
 			"foo.cameraOver": true,
 		},
-		LidarDevices: map[string]bool{
+		Lidars: map[string]bool{
 			"lidar1":     true,
 			"foo.lidar1": true,
 		},

@@ -23,7 +23,7 @@ func (t *testReader) Read(ctx context.Context) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.stop {
-		return 0, ErrStopReading
+		return 0, errStopReading
 	}
 
 	return t.r.Intn(100), nil
@@ -41,11 +41,11 @@ func TestAnalogSmoother1(t *testing.T) {
 	}()
 
 	logger := golog.NewTestLogger(t)
-	tmp := AnalogSmootherWrap(&testReader, AnalogConfig{}, logger)
+	tmp := SmoothAnalogReader(&testReader, AnalogConfig{}, logger)
 	_, ok := tmp.(*AnalogSmoother)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	as := AnalogSmootherWrap(&testReader, AnalogConfig{
+	as := SmoothAnalogReader(&testReader, AnalogConfig{
 		AverageOverMillis: 10,
 		SamplesPerSecond:  10000,
 	}, logger)

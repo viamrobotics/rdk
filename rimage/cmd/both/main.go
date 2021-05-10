@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -23,7 +24,7 @@ func main() {
 
 func merge(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("merge needs <color in> <depth in> [optional -aligned]")
+		return errors.New("merge needs <color in> <depth in> [optional -aligned]")
 	}
 
 	img, err := rimage.NewImageWithDepth(flags.Arg(1), flags.Arg(2), aligned)
@@ -36,7 +37,7 @@ func merge(flags *flag.FlagSet, aligned bool) error {
 
 func combineRGBAndZ16(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 4 {
-		return fmt.Errorf("combineRGBAndZ16 needs <color png in> <grayscale png in> <out> [optional -aligned]")
+		return errors.New("combineRGBAndZ16 needs <color png in> <grayscale png in> <out> [optional -aligned]")
 	}
 
 	img, err := rimage.NewImageWithDepthFromImages(flags.Arg(1), flags.Arg(2), aligned)
@@ -49,7 +50,7 @@ func combineRGBAndZ16(flags *flag.FlagSet, aligned bool) error {
 
 func toLas(flags *flag.FlagSet, aligned bool) error {
 	if flags.NArg() < 3 {
-		return fmt.Errorf("to-las needs <both in> <aligner config> <las out> [optional -aligned]")
+		return errors.New("to-las needs <both in> <aligner config> <las out> [optional -aligned]")
 	}
 
 	img, err := rimage.BothReadFromFile(flags.Arg(1), aligned)
@@ -78,7 +79,7 @@ func realMain(args []string) error {
 	}
 
 	if flags.NArg() < 1 {
-		return fmt.Errorf("need to specify a command")
+		return errors.New("need to specify a command")
 	}
 
 	cmd := flags.Arg(0)

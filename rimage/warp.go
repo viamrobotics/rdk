@@ -154,7 +154,7 @@ func invert(m mat.Matrix) *mat.Dense {
 	b.Set(2, 2, 1)
 	err := d.Solve(m, b)
 	if err != nil {
-		panic(fmt.Errorf("cannot invert matrix %v %s", m, err))
+		panic(fmt.Errorf("cannot invert matrix %v %w", m, err))
 	}
 	return d
 }

@@ -133,7 +133,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
 
-	motor.rpmMonitorStart(context.Background())
+	motor.rpmMonitorStart()
 	testutils.WaitForAssertion(t, func(t testing.TB) {
 		pos := motor.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 0)
@@ -202,7 +202,7 @@ func TestMotorEncoderHall(t *testing.T) {
 
 }
 
-func TestMotorEncoderWrap(t *testing.T) {
+func TestWrapMotorWithEncoder(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	real := &FakeMotor{}
 

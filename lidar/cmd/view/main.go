@@ -1,8 +1,9 @@
-// Package main provides a command for viewing the output of a LiDAR device.
+// Package main provides a command for viewing the output of a LiDAR.
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"time"
@@ -44,9 +45,9 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         utils.NetPortFlag     `flag:"0"`
-	LidarDevices []api.ComponentConfig `flag:"device,usage=lidar devices"`
-	SaveToDisk   string                `flag:"save,usage=save data to disk (LAS)"`
+	Port       utils.NetPortFlag     `flag:"0"`
+	Lidars     []api.ComponentConfig `flag:"device,usage=lidars"`
+	SaveToDisk string                `flag:"save,usage=save data to disk (LAS)"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
@@ -57,24 +58,24 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if argsParsed.Port == 0 {
 		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
-	for _, comp := range argsParsed.LidarDevices {
+	for _, comp := range argsParsed.Lidars {
 		if comp.Type != api.ComponentTypeLidar {
-			return fmt.Errorf("only lidar components can be in device flag")
+			return errors.New("only lidar components can be in device flag")
 		}
 	}
 
-	if len(argsParsed.LidarDevices) == 0 {
-		argsParsed.LidarDevices = search.Devices()
-		if len(argsParsed.LidarDevices) != 0 {
-			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
-			for _, comp := range argsParsed.LidarDevices {
+	if len(argsParsed.Lidars) == 0 {
+		argsParsed.Lidars = search.Devices()
+		if len(argsParsed.Lidars) != 0 {
+			logger.Debugf("detected %d lidars", len(argsParsed.Lidars))
+			for _, comp := range argsParsed.Lidars {
 				logger.Debug(comp)
 			}
 		}
 	}
 
-	if len(argsParsed.LidarDevices) == 0 {
-		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
+	if len(argsParsed.Lidars) == 0 {
+		argsParsed.Lidars = append(argsParsed.Lidars,
 			api.ComponentConfig{
 				Type:  api.ComponentTypeLidar,
 				Host:  "0",
@@ -82,7 +83,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			})
 	}
 
-	return viewLidar(ctx, int(argsParsed.Port), argsParsed.LidarDevices, argsParsed.SaveToDisk, logger)
+	return viewLidar(ctx, int(argsParsed.Port), argsParsed.Lidars, argsParsed.SaveToDisk, logger)
 }
 
 func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, saveToDisk string, logger golog.Logger) (err error) {
@@ -90,12 +91,12 @@ func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, 
 	if err != nil {
 		return err
 	}
-	lidarNames := r.LidarDeviceNames()
-	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
+	lidarNames := r.LidarNames()
+	lidars := make([]lidar.Device, 0, len(lidarNames))
 	for _, name := range lidarNames {
-		lidarDevices = append(lidarDevices, r.LidarDeviceByName(name))
+		lidars = append(lidars, r.LidarByName(name))
 	}
-	for _, lidarDev := range lidarDevices {
+	for _, lidarDev := range lidars {
 		if err := lidarDev.Start(ctx); err != nil {
 			return err
 		}
@@ -125,7 +126,7 @@ func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, 
 			ctx,
 			&fake.Base{},
 			area,
-			lidarDevices,
+			lidars,
 			nil,
 			nil,
 			logger,
@@ -148,12 +149,12 @@ func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, 
 	}
 
 	autoTiler := gostream.NewAutoTiler(streamWidth, streamHeight)
-	for _, dev := range lidarDevices {
+	for _, dev := range lidars {
 		autoTiler.AddSource(lidar.NewImageSource(image.Point{streamWidth, streamWidth}, dev))
 		break
 	}
 
-	compassDone, err := startCompass(ctx, lidarDevices, components)
+	compassDone, err := startCompass(ctx, lidars, components)
 	if err != nil {
 		return multierr.Combine(err, server.Stop(context.Background()))
 	}
@@ -178,8 +179,8 @@ func viewLidar(ctx context.Context, port int, components []api.ComponentConfig, 
 	return nil
 }
 
-func startCompass(ctx context.Context, lidarDevices []lidar.Device, lidarComponents []api.ComponentConfig) (<-chan struct{}, error) {
-	bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidarDevices)
+func startCompass(ctx context.Context, lidars []lidar.Device, lidarComponents []api.ComponentConfig) (<-chan struct{}, error) {
+	bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidars)
 	if err != nil {
 		return nil, err
 	}

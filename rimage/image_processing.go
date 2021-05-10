@@ -1,7 +1,7 @@
 package rimage
 
 import (
-	"fmt"
+	"errors"
 	"image"
 	"image/color"
 	"math"
@@ -148,7 +148,7 @@ func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold
 func (i *Image) Rotate(amount int) *Image {
 	if amount != 180 {
 		// made this a panic
-		panic(fmt.Errorf("rimage.Image can only rotate 180 degrees right now"))
+		panic(errors.New("rimage.Image can only rotate 180 degrees right now"))
 	}
 
 	i2 := NewImage(i.width, i.height)
@@ -330,7 +330,7 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 	copy1 := copy(x, mag.RawMatrix().Data)
 
 	if copy1 == 0 {
-		err := fmt.Errorf("the slice copy was not achieved")
+		err := errors.New("the slice copy was not achieved")
 		return 0, 0, err
 	}
 	sort.Float64s(x)

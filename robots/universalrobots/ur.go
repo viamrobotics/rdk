@@ -4,6 +4,7 @@ package universalrobots
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -44,7 +45,7 @@ func (arm *URArm) Close() error {
 	arm.cancel()
 
 	closeConn := func() {
-		if err := arm.conn.Close(); err != nil && err != net.ErrClosed {
+		if err := arm.conn.Close(); err != nil && !errors.Is(err, net.ErrClosed) {
 			arm.logger.Errorw("error closing arm connection", "error", err)
 		}
 	}
@@ -55,7 +56,7 @@ func (arm *URArm) Close() error {
 	defer cancel()
 	utils.PanicCapturingGo(func() {
 		<-waitCtx.Done()
-		if waitCtx.Err() == context.DeadlineExceeded {
+		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
 			closeConn()
 		}
 	})
@@ -151,7 +152,7 @@ func (arm *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) 
 
 func (arm *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	if joint < 0 || joint > 5 {
-		return fmt.Errorf("invalid joint")
+		return errors.New("invalid joint")
 	}
 
 	radians := []float64{}
@@ -171,7 +172,7 @@ func (arm *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPosi
 
 func (arm *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	if len(radians) != 6 {
-		return fmt.Errorf("need 6 joints")
+		return errors.New("need 6 joints")
 	}
 
 	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=5, v=4, r=0)\r\n",

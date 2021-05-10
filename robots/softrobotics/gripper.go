@@ -3,7 +3,7 @@ package softrobotics
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"go.viam.com/robotcore/api"
@@ -18,11 +18,11 @@ func init() {
 	api.RegisterGripper("softrobotics", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
-			return nil, fmt.Errorf("softrobotics gripper requires a board called local")
+			return nil, errors.New("softrobotics gripper requires a board called local")
 		}
 		g, ok := b.(board.GPIOBoard)
 		if !ok {
-			return nil, fmt.Errorf("softrobotics gripper requires a baord that is a GPIOBoard")
+			return nil, errors.New("softrobotics gripper requires a baord that is a GPIOBoard")
 		}
 		return NewGripper(ctx, b, g, config, logger)
 	})
@@ -55,11 +55,11 @@ func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config ap
 	}
 
 	if theGripper.psi == nil {
-		return nil, fmt.Errorf("no psi analog reader")
+		return nil, errors.New("no psi analog reader")
 	}
 
 	if theGripper.pinOpen == "" || theGripper.pinClose == "" || theGripper.pinPower == "" {
-		return nil, fmt.Errorf("need pins for open, close, power")
+		return nil, errors.New("need pins for open, close, power")
 	}
 
 	return theGripper, nil

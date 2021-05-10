@@ -24,7 +24,7 @@ type testHarness struct {
 	bot          *LocationAwareRobot
 	baseDevice   *fake.Base
 	area         *SquareArea
-	lidarDev     *inject.LidarDevice
+	lidarDev     *inject.Lidar
 	scansPerCull int
 	logger       golog.Logger
 }
@@ -47,7 +47,7 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 	baseDevice := &fake.Base{}
 	area, err := NewSquareArea(meters, unitsPerMeter, logger)
 	test.That(t, err, test.ShouldBeNil)
-	injectLidarDev := &inject.LidarDevice{Device: lidarDev}
+	injectLidarDev := &inject.Lidar{Device: lidarDev}
 	if lidarDev == nil {
 		injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return r2.Point{meters, meters}, nil
@@ -85,7 +85,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 	baseDevice := &fake.Base{}
 	area, err := NewSquareArea(10, 100, logger)
 	test.That(t, err, test.ShouldBeNil)
-	injectLidarDev := &inject.LidarDevice{}
+	injectLidarDev := &inject.Lidar{}
 	injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 		return r2.Point{10, 10}, nil
 	}
@@ -512,7 +512,7 @@ func testUpdate(t *testing.T, internal bool) {
 	th := newTestHarness(t)
 	area, err := th.area.BlankCopy(th.logger)
 	test.That(t, err, test.ShouldBeNil)
-	device := &inject.LidarDevice{}
+	device := &inject.Lidar{}
 	err1 := errors.New("whoops")
 	device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err1
@@ -857,7 +857,7 @@ func testUpdate(t *testing.T, internal bool) {
 			devices := make([]lidar.Device, 0, len(tc.allMeasurements))
 			for _, measurements := range tc.allMeasurements {
 				mCopy := measurements
-				device := &inject.LidarDevice{}
+				device := &inject.Lidar{}
 				device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 					return mCopy, nil
 				}

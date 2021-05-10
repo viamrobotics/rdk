@@ -2,7 +2,7 @@ package action
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"time"
 
 	"go.viam.com/robotcore/api"
@@ -202,7 +202,7 @@ func ReplaceObject(ctx context.Context, theRobot api.Robot) error {
 func ResetBoxSteps(ctx context.Context, theRobot api.Robot, shakes int) error {
 	resetBoard := theRobot.BoardByName("resetDriveBoard")
 	if resetBoard == nil {
-		return fmt.Errorf("robot does not have a resetDriveBoard")
+		return errors.New("robot does not have a resetDriveBoard")
 	}
 	// Dump object into the resetter
 	err := OpenBox(ctx, resetBoard, true)

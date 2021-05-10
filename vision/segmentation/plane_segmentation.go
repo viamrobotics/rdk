@@ -2,6 +2,7 @@
 package segmentation
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"math"
@@ -50,7 +51,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 		}
 		if err != nil {
 			pos := pt.Position()
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", pos.X, pos.Y, pos.Z, err)
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pos.X, pos.Y, pos.Z, err)
 			return false
 		}
 		return true
@@ -59,7 +60,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 		return nil, nil, err
 	}
 	if len(seen) != len(inMap) {
-		err = fmt.Errorf("map of points contains invalid points not found in the point cloud")
+		err = errors.New("map of points contains invalid points not found in the point cloud")
 		return nil, nil, err
 	}
 	return mapCloud, nonMapCloud, nil

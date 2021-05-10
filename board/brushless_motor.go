@@ -2,7 +2,7 @@ package board
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -20,10 +20,10 @@ var (
 	defaultRPM = 60.0
 )
 
+// NewBrushlessMotor returns a brushless motor on board with the given configuration. When done using it,
+// please call Close.
 func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*BrushlessMotor, error) {
 
-	commandChan := make(chan brushlessMotorCmd)
-	closech := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
 	// Technically you can have the two jumpers set to keep ENA and ENB always-on on a dual H-bridge.
@@ -42,9 +42,9 @@ func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logg
 		D:         pins["d"],
 		PWMs:      []string{pins["pwm"]},
 		on:        false,
-		commands:  commandChan,
+		commands:  make(chan brushlessMotorCmd),
 		logger:    logger,
-		done:      closech,
+		done:      make(chan struct{}),
 		cancelCtx: cancelCtx,
 		cancel:    cancel,
 	}
@@ -69,8 +69,7 @@ func stepSequence() [][]bool {
 	}
 }
 
-// Brushless motors are managed separately by an independent goroutine.
-// We need a way to pass motor commands to that goroutine.
+// brushlessMotorCmd is for passing messages to the motor manager.
 type brushlessMotorCmd struct {
 	d     pb.DirectionRelative
 	wait  time.Duration
@@ -78,6 +77,7 @@ type brushlessMotorCmd struct {
 	cont  bool
 }
 
+// A BrushlessMotor represents a brushless motor connected to a board via GPIO.
 type BrushlessMotor struct {
 	cfg                     MotorConfig
 	Board                   GPIOBoard
@@ -95,7 +95,7 @@ type BrushlessMotor struct {
 }
 
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
-//           This should eventually be a supported feature.
+// This should eventually be a supported feature.
 func (m *BrushlessMotor) Position(ctx context.Context) (float64, error) {
 	return float64(atomic.LoadInt64(&m.steps)) / float64(m.cfg.TicksPerRotation), nil
 }
@@ -106,7 +106,7 @@ func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
 
 // TODO(pl): Implement this feature once we have a driver board allowing PWM control.
 func (m *BrushlessMotor) Power(ctx context.Context, powerPct float32) error {
-	return fmt.Errorf("power not supported for stepper motors on dual H-bridges")
+	return errors.New("power not supported for stepper motors on dual H-bridges")
 }
 
 func (m *BrushlessMotor) setStep(pins []bool) error {
@@ -178,7 +178,6 @@ func (m *BrushlessMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
-// Turn power to the motor on or off.
 func (m *BrushlessMotor) turnOnOrOff(turnOn bool) error {
 	var err error
 

@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -16,10 +17,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie), nil
 	}
 	if ii.Color == nil {
-		return nil, fmt.Errorf("no color image present to align")
+		return nil, errors.New("no color image present to align")
 	}
 	if ii.Depth == nil {
-		return nil, fmt.Errorf("no depth image present to align")
+		return nil, errors.New("no depth image present to align")
 	}
 	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
 	if err != nil {
@@ -106,7 +107,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
-		return nil, fmt.Errorf("pointcloud has no color information, cannot create an image with depth")
+		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
@@ -151,7 +152,7 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
 				err := pcOut.Set(pt)
 				if err != nil {
-					err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", xPoint, yPoint, z, err)
+					err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", xPoint, yPoint, z, err)
 					return nil, err
 				}
 			}
@@ -177,7 +178,7 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 		}
 		err = transformedPoints.Set(ptTransformed)
 		if err != nil {
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
 			return false
 		}
 		return true
@@ -201,7 +202,7 @@ func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params Pin
 			pt2d := pointcloud.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
 			err = coordinates.Set(pt2d)
 			if err != nil {
-				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", j, i, pt.Position().Z, err)
+				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", j, i, pt.Position().Z, err)
 				return false
 			}
 		}

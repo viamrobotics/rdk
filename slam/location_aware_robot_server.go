@@ -128,7 +128,7 @@ func (s *LocationAwareRobotServer) UpdateRobotDeviceOffset(ctx context.Context, 
 }
 
 func (s *LocationAwareRobotServer) StartLidar(ctx context.Context, req *pb.StartLidarRequest) (*pb.StartLidarResponse, error) {
-	if err := s.lar.validateLidarDeviceNumber(req.DeviceNumber); err != nil {
+	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
 	}
 	if err := s.lar.devices[req.DeviceNumber].Start(ctx); err != nil {
@@ -138,7 +138,7 @@ func (s *LocationAwareRobotServer) StartLidar(ctx context.Context, req *pb.Start
 }
 
 func (s *LocationAwareRobotServer) StopLidar(ctx context.Context, req *pb.StopLidarRequest) (*pb.StopLidarResponse, error) {
-	if err := s.lar.validateLidarDeviceNumber(req.DeviceNumber); err != nil {
+	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
 	}
 	if err := s.lar.devices[req.DeviceNumber].Stop(ctx); err != nil {
@@ -162,7 +162,7 @@ func (s *LocationAwareRobotServer) GetLidarSeed(ctx context.Context, req *pb.Get
 }
 
 func (s *LocationAwareRobotServer) SetLidarSeed(ctx context.Context, req *pb.SetLidarSeedRequest) (*pb.SetLidarSeedResponse, error) {
-	if err := s.lar.validateLidarDeviceNumber(req.DeviceNumber); err != nil {
+	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
 	}
 
@@ -197,7 +197,7 @@ func (s *LocationAwareRobotServer) SetClientClickMode(ctx context.Context, req *
 	return &pb.SetClientClickModeResponse{}, nil
 }
 
-func (lar *LocationAwareRobot) validateLidarDeviceNumber(num int32) error {
+func (lar *LocationAwareRobot) validateLidarNumber(num int32) error {
 	if num < 0 || num >= int32(len(lar.devices)) {
 		return errors.New("invalid device number")
 	}

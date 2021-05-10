@@ -1,4 +1,4 @@
-// Package lidar defines interfaces for working with LiDAR devices.
+// Package lidar defines interfaces for working with LiDARs.
 //
 // It also provides a means for displaying lidar scans as images.
 package lidar

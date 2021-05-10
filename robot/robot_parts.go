@@ -26,7 +26,7 @@ type robotParts struct {
 	arms           map[string]api.Arm
 	grippers       map[string]api.Gripper
 	cameras        map[string]gostream.ImageSource
-	lidarDevices   map[string]lidar.Device
+	lidars         map[string]lidar.Device
 	bases          map[string]api.Base
 	sensors        map[string]sensor.Device
 	providers      map[string]api.Provider
@@ -41,7 +41,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		arms:           map[string]api.Arm{},
 		grippers:       map[string]api.Gripper{},
 		cameras:        map[string]gostream.ImageSource{},
-		lidarDevices:   map[string]lidar.Device{},
+		lidars:         map[string]lidar.Device{},
 		bases:          map[string]api.Base{},
 		sensors:        map[string]sensor.Device{},
 		providers:      map[string]api.Provider{},
@@ -70,8 +70,8 @@ func partsForRemoteRobot(robot api.Robot) *robotParts {
 	for _, name := range robot.GripperNames() {
 		parts.AddGripper(robot.GripperByName(name), api.ComponentConfig{Name: name})
 	}
-	for _, name := range robot.LidarDeviceNames() {
-		parts.AddLidar(robot.LidarDeviceByName(name), api.ComponentConfig{Name: name})
+	for _, name := range robot.LidarNames() {
+		parts.AddLidar(robot.LidarByName(name), api.ComponentConfig{Name: name})
 	}
 	for _, name := range robot.SensorNames() {
 		parts.AddSensor(robot.SensorByName(name), api.ComponentConfig{Name: name})
@@ -117,10 +117,10 @@ func (parts *robotParts) AddCamera(camera gostream.ImageSource, c api.ComponentC
 	parts.cameras[c.Name] = camera
 }
 
-// AddLidar adds a lidar device to the parts.
+// AddLidar adds a lidar to the parts.
 func (parts *robotParts) AddLidar(device lidar.Device, c api.ComponentConfig) {
-	c = fixType(c, api.ComponentTypeLidar, len(parts.lidarDevices))
-	parts.lidarDevices[c.Name] = device
+	c = fixType(c, api.ComponentTypeLidar, len(parts.lidars))
+	parts.lidars[c.Name] = device
 }
 
 // AddBase adds a base to the parts.
@@ -196,13 +196,13 @@ func (parts *robotParts) CameraNames() []string {
 	return parts.mergeNamesWithRemotes(names, api.Robot.CameraNames)
 }
 
-// LidarDeviceNames returns the names of all lidar devices in the parts.
-func (parts *robotParts) LidarDeviceNames() []string {
+// LidarNames returns the names of all lidars in the parts.
+func (parts *robotParts) LidarNames() []string {
 	names := []string{}
-	for k := range parts.lidarDevices {
+	for k := range parts.lidars {
 		names = append(names, k)
 	}
-	return parts.mergeNamesWithRemotes(names, api.Robot.LidarDeviceNames)
+	return parts.mergeNamesWithRemotes(names, api.Robot.LidarNames)
 }
 
 // BaseNames returns the names of all bases in the parts.
@@ -265,10 +265,10 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.cameras[k] = v
 		}
 	}
-	if len(parts.lidarDevices) != 0 {
-		clonedParts.lidarDevices = make(map[string]lidar.Device, len(parts.lidarDevices))
-		for k, v := range parts.lidarDevices {
-			clonedParts.lidarDevices[k] = v
+	if len(parts.lidars) != 0 {
+		clonedParts.lidars = make(map[string]lidar.Device, len(parts.lidars))
+		for k, v := range parts.lidars {
+			clonedParts.lidars[k] = v
 		}
 	}
 	if len(parts.bases) != 0 {
@@ -326,7 +326,7 @@ func (parts *robotParts) Close() error {
 		}
 	}
 
-	for _, x := range parts.lidarDevices {
+	for _, x := range parts.lidars {
 		if err := utils.TryClose(x); err != nil {
 			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing lidar: %w", err))
 		}
@@ -457,11 +457,11 @@ func (parts *robotParts) newComponents(ctx context.Context, components []api.Com
 			}
 			parts.AddCamera(camera, c)
 		case api.ComponentTypeLidar:
-			lidarDevice, err := r.newLidarDevice(ctx, c)
+			lidar, err := r.newLidar(ctx, c)
 			if err != nil {
 				return err
 			}
-			parts.AddLidar(lidarDevice, c)
+			parts.AddLidar(lidar, c)
 		case api.ComponentTypeSensor:
 			if c.SubType == "" {
 				return errors.New("sensor component requires subtype")
@@ -575,15 +575,15 @@ func (parts *robotParts) CameraByName(name string) gostream.ImageSource {
 	return nil
 }
 
-// LidarDeviceByName returns the given lidar device by name, if it exists;
+// LidarByName returns the given lidar by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) LidarDeviceByName(name string) lidar.Device {
-	part, ok := parts.lidarDevices[name]
+func (parts *robotParts) LidarByName(name string) lidar.Device {
+	part, ok := parts.lidars[name]
 	if ok {
 		return part
 	}
 	for _, remote := range parts.remotes {
-		part := remote.LidarDeviceByName(name)
+		part := remote.LidarByName(name)
 		if part != nil {
 			return part
 		}
@@ -688,12 +688,12 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.lidarDevices) != 0 {
-		if parts.lidarDevices == nil {
-			parts.lidarDevices = make(map[string]lidar.Device, len(toAdd.lidarDevices))
+	if len(toAdd.lidars) != 0 {
+		if parts.lidars == nil {
+			parts.lidars = make(map[string]lidar.Device, len(toAdd.lidars))
 		}
-		for k, v := range toAdd.lidarDevices {
-			parts.lidarDevices[k] = v
+		for k, v := range toAdd.lidars {
+			parts.lidars[k] = v
 		}
 	}
 
@@ -777,9 +777,9 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.lidarDevices) != 0 {
-		for k := range toRemove.lidarDevices {
-			delete(parts.lidarDevices, k)
+	if len(toRemove.lidars) != 0 {
+		for k := range toRemove.lidars {
+			delete(parts.lidars, k)
 		}
 	}
 
@@ -871,7 +871,7 @@ func (parts *robotParts) FilterFromConfig(config *api.Config, logger golog.Logge
 			}
 			filtered.AddCamera(part, conf)
 		case api.ComponentTypeLidar:
-			part := parts.LidarDeviceByName(conf.Name)
+			part := parts.LidarByName(conf.Name)
 			if part == nil {
 				continue
 			}

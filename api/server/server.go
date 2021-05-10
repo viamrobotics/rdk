@@ -330,13 +330,13 @@ func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFram
 	}, nil
 }
 
-// LidarInfo returns the info of a lidar device of the underlying robot.
+// LidarInfo returns the info of a lidar of the underlying robot.
 func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	info, err := lidarDevice.Info(ctx)
+	info, err := lidar.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -347,79 +347,79 @@ func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.L
 	return &pb.LidarInfoResponse{Info: str}, nil
 }
 
-// LidarStart starts a lidar device of the underlying robot.
+// LidarStart starts a lidar of the underlying robot.
 func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	err := lidarDevice.Start(ctx)
+	err := lidar.Start(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.LidarStartResponse{}, nil
 }
 
-// LidarStop stops a lidar device of the underlying robot.
+// LidarStop stops a lidar of the underlying robot.
 func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	err := lidarDevice.Stop(ctx)
+	err := lidar.Stop(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.LidarStopResponse{}, nil
 }
 
-// LidarScan returns a scan from a lidar device of the underlying robot.
+// LidarScan returns a scan from a lidar of the underlying robot.
 func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
 	opts := scanOptionsFromProto(req)
-	ms, err := lidarDevice.Scan(ctx, opts)
+	ms, err := lidar.Scan(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.LidarScanResponse{Measurements: measurementsToProto(ms)}, nil
 }
 
-// LidarRange returns the range of a lidar device of the underlying robot.
+// LidarRange returns the range of a lidar of the underlying robot.
 func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	r, err := lidarDevice.Range(ctx)
+	r, err := lidar.Range(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.LidarRangeResponse{Range: int64(r)}, nil
 }
 
-// LidarBounds returns the scan bounds of a lidar device of the underlying robot.
+// LidarBounds returns the scan bounds of a lidar of the underlying robot.
 func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	bounds, err := lidarDevice.Bounds(ctx)
+	bounds, err := lidar.Bounds(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
 }
 
-// LidarAngularResolution returns the scan angular resolution of a lidar device of the underlying robot.
+// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
 func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
-	lidarDevice := s.r.LidarDeviceByName(req.Name)
-	if lidarDevice == nil {
-		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
+	lidar := s.r.LidarByName(req.Name)
+	if lidar == nil {
+		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
 	}
-	angRes, err := lidarDevice.AngularResolution(ctx)
+	angRes, err := lidar.AngularResolution(ctx)
 	if err != nil {
 		return nil, err
 	}

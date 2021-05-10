@@ -27,8 +27,8 @@ type (
 	// A CreateBase creates a base from a given config.
 	CreateBase func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (Base, error)
 
-	// A CreateLidarDevice creates a lidar device from a given config.
-	CreateLidarDevice func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (lidar.Device, error)
+	// A CreateLidar creates a lidar from a given config.
+	CreateLidar func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (lidar.Device, error)
 
 	// A CreateSensor creates a sensor from a given config.
 	CreateSensor func(ctx context.Context, r Robot, config ComponentConfig, logger golog.Logger) (sensor.Device, error)
@@ -36,13 +36,13 @@ type (
 
 // all registries
 var (
-	cameraRegistry      = map[string]CreateCamera{}
-	armRegistry         = map[string]CreateArm{}
-	gripperRegistry     = map[string]CreateGripper{}
-	providerRegistry    = map[string]CreateProvider{}
-	baseRegistry        = map[string]CreateBase{}
-	lidarDeviceRegistry = map[string]CreateLidarDevice{}
-	sensorRegistry      = map[sensor.DeviceType]map[string]CreateSensor{}
+	cameraRegistry   = map[string]CreateCamera{}
+	armRegistry      = map[string]CreateArm{}
+	gripperRegistry  = map[string]CreateGripper{}
+	providerRegistry = map[string]CreateProvider{}
+	baseRegistry     = map[string]CreateBase{}
+	lidarRegistry    = map[string]CreateLidar{}
+	sensorRegistry   = map[sensor.DeviceType]map[string]CreateSensor{}
 )
 
 // RegisterCamera register a camera model to a creator.
@@ -90,13 +90,13 @@ func RegisterBase(model string, creator CreateBase) {
 	baseRegistry[model] = creator
 }
 
-// RegisterLidarDevice register a lidar device model to a creator.
-func RegisterLidarDevice(model string, creator CreateLidarDevice) {
-	_, old := lidarDeviceRegistry[model]
+// RegisterLidar register a lidar model to a creator.
+func RegisterLidar(model string, creator CreateLidar) {
+	_, old := lidarRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two lidar devices with same model %s", model))
+		panic(fmt.Errorf("trying to register two lidars with same model %s", model))
 	}
-	lidarDeviceRegistry[model] = creator
+	lidarRegistry[model] = creator
 }
 
 // RegisterSensor register a sensor type and model to a creator.
@@ -141,10 +141,10 @@ func BaseLookup(model string) CreateBase {
 	return baseRegistry[model]
 }
 
-// LidarDeviceLookup looks up a lidar device creator by the given model. nil is returned if
+// LidarLookup looks up a lidar creator by the given model. nil is returned if
 // there is no creator registered.
-func LidarDeviceLookup(model string) CreateLidarDevice {
-	return lidarDeviceRegistry[model]
+func LidarLookup(model string) CreateLidar {
+	return lidarRegistry[model]
 }
 
 // SensorLookup looks up a sensor creator by the given model. nil is returned if

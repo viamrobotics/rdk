@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return &pb.Status{
-			LidarDevices: map[string]bool{
+			Lidars: map[string]bool{
 				"lidar1": true,
 			},
 		}, nil
@@ -47,7 +47,7 @@ func TestClient(t *testing.T) {
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 
-	f := api.LidarDeviceLookup(client.ModelNameClient)
+	f := api.LidarLookup(client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
 	_, err = f(context.Background(), nil, api.ComponentConfig{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
@@ -56,12 +56,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no lidar")
 
-	injectDev := &inject.LidarDevice{}
+	injectDev := &inject.Lidar{}
 	infoM := map[string]interface{}{"hello": "world"}
 	injectDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return infoM, nil
 	}
-	injectRobot2.LidarDeviceByNameFunc = func(name string) lidar.Device {
+	injectRobot2.LidarByNameFunc = func(name string) lidar.Device {
 		return injectDev
 	}
 

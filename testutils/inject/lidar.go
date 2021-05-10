@@ -10,7 +10,7 @@ import (
 	"github.com/golang/geo/r2"
 )
 
-type LidarDevice struct {
+type Lidar struct {
 	sync.Mutex
 	lidar.Device
 	InfoFunc              func(ctx context.Context) (map[string]interface{}, error)
@@ -23,35 +23,35 @@ type LidarDevice struct {
 	AngularResolutionFunc func(ctx context.Context) (float64, error)
 }
 
-func (ld *LidarDevice) Info(ctx context.Context) (map[string]interface{}, error) {
+func (ld *Lidar) Info(ctx context.Context) (map[string]interface{}, error) {
 	if ld.InfoFunc == nil {
 		return ld.Device.Info(ctx)
 	}
 	return ld.InfoFunc(ctx)
 }
 
-func (ld *LidarDevice) Start(ctx context.Context) error {
+func (ld *Lidar) Start(ctx context.Context) error {
 	if ld.StartFunc == nil {
 		return ld.Device.Start(ctx)
 	}
 	return ld.StartFunc(ctx)
 }
 
-func (ld *LidarDevice) Stop(ctx context.Context) error {
+func (ld *Lidar) Stop(ctx context.Context) error {
 	if ld.StopFunc == nil {
 		return ld.Device.Stop(ctx)
 	}
 	return ld.StopFunc(ctx)
 }
 
-func (ld *LidarDevice) Close() error {
+func (ld *Lidar) Close() error {
 	if ld.CloseFunc == nil {
 		return utils.TryClose(ld.Device)
 	}
 	return ld.CloseFunc()
 }
 
-func (ld *LidarDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+func (ld *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	ld.Lock()
 	scanFunc := ld.ScanFunc
 	ld.Unlock()
@@ -61,21 +61,21 @@ func (ld *LidarDevice) Scan(ctx context.Context, options lidar.ScanOptions) (lid
 	return scanFunc(ctx, options)
 }
 
-func (ld *LidarDevice) Range(ctx context.Context) (float64, error) {
+func (ld *Lidar) Range(ctx context.Context) (float64, error) {
 	if ld.RangeFunc == nil {
 		return ld.Device.Range(ctx)
 	}
 	return ld.RangeFunc(ctx)
 }
 
-func (ld *LidarDevice) Bounds(ctx context.Context) (r2.Point, error) {
+func (ld *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	if ld.BoundsFunc == nil {
 		return ld.Device.Bounds(ctx)
 	}
 	return ld.BoundsFunc(ctx)
 }
 
-func (ld *LidarDevice) AngularResolution(ctx context.Context) (float64, error) {
+func (ld *Lidar) AngularResolution(ctx context.Context) (float64, error) {
 	if ld.AngularResolutionFunc == nil {
 		return ld.Device.AngularResolution(ctx)
 	}

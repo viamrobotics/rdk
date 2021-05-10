@@ -11,7 +11,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 )
 
-// ImageSource generates images from the current scan of a lidar device
+// ImageSource generates images from the current scan of a lidar
 type ImageSource struct {
 	size          image.Point
 	device        Device

@@ -29,7 +29,7 @@ func ParseFlags(args []string, into interface{}) error {
 	if err := UnmarshalFlags(cmdLine, into); err != nil {
 		if errors.Is(err, errRequiredFlagUnspecified) {
 			cmdLine.Usage()
-			return fmt.Errorf("%s\n%s", err, buf.String())
+			return fmt.Errorf("%w\n%s", err, buf.String())
 		}
 		return err
 	}

@@ -54,7 +54,7 @@ var emptyStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera1": true,
 	},
-	LidarDevices: map[string]bool{
+	Lidars: map[string]bool{
 		"lidar1": true,
 	},
 	Sensors: map[string]*pb.SensorStatus{
@@ -124,7 +124,7 @@ var finalStatus = &pb.Status{
 		"camera2": true,
 		"camera3": true,
 	},
-	LidarDevices: map[string]bool{
+	Lidars: map[string]bool{
 		"lidar2": true,
 		"lidar3": true,
 	},
@@ -202,7 +202,7 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) gostream.ImageSource {
 		return nil
 	}
-	injectRobot1.LidarDeviceByNameFunc = func(name string) lidar.Device {
+	injectRobot1.LidarByNameFunc = func(name string) lidar.Device {
 		return nil
 	}
 	injectRobot1.SensorByNameFunc = func(name string) sensor.Device {
@@ -213,15 +213,15 @@ func TestClient(t *testing.T) {
 		return emptyStatus, nil
 	}
 	var (
-		capBaseName        string
-		capArmName         string
-		capGripperName     string
-		capBoardName       string
-		capMotorName       string
-		capServoName       string
-		capCameraName      string
-		capLidarDeviceName string
-		capSensorName      string
+		capBaseName    string
+		capArmName     string
+		capGripperName string
+		capBoardName   string
+		capMotorName   string
+		capServoName   string
+		capCameraName  string
+		capLidarName   string
+		capSensorName  string
 	)
 	injectBase := &inject.Base{}
 	var baseStopCalled bool
@@ -326,7 +326,7 @@ func TestClient(t *testing.T) {
 		return injectImageSource
 	}
 
-	injectLidarDev := &inject.LidarDevice{}
+	injectLidarDev := &inject.Lidar{}
 	injectLidarDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return map[string]interface{}{"hello": "world"}, nil
 	}
@@ -351,8 +351,8 @@ func TestClient(t *testing.T) {
 	injectLidarDev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return 5.2, nil
 	}
-	injectRobot2.LidarDeviceByNameFunc = func(name string) lidar.Device {
-		capLidarDeviceName = name
+	injectRobot2.LidarByNameFunc = func(name string) lidar.Device {
+		capLidarName = name
 		return injectLidarDev
 	}
 
@@ -572,7 +572,7 @@ func TestClient(t *testing.T) {
 	test.That(t, imageReleased, test.ShouldBeTrue)
 	test.That(t, capCameraName, test.ShouldEqual, "camera1")
 
-	lidarDev := client.LidarDeviceByName("lidar1")
+	lidarDev := client.LidarByName("lidar1")
 	info, err := lidarDev.Info(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, info, test.ShouldResemble, map[string]interface{}{"hello": "world"})
@@ -594,7 +594,7 @@ func TestClient(t *testing.T) {
 	test.That(t, angRes, test.ShouldEqual, 5.2)
 	err = utils.TryClose(lidarDev)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capLidarDeviceName, test.ShouldEqual, "lidar1")
+	test.That(t, capLidarName, test.ShouldEqual, "lidar1")
 
 	sensorDev := client.SensorByName("compass1")
 	test.That(t, sensorDev, test.ShouldImplement, (*compass.Device)(nil))
@@ -684,7 +684,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm2", "arm3"))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper2", "gripper3"))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
-	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))
@@ -707,7 +707,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm1"))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper1"))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1"))
-	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
+	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
@@ -721,7 +721,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.ArmNames()...), test.ShouldResemble, utils.NewStringSet("arm2", "arm3"))
 	test.That(t, utils.NewStringSet(client.GripperNames()...), test.ShouldResemble, utils.NewStringSet("gripper2", "gripper3"))
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera2", "camera3"))
-	test.That(t, utils.NewStringSet(client.LidarDeviceNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
+	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar2", "lidar3"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2", "base3"))
 	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass2", "compass3", "compass4"))

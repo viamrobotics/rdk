@@ -242,7 +242,7 @@ func (p *managedProcess) manage(stdOut, stdErr io.ReadCloser) {
 
 	err = p.Start(context.Background())
 	if err != nil {
-		if err != errAlreadyStopped {
+		if !errors.Is(err, errAlreadyStopped) {
 			// MAYBE(erd): add retry
 			p.logger.Errorw("error restarting process", "error", err)
 		}
@@ -277,7 +277,7 @@ func (p *managedProcess) Stop() error {
 
 	p.logger.Info("stopping")
 	// First let's try to interrupt the process.
-	if err := p.cmd.Process.Signal(os.Interrupt); err != nil && err != os.ErrProcessDone {
+	if err := p.cmd.Process.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return fmt.Errorf("error interrupting process: %w", err)
 	}
 
@@ -286,7 +286,7 @@ func (p *managedProcess) Stop() error {
 	defer timer.Stop()
 	select {
 	case <-timer.C:
-		if err := p.cmd.Process.Kill(); err != nil && err != os.ErrProcessDone {
+		if err := p.cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
 			return fmt.Errorf("error killing process: %w", err)
 		}
 	case <-p.managingCh:
@@ -299,14 +299,13 @@ func (p *managedProcess) Stop() error {
 
 	if p.lastWaitErr != nil {
 		var unknownStatus bool
-		if se, ok := p.lastWaitErr.(*os.SyscallError); ok {
-			if num, ok := se.Unwrap().(syscall.Errno); ok {
-				// We lost the race to wait before the signal was caught. We're
-				// not going to be able to report any information here about the
-				// process stopping, unfortunately.
-				if num == syscall.ECHILD {
-					unknownStatus = true
-				}
+		var errno syscall.Errno
+		if errors.As(p.lastWaitErr, &errno) {
+			// We lost the race to wait before the signal was caught. We're
+			// not going to be able to report any information here about the
+			// process stopping, unfortunately.
+			if errno == syscall.ECHILD {
+				unknownStatus = true
 			}
 		}
 
