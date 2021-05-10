@@ -189,16 +189,18 @@ func (s *cachedStore) Ensure(path string) (string, error) {
 
 }
 
+// ensureNode verifies that all nodes living under a tree with respect to a given
+// path are placed in the cache.
 func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error) {
-	if node.IsTree() {
-		for name, child := range node.tree {
+	if node.IsInternal() {
+		for name, child := range node.internal {
 			if _, err := s.ensureNode(child, filepath.Join(dstPath, name)); err != nil {
 				return "", err
 			}
 		}
 		return dstPath, nil
 	}
-	nodeHash := node.leaf.hash
+	nodeHash := node.external.hash
 
 	if err := s.cache.Contains(nodeHash); err == nil {
 		if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
@@ -230,6 +232,8 @@ func (s *cachedStore) Clean() error {
 	return s.cleanTree(s.config.Tree, s.rootDir)
 }
 
+// cleanTree removes any files not referenced by the tree with respect to the given
+// local path.
 func (s *cachedStore) cleanTree(tree map[string]*TreeNode, localPath string) error {
 	localFileInfos, err := os.ReadDir(localPath)
 	if err != nil {
@@ -240,8 +244,8 @@ func (s *cachedStore) cleanTree(tree map[string]*TreeNode, localPath string) err
 		newLocalPath := filepath.Join(localPath, name)
 		node, ok := tree[name]
 		if ok {
-			if node.IsTree() {
-				return s.cleanTree(node.tree, newLocalPath)
+			if node.IsInternal() {
+				return s.cleanTree(node.internal, newLocalPath)
 			}
 			continue
 		}
@@ -273,6 +277,8 @@ func (s *cachedStore) WriteThroughUser() error {
 	return s.config.commitFn()
 }
 
+// writeThroughUserTree examines the tree with respect to the given local path and stores all artifacts
+// not in the tree into the underlying store and updates the tree with the artifact location/hash.
 func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath []string, localPath string) error {
 	localFileInfos, err := os.ReadDir(localPath)
 	if err != nil {
@@ -288,11 +294,11 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 		}
 		if stat.IsDir() {
 			next, ok := tree[name]
-			if !ok || !next.IsTree() {
-				next = &TreeNode{tree: TreeNodeTree{}}
+			if !ok || !next.IsInternal() {
+				next = &TreeNode{internal: TreeNodeTree{}}
 				tree[name] = next
 			}
-			if err := s.writeThroughUserTree(next.tree, newTreePath, newLocalPath); err != nil {
+			if err := s.writeThroughUserTree(next.internal, newTreePath, newLocalPath); err != nil {
 				return err
 			}
 			continue
@@ -312,7 +318,7 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 			if err != nil {
 				return err
 			}
-			if hasExistingNode && !existingNode.IsTree() && existingNode.leaf.hash == nodeHash {
+			if hasExistingNode && !existingNode.IsInternal() && existingNode.external.hash == nodeHash {
 				return nil
 			}
 			Logger.Debugw("writing through", "path", newLocalPath, "hash", nodeHash)

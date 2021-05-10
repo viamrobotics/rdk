@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/option"
 )
 
+// newGoogleStorageStore returns a new googleStorageStore based on the given config.
 func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStore, error) {
 	var opts []option.ClientOption
 	if path, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS"); !ok || path == "" {
@@ -22,6 +23,7 @@ func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStor
 	return &googleStorageStore{client: client, bucket: client.Bucket(config.Bucket)}, nil
 }
 
+// A googleStorageStore is able to load and store artifacts by their hashes and content.
 type googleStorageStore struct {
 	client *storage.Client
 	bucket *storage.BucketHandle

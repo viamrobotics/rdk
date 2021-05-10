@@ -10,11 +10,15 @@ import (
 	"strings"
 )
 
+// The default artifact file names.
 const (
 	DefaultConfigName = ".artifact.json"
 	DefaultTreeName   = ".artifact.tree.json"
 )
 
+// LoadConfig attempts to automatically load an artifact config
+// by searching for the default configuration file upwards in
+// the file system.
 func LoadConfig() (*Config, error) {
 	configPath, err := searchConfig()
 	if err != nil {
@@ -23,6 +27,9 @@ func LoadConfig() (*Config, error) {
 	return LoadConfigFromFile(configPath)
 }
 
+// searchConfig searches for the default configuration file by
+// traversing the filesystem upwards from the current working
+// directory.
 func searchConfig() (string, error) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -57,6 +64,8 @@ func searchConfig() (string, error) {
 	return location, nil
 }
 
+// LoadConfigFromFile loads a Config from the given path. It also
+// searches for an adjacent tree file (not required to exist).
 func LoadConfigFromFile(path string) (*Config, error) {
 	pathDir := filepath.Dir(path)
 	configFile, err := os.Open(path)
@@ -100,6 +109,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 	return &config, nil
 }
 
+// A Config describes how artifact should function.
 type Config struct {
 	Cache     string       `json:"cache"`
 	Root      string       `json:"root"`
@@ -109,9 +119,11 @@ type Config struct {
 	commitFn  func() error
 }
 
+// Lookup looks an artifact up by its path and returns its
+// associated node if it exists.
 func (c *Config) Lookup(path string) (*TreeNode, error) {
 	if path == "/" {
-		return &TreeNode{tree: c.Tree}, nil
+		return &TreeNode{internal: c.Tree}, nil
 	}
 	parts := strings.Split(path, "/")
 	node, ok := c.Tree.lookup(parts)
@@ -121,6 +133,7 @@ func (c *Config) Lookup(path string) (*TreeNode, error) {
 	return node, nil
 }
 
+// UnmarshalJSON unmarshals the config from JSON data.
 func (c *Config) UnmarshalJSON(data []byte) error {
 	rawConfig := &struct {
 		Cache string           `json:"cache"`
@@ -170,15 +183,26 @@ func (c *Config) storeHash(nodeHash string, path []string) error {
 	return c.Tree.storeHash(nodeHash, path)
 }
 
+// A TreeNode represents a node in an artifact tree. The tree
+// is a hierarchy of artifacts that mimics a file system.
 type TreeNode struct {
-	tree TreeNodeTree
-	leaf *TreeNodeLeaf
+	internal TreeNodeTree
+	external *TreeNodeExternal
 }
 
-func (tn *TreeNode) IsTree() bool {
-	return tn.tree != nil
+// IsInternal returns if this node is an internal node.
+func (tn *TreeNode) IsInternal() bool {
+	return tn.internal != nil
 }
 
+// A TreeNodeExternal is an external node representing the location
+// of an artifact identified by its content hash.
+type TreeNodeExternal struct {
+	hash string
+}
+
+// UnmarshalJSON unmarshals JSON into a specific tree node
+// that may be internal or external.
 func (tn *TreeNode) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	tok, err := dec.Token()
@@ -187,14 +211,14 @@ func (tn *TreeNode) UnmarshalJSON(data []byte) error {
 	}
 	switch v := tok.(type) {
 	case string:
-		tn.leaf = &TreeNodeLeaf{hash: v}
+		tn.external = &TreeNodeExternal{hash: v}
 	case json.Delim:
 		if v == '{' {
 			var tree TreeNodeTree
 			if err := json.Unmarshal(data, &tree); err != nil {
 				return err
 			}
-			tn.tree = tree
+			tn.internal = tree
 		} else {
 			return fmt.Errorf("invalid json delimiter %q", v)
 		}
@@ -204,15 +228,19 @@ func (tn *TreeNode) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON marshals the node out into JSON.
 func (tn *TreeNode) MarshalJSON() ([]byte, error) {
-	if tn.IsTree() {
-		return json.Marshal(tn.tree)
+	if tn.IsInternal() {
+		return json.Marshal(tn.internal)
 	}
-	return json.Marshal(tn.leaf.hash)
+	return json.Marshal(tn.external.hash)
 }
 
+// A TreeNodeTree is an internal node with mappings to other
+// nodes.
 type TreeNodeTree map[string]*TreeNode
 
+// lookup attempts to find a node by its path looking downwards.
 func (tnt TreeNodeTree) lookup(path []string) (*TreeNode, bool) {
 	if tnt == nil || len(path) == 0 {
 		return nil, false
@@ -224,30 +252,28 @@ func (tnt TreeNodeTree) lookup(path []string) (*TreeNode, bool) {
 	if len(path) == 1 {
 		return node, true
 	}
-	return node.tree.lookup(path[1:])
+	return node.internal.lookup(path[1:])
 }
 
+// storeHash stores a node hash by traversing down the tree to the destination
+// creating nodes along the way.
 func (tnt TreeNodeTree) storeHash(nodeHash string, path []string) error {
 	if tnt == nil || len(path) == 0 {
 		return nil
 	}
 	if len(path) == 1 {
-		tnt[path[0]] = &TreeNode{leaf: &TreeNodeLeaf{hash: nodeHash}}
+		tnt[path[0]] = &TreeNode{external: &TreeNodeExternal{hash: nodeHash}}
 		return nil
 	}
 	node, ok := tnt[path[0]]
 	if !ok {
 		next := TreeNodeTree{}
-		tnt[path[0]] = &TreeNode{tree: next}
+		tnt[path[0]] = &TreeNode{internal: next}
 		return next.storeHash(nodeHash, path[1:])
 	}
-	if !node.IsTree() {
-		node = &TreeNode{tree: TreeNodeTree{}}
+	if !node.IsInternal() {
+		node = &TreeNode{internal: TreeNodeTree{}}
 		tnt[path[0]] = node
 	}
-	return node.tree.storeHash(nodeHash, path[1:])
-}
-
-type TreeNodeLeaf struct {
-	hash string
+	return node.internal.storeHash(nodeHash, path[1:])
 }
