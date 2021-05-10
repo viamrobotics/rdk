@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// newFileSystemStore returns a new fileSystemStore based on the given config.
 func newFileSystemStore(config *fileSystemStoreConfig) (*fileSystemStore, error) {
 	dirStat, err := os.Stat(config.Path)
 	if err != nil {
@@ -21,6 +22,9 @@ func newFileSystemStore(config *fileSystemStoreConfig) (*fileSystemStore, error)
 	return &fileSystemStore{dir: config.Path}, nil
 }
 
+// A fileSystemStore stores artifacts in a local file system. It generally
+// stores artifacts by their node hash but can also emplace those same files
+// in a directory structure.
 type fileSystemStore struct {
 	dir string
 }
@@ -66,6 +70,8 @@ func (s *fileSystemStore) Store(hash string, r io.Reader) (err error) {
 	return
 }
 
+// Emplace ensures that a given artifact identified by a given hash
+// is placed in the given path (creating parent directories along the way).
 func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 	if err := s.Contains(hash); err != nil {
 		return err
