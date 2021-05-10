@@ -10,7 +10,7 @@
                     "pwm" : "15"
                 },
                 "encoder" : "port-encoder",
-                "ticksPerRotation" : 250
+                "ticksPerRotation" : 1000
               },
               { "name" : "starboard",
                 "pins" : {
@@ -19,7 +19,7 @@
                     "pwm" : "22"
                 },
                 "encoder" : "starboard-encoder",
-                "ticksPerRotation" : 250
+                "ticksPerRotation" : 1000
               }
           ],
           "digitalInterrupts" : [
