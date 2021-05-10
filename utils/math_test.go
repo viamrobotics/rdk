@@ -18,6 +18,11 @@ func TestAbs1(t *testing.T) {
 	test.That(t, AbsInt64(0), test.ShouldEqual, int64(0))
 }
 
+func TestCubeRoot(t *testing.T) {
+	test.That(t, CubeRoot(1.0), test.ShouldAlmostEqual, 1.0)
+	test.That(t, CubeRoot(8.0), test.ShouldAlmostEqual, 2.0)
+}
+
 func TestSquare1(t *testing.T) {
 	test.That(t, Square(2.0), test.ShouldEqual, 4.0)
 	test.That(t, SquareInt(2), test.ShouldEqual, 4)
