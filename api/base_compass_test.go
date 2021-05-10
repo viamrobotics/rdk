@@ -19,10 +19,10 @@ func TestAugmentReduce(t *testing.T) {
 	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
-	test.That(t, api.BaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
+	test.That(t, api.AugmentBaseWithCompass(dev, nil, logger), test.ShouldEqual, dev)
 
 	comp := &inject.Compass{}
-	aug := api.BaseWithCompass(dev, comp, logger)
+	aug := api.AugmentBaseWithCompass(dev, comp, logger)
 	test.That(t, aug, test.ShouldNotEqual, dev)
 	var baseDev *api.Base = nil
 	test.That(t, aug, test.ShouldImplement, baseDev)
@@ -37,7 +37,7 @@ func TestDeviceWithCompass(t *testing.T) {
 		return 600, nil
 	}
 	comp := &inject.Compass{}
-	aug := api.BaseWithCompass(dev, comp, logger)
+	aug := api.AugmentBaseWithCompass(dev, comp, logger)
 
 	t.Run("perfect base", func(t *testing.T) {
 		i := 0
