@@ -127,8 +127,8 @@ func Dilate(center image.Point, dm, kernel *DepthMap) Depth {
 
 // Morphological Filter takes in a pointer of the input depth map, the output depth map, the size of the kernel, the number of times to apply the filter, and the filter to apply. Morphological filters are used in image preprocessing to smooth, prune, and fill in noise in the image.
 func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func(center image.Point, dm, kernel *DepthMap) Depth) error {
-	if kernelSize%2 != 0 {
-		return fmt.Errorf("kernelSize must be an odd number")
+	if kernelSize%2 == 0 {
+		return fmt.Errorf("kernelSize must be an odd number, input was %d", kernelSize)
 	}
 	width, height := inDM.Width(), inDM.Height()
 	widthOut, heightOut := outDM.Width(), outDM.Height()
