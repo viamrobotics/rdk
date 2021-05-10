@@ -8,12 +8,6 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-// Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
-var (
-	sobelX = [3][3]int{{1, 0, -1}, {2, 0, -2}, {1, 0, -1}}
-	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
-)
-
 // Input a vector in cartesian coordinates and return the vector in polar coordinates.
 func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	mag := math.Sqrt(x*x + y*y)
@@ -25,7 +19,8 @@ func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	return mag, dir
 }
 
-// Helper function for convolving matrices together
+// Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
+// i is the position within the kernel and dx gives the offset within the depth map.
 func makeRangeArray(dim int) []int {
 	if dim <= 0 {
 		return make([]int, 0)
@@ -43,6 +38,12 @@ func makeRangeArray(dim int) []int {
 	}
 	return rangeArray
 }
+
+// Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
+var (
+	sobelX = [3][3]int{{1, 0, -1}, {2, 0, -2}, {1, 0, -1}}
+	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
+)
 
 // Sobel Filter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
 // (after shaving a pixel of every side), creates a  vector in polar form, and returns a vector field.
@@ -125,7 +126,9 @@ func Dilate(center image.Point, dm, kernel *DepthMap) Depth {
 	return Depth(depth)
 }
 
-// Morphological Filter takes in a pointer of the input depth map, the output depth map, the size of the kernel, the number of times to apply the filter, and the filter to apply. Morphological filters are used in image preprocessing to smooth, prune, and fill in noise in the image.
+// MorphFilter takes in a pointer of the input depth map, the output depth map, the size of the kernel,
+// the number of times to apply the filter, and the filter to apply. Morphological filters are used in
+// image preprocessing to smooth, prune, and fill in noise in the image.
 func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func(center image.Point, dm, kernel *DepthMap) Depth) error {
 	if kernelSize%2 == 0 {
 		return fmt.Errorf("kernelSize must be an odd number, input was %d", kernelSize)
