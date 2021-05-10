@@ -116,6 +116,12 @@ func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
 	return float64(m.state.curPosition) / float64(m.cfg.TicksPerRotation), nil
 }
 
+func (m *encodedMotor) rawPosition() int64 {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+	return m.state.curPosition
+}
+
 func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
@@ -250,6 +256,23 @@ func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart fun
 	}, m.activeBackgroundWorkers.Done)
 }
 
+/*
+   picture from https://github.com/joan2937/pigpio/blob/master/EXAMPLES/C/ROTARY_ENCODER/rotary_encoder.c
+     1   2     3    4    1    2    3    4     1
+
+             +---------+         +---------+      0
+             |         |         |         |
+   A         |         |         |         |
+             |         |         |         |
+   +---------+         +---------+         +----- 1
+
+       +---------+         +---------+            0
+       |         |         |         |
+   B   |         |         |         |
+       |         |         |         |
+   ----+         +---------+         +---------+  1
+
+*/
 func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart func()) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
@@ -264,6 +287,7 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 		bLevel := true
 
 		lastWasA := true
+		lastLevel := true
 
 		for {
 
@@ -287,20 +311,39 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 				bLevel = level
 			}
 
-			if isA == lastWasA {
-				lastWasA = isA
+			if isA == lastWasA && level == lastLevel {
+				// this means we got the exact same message multiple times
+				// this is probably some sort of hardware issue, so we ignore
 				continue
 			}
 			lastWasA = isA
+			lastLevel = level
 
 			m.stateMu.Lock()
-			if isA && level {
-				if bLevel {
+
+			if !aLevel && !bLevel { // state 1
+				if lastWasA {
+					m.state.curPosition++
+				} else {
+					m.state.curPosition--
+				}
+			} else if !aLevel && bLevel { // state 2
+				if lastWasA {
+					m.state.curPosition--
+				} else {
 					m.state.curPosition++
 				}
-			} else if !isA && level {
-				if aLevel {
+			} else if aLevel && bLevel { // state 3
+				if lastWasA {
+					m.state.curPosition++
+				} else {
 					m.state.curPosition--
+				}
+			} else if aLevel && !bLevel { // state 4
+				if lastWasA {
+					m.state.curPosition--
+				} else {
+					m.state.curPosition++
 				}
 			}
 
