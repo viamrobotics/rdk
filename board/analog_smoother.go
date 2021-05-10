@@ -12,27 +12,9 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-var (
-	ErrStopReading = errors.New("stop reading")
-)
+var errStopReading = errors.New("stop reading")
 
-func AnalogSmootherWrap(r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
-	if c.AverageOverMillis <= 0 {
-		return r
-	}
-
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	as := &AnalogSmoother{
-		Raw:               r,
-		AverageOverMillis: c.AverageOverMillis,
-		SamplesPerSecond:  c.SamplesPerSecond,
-		logger:            logger,
-		cancel:            cancel,
-	}
-	as.Start(cancelCtx)
-	return as
-}
-
+// An AnalogSmoother smooths the readings out from an underlying reader.
 type AnalogSmoother struct {
 	Raw                     AnalogReader
 	AverageOverMillis       int
@@ -44,17 +26,38 @@ type AnalogSmoother struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// SmoothAnalogReader wraps the given reader in a smoother.
+func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) AnalogReader {
+	if c.AverageOverMillis <= 0 {
+		return r
+	}
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	smoother := &AnalogSmoother{
+		Raw:               r,
+		AverageOverMillis: c.AverageOverMillis,
+		SamplesPerSecond:  c.SamplesPerSecond,
+		logger:            logger,
+		cancel:            cancel,
+	}
+	smoother.Start(cancelCtx)
+	return smoother
+}
+
+// An errValue is used to atomically store an error.
 type errValue struct {
 	present bool
 	err     error
 }
 
+// Close stops the smoothing routine.
 func (as *AnalogSmoother) Close() error {
 	as.cancel()
 	as.activeBackgroundWorkers.Wait()
 	return nil
 }
 
+// Read returns the smoothed out reading.
 func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
 	avg := as.data.Average()
 	lastErr := as.lastError.Load()
@@ -68,6 +71,8 @@ func (as *AnalogSmoother) Read(ctx context.Context) (int, error) {
 	return avg, nil
 }
 
+// Start begins the smoothing routine that reads from the underlying
+// analog reader.
 func (as *AnalogSmoother) Start(ctx context.Context) {
 
 	// examples 1
@@ -96,14 +101,13 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			reading, err := as.Raw.Read(ctx)
 			as.lastError.Store(errValue{err != nil, err})
 			if err != nil {
-				if err == ErrStopReading {
+				if errors.Is(err, errStopReading) {
 					break
 				}
-				as.logger.Info("error reading analog: %s", err)
+				as.logger.Infow("error reading analog", "error", err)
 				continue
 			}
 
-			//as.logger.Debugf("reading: %d", reading)
 			as.data.Add(reading)
 
 			end := time.Now()

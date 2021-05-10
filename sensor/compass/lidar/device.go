@@ -37,24 +37,24 @@ type Device struct {
 	markedRotatedMats atomic.Value // [][]rotatedMat
 }
 
-func From(lidarDevice lidar.Device) compass.RelativeDevice {
-	return &Device{Device: lidarDevice}
+func From(lidar lidar.Device) compass.RelativeDevice {
+	return &Device{Device: lidar}
 }
 
 func New(ctx context.Context, config api.ComponentConfig, logger golog.Logger) (compass.RelativeDevice, error) {
 	lidarType := config.Attributes.String("type")
-	f := api.LidarDeviceLookup(lidarType)
+	f := api.LidarLookup(lidarType)
 	if f == nil {
 		return nil, fmt.Errorf("unknown lidar model: %s", lidarType)
 	}
-	lidarDevice, err := f(ctx, nil, config, logger)
+	lidar, err := f(ctx, nil, config, logger)
 	if err != nil {
 		return nil, err
 	}
-	if err := lidarDevice.Start(ctx); err != nil {
+	if err := lidar.Start(ctx); err != nil {
 		return nil, err
 	}
-	return &Device{Device: lidarDevice}, nil
+	return &Device{Device: lidar}, nil
 }
 
 func (d *Device) Desc() sensor.DeviceDescription {
@@ -78,8 +78,8 @@ func (d *Device) clone() *Device {
 	return &cloned
 }
 
-func (d *Device) setDevice(lidarDevice lidar.Device) {
-	d.Device = lidarDevice
+func (d *Device) setDevice(lidar lidar.Device) {
+	d.Device = lidar
 }
 
 func (d *Device) StartCalibration(ctx context.Context) error {

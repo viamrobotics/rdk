@@ -59,7 +59,7 @@ var emptyStatus = &pb.StatusResponse{
 		Cameras: map[string]bool{
 			"camera1": true,
 		},
-		LidarDevices: map[string]bool{
+		Lidars: map[string]bool{
 			"lidar1": true,
 		},
 		Boards: map[string]*pb.BoardStatus{
@@ -903,7 +903,7 @@ func TestServer(t *testing.T) {
 	t.Run("Lidar", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.LidarDeviceByNameFunc = func(name string) lidar.Device {
+		injectRobot.LidarByNameFunc = func(name string) lidar.Device {
 			capName = name
 			return nil
 		}
@@ -917,8 +917,8 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 
-		device := &inject.LidarDevice{}
-		injectRobot.LidarDeviceByNameFunc = func(name string) lidar.Device {
+		device := &inject.Lidar{}
+		injectRobot.LidarByNameFunc = func(name string) lidar.Device {
 			return device
 		}
 

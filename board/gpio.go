@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -11,11 +12,17 @@ import (
 	"go.uber.org/multierr"
 )
 
+// A GPIOBoard is a board that allows for setting attributes on specific pins.
 type GPIOBoard interface {
+	// GPIOSet sets the given pin to either low or high.
 	GPIOSet(pin string, high bool) error
+
+	// PWMSet sets the given pin to the given duty cycle.
 	PWMSet(pin string, dutyCycle byte) error
 }
 
+// NewGPIOMotor constructs a new GPIO based motor on the given board using the
+// given configuration.
 func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, error) {
 	var m Motor
 	pins := mc.Pins
@@ -36,6 +43,7 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, erro
 
 var _ = Motor(&GPIOMotor{})
 
+// A GPIOMotor is a GPIO based Motor that resides ona GPIO Board.
 type GPIOMotor struct {
 	Board     GPIOBoard
 	A, B, PWM string
@@ -79,7 +87,7 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 }
 
 func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
-	return fmt.Errorf("not supported")
+	return errors.New("not supported")
 }
 
 func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {

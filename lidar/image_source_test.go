@@ -19,7 +19,7 @@ import (
 )
 
 func TestImageSource(t *testing.T) {
-	injectDev := &inject.LidarDevice{}
+	injectDev := &inject.Lidar{}
 	err2 := errors.New("whoops2")
 	injectDev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err2

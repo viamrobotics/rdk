@@ -39,14 +39,14 @@ type RobotClient struct {
 	conn    rpc.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu          sync.Mutex
-	armNames         []string
-	baseNames        []string
-	gripperNames     []string
-	boardNames       []string
-	cameraNames      []string
-	lidarDeviceNames []string
-	sensorNames      []string
+	namesMu      sync.Mutex
+	armNames     []string
+	baseNames    []string
+	gripperNames []string
+	boardNames   []string
+	cameraNames  []string
+	lidarNames   []string
+	sensorNames  []string
 
 	sensorTypes map[string]sensor.DeviceType
 
@@ -219,10 +219,10 @@ func (rc *RobotClient) CameraByName(name string) gostream.ImageSource {
 	return &cameraClient{rc, name}
 }
 
-// LidarDeviceByName returns a lidar device by name. It is assumed to exist on the
+// LidarByName returns a lidar by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) LidarDeviceByName(name string) lidar.Device {
-	return &lidarDeviceClient{rc, name}
+func (rc *RobotClient) LidarByName(name string) lidar.Device {
+	return &lidarClient{rc, name}
 }
 
 // BoardByName returns a board by name. It is assumed to exist on the
@@ -297,11 +297,11 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.cameraNames = append(rc.cameraNames, name)
 		}
 	}
-	rc.lidarDeviceNames = nil
-	if len(status.LidarDevices) != 0 {
-		rc.lidarDeviceNames = make([]string, 0, len(status.LidarDevices))
-		for name := range status.LidarDevices {
-			rc.lidarDeviceNames = append(rc.lidarDeviceNames, name)
+	rc.lidarNames = nil
+	if len(status.Lidars) != 0 {
+		rc.lidarNames = make([]string, 0, len(status.Lidars))
+		for name := range status.Lidars {
+			rc.lidarNames = append(rc.lidarNames, name)
 		}
 	}
 	rc.sensorNames = nil
@@ -349,11 +349,11 @@ func (rc *RobotClient) CameraNames() []string {
 	return copyStringSlice(rc.cameraNames)
 }
 
-// LidarDeviceNames returns the names of all known lidar devices.
-func (rc *RobotClient) LidarDeviceNames() []string {
+// LidarNames returns the names of all known lidars.
+func (rc *RobotClient) LidarNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.lidarDeviceNames)
+	return copyStringSlice(rc.lidarNames)
 }
 
 // BaseNames returns the names of all known bases.
@@ -709,14 +709,14 @@ func (cc *cameraClient) Close() error {
 	return nil
 }
 
-// lidarDeviceClient satisfies a gRPC based lidar.Device. Refer to the interface
+// lidarClient satisfies a gRPC based lidar.Device. Refer to the interface
 // for descriptions of its methods.
-type lidarDeviceClient struct {
+type lidarClient struct {
 	rc   *RobotClient
 	name string
 }
 
-func (ldc *lidarDeviceClient) Info(ctx context.Context) (map[string]interface{}, error) {
+func (ldc *lidarClient) Info(ctx context.Context) (map[string]interface{}, error) {
 	resp, err := ldc.rc.client.LidarInfo(ctx, &pb.LidarInfoRequest{
 		Name: ldc.name,
 	})
@@ -726,21 +726,21 @@ func (ldc *lidarDeviceClient) Info(ctx context.Context) (map[string]interface{},
 	return resp.Info.AsMap(), nil
 }
 
-func (ldc *lidarDeviceClient) Start(ctx context.Context) error {
+func (ldc *lidarClient) Start(ctx context.Context) error {
 	_, err := ldc.rc.client.LidarStart(ctx, &pb.LidarStartRequest{
 		Name: ldc.name,
 	})
 	return err
 }
 
-func (ldc *lidarDeviceClient) Stop(ctx context.Context) error {
+func (ldc *lidarClient) Stop(ctx context.Context) error {
 	_, err := ldc.rc.client.LidarStop(ctx, &pb.LidarStopRequest{
 		Name: ldc.name,
 	})
 	return err
 }
 
-func (ldc *lidarDeviceClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
+func (ldc *lidarClient) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	resp, err := ldc.rc.client.LidarScan(ctx, &pb.LidarScanRequest{
 		Name:     ldc.name,
 		Count:    int32(options.Count),
@@ -752,7 +752,7 @@ func (ldc *lidarDeviceClient) Scan(ctx context.Context, options lidar.ScanOption
 	return MeasurementsFromProto(resp.Measurements), nil
 }
 
-func (ldc *lidarDeviceClient) Range(ctx context.Context) (float64, error) {
+func (ldc *lidarClient) Range(ctx context.Context) (float64, error) {
 	resp, err := ldc.rc.client.LidarRange(ctx, &pb.LidarRangeRequest{
 		Name: ldc.name,
 	})
@@ -762,7 +762,7 @@ func (ldc *lidarDeviceClient) Range(ctx context.Context) (float64, error) {
 	return float64(resp.Range), nil
 }
 
-func (ldc *lidarDeviceClient) Bounds(ctx context.Context) (r2.Point, error) {
+func (ldc *lidarClient) Bounds(ctx context.Context) (r2.Point, error) {
 	resp, err := ldc.rc.client.LidarBounds(ctx, &pb.LidarBoundsRequest{
 		Name: ldc.name,
 	})
@@ -772,7 +772,7 @@ func (ldc *lidarDeviceClient) Bounds(ctx context.Context) (r2.Point, error) {
 	return r2.Point{float64(resp.X), float64(resp.Y)}, nil
 }
 
-func (ldc *lidarDeviceClient) AngularResolution(ctx context.Context) (float64, error) {
+func (ldc *lidarClient) AngularResolution(ctx context.Context) (float64, error) {
 	resp, err := ldc.rc.client.LidarAngularResolution(ctx, &pb.LidarAngularResolutionRequest{
 		Name: ldc.name,
 	})

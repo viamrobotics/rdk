@@ -57,29 +57,29 @@ func TestMainMain(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	api.RegisterLidarDevice("fail_info", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+	api.RegisterLidar("fail_info", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.Lidar{Device: &fake.Lidar{}}
 		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidarDevice("fail_width", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+	api.RegisterLidar("fail_width", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.Lidar{Device: &fake.Lidar{}}
 		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return r2.Point{}, errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidarDevice("fail_ang", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+	api.RegisterLidar("fail_ang", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.Lidar{Device: &fake.Lidar{}}
 		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidarDevice("fail_stop", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.LidarDevice{Device: &fake.Lidar{}}
+	api.RegisterLidar("fail_stop", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+		dev := &inject.Lidar{Device: &fake.Lidar{}}
 		dev.StopFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
@@ -108,11 +108,11 @@ func TestMainMain(t *testing.T) {
 		{"lidar and offset mismatch", []string{"--lidar=type=lidar,model=fake,host=one", "--lidar=type=lidar,model=fake,host=two", "--lidar-offset=1,2,3", "--lidar-offset=1,2,4"}, "have up to", before, nil, nil},
 
 		// running
-		{"bad lidar device type", []string{"--lidar=type=lidar,model=foo,host=blah"}, "unknown lidar model", before, nil, nil},
-		{"bad lidar device info", []string{"--lidar=type=lidar,model=fail_info,host=zero"}, "whoops", before, nil, nil},
-		{"bad lidar device width", []string{"--lidar=type=lidar,model=fail_width,host=zero"}, "whoops", before, nil, nil},
-		{"bad lidar device ang res", []string{"--lidar=type=lidar,model=fail_ang,host=zero"}, "whoops", before, nil, nil},
-		{"bad lidar device stop", []string{"--lidar=type=lidar,model=fail_stop,host=zero"}, "whoops", before, nil, nil},
+		{"bad lidar type", []string{"--lidar=type=lidar,model=foo,host=blah"}, "unknown lidar model", before, nil, nil},
+		{"bad lidar info", []string{"--lidar=type=lidar,model=fail_info,host=zero"}, "whoops", before, nil, nil},
+		{"bad lidar width", []string{"--lidar=type=lidar,model=fail_width,host=zero"}, "whoops", before, nil, nil},
+		{"bad lidar ang res", []string{"--lidar=type=lidar,model=fail_ang,host=zero"}, "whoops", before, nil, nil},
+		{"bad lidar stop", []string{"--lidar=type=lidar,model=fail_stop,host=zero"}, "whoops", before, nil, nil},
 		{"normal", []string{"--lidar=type=lidar,model=fake,host=1"}, "", before, nil, nil},
 		{"normal with compass", []string{fmt.Sprintf("--compass=type=sensor,subtype=compass,model=grpc,host=%s,port=%d", host, port)}, "", before, nil, nil},
 	})

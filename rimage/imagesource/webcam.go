@@ -2,7 +2,7 @@ package imagesource
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"path/filepath"
 	"regexp"
 
@@ -107,7 +107,7 @@ func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.Imag
 
 		if pattern != nil && !pattern.MatchString(label) {
 			if debug {
-				logger.Debugf("\t skipping because of pattern")
+				logger.Debug("\t skipping because of pattern")
 			}
 			continue
 		}
@@ -115,17 +115,17 @@ func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.Imag
 		s, err := tryWebcamOpen(label, debug, constraints)
 		if err == nil {
 			if debug {
-				logger.Debugf("\t USING")
+				logger.Debug("\t USING")
 			}
 
 			return s, nil
 		}
 		if debug {
-			logger.Debugf("\t %s", err)
+			logger.Debugf("\t %w", err)
 		}
 	}
 
-	return nil, fmt.Errorf("found no webcams")
+	return nil, errors.New("found no webcams")
 }
 
 func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (gostream.ImageSource, error) {

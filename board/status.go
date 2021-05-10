@@ -7,6 +7,9 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
+// CreateStatus constructs a new up to date status from the given board.
+// The operation can take time and be expensive, so it can be cancelled by the
+// given context.
 func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	var status pb.BoardStatus
 
@@ -62,7 +65,7 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 			x := b.AnalogReader(name)
 			val, err := x.Read(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't read analog (%s) : %s", name, err)
+				return nil, fmt.Errorf("couldn't read analog (%s) : %w", name, err)
 			}
 			status.Analogs[name] = &pb.AnalogStatus{Value: int32(val)}
 		}

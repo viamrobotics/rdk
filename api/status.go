@@ -73,10 +73,10 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.LidarDeviceNames(); len(names) != 0 {
-		status.LidarDevices = make(map[string]bool, len(names))
+	if names := r.LidarNames(); len(names) != 0 {
+		status.Lidars = make(map[string]bool, len(names))
 		for _, name := range names {
-			status.LidarDevices[name] = true
+			status.Lidars[name] = true
 		}
 	}
 

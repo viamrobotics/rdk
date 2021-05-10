@@ -30,7 +30,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
 	}
-	injectRobot.LidarDeviceNamesFunc = func() []string {
+	injectRobot.LidarNamesFunc = func() []string {
 		return []string{"lidar1", "lidar2"}
 	}
 	injectRobot.BaseNamesFunc = func() []string {
@@ -58,7 +58,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
 		return &fake.Camera{Name: name}
 	}
-	injectRobot.LidarDeviceByNameFunc = func(name string) lidar.Device {
+	injectRobot.LidarByNameFunc = func(name string) lidar.Device {
 		return &fake.Lidar{Name: name}
 	}
 	injectRobot.BoardByNameFunc = func(name string) board.Board {
@@ -131,7 +131,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			LidarDevices: map[string]bool{
+			Lidars: map[string]bool{
 				"lidar1": true,
 				"lidar2": true,
 			},
@@ -183,7 +183,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			LidarDevices: map[string]bool{
+			Lidars: map[string]bool{
 				"lidar1": true,
 				"lidar2": true,
 			},

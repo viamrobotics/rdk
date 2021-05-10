@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -30,7 +31,7 @@ func BothReadFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 
 func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if !strings.HasSuffix(fn, ".both.gz") {
-		return nil, fmt.Errorf("bad extension")
+		return nil, errors.New("bad extension")
 	}
 
 	f, err := os.Open(fn)
@@ -57,7 +58,7 @@ func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 
 func BothWriteToFile(i *ImageWithDepth, fn string) error {
 	if !strings.HasSuffix(fn, ".both.gz") {
-		return fmt.Errorf("vision.ImageWithDepth WriteTo only supports both.gz")
+		return errors.New("vision.ImageWithDepth WriteTo only supports both.gz")
 	}
 
 	f, err := os.Create(fn)

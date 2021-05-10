@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -57,10 +58,10 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dct), nil
 	}
 	if ii.Color == nil {
-		return nil, fmt.Errorf("no color image present to align")
+		return nil, errors.New("no color image present to align")
 	}
 	if ii.Depth == nil {
-		return nil, fmt.Errorf("no depth image present to align")
+		return nil, errors.New("no depth image present to align")
 	}
 	if ii.Color.Width() != dct.ColorInputSize.X ||
 		ii.Color.Height() != dct.ColorInputSize.Y ||
@@ -84,7 +85,7 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
-		return nil, fmt.Errorf("pointcloud has no color information, cannot create an image with depth")
+		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.

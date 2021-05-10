@@ -62,8 +62,8 @@ func (r *mutableRobot) CameraByName(name string) gostream.ImageSource {
 	return r.parts.CameraByName(name)
 }
 
-func (r *mutableRobot) LidarDeviceByName(name string) lidar.Device {
-	return r.parts.LidarDeviceByName(name)
+func (r *mutableRobot) LidarByName(name string) lidar.Device {
+	return r.parts.LidarByName(name)
 }
 
 func (r *mutableRobot) SensorByName(name string) sensor.Device {
@@ -126,8 +126,8 @@ func (r *mutableRobot) CameraNames() []string {
 	return r.parts.CameraNames()
 }
 
-func (r *mutableRobot) LidarDeviceNames() []string {
-	return r.parts.LidarDeviceNames()
+func (r *mutableRobot) LidarNames() []string {
+	return r.parts.LidarNames()
 }
 
 func (r *mutableRobot) BaseNames() []string {
@@ -238,8 +238,8 @@ func (r *mutableRobot) newCamera(ctx context.Context, config api.ComponentConfig
 	return f(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newLidarDevice(ctx context.Context, config api.ComponentConfig) (lidar.Device, error) {
-	f := api.LidarDeviceLookup(config.Model)
+func (r *mutableRobot) newLidar(ctx context.Context, config api.ComponentConfig) (lidar.Device, error) {
+	f := api.LidarLookup(config.Model)
 	if f == nil {
 		return nil, fmt.Errorf("unknown lidar model: %s", config.Model)
 	}

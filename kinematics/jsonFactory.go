@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -69,7 +70,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 	for _, link := range m.Model.Links {
 		if link.ID == "world" {
-			return model, fmt.Errorf("reserved word: cannot name a link 'world'")
+			return model, errors.New("reserved word: cannot name a link 'world'")
 		}
 		frame := NewFrame()
 		model.Add(frame)
@@ -78,7 +79,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	}
 	for _, joint := range m.Model.Joints {
 		if joint.ID == "world" {
-			return model, fmt.Errorf("reserved word: cannot name a joint 'world'")
+			return model, errors.New("reserved word: cannot name a joint 'world'")
 		}
 		frame := NewFrame()
 		model.Add(frame)

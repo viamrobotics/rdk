@@ -13,11 +13,11 @@ import (
 )
 
 func TestBestAngularResolution(t *testing.T) {
-	lidar1 := &inject.LidarDevice{}
+	lidar1 := &inject.Lidar{}
 	lidar1.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return math.NaN(), errors.New("whoops")
 	}
-	lidar2 := &inject.LidarDevice{}
+	lidar2 := &inject.Lidar{}
 	lidar2.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return math.NaN(), errors.New("whoops")
 	}

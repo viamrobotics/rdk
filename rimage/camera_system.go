@@ -1,7 +1,7 @@
 package rimage
 
 import (
-	"fmt"
+	"errors"
 	"image/color"
 
 	"go.viam.com/robotcore/pointcloud"
@@ -39,7 +39,7 @@ func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 // Parallel projections to pointclouds are done in a naive way that don't take any camera parameters into account
 func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
 	if !ii.IsAligned() {
-		return nil, fmt.Errorf("input ImageWithDepth is not aligned")
+		return nil, errors.New("input ImageWithDepth is not aligned")
 	}
 	pc := pointcloud.New()
 	height := ii.Height()

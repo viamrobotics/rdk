@@ -4,6 +4,7 @@ package varm
 import (
 	"context"
 	_ "embed" // for embedding model file
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -41,7 +42,7 @@ func init() {
 	api.RegisterArm("varm1", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
 		b := r.BoardByName("local")
 		if b == nil {
-			return nil, fmt.Errorf("viam arm requires a board called local")
+			return nil, errors.New("viam arm requires a board called local")
 		}
 		raw, err := NewArmV1(ctx, b, logger)
 		if err != nil {
@@ -151,7 +152,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 
 	}
 
-	return math.NaN(), motorOffError(ctx, m, fmt.Errorf("testing joint limit timed out"))
+	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
 func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (api.Arm, error) {
@@ -208,11 +209,11 @@ type ArmV1 struct {
 }
 
 func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, fmt.Errorf("no CurrentPosition support")
+	return nil, errors.New("no CurrentPosition support")
 }
 
 func (a *ArmV1) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	return fmt.Errorf("no MoveToPosition support")
+	return errors.New("no MoveToPosition support")
 }
 
 func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, curDegrees, gotoDegrees float64) error {
@@ -231,7 +232,7 @@ func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, 
 
 func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
 	if len(pos.Degrees) != 2 {
-		return fmt.Errorf("need exactly 2 joints")
+		return errors.New("need exactly 2 joints")
 	}
 
 	cur, err := a.CurrentJointPositions(ctx)

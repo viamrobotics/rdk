@@ -44,8 +44,8 @@ var (
 type Arguments struct {
 	Port         utils.NetPortFlag     `flag:"0"`
 	BaseType     baseTypeFlag          `flag:"base-type,default=,usage=type of mobile base"`
-	LidarDevices []api.ComponentConfig `flag:"lidar,usage=lidar devices"`
-	LidarOffsets []slam.DeviceOffset   `flag:"lidar-offset,usage=lidar device offets relative to first"`
+	Lidars       []api.ComponentConfig `flag:"lidar,usage=lidars"`
+	LidarOffsets []slam.DeviceOffset   `flag:"lidar-offset,usage=lidar offets relative to first"`
 	Compass      api.ComponentConfig   `flag:"compass,usage=compass device"`
 }
 
@@ -84,7 +84,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	if argsParsed.Port == 0 {
 		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
-	for _, comp := range argsParsed.LidarDevices {
+	for _, comp := range argsParsed.Lidars {
 		if comp.Type != api.ComponentTypeLidar {
 			return errors.New("only lidar components can be in lidar flag")
 		}
@@ -93,18 +93,18 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return errors.New("compass flag must be a sensor component")
 	}
 
-	if len(argsParsed.LidarDevices) == 0 {
-		argsParsed.LidarDevices = search.Devices()
-		if len(argsParsed.LidarDevices) != 0 {
-			logger.Debugf("detected %d lidar devices", len(argsParsed.LidarDevices))
-			for _, comp := range argsParsed.LidarDevices {
+	if len(argsParsed.Lidars) == 0 {
+		argsParsed.Lidars = search.Devices()
+		if len(argsParsed.Lidars) != 0 {
+			logger.Debugf("detected %d lidars", len(argsParsed.Lidars))
+			for _, comp := range argsParsed.Lidars {
 				logger.Debug(comp)
 			}
 		}
 	}
 
-	if len(argsParsed.LidarDevices) == 0 {
-		argsParsed.LidarDevices = append(argsParsed.LidarDevices,
+	if len(argsParsed.Lidars) == 0 {
+		argsParsed.Lidars = append(argsParsed.Lidars,
 			api.ComponentConfig{
 				Type:  api.ComponentTypeLidar,
 				Host:  "0",
@@ -112,12 +112,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			})
 	}
 
-	if len(argsParsed.LidarDevices) == 0 {
-		return errors.New("no lidar devices found")
+	if len(argsParsed.Lidars) == 0 {
+		return errors.New("no lidars found")
 	}
 
-	if len(argsParsed.LidarOffsets) != 0 && len(argsParsed.LidarOffsets) >= len(argsParsed.LidarDevices) {
-		return fmt.Errorf("can only have up to %d lidar device offsets", len(argsParsed.LidarDevices)-1)
+	if len(argsParsed.LidarOffsets) != 0 && len(argsParsed.LidarOffsets) >= len(argsParsed.Lidars) {
+		return fmt.Errorf("can only have up to %d lidar offsets", len(argsParsed.Lidars)-1)
 	}
 
 	return runSlam(ctx, argsParsed, logger)
@@ -148,7 +148,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		return fmt.Errorf("do not know how to make a %q base", args.BaseType)
 	}
 
-	components := args.LidarDevices
+	components := args.Lidars
 	if args.Compass.Type != "" {
 		components = append(components, args.Compass)
 	}
@@ -160,10 +160,10 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	defer func() {
 		err = multierr.Combine(err, r.Close())
 	}()
-	lidarNames := r.LidarDeviceNames()
-	lidarDevices := make([]lidar.Device, 0, len(lidarNames))
+	lidarNames := r.LidarNames()
+	lidars := make([]lidar.Device, 0, len(lidarNames))
 	for _, name := range lidarNames {
-		lidarDevices = append(lidarDevices, r.LidarDeviceByName(name))
+		lidars = append(lidars, r.LidarByName(name))
 	}
 	var compassSensor compass.Device
 	if args.Compass.Type != "" {
@@ -175,7 +175,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		}
 	}
 
-	for _, lidarDev := range lidarDevices {
+	for _, lidarDev := range lidars {
 		if err := lidarDev.Start(ctx); err != nil {
 			return err
 		}
@@ -191,11 +191,11 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	}
 
 	if compassSensor == nil {
-		bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidarDevices)
+		bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidars)
 		if err != nil {
 			return err
 		}
-		bestResComp := args.LidarDevices[bestResDeviceNum]
+		bestResComp := args.Lidars[bestResDeviceNum]
 		logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResComp, bestRes)
 		compassSensor = compasslidar.From(bestResDevice)
 	}
@@ -210,7 +210,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		ctx,
 		baseDevice,
 		area,
-		lidarDevices,
+		lidars,
 		args.LidarOffsets,
 		compassSensor,
 		logger,

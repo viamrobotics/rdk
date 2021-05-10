@@ -2,7 +2,7 @@ package hellorobot
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math"
 	"time"
 
@@ -17,7 +17,7 @@ func init() {
 	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.ComponentConfig, logger golog.Logger) (api.Base, error) {
 		t := r.ProviderByName(ModelName)
 		if t == nil {
-			return nil, fmt.Errorf("no provider created for hellorobot")
+			return nil, errors.New("no provider created for hellorobot")
 		}
 		return t.(*Robot).Base()
 	})

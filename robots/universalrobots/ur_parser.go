@@ -3,6 +3,7 @@ package universalrobots
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -143,7 +144,7 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 		buffer := bytes.NewBuffer(content)
 
 		if packageType == 0 {
-			if err := binary.Read(buffer, binary.BigEndian, &state.RobotModeData); err != nil && err != io.EOF {
+			if err := binary.Read(buffer, binary.BigEndian, &state.RobotModeData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
 		} else if packageType == 1 {
@@ -151,7 +152,7 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				d := JointData{}
 				err := binary.Read(buffer, binary.BigEndian, &d)
 				if err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					return state, err
@@ -159,15 +160,15 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				state.Joints = append(state.Joints, d)
 			}
 		} else if packageType == 2 {
-			if err := binary.Read(buffer, binary.BigEndian, &state.ToolData); err != nil && err != io.EOF {
+			if err := binary.Read(buffer, binary.BigEndian, &state.ToolData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
 		} else if packageType == 3 {
-			if err := binary.Read(buffer, binary.BigEndian, &state.MasterboardData); err != nil && err != io.EOF {
+			if err := binary.Read(buffer, binary.BigEndian, &state.MasterboardData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
 		} else if packageType == 4 {
-			if err := binary.Read(buffer, binary.BigEndian, &state.CartesianInfo); err != nil && err != io.EOF {
+			if err := binary.Read(buffer, binary.BigEndian, &state.CartesianInfo); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
 		} else if packageType == 5 {
@@ -176,7 +177,7 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 				d := KinematicInfo{}
 				err := binary.Read(buffer, binary.BigEndian, &d)
 				if err != nil {
-					if err == io.EOF {
+					if errors.Is(err, io.EOF) {
 						break
 					}
 					return state, err
@@ -187,7 +188,7 @@ func readRobotStateMessage(buf []byte, logger golog.Logger) (RobotState, error) 
 		} else if packageType == 6 {
 			// Configuration data, skipping, don't think we need
 		} else if packageType == 7 {
-			if err := binary.Read(buffer, binary.BigEndian, &state.ForceModeData); err != nil && err != io.EOF {
+			if err := binary.Read(buffer, binary.BigEndian, &state.ForceModeData); err != nil && !errors.Is(err, io.EOF) {
 				return state, err
 			}
 		} else if packageType == 8 {

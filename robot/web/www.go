@@ -3,6 +3,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"image"
@@ -136,8 +137,8 @@ func allSourcesToDisplay(ctx context.Context, theRobot api.Robot) ([]gostream.Im
 		names = append(names, name)
 	}
 
-	for _, name := range theRobot.LidarDeviceNames() {
-		device := theRobot.LidarDeviceByName(name)
+	for _, name := range theRobot.LidarNames() {
+		device := theRobot.LidarByName(name)
 		cmp := config.FindComponent(name)
 		if cmp != nil && cmp.Attributes.Bool("hide", false) {
 			continue
@@ -344,7 +345,7 @@ func RunWeb(ctx context.Context, theRobot api.Robot, options Options, logger gol
 	})
 
 	theRobot.Logger().Debugw("serving", "url", fmt.Sprintf("http://%s", listener.Addr().String()))
-	if err := httpServer.Serve(listener); err != http.ErrServerClosed {
+	if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 

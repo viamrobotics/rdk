@@ -10,12 +10,14 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+// init registers a fake board.
 func init() {
 	RegisterBoard("fake", func(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
 		return NewFakeBoard(ctx, cfg, logger)
 	})
 }
 
+// A fakeServo allows setting and reading a single angle.
 type fakeServo struct {
 	angle uint8
 }
@@ -29,6 +31,7 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }
 
+// A fakeAnalog reads back the same set value.
 type fakeAnalog struct {
 	Value int
 }
@@ -37,6 +40,7 @@ func (a *fakeAnalog) Read(context.Context) (int, error) {
 	return a.Value, nil
 }
 
+// A FakeBoard provides dummy data from fake parts in order to implement a Board.
 type FakeBoard struct {
 	Name     string
 	motors   map[string]*FakeMotor
@@ -97,6 +101,7 @@ func (b *FakeBoard) Close() error {
 	return err
 }
 
+// NewFakeBoard constructs a new board with fake parts based on the given Config.
 func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBoard, error) {
 	var err error
 

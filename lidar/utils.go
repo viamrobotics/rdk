@@ -6,10 +6,10 @@ import (
 )
 
 // BestAngularResolution returns the best angular resolution from the given devices.
-func BestAngularResolution(ctx context.Context, lidarDevices []Device) (float64, Device, int, error) {
+func BestAngularResolution(ctx context.Context, lidars []Device) (float64, Device, int, error) {
 	best := math.MaxFloat64
 	deviceNum := 0
-	for i, lidarDev := range lidarDevices {
+	for i, lidarDev := range lidars {
 		angRes, err := lidarDev.AngularResolution(ctx)
 		if err != nil {
 			return math.NaN(), nil, 0, err
@@ -19,5 +19,5 @@ func BestAngularResolution(ctx context.Context, lidarDevices []Device) (float64,
 			deviceNum = i
 		}
 	}
-	return best, lidarDevices[deviceNum], deviceNum, nil
+	return best, lidars[deviceNum], deviceNum, nil
 }

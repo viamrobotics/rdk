@@ -8,7 +8,7 @@ import (
 )
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
-// integer before it sets or gets the point. The bare floats measured from LiDAR devices are not
+// integer before it sets or gets the point. The bare floats measured from LiDARs are not
 // stored because even if the points are only 0.00000000002 apart, they would be considered different locations.
 
 type RoundingPointCloud struct {
@@ -24,14 +24,14 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 	roundingPc := NewRoundingPointCloud()
 	pc, err := NewFromFile(fn, logger)
 	if err != nil {
-		return nil, fmt.Errorf("error creating NewRoundingPointCloudFromFile - %s", err)
+		return nil, fmt.Errorf("error creating NewRoundingPointCloudFromFile - %w", err)
 	}
 	// Round all the points in the pointcloud
 	pc.Iterate(func(pt Point) bool {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %s", x, y, z, err)
+			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
 			return false
 		}
 		return true

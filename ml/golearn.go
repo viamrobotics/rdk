@@ -1,6 +1,7 @@
 package ml
 
 import (
+	"errors"
 	"fmt"
 	"math"
 
@@ -106,7 +107,7 @@ func _glReturnSingleResult(res base.FixedDataGrid) int {
 
 func _glMakeDataSet(data [][]float64, correct []int) (base.FixedDataGrid, error) {
 	if len(data) == 0 {
-		return nil, fmt.Errorf("no data")
+		return nil, errors.New("no data")
 	}
 
 	if len(data) != len(correct) {

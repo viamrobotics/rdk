@@ -2,6 +2,7 @@ package rimage
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -223,15 +224,15 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 
 func (i *ImageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
 	if i.Color == nil || i.Depth == nil {
-		return fmt.Errorf("for raw bytes need depth and color info")
+		return errors.New("for raw bytes need depth and color info")
 	}
 
 	if i.Color.Width() != i.Depth.Width() {
-		return fmt.Errorf("widths don't match")
+		return errors.New("widths don't match")
 	}
 
 	if i.Color.Height() != i.Depth.Height() {
-		return fmt.Errorf("heights don't match")
+		return errors.New("heights don't match")
 	}
 
 	buf.Write(utils.RawBytesFromSlice(i.Depth.data))

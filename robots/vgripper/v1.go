@@ -3,6 +3,7 @@ package vgripper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -20,7 +21,7 @@ func init() {
 	api.RegisterGripper("viam", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
-			return nil, fmt.Errorf("viam gripper requires a board called local")
+			return nil, errors.New("viam gripper requires a board called local")
 		}
 		return NewGripperV1(ctx, b, config.Attributes.Int("pressureLimit", 800), logger)
 	})
@@ -63,18 +64,18 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	}
 
 	if vg.motor == nil {
-		return nil, fmt.Errorf("gripper needs a motor named 'g'")
+		return nil, errors.New("gripper needs a motor named 'g'")
 	}
 	supported, err := vg.motor.PositionSupported(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !supported {
-		return nil, fmt.Errorf("gripper motor needs to support position")
+		return nil, errors.New("gripper motor needs to support position")
 	}
 
 	if vg.current == nil || vg.pressure == nil {
-		return nil, fmt.Errorf("gripper needs a current and a pressure reader")
+		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
 	// pick a direction and move till it stops

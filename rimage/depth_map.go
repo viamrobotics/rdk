@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -130,7 +131,7 @@ func _readNext(r io.Reader) (int64, error) {
 		return int64(binary.LittleEndian.Uint64(data)), nil
 	}
 
-	return 0, fmt.Errorf("got %d bytes, and %s", x, err)
+	return 0, fmt.Errorf("got %d bytes, and %w", x, err)
 }
 
 func ParseDepthMap(fn string) (*DepthMap, error) {
@@ -263,7 +264,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 			}
 
 			if n != 2 || err != nil {
-				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %s x,y: %d,%x", n, err, x, y)
+				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %w x,y: %d,%x", n, err, x, y)
 			}
 
 			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
@@ -445,7 +446,7 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	}
 
 	// made this a panic
-	panic(fmt.Errorf("vision.DepthMap can only rotate 180 degrees right now"))
+	panic(errors.New("vision.DepthMap can only rotate 180 degrees right now"))
 }
 
 func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {

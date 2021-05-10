@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -61,7 +62,7 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 
 	mm2 := newEncodedMotorTwoEncoders(mc, m, i, encoderB)
 	mm2.logger = logger
-	mm2.rpmMonitorStart(ctx)
+	mm2.rpmMonitorStart()
 
 	return mm2, nil
 }
@@ -71,12 +72,14 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder DigitalInterrupt) *enc
 }
 
 func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB DigitalInterrupt) *encodedMotor {
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &encodedMotor{
-		cfg:      cfg,
-		real:     real,
-		encoder:  encoderA,
-		encoderB: encoderB,
-		killCh:   make(chan struct{}),
+		cfg:       cfg,
+		real:      real,
+		encoder:   encoderA,
+		encoderB:  encoderB,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
 	}
 }
 
@@ -95,7 +98,8 @@ type encodedMotor struct {
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
-	killCh          chan struct{}
+	cancelCtx       context.Context
+	cancel          func()
 }
 
 // encodedMotorState is the core, non-statistical state for the motor.
@@ -184,7 +188,7 @@ func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPc
 	return m.real.Go(ctx, d, powerPct)
 }
 
-func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
+func (m *encodedMotor) rpmMonitorStart() {
 	m.startedRPMMonitorMu.Lock()
 	startedRPMMonitor := m.startedRPMMonitor
 	m.startedRPMMonitorMu.Unlock()
@@ -195,7 +199,7 @@ func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 	m.activeBackgroundWorkers.Add(1)
 	var closeOnce bool
 	utils.ManagedGo(func() {
-		m.rpmMonitor(ctx, func() {
+		m.rpmMonitor(func() {
 			if !closeOnce {
 				closeOnce = true
 				close(started)
@@ -205,15 +209,15 @@ func (m *encodedMotor) rpmMonitorStart(ctx context.Context) {
 	<-started
 }
 
-func (m *encodedMotor) startRegulatorWorker(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startRegulatorWorker(onStart func()) {
 	if m.encoderB == nil {
-		m.startSingleEncoderWorker(ctx, onStart)
+		m.startSingleEncoderWorker(onStart)
 	} else {
-		m.startRotaryEncoderWorker(ctx, onStart)
+		m.startRotaryEncoderWorker(onStart)
 	}
 }
 
-func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startSingleEncoderWorker(onStart func()) {
 	encoderChannel := make(chan bool)
 	m.encoder.AddCallback(encoderChannel)
 	m.activeBackgroundWorkers.Add(1)
@@ -223,13 +227,13 @@ func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart fun
 		for {
 			stop := false
 			select {
-			case <-m.killCh:
+			case <-m.cancelCtx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-m.killCh:
+			case <-m.cancelCtx.Done():
 				return
 			case <-encoderChannel:
 			}
@@ -246,7 +250,7 @@ func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart fun
 			}
 
 			if stop {
-				err := m.off(ctx)
+				err := m.off(m.cancelCtx)
 				if err != nil {
 					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 				}
@@ -273,7 +277,7 @@ func (m *encodedMotor) startSingleEncoderWorker(ctx context.Context, onStart fun
    ----+         +---------+         +---------+  1
 
 */
-func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart func()) {
+func (m *encodedMotor) startRotaryEncoderWorker(onStart func()) {
 	chanA := make(chan bool)
 	chanB := make(chan bool)
 
@@ -292,7 +296,7 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 		for {
 
 			select {
-			case <-m.killCh:
+			case <-m.cancelCtx.Done():
 				return
 			default:
 			}
@@ -301,7 +305,7 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 			var isA bool
 
 			select {
-			case <-m.killCh:
+			case <-m.cancelCtx.Done():
 				return
 			case level = <-chanA:
 				isA = true
@@ -361,7 +365,7 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 
 				if stop {
 					m.state.timeLeftSeconds = 0
-					err := m.off(ctx)
+					err := m.off(m.cancelCtx)
 					if err != nil {
 						m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 					}
@@ -376,9 +380,9 @@ func (m *encodedMotor) startRotaryEncoderWorker(ctx context.Context, onStart fun
 	}, m.activeBackgroundWorkers.Done)
 }
 
-func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
+func (m *encodedMotor) rpmMonitor(onStart func()) {
 	if m.encoder == nil {
-		panic(fmt.Errorf("started rpmMonitor but have no encoder"))
+		panic(errors.New("started rpmMonitor but have no encoder"))
 	}
 
 	m.startedRPMMonitorMu.Lock()
@@ -390,7 +394,7 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 	m.startedRPMMonitorMu.Unlock()
 
 	// just a convenient place to start the encoder listener
-	m.startRegulatorWorker(ctx, onStart)
+	m.startRegulatorWorker(onStart)
 
 	lastCount := m.encoder.Value()
 	lastTime := time.Now().UnixNano()
@@ -399,14 +403,14 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 	for {
 
 		select {
-		case <-m.killCh:
+		case <-m.cancelCtx.Done():
 			return
 		default:
 		}
 
 		timer := time.NewTimer(rpmSleep)
 		select {
-		case <-m.killCh:
+		case <-m.cancelCtx.Done():
 			timer.Stop()
 			return
 		case <-timer.C:
@@ -470,7 +474,7 @@ func (m *encodedMotor) rpmMonitor(ctx context.Context, onStart func()) {
 					m.logger.Debugf("current rpm: %0.1f powerPct: %v newPowerPct: %v desiredRPM: %0.1f",
 						currentRPM, lastPowerPct*100, newPowerPct*100, desiredRPM)
 				}
-				err := m.setPower(ctx, newPowerPct, true)
+				err := m.setPower(m.cancelCtx, newPowerPct, true)
 				if err != nil {
 					m.logger.Warnf("rpm regulator cannot set power %s", err)
 				}
@@ -488,7 +492,7 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 		return m.Off(ctx)
 	}
 
-	m.rpmMonitorStart(ctx)
+	m.rpmMonitorStart()
 
 	if revolutions < 0 {
 		revolutions *= -1
@@ -560,7 +564,7 @@ func (m *encodedMotor) IsOn(ctx context.Context) (bool, error) {
 }
 
 func (m *encodedMotor) Close() error {
-	close(m.killCh)
+	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }

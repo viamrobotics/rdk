@@ -2,6 +2,7 @@ package robot
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -51,7 +52,7 @@ func (base *fourWheelBase) straightDistanceToMotorInfo(distanceMillis int, milli
 
 func (base *fourWheelBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
 	if distanceMillis == 0 && block {
-		return 0, fmt.Errorf("cannot block unless you have a distance")
+		return 0, errors.New("cannot block unless you have a distance")
 	}
 
 	d, rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
@@ -180,15 +181,15 @@ func CreateFourWheelBase(ctx context.Context, r api.Robot, config api.ComponentC
 	}
 
 	if base.widthMillis == 0 {
-		return nil, fmt.Errorf("need a widthMillis for a four-wheel base")
+		return nil, errors.New("need a widthMillis for a four-wheel base")
 	}
 
 	if base.wheelCircumferenceMillis == 0 {
-		return nil, fmt.Errorf("need a wheelCircumferenceMillis for a four-wheel base")
+		return nil, errors.New("need a wheelCircumferenceMillis for a four-wheel base")
 	}
 
 	if base.frontLeft == nil || base.frontRight == nil || base.backLeft == nil || base.backRight == nil {
-		return nil, fmt.Errorf("need valid motors for frontLeft, frontRight, backLeft, backRight")
+		return nil, errors.New("need valid motors for frontLeft, frontRight, backLeft, backRight")
 	}
 
 	base.allMotors = append(base.allMotors, base.frontLeft)

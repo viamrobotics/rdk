@@ -115,10 +115,10 @@ func (rr *remoteRobot) CameraNames() []string {
 	return rr.prefixNames(rr.parts.CameraNames())
 }
 
-func (rr *remoteRobot) LidarDeviceNames() []string {
+func (rr *remoteRobot) LidarNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.LidarDeviceNames())
+	return rr.prefixNames(rr.parts.LidarNames())
 }
 
 func (rr *remoteRobot) BaseNames() []string {
@@ -168,10 +168,10 @@ func (rr *remoteRobot) CameraByName(name string) gostream.ImageSource {
 	return rr.parts.CameraByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) LidarDeviceByName(name string) lidar.Device {
+func (rr *remoteRobot) LidarByName(name string) lidar.Device {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	return rr.parts.LidarDeviceByName(rr.unprefixName(name))
+	return rr.parts.LidarByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) BoardByName(name string) board.Board {
@@ -231,10 +231,10 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 			rewrittenStatus.Cameras[rr.prefixName(k)] = v
 		}
 	}
-	if len(status.LidarDevices) != 0 {
-		rewrittenStatus.LidarDevices = make(map[string]bool, len(status.LidarDevices))
-		for k, v := range status.LidarDevices {
-			rewrittenStatus.LidarDevices[rr.prefixName(k)] = v
+	if len(status.Lidars) != 0 {
+		rewrittenStatus.Lidars = make(map[string]bool, len(status.Lidars))
+		for k, v := range status.Lidars {
+			rewrittenStatus.Lidars[rr.prefixName(k)] = v
 		}
 	}
 	if len(status.Sensors) != 0 {

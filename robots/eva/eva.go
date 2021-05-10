@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/multierr"
 
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/kinematics"
@@ -72,11 +75,11 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 }
 
 func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, fmt.Errorf("eva low level doesn't support kinematics")
+	return nil, errors.New("eva low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	return fmt.Errorf("eva low level doesn't support kinematics")
+	return errors.New("eva low level doesn't support kinematics")
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
@@ -93,7 +96,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPo
 
 	err2 := e.resetErrors(ctx)
 	if err2 != nil {
-		return fmt.Errorf("move failure, and couldn't reset errors %s %s", err, err2)
+		return fmt.Errorf("move failure, and couldn't reset errors %w", multierr.Combine(err, err2))
 	}
 
 	return e.doMoveJoints(ctx, radians)
@@ -113,7 +116,7 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 }
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return fmt.Errorf("not done yet")
+	return errors.New("not done yet")
 }
 
 func (e *eva) Close() error {
@@ -156,7 +159,7 @@ func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, p
 		// need to login
 
 		if !retry {
-			return fmt.Errorf("got 401 from eva after trying to login")
+			return errors.New("got 401 from eva after trying to login")
 		}
 
 		type Temp struct {

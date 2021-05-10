@@ -179,7 +179,7 @@ func (r *CLFReader) processLine(line string) (CLFMessage, error) {
 func (r *CLFReader) readLine() (string, bool, error) {
 	for {
 		line, err := r.reader.ReadString('\n')
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return "", true, nil
 		} else if err != nil {
 			return "", false, err

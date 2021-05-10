@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed" // for embedding camera parameters
+	"errors"
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -34,15 +35,15 @@ func init() {
 
 	api.RegisterCamera("url", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		if len(config.Attributes) == 0 {
-			return nil, fmt.Errorf("camera 'url' needs a color attribute (and a depth if you have it)")
+			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
 		x, has := config.Attributes["aligned"]
 		if !has {
-			return nil, fmt.Errorf("camera 'url' needs bool attribute 'aligned'")
+			return nil, errors.New("camera 'url' needs bool attribute 'aligned'")
 		}
 		aligned, ok := x.(bool)
 		if !ok {
-			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
+			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
 		return &HTTPSource{
 			ColorURL:  config.Attributes.String("color"),
@@ -54,11 +55,11 @@ func init() {
 	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
-			return nil, fmt.Errorf("config for file needs bool attribute 'aligned'")
+			return nil, errors.New("config for file needs bool attribute 'aligned'")
 		}
 		aligned, ok := x.(bool)
 		if !ok {
-			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
+			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
 		return &FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}, nil
 	})
@@ -123,7 +124,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't ready color url: %s", err)
+		return nil, nil, fmt.Errorf("couldn't ready color url: %w", err)
 	}
 
 	img, _, err := image.Decode(bytes.NewBuffer(colorData))
@@ -137,7 +138,7 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 	depthData, err := readyBytesFromURL(hs.client, hs.DepthURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't ready depth url: %s", err)
+		return nil, nil, fmt.Errorf("couldn't ready depth url: %w", err)
 	}
 
 	// do this first and make sure ok before creating any mats
@@ -196,7 +197,7 @@ func (s *IntelServerSource) Close() error {
 func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	allData, err := readyBytesFromURL(s.client, s.BothURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't read url (%s): %s", s.BothURL, err)
+		return nil, nil, fmt.Errorf("couldn't read url (%s): %w", s.BothURL, err)
 	}
 
 	img, err := rimage.BothReadFromBytes(allData, s.IsAligned())

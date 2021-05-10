@@ -1,8 +1,8 @@
-
 #include <pigpio.h>
 
 extern void pigpioInterruptCallback(int gpio, int level, uint32_t tick);
 
+// doAnalogRead reads an SPI device given by h on the given channel. 
 int doAnalogRead(int h, int channel) {
     char buf[3];
     buf[0] = 1;
@@ -12,8 +12,9 @@ int doAnalogRead(int h, int channel) {
     return ((buf[1]&3)<<8) | buf[2];
 }
 
+// interruptCallback calls through to the go linked interrupt callback.
 void interruptCallback(int gpio, int level, uint32_t tick) {
-    if (level==2) {
+    if (level == 2) {
         // watchdog
         return;
     }

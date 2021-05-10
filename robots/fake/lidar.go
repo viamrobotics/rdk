@@ -16,10 +16,10 @@ import (
 	"github.com/golang/geo/r2"
 )
 
-const LidarDeviceType = ModelName
+const LidarType = ModelName
 
 func init() {
-	api.RegisterLidarDevice(LidarDeviceType, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+	api.RegisterLidar(LidarType, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		if config.Host == "" {
 			config.Host = "0"
 		}
