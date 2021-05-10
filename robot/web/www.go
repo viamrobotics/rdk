@@ -128,7 +128,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot api.Robot) ([]gostream.Im
 	for _, name := range theRobot.CameraNames() {
 		cam := theRobot.CameraByName(name)
 		cmp := config.FindComponent(name)
-		if cmp != nil && cmp.Attributes.GetBool("hide", false) {
+		if cmp != nil && cmp.Attributes.Bool("hide", false) {
 			continue
 		}
 
@@ -139,7 +139,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot api.Robot) ([]gostream.Im
 	for _, name := range theRobot.LidarDeviceNames() {
 		device := theRobot.LidarDeviceByName(name)
 		cmp := config.FindComponent(name)
-		if cmp != nil && cmp.Attributes.GetBool("hide", false) {
+		if cmp != nil && cmp.Attributes.Bool("hide", false) {
 			continue
 		}
 

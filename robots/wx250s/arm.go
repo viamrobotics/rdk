@@ -70,7 +70,7 @@ func degreeToServoPos(pos float64) int {
 }
 
 func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (api.Arm, error) {
-	servos, err := findServos(attributes.GetString("usbPort"), attributes.GetString("baudRate"), attributes.GetString("armServoCount"))
+	servos, err := findServos(attributes.String("usbPort"), attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger)
 		logger:   logger,
 	}
 
-	return kinematics.NewArmJSONFile(newArm, attributes.GetString("modelJSON"), 4, logger)
+	return kinematics.NewArmJSONFile(newArm, attributes.String("modelJSON"), 4, logger)
 }
 
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
@@ -126,7 +126,7 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	return &pb.JointPositions{}, nil
 }
 
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return fmt.Errorf("not done yet")
 }
 

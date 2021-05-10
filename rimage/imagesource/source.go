@@ -45,8 +45,8 @@ func init() {
 			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
 		}
 		return &HTTPSource{
-			ColorURL:  config.Attributes.GetString("color"),
-			DepthURL:  config.Attributes.GetString("depth"),
+			ColorURL:  config.Attributes.String("color"),
+			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
 		}, nil
 	})
@@ -60,7 +60,7 @@ func init() {
 		if !ok {
 			return nil, fmt.Errorf("attribute 'aligned' must be a bool")
 		}
-		return &FileSource{config.Attributes.GetString("color"), config.Attributes.GetString("depth"), aligned}, nil
+		return &FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}, nil
 	})
 }
 
@@ -184,7 +184,7 @@ func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*Intel
 	return &IntelServerSource{
 		BothURL:   fmt.Sprintf("http://%s:%d/both?num=%s", host, port, num),
 		host:      host,
-		isAligned: attrs.GetBool("aligned", true),
+		isAligned: attrs.Bool("aligned", true),
 		camera:    camera,
 	}, nil
 }

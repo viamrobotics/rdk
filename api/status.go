@@ -7,17 +7,12 @@ import (
 	pb "go.viam.com/robotcore/proto/api/v1"
 )
 
+// CreateStatus constructs a new up to date status from the given robot.
+// The operation can take time and be expensive, so it can be cancelled by the
+// given context.
 func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 	var err error
-	s := &pb.Status{
-		Arms:         map[string]*pb.ArmStatus{},
-		Bases:        map[string]bool{},
-		Grippers:     map[string]bool{},
-		Boards:       map[string]*pb.BoardStatus{},
-		Cameras:      map[string]bool{},
-		LidarDevices: map[string]bool{},
-		Sensors:      map[string]*pb.SensorStatus{},
-	}
+	var status pb.Status
 
 	// manually refresh all remotes to get an up to date status
 	for _, name := range r.RemoteNames() {
@@ -27,51 +22,73 @@ func CreateStatus(ctx context.Context, r Robot) (*pb.Status, error) {
 		}
 	}
 
-	for _, name := range r.ArmNames() {
-		arm := r.ArmByName(name)
-		as := &pb.ArmStatus{}
+	if names := r.ArmNames(); len(names) != 0 {
+		status.Arms = make(map[string]*pb.ArmStatus, len(names))
+		for _, name := range names {
+			arm := r.ArmByName(name)
+			armStatus := &pb.ArmStatus{}
 
-		as.GridPosition, err = arm.CurrentPosition(ctx)
-		if err != nil {
-			return s, err
-		}
-		as.JointPositions, err = arm.CurrentJointPositions(ctx)
-		if err != nil {
-			return s, err
-		}
+			armStatus.GridPosition, err = arm.CurrentPosition(ctx)
+			if err != nil {
+				return nil, err
+			}
+			armStatus.JointPositions, err = arm.CurrentJointPositions(ctx)
+			if err != nil {
+				return nil, err
+			}
 
-		s.Arms[name] = as
-	}
-
-	for _, name := range r.GripperNames() {
-		s.Grippers[name] = true
-	}
-
-	for _, name := range r.BaseNames() {
-		s.Bases[name] = true
-	}
-
-	for _, name := range r.BoardNames() {
-		s.Boards[name], err = r.BoardByName(name).Status(ctx)
-		if err != nil {
-			return s, err
+			status.Arms[name] = armStatus
 		}
 	}
 
-	for _, name := range r.CameraNames() {
-		s.Cameras[name] = true
-	}
-
-	for _, name := range r.LidarDeviceNames() {
-		s.LidarDevices[name] = true
-	}
-
-	for _, name := range r.SensorNames() {
-		sensorDevice := r.SensorByName(name)
-		s.Sensors[name] = &pb.SensorStatus{
-			Type: string(sensorDevice.Desc().Type),
+	if names := r.GripperNames(); len(names) != 0 {
+		status.Grippers = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.Grippers[name] = true
 		}
 	}
 
-	return s, nil
+	if names := r.BaseNames(); len(names) != 0 {
+		status.Bases = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.Bases[name] = true
+		}
+	}
+
+	if names := r.BoardNames(); len(names) != 0 {
+		status.Boards = make(map[string]*pb.BoardStatus, len(names))
+		for _, name := range names {
+			boardStatus, err := r.BoardByName(name).Status(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.Boards[name] = boardStatus
+		}
+	}
+
+	if names := r.CameraNames(); len(names) != 0 {
+		status.Cameras = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.Cameras[name] = true
+		}
+	}
+
+	if names := r.LidarDeviceNames(); len(names) != 0 {
+		status.LidarDevices = make(map[string]bool, len(names))
+		for _, name := range names {
+			status.LidarDevices[name] = true
+		}
+	}
+
+	if names := r.SensorNames(); len(names) != 0 {
+		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
+		for _, name := range names {
+			sensorDevice := r.SensorByName(name)
+			status.Sensors[name] = &pb.SensorStatus{
+				Type: string(sensorDevice.Desc().Type),
+			}
+		}
+	}
+
+	return &status, nil
 }

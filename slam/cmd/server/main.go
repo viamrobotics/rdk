@@ -202,7 +202,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 
 	if compassSensor != nil {
 		if _, isFake := baseDevice.(*fake.Base); !isFake {
-			baseDevice = api.BaseWithCompass(baseDevice, compassSensor, logger)
+			baseDevice = api.AugmentBaseWithCompass(baseDevice, compassSensor, logger)
 		}
 	}
 

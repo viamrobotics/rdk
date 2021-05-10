@@ -135,7 +135,7 @@ func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 }
 
-func (k *Arm) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (k *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return fmt.Errorf("not done yet")
 }
 

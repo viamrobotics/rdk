@@ -11,28 +11,36 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
-func BaseWithCompass(device Base, cmp compass.Device, logger golog.Logger) Base {
+// AugmentBaseWithCompass augments the given base with the given compass in order
+// to correct its movements.
+func AugmentBaseWithCompass(base Base, cmp compass.Device, logger golog.Logger) Base {
 	if cmp == nil {
-		return device
+		return base
 	}
-	return baseDeviceWithCompass{device, cmp, logger}
+	return baseWithCompass{base, cmp, logger}
 }
 
+// ReduceBase extracts the underlying base from the given base. If there is
+// no underlying base, the argument iteslf is returned.
 func ReduceBase(b Base) Base {
-	x, ok := b.(baseDeviceWithCompass)
+	x, ok := b.(baseWithCompass)
 	if ok {
 		return x.Base
 	}
 	return b
 }
 
-type baseDeviceWithCompass struct {
+// baseWithCompass is an augmented base that has its movements corrected by
+// a compass.
+type baseWithCompass struct {
 	Base
 	compass compass.Device
 	logger  golog.Logger
 }
 
-func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+// Spin attempts to perform an accurate spin by utilizing the underlying compass. In short,
+// the base makes small spins until it gets very close to the target angle.
+func (wc baseWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
 	rel, _ := wc.compass.(compass.RelativeDevice)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
@@ -40,6 +48,7 @@ func (wc baseDeviceWithCompass) Spin(ctx context.Context, angleDeg float64, degs
 		}
 	}
 	origAngleDeg := angleDeg
+	// track the total amount spun in case we fail along the way
 	var totalSpin float64
 	for {
 		startHeading, err := compass.MedianHeading(ctx, wc.compass)

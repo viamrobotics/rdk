@@ -504,7 +504,7 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 }
 
 // JointMoveDelta needs to be implemented.
-func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amount float64) error {
+func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	debug.PrintStack()
 	return errUnimplemented
 }
