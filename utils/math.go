@@ -79,6 +79,11 @@ func MinUint8(a, b uint8) uint8 {
 	return b
 }
 
+func CubeRoot(x float64) float64 {
+	p := 1.0 / 3.0
+	return math.Pow(x, p)
+}
+
 // Math.pow( x, 2 ) is slow, this is faster
 func Square(n float64) float64 {
 	return n * n

@@ -34,6 +34,24 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 	return &pb.JointPositions{Degrees: n}
 }
 
+// return millimeters away
+func ArmPositionGridDiff(a, b *pb.ArmPosition) float64 {
+	diff := utils.Square(float64(a.X-b.X)) +
+		utils.Square(float64(a.Y-b.Y)) +
+		utils.Square(float64(a.Z-b.Z))
+
+	return utils.CubeRoot(diff)
+}
+
+// return degrees away?
+func ArmPositionRotationDiff(a, b *pb.ArmPosition) float64 {
+	diff := utils.Square(a.RX-b.RX) +
+		utils.Square(a.RY-b.RY) +
+		utils.Square(a.RZ-b.RZ)
+
+	return utils.CubeRoot(diff)
+}
+
 // -----
 
 type Arm interface {
