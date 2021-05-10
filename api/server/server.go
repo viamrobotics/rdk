@@ -28,6 +28,8 @@ import (
 	"go.viam.com/robotcore/utils"
 )
 
+// Server implements the contract from robot.proto that ultimately satisfies
+// an api.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
 	r                       api.Robot
@@ -36,6 +38,7 @@ type Server struct {
 	cancel                  func()
 }
 
+// New constructs a gRPC service server for a Robot.
 func New(r api.Robot) pb.RobotServiceServer {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &Server{
@@ -45,12 +48,14 @@ func New(r api.Robot) pb.RobotServiceServer {
 	}
 }
 
+// Close cleanly shuts down the server.
 func (s *Server) Close() error {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
 	return nil
 }
 
+// Status returns the robot's underlying status.
 func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
 	status, err := s.r.Status(ctx)
 	if err != nil {
@@ -61,6 +66,7 @@ func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusRes
 
 const defaultStreamInterval = 1 * time.Second
 
+// StatusStream periodically sends the robot's status.
 func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotService_StatusStreamServer) error {
 	every := defaultStreamInterval
 	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
@@ -89,6 +95,7 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 	}
 }
 
+// DoAction runs an action on the underlying robot.
 func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoActionResponse, error) {
 	act := action.LookupAction(req.Name)
 	if act == nil {
@@ -102,8 +109,7 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 	return &pb.DoActionResponse{}, nil
 }
 
-// Arm
-
+// ArmCurrentPosition gets the current position of an arm of the underlying robot.
 func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
@@ -117,6 +123,7 @@ func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPosit
 	return &pb.ArmCurrentPositionResponse{Position: pos}, nil
 }
 
+// ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
 func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurrentJointPositionsRequest) (*pb.ArmCurrentJointPositionsResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
@@ -130,6 +137,7 @@ func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurren
 	return &pb.ArmCurrentJointPositionsResponse{Positions: pos}, nil
 }
 
+// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
 func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositionRequest) (*pb.ArmMoveToPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
@@ -139,6 +147,7 @@ func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositio
 	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
 }
 
+// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
 func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJointPositionsRequest) (*pb.ArmMoveToJointPositionsResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
@@ -148,8 +157,7 @@ func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJ
 	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
 }
 
-// Base
-
+// BaseMoveStraight moves a base of the underlying robot straight.
 func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
@@ -169,6 +177,7 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 	return &pb.BaseMoveStraightResponse{Success: true, DistanceMillis: int64(moved)}, nil
 }
 
+// BaseSpin spins a base of the underlying robot.
 func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.BaseSpinResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
@@ -189,6 +198,7 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 
 }
 
+// BaseSpin stops a base of the underlying robot.
 func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
@@ -197,8 +207,7 @@ func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.Bas
 	return &pb.BaseStopResponse{}, base.Stop(ctx)
 }
 
-// Gripper
-
+// GripperOpen opens a gripper of the underlying robot.
 func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
 	gripper := s.r.GripperByName(req.Name)
 	if gripper == nil {
@@ -207,6 +216,7 @@ func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*
 	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
 }
 
+// GripperGrab requests a gripper of the underlying robot to grab.
 func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
 	gripper := s.r.GripperByName(req.Name)
 	if gripper == nil {
@@ -219,14 +229,17 @@ func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*
 	return &pb.GripperGrabResponse{Grabbed: grabbed}, nil
 }
 
-// Camera
-
 const (
 	mimeTypeViamBest = "image/viambest"
 	mimeTypeRawIWD   = "image/raw-iwd"
 	mimeTypeRawRGBA  = "image/raw-rgba"
+	mimeTypeBoth     = "image/both"
+	mimeTypeJPEG     = "image/jpeg"
+	mimeTypePNG      = "image/png"
 )
 
+// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
+// can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
@@ -239,6 +252,7 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	}
 	defer release()
 
+	// choose the best/fastest representation
 	if req.MimeType == mimeTypeViamBest {
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if ok && iwd.Depth != nil && iwd.Color != nil {
@@ -266,32 +280,32 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 		resp.MimeType = mimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, fmt.Errorf("want image/raw-want don't have ImageWithDepth")
+			return nil, fmt.Errorf("want %s but don't have %T", mimeTypeRawIWD, iwd)
 		}
 		err := iwd.RawBytesWrite(&buf)
 		if err != nil {
-			return nil, fmt.Errorf("error writing image/raw-want: %w", err)
+			return nil, fmt.Errorf("error writing %s: %w", mimeTypeRawIWD, err)
 		}
 
-	case "image/both":
-		resp.MimeType = "image/both"
+	case mimeTypeBoth:
+		resp.MimeType = mimeTypeBoth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, fmt.Errorf("want image/both don't have ImageWithDepth")
+			return nil, fmt.Errorf("want %s but don't have %T", mimeTypeBoth, iwd)
 		}
 		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, fmt.Errorf("for image/both need depth and color info")
+			return nil, fmt.Errorf("for %s need depth and color info", mimeTypeBoth)
 		}
 		if err := rimage.BothEncode(iwd, &buf); err != nil {
 			return nil, err
 		}
-	case "image/jpeg":
-		resp.MimeType = "image/jpeg"
+	case mimeTypeJPEG:
+		resp.MimeType = mimeTypeJPEG
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
-	case "", "image/png":
-		resp.MimeType = "image/png"
+	case "", mimeTypePNG:
+		resp.MimeType = mimeTypePNG
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
 		}
@@ -302,6 +316,8 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	return &resp, nil
 }
 
+// CameraFrame renderse a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+// can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
 	resp, err := s.CameraFrame(ctx, (*pb.CameraFrameRequest)(req))
 	if err != nil {
@@ -314,8 +330,7 @@ func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFram
 	}, nil
 }
 
-// Lidar
-
+// LidarInfo returns the info of a lidar device of the underlying robot.
 func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -332,6 +347,7 @@ func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.L
 	return &pb.LidarInfoResponse{Info: str}, nil
 }
 
+// LidarStart starts a lidar device of the underlying robot.
 func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -344,6 +360,7 @@ func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb
 	return &pb.LidarStartResponse{}, nil
 }
 
+// LidarStop stops a lidar device of the underlying robot.
 func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -356,19 +373,21 @@ func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.L
 	return &pb.LidarStopResponse{}, nil
 }
 
+// LidarScan returns a scan from a lidar device of the underlying robot.
 func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
 		return nil, fmt.Errorf("no lidar device with name (%s)", req.Name)
 	}
-	opts := ScanOptionsFromProto(req)
+	opts := scanOptionsFromProto(req)
 	ms, err := lidarDevice.Scan(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.LidarScanResponse{Measurements: MeasurementsToProto(ms)}, nil
+	return &pb.LidarScanResponse{Measurements: measurementsToProto(ms)}, nil
 }
 
+// LidarRange returns the range of a lidar device of the underlying robot.
 func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -381,6 +400,7 @@ func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb
 	return &pb.LidarRangeResponse{Range: int64(r)}, nil
 }
 
+// LidarBounds returns the scan bounds of a lidar device of the underlying robot.
 func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -393,6 +413,7 @@ func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*
 	return &pb.LidarBoundsResponse{X: int64(bounds.X), Y: int64(bounds.Y)}, nil
 }
 
+// LidarAngularResolution returns the scan angular resolution of a lidar device of the underlying robot.
 func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
 	lidarDevice := s.r.LidarDeviceByName(req.Name)
 	if lidarDevice == nil {
@@ -405,14 +426,14 @@ func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngula
 	return &pb.LidarAngularResolutionResponse{AngularResolution: angRes}, nil
 }
 
-func ScanOptionsFromProto(req *pb.LidarScanRequest) lidar.ScanOptions {
+func scanOptionsFromProto(req *pb.LidarScanRequest) lidar.ScanOptions {
 	return lidar.ScanOptions{
 		Count:    int(req.Count),
 		NoFilter: req.NoFilter,
 	}
 }
 
-func MeasurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
+func measurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
 	x, y := m.Coords()
 	return &pb.LidarMeasurement{
 		Angle:    m.AngleRad(),
@@ -423,16 +444,15 @@ func MeasurementToProto(m *lidar.Measurement) *pb.LidarMeasurement {
 	}
 }
 
-func MeasurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
+func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 	pms := make([]*pb.LidarMeasurement, 0, len(ms))
 	for _, m := range ms {
-		pms = append(pms, MeasurementToProto(m))
+		pms = append(pms, measurementToProto(m))
 	}
 	return pms
 }
 
-// Board
-
+// BoardStatus returns the status of a board of the underlying robot.
 func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
 	b := s.r.BoardByName(req.Name)
 	if b == nil {
@@ -447,8 +467,7 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 	return &pb.BoardStatusResponse{Status: status}, nil
 }
 
-// Motor
-
+// BoardMotorGo requests the motor of a board of the underlying robot to go.
 func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
@@ -463,6 +482,8 @@ func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) 
 	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
 }
 
+// BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
+// the request.
 func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
@@ -484,8 +505,7 @@ func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForReq
 	return &pb.BoardMotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
 }
 
-// Servo
-
+// BoardServoMove requests the servo of a board of the underlying robot to move.
 func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
@@ -500,8 +520,7 @@ func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveReque
 	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
 }
 
-// Sensor
-
+// SensorReadings returns the readings of a sensor of the underlying robot.
 func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
 	sensorDevice := s.r.SensorByName(req.Name)
 	if sensorDevice == nil {
@@ -522,8 +541,6 @@ func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsReque
 	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
 }
 
-// Compass
-
 func (s *Server) compassByName(name string) (compass.Device, error) {
 	sensorDevice := s.r.SensorByName(name)
 	if sensorDevice == nil {
@@ -532,6 +549,7 @@ func (s *Server) compassByName(name string) (compass.Device, error) {
 	return sensorDevice.(compass.Device), nil
 }
 
+// CompassHeading returns the heading of a compass of the underlying robot.
 func (s *Server) CompassHeading(ctx context.Context, req *pb.CompassHeadingRequest) (*pb.CompassHeadingResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
@@ -544,6 +562,7 @@ func (s *Server) CompassHeading(ctx context.Context, req *pb.CompassHeadingReque
 	return &pb.CompassHeadingResponse{Heading: heading}, nil
 }
 
+// CompassStartCalibration requests the compass of the underlying robot to start calibration.
 func (s *Server) CompassStartCalibration(ctx context.Context, req *pb.CompassStartCalibrationRequest) (*pb.CompassStartCalibrationResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
@@ -555,6 +574,7 @@ func (s *Server) CompassStartCalibration(ctx context.Context, req *pb.CompassSta
 	return &pb.CompassStartCalibrationResponse{}, nil
 }
 
+// CompassStopCalibration requests the compass of the underlying robot to stop calibration.
 func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStopCalibrationRequest) (*pb.CompassStopCalibrationResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
@@ -566,8 +586,7 @@ func (s *Server) CompassStopCalibration(ctx context.Context, req *pb.CompassStop
 	return &pb.CompassStopCalibrationResponse{}, nil
 }
 
-// Relative Compass
-
+// CompassMark requests the relative compass of the underlying robot to mark its position.
 func (s *Server) CompassMark(ctx context.Context, req *pb.CompassMarkRequest) (*pb.CompassMarkResponse, error) {
 	compassDevice, err := s.compassByName(req.Name)
 	if err != nil {
