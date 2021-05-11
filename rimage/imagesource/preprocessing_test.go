@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 )
 
+// Smoothing with Morphological filters
 type smoothTestHelper struct {
 	attrs api.AttributeMap
 }
@@ -66,5 +67,63 @@ func TestSmoothGripper(t *testing.T) {
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
 	err = d.Process(t, &smoothTestHelper{c.Attributes})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// Canny Edge Detection for depth maps
+type cannyTestHelper struct {
+	attrs api.AttributeMap
+}
+
+func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+	var err error
+	ii := rimage.ConvertToImageWithDepth(img)
+
+	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
+
+	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	fixed, err := dc.camera.AlignImageWithDepth(ii)
+	test.That(t, err, test.ShouldBeNil)
+
+	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
+
+	vectorField := rimage.SobelFilter(fixed.Depth)
+	pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
+	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
+
+	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.8, 0.55, false)
+
+	dmEdges, err := canny.DetectDepthEdges(fixed.Depth)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(dmEdges, "depth-edges-nopreprocess")
+
+	closedDM, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
+	test.That(t, err, test.ShouldBeNil)
+	dmClosedEdges, err := canny.DetectDepthEdges(closedDM)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(closedDM.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
+	pCtx.GotDebugImage(dmClosedEdges, "depth-edges-preprocess-1")
+
+	closedDMHeavy, err := rimage.ClosingMorph(fixed.Depth, 5, 4)
+	test.That(t, err, test.ShouldBeNil)
+	dmEdgesHeavy, err := canny.DetectDepthEdges(closedDMHeavy)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(closedDMHeavy.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-heavy")
+	pCtx.GotDebugImage(dmEdgesHeavy, "depth-edges-preprocess-2")
+
+	return nil
+}
+
+func TestCannyEdgeGripper(t *testing.T) {
+	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	c := config.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	err = d.Process(t, &cannyTestHelper{c.Attributes})
 	test.That(t, err, test.ShouldBeNil)
 }
