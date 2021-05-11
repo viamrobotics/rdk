@@ -11,12 +11,7 @@ import (
 // Input a vector in cartesian coordinates and return the vector in polar coordinates.
 func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	mag := math.Sqrt(x*x + y*y)
-	var dir float64
-	if x != 0 {
-		dir = math.Atan2(y, x)
-	} else {
-		dir = 0
-	}
+	dir := math.Atan2(y, x)
 	return mag, dir
 }
 
@@ -40,10 +35,24 @@ func makeRangeArray(dim int) []int {
 	return rangeArray
 }
 
-func (cd *CannyEdgeDetector) DetectDepthEdges(dm *DepthMap, blur float64) (*image.Gray, error) {
+func (cd *CannyEdgeDetector) DetectDepthEdges(dm *DepthMap) (*image.Gray, error) {
+
 	vectorField := SobelFilter(dm)
-	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.MagnitudeField.DirectionField()
-	return nil, nil
+	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.DirectionField()
+
+	nms, err := GradientNonMaximumSuppressionC8(dmMagnitude, dmDirection)
+	if err != nil {
+		return nil, err
+	}
+	low, high, err := GetHysteresisThresholds(dmMagnitude, nms, cd.highRatio, cd.lowRatio)
+	if err != nil {
+		return nil, err
+	}
+	edges, err := EdgeHysteresisFiltering(dmMagnitude, low, high)
+	if err != nil {
+		return nil, err
+	}
+	return edges, nil
 }
 
 // Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
@@ -56,6 +65,7 @@ var (
 // (after shaving a pixel of every side), creates a  vector in polar form, and returns a vector field.
 func SobelFilter(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
+	maxMag := 0.0
 	// taking a gradient will remove a pixel from all sides of the image
 	g := make([]Vec2D, 0, (width-2)*(height-2))
 	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
@@ -73,9 +83,10 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 			}
 			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
 			g = append(g, Vec2D{mag, dir})
+			maxMag = math.Max(math.Abs(mag), maxMag)
 		}
 	}
-	vf := VectorField2D{width - 2, height - 2, g}
+	vf := VectorField2D{width - 2, height - 2, g, maxMag}
 	return vf
 
 }

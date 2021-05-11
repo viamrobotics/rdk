@@ -193,7 +193,10 @@ func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 	return &CannyEdgeDetector{0.8, 0.33, false}
 }
 
-// DetectEdges TODO
+func NewCannyDericheEdgeDetectorWithParameters(hiRatio, loRatio float64, preproc bool) *CannyEdgeDetector {
+	return &CannyEdgeDetector{hiRatio, loRatio, preproc}
+}
+
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
 
 	imgGradient, err := ForwardGradient(img, blur, cd.preprocessImage)
