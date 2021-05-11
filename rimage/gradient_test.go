@@ -7,8 +7,11 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/testutils"
 	"go.viam.com/test"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/core/artifact"
 )
 
@@ -49,6 +52,8 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 }
 
 func TestSobelFilter(t *testing.T) {
+	outDir := testutils.TempDir(t, "", "rimage")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)
