@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/storage"
+	"go.uber.org/multierr"
 	"google.golang.org/api/option"
 )
 
@@ -52,15 +53,18 @@ func (s *googleStorageStore) Load(hash string) (io.ReadCloser, error) {
 	return rc, nil
 }
 
-func (s *googleStorageStore) Store(hash string, r io.Reader) error {
-	if _, err := s.Load(hash); err == nil {
-		return nil
+func (s *googleStorageStore) Store(hash string, r io.Reader) (err error) {
+	if rc, err := s.Load(hash); err == nil {
+		return rc.Close()
 	}
 	wc := s.bucket.Object(hash).NewWriter(context.Background())
+	defer func() {
+		err = multierr.Combine(err, wc.Close())
+	}()
 	if _, err := io.Copy(wc, r); err != nil {
 		return err
 	}
-	return wc.Close()
+	return nil
 }
 
 func (s *googleStorageStore) Close() error {

@@ -61,7 +61,7 @@ func (s *fileSystemStore) Store(hash string, r io.Reader) (err error) {
 	}
 	defer func() {
 		if err != nil {
-			err = multierr.Combine(err, os.Remove(path))
+			err = multierr.Combine(err, f.Close(), os.Remove(path))
 		} else {
 			err = f.Close()
 		}
@@ -86,10 +86,11 @@ func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 	if existing, err := os.Open(path); err == nil {
 		data, err := ioutil.ReadAll(existing)
 		if err != nil {
-			existing.Close()
+			return multierr.Combine(err, existing.Close())
+		}
+		if err := existing.Close(); err != nil {
 			return err
 		}
-		existing.Close()
 		existingHash, err := computeHash(data)
 		if err != nil {
 			return err
@@ -110,7 +111,9 @@ func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer hashFile.Close()
+	defer func() {
+		err = multierr.Combine(err, hashFile.Close())
+	}()
 
 	emplacedFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
