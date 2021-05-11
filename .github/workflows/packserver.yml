@@ -39,7 +39,7 @@ jobs:
 
     - name: Add package to repo
       run: |
-        dput local packaging/work/*.changes
+        dput local etc/packaging/work/*.changes
 
     - name: Sync repo to cloud
       run: |
