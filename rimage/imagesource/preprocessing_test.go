@@ -79,36 +79,40 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 
-	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
-
 	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	fixed, err := dc.camera.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
 
+	pCtx.GotDebugImage(fixed.Color, "color-fixed")
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	vectorField := rimage.SobelFilter(fixed.Depth)
 	pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
 	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
 
-	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.8, 0.55, false)
+	cannyColor := rimage.NewCannyDericheEdgeDetector()
+	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.9, 0.5, false)
 
-	dmEdges, err := canny.DetectDepthEdges(fixed.Depth)
+	colEdges, err := cannyColor.DetectEdges(fixed.Color, 0.5)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(colEdges, "color-edges-nopreprocess")
+
+	dmEdges, err := cannyDepth.DetectDepthEdges(fixed.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dmEdges, "depth-edges-nopreprocess")
 
 	closedDM, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
 	test.That(t, err, test.ShouldBeNil)
-	dmClosedEdges, err := canny.DetectDepthEdges(closedDM)
+	dmClosedEdges, err := cannyDepth.DetectDepthEdges(closedDM)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
 	pCtx.GotDebugImage(dmClosedEdges, "depth-edges-preprocess-1")
 
 	closedDMHeavy, err := rimage.ClosingMorph(fixed.Depth, 5, 4)
 	test.That(t, err, test.ShouldBeNil)
-	dmEdgesHeavy, err := canny.DetectDepthEdges(closedDMHeavy)
+	dmEdgesHeavy, err := cannyDepth.DetectDepthEdges(closedDMHeavy)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDMHeavy.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-heavy")
 	pCtx.GotDebugImage(dmEdgesHeavy, "depth-edges-preprocess-2")
