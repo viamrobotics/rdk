@@ -93,7 +93,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
 
 	cannyColor := rimage.NewCannyDericheEdgeDetector()
-	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.9, 0.5, false)
+	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.9, 0.55, false)
 
 	colEdges, err := cannyColor.DetectEdges(fixed.Color, 0.5)
 	test.That(t, err, test.ShouldBeNil)
