@@ -56,19 +56,18 @@ func TestSobelFilter(t *testing.T) {
 	gradients := SobelFilter(dm)
 	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height()-2)
 	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width()-2)
-	// reminder: left-handed coordinate system. +x is right, +y is down.
-	// (223,100) is right edge of circle
-	test.That(t, gradients.GetVec2D(223, 100).Direction(), test.ShouldEqual, 0.)
-	// (149,173) is bottom edge of circle
-	test.That(t, gradients.GetVec2D(149, 173).Direction(), test.ShouldEqual, math.Pi/2.)
-	// (76,100) is left edge of circle
-	test.That(t, gradients.GetVec2D(76, 100).Direction(), test.ShouldEqual, math.Pi)
-	// (149,26) is top edge of circle
-	test.That(t, gradients.GetVec2D(149, 26).Direction(), test.ShouldEqual, 3.*math.Pi/2.)
-
-	img := gradients.ToPrettyPicture()
+	img := gradients.DirectionPicture()
 	err = writePicture(img, outDir+"/circle_gradient.png")
 	test.That(t, err, test.ShouldBeNil)
+	// reminder: left-handed coordinate system. +x is right, +y is down.
+	// (223,100) is right edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(223, 100).Direction()), test.ShouldEqual, 0.)
+	// (149,173) is bottom edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(149, 173).Direction()), test.ShouldEqual, math.Pi/2.)
+	// (76,100) is left edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(76, 100).Direction()), test.ShouldEqual, math.Pi)
+	// (149,26) is top edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(149, 26).Direction()), test.ShouldEqual, 3.*math.Pi/2.)
 
 }
 
