@@ -24,7 +24,7 @@ Installing libhttpserver
     sudo make install
 
 make realsense service
-    sudo ln -s ~/work/robotcore/utils/camera_servers/intelrealserver /usr/local/bin
-    sudo ln -s ~/work/robotcore/utils/camera_servers/intelrealserver.service /etc/systemd/system/
+    sudo ln -s ~/work/robotcore/etc/camera_servers/intelrealserver /usr/local/bin
+    sudo ln -s ~/work/robotcore/etc/camera_servers/intelrealserver.service /etc/systemd/system/
     sudo systemctl start intelrealserver
     sudo systemctl enable intelrealserver
