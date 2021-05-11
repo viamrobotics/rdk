@@ -11,10 +11,11 @@ import (
 // Input a vector in cartesian coordinates and return the vector in polar coordinates.
 func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	mag := math.Sqrt(x*x + y*y)
-	// transform angle so that it is between [0, 2pi) rather than [-pi, pi]
-	dir := math.Atan2(y, x)
-	if dir < 0. {
-		dir += 2. * math.Pi
+	var dir float64
+	if x != 0 {
+		dir = math.Atan2(y, x)
+	} else {
+		dir = 0
 	}
 	return mag, dir
 }
@@ -37,6 +38,12 @@ func makeRangeArray(dim int) []int {
 		rangeArray[i] = -span + i
 	}
 	return rangeArray
+}
+
+func (cd *CannyEdgeDetector) DetectDepthEdges(dm *DepthMap, blur float64) (*image.Gray, error) {
+	vectorField := SobelFilter(dm)
+	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.MagnitudeField.DirectionField()
+	return nil, nil
 }
 
 // Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
