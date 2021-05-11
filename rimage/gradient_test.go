@@ -7,9 +7,10 @@ import (
 	"os"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/testutils"
-	"go.viam.com/test"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/core/artifact"
