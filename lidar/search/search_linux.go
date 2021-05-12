@@ -8,6 +8,7 @@ import (
 	"go.viam.com/robotcore/usb"
 )
 
+// Devices uses linux usb device APIs to find all applicable lidar devices.
 func Devices() []api.ComponentConfig {
 	usbDevices := usb.SearchDevices(
 		usb.SearchFilter{},

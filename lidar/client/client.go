@@ -15,9 +15,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ModelNameClient is used to refer to the registered type of lidar.
 const ModelNameClient = "grpc"
-const DeviceTypeClient = lidar.DeviceType(ModelNameClient)
 
+// init registers the gRPC lidar client.
 func init() {
 	api.RegisterLidar(ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
 		address := config.Host
@@ -28,6 +29,7 @@ func init() {
 	})
 }
 
+// NewClient returns a lidar backed by a gRPC client.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Device, error) {
 	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
 	if err != nil {

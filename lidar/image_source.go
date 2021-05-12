@@ -11,7 +11,7 @@ import (
 	"go.viam.com/robotcore/rimage"
 )
 
-// ImageSource generates images from the current scan of a lidar
+// An ImageSource generates images from the most recent scan of a lidar.
 type ImageSource struct {
 	size          image.Point
 	device        Device
@@ -19,30 +19,35 @@ type ImageSource struct {
 	noFilter      bool
 }
 
+// unitsPerMeter helps size the resulting images.
 const unitsPerMeter = 100 // centimeters
 
+// NewImageSource returns a new image source that will produce images from the given device
+// bounded to the given size.
 func NewImageSource(outputSize image.Point, device Device) *ImageSource {
 	return &ImageSource{size: outputSize, device: device, unitsPerMeter: unitsPerMeter}
 }
 
-var red = rimage.Red
-
+// Next fetches the latest scan from the device and turns the measurements into
+// an a properly sized image.
 func (is *ImageSource) Next(ctx context.Context) (image.Image, func(), error) {
 	measurements, err := is.device.Scan(ctx, ScanOptions{NoFilter: is.noFilter})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	img, err := MeasurementsToImage(measurements, is.size)
+	img, err := measurementsToImage(measurements, is.size)
 	return img, func() {}, err
 }
 
+// Close does nothings since someone else is responsible for closing the underlying
+// device.
 func (is *ImageSource) Close() error {
 	return nil
 }
 
-func MeasurementsToImage(measurements Measurements, size image.Point) (image.Image, error) {
-
+// measurementsToImage converts lidar measurements into an image bounded by the given size.
+func measurementsToImage(measurements Measurements, size image.Point) (image.Image, error) {
 	if size.X != size.Y {
 		return nil, fmt.Errorf("size has to be square, not %v", size)
 	}
@@ -72,7 +77,7 @@ func MeasurementsToImage(measurements Measurements, size image.Point) (image.Ima
 		x, y := next.Coords()
 		x = centerX + (x * pixelsPerMeter)
 		y = centerY + (y * -1 * pixelsPerMeter)
-		dc.SetColor(red)
+		dc.SetColor(rimage.Red)
 		dc.SetPixel(int(x), int(y))
 	}
 
