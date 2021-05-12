@@ -16,8 +16,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ModelNameClient is used to register the sensor to a model name.
 const ModelNameClient = "grpc"
 
+// init registers a gRPC based compass.
 func init() {
 	api.RegisterSensor(compass.DeviceType, ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		address := config.Host
@@ -28,6 +30,8 @@ func init() {
 	})
 }
 
+// New returns a gRPC based compass at the given address. It properly returns an underlying
+// traditional or relative compass.
 func New(ctx context.Context, address string, logger golog.Logger) (compass.Device, error) {
 	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
 	if err != nil {

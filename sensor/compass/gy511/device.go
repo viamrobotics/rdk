@@ -22,14 +22,17 @@ import (
 	"go.uber.org/multierr"
 )
 
+// ModelName is used to register the sensor to a model name.
 const ModelName = "gy511"
 
+// init registers the gy511 compass type.
 func init() {
 	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		return New(ctx, config.Host, logger)
 	})
 }
 
+// Device represents a gy511 compass.
 type Device struct {
 	rwc           io.ReadWriteCloser
 	heading       atomic.Value // float64
@@ -40,6 +43,7 @@ type Device struct {
 
 const headingWindow = 100
 
+// New returns a new gy511 compass that communicates over serial on the given path.
 func New(ctx context.Context, path string, logger golog.Logger) (dev *Device, err error) {
 	rwc, err := serial.OpenDevice(path)
 	if err != nil {

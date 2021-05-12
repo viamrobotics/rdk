@@ -25,15 +25,19 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Senso
 	return &SensorClient{robotClient.SensorByName(names[0]), robotClient}, nil
 }
 
+// A SensorClient represents a sensor that is controlled via gRPC.
 type SensorClient struct {
 	sensor.Device
 	robotClient *client.RobotClient
 }
 
+// Wrapped returns the underlying sensor device if more type specific
+// access is required.
 func (sc *SensorClient) Wrapped() sensor.Device {
 	return sc.Device
 }
 
+// Close cleanly closes the underlying connection.
 func (sc *SensorClient) Close() error {
 	return sc.robotClient.Close()
 }

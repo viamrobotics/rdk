@@ -24,23 +24,28 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+// ModelName is used to register the sensor to a model name.
 const ModelName = "lidar"
 
+// init registers the lidar compass type.
 func init() {
 	api.RegisterSensor(compass.DeviceType, ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
 		return New(ctx, config, logger)
 	})
 }
 
+// Device is a LiDAR based compass that uses MSE calculations to determine yaw.
 type Device struct {
 	lidar.Device
 	markedRotatedMats atomic.Value // [][]rotatedMat
 }
 
+// From creates a compass from a lidar.
 func From(lidar lidar.Device) compass.RelativeDevice {
 	return &Device{Device: lidar}
 }
 
+// New returns a newly constructed lidar and turns it into a compass.
 func New(ctx context.Context, config api.ComponentConfig, logger golog.Logger) (compass.RelativeDevice, error) {
 	lidarType := config.Attributes.String("type")
 	f := api.LidarLookup(lidarType)
@@ -54,13 +59,15 @@ func New(ctx context.Context, config api.ComponentConfig, logger golog.Logger) (
 	if err := lidar.Start(ctx); err != nil {
 		return nil, err
 	}
-	return &Device{Device: lidar}, nil
+	return From(lidar), nil
 }
 
+// Desc returns a description of the compass.
 func (d *Device) Desc() sensor.DeviceDescription {
 	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
 }
 
+// Desc stops and closes the underlying lidar.
 func (d *Device) Close() (err error) {
 	defer func() {
 		err = multierr.Combine(err, utils.TryClose(d.Device))
@@ -109,6 +116,8 @@ func (d *Device) rotationResolution(ctx context.Context) (float64, error) {
 	return 1, nil
 }
 
+// Heading returns the best matching heading from a series of predictions
+// based on mean squared errors originating from a marked scan.
 func (d *Device) Heading(ctx context.Context) (float64, error) {
 	markedRotatedMatsIfc := d.markedRotatedMats.Load()
 	if markedRotatedMatsIfc == nil {
@@ -179,6 +188,9 @@ type rotatedMat struct {
 	theta float64
 }
 
+// Mark records a scan into a matrix as well as produces perfect
+// rotations from that scan in order to use on future MSE calculations
+// when predicting a heading.
 func (d *Device) Mark(ctx context.Context) error {
 	measureMat, err := d.scanToVec2Matrix(ctx)
 	if err != nil {
