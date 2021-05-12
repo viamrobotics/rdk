@@ -6,7 +6,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// creates a dense, expensive copy
+// ToVec2Matrix here creates a dense, expensive copy.
 func (pc *basicPointCloud) ToVec2Matrix() (*utils.Vec2Matrix, error) {
 	denseZ, err := pc.DenseZ(0)
 	if err != nil {

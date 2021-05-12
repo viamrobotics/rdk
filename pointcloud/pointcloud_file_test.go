@@ -86,11 +86,11 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 
-	byts := make([]byte, 8)
+	floatBytes := make([]byte, 8)
 	v := 1.4
 	bits := math.Float64bits(v)
-	binary.LittleEndian.PutUint64(byts, bits)
-	outBits := binary.LittleEndian.Uint64(byts)
+	binary.LittleEndian.PutUint64(floatBytes, bits)
+	outBits := binary.LittleEndian.Uint64(floatBytes)
 	outV := math.Float64frombits(outBits)
 	test.That(t, outV, test.ShouldEqual, v)
 

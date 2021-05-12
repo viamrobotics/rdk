@@ -10,15 +10,17 @@ import (
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
 // integer before it sets or gets the point. The bare floats measured from LiDARs are not
 // stored because even if the points are only 0.00000000002 apart, they would be considered different locations.
-
 type RoundingPointCloud struct {
 	*basicPointCloud
 }
 
+// NewRoundingPointCloud returns a new, empty, rounding PointCloud.
 func NewRoundingPointCloud() PointCloud {
 	return &RoundingPointCloud{New().(*basicPointCloud)}
 }
 
+// NewRoundingPointCloudFromFile, like NewFromFile, returns a PointCloud but rounds
+// all points in advance.
 func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	var err error
 	roundingPc := NewRoundingPointCloud()
@@ -41,7 +43,7 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
-	p.ChangePosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
+	p.SetPosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
 	cloud.points[key(p.Position())] = p
 	if p.HasColor() {
 		cloud.hasColor = true
