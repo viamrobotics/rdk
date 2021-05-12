@@ -26,7 +26,7 @@ func TestRangeArray(t *testing.T) {
 }
 
 func TestStructuringElement(t *testing.T) {
-	expected := &DepthMap{3, 3, []Depth{1, 1, 1, 1, 2, 1, 1, 1, 1}}
+	expected := &DepthMap{3, 3, []Depth{0, 1, 0, 1, 1, 1, 0, 1, 0}}
 	got := makeStructuringElement(3)
 	test.That(t, expected, test.ShouldResemble, got)
 

@@ -101,8 +101,11 @@ func makeStructuringElement(k int) *DepthMap {
 	center := (k + 1) / 2
 	for y, dy := range yRange {
 		for x, dx := range xRange {
-			val := center - utils.MaxInt(utils.AbsInt(dx), utils.AbsInt(dy))
-			structEle.Set(x, y, Depth(val))
+			if utils.AbsInt(dy)+utils.AbsInt(dx) < center {
+				structEle.Set(x, y, Depth(1))
+			} else {
+				structEle.Set(x, y, Depth(0))
+			}
 		}
 	}
 	return structEle
@@ -115,7 +118,7 @@ func Erode(center image.Point, dm, kernel *DepthMap) Depth {
 	depth := int(MaxDepth)
 	for y, dy := range yRange {
 		for x, dx := range xRange {
-			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() {
+			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() || kernel.GetDepth(x, y) == 0 {
 				continue
 			}
 			depth = utils.MinInt(int(dm.GetDepth(center.X+dx, center.Y+dy)-kernel.GetDepth(x, y)), depth)
@@ -133,7 +136,7 @@ func Dilate(center image.Point, dm, kernel *DepthMap) Depth {
 	depth := 0
 	for y, dy := range yRange {
 		for x, dx := range xRange {
-			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() {
+			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() || kernel.GetDepth(x, y) == 0 {
 				continue
 			}
 			depth = utils.MaxInt(int(dm.GetDepth(center.X+dx, center.Y+dy)+kernel.GetDepth(x, y)), depth)
