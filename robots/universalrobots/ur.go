@@ -301,7 +301,7 @@ func reader(ctx context.Context, conn io.Reader, arm *URArm, onHaveData func()) 
 			return ctx.Err()
 		default:
 		}
-		sizeBuf, err := utils.ReadBytes(conn, 4)
+		sizeBuf, err := utils.ReadBytes(ctx, conn, 4)
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func reader(ctx context.Context, conn io.Reader, arm *URArm, onHaveData func()) 
 			return fmt.Errorf("invalid msg size: %d", msgSize)
 		}
 
-		buf, err := utils.ReadBytes(conn, int(msgSize-4))
+		buf, err := utils.ReadBytes(ctx, conn, int(msgSize-4))
 		if err != nil {
 			return err
 		}

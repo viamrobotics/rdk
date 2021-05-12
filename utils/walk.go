@@ -1,35 +1,33 @@
 package utils
 
+// WalkCallback is to be called for each point visited by Walk.
 type WalkCallback func(x, y int) error
 
+// Walk starts at the given middle point and walks around increasingly
+// bigger squares based on the given radius growing outwards.
 func Walk(middleX, middleY, maxRadius int, f WalkCallback) error {
 
-	err := f(middleX, middleY)
-	if err != nil {
+	if err := f(middleX, middleY); err != nil {
 		return err
 	}
 
 	for radius := 1; radius <= maxRadius; radius++ {
 		for x := middleX - radius; x <= middleX+radius; x++ {
-			err = f(x, middleY+radius)
-			if err != nil {
+			if err := f(x, middleY+radius); err != nil {
 				return err
 			}
 
-			err = f(x, middleY-radius)
-			if err != nil {
+			if err := f(x, middleY-radius); err != nil {
 				return err
 			}
 		}
 
 		for y := middleY - radius + 1; y < middleY+radius; y++ {
-			err = f(middleX-radius, y)
-			if err != nil {
+			if err := f(middleX-radius, y); err != nil {
 				return err
 			}
 
-			err = f(middleX+radius, y)
-			if err != nil {
+			if err := f(middleX+radius, y); err != nil {
 				return err
 			}
 		}

@@ -8,8 +8,11 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+// Vec2Matrix is a wrapper around a mat.Dense intended for a series of
+// 2D vectors.
 type Vec2Matrix mat.Dense
 
+// RotateMatrixAbout rotates every vector by the given theta about a given point.
 func (v2m *Vec2Matrix) RotateMatrixAbout(x, y, theta float64) *Vec2Matrix {
 	if (*mat.Dense)(v2m).IsEmpty() {
 		return v2m
@@ -42,6 +45,9 @@ func vec2RotationMatrixAbout(x, y, theta float64) mat.Matrix {
 	return &rotFinal
 }
 
+// DistanceMSETo returns the mean squared error between this matrix
+// and the given matrix. This is helpful for calculating how "far off"
+// two matrices are.
 func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 	_, fromLen := (*mat.Dense)(v2m).Dims()
 	_, toLen := (*mat.Dense)(to).Dims()
@@ -80,16 +86,22 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 	return stat.Mean(rooted.RawRowView(0), nil)
 }
 
+// Vec2Fs is a series of two dimensional vectors that are float based.
 type Vec2Fs [][]float64
 
+// Len returns the number of vectors.
 func (vs Vec2Fs) Len() int {
 	return len(vs)
 }
 
+// Swap swaps two vectors by positionally.
 func (vs Vec2Fs) Swap(i, j int) {
 	vs[i], vs[j] = vs[j], vs[i]
 }
 
+// Less returns which vector compares less by first checking
+// if the X component is less, then if the X component is more,
+// and finally if the Y component is less.
 func (vs Vec2Fs) Less(i, j int) bool {
 	if vs[i][0] < vs[j][0] {
 		return true
@@ -100,6 +112,8 @@ func (vs Vec2Fs) Less(i, j int) bool {
 	return vs[i][1] < vs[j][1]
 }
 
+// sortMat does a very inefficient sort by copying the whole matrix,
+// sorting it, and resetting it.
 func sortMat(target *mat.Dense) *mat.Dense {
 	numCols := target.RowView(0).Len()
 	cols := make([][]float64, 0, target.RowView(0).Len())

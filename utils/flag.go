@@ -416,6 +416,8 @@ func (sf *sliceFlag) Get() interface{} {
 	return sf.values
 }
 
+// NetPortFlag is used to correctly set and validate a
+// network port.
 type NetPortFlag int
 
 func (npf *NetPortFlag) String() string {

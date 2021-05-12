@@ -89,7 +89,7 @@ func ContextMainReadyFunc(ctx context.Context) func() {
 	return signaler.(func())
 }
 
-// ContextWithIterFunc attaches an interation func to the given context.
+// ContextWithIterFunc attaches an iteration func to the given context.
 func ContextWithIterFunc(ctx context.Context, f func()) context.Context {
 	return context.WithValue(ctx, ctxKeyIterFunc, f)
 }
@@ -140,7 +140,7 @@ func ManagedGo(f func(), onComplete func()) {
 			if err := recover(); err == nil && onComplete != nil {
 				onComplete()
 			} else if err != nil {
-				// repanick
+				// re-panic
 				panic(err)
 			}
 		}()

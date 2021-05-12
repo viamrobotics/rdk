@@ -16,8 +16,9 @@ func init() {
 	randSrc = rand.NewSource(time.Now().Unix())
 }
 
-// note: all random strings are subject to modulus bias; hope that
-// does not matter to you
+// RandomAlphaString returns a random alphabetic string of the given size.
+// Note(erd): all random strings are subject to modulus bias; hope that
+// does not matter to you.
 func RandomAlphaString(size int) string {
 	if size < 0 {
 		return ""
@@ -35,8 +36,11 @@ func RandomAlphaString(size int) string {
 	return string(chars)
 }
 
+// StringSet represents a mathematical set of string.
 type StringSet map[string]struct{}
 
+// NewStringSet returns a new string set from the given series of values
+// where duplicates are okay.
 func NewStringSet(values ...string) StringSet {
 	set := make(StringSet, len(values))
 	for _, val := range values {
