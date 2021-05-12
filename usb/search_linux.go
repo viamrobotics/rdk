@@ -12,8 +12,10 @@ import (
 
 var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
 
+// SearchFilter does not do anything for linux.
 type SearchFilter struct{}
 
+// SearchDevices uses linux device APIs to find all applicable USB devices.
 func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
 	if includeDevice == nil {
 		return nil

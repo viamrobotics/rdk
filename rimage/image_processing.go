@@ -148,7 +148,7 @@ func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold
 func (i *Image) Rotate(amount int) *Image {
 	if amount != 180 {
 		// made this a panic
-		panic(errors.New("rimage.Image can only rotate 180 degrees right now"))
+		panic("rimage.Image can only rotate 180 degrees right now")
 	}
 
 	i2 := NewImage(i.width, i.height)
@@ -158,8 +158,6 @@ func (i *Image) Rotate(amount int) *Image {
 		for x := 0; x < i.width; x++ {
 			val := i.GetXY(i.width-1-x, i.height-1-y)
 			i2.data[k] = val
-
-			//if k != i2.kxy(x,y) { panic("oops") }
 
 			k++
 		}

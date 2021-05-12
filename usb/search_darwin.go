@@ -8,11 +8,15 @@ import (
 	"howett.net/plist"
 )
 
+// SearchFilter describes a specific kind of USB device to look for as it
+// pertains to macOS.
 type SearchFilter struct {
 	ioObjectClass string
 	ioTTYBaseName string
 }
 
+// NewSearchFilter creates a new search filter with the given IOObjectClass and
+// IOTTYBaseName.
 func NewSearchFilter(ioObjectClass, ioTTYBaseName string) SearchFilter {
 	return SearchFilter{
 		ioObjectClass: ioObjectClass,
@@ -20,6 +24,7 @@ func NewSearchFilter(ioObjectClass, ioTTYBaseName string) SearchFilter {
 	}
 }
 
+// SearchCmd is the actual system command to run; it is normally ioreg.
 var SearchCmd = func(ioObjectClass string) []byte {
 	cmd := exec.Command("ioreg", "-r", "-c", ioObjectClass, "-a", "-l")
 	out, err := cmd.Output()
@@ -29,6 +34,7 @@ var SearchCmd = func(ioObjectClass string) []byte {
 	return out
 }
 
+// SearchDevices uses macOS io device APIs to find all applicable USB devices.
 func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
 	if includeDevice == nil {
 		return nil

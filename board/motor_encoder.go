@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -382,7 +381,7 @@ func (m *encodedMotor) startRotaryEncoderWorker(onStart func()) {
 
 func (m *encodedMotor) rpmMonitor(onStart func()) {
 	if m.encoder == nil {
-		panic(errors.New("started rpmMonitor but have no encoder"))
+		panic("started rpmMonitor but have no encoder")
 	}
 
 	m.startedRPMMonitorMu.Lock()
