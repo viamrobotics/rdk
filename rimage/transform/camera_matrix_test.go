@@ -6,11 +6,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rlog"
 )
 
 var outDir string
@@ -21,7 +21,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global.Debugf("out dir: %q", outDir)
+	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
 func TestPC1(t *testing.T) {

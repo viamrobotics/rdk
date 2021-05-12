@@ -19,6 +19,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/utils"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
@@ -335,7 +336,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 
 	i := piInstance.interruptsHW[uint(gpio)]
 	if i == nil {
-		golog.Global.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+		rlog.Logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
 		return
 	}
 	high := true

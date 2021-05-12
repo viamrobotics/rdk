@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+
+	"go.viam.com/robotcore/rlog"
 )
 
 // ContextualMain calls a main entry point function with a cancellable
@@ -117,11 +119,11 @@ func PanicCapturingGoWithCallback(f func(), callback func(err interface{})) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
-				golog.Global.Errorw("panic while running function", "error", err)
+				rlog.Logger.Errorw("panic while running function", "error", err)
 				if callback == nil {
 					return
 				}
-				golog.Global.Infow("waiting a bit to call callback", "wait", waitDur.String())
+				rlog.Logger.Infow("waiting a bit to call callback", "wait", waitDur.String())
 				time.Sleep(waitDur)
 				callback(err)
 			}

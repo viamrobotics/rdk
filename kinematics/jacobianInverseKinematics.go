@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/robotcore/rlog"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
@@ -71,7 +72,7 @@ func (ik *JacobianIK) Halt() {
 func (ik *JacobianIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:
-		golog.Global.Info("solver halted before solving start; possibly solving twice in a row?")
+		rlog.Logger.Info("solver halted before solving start; possibly solving twice in a row?")
 		return false
 	default:
 	}

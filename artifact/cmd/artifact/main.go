@@ -6,8 +6,7 @@ import (
 	"os"
 
 	"go.viam.com/robotcore/artifact/tools"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/rlog"
 )
 
 func main() {
@@ -19,15 +18,15 @@ func main() {
 	switch os.Args[1] {
 	case "clean":
 		if err := tools.Clean(); err != nil {
-			golog.Global.Fatal(err)
+			rlog.Logger.Fatal(err)
 		}
 	case "import":
 		if err := tools.Import(); err != nil {
-			golog.Global.Fatal(err)
+			rlog.Logger.Fatal(err)
 		}
 	case "export":
 		if err := tools.Export(); err != nil {
-			golog.Global.Fatal(err)
+			rlog.Logger.Fatal(err)
 		}
 	default:
 		fmt.Println(usage)

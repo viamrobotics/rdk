@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rlog"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -19,7 +20,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global.Debugf("out dir: %q", outDir)
+	rlog.Logger.Debugf("out dir: %q", outDir)
 }
 
 func TestGetMinChessCorner(t *testing.T) {

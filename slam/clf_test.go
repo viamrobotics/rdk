@@ -8,6 +8,7 @@ import (
 	"go.viam.com/robotcore/artifact"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 
@@ -25,7 +26,7 @@ func TestAcesCLF(t *testing.T) {
 
 	unitsPerMeter := 20.
 
-	area, err := NewSquareArea(200, unitsPerMeter, golog.Global)
+	area, err := NewSquareArea(200, unitsPerMeter, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	clf := utils.NewCLFReader(f)
