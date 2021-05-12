@@ -163,7 +163,7 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 	if base == nil {
 		return nil, fmt.Errorf("no base with name (%s)", req.Name)
 	}
-	millisPerSec := 500.0 // TODO(erh): this is proably the wrong default
+	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
 	if req.MillisPerSec != 0 {
 		millisPerSec = req.MillisPerSec
 	}
@@ -316,7 +316,7 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	return &resp, nil
 }
 
-// CameraFrame renderse a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
 	resp, err := s.CameraFrame(ctx, (*pb.CameraFrameRequest)(req))
