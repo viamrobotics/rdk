@@ -5,6 +5,7 @@ package search
 
 import "go.viam.com/robotcore/api"
 
+// Devices returns nothing here for unsupported platforms.
 func Devices() []api.ComponentConfig {
 	return nil
 }
