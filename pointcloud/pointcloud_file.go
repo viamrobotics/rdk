@@ -23,8 +23,12 @@ func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	}
 }
 
+// pointValueDataTag encodes if the point has value data.
 const pointValueDataTag = "rc|pv"
 
+// NewFromLASFile returns a point cloud from reading a LAS file. If any
+// lossiness of points could occur from reading it in, it's reported but is not
+// an error.
 func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	lf, err := lidario.NewLasFile(fn, "r")
 	if err != nil {
@@ -78,6 +82,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	return pc, nil
 }
 
+// WriteToFile writes the point cloud out to a LAS file.
 func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
@@ -107,7 +112,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
-			// floating point losiness validated/warned from set/load
+			// floating point lossiness validated/warned from set/load
 			X:         pos.X,
 			Y:         pos.Y,
 			Z:         pos.Z,
@@ -208,7 +213,7 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 	}
 
 	pc.Iterate(func(pt Point) bool {
-		// Our pointclouds are in mm, PCD files expect meters
+		// Our point clouds are in mm, PCD files expect meters
 		position := pt.Position()
 		width := position.X / 1000.
 		height := -position.Y / 1000.
