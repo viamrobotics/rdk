@@ -52,21 +52,28 @@ const clfHeader = `# CARMEN Logfile
 # (old) # REMISSIONLASER3 num_readings [range_readings remission_value]
 # (old) # REMISSIONLASER4 num_readings [range_readings remission_value]`
 
+// A CLFReader can read in CARMEN Logfiles
 type CLFReader struct {
 	reader *bufio.Reader
 }
 
+// CLFMessage is a specific type of CLF message that always has
+// a base message.
 type CLFMessage interface {
 	Base() CLFBaseMessage
 	Type() CLFMessageType
 }
 
+// NewCLFReader returns a CLF reader based on the given reader.
 func NewCLFReader(reader io.Reader) *CLFReader {
 	return &CLFReader{reader: bufio.NewReader(reader)}
 }
 
+// Process reads over all messages and calls the given function for
+// each message. If the function returns an error, execution stops
+// with that error returned to the caller.
 func (r *CLFReader) Process(f func(message CLFMessage) error) error {
-	// discard directves
+	// discard directives
 	for {
 		line, eof, err := r.readLine()
 		if err != nil || eof {
@@ -95,6 +102,7 @@ func (r *CLFReader) Process(f func(message CLFMessage) error) error {
 	}
 }
 
+// CLFMessageType describes a specific type of message.
 type CLFMessageType string
 
 // known message  types
@@ -192,6 +200,8 @@ func (r *CLFReader) readLine() (string, bool, error) {
 	}
 }
 
+// CLFBaseMessage is used by all messages and contains basic
+// information about the message.
 type CLFBaseMessage struct {
 	MessageType     CLFMessageType
 	IPCTimestamp    float64
@@ -217,7 +227,7 @@ func parseBaseMessage(messageType CLFMessageType, parts []string) (CLFBaseMessag
 		return CLFBaseMessage{}, errors.New("malformed message; expected timestamp/host info at end")
 	}
 	if len(parts) == 2 {
-		// some weird unaccapted format that we will accept (see artifact_data/aces_samples.clf)
+		// some weird unaccepted format that we will accept (see artifact_data/aces_samples.clf)
 		loggerTimestamp, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
 			return CLFBaseMessage{}, fmt.Errorf("error parsing logger_timestamp: %w", err)

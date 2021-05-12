@@ -6,10 +6,12 @@ import (
 	"sort"
 )
 
+// DegToRad converts degrees to radians.
 func DegToRad(degrees float64) float64 {
 	return degrees * math.Pi / 180
 }
 
+// RadToDeg converts radians to degrees.
 func RadToDeg(radians float64) float64 {
 	return radians * 180 / math.Pi
 }
@@ -20,14 +22,20 @@ func AngleDiffDeg(a1, a2 float64) float64 {
 	return float64(180) - math.Abs(math.Abs(a1-a2)-float64(180))
 }
 
+// AntiCWDeg flips the given degrees as if you were to start at 0 and
+// go counter-clockwise or vice versa.
 func AntiCWDeg(deg float64) float64 {
 	return math.Mod(float64(360)-deg, 360)
 }
 
+// ModAngDeg returns the given angle modulus 360 and resolves
+// any negativity.
 func ModAngDeg(ang float64) float64 {
 	return math.Mod(math.Mod((ang), 360)+360, 360)
 }
 
+// Median returns the median value of the given values. If there
+// are no values, NaN is returned.
 func Median(values ...float64) float64 {
 	if len(values) == 0 {
 		return math.NaN()
@@ -37,6 +45,7 @@ func Median(values ...float64) float64 {
 	return values[int(math.Floor(float64(len(values))/2))]
 }
 
+// AbsInt returns the absolute value of the given value.
 func AbsInt(n int) int {
 	if n < 0 {
 		return -1 * n
@@ -44,6 +53,7 @@ func AbsInt(n int) int {
 	return n
 }
 
+// AbsInt64 returns the absolute value of the given value.
 func AbsInt64(n int64) int64 {
 	if n < 0 {
 		return -1 * n
@@ -51,6 +61,7 @@ func AbsInt64(n int64) int64 {
 	return n
 }
 
+// MaxInt returns the maximum of two values.
 func MaxInt(a, b int) int {
 	if a < b {
 		return b
@@ -58,6 +69,7 @@ func MaxInt(a, b int) int {
 	return a
 }
 
+// MinInt returns the minimum of two values.
 func MinInt(a, b int) int {
 	if a < b {
 		return a
@@ -65,6 +77,7 @@ func MinInt(a, b int) int {
 	return b
 }
 
+// MaxUint8 returns the maximum of two values.
 func MaxUint8(a, b uint8) uint8 {
 	if a < b {
 		return b
@@ -72,6 +85,7 @@ func MaxUint8(a, b uint8) uint8 {
 	return a
 }
 
+// MinUint8 returns the minimum of two values.
 func MinUint8(a, b uint8) uint8 {
 	if a < b {
 		return a
@@ -79,16 +93,20 @@ func MinUint8(a, b uint8) uint8 {
 	return b
 }
 
+const cubeRootExp = 1.0 / 3.0
+
+// CubeRoot returns the cube root of the given value.
 func CubeRoot(x float64) float64 {
-	p := 1.0 / 3.0
-	return math.Pow(x, p)
+	return math.Pow(x, cubeRootExp)
 }
 
+// Square returns the square of the given value.
 // Math.pow( x, 2 ) is slow, this is faster
 func Square(n float64) float64 {
 	return n * n
 }
 
+// SquareInt returns the square of the given value.
 // Math.pow( x, 2 ) is slow, this is faster
 func SquareInt(n int) int {
 	return n * n
@@ -107,7 +125,7 @@ func ScaleByPct(n int, pct float64) int {
 
 // RayToUpwardCWCartesian returns coordinates based off of
 // a coordinate system where the center is x,y=0,0 and
-// zero degrees is pointing up. This is helpful for visualzing
+// zero degrees is pointing up. This is helpful for visualizing
 // measurement devices that scan clockwise.
 // ray is in degrees
 // 0°   -  (0,increasing) // Up
@@ -122,7 +140,7 @@ func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
 }
 
 // SampleRandomInt samples a random integer within a range given by [min, max]
-// using the given rand.Rand
+// using the given rand.Rand.
 func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 	return r.Intn(max-min+1) + min
 }
