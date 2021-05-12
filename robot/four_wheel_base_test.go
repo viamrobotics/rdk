@@ -8,8 +8,8 @@ import (
 	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rlog"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
 )
 
@@ -30,11 +30,11 @@ func TestFourWheelBase1(t *testing.T) {
 				},
 			},
 		},
-		golog.Global,
+		rlog.Logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = CreateFourWheelBase(context.Background(), r, api.ComponentConfig{}, golog.Global)
+	_, err = CreateFourWheelBase(context.Background(), r, api.ComponentConfig{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	cfg := api.ComponentConfig{
@@ -48,7 +48,7 @@ func TestFourWheelBase1(t *testing.T) {
 			"backLeft":                 "bl-m",
 		},
 	}
-	baseBase, err := CreateFourWheelBase(context.Background(), r, cfg, golog.Global)
+	baseBase, err := CreateFourWheelBase(context.Background(), r, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseBase, test.ShouldNotBeNil)
 	base, ok := baseBase.(*fourWheelBase)

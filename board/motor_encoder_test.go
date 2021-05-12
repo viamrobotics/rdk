@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/utils"
 
@@ -218,7 +219,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
 
-	b, err := NewFakeBoard(context.Background(), Config{}, golog.Global)
+	b, err := NewFakeBoard(context.Background(), Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// enforce need encoder

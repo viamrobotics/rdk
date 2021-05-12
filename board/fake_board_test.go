@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/robotcore/rlog"
 )
 
 func TestFakeRegistry(t *testing.T) {
-	b, err := NewBoard(context.Background(), Config{Model: "fake"}, golog.Global)
+	b, err := NewBoard(context.Background(), Config{Model: "fake"}, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, ok := b.(*FakeBoard)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -39,7 +40,7 @@ func TestFakeBoard(t *testing.T) {
 		},
 	}
 
-	b, err := NewFakeBoard(context.Background(), cfg, golog.Global)
+	b, err := NewFakeBoard(context.Background(), cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, b.Servo("s1").Move(context.Background(), 15), test.ShouldBeNil)

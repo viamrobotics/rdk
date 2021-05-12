@@ -3,7 +3,7 @@ package rimage
 import (
 	"io/ioutil"
 
-	"github.com/edaniels/golog"
+	"go.viam.com/robotcore/rlog"
 )
 
 var outDir string
@@ -14,5 +14,5 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	golog.Global.Debugf("out dir: %q", outDir)
+	rlog.Logger.Debugf("out dir: %q", outDir)
 }

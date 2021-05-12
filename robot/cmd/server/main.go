@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/rlog"
 	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robot/web"
 	"go.viam.com/robotcore/rpc"
@@ -143,7 +144,7 @@ func (nl *netLogger) backgroundWorker(ctx context.Context) {
 		err := nl.Sync()
 		if err != nil {
 			// fall back to regular logging
-			golog.Global.Infof("error logging to network: %s", err)
+			rlog.Logger.Infof("error logging to network: %s", err)
 		}
 	}
 }
