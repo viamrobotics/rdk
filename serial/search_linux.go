@@ -32,6 +32,8 @@ func searchUSB(filter SearchFilter) []DeviceDescription {
 
 var devPath = "/dev"
 
+// SearchDevices uses linux device APIs to find all applicable serial devices.
+// It's a variable in case you need to override it during tests.
 var SearchDevices = func(filter SearchFilter) []DeviceDescription {
 	serialDeviceDescs := searchUSB(filter)
 	if filter.Type != "" && filter.Type != DeviceTypeJetson {

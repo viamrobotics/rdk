@@ -18,7 +18,7 @@ import (
 )
 
 // ContextualMainExecution reflects the execution of a main function
-// that can have its lifecycel partially controlled.
+// that can have its lifecycle partially controlled.
 type ContextualMainExecution struct {
 	Ready       <-chan struct{}
 	Done        <-chan error

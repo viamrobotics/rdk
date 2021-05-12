@@ -1,7 +1,6 @@
 package board
 
 import (
-	"errors"
 	"fmt"
 	"sync/atomic"
 
@@ -188,7 +187,7 @@ func (i *ServoDigitalInterrupt) Tick(high bool, now uint64) {
 }
 
 func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
-	panic(errors.New("servos can't have callback"))
+	panic("servos can't have callback")
 }
 
 func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {

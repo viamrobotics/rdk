@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -446,7 +445,7 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	}
 
 	// made this a panic
-	panic(errors.New("vision.DepthMap can only rotate 180 degrees right now"))
+	panic("vision.DepthMap can only rotate 180 degrees right now")
 }
 
 func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
