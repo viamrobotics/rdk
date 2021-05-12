@@ -22,3 +22,8 @@ plugins:
     opt:
       - import_style=commonjs
       - mode=grpcwebtext
+  - name: doc
+    out: docs/proto
+    strategy: all
+    opt:
+      - html,index.html
