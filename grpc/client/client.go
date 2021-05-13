@@ -96,7 +96,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		}
 	}
 
-	client := pb.NewServiceClient(conn)
+	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
 		address:                 address,
