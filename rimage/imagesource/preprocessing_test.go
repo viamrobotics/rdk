@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/utils"
 
@@ -14,7 +14,7 @@ import (
 
 // Smoothing with Morphological filters
 type smoothTestHelper struct {
-	attrs api.AttributeMap
+	attrs config.AttributeMap
 }
 
 func (h *smoothTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -59,7 +59,7 @@ func (h *smoothTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, 
 }
 
 func TestSmoothGripper(t *testing.T) {
-	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
@@ -72,7 +72,7 @@ func TestSmoothGripper(t *testing.T) {
 
 // Canny Edge Detection for depth maps
 type cannyTestHelper struct {
-	attrs api.AttributeMap
+	attrs config.AttributeMap
 }
 
 func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -121,7 +121,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 }
 
 func TestCannyEdgeGripper(t *testing.T) {
-	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
