@@ -68,7 +68,7 @@ python-macos:
 	sudo cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
 
 server:
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server robot/cmd/server/main.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 deb-server: server
 	rm -rf etc/packaging/work/

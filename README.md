@@ -15,7 +15,7 @@
 * [rimage/cmd/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
 * [rimage/cmd/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
 * [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
-* [web/cmd/server](./robot/cmd/server) - Run a robot server
+* [web/cmd/server](./web/cmd/server) - Run a robot server
 * [rpc/examples/echo](./rpc/examples/echo) - Run a gRPC echo example
 * [sensor/compass/cmd/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
 * [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
