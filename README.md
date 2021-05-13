@@ -17,6 +17,8 @@
 * [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
   * [pi](./board/pi) - raspberry pi library
 * [dist/js](./dist/js) - auto-generated proto/gRPC files for JavaScript based off of `proto` directory
+* [etc](./etc) Random small things that don't belong elsewhere
+  * [camera_servers](./etc/camera_servers) C++ camera servers (e.g. Intel Realsense L515, Royale, etc...)
 * [kinematics](./kinematics) - Kinematics library
 * [lidar](./lidar) - API and implementations
 * [ml](./ml) - assorted machine learning utility code
