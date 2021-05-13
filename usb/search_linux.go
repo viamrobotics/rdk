@@ -15,12 +15,12 @@ var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc
 // SearchFilter does not do anything for linux.
 type SearchFilter struct{}
 
-// SearchDevices uses linux device APIs to find all applicable USB devices.
-func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+// Search uses linux device APIs to find all applicable USB devices.
+func Search(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []Description {
 	if includeDevice == nil {
 		return nil
 	}
-	searchPath := func(sysPath string) []DeviceDescription {
+	searchPath := func(sysPath string) []Description {
 		devicesDir, err := os.Open(sysPath)
 		if err != nil {
 			return nil
@@ -30,7 +30,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 		if err != nil {
 			return nil
 		}
-		var results []DeviceDescription
+		var results []Description
 		for _, device := range devices {
 			linkedFile, err := os.Readlink(filepath.Join(sysPath, device.Name()))
 			if err != nil {
@@ -85,7 +85,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 				if !includeDevice(int(vendorID), int(productID)) {
 					continue
 				}
-				results = append(results, DeviceDescription{
+				results = append(results, Description{
 					ID: Identifier{
 						Vendor:  int(vendorID),
 						Product: int(productID),
@@ -96,7 +96,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 		}
 		return results
 	}
-	var allDevices []DeviceDescription
+	var allDevices []Description
 	for _, sysPath := range SysPaths {
 		allDevices = append(allDevices, searchPath(sysPath)...)
 	}

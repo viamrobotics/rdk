@@ -6,7 +6,10 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -14,7 +17,7 @@ import (
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.ComponentConfig, logger golog.Logger) (api.Base, error) {
+	registry.RegisterBase(ModelName, func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 		t := r.ProviderByName(ModelName)
 		if t == nil {
 			return nil, errors.New("no provider created for hellorobot")

@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/robotcore/api/server"
+	"go.viam.com/robotcore/grpc/server"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/client"
@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.DeviceType,
+					Type: compass.CompassType,
 				},
 			},
 		}, nil
@@ -52,7 +52,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.RelativeDeviceType,
+					Type: compass.RelativeCompassType,
 				},
 			},
 		}, nil
@@ -73,14 +73,14 @@ func TestClient(t *testing.T) {
 	injectDev.HeadingFunc = func(ctx context.Context) (float64, error) {
 		return 5.2, nil
 	}
-	injectRobot2.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot2.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectDev
 	}
 
 	dev, err := client.NewClient(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	compassDev := dev.Wrapped().(compass.Device)
-	test.That(t, compassDev, test.ShouldNotImplement, (*compass.RelativeDevice)(nil))
+	compassDev := dev.Wrapped().(compass.Compass)
+	test.That(t, compassDev, test.ShouldNotImplement, (*compass.RelativeCompass)(nil))
 
 	readings, err := dev.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -100,20 +100,20 @@ func TestClient(t *testing.T) {
 	injectRelDev.MarkFunc = func(ctx context.Context) error {
 		return nil
 	}
-	injectRobot3.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot3.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectRelDev
 	}
 
 	dev, err = client.NewClient(context.Background(), listener3.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	compassDev = dev.Wrapped().(compass.Device)
-	test.That(t, compassDev, test.ShouldImplement, (*compass.RelativeDevice)(nil))
+	compassDev = dev.Wrapped().(compass.Compass)
+	test.That(t, compassDev, test.ShouldImplement, (*compass.RelativeCompass)(nil))
 
 	readings, err = dev.Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings, test.ShouldResemble, []interface{}{5.2})
 
-	compassRelDev := compassDev.(compass.RelativeDevice)
+	compassRelDev := compassDev.(compass.RelativeCompass)
 
 	heading, err = compassRelDev.Heading(context.Background())
 	test.That(t, err, test.ShouldBeNil)

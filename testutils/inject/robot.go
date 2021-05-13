@@ -4,11 +4,15 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/rexec"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/utils"
 
@@ -17,16 +21,16 @@ import (
 )
 
 type Robot struct {
-	api.Robot
-	RemoteByNameFunc   func(name string) api.Robot
-	ArmByNameFunc      func(name string) api.Arm
-	BaseByNameFunc     func(name string) api.Base
-	GripperByNameFunc  func(name string) api.Gripper
+	robot.Robot
+	RemoteByNameFunc   func(name string) robot.Robot
+	ArmByNameFunc      func(name string) arm.Arm
+	BaseByNameFunc     func(name string) base.Base
+	GripperByNameFunc  func(name string) gripper.Gripper
 	CameraByNameFunc   func(name string) gostream.ImageSource
-	LidarByNameFunc    func(name string) lidar.Device
+	LidarByNameFunc    func(name string) lidar.Lidar
 	BoardByNameFunc    func(name string) board.Board
-	SensorByNameFunc   func(name string) sensor.Device
-	ProviderByNameFunc func(name string) api.Provider
+	SensorByNameFunc   func(name string) sensor.Sensor
+	ProviderByNameFunc func(name string) robot.Provider
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -36,35 +40,35 @@ type Robot struct {
 	BoardNamesFunc     func() []string
 	SensorNamesFunc    func() []string
 	ProcessManagerFunc func() rexec.ProcessManager
-	GetConfigFunc      func(ctx context.Context) (*api.Config, error)
+	GetConfigFunc      func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc         func() golog.Logger
 	CloseFunc          func() error
 	RefreshFunc        func(ctx context.Context) error
 }
 
-func (r *Robot) RemoteByName(name string) api.Robot {
+func (r *Robot) RemoteByName(name string) robot.Robot {
 	if r.RemoteByNameFunc == nil {
 		return r.Robot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
 }
 
-func (r *Robot) ArmByName(name string) api.Arm {
+func (r *Robot) ArmByName(name string) arm.Arm {
 	if r.ArmByNameFunc == nil {
 		return r.Robot.ArmByName(name)
 	}
 	return r.ArmByNameFunc(name)
 }
 
-func (r *Robot) BaseByName(name string) api.Base {
+func (r *Robot) BaseByName(name string) base.Base {
 	if r.BaseByNameFunc == nil {
 		return r.Robot.BaseByName(name)
 	}
 	return r.BaseByNameFunc(name)
 }
 
-func (r *Robot) GripperByName(name string) api.Gripper {
+func (r *Robot) GripperByName(name string) gripper.Gripper {
 	if r.GripperByNameFunc == nil {
 		return r.Robot.GripperByName(name)
 	}
@@ -78,7 +82,7 @@ func (r *Robot) CameraByName(name string) gostream.ImageSource {
 	return r.CameraByNameFunc(name)
 }
 
-func (r *Robot) LidarByName(name string) lidar.Device {
+func (r *Robot) LidarByName(name string) lidar.Lidar {
 	if r.LidarByNameFunc == nil {
 		return r.Robot.LidarByName(name)
 	}
@@ -92,14 +96,14 @@ func (r *Robot) BoardByName(name string) board.Board {
 	return r.BoardByNameFunc(name)
 }
 
-func (r *Robot) SensorByName(name string) sensor.Device {
+func (r *Robot) SensorByName(name string) sensor.Sensor {
 	if r.SensorByNameFunc == nil {
 		return r.Robot.SensorByName(name)
 	}
 	return r.SensorByNameFunc(name)
 }
 
-func (r *Robot) ProviderByName(name string) api.Provider {
+func (r *Robot) ProviderByName(name string) robot.Provider {
 	if r.ProviderByNameFunc == nil {
 		return r.Robot.ProviderByName(name)
 	}
@@ -169,7 +173,7 @@ func (r *Robot) ProcessManager() rexec.ProcessManager {
 	return r.ProcessManagerFunc()
 }
 
-func (r *Robot) GetConfig(ctx context.Context) (*api.Config, error) {
+func (r *Robot) GetConfig(ctx context.Context) (*config.Config, error) {
 	if r.GetConfigFunc == nil {
 		return r.Robot.GetConfig(ctx)
 	}
@@ -199,7 +203,7 @@ func (r *Robot) Close() error {
 
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
-		if remote, ok := r.Robot.(api.Robot); ok {
+		if remote, ok := r.Robot.(robot.Robot); ok {
 			return remote.Refresh(ctx)
 		}
 	}

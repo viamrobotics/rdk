@@ -9,21 +9,21 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSearchDevices(t *testing.T) {
+func TestSearch(t *testing.T) {
 	for i, tc := range []struct {
 		Filter   SearchFilter
 		Output   string
-		Expected []DeviceDescription
+		Expected []Description
 	}{
 		{SearchFilter{}, "", nil},
 		{SearchFilter{}, "text", nil},
-		{SearchFilter{}, out1, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		{SearchFilter{}, out1, []Description{
+			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{SearchFilter{Type: DeviceTypeArduino}, out1, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		{SearchFilter{Type: TypeArduino}, out1, []Description{
+			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
 		},
-		{SearchFilter{Type: DeviceTypeJetson}, out1, nil},
+		{SearchFilter{Type: TypeJetson}, out1, nil},
 		{SearchFilter{}, out2, nil},
 		{SearchFilter{}, out3, nil},
 		{SearchFilter{}, out4, nil},
@@ -37,7 +37,7 @@ func TestSearchDevices(t *testing.T) {
 				test.That(t, ioObjectClass, test.ShouldEqual, "AppleUSBACMData")
 				return []byte(tc.Output)
 			}
-			result := SearchDevices(tc.Filter)
+			result := Search(tc.Filter)
 			test.That(t, result, test.ShouldResemble, tc.Expected)
 		})
 	}

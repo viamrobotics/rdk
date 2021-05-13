@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/transform"
 	"go.viam.com/robotcore/utils"
@@ -14,7 +14,7 @@ import (
 )
 
 type alignTestHelper struct {
-	attrs api.AttributeMap
+	attrs config.AttributeMap
 }
 
 func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
@@ -45,12 +45,12 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 func TestAlignIntelWarp(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515_warp", "*.both.gz", false)
-	err := d.Process(t, &alignTestHelper{api.AttributeMap{"config": &transform.IntelConfig}})
+	err := d.Process(t, &alignTestHelper{config.AttributeMap{"config": &transform.IntelConfig}})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestAlignIntelMatrices(t *testing.T) {
-	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
@@ -62,7 +62,7 @@ func TestAlignIntelMatrices(t *testing.T) {
 }
 
 func TestAlignGripper(t *testing.T) {
-	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")

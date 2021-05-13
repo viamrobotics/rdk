@@ -8,7 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 )
 
 const ModelName = "hellorobot"
@@ -18,7 +20,7 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	api.RegisterProvider(ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Provider, error) {
+	registry.RegisterProvider(ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error) {
 		return New()
 	})
 }
@@ -56,7 +58,7 @@ func New() (*Robot, error) {
 	return &Robot{robotObj: robot}, nil
 }
 
-func (r *Robot) Ready(theRobot api.Robot) error {
+func (r *Robot) Ready(theRobot robot.Robot) error {
 	return nil
 }
 

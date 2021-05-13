@@ -9,11 +9,12 @@ import (
 	"runtime"
 	"strings"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
 	pb "go.viam.com/robotcore/proto/slam/v1"
-	"go.viam.com/robotcore/robot"
+	builtinrobot "go.viam.com/robotcore/robot/builtin"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/robots/hellorobot"
 	"go.viam.com/robotcore/rpc"
@@ -42,11 +43,11 @@ var (
 
 // Arguments for the command.
 type Arguments struct {
-	Port         utils.NetPortFlag     `flag:"0"`
-	BaseType     baseTypeFlag          `flag:"base-type,default=,usage=type of mobile base"`
-	Lidars       []api.ComponentConfig `flag:"lidar,usage=lidars"`
-	LidarOffsets []slam.DeviceOffset   `flag:"lidar-offset,usage=lidar offets relative to first"`
-	Compass      api.ComponentConfig   `flag:"compass,usage=compass device"`
+	Port         utils.NetPortFlag   `flag:"0"`
+	BaseType     baseTypeFlag        `flag:"base-type,default=,usage=type of mobile base"`
+	Lidars       []config.Component  `flag:"lidar,usage=lidars"`
+	LidarOffsets []slam.DeviceOffset `flag:"lidar-offset,usage=lidar offets relative to first"`
+	Compass      config.Component    `flag:"compass,usage=compass device"`
 }
 
 type baseTypeFlag string
@@ -85,11 +86,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		argsParsed.Port = utils.NetPortFlag(defaultPort)
 	}
 	for _, comp := range argsParsed.Lidars {
-		if comp.Type != api.ComponentTypeLidar {
+		if comp.Type != config.ComponentTypeLidar {
 			return errors.New("only lidar components can be in lidar flag")
 		}
 	}
-	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != api.ComponentTypeSensor || argsParsed.Compass.SubType != compass.DeviceType) {
+	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != config.ComponentTypeSensor || argsParsed.Compass.SubType != compass.CompassType) {
 		return errors.New("compass flag must be a sensor component")
 	}
 
@@ -105,10 +106,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if len(argsParsed.Lidars) == 0 {
 		argsParsed.Lidars = append(argsParsed.Lidars,
-			api.ComponentConfig{
-				Type:  api.ComponentTypeLidar,
+			config.Component{
+				Type:  config.ComponentTypeLidar,
 				Host:  "0",
-				Model: string(lidar.DeviceTypeFake),
+				Model: string(lidar.TypeFake),
 			})
 	}
 
@@ -131,7 +132,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		return err
 	}
 
-	var baseDevice api.Base
+	var baseDevice base.Base
 	switch args.BaseType {
 	case fakeDev:
 		baseDevice = &fake.Base{}
@@ -153,7 +154,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		components = append(components, args.Compass)
 	}
 
-	r, err := robot.NewRobot(ctx, &api.Config{Components: components}, logger)
+	r, err := builtinrobot.NewRobot(ctx, &config.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}
@@ -161,15 +162,15 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		err = multierr.Combine(err, r.Close())
 	}()
 	lidarNames := r.LidarNames()
-	lidars := make([]lidar.Device, 0, len(lidarNames))
+	lidars := make([]lidar.Lidar, 0, len(lidarNames))
 	for _, name := range lidarNames {
 		lidars = append(lidars, r.LidarByName(name))
 	}
-	var compassSensor compass.Device
+	var compassSensor compass.Compass
 	if args.Compass.Type != "" {
 		var ok bool
 		sensorDevice := r.SensorByName(r.SensorNames()[0])
-		compassSensor, ok = sensorDevice.(compass.Device)
+		compassSensor, ok = sensorDevice.(compass.Compass)
 		if !ok {
 			return fmt.Errorf("expected to get a compasss but got a %T", sensorDevice)
 		}
@@ -202,7 +203,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 
 	if compassSensor != nil {
 		if _, isFake := baseDevice.(*fake.Base); !isFake {
-			baseDevice = api.AugmentBaseWithCompass(baseDevice, compassSensor, logger)
+			baseDevice = base.AugmentWithCompass(baseDevice, compassSensor, logger)
 		}
 	}
 

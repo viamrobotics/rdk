@@ -10,12 +10,14 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/robot"
 )
 
 func init() {
-	api.RegisterCamera("rotate", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("rotate", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
@@ -25,7 +27,7 @@ func init() {
 		return &RotateImageDepthSource{source}, nil
 	})
 
-	api.RegisterCamera("resize", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("resize", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {

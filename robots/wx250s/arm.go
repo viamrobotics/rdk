@@ -17,15 +17,18 @@ import (
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 )
 
 func init() {
-	api.RegisterArm("wx250s", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
-		mut, err := api.RobotAsMutable(r)
+	registry.RegisterArm("wx250s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err
 		}
@@ -70,7 +73,7 @@ func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
 
-func NewArm(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (api.Arm, error) {
+func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (arm.Arm, error) {
 	servos, err := findServos(attributes.String("usbPort"), attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err

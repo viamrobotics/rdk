@@ -14,7 +14,7 @@ import (
 // An ImageSource generates images from the most recent scan of a lidar.
 type ImageSource struct {
 	size          image.Point
-	device        Device
+	device        Lidar
 	unitsPerMeter int
 	noFilter      bool
 }
@@ -24,7 +24,7 @@ const unitsPerMeter = 100 // centimeters
 
 // NewImageSource returns a new image source that will produce images from the given device
 // bounded to the given size.
-func NewImageSource(outputSize image.Point, device Device) *ImageSource {
+func NewImageSource(outputSize image.Point, device Lidar) *ImageSource {
 	return &ImageSource{size: outputSize, device: device, unitsPerMeter: unitsPerMeter}
 }
 

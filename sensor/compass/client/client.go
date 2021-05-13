@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/api/client"
-	apiclient "go.viam.com/robotcore/api/client"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/grpc/client"
+	apiclient "go.viam.com/robotcore/grpc/client"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 
@@ -21,7 +23,7 @@ const ModelNameClient = "grpc"
 
 // init registers a gRPC based compass.
 func init() {
-	api.RegisterSensor(compass.DeviceType, ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
+	registry.RegisterSensor(compass.CompassType, ModelNameClient, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)
@@ -32,7 +34,7 @@ func init() {
 
 // New returns a gRPC based compass at the given address. It properly returns an underlying
 // traditional or relative compass.
-func New(ctx context.Context, address string, logger golog.Logger) (compass.Device, error) {
+func New(ctx context.Context, address string, logger golog.Logger) (compass.Compass, error) {
 	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
 		return nil, err
@@ -41,10 +43,10 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Devi
 	if len(names) == 0 {
 		return nil, multierr.Combine(errors.New("no sensor devices found"), robotClient.Close())
 	}
-	var compassDevice compass.Device
+	var compassDevice compass.Compass
 	for _, name := range names {
 		sensorDevice := robotClient.SensorByName(name)
-		if c, ok := sensorDevice.(compass.Device); ok {
+		if c, ok := sensorDevice.(compass.Compass); ok {
 			compassDevice = c
 			break
 		}
@@ -53,14 +55,14 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Devi
 		return nil, multierr.Combine(errors.New("no compass devices found"), robotClient.Close())
 	}
 
-	if rel, ok := compassDevice.(compass.RelativeDevice); ok {
+	if rel, ok := compassDevice.(compass.RelativeCompass); ok {
 		return &wrappedRelativeCompassDevice{rel, robotClient}, nil
 	}
 	return &wrappedCompassDevice{compassDevice, robotClient}, nil
 }
 
 type wrappedCompassDevice struct {
-	compass.Device
+	compass.Compass
 	robotClient *client.RobotClient
 }
 
@@ -69,7 +71,7 @@ func (wcd *wrappedCompassDevice) Close() error {
 }
 
 type wrappedRelativeCompassDevice struct {
-	compass.RelativeDevice
+	compass.RelativeCompass
 	robotClient *client.RobotClient
 }
 

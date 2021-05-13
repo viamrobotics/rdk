@@ -12,7 +12,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSearchDevices(t *testing.T) {
+func TestSearch(t *testing.T) {
 	tempDir1 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir1) // clean up
 	tempDir2 := testutils.TempDir(t, "", "")
@@ -61,25 +61,25 @@ func TestSearchDevices(t *testing.T) {
 	for i, tc := range []struct {
 		IncludeDevice func(vendorID, productID int) bool
 		Paths         []string
-		Expected      []DeviceDescription
+		Expected      []Description
 	}{
 		{nil, nil, nil},
 		{nil, []string{"/"}, nil},
 		{nil, []string{tempDir2}, nil},
 		{func(vendorID, productID int) bool {
 			return true
-		}, []string{tempDir2}, []DeviceDescription{
+		}, []string{tempDir2}, []Description{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
 			{ID: Identifier{Vendor: 4293, Product: 60001}, Path: "/dev/two"},
 		}},
 		{func(vendorID, productID int) bool {
 			return vendorID == 4292 && productID == 60000
-		}, []string{tempDir2}, []DeviceDescription{
+		}, []string{tempDir2}, []Description{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
 		}},
 		{func(vendorID, productID int) bool {
 			return vendorID == 4292 && productID == 60000
-		}, []string{"somewhereelse", tempDir2}, []DeviceDescription{
+		}, []string{"somewhereelse", tempDir2}, []Description{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/one"},
 		}},
 		{func(vendorID, productID int) bool {
@@ -88,9 +88,9 @@ func TestSearchDevices(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			SysPaths = tc.Paths
-			result := SearchDevices(SearchFilter{}, tc.IncludeDevice)
+			result := Search(SearchFilter{}, tc.IncludeDevice)
 			test.That(t, result, test.ShouldHaveLength, len(tc.Expected))
-			expectedM := map[DeviceDescription]struct{}{}
+			expectedM := map[Description]struct{}{}
 			for _, e := range tc.Expected {
 				expectedM[e] = struct{}{}
 			}

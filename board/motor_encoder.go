@@ -245,7 +245,7 @@ func (m *encodedMotor) startSingleEncoderWorker(onStart func()) {
 				m.state.curPosition--
 				stop = m.state.regulated && m.state.curPosition <= m.state.setPoint
 			} else if rpmDebug {
-				m.logger.Warnf("got encoder tick but motor should be off")
+				m.logger.Warn("got encoder tick but motor should be off")
 			}
 
 			if stop {

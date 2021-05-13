@@ -16,16 +16,19 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
 )
 
 func init() {
-	api.RegisterArm("eva", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
+	registry.RegisterArm("eva", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return NewEva(ctx, config.Host, config.Attributes, logger)
 	})
 }
@@ -71,7 +74,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
-	return api.JointPositionsFromRadians(data.ServosPosition), nil
+	return arm.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
 func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
@@ -83,7 +86,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
-	radians := api.JointPositionsToRadians(newPositions)
+	radians := arm.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)
 	if err == nil {
@@ -284,7 +287,7 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
-func NewEva(ctx context.Context, host string, attrs api.AttributeMap, logger golog.Logger) (api.Arm, error) {
+func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	e := &eva{
 		host:    host,
 		version: "v1",

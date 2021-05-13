@@ -9,10 +9,13 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/kinematics"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -39,7 +42,7 @@ const (
 var v1modeljson []byte
 
 func init() {
-	api.RegisterArm("varm1", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
+	registry.RegisterArm("varm1", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, errors.New("viam arm requires a board called local")
@@ -155,7 +158,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (api.Arm, error) {
+func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (arm.Arm, error) {
 	var err error
 	arm := &ArmV1{}
 

@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 )
 
 type DistortionModel struct {
@@ -61,7 +61,7 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-func NewDepthColorIntrinsicsExtrinsics(attrs api.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
+func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 
 	if attrs.Has("matrices") {

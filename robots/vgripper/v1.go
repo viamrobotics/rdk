@@ -8,9 +8,12 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -18,7 +21,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("viam", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+	registry.RegisterGripper("viam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, errors.New("viam gripper requires a board called local")
@@ -259,7 +262,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 		if err != nil {
 			vg.logger.Warnf("couldn't stop motor %s", err)
 		}
-		vg.logger.Debugf("stopped")
+		vg.logger.Debug("stopped")
 	}()
 
 	vg.logger.Debugf("starting to move dir: %v", dir)

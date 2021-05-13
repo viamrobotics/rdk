@@ -32,7 +32,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	devices := serial.SearchDevices(serial.SearchFilter{Type: serial.DeviceTypeArduino})
+	devices := serial.Search(serial.SearchFilter{Type: serial.TypeArduino})
 	if len(devices) == 0 {
 		return errors.New("no suitable device found")
 	}
@@ -40,7 +40,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return readCompass(ctx, devices[0], argsParsed.Calibrate)
 }
 
-func readCompass(ctx context.Context, serialDeviceDesc serial.DeviceDescription, calibrate bool) (err error) {
+func readCompass(ctx context.Context, serialDeviceDesc serial.Description, calibrate bool) (err error) {
 	sensor, err := gy511.New(ctx, serialDeviceDesc.Path, logger)
 	if err != nil {
 		return err

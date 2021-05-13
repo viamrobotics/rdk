@@ -7,10 +7,12 @@ import (
 	"image"
 	"time"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/transform"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -20,7 +22,7 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("depthComposed", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("depthComposed", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")
@@ -38,7 +40,7 @@ func init() {
 		return NewDepthComposed(color, depth, config.Attributes, logger)
 	})
 
-	api.Register(api.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
+	config.RegisterAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
 		config := &transform.AlignConfig{}
 		err := mapstructure.Decode(val, config)
 		if err == nil {
@@ -47,7 +49,7 @@ func init() {
 		return config, err
 	})
 
-	api.Register(api.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
+	config.RegisterAttributeConverter(config.ComponentTypeCamera, "depthComposed", "matrices", func(val interface{}) (interface{}, error) {
 		matrices := &transform.DepthColorIntrinsicsExtrinsics{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
 		if err != nil {
@@ -71,7 +73,7 @@ type DepthComposed struct {
 	logger       golog.Logger
 }
 
-func NewDepthComposed(color, depth gostream.ImageSource, attrs api.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
+func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
 	var camera rimage.CameraSystem
 	var err error
 

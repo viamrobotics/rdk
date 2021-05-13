@@ -3,12 +3,12 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/gripper"
 	"go.viam.com/robotcore/utils"
 )
 
 type Gripper struct {
-	api.Gripper
+	gripper.Gripper
 	OpenFunc  func(ctx context.Context) error
 	GrabFunc  func(ctx context.Context) (bool, error)
 	CloseFunc func() error

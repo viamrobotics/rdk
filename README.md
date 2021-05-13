@@ -10,50 +10,17 @@
 * [Dependencies](#dependencies)
 * [Development](#development)
 
-## Packages
-
-* [api](./api) - Robot, Arm, Base, Gripper API and Configuration
-* [artifact](./artifact) - test/large file storage package
-* [board](./board) - api and implementation of io boards (pi, etc...) supports motors, servos, encoders, etc...
-  * [pi](./board/pi) - raspberry pi library
-* [dist/js](./dist/js) - auto-generated proto/gRPC files for JavaScript based off of `proto` directory
-* [etc](./etc) Random small things that don't belong elsewhere
-  * [camera_servers](./etc/camera_servers) C++ camera servers (e.g. Intel Realsense L515, Royale, etc...)
-* [kinematics](./kinematics) - Kinematics library
-* [lidar](./lidar) - API and implementations
-* [ml](./ml) - assorted machine learning utility code
-* [pointcloud](./pointcloud)
-* [rexec](./rexec) - Operating system process management tooling
-* [rimage](./rimage) - Image code, mostly for dealing with HSV and depth data
-* [rlog](./rlog) - Logging helpers
-* [robot](./robot) - Implementation of ([api](./api))
-  * [web](./robot/web) - Web server for using robots
-* [robots](./robots) - Implementations of specific robots, arms, grippers
-* [proto](./proto) - Protocol Buffer files and auto-generated proto/gRPC golang counterparts
-* [rpc](./rpc) - gRPC server utilities
-* [sensor](./sensor) - Various sensor APIs
-  * [compass](./sensor/compass) - Compass and ways to use for spinning
-* [serial](./serial) - Serial connection tools
-* [slam](./slam) - SLAM!
-* [testutils](./testutils)
-	* [inject](./testutils/inject) Dependency injected structures
-* [usb](./usb) - USB connection tools
-* [utils](./utils) Random math functions and likely other small things that don't belong elsewhere - *keep small*
-* [vision](./vision) - General computer vision code
-  * [chess](./vision/chess) - Chess specific image code
-  * [segmentations](./vision/segmentation) - Segmenting images into objects
-
 ## Programs
-* [lidar/view](./lidar/cmd/view) - Visualize a LIDAR device
-* [rimage/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
-* [rimage/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
-* [rimage/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
-* [robot/server](./robot/cmd/server) - Run a robot server
+* [lidar/cmd/view](./lidar/cmd/view) - Visualize a LIDAR device
+* [rimage/cmd/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
+* [rimage/cmd/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
+* [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
+* [web/cmd/server](./robot/cmd/server) - Run a robot server
 * [rpc/examples/echo](./rpc/examples/echo) - Run a gRPC echo example
-* [sensor/compass/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
-* [sensor/compass/gy511/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
-* [sensor/compass/lidar/client](./sensor/compass/lidar/cmd/client) - Run a LIDAR based compass
-* [slam/server](./slam/cmd/server) - Run a SLAM implementation
+* [sensor/compass/cmd/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
+* [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
+* [sensor/compass/lidar/cmd/client](./sensor/compass/lidar/cmd/client) - Run a LIDAR based compass
+* [slam/cmd/server](./slam/cmd/server) - Run a SLAM implementation
 
 ### Bespoke
 * [samples/boat1](./samples/boat1) - boat1 work in progress

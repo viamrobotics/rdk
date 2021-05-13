@@ -15,7 +15,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/lidar"
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
@@ -29,7 +29,7 @@ import (
 
 type LocationAwareRobot struct {
 	started              bool
-	baseDevice           api.Base
+	baseDevice           base.Base
 	baseDeviceWidthUnits float64
 	baseOrientation      float64 // relative to map
 	basePosX             float64
@@ -37,14 +37,14 @@ type LocationAwareRobot struct {
 	devBounds            []r2.Point
 	maxBounds            r2.Point
 
-	devices       []lidar.Device
+	devices       []lidar.Lidar
 	deviceOffsets []DeviceOffset
 
 	unitsPerMeter   float64
 	rootArea        *SquareArea
 	presentViewArea *SquareArea
 
-	compassSensor compass.Device
+	compassSensor compass.Compass
 
 	clientZoom          float64
 	clientClickMode     pb.ClickMode
@@ -63,11 +63,11 @@ type LocationAwareRobot struct {
 
 func NewLocationAwareRobot(
 	ctx context.Context,
-	baseDevice api.Base,
+	baseDevice base.Base,
 	area *SquareArea,
-	devices []lidar.Device,
+	devices []lidar.Lidar,
 	deviceOffsets []DeviceOffset,
-	compassSensor compass.Device,
+	compassSensor compass.Compass,
 	logger golog.Logger,
 ) (*LocationAwareRobot, error) {
 	baseDeviceWidth, err := baseDevice.WidthMillis(ctx)
@@ -174,7 +174,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
 
-	move := api.Move{MillisPerSec: 0, Block: true}
+	move := base.Move{MillisPerSec: 0, Block: true}
 
 	currentOrientation := lar.orientation()
 	if rotateTo != nil {
@@ -230,7 +230,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	defer func() {
 		err = multierr.Combine(err, lar.newPresentView())
 	}()
-	spun, moved, err := api.DoMove(ctx, move, lar.baseDevice)
+	spun, moved, err := base.DoMove(ctx, move, lar.baseDevice)
 	if err != nil {
 		return err
 	}
@@ -543,7 +543,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 
 const cullTTL = 3
 
-func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar.Device, area *SquareArea) error {
+func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar.Lidar, area *SquareArea) error {
 	basePosX, basePosY := lar.basePos()
 	baseRect := lar.baseRect()
 
@@ -599,7 +599,7 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 	return nil
 }
 
-func (lar *LocationAwareRobot) areasToView() ([]lidar.Device, r2.Point, []*SquareArea) {
+func (lar *LocationAwareRobot) areasToView() ([]lidar.Lidar, r2.Point, []*SquareArea) {
 	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
 }
 

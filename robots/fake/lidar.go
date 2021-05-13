@@ -9,8 +9,10 @@ import (
 	"strings"
 	"sync"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -19,7 +21,7 @@ import (
 const LidarType = ModelName
 
 func init() {
-	api.RegisterLidar(LidarType, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+	registry.RegisterLidar(LidarType, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		if config.Host == "" {
 			config.Host = "0"
 		}

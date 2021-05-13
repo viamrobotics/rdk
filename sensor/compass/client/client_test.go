@@ -5,10 +5,11 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/api/server"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/grpc/server"
 	"go.viam.com/robotcore/lidar/client"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 	"go.viam.com/robotcore/testutils/inject"
@@ -44,7 +45,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.DeviceType,
+					Type: compass.CompassType,
 				},
 			},
 		}, nil
@@ -53,7 +54,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.RelativeDeviceType,
+					Type: compass.RelativeCompassType,
 				},
 			},
 		}, nil
@@ -66,9 +67,9 @@ func TestClient(t *testing.T) {
 	go gServer3.Serve(listener3)
 	defer gServer3.Stop()
 
-	f := api.SensorLookup(compass.DeviceType, client.ModelNameClient)
+	f := registry.SensorLookup(compass.CompassType, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, api.ComponentConfig{
+	_, err = f(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -79,17 +80,17 @@ func TestClient(t *testing.T) {
 	injectDev.HeadingFunc = func(ctx context.Context) (float64, error) {
 		return 5.2, nil
 	}
-	injectRobot2.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot2.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectDev
 	}
 
-	dev, err := f(context.Background(), nil, api.ComponentConfig{
+	dev, err := f(context.Background(), nil, config.Component{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	compassDev := dev.(compass.Device)
-	test.That(t, compassDev, test.ShouldNotImplement, (*compass.RelativeDevice)(nil))
+	compassDev := dev.(compass.Compass)
+	test.That(t, compassDev, test.ShouldNotImplement, (*compass.RelativeCompass)(nil))
 
 	heading, err := compassDev.Heading(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -104,18 +105,18 @@ func TestClient(t *testing.T) {
 	injectRelDev.MarkFunc = func(ctx context.Context) error {
 		return nil
 	}
-	injectRobot3.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot3.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectRelDev
 	}
 
-	dev, err = f(context.Background(), nil, api.ComponentConfig{
+	dev, err = f(context.Background(), nil, config.Component{
 		Host: listener3.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener3.Addr().(*net.TCPAddr).Port,
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	compassDev = dev.(compass.Device)
-	test.That(t, compassDev, test.ShouldImplement, (*compass.RelativeDevice)(nil))
-	compassRelDev := compassDev.(compass.RelativeDevice)
+	compassDev = dev.(compass.Compass)
+	test.That(t, compassDev, test.ShouldImplement, (*compass.RelativeCompass)(nil))
+	compassRelDev := compassDev.(compass.RelativeCompass)
 
 	heading, err = compassRelDev.Heading(context.Background())
 	test.That(t, err, test.ShouldBeNil)

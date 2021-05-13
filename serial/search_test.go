@@ -8,6 +8,6 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSearchDevices(t *testing.T) {
-	test.That(t, SearchDevices(SearchFilter{}), test.ShouldBeEmpty)
+func TestSearch(t *testing.T) {
+	test.That(t, Search(SearchFilter{}), test.ShouldBeEmpty)
 }

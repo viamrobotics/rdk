@@ -1,4 +1,4 @@
-// Package main contains a command to view a gRPC based lidar.Device client
+// Package main contains a command to view a gRPC based lidar.Lidar client
 // acting as a compass.
 package main
 
@@ -10,10 +10,10 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/search"
-	"go.viam.com/robotcore/robot"
+	builtinrobot "go.viam.com/robotcore/robot/builtin"
 	"go.viam.com/robotcore/sensor/compass"
 	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
 	"go.viam.com/robotcore/utils"
@@ -33,7 +33,7 @@ func main() {
 
 // Arguments for the command.
 type Arguments struct {
-	Lidar *api.ComponentConfig `flag:"device,usage=lidar"`
+	Lidar *config.Component `flag:"device,usage=lidar"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
@@ -42,7 +42,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	var components []api.ComponentConfig
+	var components []config.Component
 	if argsParsed.Lidar == nil {
 		components = search.Devices()
 		if len(components) != 0 {
@@ -52,10 +52,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			}
 		}
 	} else {
-		if argsParsed.Lidar.Type != api.ComponentTypeLidar {
+		if argsParsed.Lidar.Type != config.ComponentTypeLidar {
 			return errors.New("device must be a lidar component")
 		}
-		components = []api.ComponentConfig{*argsParsed.Lidar}
+		components = []config.Component{*argsParsed.Lidar}
 	}
 
 	if len(components) == 0 {
@@ -65,8 +65,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return readCompass(ctx, components, logger)
 }
 
-func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, logger golog.Logger) (err error) {
-	r, err := robot.NewRobot(ctx, &api.Config{Components: lidarComponents}, logger)
+func readCompass(ctx context.Context, lidarComponents []config.Component, logger golog.Logger) (err error) {
+	r, err := builtinrobot.NewRobot(ctx, &config.Config{Components: lidarComponents}, logger)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, log
 		err = multierr.Combine(err, r.Close())
 	}()
 	lidarNames := r.LidarNames()
-	lidars := make([]lidar.Device, 0, len(lidarNames))
+	lidars := make([]lidar.Lidar, 0, len(lidarNames))
 	for _, name := range lidarNames {
 		lidars = append(lidars, r.LidarByName(name))
 	}
@@ -100,7 +100,7 @@ func readCompass(ctx context.Context, lidarComponents []api.ComponentConfig, log
 	bestResComp := lidarComponents[bestResDeviceNum]
 
 	logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResComp, bestRes)
-	var lidarCompass compass.RelativeDevice = compasslidar.From(bestResDevice)
+	var lidarCompass compass.RelativeCompass = compasslidar.From(bestResDevice)
 
 	avgCount := 0
 	avgCountLimit := 10

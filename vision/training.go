@@ -27,8 +27,6 @@ type ImageTrainingStore struct {
 	theCollection *mongo.Collection
 }
 
-// -----
-
 func NewImageTrainingStore(ctx context.Context, mongoURI string, db string, collection string) (*ImageTrainingStore, error) {
 	client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
 	if err != nil {

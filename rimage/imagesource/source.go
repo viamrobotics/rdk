@@ -15,9 +15,11 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/transform"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -28,12 +30,12 @@ import (
 var intel515json []byte
 
 func init() {
-	api.RegisterCamera("intel", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("intel", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewIntelServerSource(config.Host, config.Port, config.Attributes)
 	})
-	api.RegisterCamera("eliot", api.CameraLookup("intel"))
+	registry.RegisterCamera("eliot", registry.CameraLookup("intel"))
 
-	api.RegisterCamera("url", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("url", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		if len(config.Attributes) == 0 {
 			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
@@ -52,7 +54,7 @@ func init() {
 		}, nil
 	})
 
-	api.RegisterCamera("file", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("file", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, errors.New("config for file needs bool attribute 'aligned'")
@@ -77,8 +79,6 @@ func (ss *StaticSource) Close() error {
 	return nil
 }
 
-// -----
-
 type FileSource struct {
 	ColorFN   string
 	DepthFN   string
@@ -97,8 +97,6 @@ func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
 func (fs *FileSource) Close() error {
 	return nil
 }
-
-// -------
 
 type HTTPSource struct {
 	client    http.Client
@@ -154,8 +152,6 @@ func (hs *HTTPSource) Close() error {
 	return nil
 }
 
-// ------
-
 type IntelServerSource struct {
 	client    http.Client
 	BothURL   string
@@ -172,7 +168,7 @@ func (s *IntelServerSource) GetCameraSystem() rimage.CameraSystem {
 	return s.camera
 }
 
-func NewIntelServerSource(host string, port int, attrs api.AttributeMap) (*IntelServerSource, error) {
+func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*IntelServerSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
 	if has {

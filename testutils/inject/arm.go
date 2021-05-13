@@ -3,13 +3,13 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
 )
 
 type Arm struct {
-	api.Arm
+	arm.Arm
 	CurrentPositionFunc       func(ctx context.Context) (*pb.ArmPosition, error)
 	MoveToPositionFunc        func(ctx context.Context, c *pb.ArmPosition) error
 	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.JointPositions) error
