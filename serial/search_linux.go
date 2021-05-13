@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"go.viam.com/core/usb"
+	"go.viam.com/core/utils"
 )
 
 func searchUSB(filter SearchFilter) []Description {
@@ -43,7 +44,7 @@ var Search = func(filter SearchFilter) []Description {
 	if err != nil {
 		return serialDeviceDescs
 	}
-	defer devicesDir.Close()
+	defer utils.UncheckedError(devicesDir.Close())
 	devices, err := devicesDir.Readdir(0)
 	if err != nil {
 		return serialDeviceDescs

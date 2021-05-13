@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"go.viam.com/core/utils"
 )
 
+// SysPaths are where we search for devices. This can be changed for tests.
 var SysPaths = []string{"/sys/bus/usb-serial/devices", "/sys/bus/usb/drivers/cdc_acm"}
 
 // SearchFilter does not do anything for linux.
@@ -25,7 +28,7 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 		if err != nil {
 			return nil
 		}
-		defer devicesDir.Close()
+		defer utils.UncheckedError(devicesDir.Close())
 		devices, err := devicesDir.Readdir(0)
 		if err != nil {
 			return nil
@@ -43,12 +46,12 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 			if err != nil {
 				continue
 			}
-			defer ueventFile.Close()
+			defer utils.UncheckedError(ueventFile.Close())
 			ttyFile, err := os.Open(filepath.Join(linkedFile, "./tty"))
 			if err != nil {
 				continue
 			}
-			defer ttyFile.Close()
+			defer utils.UncheckedError(ttyFile.Close())
 			ttys, err := ttyFile.Readdir(0)
 			if err != nil {
 				continue
