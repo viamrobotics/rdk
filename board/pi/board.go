@@ -18,11 +18,11 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/rlog"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/board"
+	"go.viam.com/core/rlog"
+	"go.viam.com/core/utils"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 // init registers a pi board based on pigpio.

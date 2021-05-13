@@ -3,7 +3,7 @@ package lidar
 import (
 	"sync"
 
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/usb"
 )
 
 var registrations = map[Type]TypeRegistration{}

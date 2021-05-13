@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"

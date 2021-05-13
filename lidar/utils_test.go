@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 )

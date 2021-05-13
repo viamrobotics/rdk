@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 func TestFlipDirection(t *testing.T) {

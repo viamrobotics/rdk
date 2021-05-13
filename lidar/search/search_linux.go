@@ -3,9 +3,9 @@
 package search
 
 import (
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/config"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/usb"
 )
 
 // Devices uses linux USB device APIs to find all applicable lidar devices.

@@ -8,7 +8,7 @@ import (
 
 	"github.com/fogleman/gg"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 )
 
 // An ImageSource generates images from the most recent scan of a lidar.

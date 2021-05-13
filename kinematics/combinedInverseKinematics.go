@@ -3,8 +3,8 @@ package kinematics
 import (
 	"sync"
 
-	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )

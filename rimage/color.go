@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/robotcore/rlog"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/rlog"
+	"go.viam.com/core/utils"
 
 	"github.com/lucasb-eyer/go-colorful"
 )

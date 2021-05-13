@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 type Depth uint16

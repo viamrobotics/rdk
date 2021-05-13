@@ -4,9 +4,9 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/rlog"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

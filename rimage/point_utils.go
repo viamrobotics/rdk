@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r2"
 )

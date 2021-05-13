@@ -8,9 +8,9 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/sensor/compass/gy511"
-	"go.viam.com/robotcore/serial"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/sensor/compass/gy511"
+	"go.viam.com/core/serial"
+	"go.viam.com/core/utils"
 
 	"go.uber.org/multierr"
 )

@@ -5,8 +5,8 @@ package compass
 import (
 	"context"
 
-	"go.viam.com/robotcore/sensor"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/utils"
 )
 
 // The known compass types.

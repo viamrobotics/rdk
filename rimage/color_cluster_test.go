@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/artifact"
+	"go.viam.com/core/artifact"
 )
 
 func doTest(t *testing.T, fn string, numClusters int) {

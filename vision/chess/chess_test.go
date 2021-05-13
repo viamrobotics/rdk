@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/vision/segmentation"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/vision/segmentation"
 )
 
 type P func(d *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error)

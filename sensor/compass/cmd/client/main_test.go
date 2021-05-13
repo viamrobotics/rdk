@@ -8,12 +8,12 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/robotcore/grpc/server"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/sensor"
-	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/grpc/server"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/testutils"
+	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/zap"

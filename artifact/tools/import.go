@@ -1,7 +1,7 @@
 // Package tools implements the sub-commands for the artifact CLI.
 package tools
 
-import "go.viam.com/robotcore/artifact"
+import "go.viam.com/core/artifact"
 
 // Import ensures all artifacts in the global cache tree are present locally.
 func Import() error {

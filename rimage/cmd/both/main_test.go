@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/testutils"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/testutils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

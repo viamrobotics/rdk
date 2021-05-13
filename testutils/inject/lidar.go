@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r2"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 )
 
 var (

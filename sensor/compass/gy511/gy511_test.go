@@ -8,8 +8,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/serial"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/serial"
+	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

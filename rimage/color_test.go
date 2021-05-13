@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/robotcore/artifact"
+	"go.viam.com/core/artifact"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"

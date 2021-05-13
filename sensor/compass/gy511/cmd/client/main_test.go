@@ -9,10 +9,10 @@ import (
 
 	"go.uber.org/zap/zaptest/observer"
 
-	"go.viam.com/robotcore/sensor/compass/gy511"
-	"go.viam.com/robotcore/serial"
-	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/sensor/compass/gy511"
+	"go.viam.com/core/serial"
+	"go.viam.com/core/testutils"
+	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

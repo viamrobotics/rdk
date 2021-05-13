@@ -5,11 +5,11 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/sensor"
-	"go.viam.com/robotcore/sensor/compass"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/compass"
 )
 
 func init() {

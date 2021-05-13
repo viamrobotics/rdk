@@ -3,9 +3,9 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/board"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/board"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 )
 
 type Board struct {

@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/pointcloud"
-	"go.viam.com/robotcore/testutils"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/testutils"
 )
 
 //go:embed test_helper.html

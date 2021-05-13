@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/robotcore/sensor/compass/client"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/sensor/compass/client"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )

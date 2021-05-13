@@ -8,8 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 )
 
 const (

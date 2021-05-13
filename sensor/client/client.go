@@ -5,9 +5,9 @@ import (
 	"context"
 	"errors"
 
-	"go.viam.com/robotcore/grpc/client"
-	apiclient "go.viam.com/robotcore/grpc/client"
-	"go.viam.com/robotcore/sensor"
+	"go.viam.com/core/grpc/client"
+	apiclient "go.viam.com/core/grpc/client"
+	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

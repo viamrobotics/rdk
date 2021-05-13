@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/robotcore/config"
+	"go.viam.com/core/config"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make

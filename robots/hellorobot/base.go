@@ -6,11 +6,11 @@ import (
 	"math"
 	"time"
 
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/base"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"

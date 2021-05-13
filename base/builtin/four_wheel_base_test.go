@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/config"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/rlog"
-	builtinrobot "go.viam.com/robotcore/robot/builtin"
+	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/rlog"
+	builtinrobot "go.viam.com/core/robot/builtin"
 
 	"go.viam.com/test"
 )

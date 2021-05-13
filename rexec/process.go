@@ -5,7 +5,7 @@
 // when configured.
 package rexec
 
-import "go.viam.com/robotcore/utils"
+import "go.viam.com/core/utils"
 
 // A ProcessConfig describes how to manage a system process.
 type ProcessConfig struct {

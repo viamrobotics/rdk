@@ -4,10 +4,10 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/transform"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/config"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

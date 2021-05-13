@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"go.viam.com/robotcore/artifact"
+	"go.viam.com/core/artifact"
 )
 
 // Clean cleans the global cache of any artifacts not present in the tree.

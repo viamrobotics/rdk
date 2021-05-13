@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"go.viam.com/robotcore/artifact"
+	"go.viam.com/core/artifact"
 )
 
 // Export exports any artifacts not present in global cache tree

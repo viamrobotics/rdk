@@ -6,7 +6,7 @@ import (
 
 	"github.com/erh/scheme"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 // ServoRollingAverageWindow is how many entries to average over for

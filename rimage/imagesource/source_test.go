@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/gostream"
 	"go.viam.com/test"

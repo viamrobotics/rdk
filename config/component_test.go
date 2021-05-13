@@ -3,7 +3,7 @@ package config
 import (
 	"testing"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )

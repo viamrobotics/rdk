@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 func TestMeasurement(t *testing.T) {

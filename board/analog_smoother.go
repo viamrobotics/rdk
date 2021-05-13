@@ -9,7 +9,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 var errStopReading = errors.New("stop reading")

@@ -15,25 +15,25 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/rlog"
-	builtinrobot "go.viam.com/robotcore/robot/builtin"
-	"go.viam.com/robotcore/rpc"
-	"go.viam.com/robotcore/utils"
-	"go.viam.com/robotcore/web"
+	"go.viam.com/core/config"
+	"go.viam.com/core/rlog"
+	builtinrobot "go.viam.com/core/robot/builtin"
+	"go.viam.com/core/rpc"
+	"go.viam.com/core/utils"
+	"go.viam.com/core/web"
 
 	// These are the robot pieces we want by default
-	_ "go.viam.com/robotcore/board/detector"
-	_ "go.viam.com/robotcore/rimage/imagesource"
-	_ "go.viam.com/robotcore/robots/eva" // for eva
-	_ "go.viam.com/robotcore/robots/hellorobot"
-	_ "go.viam.com/robotcore/robots/robotiq"         // for a gripper
-	_ "go.viam.com/robotcore/robots/softrobotics"    // for a gripper
-	_ "go.viam.com/robotcore/robots/universalrobots" // for an arm
-	_ "go.viam.com/robotcore/robots/varm"            // for an arm
-	_ "go.viam.com/robotcore/robots/vgripper"        // for a gripper
-	_ "go.viam.com/robotcore/robots/vx300s"          // for arm and gripper
-	_ "go.viam.com/robotcore/robots/wx250s"          // for arm and gripper
+	_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/rimage/imagesource"
+	_ "go.viam.com/core/robots/eva" // for eva
+	_ "go.viam.com/core/robots/hellorobot"
+	_ "go.viam.com/core/robots/robotiq"         // for a gripper
+	_ "go.viam.com/core/robots/softrobotics"    // for a gripper
+	_ "go.viam.com/core/robots/universalrobots" // for an arm
+	_ "go.viam.com/core/robots/varm"            // for an arm
+	_ "go.viam.com/core/robots/vgripper"        // for a gripper
+	_ "go.viam.com/core/robots/vx300s"          // for arm and gripper
+	_ "go.viam.com/core/robots/wx250s"          // for arm and gripper
 
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"

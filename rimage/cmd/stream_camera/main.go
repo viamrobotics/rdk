@@ -4,9 +4,9 @@ package main
 import (
 	"context"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/rimage/imagesource"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/config"
+	"go.viam.com/core/rimage/imagesource"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

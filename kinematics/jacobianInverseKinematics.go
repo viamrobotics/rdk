@@ -1,8 +1,8 @@
 package kinematics
 
 import (
-	"go.viam.com/robotcore/kinematics/kinmath"
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/rlog"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"

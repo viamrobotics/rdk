@@ -1,4 +1,4 @@
-module go.viam.com/robotcore
+module go.viam.com/core
 
 go 1.16
 

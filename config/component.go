@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 // A ComponentType defines a type of component.

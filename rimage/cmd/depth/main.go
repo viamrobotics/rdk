@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 )
 
 func main() {

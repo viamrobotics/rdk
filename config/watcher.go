@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"

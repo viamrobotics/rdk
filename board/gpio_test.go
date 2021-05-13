@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

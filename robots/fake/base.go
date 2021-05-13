@@ -5,10 +5,10 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/robot"
+	"go.viam.com/core/base"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
 )
 
 func init() {

@@ -11,7 +11,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 func TestProcessManagerProcessIDs(t *testing.T) {

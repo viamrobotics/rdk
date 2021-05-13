@@ -5,5 +5,5 @@
 package detector
 
 import (
-	_ "go.viam.com/robotcore/board/pi"
+	_ "go.viam.com/core/board/pi"
 )

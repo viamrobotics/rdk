@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/testutils"
+	"go.viam.com/core/usb"
 
 	"go.viam.com/test"
 )

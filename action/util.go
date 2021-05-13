@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"sort"
 
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/rexec"
+	"go.viam.com/core/board"
+	"go.viam.com/core/rexec"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
