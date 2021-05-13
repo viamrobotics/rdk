@@ -16,7 +16,7 @@ import (
 	"go.viam.com/core/board"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
-	apiserver "go.viam.com/core/grpc/server"
+	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
@@ -33,7 +33,7 @@ import (
 
 func newServer() (pb.RobotServiceServer, *inject.Robot) {
 	injectRobot := &inject.Robot{}
-	return apiserver.New(injectRobot), injectRobot
+	return grpcserver.New(injectRobot), injectRobot
 }
 
 var emptyStatus = &pb.StatusResponse{

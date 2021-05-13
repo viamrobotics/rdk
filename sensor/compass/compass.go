@@ -11,8 +11,8 @@ import (
 
 // The known compass types.
 const (
-	CompassType         = "compass"
-	RelativeCompassType = "relative_compass"
+	Type         = "compass"
+	RelativeType = "relative_compass"
 )
 
 // A Compass represents a Compass that can report yaw measurements. It can also

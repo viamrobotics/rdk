@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
-	apiclient "go.viam.com/core/grpc/client"
+	grpcclient "go.viam.com/core/grpc/client"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -23,7 +23,7 @@ const ModelNameClient = "grpc"
 
 // init registers a gRPC based compass.
 func init() {
-	registry.RegisterSensor(compass.CompassType, ModelNameClient, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelNameClient, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)
@@ -35,7 +35,7 @@ func init() {
 // New returns a gRPC based compass at the given address. It properly returns an underlying
 // traditional or relative compass.
 func New(ctx context.Context, address string, logger golog.Logger) (compass.Compass, error) {
-	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
+	robotClient, err := grpcclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
 		return nil, err
 	}

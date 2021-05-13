@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	registry.RegisterSensor(compass.CompassType, "fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, "fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		if config.Attributes.Bool("relative", false) {
 			return &RelativeCompass{&Compass{Name: config.Name}}, nil
 		}
@@ -46,7 +46,7 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 }
 
 func (c *Compass) Desc() sensor.Description {
-	return sensor.Description{compass.CompassType, ""}
+	return sensor.Description{compass.Type, ""}
 }
 
 type RelativeCompass struct {
@@ -58,5 +58,5 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 }
 
 func (rc *RelativeCompass) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeCompassType, ""}
+	return sensor.Description{compass.RelativeType, ""}
 }

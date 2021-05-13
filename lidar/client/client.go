@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
-	apiclient "go.viam.com/core/grpc/client"
+	grpcclient "go.viam.com/core/grpc/client"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -33,7 +33,7 @@ func init() {
 
 // NewClient returns a lidar backed by a gRPC client.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Lidar, error) {
-	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
+	robotClient, err := grpcclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
 	}

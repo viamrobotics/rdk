@@ -61,10 +61,10 @@ var emptyStatus = &pb.Status{
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass1": {
-			Type: compass.CompassType,
+			Type: compass.Type,
 		},
 		"compass2": {
-			Type: compass.RelativeCompassType,
+			Type: compass.RelativeType,
 		},
 	},
 	Boards: map[string]*pb.BoardStatus{
@@ -132,13 +132,13 @@ var finalStatus = &pb.Status{
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass2": {
-			Type: compass.CompassType,
+			Type: compass.Type,
 		},
 		"compass3": {
-			Type: compass.CompassType,
+			Type: compass.Type,
 		},
 		"compass4": {
-			Type: compass.RelativeCompassType,
+			Type: compass.RelativeType,
 		},
 	},
 	Boards: map[string]*pb.BoardStatus{

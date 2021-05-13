@@ -39,7 +39,7 @@ func TestMainMain(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"compass1": {
-					Type: compass.RelativeCompassType,
+					Type: compass.RelativeType,
 				},
 			},
 		}, nil

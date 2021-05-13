@@ -45,7 +45,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.CompassType,
+					Type: compass.Type,
 				},
 			},
 		}, nil
@@ -54,7 +54,7 @@ func TestClient(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.RelativeCompassType,
+					Type: compass.RelativeType,
 				},
 			},
 		}, nil
@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 	go gServer3.Serve(listener3)
 	defer gServer3.Stop()
 
-	f := registry.SensorLookup(compass.CompassType, client.ModelNameClient)
+	f := registry.SensorLookup(compass.Type, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
 	_, err = f(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),

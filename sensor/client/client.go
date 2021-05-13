@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"go.viam.com/core/grpc/client"
-	apiclient "go.viam.com/core/grpc/client"
+	grpcclient "go.viam.com/core/grpc/client"
 	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
@@ -14,7 +14,7 @@ import (
 )
 
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*SensorClient, error) {
-	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
+	robotClient, err := grpcclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
 		return nil, err
 	}
