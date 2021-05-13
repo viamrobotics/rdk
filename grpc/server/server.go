@@ -296,7 +296,7 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 		if iwd.Color == nil || iwd.Depth == nil {
 			return nil, fmt.Errorf("for %s need depth and color info", mimeTypeBoth)
 		}
-		if err := rimage.BothEncode(iwd, &buf); err != nil {
+		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
 	case mimeTypeJPEG:

@@ -53,7 +53,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 		return errors.New("to-las needs <both in> <aligner config> <las out> [optional -aligned]")
 	}
 
-	img, err := rimage.BothReadFromFile(flags.Arg(1), aligned)
+	img, err := rimage.ReadBothFromFile(flags.Arg(1), aligned)
 	if err != nil {
 		return err
 	}

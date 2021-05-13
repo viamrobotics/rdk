@@ -131,7 +131,7 @@ var (
 	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
 )
 
-// Sobel Filter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
+// SobelFilter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
 // (after shaving a pixel of every side), creates a  vector in polar form, and returns a vector field.
 func SobelFilter(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()

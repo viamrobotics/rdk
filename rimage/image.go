@@ -13,9 +13,19 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// Image is like image.Image but it uses our Color type with a few more
+// helper methods on it.
 type Image struct {
 	data          []Color
 	width, height int
+}
+
+func NewImage(width, height int) *Image {
+	return &Image{make([]Color, width*height), width, height}
+}
+
+func NewImageFromBounds(bounds image.Rectangle) *Image {
+	return NewImage(bounds.Max.X, bounds.Max.Y)
 }
 
 func (i *Image) ColorModel() color.Model {
@@ -89,14 +99,6 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 		panic(err) // impossible
 	}
 
-}
-
-func NewImage(width, height int) *Image {
-	return &Image{make([]Color, width*height), width, height}
-}
-
-func NewImageFromBounds(bounds image.Rectangle) *Image {
-	return NewImage(bounds.Max.X, bounds.Max.Y)
 }
 
 func (i *Image) SubImage(r image.Rectangle) Image {

@@ -196,7 +196,7 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, fmt.Errorf("couldn't read url (%s): %w", s.BothURL, err)
 	}
 
-	img, err := rimage.BothReadFromBytes(allData, s.IsAligned())
+	img, err := rimage.ReadBothFromBytes(allData, s.IsAligned())
 	if err != nil {
 		return nil, nil, err
 	}
