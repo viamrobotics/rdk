@@ -98,7 +98,7 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error opening %s: %w", fn, err)
 	}
-	defer utils.UncheckedError(file.Close())
+	defer utils.UncheckedErrorFunc(file.Close)
 
 	decoder := json.NewDecoder(file)
 	return decoder.Decode(out)

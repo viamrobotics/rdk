@@ -37,7 +37,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(lf.Close())
+	defer utils.UncheckedErrorFunc(lf.Close)
 
 	var hasValue bool
 	var valueData []byte

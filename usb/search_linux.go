@@ -28,7 +28,7 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 		if err != nil {
 			return nil
 		}
-		defer utils.UncheckedError(devicesDir.Close())
+		defer utils.UncheckedErrorFunc(devicesDir.Close)
 		devices, err := devicesDir.Readdir(0)
 		if err != nil {
 			return nil
@@ -46,12 +46,12 @@ func Search(filter SearchFilter, includeDevice func(vendorID, productID int) boo
 			if err != nil {
 				continue
 			}
-			defer utils.UncheckedError(ueventFile.Close())
+			defer utils.UncheckedErrorFunc(ueventFile.Close)
 			ttyFile, err := os.Open(filepath.Join(linkedFile, "./tty"))
 			if err != nil {
 				continue
 			}
-			defer utils.UncheckedError(ttyFile.Close())
+			defer utils.UncheckedErrorFunc(ttyFile.Close)
 			ttys, err := ttyFile.Readdir(0)
 			if err != nil {
 				continue
