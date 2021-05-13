@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -18,13 +20,13 @@ import (
 )
 
 func init() {
-	api.RegisterCamera("webcam", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("webcam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return NewWebcamSource(config.Attributes, logger)
 	})
 
 }
 
-func makeConstraints(attrs api.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 
 	minWidth := 680
 	maxWidth := 4096
@@ -80,7 +82,7 @@ type Aligner interface {
 	Align(ctx context.Context, img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error)
 }
 
-func NewWebcamSource(attrs api.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
+func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	var err error
 
 	debug := attrs.Bool("debug", false)

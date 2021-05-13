@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 
@@ -12,8 +12,8 @@ import (
 )
 
 func TestDevices(t *testing.T) {
-	deviceType := lidar.DeviceType("somelidar")
-	lidar.RegisterDeviceType(deviceType, lidar.DeviceTypeRegistration{
+	deviceType := lidar.Type("somelidar")
+	lidar.RegisterType(deviceType, lidar.TypeRegistration{
 		USBInfo: &usb.Identifier{
 			Vendor:  0x10c4,
 			Product: 0xea60,
@@ -22,13 +22,13 @@ func TestDevices(t *testing.T) {
 
 	for i, tc := range []struct {
 		Output   string
-		Expected []api.ComponentConfig
+		Expected []config.Component
 	}{
 		{"", nil},
 		{"text", nil},
-		{out1, []api.ComponentConfig{
+		{out1, []config.Component{
 			{
-				Type:  api.ComponentTypeLidar,
+				Type:  config.ComponentTypeLidar,
 				Host:  "/dev/tty.usbserial-0001",
 				Model: string(deviceType),
 			},

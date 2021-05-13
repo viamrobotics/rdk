@@ -39,7 +39,6 @@ func (c *GoLearnClassifier) Train(data [][]float64, correct []int) error {
 	return c.theClassifier.Fit(rawData)
 }
 
-// ---------
 type GoLearnNNClassifier struct {
 	theClassifier *neural.MultiLayerNet
 	format        *base.DenseInstances
@@ -64,8 +63,6 @@ func (c *GoLearnNNClassifier) Train(data [][]float64, correct []int) error {
 	c.theClassifier.Fit(rawData)
 	return nil
 }
-
-// --------
 
 func _glMakeClassifyDataSet(format base.FixedDataGrid, data []float64) *base.DenseInstances {
 	di := base.NewStructuralCopy(format)

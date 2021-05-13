@@ -5,13 +5,15 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
 )
 
 func init() {
-	api.RegisterSensor(compass.DeviceType, "fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (sensor.Device, error) {
+	registry.RegisterSensor(compass.CompassType, "fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		if config.Attributes.Bool("relative", false) {
 			return &RelativeCompass{&Compass{Name: config.Name}}, nil
 		}
@@ -43,8 +45,8 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
-func (c *Compass) Desc() sensor.DeviceDescription {
-	return sensor.DeviceDescription{compass.DeviceType, ""}
+func (c *Compass) Desc() sensor.Description {
+	return sensor.Description{compass.CompassType, ""}
 }
 
 type RelativeCompass struct {
@@ -55,6 +57,6 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 	return nil
 }
 
-func (rc *RelativeCompass) Desc() sensor.DeviceDescription {
-	return sensor.DeviceDescription{compass.RelativeDeviceType, ""}
+func (rc *RelativeCompass) Desc() sensor.Description {
+	return sensor.Description{compass.RelativeCompassType, ""}
 }

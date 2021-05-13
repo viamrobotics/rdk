@@ -10,19 +10,19 @@ import (
 	"go.viam.com/robotcore/usb"
 )
 
-func searchUSB(filter SearchFilter) []DeviceDescription {
-	usbDevices := usb.SearchDevices(
+func searchUSB(filter SearchFilter) []Description {
+	usbDevices := usb.Search(
 		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
-			return checkProductDeviceIDs(vendorID, productID) != DeviceTypeUnknown
+			return checkProductDeviceIDs(vendorID, productID) != TypeUnknown
 		})
-	serialDeviceDescs := make([]DeviceDescription, 0, len(usbDevices))
+	serialDeviceDescs := make([]Description, 0, len(usbDevices))
 	for _, dev := range usbDevices {
 		devType := checkProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
 		if filter.Type != "" && filter.Type != devType {
 			continue
 		}
-		serialDeviceDescs = append(serialDeviceDescs, DeviceDescription{
+		serialDeviceDescs = append(serialDeviceDescs, Description{
 			Type: devType,
 			Path: dev.Path,
 		})
@@ -32,11 +32,11 @@ func searchUSB(filter SearchFilter) []DeviceDescription {
 
 var devPath = "/dev"
 
-// SearchDevices uses linux device APIs to find all applicable serial devices.
+// Search uses linux device APIs to find all applicable serial devices.
 // It's a variable in case you need to override it during tests.
-var SearchDevices = func(filter SearchFilter) []DeviceDescription {
+var Search = func(filter SearchFilter) []Description {
 	serialDeviceDescs := searchUSB(filter)
-	if filter.Type != "" && filter.Type != DeviceTypeJetson {
+	if filter.Type != "" && filter.Type != TypeJetson {
 		return serialDeviceDescs
 	}
 	devicesDir, err := os.Open(devPath)
@@ -50,8 +50,8 @@ var SearchDevices = func(filter SearchFilter) []DeviceDescription {
 	}
 	for _, dev := range devices {
 		if strings.HasPrefix(dev.Name(), "ttyTHS") {
-			serialDeviceDescs = append(serialDeviceDescs, DeviceDescription{
-				Type: DeviceTypeJetson,
+			serialDeviceDescs = append(serialDeviceDescs, Description{
+				Type: TypeJetson,
 				Path: filepath.Join(devPath, dev.Name()),
 			})
 		}

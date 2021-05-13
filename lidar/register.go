@@ -6,24 +6,24 @@ import (
 	"go.viam.com/robotcore/usb"
 )
 
-var registrations = map[DeviceType]DeviceTypeRegistration{}
+var registrations = map[Type]TypeRegistration{}
 var registrationsMu sync.Mutex
 
-// DeviceTypeRegistration associates a type of device to metadata about it.
-type DeviceTypeRegistration struct {
+// TypeRegistration associates a type of device to metadata about it.
+type TypeRegistration struct {
 	USBInfo *usb.Identifier
 }
 
-// RegisterDeviceType registers a device type and associates it with metadata.
-func RegisterDeviceType(deviceType DeviceType, reg DeviceTypeRegistration) {
+// RegisterType registers a device type and associates it with metadata.
+func RegisterType(deviceType Type, reg TypeRegistration) {
 	registrationsMu.Lock()
 	registrations[deviceType] = reg
 	registrationsMu.Unlock()
 }
 
 // CheckProductDeviceIDs takes USB identification details and tries to determine
-// its DeviceType from previously registered types.
-func CheckProductDeviceIDs(vendorID, productID int) DeviceType {
+// its Type from previously registered types.
+func CheckProductDeviceIDs(vendorID, productID int) Type {
 	registrationsMu.Lock()
 	defer registrationsMu.Unlock()
 
@@ -33,5 +33,5 @@ func CheckProductDeviceIDs(vendorID, productID int) DeviceType {
 			return t
 		}
 	}
-	return DeviceTypeUnknown
+	return TypeUnknown
 }

@@ -22,21 +22,21 @@ func TestBestAngularResolution(t *testing.T) {
 		return math.NaN(), errors.New("whoops")
 	}
 
-	_, _, _, err := lidar.BestAngularResolution(context.Background(), []lidar.Device{lidar1, lidar2})
+	_, _, _, err := lidar.BestAngularResolution(context.Background(), []lidar.Lidar{lidar1, lidar2})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
 	lidar1.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return 1, nil
 	}
-	_, _, _, err = lidar.BestAngularResolution(context.Background(), []lidar.Device{lidar1, lidar2})
+	_, _, _, err = lidar.BestAngularResolution(context.Background(), []lidar.Lidar{lidar1, lidar2})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
 	lidar2.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 		return .25, nil
 	}
-	best, bestDevice, bestDeviceNum, err := lidar.BestAngularResolution(context.Background(), []lidar.Device{lidar1, lidar2})
+	best, bestDevice, bestDeviceNum, err := lidar.BestAngularResolution(context.Background(), []lidar.Lidar{lidar1, lidar2})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, best, test.ShouldEqual, .25)
 	test.That(t, bestDevice, test.ShouldEqual, lidar2)

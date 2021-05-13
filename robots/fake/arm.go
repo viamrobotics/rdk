@@ -4,14 +4,17 @@ import (
 	"context"
 	"errors"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
+	"go.viam.com/robotcore/config"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/golog"
 )
 
 func init() {
-	api.RegisterArm("fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Arm, error) {
+	registry.RegisterArm("fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return NewArm(config.Name), nil
 	})
 }

@@ -5,11 +5,14 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 )
 
 func init() {
-	api.RegisterGripper(ModelName, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+	registry.RegisterGripper(ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return &Gripper{Name: config.Name}, nil
 	})
 }

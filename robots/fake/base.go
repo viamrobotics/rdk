@@ -5,11 +5,14 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 )
 
 func init() {
-	api.RegisterBase(ModelName, func(ctx context.Context, r api.Robot, c api.ComponentConfig, logger golog.Logger) (api.Base, error) {
+	registry.RegisterBase(ModelName, func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
 		return &Base{Name: c.Name}, nil
 	})
 }

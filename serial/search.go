@@ -2,7 +2,7 @@
 
 package serial
 
-// SearchDevices returns nothing here for unsupported platforms.
-func SearchDevices(filter SearchFilter) []DeviceDescription {
+// Search returns nothing here for unsupported platforms.
+func Search(filter SearchFilter) []Description {
 	return nil
 }

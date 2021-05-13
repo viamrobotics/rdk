@@ -25,7 +25,7 @@ type ShapeWalkOptions struct {
 	Debug        bool
 	MaxRadius    int // 0 means no max
 	SkipCleaning bool
-	ThresholdMod float64 // 0 means no modificatin > 0 means more things will match
+	ThresholdMod float64 // 0 means no modification > 0 means more things will match
 	Diffs        *rimage.ColorDiffs
 }
 
@@ -160,7 +160,7 @@ func (ws *walkState) computeIfPixelIsCluster(p image.Point, clusterNumber int, p
 
 	if myInterestingPixelDensity > DefaultInterestingThreshold {
 		if ws.options.Debug {
-			ws.logger.Debugf("\t\t blocked b/c density")
+			ws.logger.Debug("\t\t blocked b/c density")
 		}
 		return false
 	}

@@ -7,7 +7,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSearchDevices(t *testing.T) {
+func TestSearch(t *testing.T) {
 	goodFilter := NewSearchFilter("IOUserSerial", "usbserial-")
 	goodInclude := func(vendorID, productID int) bool {
 		return true
@@ -16,7 +16,7 @@ func TestSearchDevices(t *testing.T) {
 		Filter        SearchFilter
 		IncludeDevice func(vendorID, productID int) bool
 		Output        string
-		Expected      []DeviceDescription
+		Expected      []Description
 	}{
 		{SearchFilter{}, nil, "", nil},
 		{SearchFilter{}, nil, "text", nil},
@@ -25,12 +25,12 @@ func TestSearchDevices(t *testing.T) {
 		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
 		{goodFilter, func(vendorID, productID int) bool {
 			return true
-		}, out1, []DeviceDescription{
+		}, out1, []Description{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
 		},
 		{goodFilter, func(vendorID, productID int) bool {
 			return vendorID == 4292 && productID == 60000
-		}, out1, []DeviceDescription{
+		}, out1, []Description{
 			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
 		},
 		{goodFilter, func(vendorID, productID int) bool {
@@ -56,7 +56,7 @@ func TestSearchDevices(t *testing.T) {
 				test.That(t, ioObjectClass, test.ShouldEqual, tc.Filter.ioObjectClass)
 				return []byte(tc.Output)
 			}
-			result := SearchDevices(tc.Filter, tc.IncludeDevice)
+			result := Search(tc.Filter, tc.IncludeDevice)
 			test.That(t, result, test.ShouldResemble, tc.Expected)
 		})
 	}

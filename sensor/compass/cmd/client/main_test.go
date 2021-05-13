@@ -8,7 +8,7 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/robotcore/api/server"
+	"go.viam.com/robotcore/grpc/server"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/sensor"
 	"go.viam.com/robotcore/sensor/compass"
@@ -38,7 +38,7 @@ func TestMainMain(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.DeviceType,
+					Type: compass.CompassType,
 				},
 			},
 		}, nil
@@ -47,7 +47,7 @@ func TestMainMain(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.DeviceType,
+					Type: compass.CompassType,
 				},
 			},
 		}, nil
@@ -55,10 +55,10 @@ func TestMainMain(t *testing.T) {
 
 	injectDev1 := &inject.Compass{}
 	injectDev2 := &inject.Compass{}
-	injectRobot1.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot1.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectDev1
 	}
-	injectRobot2.SensorByNameFunc = func(name string) sensor.Device {
+	injectRobot2.SensorByNameFunc = func(name string) sensor.Sensor {
 		return injectDev2
 	}
 

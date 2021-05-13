@@ -5,11 +5,12 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/api/server"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/grpc/server"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/lidar/client"
 	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/testutils/inject"
 	"go.viam.com/robotcore/utils"
 
@@ -47,9 +48,9 @@ func TestClient(t *testing.T) {
 	go gServer2.Serve(listener2)
 	defer gServer2.Stop()
 
-	f := api.LidarLookup(client.ModelNameClient)
+	f := registry.LidarLookup(client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, api.ComponentConfig{
+	_, err = f(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -61,11 +62,11 @@ func TestClient(t *testing.T) {
 	injectDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return infoM, nil
 	}
-	injectRobot2.LidarByNameFunc = func(name string) lidar.Device {
+	injectRobot2.LidarByNameFunc = func(name string) lidar.Lidar {
 		return injectDev
 	}
 
-	dev, err := f(context.Background(), nil, api.ComponentConfig{
+	dev, err := f(context.Background(), nil, config.Component{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)

@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"math"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/arm"
 	"go.viam.com/robotcore/kinematics/kinmath"
 	pb "go.viam.com/robotcore/proto/api/v1"
 	"go.viam.com/robotcore/utils"
@@ -16,13 +16,13 @@ import (
 )
 
 type Arm struct {
-	real       api.Arm
+	real       arm.Arm
 	Model      *Model
 	ik         InverseKinematics
 	effectorID int
 }
 
-func NewArmJSONFile(real api.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
+func NewArmJSONFile(real arm.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
 	jsonData, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewArmJSONFile(real api.Arm, jsonFile string, cores int, logger golog.Logge
 }
 
 // Returns a new kinematics.Model from a correctly formatted JSON file
-func NewArm(real api.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm, error) {
+func NewArm(real arm.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm, error) {
 	// We want to make (cores + 1) copies of our model
 	// Our master copy, plus one for each of the IK engines to work with
 	// We create them all now because deep copies of sufficiently complicated structs is a pain

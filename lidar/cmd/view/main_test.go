@@ -12,9 +12,11 @@ import (
 
 	"go.uber.org/zap/zaptest/observer"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/pointcloud"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/testutils"
 	"go.viam.com/robotcore/testutils/inject"
@@ -26,36 +28,36 @@ import (
 )
 
 func TestMainMain(t *testing.T) {
-	api.RegisterLidar("fail_info", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.Lidar{Device: &fake.Lidar{}}
+	registry.RegisterLidar("fail_info", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
 		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidar("fail_width", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.Lidar{Device: &fake.Lidar{}}
+	registry.RegisterLidar("fail_width", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
 		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return r2.Point{}, errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidar("fail_ang", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.Lidar{Device: &fake.Lidar{}}
+	registry.RegisterLidar("fail_ang", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
 		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidar("fail_stop", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.Lidar{Device: &fake.Lidar{}}
+	registry.RegisterLidar("fail_stop", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
 		dev.StopFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
 		return dev, nil
 	})
-	api.RegisterLidar("fail_scan", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
-		dev := &inject.Lidar{Device: &fake.Lidar{}}
+	registry.RegisterLidar("fail_scan", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
 		var once bool
 		dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 			if once {

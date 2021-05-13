@@ -18,8 +18,6 @@ func (m TransformationMatrix) Dims() (int, int) {
 	return len(m), len(m[0])
 }
 
-// -----
-
 func newTransformationMatrix(m mat.Matrix) TransformationMatrix {
 	tm := [][]float64{
 		make([]float64, 3),
@@ -47,8 +45,6 @@ type WarpConnector interface {
 	NumFields() int // how many float64 are in the buffers above
 }
 
-// -----
-
 type WarpMatrixConnector struct {
 	Input  mat.Matrix
 	Output *mat.Dense
@@ -70,8 +66,6 @@ func (c *WarpMatrixConnector) OutputDims() (int, int) {
 func (c *WarpMatrixConnector) NumFields() int {
 	return 1
 }
-
-// -----
 
 type WarpImageConnector struct {
 	Input  *Image
@@ -98,8 +92,6 @@ func (c *WarpImageConnector) OutputDims() (int, int) {
 func (c *WarpImageConnector) NumFields() int {
 	return 6
 }
-
-// -----
 
 // cribbed from opencv cv::getPerspectiveTransform
 func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {

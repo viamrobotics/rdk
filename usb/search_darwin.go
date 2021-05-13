@@ -34,8 +34,8 @@ var SearchCmd = func(ioObjectClass string) []byte {
 	return out
 }
 
-// SearchDevices uses macOS io device APIs to find all applicable USB devices.
-func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []DeviceDescription {
+// Search uses macOS io device APIs to find all applicable USB devices.
+func Search(filter SearchFilter, includeDevice func(vendorID, productID int) bool) []Description {
 	if includeDevice == nil {
 		return nil
 	}
@@ -47,7 +47,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 	if _, err := plist.Unmarshal(out, &data); err != nil {
 		return nil
 	}
-	var results []DeviceDescription
+	var results []Description
 	for _, device := range data {
 		if device["IOTTYBaseName"] != filter.ioTTYBaseName {
 			continue
@@ -84,7 +84,7 @@ func SearchDevices(filter SearchFilter, includeDevice func(vendorID, productID i
 			}
 		}
 		if dialinDevice != "" {
-			results = append(results, DeviceDescription{
+			results = append(results, Description{
 				ID: Identifier{
 					Vendor:  vendorID,
 					Product: productID,

@@ -4,7 +4,7 @@ package main
 import (
 	"context"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/rimage/imagesource"
 	"go.viam.com/robotcore/utils"
 
@@ -55,7 +55,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return nil
 	}
 
-	attrs := api.AttributeMap{}
+	attrs := config.AttributeMap{}
 
 	if argsParsed.Format != "" {
 		attrs["format"] = argsParsed.Format
@@ -80,7 +80,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs api.AttributeMap, port int, debug bool, logger golog.Logger) error {
+func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug bool, logger golog.Logger) error {
 	webcam, err := imagesource.NewWebcamSource(attrs, logger)
 	if err != nil {
 		return err

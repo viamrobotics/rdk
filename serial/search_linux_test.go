@@ -13,7 +13,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestSearchDevices(t *testing.T) {
+func TestSearch(t *testing.T) {
 	tempDir1 := testutils.TempDir(t, "", "")
 	defer os.RemoveAll(tempDir1)
 	tempDir2 := testutils.TempDir(t, "", "")
@@ -53,44 +53,44 @@ func TestSearchDevices(t *testing.T) {
 		Filter   SearchFilter
 		DevPath  string
 		Paths    []string
-		Expected []DeviceDescription
+		Expected []Description
 	}{
 		{SearchFilter{}, "", nil, nil},
 		{SearchFilter{}, "", []string{"/"}, nil},
-		{SearchFilter{}, "", []string{tempDir2}, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/one"},
+		{SearchFilter{}, "", []string{tempDir2}, []Description{
+			{Type: TypeArduino, Path: "/dev/one"},
 		}},
-		{SearchFilter{Type: DeviceTypeArduino}, "", []string{tempDir2}, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/one"}},
+		{SearchFilter{Type: TypeArduino}, "", []string{tempDir2}, []Description{
+			{Type: TypeArduino, Path: "/dev/one"}},
 		},
-		{SearchFilter{Type: DeviceTypeJetson}, "", []string{tempDir2}, nil},
+		{SearchFilter{Type: TypeJetson}, "", []string{tempDir2}, nil},
 
-		{SearchFilter{}, devPathDir, nil, []DeviceDescription{
-			{Type: DeviceTypeJetson, Path: jetsonPath},
+		{SearchFilter{}, devPathDir, nil, []Description{
+			{Type: TypeJetson, Path: jetsonPath},
 		}},
-		{SearchFilter{}, devPathDir, []string{"/"}, []DeviceDescription{
-			{Type: DeviceTypeJetson, Path: jetsonPath},
+		{SearchFilter{}, devPathDir, []string{"/"}, []Description{
+			{Type: TypeJetson, Path: jetsonPath},
 		}},
-		{SearchFilter{}, devPathDir, []string{tempDir2}, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/one"},
-			{Type: DeviceTypeJetson, Path: jetsonPath},
+		{SearchFilter{}, devPathDir, []string{tempDir2}, []Description{
+			{Type: TypeArduino, Path: "/dev/one"},
+			{Type: TypeJetson, Path: jetsonPath},
 		}},
-		{SearchFilter{Type: DeviceTypeArduino}, devPathDir, []string{tempDir2}, []DeviceDescription{
-			{Type: DeviceTypeArduino, Path: "/dev/one"},
+		{SearchFilter{Type: TypeArduino}, devPathDir, []string{tempDir2}, []Description{
+			{Type: TypeArduino, Path: "/dev/one"},
 		}},
-		{SearchFilter{Type: DeviceTypeJetson}, devPathDir, []string{tempDir2}, []DeviceDescription{
-			{Type: DeviceTypeJetson, Path: jetsonPath},
+		{SearchFilter{Type: TypeJetson}, devPathDir, []string{tempDir2}, []Description{
+			{Type: TypeJetson, Path: jetsonPath},
 		}},
 
-		{SearchFilter{Type: DeviceTypeJetson}, jetsonPath, []string{tempDir2}, nil},
+		{SearchFilter{Type: TypeJetson}, jetsonPath, []string{tempDir2}, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			usb.SysPaths = tc.Paths
 			devPath = tc.DevPath
 
-			result := SearchDevices(tc.Filter)
+			result := Search(tc.Filter)
 			test.That(t, result, test.ShouldHaveLength, len(tc.Expected))
-			expectedM := map[DeviceDescription]struct{}{}
+			expectedM := map[Description]struct{}{}
 			for _, e := range tc.Expected {
 				expectedM[e] = struct{}{}
 			}

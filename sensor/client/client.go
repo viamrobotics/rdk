@@ -1,12 +1,12 @@
-// Package client contains a gRPC based sensor.Device client.
+// Package client contains a gRPC based sensor.Sensor client.
 package client
 
 import (
 	"context"
 	"errors"
 
-	"go.viam.com/robotcore/api/client"
-	apiclient "go.viam.com/robotcore/api/client"
+	"go.viam.com/robotcore/grpc/client"
+	apiclient "go.viam.com/robotcore/grpc/client"
 	"go.viam.com/robotcore/sensor"
 
 	"github.com/edaniels/golog"
@@ -27,14 +27,14 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Senso
 
 // A SensorClient represents a sensor that is controlled via gRPC.
 type SensorClient struct {
-	sensor.Device
+	sensor.Sensor
 	robotClient *client.RobotClient
 }
 
 // Wrapped returns the underlying sensor device if more type specific
 // access is required.
-func (sc *SensorClient) Wrapped() sensor.Device {
-	return sc.Device
+func (sc *SensorClient) Wrapped() sensor.Sensor {
+	return sc.Sensor
 }
 
 // Close cleanly closes the underlying connection.

@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/artifact"
+	"go.viam.com/robotcore/config"
 	pc "go.viam.com/robotcore/pointcloud"
 	"go.viam.com/robotcore/rimage"
 	"go.viam.com/robotcore/rimage/transform"
@@ -201,7 +201,7 @@ func TestPointCloudSplit(t *testing.T) {
 
 // Test finding the planes in an image with depth
 type segmentTestHelper struct {
-	attrs        api.AttributeMap
+	attrs        config.AttributeMap
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
@@ -232,7 +232,7 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 }
 
 func TestPlaneSegmentImageWithDepth(t *testing.T) {
-	config, err := api.ReadConfig(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")

@@ -3,23 +3,23 @@
 package search
 
 import (
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
 	"go.viam.com/robotcore/lidar"
 	"go.viam.com/robotcore/usb"
 )
 
 // Devices uses linux USB device APIs to find all applicable lidar devices.
-func Devices() []api.ComponentConfig {
-	usbDevices := usb.SearchDevices(
+func Devices() []config.Component {
+	usbDevices := usb.Search(
 		usb.SearchFilter{},
 		func(vendorID, productID int) bool {
-			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.DeviceTypeUnknown
+			return lidar.CheckProductDeviceIDs(vendorID, productID) != lidar.TypeUnknown
 		})
-	var lidarComponents []api.ComponentConfig
+	var lidarComponents []config.Component
 	for _, dev := range usbDevices {
 		devType := lidar.CheckProductDeviceIDs(dev.ID.Vendor, dev.ID.Product)
-		lidarComponents = append(lidarComponents, api.ComponentConfig{
-			Type:  api.ComponentTypeLidar,
+		lidarComponents = append(lidarComponents, config.Component{
+			Type:  config.ComponentTypeLidar,
 			Host:  dev.Path,
 			Model: string(devType),
 		})

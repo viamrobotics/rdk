@@ -3,12 +3,12 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
 	"go.viam.com/robotcore/utils"
 )
 
 type Base struct {
-	api.Base
+	base.Base
 	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
 	WidthMillisFunc  func(ctx context.Context) (int, error)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/base"
 	pb "go.viam.com/robotcore/proto/slam/v1"
 	"go.viam.com/robotcore/robots/fake"
 	"go.viam.com/robotcore/utils"
@@ -57,7 +57,7 @@ func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.Calibrat
 	}()
 	step := 10.0
 	for i := 0.0; i < 360; i += step {
-		if _, err := api.ReduceBase(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
+		if _, err := base.Reduce(s.lar.baseDevice).Spin(ctx, step, 0, true); err != nil {
 			return nil, err
 		}
 	}

@@ -1,4 +1,4 @@
-// Package client contains a gRPC based lidar.Device client.
+// Package client contains a gRPC based lidar.Lidar client.
 package client
 
 import (
@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"go.viam.com/robotcore/api"
-	"go.viam.com/robotcore/api/client"
-	apiclient "go.viam.com/robotcore/api/client"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/grpc/client"
+	apiclient "go.viam.com/robotcore/grpc/client"
 	"go.viam.com/robotcore/lidar"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -20,7 +22,7 @@ const ModelNameClient = "grpc"
 
 // init registers the gRPC lidar client.
 func init() {
-	api.RegisterLidar(ModelNameClient, func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (lidar.Device, error) {
+	registry.RegisterLidar(ModelNameClient, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		address := config.Host
 		if config.Port != 0 {
 			address = fmt.Sprintf("%s:%d", address, config.Port)
@@ -30,7 +32,7 @@ func init() {
 }
 
 // NewClient returns a lidar backed by a gRPC client.
-func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Device, error) {
+func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Lidar, error) {
 	robotClient, err := apiclient.NewRobotClient(ctx, address, logger)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
@@ -44,7 +46,7 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.
 }
 
 type wrappedLidar struct {
-	lidar.Device
+	lidar.Lidar
 	robotClient *client.RobotClient
 }
 

@@ -10,12 +10,15 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 )
 
 func init() {
-	api.RegisterGripper("robotiq", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+	registry.RegisterGripper("robotiq", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return NewGripper(ctx, config.Host, logger)
 	})
 }
@@ -119,8 +122,6 @@ func (g *Gripper) read() (string, error) {
 	}
 	return strings.TrimSpace(string(buf[0:x])), nil
 }
-
-// --------------
 
 // return true iff reached desired position
 func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {

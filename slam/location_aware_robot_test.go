@@ -42,12 +42,12 @@ func newTestHarnessWithSize(t *testing.T, meters, unitsPerMeter float64) *testHa
 	return newTestHarnessWithLidarAndSize(t, nil, meters, unitsPerMeter)
 }
 
-func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters, unitsPerMeter float64) *testHarness {
+func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Lidar, meters, unitsPerMeter float64) *testHarness {
 	logger := golog.NewTestLogger(t)
 	baseDevice := &fake.Base{}
 	area, err := NewSquareArea(meters, unitsPerMeter, logger)
 	test.That(t, err, test.ShouldBeNil)
-	injectLidarDev := &inject.Lidar{Device: lidarDev}
+	injectLidarDev := &inject.Lidar{Lidar: lidarDev}
 	if lidarDev == nil {
 		injectLidarDev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return r2.Point{meters, meters}, nil
@@ -58,7 +58,7 @@ func newTestHarnessWithLidarAndSize(t *testing.T, lidarDev lidar.Device, meters,
 		context.Background(),
 		baseDevice,
 		area,
-		[]lidar.Device{injectLidarDev},
+		[]lidar.Lidar{injectLidarDev},
 		nil,
 		nil,
 		logger,
@@ -94,7 +94,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		context.Background(),
 		baseDevice,
 		area,
-		[]lidar.Device{injectLidarDev},
+		[]lidar.Lidar{injectLidarDev},
 		nil,
 		nil,
 		logger,
@@ -110,7 +110,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		context.Background(),
 		baseDevice,
 		area,
-		[]lidar.Device{injectLidarDev},
+		[]lidar.Lidar{injectLidarDev},
 		nil,
 		nil,
 		logger,
@@ -129,7 +129,7 @@ func TestNewLocationAwareRobot(t *testing.T) {
 		context.Background(),
 		injectBase,
 		area,
-		[]lidar.Device{injectLidarDev},
+		[]lidar.Lidar{injectLidarDev},
 		nil,
 		nil,
 		logger,
@@ -517,7 +517,7 @@ func testUpdate(t *testing.T, internal bool) {
 	device.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 		return nil, err1
 	}
-	err = th.bot.scanAndStore(context.Background(), []lidar.Device{device}, area)
+	err = th.bot.scanAndStore(context.Background(), []lidar.Lidar{device}, area)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad scan")
 	test.That(t, err, test.ShouldWrap, err1)
@@ -854,7 +854,7 @@ func testUpdate(t *testing.T, internal bool) {
 			th.bot.basePosY = tc.basePosY
 			th.bot.setOrientation(tc.orientation)
 			th.bot.deviceOffsets = tc.deviceOffsets
-			devices := make([]lidar.Device, 0, len(tc.allMeasurements))
+			devices := make([]lidar.Lidar, 0, len(tc.allMeasurements))
 			for _, measurements := range tc.allMeasurements {
 				mCopy := measurements
 				device := &inject.Lidar{}

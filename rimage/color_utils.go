@@ -12,16 +12,12 @@ func ConvertToNRGBA(c color.Color) color.NRGBA {
 	return color.NRGBAModel.Convert(c).(color.NRGBA)
 }
 
-// -----
-
 type TheColorModel struct {
 }
 
 func (cm *TheColorModel) Convert(c color.Color) color.Color {
 	return NewColorFromColor(c)
 }
-
-// --------
 
 type ColorDiff struct {
 	Left  Color

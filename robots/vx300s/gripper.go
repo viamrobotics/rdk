@@ -13,13 +13,16 @@ import (
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 )
 
 func init() {
-	api.RegisterGripper("vx300s", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
-		mut, err := api.RobotAsMutable(r)
+	registry.RegisterGripper("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err
 		}
@@ -32,7 +35,7 @@ type Gripper struct {
 	moveLock *sync.Mutex
 }
 
-func NewGripper(attributes api.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
+func NewGripper(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
 	jServo := findServo(attributes.String("usbPort"), attributes.String("baudRate"), logger)
 	if mutex == nil {
 		mutex = &sync.Mutex{}

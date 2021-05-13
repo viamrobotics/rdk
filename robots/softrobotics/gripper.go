@@ -6,8 +6,11 @@ import (
 	"errors"
 	"time"
 
-	"go.viam.com/robotcore/api"
 	"go.viam.com/robotcore/board"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/gripper"
+	"go.viam.com/robotcore/registry"
+	"go.viam.com/robotcore/robot"
 	"go.viam.com/robotcore/utils"
 
 	"github.com/edaniels/golog"
@@ -15,7 +18,7 @@ import (
 )
 
 func init() {
-	api.RegisterGripper("softrobotics", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (api.Gripper, error) {
+	registry.RegisterGripper("softrobotics", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		b := r.BoardByName("local")
 		if b == nil {
 			return nil, errors.New("softrobotics gripper requires a board called local")
@@ -43,7 +46,7 @@ type Gripper struct {
 	logger golog.Logger
 }
 
-func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config api.ComponentConfig, logger golog.Logger) (*Gripper, error) {
+func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config config.Component, logger golog.Logger) (*Gripper, error) {
 	theGripper := &Gripper{
 		theBoard:  b,
 		gpioBoard: g,

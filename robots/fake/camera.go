@@ -6,14 +6,16 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/api"
+	"go.viam.com/robotcore/config"
+	"go.viam.com/robotcore/registry"
 	"go.viam.com/robotcore/rimage"
+	"go.viam.com/robotcore/robot"
 
 	"github.com/edaniels/gostream"
 )
 
 func init() {
-	api.RegisterCamera("fake", func(ctx context.Context, r api.Robot, config api.ComponentConfig, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
 		return &Camera{Name: config.Name}, nil
 	})
 }
