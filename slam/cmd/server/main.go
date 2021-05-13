@@ -14,7 +14,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/lidar/search"
 	pb "go.viam.com/core/proto/slam/v1"
-	builtinrobot "go.viam.com/core/robot/builtin"
+	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/robots/hellorobot"
 	"go.viam.com/core/rpc"
@@ -154,7 +154,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		components = append(components, args.Compass)
 	}
 
-	r, err := builtinrobot.NewRobot(ctx, &config.Config{Components: components}, logger)
+	r, err := robotimpl.NewRobot(ctx, &config.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}

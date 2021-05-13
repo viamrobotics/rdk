@@ -17,7 +17,7 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/rlog"
-	builtinrobot "go.viam.com/core/robot/builtin"
+	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/rpc"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
@@ -250,7 +250,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
-	myRobot, err := builtinrobot.NewRobot(ctx, cfg, logger)
+	myRobot, err := robotimpl.NewRobot(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/lidar/search"
-	builtinrobot "go.viam.com/core/robot/builtin"
+	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
@@ -87,7 +87,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func viewLidar(ctx context.Context, port int, components []config.Component, saveToDisk string, logger golog.Logger) (err error) {
-	r, err := builtinrobot.NewRobot(ctx, &config.Config{Components: components}, logger)
+	r, err := robotimpl.NewRobot(ctx, &config.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}

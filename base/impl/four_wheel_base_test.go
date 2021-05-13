@@ -1,4 +1,4 @@
-package builtinbase
+package baseimpl
 
 import (
 	"context"
@@ -9,14 +9,14 @@ import (
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
-	builtinrobot "go.viam.com/core/robot/builtin"
+	robotimpl "go.viam.com/core/robot/impl"
 
 	"go.viam.com/test"
 )
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
-	r, err := builtinrobot.NewRobot(ctx,
+	r, err := robotimpl.NewRobot(ctx,
 		&config.Config{
 			Boards: []board.Config{
 				{

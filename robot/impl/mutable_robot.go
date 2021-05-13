@@ -1,8 +1,8 @@
-// Package builtinrobot defines implementations of robot.Robot and robot.MutableRobot.
+// Package robotimpl defines implementations of robot.Robot and robot.MutableRobot.
 //
 // It also provides a remote robot implementation that is aware that the robot.Robot
 // it is working with is not on the same physical system.
-package builtinrobot
+package robotimpl
 
 import (
 	"context"
