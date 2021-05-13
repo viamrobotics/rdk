@@ -3,8 +3,8 @@ package wx250s
 import (
 	"sync"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/robot"
+	"go.viam.com/core/config"
+	"go.viam.com/core/robot"
 )
 
 type Provider struct {

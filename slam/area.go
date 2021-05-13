@@ -7,7 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/pointcloud"
+	"go.viam.com/core/pointcloud"
 )
 
 func NewSquareArea(sizeMeters float64, unitsPerMeter float64, logger golog.Logger) (*SquareArea, error) {

@@ -8,7 +8,7 @@ package board
 import (
 	"context"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 // A Board represents a physical general purpose board that contains various

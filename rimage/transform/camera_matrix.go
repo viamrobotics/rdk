@@ -7,8 +7,8 @@ import (
 	"image/color"
 	"math"
 
-	"go.viam.com/robotcore/pointcloud"
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/pointcloud"
+	"go.viam.com/core/rimage"
 )
 
 // Function to take an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.

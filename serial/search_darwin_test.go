@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/usb"
 
 	"go.viam.com/test"
 )

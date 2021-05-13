@@ -3,9 +3,9 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/sensor"
-	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/utils"
 )
 
 type Compass struct {

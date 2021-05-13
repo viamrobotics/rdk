@@ -6,7 +6,7 @@ import (
 
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 type ImageSource struct {

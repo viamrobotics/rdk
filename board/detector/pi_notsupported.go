@@ -8,7 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/board"
+	"go.viam.com/core/board"
 )
 
 // init registers a failing pi board since this can only be compiled on non-pi systems.

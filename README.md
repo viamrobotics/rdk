@@ -1,7 +1,7 @@
 # robotcore
 
 <p align="center">
-  <a href="https://go.viam.com/pkg/go.viam.com/robotcore/"><img src="https://pkg.go.dev/badge/go.viam.com/robotcore" alt="PkgGoDev"></a>
+  <a href="https://go.viam.com/pkg/go.viam.com/core/"><img src="https://pkg.go.dev/badge/go.viam.com/core" alt="PkgGoDev"></a>
   <a href="https://codecov.io/gh/viamrobotics/robotcore"><img src="https://codecov.io/gh/viamrobotics/robotcore/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 
@@ -71,7 +71,7 @@ Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull 
 
 ```
 # get GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
-go install go.viam.com/robotcore/artifact/cmd/artifact
+go install go.viam.com/core/artifact/cmd/artifact
 # place new artifacts in artifact_data
 artifact export
 git add .artifact.tree.json

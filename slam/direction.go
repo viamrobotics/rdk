@@ -1,6 +1,6 @@
 package slam
 
-import pb "go.viam.com/robotcore/proto/slam/v1"
+import pb "go.viam.com/core/proto/slam/v1"
 
 func DirectionFromXY(x, y, viewWidth, viewHeight int) pb.Direction {
 	centerX := viewWidth / 2

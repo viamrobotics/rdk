@@ -9,7 +9,7 @@ binsetup:
 goformat:
 	go install golang.org/x/tools/cmd/goimports
 	gofmt -s -w .
-	goimports -w -local=go.viam.com/robotcore `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
+	goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
 format: goformat
 	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
@@ -45,17 +45,17 @@ lint: goformat
 
 cover:
 	(trap 'kill 0' INT;\
-		go test -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"` &\
-		go test -coverprofile=coverage2.txt go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...)
+		go test -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
+		go test -coverprofile=coverage2.txt go.viam.com/core/vision/... go.viam.com/core/rimage/...)
 	sed '1d' coverage2.txt >> coverage.txt
 
 test:
 	(trap 'kill 0' INT;\
-		go test -race `go list ./... | grep -Ev "go.viam.com/robotcore/(vision|rimage)"` &\
-		go test go.viam.com/robotcore/vision/... go.viam.com/robotcore/rimage/...)
+		go test -race `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
+		go test go.viam.com/core/vision/... go.viam.com/core/rimage/...)
 
 testpi:
-	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/robotcore/board/pi
+	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
 
 dockerlocal:
 	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .

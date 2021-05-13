@@ -9,8 +9,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/base"
+	"go.viam.com/core/testutils/inject"
 )
 
 func TestAugmentReduce(t *testing.T) {

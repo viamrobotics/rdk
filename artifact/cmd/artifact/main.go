@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"go.viam.com/robotcore/artifact/tools"
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/artifact/tools"
+	"go.viam.com/core/rlog"
 )
 
 func main() {

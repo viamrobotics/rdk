@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/rexec"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/board"
+	"go.viam.com/core/rexec"
+	"go.viam.com/core/utils"
 )
 
 // A Config describes the configuration of a robot.

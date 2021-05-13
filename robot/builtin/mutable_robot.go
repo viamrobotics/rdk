@@ -9,29 +9,29 @@ import (
 	"fmt"
 	"sync"
 
-	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/gripper"
-	"go.viam.com/robotcore/lidar"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/rexec"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/sensor"
-	"go.viam.com/robotcore/status"
+	"go.viam.com/core/arm"
+	"go.viam.com/core/base"
+	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/gripper"
+	"go.viam.com/core/lidar"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/rexec"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor"
+	"go.viam.com/core/status"
 
 	// registration
-	_ "go.viam.com/robotcore/lidar/client"
-	_ "go.viam.com/robotcore/robots/fake"
-	_ "go.viam.com/robotcore/sensor/compass/client"
-	_ "go.viam.com/robotcore/sensor/compass/gy511"
-	_ "go.viam.com/robotcore/sensor/compass/lidar"
+	_ "go.viam.com/core/lidar/client"
+	_ "go.viam.com/core/robots/fake"
+	_ "go.viam.com/core/sensor/compass/client"
+	_ "go.viam.com/core/sensor/compass/gy511"
+	_ "go.viam.com/core/sensor/compass/lidar"
 
 	// these are the core image things we always want
-	_ "go.viam.com/robotcore/rimage" // this is for the core camera types
-	_ "go.viam.com/robotcore/vision" // this is for interesting camera types, depth, etc...
+	_ "go.viam.com/core/rimage" // this is for the core camera types
+	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

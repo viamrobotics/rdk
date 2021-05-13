@@ -19,13 +19,13 @@ import (
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/robotcore/action"
-	"go.viam.com/robotcore/lidar"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/action"
+	"go.viam.com/core/lidar"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies

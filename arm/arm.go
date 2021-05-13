@@ -4,8 +4,8 @@ package arm
 import (
 	"context"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 )
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.

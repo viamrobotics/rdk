@@ -4,9 +4,9 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/robotcore/kinematics/kinmath"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/kinematics/kinmath"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )

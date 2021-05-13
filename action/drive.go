@@ -8,11 +8,11 @@ import (
 
 	"github.com/edaniels/gostream"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/base"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 )
 
 // init registers the RandomWalk action.

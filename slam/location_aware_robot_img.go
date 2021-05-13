@@ -7,9 +7,9 @@ import (
 	"image/color"
 	"math"
 
-	pb "go.viam.com/robotcore/proto/slam/v1"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/utils"
+	pb "go.viam.com/core/proto/slam/v1"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/utils"
 
 	"github.com/fogleman/gg"
 	"github.com/golang/geo/r2"

@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/board"
+	"go.viam.com/core/board"
 )
 
 type Servo struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 
-	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/core/kinematics/kinmath"
 
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/dualquat"

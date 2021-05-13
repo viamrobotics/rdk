@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math"
 
-	"go.viam.com/robotcore/base"
-	pb "go.viam.com/robotcore/proto/slam/v1"
-	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/base"
+	pb "go.viam.com/core/proto/slam/v1"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/utils"
 
 	"go.uber.org/multierr"
 )

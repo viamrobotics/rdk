@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/usb"
 )
 
 func searchUSB(filter SearchFilter) []Description {

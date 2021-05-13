@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"go.viam.com/robotcore/robot"
+	"go.viam.com/core/robot"
 )
 
 // An Action is some high-level process that is performed on a robot.

@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/robot"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/robot"
 )
 
 // Create constructs a new up to date status from the given robot.

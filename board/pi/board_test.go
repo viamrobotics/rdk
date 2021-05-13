@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/robotcore/board"
-	pb "go.viam.com/robotcore/proto/api/v1"
+	"go.viam.com/core/board"
+	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"

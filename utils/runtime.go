@@ -11,7 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/rlog"
 )
 
 // ContextualMain calls a main entry point function with a cancellable

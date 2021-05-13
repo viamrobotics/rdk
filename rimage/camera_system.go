@@ -4,7 +4,7 @@ import (
 	"errors"
 	"image/color"
 
-	"go.viam.com/robotcore/pointcloud"
+	"go.viam.com/core/pointcloud"
 )
 
 // A CameraSystem stores the system of camera models, the intrinsic parameters of each camera,

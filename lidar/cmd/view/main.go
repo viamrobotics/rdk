@@ -8,18 +8,18 @@ import (
 	"image"
 	"time"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/lidar/search"
-	builtinrobot "go.viam.com/robotcore/robot/builtin"
-	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/sensor/compass"
-	compasslidar "go.viam.com/robotcore/sensor/compass/lidar"
-	"go.viam.com/robotcore/slam"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/config"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/lidar/search"
+	builtinrobot "go.viam.com/core/robot/builtin"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/sensor/compass"
+	compasslidar "go.viam.com/core/sensor/compass/lidar"
+	"go.viam.com/core/slam"
+	"go.viam.com/core/utils"
 
 	// register
-	_ "go.viam.com/robotcore/lidar/client"
+	_ "go.viam.com/core/lidar/client"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

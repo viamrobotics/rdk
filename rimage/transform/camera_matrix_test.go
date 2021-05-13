@@ -8,9 +8,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/rlog"
 )
 
 var outDir string

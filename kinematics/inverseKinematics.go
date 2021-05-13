@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/core/kinematics/kinmath"
 )
 
 type Goal struct {

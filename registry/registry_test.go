@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/gripper"
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/sensor"
+	"go.viam.com/core/arm"
+	"go.viam.com/core/config"
+	"go.viam.com/core/gripper"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

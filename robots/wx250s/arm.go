@@ -17,13 +17,13 @@ import (
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
 
-	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/kinematics"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/robot"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/arm"
+	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 )
 
 func init() {

@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"testing"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/zap/zaptest/observer"

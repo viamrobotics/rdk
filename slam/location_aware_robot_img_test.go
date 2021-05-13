@@ -9,13 +9,13 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/artifact"
-	"go.viam.com/robotcore/lidar"
-	pb "go.viam.com/robotcore/proto/slam/v1"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/artifact"
+	"go.viam.com/core/lidar"
+	pb "go.viam.com/core/proto/slam/v1"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )

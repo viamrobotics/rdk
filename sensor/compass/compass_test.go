@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 )

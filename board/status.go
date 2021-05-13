@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 // CreateStatus constructs a new up to date status from the given board.

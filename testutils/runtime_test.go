@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap/zaptest/observer"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -9,10 +9,10 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/robotcore/base"
-	pb "go.viam.com/robotcore/proto/slam/v1"
-	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/testutils/inject"
+	"go.viam.com/core/base"
+	pb "go.viam.com/core/proto/slam/v1"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/testutils/inject"
 
 	"go.viam.com/test"
 )

@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

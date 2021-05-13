@@ -10,7 +10,7 @@ import (
 	"image"
 	"image/color"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 type Image struct {

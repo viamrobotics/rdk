@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/lidar"
-	"go.viam.com/robotcore/testutils"
-	"go.viam.com/robotcore/usb"
+	"go.viam.com/core/config"
+	"go.viam.com/core/lidar"
+	"go.viam.com/core/testutils"
+	"go.viam.com/core/usb"
 
 	"go.viam.com/test"
 )

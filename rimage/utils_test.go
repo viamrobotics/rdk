@@ -3,7 +3,7 @@ package rimage
 import (
 	"io/ioutil"
 
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/rlog"
 )
 
 var outDir string

@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 // A FakeMotor allows setting and reading a set power percentage and

@@ -3,8 +3,8 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/robotcore/base"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/base"
+	"go.viam.com/core/utils"
 )
 
 type Base struct {

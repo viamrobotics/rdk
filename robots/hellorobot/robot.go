@@ -8,9 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/robot"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/robot"
 )
 
 const ModelName = "hellorobot"

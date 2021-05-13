@@ -9,10 +9,10 @@ import (
 	"math/rand"
 	"sort"
 
-	pc "go.viam.com/robotcore/pointcloud"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/rimage/transform"
-	"go.viam.com/robotcore/utils"
+	pc "go.viam.com/core/pointcloud"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r3"
 )

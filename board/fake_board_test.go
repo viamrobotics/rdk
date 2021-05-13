@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/rlog"
+	"go.viam.com/core/rlog"
 )
 
 func TestFakeRegistry(t *testing.T) {

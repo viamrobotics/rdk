@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"go.viam.com/robotcore/config"
+	"go.viam.com/core/config"
 )
 
 type DistortionModel struct {

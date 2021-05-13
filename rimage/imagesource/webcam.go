@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/registry"
-	"go.viam.com/robotcore/rimage"
-	"go.viam.com/robotcore/robot"
+	"go.viam.com/core/config"
+	"go.viam.com/core/registry"
+	"go.viam.com/core/rimage"
+	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

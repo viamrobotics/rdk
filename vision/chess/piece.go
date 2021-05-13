@@ -3,8 +3,8 @@ package chess
 import (
 	"fmt"
 
-	"go.viam.com/robotcore/ml"
-	"go.viam.com/robotcore/rimage"
+	"go.viam.com/core/ml"
+	"go.viam.com/core/rimage"
 )
 
 const (

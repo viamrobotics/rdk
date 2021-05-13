@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/robotcore/board"
-	"go.viam.com/robotcore/config"
-	"go.viam.com/robotcore/rexec"
-	"go.viam.com/robotcore/robots/fake"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	"go.viam.com/core/rexec"
+	"go.viam.com/core/robots/fake"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

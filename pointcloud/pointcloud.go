@@ -12,7 +12,7 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 // key is the map key used within the point cloud implementation. That is

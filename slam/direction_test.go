@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	pb "go.viam.com/robotcore/proto/slam/v1"
+	pb "go.viam.com/core/proto/slam/v1"
 
 	"go.viam.com/test"
 )

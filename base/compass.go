@@ -7,8 +7,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/robotcore/sensor/compass"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/utils"
 )
 
 // AugmentWithCompass augments the given base with the given compass in order

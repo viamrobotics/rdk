@@ -7,10 +7,10 @@ import (
 	"io/ioutil"
 	"math"
 
-	"go.viam.com/robotcore/arm"
-	"go.viam.com/robotcore/kinematics/kinmath"
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/arm"
+	"go.viam.com/core/kinematics/kinmath"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )

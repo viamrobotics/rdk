@@ -4,13 +4,13 @@ import (
 	"math"
 	"testing"
 
-	pb "go.viam.com/robotcore/proto/api/v1"
-	"go.viam.com/robotcore/utils"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/robotcore/kinematics/kinmath"
+	"go.viam.com/core/kinematics/kinmath"
 )
 
 func TestCreateNloptIKSolver(t *testing.T) {
