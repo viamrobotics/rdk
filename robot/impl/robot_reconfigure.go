@@ -156,7 +156,7 @@ func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
 	}
 	// all modifications are replacements right now resulting in removals so let's
 	// get all the existing parts we will modify.
-	// TODO(https://github.com/viamrobotics/robotcore/issues/56): This is not ideal in situations
+	// TODO(https://github.com/viamrobotics/core/issues/56): This is not ideal in situations
 	// where someone has a handle on one of the parts and it is closed behind their back,
 	// especially when its an internal user like a gripper using a board.
 	filtered, err := draft.parts.FilterFromConfig(draft.diff.Modified, draft.original.logger)

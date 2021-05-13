@@ -1,2 +1,2 @@
-// Package robotcore TODO
-package robotcore
+// Package core TODO
+package core

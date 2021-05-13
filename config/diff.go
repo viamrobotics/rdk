@@ -156,7 +156,7 @@ func diffBoards(left, right []board.Config, diff *Diff) bool {
 	return different
 }
 
-// TODO(https://github.com/viamrobotics/robotcore/issues/44): diff deeper
+// TODO(https://github.com/viamrobotics/core/issues/44): diff deeper
 func diffBoard(left, right board.Config, diff *Diff) bool {
 	if reflect.DeepEqual(left, right) {
 		return false

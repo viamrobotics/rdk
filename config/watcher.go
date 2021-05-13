@@ -46,7 +46,7 @@ func newCloudWatcher(config *Cloud, logger golog.Logger) *cloudWatcher {
 	watcherDoneCh := make(chan struct{})
 	killCh := make(chan struct{})
 
-	// TODO(https://github.com/viamrobotics/robotcore/issues/45): in the future when the web app
+	// TODO(https://github.com/viamrobotics/core/issues/45): in the future when the web app
 	// supports gRPC streams, use that instead for pushed config updates;
 	// for now just do a small interval.
 	ticker := time.NewTicker(config.RefreshInterval)

@@ -218,7 +218,7 @@ func (p *managedProcess) manage(stdOut, stdErr io.ReadCloser) {
 	// Otherwise, let's try restarting the process.
 	if err != nil {
 		// Right now we are assuming that any wait error implies the process is no longer
-		// alive. TODO(https://github.com/viamrobotics/robotcore/issues/46): Verify that
+		// alive. TODO(https://github.com/viamrobotics/core/issues/46): Verify that
 		// this is actually true. If it's false, we could be multiply spawning processes
 		// where all are orphaned but one.
 		p.logger.Errorw("error waiting for process during manage", "error", err)

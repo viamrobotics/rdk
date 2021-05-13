@@ -254,7 +254,7 @@ func (rc *RobotClient) SensorByName(name string) sensor.Sensor {
 
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
-// TODO(https://github.com/viamrobotics/robotcore/issues/57) - do not use status
+// TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
 func (rc *RobotClient) Refresh(ctx context.Context) error {

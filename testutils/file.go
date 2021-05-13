@@ -18,7 +18,7 @@ func TempDir(t *testing.T, dir, pattern string) string {
 	if os.Getenv("USER") == "" {
 		dir, err = ioutil.TempDir(dir, pattern)
 	} else {
-		dir = filepath.Join("/tmp", "robotcore_test", os.Getenv("USER"), dir, pattern)
+		dir = filepath.Join("/tmp", "core_test", os.Getenv("USER"), dir, pattern)
 		err = os.MkdirAll(dir, 0770)
 	}
 	test.That(t, err, test.ShouldBeNil)
