@@ -62,19 +62,21 @@ var (
 )
 
 // Sobel Filter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
-// (after shaving a pixel of every side), creates a  vector in polar form, and returns a vector field.
+// creates a  vector in polar form, and returns a vector field.
 func SobelFilter(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
 	maxMag := 0.0
-	// taking a gradient will remove a pixel from all sides of the image
-	g := make([]Vec2D, 0, (width-2)*(height-2))
+	g := make([]Vec2D, 0, width*height)
 	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
-	for y := 1; y < height-1; y++ {
-		for x := 1; x < width-1; x++ {
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
 			// apply the Sobel Filter over a 3x3 square around each pixel
 			sX, sY := 0, 0
 			for i, dx := range xRange {
 				for j, dy := range yRange {
+					if x+dx < 0 || y+dy < 0 || x+dx >= width || y+dy >= height {
+						continue
+					}
 					d := int(dm.GetDepth(x+dx, y+dy))
 					// rows are height j, columns are width i
 					sX += sobelX[j][i] * d
@@ -86,7 +88,7 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 			maxMag = math.Max(math.Abs(mag), maxMag)
 		}
 	}
-	vf := VectorField2D{width - 2, height - 2, g, maxMag}
+	vf := VectorField2D{width, height, g, maxMag}
 	return vf
 
 }
