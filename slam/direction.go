@@ -2,6 +2,12 @@ package slam
 
 import pb "go.viam.com/core/proto/slam/v1"
 
+// DirectionFromXY returns a direction that originates from a x,y coordinate
+// chosen. It determines this based on which quadrant the coordinate falls into:
+// top left => up
+// top right => down
+// bottom left => left
+// bottom right => right
 func DirectionFromXY(x, y, viewWidth, viewHeight int) pb.Direction {
 	centerX := viewWidth / 2
 	centerY := viewHeight / 2

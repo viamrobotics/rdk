@@ -15,6 +15,8 @@ import (
 	"github.com/golang/geo/r2"
 )
 
+// Next returns an image that is a view of the robot. It is either a live view or
+// a stored view. Stored is more representative of the mapping solution.
 func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), error) {
 	switch lar.clientLidarViewMode {
 	case pb.LidarViewMode_LIDAR_VIEW_MODE_STORED:

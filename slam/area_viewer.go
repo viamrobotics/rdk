@@ -9,18 +9,22 @@ import (
 	"github.com/fogleman/gg"
 )
 
+// AreaViewer produces images of an underlying square area.
 type AreaViewer struct {
 	Area *SquareArea
 }
 
+// Next returns the area as an image with based on the units.
 func (av *AreaViewer) Next(ctx context.Context) (image.Image, func(), error) {
 	return AreaToImage(av.Area), func() {}, nil
 }
 
+// Close does nothing.
 func (av *AreaViewer) Close() error {
 	return nil
 }
 
+// AreaToImage converts the area into an image with based on the units.
 func AreaToImage(a *SquareArea) image.Image {
 	areaSize := int(math.Round(a.Dim()))
 

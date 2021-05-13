@@ -27,6 +27,10 @@ import (
 	"github.com/golang/geo/r2"
 )
 
+// LocationAwareRobot implements a naive SLAM solution where by the use of LiDARs
+// and an optional IMU, it serially performs move by move and scan by scan to
+// produce a map. Localization is assumed to be perfect since the odometry is trusted.
+// Therefore this is really a mapping solution.
 type LocationAwareRobot struct {
 	started              bool
 	baseDevice           base.Base
@@ -61,6 +65,8 @@ type LocationAwareRobot struct {
 	logger         golog.Logger
 }
 
+// NewLocationAwareRobot returns a new LocationAwareRobot that is confined
+// to a given area and is able to use the supplied lidars and compass (IMU).
 func NewLocationAwareRobot(
 	ctx context.Context,
 	baseDevice base.Base,
@@ -132,6 +138,7 @@ var (
 	ErrStopped        = errors.New("robot is stopped")
 )
 
+// Start kicks off the update loop.
 func (lar *LocationAwareRobot) Start() error {
 	select {
 	case <-lar.closeCh:
@@ -150,26 +157,34 @@ func (lar *LocationAwareRobot) Start() error {
 	return nil
 }
 
+// SignalStop notifies that robot will be asked to completely stop
+// in the near future.
 func (lar *LocationAwareRobot) SignalStop() {
 	lar.signalCloseOnce.Do(func() {
 		close(lar.closeCh)
 	})
 }
 
+// Stop cleanly stops the robot.
 func (lar *LocationAwareRobot) Stop() error {
 	lar.SignalStop()
 	lar.activeWorkers.Wait()
 	return lar.newPresentView()
 }
 
+// Close does the same thing as Stop.
 func (lar *LocationAwareRobot) Close() error {
 	return lar.Stop()
 }
 
+// String returns information about the robot. Right now it's only position info.
 func (lar *LocationAwareRobot) String() string {
 	return fmt.Sprintf("pos: (%v, %v)", lar.basePosX, lar.basePosY)
 }
 
+// Move instructs the robot to have its base move to a particular position defined by distance and rotation.
+// The robot first spins and then moves. Before this happens, obstacle detection is applied to the point
+// we predict the robot to move to.
 func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rotateTo *pb.Direction) (err error) {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
@@ -253,6 +268,9 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 	return nil
 }
 
+// detectObstacle works by taking the current position of the robot, the new position, and creating a bounding
+// box around the robot to determine if there exist any detected points (hereby obstacles) in its way. If there
+// are any obstacles, this will error with information about the obstacle.
 func (lar *LocationAwareRobot) detectObstacle(toX, toY float64, orientation float64, moveAmountMillis *int) error {
 	moveOrientation := orientation
 	if moveAmountMillis != nil && *moveAmountMillis < 0 {
@@ -279,10 +297,14 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY float64, orientation floa
 	return nil
 }
 
+// rotateTo is a helper to spin the robot to a direction relative to the map.
 func (lar *LocationAwareRobot) rotateTo(ctx context.Context, dir pb.Direction) error {
 	return lar.Move(ctx, nil, &dir)
 }
 
+// millimetersToMeasuredUnit converts millimeters to the user supplied unit that
+// we are operating in. For example, we may be using centimeters for the robot
+// and this will handle the conversion.
 func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) float64 {
 	/*
 		amount millis
@@ -311,6 +333,8 @@ func (lar *LocationAwareRobot) millimetersToMeasuredUnit(amount int) float64 {
 	return units
 }
 
+// calculateMove returns where a robot would move to given a direction and distance. It errors
+// if the robot would end up out of bounds.
 func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis int) (r2.Point, error) {
 	newX := lar.basePosX
 	newY := lar.basePosY
@@ -352,8 +376,10 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis i
 
 const detectionBufferMillis = 150
 
-// the move rect will always be ahead of the base itself even though the
-// toX, toY are within the base rect since we move relative to the center.
+// moveRect returns a rectangle that represents the path the robot would move on. This
+// is used in obstacle detection. The move rect willalways be ahead of the base
+// itself even though the toX, toY are within the base rect since we move relative to
+// the center.
 func (lar *LocationAwareRobot) moveRect(toX, toY float64, orientation float64) (r2.Rect, error) {
 	bufferScaled := lar.millimetersToMeasuredUnit(detectionBufferMillis)
 	baseRect := lar.baseRect()
@@ -386,7 +412,8 @@ func (lar *LocationAwareRobot) moveRect(toX, toY float64, orientation float64) (
 	return r2.RectFromPoints(r2.Point{pathX0, pathY0}, r2.Point{pathX1, pathY1}), nil
 }
 
-// the rectangle is centered at the position of the base
+// baseRect returns a rectangle representing the shape of the base; it is
+// centered at the position of the base.
 func (lar *LocationAwareRobot) baseRect() r2.Rect {
 	basePosX, basePosY := lar.basePos()
 
@@ -396,7 +423,8 @@ func (lar *LocationAwareRobot) baseRect() r2.Rect {
 	)
 }
 
-// assumes appropriate locks are held
+// newPresentView copies all existing points into the root view
+// and assigns a new blank area to the present view.
 func (lar *LocationAwareRobot) newPresentView() error {
 	// overlay presentView onto rootArea
 	var err error
@@ -433,6 +461,8 @@ func (lar *LocationAwareRobot) basePos() (float64, float64) {
 	return lar.basePosX, lar.basePosY
 }
 
+// update performs and scan and stores new points seen. During this time
+// the robot is locked down and cannot be instructed to move.
 func (lar *LocationAwareRobot) update(ctx context.Context) error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
@@ -446,6 +476,8 @@ func (lar *LocationAwareRobot) update(ctx context.Context) error {
 	return lar.scanAndStore(ctx, lar.devices, lar.presentViewArea)
 }
 
+// cull decrements all points time to live. If a point hits zero,
+// it is removed from the present view.
 func (lar *LocationAwareRobot) cull() error {
 	lar.serverMu.Lock()
 	defer lar.serverMu.Unlock()
@@ -488,6 +520,9 @@ var (
 	defaultCullInterval   = 5
 )
 
+// updateLoop operates on a ticker where it first updates based
+// on a scan and then it culls if we've done a certain amount of
+// updates. This is the core of the algorithm.
 func (lar *LocationAwareRobot) updateLoop() {
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
@@ -543,6 +578,8 @@ func (lar *LocationAwareRobot) updateLoop() {
 
 const cullTTL = 3
 
+// scanAndStore ask each lidar to perform a scan, turns the scans into points, detects if they are valid,
+// and then sets them in the present view with a certain time to live.
 func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar.Lidar, area *SquareArea) error {
 	basePosX, basePosY := lar.basePos()
 	baseRect := lar.baseRect()
@@ -614,7 +651,7 @@ func (do *DeviceOffset) String() string {
 }
 
 func (do *DeviceOffset) Set(val string) error {
-	parsed, err := parseDevicOffsetFlag(val)
+	parsed, err := parseDeviceOffsetFlag(val)
 	if err != nil {
 		return err
 	}
@@ -626,8 +663,8 @@ func (do *DeviceOffset) Get() interface{} {
 	return do
 }
 
-// parseDevicOffsetFlag parses a lidar offset flag from command line arguments.
-func parseDevicOffsetFlag(flag string) (DeviceOffset, error) {
+// parseDeviceOffsetFlag parses a lidar offset flag from command line arguments.
+func parseDeviceOffsetFlag(flag string) (DeviceOffset, error) {
 	split := strings.Split(flag, ",")
 	if len(split) != 3 {
 		return DeviceOffset{}, errors.New("wrong offset format; use angle,x,y")

@@ -16,11 +16,13 @@ import (
 
 const defaultClientMoveAmountMillis = 200
 
+// LocationAwareRobotServer is a gRPC implementation of proto/slam/v1/slam.proto.
 type LocationAwareRobotServer struct {
 	pb.UnimplementedSlamServiceServer
 	lar *LocationAwareRobot
 }
 
+// NewLocationAwareRobotServer returns a new server for a given robot.
 func NewLocationAwareRobotServer(lar *LocationAwareRobot) *LocationAwareRobotServer {
 	return &LocationAwareRobotServer{lar: lar}
 }
