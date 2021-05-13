@@ -96,7 +96,8 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 // Morphological transformations
 
 // makeStructuringElement returns a simple square Structuring Element used to smooth the image.
-// Structuring elements are what kernels are called in a morphological filter.
+// Structuring elements are like kernels, but only have positive value entries.
+// 0 values represent skipping the pixel, rather than a zero value for the pixel
 func makeStructuringElement(k int) *DepthMap {
 	structEle := NewEmptyDepthMap(k, k)
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
@@ -120,10 +121,15 @@ func Erode(center image.Point, dm, kernel *DepthMap) Depth {
 	depth := int(MaxDepth)
 	for y, dy := range yRange {
 		for x, dx := range xRange {
-			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() || kernel.GetDepth(x, y) == 0 {
+			if center.X+dx < 0 || center.Y+dy < 0 || center.X+dx >= dm.Width() || center.Y+dy >= dm.Height() {
 				continue
 			}
-			depth = utils.MinInt(int(dm.GetDepth(center.X+dx, center.Y+dy)-kernel.GetDepth(x, y)), depth)
+			kernelVal := kernel.GetDepth(x, y)
+			dmVal := dm.GetDepth(center.X+dx, center.Y+dy)
+			if kernelVal == 0 || dmVal == 0 {
+				continue
+			}
+			depth = utils.MinInt(int(dmVal-kernelVal), depth)
 
 		}
 	}
