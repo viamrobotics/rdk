@@ -11,6 +11,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jblindsay/lidario"
 
+	"go.viam.com/core/utils"
+
 	"go.uber.org/multierr"
 )
 
@@ -35,7 +37,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer lf.Close()
+	defer utils.UncheckedError(lf.Close())
 
 	var hasValue bool
 	var valueData []byte

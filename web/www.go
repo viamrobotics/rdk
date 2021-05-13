@@ -283,8 +283,10 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
-func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger golog.Logger) error {
-	defer utils.TryClose(theRobot)
+func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger golog.Logger) (err error) {
+	defer func() {
+		err = multierr.Combine(err, utils.TryClose(theRobot))
+	}()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
 	if err != nil {

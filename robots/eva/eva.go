@@ -156,7 +156,7 @@ func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, p
 	if err != nil {
 		return err
 	}
-	defer res.Body.Close()
+	defer utils.UncheckedError(res.Body.Close())
 
 	if res.StatusCode == 401 {
 		// need to login

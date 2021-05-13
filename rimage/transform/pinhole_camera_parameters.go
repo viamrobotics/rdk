@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/utils"
 )
 
 // DistortionModel TODO
@@ -99,7 +100,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 		err = fmt.Errorf("error opening JSON file - %w", err)
 		return nil, err
 	}
-	defer jsonFile.Close()
+	defer utils.UncheckedError(jsonFile.Close())
 	// read our opened jsonFile as a byte array.
 	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
@@ -118,7 +119,7 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 		err = fmt.Errorf("error opening JSON file - %w", err)
 		return nil, err
 	}
-	defer jsonFile.Close()
+	defer utils.UncheckedError(jsonFile.Close())
 	// read our opened jsonFile as a byte array.
 	byteValue, err2 := ioutil.ReadAll(jsonFile)
 	if err2 != nil {

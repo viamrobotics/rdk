@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -124,7 +125,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer utils.UncheckedError(resp.Body.Close())
 	return ioutil.ReadAll(resp.Body)
 }
 

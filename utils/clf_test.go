@@ -1,10 +1,11 @@
-package utils
+package utils_test
 
 import (
 	"os"
 	"testing"
 
 	"go.viam.com/core/artifact"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )
@@ -14,13 +15,13 @@ func TestCLF(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer f.Close()
 
-	clf := NewCLFReader(f)
+	clf := utils.NewCLFReader(f)
 
 	numMessages := 0
 	var haveAnOdom bool
-	err = clf.Process(func(message CLFMessage) error {
+	err = clf.Process(func(message utils.CLFMessage) error {
 		numMessages++
-		if message.Type() == CLFMessageTypeOdometry {
+		if message.Type() == utils.CLFMessageTypeOdometry {
 			haveAnOdom = true
 		}
 		return nil
