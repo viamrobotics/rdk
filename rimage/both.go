@@ -12,6 +12,10 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"go.uber.org/multierr"
+
+	"go.viam.com/core/utils"
 )
 
 // ReadBothFromBytes reads the given data as an image that contains depth. isAligned
@@ -42,14 +46,14 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer utils.UncheckedError(f.Close())
 
 	in, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, err
 	}
 
-	defer in.Close()
+	defer utils.UncheckedError(in.Close())
 
 	allData, err := ioutil.ReadAll(in)
 
@@ -61,7 +65,7 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 }
 
 // WriteBothToFile writes the image with depth to the given file.
-func WriteBothToFile(i *ImageWithDepth, fn string) error {
+func WriteBothToFile(i *ImageWithDepth, fn string) (err error) {
 	if !strings.HasSuffix(fn, ".both.gz") {
 		return errors.New("vision.ImageWithDepth WriteTo only supports both.gz")
 	}
@@ -70,23 +74,29 @@ func WriteBothToFile(i *ImageWithDepth, fn string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err = multierr.Combine(err, f.Close())
+	}()
 
 	out := gzip.NewWriter(f)
-	defer out.Close()
+	defer func() {
+		err = multierr.Combine(err, out.Close())
+	}()
 
 	err = EncodeBoth(i, out)
 	if err != nil {
 		return err
 	}
 
-	out.Flush()
+	if err := out.Flush(); err != nil {
+		return err
+	}
 	return f.Sync()
 }
 
 // EncodeBoth writes the image with depth to the given writer.
 func EncodeBoth(i *ImageWithDepth, out io.Writer) error {
-	err := i.Depth.WriteTo(out)
+	_, err := i.Depth.WriteTo(out)
 	if err != nil {
 		return err
 	}

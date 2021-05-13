@@ -10,6 +10,8 @@ import (
 	"path"
 	"runtime"
 	"strings"
+
+	"go.viam.com/core/utils"
 )
 
 // An AttributeConverter converts a single attribute into a possibly
@@ -69,7 +71,7 @@ func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
 	if err != nil {
 		return cmd, false, err
 	}
-	defer subFile.Close()
+	defer utils.UncheckedError(subFile.Close())
 
 	var sub map[string]interface{}
 	decoder := json.NewDecoder(subFile)
@@ -137,7 +139,7 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer utils.UncheckedError(resp.Body.Close())
 
 	if resp.StatusCode != http.StatusOK {
 		rd, err := ioutil.ReadAll(resp.Body)
@@ -166,7 +168,7 @@ func Read(filePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer utils.UncheckedError(file.Close())
 
 	return FromReader(filePath, file)
 }

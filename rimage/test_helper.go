@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/multierr"
+
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -96,7 +98,7 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 	if err != nil {
 		return fmt.Errorf("error opening %s: %w", fn, err)
 	}
-	defer file.Close()
+	defer utils.UncheckedError(file.Close())
 
 	decoder := json.NewDecoder(file)
 	return decoder.Decode(out)
@@ -168,7 +170,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAlign
 }
 
 // Process TODO
-func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) error {
+func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDebuggerProcessor) (err error) {
 	files, err := filepath.Glob(filepath.Join(d.inroot, d.glob))
 	if err != nil {
 		return err
@@ -239,6 +241,8 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer func() {
+		err = multierr.Combine(err, outFile.Close())
+	}()
 	return theTemplate.Execute(outFile, &d.output)
 }

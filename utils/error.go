@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 )
 
@@ -49,4 +50,13 @@ func NewConfigValidationError(path string, err error) error {
 // error for a field missing at a given path.
 func NewConfigValidationFieldRequiredError(path, field string) error {
 	return NewConfigValidationError(path, fmt.Errorf("%q is required", field))
+}
+
+// UncheckedError is used in places where we really do not care about an error but we
+// want to at least report it. Never use this for closing writers.
+func UncheckedError(err error) {
+	if err == nil {
+		return
+	}
+	golog.Global.Debugw("unchecked error", "error", err)
 }

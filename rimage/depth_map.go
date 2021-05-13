@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/multierr"
+
 	"go.viam.com/core/utils"
 )
 
@@ -314,12 +316,14 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 }
 
 // WriteToFile writes this depth map to the given file.
-func (dm *DepthMap) WriteToFile(fn string) error {
+func (dm *DepthMap) WriteToFile(fn string) (err error) {
 	f, err := os.Create(fn)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err = multierr.Combine(err, f.Close())
+	}()
 
 	var gout *gzip.Writer
 	var out io.Writer = f
@@ -327,48 +331,56 @@ func (dm *DepthMap) WriteToFile(fn string) error {
 	if filepath.Ext(fn) == ".gz" {
 		gout = gzip.NewWriter(f)
 		out = gout
-		defer gout.Close()
+		defer func() {
+			err = multierr.Combine(err, gout.Close())
+		}()
 	}
 
-	err = dm.WriteTo(out)
+	_, err = dm.WriteTo(out)
 	if err != nil {
 		return err
 	}
 
 	if gout != nil {
-		gout.Flush()
+		if err := gout.Flush(); err != nil {
+			return err
+		}
 	}
 
 	return f.Sync()
 }
 
 // WriteTo writes this depth map to the given writer.
-func (dm *DepthMap) WriteTo(out io.Writer) error {
+func (dm *DepthMap) WriteTo(out io.Writer) (int64, error) {
 	buf := make([]byte, 8)
 
+	var totalN int64
 	binary.LittleEndian.PutUint64(buf, uint64(dm.width))
-	_, err := out.Write(buf)
+	n, err := out.Write(buf)
+	totalN += int64(n)
 	if err != nil {
-		return err
+		return totalN, err
 	}
 
 	binary.LittleEndian.PutUint64(buf, uint64(dm.height))
-	_, err = out.Write(buf)
+	n, err = out.Write(buf)
+	totalN += int64(n)
 	if err != nil {
-		return err
+		return totalN, err
 	}
 
 	for x := 0; x < dm.width; x++ {
 		for y := 0; y < dm.height; y++ {
 			binary.LittleEndian.PutUint64(buf, uint64(dm.GetDepth(x, y)))
-			_, err = out.Write(buf)
+			n, err = out.Write(buf)
+			totalN += int64(n)
 			if err != nil {
-				return err
+				return totalN, err
 			}
 		}
 	}
 
-	return nil
+	return totalN, nil
 }
 
 // MinMax TODO

@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"go.viam.com/core/utils"
 )
 
 // The default artifact file names.
@@ -72,13 +74,13 @@ func LoadConfigFromFile(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer configFile.Close()
+	defer utils.UncheckedError(configFile.Close())
 	treePath := filepath.Join(pathDir, DefaultTreeName)
 	treeFile, err := os.Open(treePath)
 	if err != nil {
 		return nil, err
 	}
-	defer treeFile.Close()
+	defer utils.UncheckedError(treeFile.Close())
 
 	configDec := json.NewDecoder(configFile)
 	treeDec := json.NewDecoder(treeFile)
@@ -98,7 +100,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 		if err != nil {
 			return err
 		}
-		defer newTreeFile.Close()
+		defer utils.UncheckedError(newTreeFile.Close())
 		if err := newTreeFile.Truncate(0); err != nil {
 			return err
 		}

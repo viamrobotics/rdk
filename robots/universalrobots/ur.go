@@ -368,9 +368,7 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 				ua.logger.Debugf("got unexpected MODBUS_INFO_MESSAGE %d\n", data)
 			}
 		case 23: // SAFETY_SETUP_BROADCAST_MESSAGE
-			break
 		case 24: // SAFETY_COMPLIANCE_TOLERANCES_MESSAGE
-			break
 		case 25: // PROGRAM_STATE_MESSAGE
 			if len(buf) != 12 {
 				ua.logger.Debug("got bad PROGRAM_STATE_MESSAGE ??")

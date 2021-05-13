@@ -10,6 +10,9 @@ import (
 	"strings"
 
 	"github.com/lmittmann/ppm"
+	"go.uber.org/multierr"
+
+	"go.viam.com/core/utils"
 )
 
 // readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
@@ -24,7 +27,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer utils.UncheckedError(f.Close())
 
 	img, _, err := image.Decode(f)
 	if err != nil {
@@ -44,12 +47,14 @@ func NewImageFromFile(fn string) (*Image, error) {
 }
 
 // WriteImageToFile writes the given image to a file at the supplied path.
-func WriteImageToFile(path string, img image.Image) error {
+func WriteImageToFile(path string, img image.Image) (err error) {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		err = multierr.Combine(err, f.Close())
+	}()
 
 	switch filepath.Ext(path) {
 	case ".png":

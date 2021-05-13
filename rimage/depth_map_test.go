@@ -25,7 +25,7 @@ func TestDepthMap1(t *testing.T) {
 	test.That(t, origHeight, test.ShouldEqual, 749)
 
 	buf := bytes.Buffer{}
-	err = m.WriteTo(&buf)
+	_, err = m.WriteTo(&buf)
 	test.That(t, err, test.ShouldBeNil)
 
 	m, err = ReadDepthMap(bufio.NewReader(&buf))
