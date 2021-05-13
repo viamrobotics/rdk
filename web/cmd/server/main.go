@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/web"
 
 	// These are the robot pieces we want by default
+	_ "go.viam.com/core/base/impl"
 	_ "go.viam.com/core/board/detector"
 	_ "go.viam.com/core/rimage/imagesource"
 	_ "go.viam.com/core/robots/eva" // for eva
