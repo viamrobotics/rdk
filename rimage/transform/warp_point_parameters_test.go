@@ -13,7 +13,7 @@ import (
 
 func TestImageWithDepthToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.BothReadFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 

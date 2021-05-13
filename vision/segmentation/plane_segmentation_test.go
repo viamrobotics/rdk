@@ -37,7 +37,7 @@ func TestSegmentPlane(t *testing.T) {
 	//Principal Point         : 542.078, 398.016
 	//Focal Length            : 734.938, 735.516
 	// get depth map
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color
@@ -69,7 +69,7 @@ func TestSegmentPlane(t *testing.T) {
 }
 
 func TestDepthMapToPointCloud(t *testing.T) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color
@@ -85,7 +85,7 @@ func TestDepthMapToPointCloud(t *testing.T) {
 }
 
 func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	rgb := rgbd.Color
@@ -131,7 +131,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 }
 
 func BenchmarkPlaneSegmentPointCloud(b *testing.B) {
-	rgbd, err := rimage.BothReadFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
+	rgbd, err := rimage.ReadBothFromFile(artifact.MustPath("vision/segmentation/pointcloudsegmentation/align-test-1615172036.both.gz"), false)
 	test.That(b, err, test.ShouldBeNil)
 	m := rgbd.Depth
 	//rgb := rgbd.Color

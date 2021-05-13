@@ -8,6 +8,8 @@ import (
 	"math"
 )
 
+// IterateImage visits each point in the image and calls the given visitor function
+// that can control whether or not to continue iteration.
 func IterateImage(img image.Image, f func(x, y int, c color.Color) bool) {
 	rect := img.Bounds()
 	for x := 0; x < rect.Dx(); x++ {
@@ -19,6 +21,8 @@ func IterateImage(img image.Image, f func(x, y int, c color.Color) bool) {
 	}
 }
 
+// CompareImages compares two images and returns a value of how close they are to being equal
+// where zero is equal and the higher it gets, the less like each other they are.
 // https://stackoverflow.com/a/60631079/830628
 func CompareImages(img1, img2 image.Image) (int, image.Image, error) {
 	bounds1 := img1.Bounds()

@@ -155,7 +155,7 @@ func (i *ImageWithDepth) Overlay() *image.NRGBA {
 }
 
 func (i *ImageWithDepth) WriteTo(fn string) error {
-	return BothWriteToFile(i, fn)
+	return WriteBothToFile(i, fn)
 }
 
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {

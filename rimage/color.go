@@ -11,19 +11,17 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
-func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
-	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
-}
-
-/*
-   0: r
-   1: g
-   2: b
-   3&4: h
-   5: s
-   6: v
-   7: unused
-*/
+// Color is a more featured color type than color.Color. Prefer to use
+// this over color.Color where possible.
+//
+// Byte layout
+// 0: r
+// 1: g
+// 2: b
+// 3&4: h
+// 5: s
+// 6: v
+// 7: unused
 type Color uint64
 
 func newcolor(r, g, b uint8, h uint16, s, v uint8) Color {
@@ -36,6 +34,83 @@ func newcolor(r, g, b uint8, h uint16, s, v uint8) Color {
 	return Color(x)
 }
 
+// NewColor returns a color based off RGB.
+func NewColor(r, g, b uint8) Color {
+	h, s, v := rgbToHsv(r, g, b)
+	return newcolor(r, g, b, h, s, v)
+}
+
+// NewColorFromHexOrPanic returns a color from a RGB hex value. It
+// panics if there is an error parsing.
+func NewColorFromHexOrPanic(hex string) Color {
+	c, err := NewColorFromHex(hex)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+// NewColorFromHexOrPanic returns a color from a RGB hex value.
+func NewColorFromHex(hex string) (Color, error) {
+	var r, g, b uint8
+	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
+	if n != 3 || err != nil {
+		return Color(0), fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
+	}
+	return NewColor(r, g, b), nil
+}
+
+// NewColorFromHSV returns a color based off HSV.
+func NewColorFromHSV(h, s, v float64) Color {
+	cc := colorful.Hsv(h, s, v)
+	r, g, b := cc.RGB255()
+	h2, s2, v2 := tobytehsvfloat(h, s, v)
+	return newcolor(r, g, b, h2, s2, v2)
+}
+
+// NewColorFromArray returns a color based off the bytes in
+// array mapping to the byte fields of a Color.
+func NewColorFromArray(buf []float64) Color {
+	return newcolor(
+		uint8(buf[0]),
+		uint8(buf[1]),
+		uint8(buf[2]),
+		uint16(buf[3]),
+		uint8(buf[4]),
+		uint8(buf[5]),
+	)
+}
+
+// NewColorFromColor takes in a go Color and finds the best
+// conversion to our Color.
+func NewColorFromColor(c color.Color) Color {
+	switch cc := c.(type) {
+	case Color:
+		return cc
+	case color.NRGBA:
+		return NewColor(cc.R, cc.G, cc.B)
+	case color.RGBA:
+		if cc.A == 255 {
+			return NewColor(cc.R, cc.G, cc.B)
+		}
+	case color.YCbCr:
+		r, g, b := color.YCbCrToRGB(cc.Y, cc.Cb, cc.Cr)
+		return NewColor(r, g, b)
+	}
+
+	cc, ok := colorful.MakeColor(c)
+	if !ok {
+		// assume full black
+		return NewColor(0, 0, 0)
+	}
+	r, g, b := cc.RGB255()
+	return NewColor(r, g, b)
+}
+
+func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
+	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
+}
+
 func (c Color) RGB255() (uint8, uint8, uint8) {
 	return uint8(c & 0xFF), uint8((c >> 8) & 0xFF), uint8((c >> 16) & 0xFF)
 }
@@ -46,17 +121,6 @@ func (c Color) hsv() (uint16, uint8, uint8) {
 
 func (c Color) RawFloatArray() []float64 {
 	return c.RawFloatArrayFill(make([]float64, 6))
-}
-
-func NewColorFromArray(buf []float64) Color {
-	return newcolor(
-		uint8(buf[0]),
-		uint8(buf[1]),
-		uint8(buf[2]),
-		uint16(buf[3]),
-		uint8(buf[4]),
-		uint8(buf[5]),
-	)
 }
 
 func (c Color) RawFloatArrayFill(buf []float64) []float64 {
@@ -313,59 +377,6 @@ func _ratioOffFrom135Finish(a float64) float64 {
 	return a
 }
 
-func NewColor(r, g, b uint8) Color {
-	h, s, v := rgbToHsv(r, g, b)
-	return newcolor(r, g, b, h, s, v)
-}
-
-func NewColorFromHexOrPanic(hex string) Color {
-	c, err := NewColorFromHex(hex)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func NewColorFromHex(hex string) (Color, error) {
-	var r, g, b uint8
-	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
-	if n != 3 || err != nil {
-		return Color(0), fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
-	}
-	return NewColor(r, g, b), nil
-}
-
-func NewColorFromHSV(h, s, v float64) Color {
-	cc := colorful.Hsv(h, s, v)
-	r, g, b := cc.RGB255()
-	h2, s2, v2 := tobytehsvfloat(h, s, v)
-	return newcolor(r, g, b, h2, s2, v2)
-}
-
-func NewColorFromColor(c color.Color) Color {
-	switch cc := c.(type) {
-	case Color:
-		return cc
-	case color.NRGBA:
-		return NewColor(cc.R, cc.G, cc.B)
-	case color.RGBA:
-		if cc.A == 255 {
-			return NewColor(cc.R, cc.G, cc.B)
-		}
-	case color.YCbCr:
-		r, g, b := color.YCbCrToRGB(cc.Y, cc.Cb, cc.Cr)
-		return NewColor(r, g, b)
-	}
-
-	cc, ok := colorful.MakeColor(c)
-	if !ok {
-		// assume full black
-		return NewColor(0, 0, 0)
-	}
-	r, g, b := cc.RGB255()
-	return NewColor(r, g, b)
-}
-
 func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 	min := utils.MinUint8(utils.MinUint8(r, g), b)
 	v = utils.MaxUint8(utils.MaxUint8(r, g), b)
@@ -402,6 +413,7 @@ func rgbToHsv(r, g, b uint8) (h uint16, s uint8, v uint8) {
 
 }
 
+// Commonly used colors.
 var (
 	Red     = NewColor(255, 0, 0)
 	DarkRed = NewColor(64, 32, 32)

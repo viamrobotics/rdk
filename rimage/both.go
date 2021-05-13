@@ -14,7 +14,9 @@ import (
 	"strings"
 )
 
-func BothReadFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) {
+// ReadBothFromBytes reads the given data as an image that contains depth. isAligned
+// notifies the reader if the image and depth is already aligned.
+func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) {
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
@@ -29,7 +31,9 @@ func BothReadFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 	return &ImageWithDepth{ConvertImage(img), depth, isAligned, nil}, nil
 }
 
-func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
+// ReadBothFromBytes reads the given file as an image that contains depth. isAligned
+// notifies the reader if the image and depth is already aligned.
+func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if !strings.HasSuffix(fn, ".both.gz") {
 		return nil, errors.New("bad extension")
 	}
@@ -53,10 +57,11 @@ func BothReadFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 		return nil, err
 	}
 
-	return BothReadFromBytes(allData, isAligned)
+	return ReadBothFromBytes(allData, isAligned)
 }
 
-func BothWriteToFile(i *ImageWithDepth, fn string) error {
+// WriteBothToFile writes the image with depth to the given file.
+func WriteBothToFile(i *ImageWithDepth, fn string) error {
 	if !strings.HasSuffix(fn, ".both.gz") {
 		return errors.New("vision.ImageWithDepth WriteTo only supports both.gz")
 	}
@@ -70,7 +75,7 @@ func BothWriteToFile(i *ImageWithDepth, fn string) error {
 	out := gzip.NewWriter(f)
 	defer out.Close()
 
-	err = BothEncode(i, out)
+	err = EncodeBoth(i, out)
 	if err != nil {
 		return err
 	}
@@ -79,7 +84,8 @@ func BothWriteToFile(i *ImageWithDepth, fn string) error {
 	return f.Sync()
 }
 
-func BothEncode(i *ImageWithDepth, out io.Writer) error {
+// EncodeBoth writes the image with depth to the given writer.
+func EncodeBoth(i *ImageWithDepth, out io.Writer) error {
 	err := i.Depth.WriteTo(out)
 	if err != nil {
 		return err

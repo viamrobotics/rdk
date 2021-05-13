@@ -12,12 +12,12 @@ import (
 	"github.com/lmittmann/ppm"
 )
 
-// Function to extract the RGB, Z16, or "both" data from an image file.
+// readImageFromFile extracts the RGB, Z16, or "both" data from an image file.
 // Aligned matters if you are reading a .both.gz file and both the rgb and d image are already aligned.
 // Otherwise, if you are just reading an image, aligned is a moot parameter and should be false.
 func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	if strings.HasSuffix(path, ".both.gz") {
-		return BothReadFromFile(path, aligned)
+		return ReadBothFromFile(path, aligned)
 	}
 
 	f, err := os.Open(path)
@@ -33,6 +33,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	return img, nil
 }
 
+// NewImageFromFile returns an image read in from the given file.
 func NewImageFromFile(fn string) (*Image, error) {
 	img, err := readImageFromFile(fn, false) // extracting rgb, alignment doesn't matter
 	if err != nil {
@@ -42,6 +43,7 @@ func NewImageFromFile(fn string) (*Image, error) {
 	return ConvertImage(img), nil
 }
 
+// WriteImageToFile writes the given image to a file at the supplied path.
 func WriteImageToFile(path string, img image.Image) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -60,6 +62,7 @@ func WriteImageToFile(path string, img image.Image) error {
 
 }
 
+// ConvertImage converts a go image into our Image type.
 func ConvertImage(img image.Image) *Image {
 	ii, ok := img.(*Image)
 	if ok {
@@ -143,6 +146,8 @@ func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
 
 }
 
+// IsImageFile returns if the given file is an image file based on what
+// we support.
 func IsImageFile(fn string) bool {
 	extensions := []string{".both.gz", "ppm", "png", "jpg", "jpeg", "gif"}
 	for _, suffix := range extensions {

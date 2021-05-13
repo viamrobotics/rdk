@@ -26,7 +26,7 @@ func TestPCRoundTrip(t *testing.T) {
 	err = pc.WriteTo(fn)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc2, err := BothReadFromFile(fn, true)
+	pc2, err := ReadBothFromFile(fn, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	same(pc2)
