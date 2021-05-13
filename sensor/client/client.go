@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// NewClient returns a new gRPC based sensor.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*SensorClient, error) {
 	robotClient, err := grpcclient.NewClient(ctx, address, logger)
 	if err != nil {

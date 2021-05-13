@@ -27,6 +27,7 @@ func NewLocationAwareRobotServer(lar *LocationAwareRobot) *LocationAwareRobotSer
 	return &LocationAwareRobotServer{lar: lar}
 }
 
+// Save writes the state of the robot to a file.
 func (s *LocationAwareRobotServer) Save(ctx context.Context, req *pb.SaveRequest) (*pb.SaveResponse, error) {
 	s.lar.serverMu.Lock()
 	defer s.lar.serverMu.Unlock()
@@ -36,6 +37,7 @@ func (s *LocationAwareRobotServer) Save(ctx context.Context, req *pb.SaveRequest
 	return &pb.SaveResponse{}, s.lar.rootArea.WriteToFile(req.File)
 }
 
+// Stats returns statistics about the robot.
 func (s *LocationAwareRobotServer) Stats(ctx context.Context, _ *pb.StatsRequest) (*pb.StatsResponse, error) {
 	return &pb.StatsResponse{BasePosition: &pb.BasePosition{
 		X: int64(s.lar.basePosX),
@@ -43,6 +45,7 @@ func (s *LocationAwareRobotServer) Stats(ctx context.Context, _ *pb.StatsRequest
 	}}, nil
 }
 
+// Calibrate asks the robot to calibrate itself. It won't operate normally during this time.
 func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.CalibrateRequest) (resp *pb.CalibrateResponse, err error) {
 	s.lar.serverMu.Lock()
 	defer s.lar.serverMu.Unlock()
@@ -66,6 +69,7 @@ func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.Calibrat
 	return &pb.CalibrateResponse{}, nil
 }
 
+// MoveRobot instructs the robot to move based on the request.
 func (s *LocationAwareRobotServer) MoveRobot(ctx context.Context, req *pb.MoveRobotRequest) (*pb.MoveRobotResponse, error) {
 	if req.Direction == pb.Direction_DIRECTION_UNSPECIFIED {
 		return nil, errors.New("move direction required")
@@ -82,6 +86,7 @@ func (s *LocationAwareRobotServer) MoveRobot(ctx context.Context, req *pb.MoveRo
 	}, nil
 }
 
+// MoveRobotForward moves the robot forwards by some predetermined amount.
 func (s *LocationAwareRobotServer) MoveRobotForward(ctx context.Context, _ *pb.MoveRobotForwardRequest) (*pb.MoveRobotForwardResponse, error) {
 	amount := defaultClientMoveAmountMillis
 	if err := s.lar.Move(ctx, &amount, nil); err != nil {
@@ -95,6 +100,7 @@ func (s *LocationAwareRobotServer) MoveRobotForward(ctx context.Context, _ *pb.M
 	}, nil
 }
 
+// MoveRobotBackward moves the robot backwards by some predetermined amount.
 func (s *LocationAwareRobotServer) MoveRobotBackward(ctx context.Context, _ *pb.MoveRobotBackwardRequest) (*pb.MoveRobotBackwardResponse, error) {
 	amount := -defaultClientMoveAmountMillis
 	if err := s.lar.Move(ctx, &amount, nil); err != nil {
@@ -108,6 +114,7 @@ func (s *LocationAwareRobotServer) MoveRobotBackward(ctx context.Context, _ *pb.
 	}, nil
 }
 
+// TurnRobotTo has the robot move to a specified direction relative to the map.
 func (s *LocationAwareRobotServer) TurnRobotTo(ctx context.Context, req *pb.TurnRobotToRequest) (*pb.TurnRobotToResponse, error) {
 	if req.Direction == pb.Direction_DIRECTION_UNSPECIFIED {
 		return nil, errors.New("rotation direction required")
@@ -118,6 +125,7 @@ func (s *LocationAwareRobotServer) TurnRobotTo(ctx context.Context, req *pb.Turn
 	return &pb.TurnRobotToResponse{}, nil
 }
 
+// UpdateRobotDeviceOffset updates a lidar device offset.
 func (s *LocationAwareRobotServer) UpdateRobotDeviceOffset(ctx context.Context, req *pb.UpdateRobotDeviceOffsetRequest) (*pb.UpdateRobotDeviceOffsetResponse, error) {
 	if req.OffsetIndex < 0 || int(req.OffsetIndex) >= len(s.lar.deviceOffsets) {
 		return nil, errors.New("bad offset index")
@@ -129,6 +137,7 @@ func (s *LocationAwareRobotServer) UpdateRobotDeviceOffset(ctx context.Context, 
 	return nil, nil
 }
 
+// StartLidar starts up a specific lidar.
 func (s *LocationAwareRobotServer) StartLidar(ctx context.Context, req *pb.StartLidarRequest) (*pb.StartLidarResponse, error) {
 	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
@@ -139,6 +148,7 @@ func (s *LocationAwareRobotServer) StartLidar(ctx context.Context, req *pb.Start
 	return &pb.StartLidarResponse{}, nil
 }
 
+// StopLidar stops a specific lidar.
 func (s *LocationAwareRobotServer) StopLidar(ctx context.Context, req *pb.StopLidarRequest) (*pb.StopLidarResponse, error) {
 	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
@@ -149,6 +159,7 @@ func (s *LocationAwareRobotServer) StopLidar(ctx context.Context, req *pb.StopLi
 	return &pb.StopLidarResponse{}, nil
 }
 
+// GetLidarSeed gets the seed used for RNG of a specific lidar if it is fake.
 func (s *LocationAwareRobotServer) GetLidarSeed(ctx context.Context, req *pb.GetLidarSeedRequest) (*pb.GetLidarSeedResponse, error) {
 	seeds := make([]string, len(s.lar.devices))
 	for i, dev := range s.lar.devices {
@@ -163,6 +174,7 @@ func (s *LocationAwareRobotServer) GetLidarSeed(ctx context.Context, req *pb.Get
 	}, nil
 }
 
+// SetLidarSeed sets the seed used for RNG of a specific lidar if it is fake.
 func (s *LocationAwareRobotServer) SetLidarSeed(ctx context.Context, req *pb.SetLidarSeedRequest) (*pb.SetLidarSeedResponse, error) {
 	if err := s.lar.validateLidarNumber(req.DeviceNumber); err != nil {
 		return nil, err
@@ -175,6 +187,7 @@ func (s *LocationAwareRobotServer) SetLidarSeed(ctx context.Context, req *pb.Set
 	return nil, errors.New("cannot set seed on real device")
 }
 
+// SetClientZoom sets how much to the UI of the map be zoomed in.
 func (s *LocationAwareRobotServer) SetClientZoom(ctx context.Context, req *pb.SetClientZoomRequest) (*pb.SetClientZoomResponse, error) {
 	if req.Zoom < 1 {
 		return nil, errors.New("zoom must be >= 1")
@@ -183,6 +196,7 @@ func (s *LocationAwareRobotServer) SetClientZoom(ctx context.Context, req *pb.Se
 	return &pb.SetClientZoomResponse{}, nil
 }
 
+// SetClientLidarViewMode sets what the UI should show for lidar.
 func (s *LocationAwareRobotServer) SetClientLidarViewMode(ctx context.Context, req *pb.SetClientLidarViewModeRequest) (*pb.SetClientLidarViewModeResponse, error) {
 	if req.Mode == pb.LidarViewMode_LIDAR_VIEW_MODE_UNSPECIFIED {
 		return nil, errors.New("mode required")
@@ -191,6 +205,7 @@ func (s *LocationAwareRobotServer) SetClientLidarViewMode(ctx context.Context, r
 	return &pb.SetClientLidarViewModeResponse{}, nil
 }
 
+// SetClientClickMode sets what should happen when the view is clicked.
 func (s *LocationAwareRobotServer) SetClientClickMode(ctx context.Context, req *pb.SetClientClickModeRequest) (*pb.SetClientClickModeResponse, error) {
 	if req.Mode == pb.ClickMode_CLICK_MODE_UNSPECIFIED {
 		return nil, errors.New("mode required")
@@ -206,6 +221,7 @@ func (lar *LocationAwareRobot) validateLidarNumber(num int32) error {
 	return nil
 }
 
+// HandleClick takes a client click in and performs an action based on the click mode set.
 func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth, viewHeight int) (string, error) {
 	switch lar.clientClickMode {
 	case pb.ClickMode_CLICK_MODE_MOVE:

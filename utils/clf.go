@@ -209,14 +209,17 @@ type CLFBaseMessage struct {
 	LoggerTimestamp float64
 }
 
+// Base returns the base part of the message.
 func (b CLFBaseMessage) Base() CLFBaseMessage {
 	return b
 }
 
+// Type returns the type of message this is.
 func (b CLFBaseMessage) Type() CLFMessageType {
 	return b.MessageType
 }
 
+// CLFParamMessage conveys parameters being set for the whole CLF.
 type CLFParamMessage struct {
 	CLFMessage
 	Name, Value string
@@ -274,6 +277,7 @@ func parseCLFParamMessage(parts []string) (*CLFParamMessage, error) {
 	}, nil
 }
 
+// CLFOdometryMessage represents odometry data.
 type CLFOdometryMessage struct {
 	CLFMessage
 	X                     float64
@@ -329,6 +333,7 @@ func parseCLFPOdometryMessage(parts []string) (*CLFOdometryMessage, error) {
 	}, nil
 }
 
+// CLFOldLaserMessage represents legacy lidar scan data.
 type CLFOldLaserMessage struct {
 	CLFMessage
 	RangeReadings []float64

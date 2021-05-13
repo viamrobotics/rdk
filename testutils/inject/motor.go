@@ -7,6 +7,7 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
+// Motor is an injected motor.
 type Motor struct {
 	board.Motor
 	PowerFunc             func(ctx context.Context, powerPct float32) error
@@ -18,6 +19,7 @@ type Motor struct {
 	IsOnFunc              func(ctx context.Context) (bool, error)
 }
 
+// Power calls the injected Power or the real version.
 func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	if m.PowerFunc == nil {
 		return m.Motor.Power(ctx, powerPct)
@@ -25,6 +27,7 @@ func (m *Motor) Power(ctx context.Context, powerPct float32) error {
 	return m.PowerFunc(ctx, powerPct)
 }
 
+// Go calls the injected Go or the real version.
 func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	if m.GoFunc == nil {
 		return m.Motor.Go(ctx, d, powerPct)
@@ -32,6 +35,7 @@ func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 	return m.GoFunc(ctx, d, powerPct)
 }
 
+// GoFor calls the injected GoFor or the real version.
 func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	if m.GoForFunc == nil {
 		return m.Motor.GoFor(ctx, d, rpm, revolutions)
@@ -39,6 +43,7 @@ func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, 
 	return m.GoForFunc(ctx, d, rpm, revolutions)
 }
 
+// Position calls the injected Position or the real version.
 func (m *Motor) Position(ctx context.Context) (float64, error) {
 	if m.PositionFunc == nil {
 		return m.Motor.Position(ctx)
@@ -46,6 +51,7 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return m.PositionFunc(ctx)
 }
 
+// PositionSupported calls the injected PositionSupported or the real version.
 func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	if m.PositionSupportedFunc == nil {
 		return m.Motor.PositionSupported(ctx)
@@ -53,6 +59,7 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return m.PositionSupportedFunc(ctx)
 }
 
+// Off calls the injected Off or the real version.
 func (m *Motor) Off(ctx context.Context) error {
 	if m.OffFunc == nil {
 		return m.Motor.Off(ctx)
@@ -60,6 +67,7 @@ func (m *Motor) Off(ctx context.Context) error {
 	return m.OffFunc(ctx)
 }
 
+// IsOn calls the injected IsOn or the real version.
 func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	if m.IsOnFunc == nil {
 		return m.Motor.IsOn(ctx)

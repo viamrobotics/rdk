@@ -19,7 +19,7 @@ func NewRoundingPointCloud() PointCloud {
 	return &RoundingPointCloud{New().(*basicPointCloud)}
 }
 
-// NewRoundingPointCloudFromFile, like NewFromFile, returns a PointCloud but rounds
+// NewRoundingPointCloudFromFile like NewFromFile, returns a PointCloud but rounds
 // all points in advance.
 func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	var err error
@@ -41,6 +41,7 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 	return roundingPc, nil
 }
 
+// Set sets a point on the cloud.
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
 	p.SetPosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
@@ -83,10 +84,12 @@ func (cloud *RoundingPointCloud) Set(p Point) error {
 	return nil
 }
 
+// At returns a point in the cloud, if exist; returns nil otherwise.
 func (cloud *RoundingPointCloud) At(x, y, z float64) Point {
 	return cloud.points[key{math.Round(x), math.Round(y), math.Round(z)}]
 }
 
+// Unset removes a point from the cloud; does nothing if it does not exist.
 func (cloud *RoundingPointCloud) Unset(x, y, z float64) {
 	delete(cloud.points, key{math.Round(x), math.Round(y), math.Round(z)})
 }

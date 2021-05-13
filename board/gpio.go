@@ -43,25 +43,29 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, erro
 
 var _ = Motor(&GPIOMotor{})
 
-// A GPIOMotor is a GPIO based Motor that resides ona GPIO Board.
+// A GPIOMotor is a GPIO based Motor that resides on a GPIO Board.
 type GPIOMotor struct {
 	Board     GPIOBoard
 	A, B, PWM string
 	on        bool
 }
 
+// Position always returns 0.
 func (m *GPIOMotor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
+// PositionSupported always returns false.
 func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// Power sets the associated pins PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 	return m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
 }
 
+// Go instructs the motor to operate at a certain power percentage in a given direction.
 func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	power := byte(utils.ScaleByPct(255, float64(powerPct)))
 	switch d {
@@ -86,14 +90,17 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 	return fmt.Errorf("unknown direction %v", d)
 }
 
+// GoFor is not yet supported.
 func (m *GPIOMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
 	return errors.New("not supported")
 }
 
+// IsOn returns if the motor is currently on or off.
 func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
+// Off turns the motor off by setting the appropriate pins to low states.
 func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
 	return multierr.Combine(

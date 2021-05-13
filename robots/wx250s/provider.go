@@ -7,10 +7,12 @@ import (
 	"go.viam.com/core/robot"
 )
 
+// Provider TODO
 type Provider struct {
 	moveLock *sync.Mutex
 }
 
+// Ready TODO
 func (p *Provider) Ready(r robot.Robot) error {
 	return nil
 }

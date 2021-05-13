@@ -30,9 +30,9 @@ type Board interface {
 	// nil is returned.
 	DigitalInterrupt(name string) DigitalInterrupt
 
-	// GetConfig returns the config used to construct the board.
+	// Config returns the config used to construct the board.
 	// This is allowed to be partial or empty.
-	GetConfig(ctx context.Context) (Config, error)
+	Config(ctx context.Context) (Config, error)
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -40,7 +40,7 @@ type Board interface {
 	Status(ctx context.Context) (*pb.BoardStatus, error)
 }
 
-// A  Motor represents a physical motor connected to a board.
+// A Motor represents a physical motor connected to a board.
 type Motor interface {
 
 	// Power sets the percentage of power the motor should employ between 0-1.
@@ -91,7 +91,7 @@ type AnalogReader interface {
 // only used in DigitalInterrupt readings.
 type PostProcessor func(raw int64) int64
 
-// FlipDirections flips over a relative direction. For example, forward
+// FlipDirection flips over a relative direction. For example, forward
 // flips to backward.
 func FlipDirection(d pb.DirectionRelative) pb.DirectionRelative {
 	switch d {

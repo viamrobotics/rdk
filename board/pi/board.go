@@ -164,8 +164,8 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	return piInstance, nil
 }
 
-// GetConfig returns the config this board was constructed with.
-func (pi *piPigpio) GetConfig(ctx context.Context) (board.Config, error) {
+// Config returns the config this board was constructed with.
+func (pi *piPigpio) Config(ctx context.Context) (board.Config, error) {
 	return pi.cfg, nil
 }
 

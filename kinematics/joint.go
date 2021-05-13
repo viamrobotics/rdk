@@ -17,14 +17,17 @@ import (
 // TODO(pl): Maybe we want to make this an interface which different joint types implement
 // TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
 
+// Axis TODO
 type Axis int
 
+// TODO
 const (
 	Xaxis Axis = iota
 	Yaxis
 	Zaxis
 )
 
+// Joint TODO
 type Joint struct {
 	axes        []Axis
 	dofPosition int
@@ -41,6 +44,7 @@ type Joint struct {
 	transform   *Transform
 }
 
+// NewJoint TODO
 func NewJoint(dPos, dVel int) *Joint {
 	j := Joint{}
 	j.dofPosition = dPos
@@ -57,6 +61,7 @@ func NewJoint(dPos, dVel int) *Joint {
 	return &j
 }
 
+// Clip TODO
 func (j *Joint) Clip(q []float64) {
 	for i := 0; i < j.GetDofPosition(); i++ {
 		if j.wraparound[i] {
@@ -75,6 +80,7 @@ func (j *Joint) Clip(q []float64) {
 	}
 }
 
+// RandomJointPositions TODO
 func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 	var positions []float64
 	for i := 0; i < j.GetDofPosition(); i++ {
@@ -87,8 +93,8 @@ func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 	return positions
 }
 
-// TODO(pl): Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()
 // Distance returns the L2 normalized difference between two equal length arrays
+// TODO(pl): Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()
 func Distance(q1, q2 []float64) float64 {
 	for i := 0; i < len(q1); i++ {
 		q1[i] = q1[i] - q2[i]
@@ -97,10 +103,12 @@ func Distance(q1, q2 []float64) float64 {
 	return floats.Norm(q1, 2)
 }
 
+// ForwardPosition TODO
 func (j *Joint) ForwardPosition() {
 	j.transform.ForwardPosition()
 }
 
+// ForwardVelocity TODO
 // Note that this currently only works for 1DOF revolute joints
 // Will need to be updated for ball joints
 func (j *Joint) ForwardVelocity() {
@@ -121,61 +129,83 @@ func (j *Joint) ForwardVelocity() {
 	j.transform.out.v = dualquat.Mul(j.transform.in.v, velQuat)
 }
 
+// GetDof TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetDof() int {
 	return len(j.positionD)
 }
 
+// GetDofPosition TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetDofPosition() int {
 	return len(j.position)
 }
 
-// Returns the joint's position in radians
+// GetPosition returns the joint's position in radians
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetPosition() []float64 {
 	return j.position
 }
 
+// GetMinimum TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetMinimum() []float64 {
 	return j.min
 }
 
+// GetMaximum TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetMaximum() []float64 {
 	return j.max
 }
 
+// SetName TODO
 func (j *Joint) SetName(name string) {
 	j.transform.name = name
 }
 
+// GetName TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetName() string {
 	return j.transform.name
 }
 
+// SetEdgeDescriptor TODO
 func (j *Joint) SetEdgeDescriptor(edge graph.Edge) {
 	j.descriptor = edge
 }
 
+// GetEdgeDescriptor TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetEdgeDescriptor() graph.Edge {
 	return j.descriptor
 }
 
+// SetIn TODO
 func (j *Joint) SetIn(in *Frame) {
 	j.transform.in = in
 }
 
+// GetIn TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetIn() *Frame {
 	return j.transform.in
 }
 
+// SetOut TODO
 func (j *Joint) SetOut(out *Frame) {
 	j.transform.out = out
 }
 
+// GetOut TODO
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetOut() *Frame {
 	return j.transform.out
 }
 
 // GetRotationVector will return about which axes this joint will rotate and how much
 // Should be normalized to [0,1] for each axis
+// Note(erd): Get prefix should be removed
 func (j *Joint) GetRotationVector() quat.Number {
 	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
 }
@@ -195,7 +225,6 @@ func (j *Joint) SetAxesFromSpatial() {
 
 // PointAtZ returns the quat about which to rotate to point this joint's axis at Z
 // We use mgl64 Quats for this, because they have the function conveniently built in
-
 func (j *Joint) PointAtZ() dualquat.Number {
 	zAxis := mgl64.Vec3{0, 0, 1}
 	rotVec := mgl64.Vec3{j.SpatialMat.At(0, 0), j.SpatialMat.At(1, 0), j.SpatialMat.At(2, 0)}
@@ -203,6 +232,7 @@ func (j *Joint) PointAtZ() dualquat.Number {
 	return dualquat.Number{quat.Number{zGlQuat.W, zGlQuat.V.X(), zGlQuat.V.Y(), zGlQuat.V.Z()}, quat.Number{}}
 }
 
+// GetOperationalVelocity TODO
 func (j *Joint) GetOperationalVelocity() dualquat.Number {
 	return j.transform.out.v
 }
@@ -244,6 +274,7 @@ func (j *Joint) Clamp(posvec []float64) []float64 {
 	return posvec
 }
 
+// Step TODO
 // TODO(pl): This only will work when posvec and dpos are the same length
 // Other joint types e.g. spherical will need to reimplement
 func (j *Joint) Step(posvec, dpos []float64) []float64 {
@@ -257,6 +288,7 @@ func (j *Joint) Step(posvec, dpos []float64) []float64 {
 	return posvec2
 }
 
+// Normalize TODO
 // Only valid for revolute joints
 // This should ensure that joint positions are the lowest reasonable value
 // For example, rather than 375 degrees, it should be 15 degrees
@@ -270,6 +302,7 @@ func (j *Joint) Normalize(posvec []float64) []float64 {
 	return []float64{remain}
 }
 
+// IsValid TODO
 func (j *Joint) IsValid(posvec []float64) bool {
 	for i := range posvec {
 		if posvec[i] < j.min[i] || posvec[i] > j.max[i] {

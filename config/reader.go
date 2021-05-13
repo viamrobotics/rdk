@@ -27,6 +27,8 @@ var (
 	attributeConverters = []attributeConverterRegistration{}
 )
 
+// RegisterAttributeConverter associates a component type and model with a way to convert a
+// particular attribute name.
 func RegisterAttributeConverter(compType ComponentType, model, attr string, conv AttributeConverter) {
 	attributeConverters = append(attributeConverters, attributeConverterRegistration{compType, model, attr, conv})
 }

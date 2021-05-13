@@ -31,7 +31,7 @@ func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 	return &ImageWithDepth{ConvertImage(img), depth, isAligned, nil}, nil
 }
 
-// ReadBothFromBytes reads the given file as an image that contains depth. isAligned
+// ReadBothFromFile reads the given file as an image that contains depth. isAligned
 // notifies the reader if the image and depth is already aligned.
 func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if !strings.HasSuffix(fn, ".both.gz") {

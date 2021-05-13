@@ -10,6 +10,8 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// ImageWithDepth is an image of color that has depth associated
+// with it. It may or may not be aligned.
 type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
@@ -17,34 +19,44 @@ type ImageWithDepth struct {
 	camera  CameraSystem
 }
 
+// MakeImageWithDepth returns a new image with depth from the given color and depth arguments. It
+// is also associated with a camera that captured the color and depth.
 func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera CameraSystem) *ImageWithDepth {
 	return &ImageWithDepth{img, dm, aligned, camera}
 }
 
+// Bounds returns the bounds.
 func (i *ImageWithDepth) Bounds() image.Rectangle {
 	return i.Color.Bounds()
 }
 
+// ColorModel returns the color model of the color image.
 func (i *ImageWithDepth) ColorModel() color.Model {
 	return i.Color.ColorModel()
 }
 
+// At returns the color at the given point.
+// TODO(erh): alpha encode with depth
 func (i *ImageWithDepth) At(x, y int) color.Color {
-	return i.Color.At(x, y) // TODO(erh): alpha encode with depth
+	return i.Color.At(x, y)
 }
 
+// Width returns the horizontal width of the image.
 func (i *ImageWithDepth) Width() int {
 	return i.Color.Width()
 }
 
+// Height returns the vertical height of the image.
 func (i *ImageWithDepth) Height() int {
 	return i.Color.Height()
 }
 
+// Rotate rotates the color and depth about the origin by the given angle clockwise.
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
 	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.camera}
 }
 
+// Warp adapts the image to a new size.
 func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *ImageWithDepth {
 	m2 := GetPerspectiveTransform(src, dst)
 
@@ -58,6 +70,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
 }
 
+// CropToDepthData TODO
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	var minY, minX, maxY, maxX int
 
@@ -127,6 +140,7 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	), nil
 }
 
+// Overlay TODO
 func (i *ImageWithDepth) Overlay() *image.NRGBA {
 	const minAlpha = 32.0
 
@@ -154,10 +168,12 @@ func (i *ImageWithDepth) Overlay() *image.NRGBA {
 	return img
 }
 
+// WriteTo writes both the color and depth data to the given file.
 func (i *ImageWithDepth) WriteTo(fn string) error {
 	return WriteBothToFile(i, fn)
 }
 
+// NewImageWithDepthFromImages returns a new image from the given two color and image files.
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
@@ -172,6 +188,7 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 	return &ImageWithDepth{img, dm, isAligned, nil}, nil
 }
 
+// NewImageWithDepth returns a new image from the given color image and depth data files.
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
@@ -211,6 +228,8 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	return dm
 }
 
+// ConvertToImageWithDepth attempts to convert a go image into an image
+// with depth, if it contains any.
 func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	switch x := img.(type) {
 	case *ImageWithDepth:
@@ -222,6 +241,8 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	}
 }
 
+// RawBytesWrite writes out the internal representation of the color
+// and depth into the given buffer.
 func (i *ImageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
 	if i.Color == nil || i.Depth == nil {
 		return errors.New("for raw bytes need depth and color info")
@@ -246,6 +267,8 @@ func (i *ImageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {
 	return nil
 }
 
+// ImageWithDepthFromRawBytes returns a new image interpreted from the internal representation
+// of color and depth.
 func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, error) {
 	iwd := &ImageWithDepth{}
 

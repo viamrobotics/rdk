@@ -50,7 +50,7 @@ func NewColorFromHexOrPanic(hex string) Color {
 	return c
 }
 
-// NewColorFromHexOrPanic returns a color from a RGB hex value.
+// NewColorFromHex returns a color from a RGB hex value.
 func NewColorFromHex(hex string) (Color, error) {
 	var r, g, b uint8
 	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
@@ -111,6 +111,7 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
 }
 
+// RGB255 returns the RGB representation of the color.
 func (c Color) RGB255() (uint8, uint8, uint8) {
 	return uint8(c & 0xFF), uint8((c >> 8) & 0xFF), uint8((c >> 16) & 0xFF)
 }
@@ -119,10 +120,13 @@ func (c Color) hsv() (uint16, uint8, uint8) {
 	return uint16((c >> 24) & 0xFFFF), uint8((c >> 40) & 0xFF), uint8((c >> 48) & 0xFF)
 }
 
+// RawFloatArray returns the byte fields of the color.
 func (c Color) RawFloatArray() []float64 {
 	return c.RawFloatArrayFill(make([]float64, 6))
 }
 
+// RawFloatArrayFill sets the bytes fields of the color on the given slice
+// that must have a length of at least 6.
 func (c Color) RawFloatArrayFill(buf []float64) []float64 {
 	r, g, b := c.RGB255()
 	h, s, v := c.hsv()
@@ -136,27 +140,32 @@ func (c Color) RawFloatArrayFill(buf []float64) []float64 {
 	return buf
 }
 
+// String returns a human readable representation of the color.
 func (c Color) String() string {
 	h, s, v := c.ScaleHSV()
 	return fmt.Sprintf("%s (%3d,%4.2f,%4.2f)", c.Hex(), int(h*360), s, v)
 }
 
+// HsvNormal returns a normalized HSV representation of the color.
 // h : 0 -> 360, s,v : 0 -> 1.0
 func (c Color) HsvNormal() (float64, float64, float64) {
 	h, s, v := c.hsv()
 	return 360.0 * float64(h) / float64(math.MaxUint16), float64(s) / 255.0, float64(v) / 255.0
 }
 
+// ScaleHSV returns a scaled HSV representation of the color.
 func (c Color) ScaleHSV() (float64, float64, float64) {
 	h, s, v := c.hsv()
 	return float64(h) / float64(math.MaxUint16), float64(s) / 255.0, float64(v) / 255.0
 }
 
+// Hex returns the RGB hexadecimal representation of the color.
 func (c Color) Hex() string {
 	r, g, b := c.RGB255()
 	return fmt.Sprintf("#%.2x%.2x%.2x", r, g, b)
 }
 
+// RGBA returns the non-alpha-premultiplied RGBA values of the color.
 func (c Color) RGBA() (r, g, b, a uint32) {
 	R, G, B := c.RGB255()
 	a = uint32(255)
@@ -176,6 +185,8 @@ func (c Color) RGBA() (r, g, b, a uint32) {
 	return
 }
 
+// Closest returns the color that is closet to this color based
+// on the given slice of colors.
 func (c Color) Closest(others []Color) (int, Color, float64) {
 	if len(others) == 0 {
 		panic("HSV::Closest passed nother")
@@ -219,10 +230,12 @@ func (c Color) toColorful() colorful.Color {
 	}
 }
 
+// DistanceLab returns a measure of visual similarity between two colors.
 func (c Color) DistanceLab(b Color) float64 {
 	return c.toColorful().DistanceLab(b.toColorful())
 }
 
+// Distance returns the "distance" between two colors.
 func (c Color) Distance(b Color) float64 {
 	debug := false
 	return c.distanceDebug(b, debug)
@@ -232,7 +245,7 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	h1, s1, v1 := c.ScaleHSV()
 	h2, s2, v2 := b.ScaleHSV()
 
-	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color ing enral
+	wh := 40.0 // ~ 360 / 7 - about 8 degrees of hue change feels like a different color in general
 	ws := 6.5
 	wv := 5.0
 

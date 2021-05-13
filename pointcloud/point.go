@@ -9,7 +9,7 @@ import (
 // Vec3 is a three-dimensional vector.
 type Vec3 r3.Vector
 
-// Vec3 s is a series of three-dimensional vectors.
+// Vec3s is a series of three-dimensional vectors.
 type Vec3s []Vec3
 
 // Len returns the number of vectors.

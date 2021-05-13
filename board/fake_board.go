@@ -52,6 +52,7 @@ type FakeBoard struct {
 	CloseCount int
 }
 
+// Motor returns the motor by the given name if it exists.
 func (b *FakeBoard) Motor(name string) Motor {
 	m, ok := b.motors[name]
 	if ok {
@@ -60,26 +61,32 @@ func (b *FakeBoard) Motor(name string) Motor {
 	return nil
 }
 
+// Servo returns the servo by the given name if it exists.
 func (b *FakeBoard) Servo(name string) Servo {
 	return b.servos[name]
 }
 
+// AnalogReader returns the analog reader by the given name if it exists.
 func (b *FakeBoard) AnalogReader(name string) AnalogReader {
 	return b.analogs[name]
 }
 
+// DigitalInterrupt returns the interrupt by the given name if it exists.
 func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	return b.digitals[name]
 }
 
-func (b *FakeBoard) GetConfig(ctx context.Context) (Config, error) {
+// Config returns the config used to construct the board.
+func (b *FakeBoard) Config(ctx context.Context) (Config, error) {
 	return b.cfg, nil
 }
 
+// Status returns the current status of the board.
 func (b *FakeBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return CreateStatus(ctx, b)
 }
 
+// Close attempts to cleanly close each part of the board.
 func (b *FakeBoard) Close() error {
 	b.CloseCount++
 	var err error

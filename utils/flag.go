@@ -420,10 +420,12 @@ func (sf *sliceFlag) Get() interface{} {
 // network port.
 type NetPortFlag int
 
+// String returns the set value.
 func (npf *NetPortFlag) String() string {
 	return fmt.Sprintf("%v", int(*npf))
 }
 
+// Set attempts to set the value as a network port.
 func (npf *NetPortFlag) Set(val string) error {
 	portParsed, err := strconv.ParseUint(val, 10, 16)
 	if err != nil {
@@ -433,6 +435,7 @@ func (npf *NetPortFlag) Set(val string) error {
 	return nil
 }
 
+// Get returns the value as an integer.
 func (npf *NetPortFlag) Get() interface{} {
 	return int(*npf)
 }

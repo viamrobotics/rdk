@@ -11,7 +11,7 @@ import (
 	"go.viam.com/core/rimage"
 )
 
-// Function to take an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
+// AlignImageWithDepth takes an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
 func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
 		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie), nil
@@ -29,7 +29,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 	return newImgWithDepth, nil
 }
 
-// Function that changes the coordinate system of the depth map to be in same coordinate system
+// TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
 // as the color image
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
@@ -67,7 +67,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
 }
 
-// Function that takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
+// ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 // Aligns it if it isn't already aligned.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
@@ -103,7 +103,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 
 }
 
-// Function that takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
@@ -131,7 +131,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(cloud poi
 
 }
 
-// Converts a Depth Map to a PointCloud using the depth camera parameters
+// DepthMapToPointCloud converts a Depth Map to a PointCloud using the depth camera parameters
 func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, params *PinholeCameraIntrinsics, depthMin, depthMax rimage.Depth) (pointcloud.PointCloud, error) {
 	// create new point cloud
 	pcOut := pointcloud.New()
@@ -161,8 +161,8 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 	return pcOut, nil
 }
 
-// Function to project 3D point in a given camera image plane
-// Return new pointclouds leaving original unchanged
+// ApplyRigidBodyTransform projects a 3D point in a given camera image plane and return a
+// new point cloud leaving the original unchanged.
 func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (pointcloud.PointCloud, error) {
 	transformedPoints := pointcloud.New()
 	var err error
@@ -189,7 +189,7 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	return transformedPoints, nil
 }
 
-// Function to project points in a pointcloud to a given camera image plane
+// ProjectPointCloudToRGBPlane projects points in a pointcloud to a given camera image plane.
 func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params PinholeCameraIntrinsics, pixel2meter float64) (pointcloud.PointCloud, error) {
 	coordinates := pointcloud.New()
 	var err error

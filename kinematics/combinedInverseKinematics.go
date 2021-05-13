@@ -9,18 +9,20 @@ import (
 	"github.com/edaniels/golog"
 )
 
+// CombinedIK TODO
 type CombinedIK struct {
 	solvers []InverseKinematics
 	Mdl     *Model
 	ID      int
 }
 
+// ReturnTest TODO
 type ReturnTest struct {
 	ID      int
 	Success bool
 }
 
-// Creates a combined parallel IK solver with the number of models given
+// CreateCombinedIKSolver creates a combined parallel IK solver with the number of models given
 // Must pass at least two models. Two will produce one jacobian IK solver, and all additional
 // models will create nlopt solvers with different random seeds
 func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
@@ -42,40 +44,48 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	return ik
 }
 
+// AddGoal TODO
 func (ik *CombinedIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	for _, solver := range ik.solvers {
 		solver.AddGoal(trans, effectorID)
 	}
 }
 
+// SetID TODO
 func (ik *CombinedIK) SetID(id int) {
 	ik.ID = id
 }
 
+// GetID TODO
 func (ik *CombinedIK) GetID() int {
 	return ik.ID
 }
 
+// GetMdl TODO
 func (ik *CombinedIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
+// ClearGoals TODO
 func (ik *CombinedIK) ClearGoals() {
 	for _, solver := range ik.solvers {
 		solver.ClearGoals()
 	}
 }
 
+// Halt TODO
 func (ik *CombinedIK) Halt() {
 	for _, solver := range ik.solvers {
 		solver.Halt()
 	}
 }
 
+// GetGoals TODO
 func (ik *CombinedIK) GetGoals() []Goal {
 	return ik.solvers[0].GetGoals()
 }
 
+// GetSolvers TODO
 func (ik *CombinedIK) GetSolvers() []InverseKinematics {
 	return ik.solvers
 }
@@ -88,6 +98,7 @@ func runSolver(solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-ch
 	}
 }
 
+// Solve TODO
 func (ik *CombinedIK) Solve() bool {
 	pos := ik.Mdl.GetPosition()
 	c := make(chan ReturnTest)

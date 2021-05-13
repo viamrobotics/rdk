@@ -15,6 +15,7 @@ import (
 	"github.com/edaniels/golog"
 )
 
+// Arm TODO
 type Arm struct {
 	real       arm.Arm
 	Model      *Model
@@ -22,6 +23,7 @@ type Arm struct {
 	effectorID int
 }
 
+// NewArmJSONFile TODO
 func NewArmJSONFile(real arm.Arm, jsonFile string, cores int, logger golog.Logger) (*Arm, error) {
 	jsonData, err := ioutil.ReadFile(jsonFile)
 	if err != nil {
@@ -30,7 +32,7 @@ func NewArmJSONFile(real arm.Arm, jsonFile string, cores int, logger golog.Logge
 	return NewArm(real, jsonData, cores, logger)
 }
 
-// Returns a new kinematics.Model from a correctly formatted JSON file
+// NewArm returns a new kinematics.Model from a correctly formatted JSON file
 func NewArm(real arm.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm, error) {
 	// We want to make (cores + 1) copies of our model
 	// Our master copy, plus one for each of the IK engines to work with
@@ -52,11 +54,12 @@ func NewArm(real arm.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm
 	return &Arm{real, models[0], ik, 0}, nil
 }
 
+// Close attempts to close the real arm.
 func (k *Arm) Close() error {
 	return utils.TryClose(k.real) // TODO(erh): who owns this?
 }
 
-// Returns the end effector's current Position
+// GetForwardPosition returns the end effector's current Position
 func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	k.Model.ForwardPosition()
 
@@ -73,9 +76,9 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	return pos
 }
 
-// Sets a new goal position
-// Uses ZYX euler rotation order
-// Takes degrees as input and converts to radians for kinematics use
+// SetForwardPosition sets a new goal position.
+// Uses ZYX Euler rotation order.
+// Takes degrees as input and converts to radians for kinematics use.
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 	transform := kinmath.NewQuatTransFromRotation(utils.DegToRad(pos.RX), utils.DegToRad(pos.RY), utils.DegToRad(pos.RZ))
 
@@ -95,7 +98,7 @@ func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 	return fmt.Errorf("could not solve for position. Target: %v", pos)
 }
 
-// Returns the arm's current joint angles in degrees
+// modelJointsPosition returns the arm's current joint angles in degrees
 func (k *Arm) modelJointsPosition() []float64 {
 	angles := k.Model.GetPosition()
 	for i, angle := range angles {
@@ -104,7 +107,7 @@ func (k *Arm) modelJointsPosition() []float64 {
 	return angles
 }
 
-// Sets new joint angles. Takes degrees, passes radians to Model
+// SetJointPositions sets new joint angles. Takes degrees, passes radians to Model
 func (k *Arm) SetJointPositions(angles []float64) {
 	radAngles := make([]float64, len(angles))
 	for i, angle := range angles {
@@ -113,6 +116,7 @@ func (k *Arm) SetJointPositions(angles []float64) {
 	k.Model.SetPosition(radAngles)
 }
 
+// CurrentJointPositions returns the arm's current joint positions based on what has been set.
 func (k *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	// If the real arm returns empty struct, nil then that means we should use the kinematics angles
 	jp, err := k.real.CurrentJointPositions(ctx)
@@ -123,6 +127,7 @@ func (k *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	return jp, err
 }
 
+// CurrentPosition returns the arm's current position based on what has been set.
 func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	curPos, err := k.CurrentJointPositions(ctx)
 	if err != nil {
@@ -135,10 +140,12 @@ func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 
 }
 
+// JointMoveDelta is not yet implemented.
 func (k *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
 }
 
+// MoveToJointPositions instructs the arm to move to the given joint positions.
 func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	err := k.real.MoveToJointPositions(ctx, jp)
 	if err == nil {
@@ -147,6 +154,7 @@ func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 	return err
 }
 
+// MoveToPosition instructs the arm to move to the current position.
 func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	err := k.SetForwardPosition(pos)
 	if err != nil {

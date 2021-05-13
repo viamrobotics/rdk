@@ -4,11 +4,13 @@ import (
 	"gonum.org/v1/gonum/graph"
 )
 
+// Element TODO
 type Element interface {
 	ForwardPosition()
 	ForwardVelocity()
 }
 
+// Link TODO
 type Link interface {
 	ForwardPosition()
 	ForwardVelocity()

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/ml"
 )
 
+// Game TODO
 type Game struct {
 	pieceColorClassifier ml.Classifier
 	edgesThreshold       int
@@ -16,6 +17,7 @@ type Game struct {
 
 const emptyStatus = "empty"
 
+// NewGame TODO
 func NewGame(initialBoard *Board) (*Game, error) {
 	pieceColorClassifier, err := buildPieceColorModel(initialBoard)
 	if err != nil {
@@ -102,6 +104,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	return g, nil
 }
 
+// SquareColorStatus TODO
 func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	corner := getMinChessCorner(square)
 	middle := image.Point{corner.X + 50, corner.Y + 50}
@@ -123,6 +126,7 @@ func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 	return res, nil
 }
 
+// GetPieceHeight TODO
 func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	color, err := g.SquareColorStatus(board, square)
 	if err != nil {
@@ -150,6 +154,7 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 	return board.SquareCenterHeight(square, 30), nil
 }
 
+// GetSquaresWithPieces TODO
 func (g *Game) GetSquaresWithPieces(b *Board) ([]string, error) {
 	squares := []string{}
 	for x := 'a'; x <= 'h'; x++ {

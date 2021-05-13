@@ -8,13 +8,14 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
+// XYZWeights TODO
 type XYZWeights struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
 }
 
-// These values are used to augment the distance check for a given IK solution.
+// DistanceConfig values are used to augment the distance check for a given IK solution.
 // For each component of a 6d pose, the distance from current position to goal is
 // squared and then multiplied by the corresponding weight in this struct. The results
 // are summed and that sum must be below a certain threshold.
@@ -26,6 +27,7 @@ type DistanceConfig struct {
 	Orient XYZWeights `json:"orientation"`
 }
 
+// Model TODO
 // Generally speaking, a Joint will attach a Body to a Frame
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
@@ -55,7 +57,7 @@ type Model struct {
 	DistCfg          DistanceConfig
 }
 
-// Constructor for a model
+// NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
 	m.tree = simple.NewDirectedGraph()
@@ -75,10 +77,12 @@ func (m *Model) NextID() int64 {
 	return id
 }
 
+// SetSeed TODO
 func (m *Model) SetSeed(seed int64) {
 	m.RandSeed = rand.New(rand.NewSource(seed))
 }
 
+// Add TODO
 func (m *Model) Add(frame *Frame) {
 	frame.SetVertexDescriptor(m.NextID())
 	m.tree.AddNode(simple.Node(frame.GetVertexDescriptor()))
@@ -88,6 +92,7 @@ func (m *Model) Add(frame *Frame) {
 	m.Nodes[frame.GetVertexDescriptor()] = frame
 }
 
+// AddEdge TODO
 // Annoyingly, pointers aren't implemented on edges with simple.DirectedGraph
 func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	edge := m.tree.NewEdge(m.tree.Node(frameA.GetVertexDescriptor()), m.tree.Node(frameB.GetVertexDescriptor()))
@@ -95,7 +100,7 @@ func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	return edge
 }
 
-// Generate a list of radian joint positions that are random but valid for each joint
+// RandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
 func (m *Model) RandomJointPositions() []float64 {
 	var jointPos []float64
 	for _, joint := range m.Joints {
@@ -104,21 +109,23 @@ func (m *Model) RandomJointPositions() []float64 {
 	return jointPos
 }
 
+// GetJoint TODO.
 func (m *Model) GetJoint(i int) *Joint {
 	return m.Joints[i]
 }
 
+// GetJoints TODO.
 func (m *Model) GetJoints() int {
 	return len(m.Joints)
 }
 
-// GetOperationalDof returns the number of end effectors
+// GetOperationalDof returns the number of end effectors.
 func (m *Model) GetOperationalDof() int {
 	return len(m.Leaves)
 }
 
 // GetDof returns the sum of Dof from all joints- Should sum to the total degrees of freedom for the robot
-// In other words, if the robot consists of a 6dof arm and an additional 4dof arm, this will return 10
+// In other words, if the robot consists of a 6dof arm and an additional 4dof arm, this will return 10.
 func (m *Model) GetDof() int {
 	dof := 0
 	for _, joint := range m.Joints {
@@ -127,7 +134,7 @@ func (m *Model) GetDof() int {
 	return dof
 }
 
-// GetDofPosition returns the sum of DofPosition from all joints. Equal to GetDof() for standard 1dof revolute joints
+// GetDofPosition returns the sum of DofPosition from all joints. Equal to GetDof() for standard 1dof revolute joints.
 func (m *Model) GetDofPosition() int {
 	dof := 0
 	for _, joint := range m.Joints {
@@ -136,7 +143,7 @@ func (m *Model) GetDofPosition() int {
 	return dof
 }
 
-// SetPosition sets joint angles to specific locations in ***radians***
+// SetPosition sets joint angles to specific locations in radians.
 func (m *Model) SetPosition(newPos []float64) {
 	newPosVec := mgl64.NewVecNFromData(newPos)
 	newPosVec = m.GammaPosition.MulNx1(newPosVec, newPosVec)
@@ -147,7 +154,7 @@ func (m *Model) SetPosition(newPos []float64) {
 	}
 }
 
-// GetPosition returns the array of GetPosition from all joints
+// GetPosition returns the array of GetPosition from all joints.
 func (m *Model) GetPosition() []float64 {
 	var jointPos []float64
 	for _, joint := range m.Joints {
@@ -156,7 +163,7 @@ func (m *Model) GetPosition() []float64 {
 	return jointPos
 }
 
-// GetMinimum returns the array of GetPosition from all joints
+// GetMinimum returns the array of GetPosition from all joints.
 func (m *Model) GetMinimum() []float64 {
 	var jointMin []float64
 	for _, joint := range m.Joints {
@@ -165,7 +172,7 @@ func (m *Model) GetMinimum() []float64 {
 	return jointMin
 }
 
-// GetMinimum returns the array of GetPosition from all joints
+// GetMaximum returns the array of GetPosition from all joints.
 func (m *Model) GetMaximum() []float64 {
 	var jointMax []float64
 	for _, joint := range m.Joints {
@@ -174,7 +181,7 @@ func (m *Model) GetMaximum() []float64 {
 	return jointMax
 }
 
-// SetVelocity sets joint velocities
+// SetVelocity sets joint velocities.
 func (m *Model) SetVelocity(newVel []float64) {
 	newPosVec := mgl64.NewVecNFromData(newVel)
 	newPosVec = m.GammaPosition.MulNx1(newPosVec, newPosVec)
@@ -185,6 +192,7 @@ func (m *Model) SetVelocity(newVel []float64) {
 	}
 }
 
+// Normalize TODO.
 func (m *Model) Normalize(pos []float64) []float64 {
 	i := 0
 	var normalized []float64
@@ -195,6 +203,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 	return normalized
 }
 
+// IsValid TODO.
 func (m *Model) IsValid(pos []float64) bool {
 	i := 0
 	for _, joint := range m.Joints {
@@ -206,6 +215,7 @@ func (m *Model) IsValid(pos []float64) bool {
 	return true
 }
 
+// Update TODO.
 func (m *Model) Update() {
 	m.Frames = nil
 	m.Bodies = nil
@@ -215,6 +225,7 @@ func (m *Model) Update() {
 	m.UpdateOnFrame(m.root)
 }
 
+// UpdateOnFrame TODO.
 func (m *Model) UpdateOnFrame(frameID int64) {
 	frame := m.Nodes[frameID]
 	m.Frames = append(m.Frames, frame)

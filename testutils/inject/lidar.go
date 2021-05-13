@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r2"
 )
 
+// Lidar is an injected lidar.
 type Lidar struct {
 	sync.Mutex
 	lidar.Lidar
@@ -23,6 +24,7 @@ type Lidar struct {
 	AngularResolutionFunc func(ctx context.Context) (float64, error)
 }
 
+// Info calls the injected Info or the real version.
 func (ld *Lidar) Info(ctx context.Context) (map[string]interface{}, error) {
 	if ld.InfoFunc == nil {
 		return ld.Lidar.Info(ctx)
@@ -30,6 +32,7 @@ func (ld *Lidar) Info(ctx context.Context) (map[string]interface{}, error) {
 	return ld.InfoFunc(ctx)
 }
 
+// Start calls the injected Start or the real version.
 func (ld *Lidar) Start(ctx context.Context) error {
 	if ld.StartFunc == nil {
 		return ld.Lidar.Start(ctx)
@@ -37,6 +40,7 @@ func (ld *Lidar) Start(ctx context.Context) error {
 	return ld.StartFunc(ctx)
 }
 
+// Stop calls the injected Stop or the real version.
 func (ld *Lidar) Stop(ctx context.Context) error {
 	if ld.StopFunc == nil {
 		return ld.Lidar.Stop(ctx)
@@ -44,6 +48,7 @@ func (ld *Lidar) Stop(ctx context.Context) error {
 	return ld.StopFunc(ctx)
 }
 
+// Close calls the injected Close or the real version.
 func (ld *Lidar) Close() error {
 	if ld.CloseFunc == nil {
 		return utils.TryClose(ld.Lidar)
@@ -51,6 +56,7 @@ func (ld *Lidar) Close() error {
 	return ld.CloseFunc()
 }
 
+// Scan calls the injected Scan or the real version.
 func (ld *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	ld.Lock()
 	scanFunc := ld.ScanFunc
@@ -61,6 +67,7 @@ func (ld *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Mea
 	return scanFunc(ctx, options)
 }
 
+// Range calls the injected Range or the real version.
 func (ld *Lidar) Range(ctx context.Context) (float64, error) {
 	if ld.RangeFunc == nil {
 		return ld.Lidar.Range(ctx)
@@ -68,6 +75,7 @@ func (ld *Lidar) Range(ctx context.Context) (float64, error) {
 	return ld.RangeFunc(ctx)
 }
 
+// Bounds calls the injected Bounds or the real version.
 func (ld *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	if ld.BoundsFunc == nil {
 		return ld.Lidar.Bounds(ctx)
@@ -75,6 +83,7 @@ func (ld *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	return ld.BoundsFunc(ctx)
 }
 
+// AngularResolution calls the injected AngularResolution or the real version.
 func (ld *Lidar) AngularResolution(ctx context.Context) (float64, error) {
 	if ld.AngularResolutionFunc == nil {
 		return ld.Lidar.AngularResolution(ctx)

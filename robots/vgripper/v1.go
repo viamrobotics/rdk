@@ -30,6 +30,7 @@ func init() {
 	})
 }
 
+// TODO
 const (
 	MaxCurrent              = 300
 	CurrentBadReadingCounts = 6
@@ -37,6 +38,7 @@ const (
 	MaxRotationGap          = 3.0
 )
 
+// GripperV1 TODO
 type GripperV1 struct {
 	motor    board.Motor
 	current  board.AnalogReader
@@ -54,6 +56,7 @@ type GripperV1 struct {
 	numBadCurrentReadings int
 }
 
+// NewGripperV1 TODO
 func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
 
 	vg := &GripperV1{
@@ -116,6 +119,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	return vg, vg.Open(ctx)
 }
 
+// Open TODO
 func (vg *GripperV1) Open(ctx context.Context) error {
 	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultPowerPct)
 	if err != nil {
@@ -152,6 +156,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 	}
 }
 
+// Grab TODO
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultPowerPct)
 	if err != nil {
@@ -212,6 +217,7 @@ func (vg *GripperV1) processCurrentReading(ctx context.Context, current int, whe
 	return fmt.Errorf("current too high for too long, currently %d during %s", current, where)
 }
 
+// Close TODO
 func (vg *GripperV1) Close() error {
 	return vg.Stop(context.Background())
 }
@@ -220,6 +226,7 @@ func (vg *GripperV1) stopAfterError(ctx context.Context, other error) error {
 	return multierr.Combine(other, vg.motor.Off(ctx))
 }
 
+// Stop TODO
 func (vg *GripperV1) Stop(ctx context.Context) error {
 	return vg.motor.Off(ctx)
 }
@@ -241,7 +248,6 @@ func (vg *GripperV1) hasPressure(ctx context.Context) (bool, int, error) {
 	return p < vg.pressureLimit, p, err
 }
 
-// return hasPressure, current
 func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, current int, err error) {
 	hasPressure, pressure, err = vg.hasPressure(ctx)
 	if err != nil {

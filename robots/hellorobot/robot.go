@@ -13,6 +13,7 @@ import (
 	"go.viam.com/core/robot"
 )
 
+// ModelName is the name we use for referring to the hello robot.
 const ModelName = "hellorobot"
 
 func init() {
@@ -25,6 +26,7 @@ func init() {
 	})
 }
 
+// Robot represents a physical hello robot.
 type Robot struct {
 	robotObj *python.PyObject
 	logger   golog.Logger
@@ -41,6 +43,7 @@ func checkPythonErr() error {
 	return errors.New(exc.String())
 }
 
+// New returns a new instance of a hello robot.
 func New() (*Robot, error) {
 	transportMod := python.PyImport_ImportModule("stretch_body.transport")
 	if err := checkPythonErr(); err != nil {
@@ -58,6 +61,7 @@ func New() (*Robot, error) {
 	return &Robot{robotObj: robot}, nil
 }
 
+// Ready does nothing.
 func (r *Robot) Ready(theRobot robot.Robot) error {
 	return nil
 }
@@ -67,6 +71,7 @@ func (r *Robot) pushCommand() error {
 	return checkPythonErr()
 }
 
+// Base returns the base of the hello robot.
 func (r *Robot) Base() (*Base, error) {
 	base := r.robotObj.GetAttrString("base")
 	return &Base{robot: r, baseObj: base}, checkPythonErr()

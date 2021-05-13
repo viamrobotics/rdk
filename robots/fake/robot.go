@@ -2,4 +2,5 @@
 // interface requirements and provide simulated data.
 package fake
 
+// ModelName is used for all fake robot parts.
 const ModelName = "fake"

@@ -10,10 +10,10 @@ import (
 	"github.com/golang/geo/r2"
 )
 
-var (
-	NoPoints = image.Point{-1, -1}
-)
+// NoPoints TODO
+var NoPoints = image.Point{-1, -1}
 
+// Center TODO
 func Center(contour []image.Point, maxDiff int) image.Point {
 	if len(contour) == 0 {
 		return NoPoints
@@ -63,12 +63,14 @@ func Center(contour []image.Point, maxDiff int) image.Point {
 	return avgMiddle
 }
 
+// PointDistance TODO
 func PointDistance(a, b image.Point) float64 {
 	x := utils.SquareInt(b.X - a.X)
 	x += utils.SquareInt(b.Y - a.Y)
 	return math.Sqrt(float64(x))
 }
 
+// ArrayToPoints TODO
 func ArrayToPoints(pts []image.Point) []image.Point {
 	if len(pts) == 4 {
 		return pts
@@ -87,12 +89,14 @@ func ArrayToPoints(pts []image.Point) []image.Point {
 	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
 }
 
+// PointAngle TODO
 func PointAngle(a, b image.Point) float64 {
 	x := b.X - a.X
 	y := b.Y - a.Y
 	return math.Atan2(float64(y), float64(x))
 }
 
+// BoundingBox TODO
 func BoundingBox(pts []image.Point) image.Rectangle {
 	min := image.Point{math.MaxInt32, math.MaxInt32}
 	max := image.Point{0, 0}
@@ -117,6 +121,7 @@ func BoundingBox(pts []image.Point) image.Rectangle {
 	return image.Rectangle{min, max}
 }
 
+// AllPointsIn TODO
 func AllPointsIn(size image.Point, pts []image.Point) bool {
 	for _, p := range pts {
 		if p.X < 0 || p.Y < 0 {
@@ -133,14 +138,17 @@ func AllPointsIn(size image.Point, pts []image.Point) bool {
 	return true
 }
 
+// R2PointToImagePoint TODO
 func R2PointToImagePoint(pt r2.Point) image.Point {
 	return image.Point{int(math.Round(pt.X)), int(math.Round(pt.Y))}
 }
 
+// R2RectToImageRect TODO
 func R2RectToImageRect(rec r2.Rect) image.Rectangle {
 	return image.Rectangle{R2PointToImagePoint(rec.Lo()), R2PointToImagePoint(rec.Hi())}
 }
 
+// TranslateR2Rect TODO
 func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
 	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
 }

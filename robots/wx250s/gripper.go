@@ -30,11 +30,13 @@ func init() {
 	})
 }
 
+// Gripper TODO
 type Gripper struct {
 	jServo   *servo.Servo
 	moveLock *sync.Mutex
 }
 
+// NewGripper TODO
 func NewGripper(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logger) (*Gripper, error) {
 	jServo := findServo(attributes.String("usbPort"), attributes.String("baudRate"), logger)
 	if mutex == nil {
@@ -48,10 +50,12 @@ func NewGripper(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.
 	return &newGripper, err
 }
 
+// GetMoveLock TODO
 func (g *Gripper) GetMoveLock() *sync.Mutex {
 	return g.moveLock
 }
 
+// Open TODO
 func (g *Gripper) Open(ctx context.Context) error {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
@@ -80,6 +84,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 	return err
 }
 
+// Grab TODO
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	g.moveLock.Lock()
 	defer g.moveLock.Unlock()
@@ -104,14 +109,14 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return didGrab, nil
 }
 
-// closes the connection, not the gripper
+// Close closes the connection, not the gripper.
 func (g *Gripper) Close() error {
 	err := g.jServo.SetTorqueEnable(false)
 	return err
 }
 
-// Find the gripper numbered Dynamixel servo on the specified USB port
-// We're going to hardcode some USB parameters that we will literally never want to change
+// findServo finds the gripper numbered Dynamixel servo on the specified USB port
+// we are going to hardcode some USB parameters that we will literally never want to change.
 func findServo(usbPort, baudRateStr string, logger golog.Logger) *servo.Servo {
 	GripperServoNum := 9
 	baudRate, err := strconv.Atoi(baudRateStr)

@@ -158,6 +158,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
+// NewArmV1 TODO
 func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (arm.Arm, error) {
 	var err error
 	arm := &ArmV1{}
@@ -205,16 +206,19 @@ func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (a
 	return arm, multierr.Combine(arm.j0.validate(), arm.j1.validate())
 }
 
+// ArmV1 TODO
 type ArmV1 struct {
 	j0Motor, j1Motor board.Motor
 
 	j0, j1 joint
 }
 
+// CurrentPosition TODO
 func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, errors.New("no CurrentPosition support")
 }
 
+// MoveToPosition TODO
 func (a *ArmV1) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
 	return errors.New("no MoveToPosition support")
 }
@@ -233,6 +237,7 @@ func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, 
 
 }
 
+// MoveToJointPositions TODO
 func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
@@ -269,6 +274,7 @@ func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions
 	return fmt.Errorf("arm moved timed out, wanted: %v", pos)
 }
 
+// IsOn TODO
 func (a *ArmV1) IsOn(ctx context.Context) (bool, error) {
 	on0, err0 := a.j0Motor.IsOn(ctx)
 	on1, err1 := a.j0Motor.IsOn(ctx)
@@ -285,6 +291,7 @@ func jointToDegrees(ctx context.Context, m board.Motor, j joint) (float64, error
 	return j.positionToDegrees(pos), nil
 }
 
+// CurrentJointPositions TODO
 func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	var e1, e2 error
 	joints := &pb.JointPositions{Degrees: make([]float64, 2)}
@@ -293,6 +300,7 @@ func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, 
 	return joints, multierr.Combine(e1, e2)
 }
 
+// JointMoveDelta TODO
 func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	joints, err := a.CurrentJointPositions(ctx)
 	if err != nil {

@@ -42,10 +42,12 @@ func init() {
 
 }
 
+// RotateImageDepthSource TODO
 type RotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
+// Next TODO
 func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
@@ -61,6 +63,7 @@ func (rids *RotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 	return iwd.Rotate(180), func() {}, nil
 }
 
+// Close TODO
 func (rids *RotateImageDepthSource) Close() error {
 	return rids.Original.Close()
 }

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// TODO
 const (
 	DefaultColorThreshold             = 1.0
 	DefaultLookback                   = 15  // how many pixels do we ensure are similar
@@ -21,6 +22,7 @@ const (
 	DefaultAverageColorDistanceWeight = .5
 )
 
+// ShapeWalkOptions TODO
 type ShapeWalkOptions struct {
 	Debug        bool
 	MaxRadius    int // 0 means no max
@@ -397,11 +399,12 @@ func (ws *walkState) lookForWeirdShapes(clusterNumber int) int {
 	return total
 }
 
+// ShapeWalk TODO
 func ShapeWalk(img *rimage.ImageWithDepth, start image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
-
 	return ShapeWalkMultiple(img, []image.Point{start}, options, logger)
 }
 
+// ShapeWalkMultiple TODO
 func ShapeWalkMultiple(img *rimage.ImageWithDepth, starts []image.Point, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 
 	ws := walkState{
@@ -422,14 +425,17 @@ func ShapeWalkMultiple(img *rimage.ImageWithDepth, starts []image.Point, options
 	return ws.dots, nil
 }
 
+// MyWalkError TODO
 type MyWalkError struct {
 	pos image.Point
 }
 
+// Error TODO
 func (e MyWalkError) Error() string {
 	return "MyWalkError"
 }
 
+// ShapeWalkEntireDebug TODO
 func ShapeWalkEntireDebug(img *rimage.ImageWithDepth, options ShapeWalkOptions, logger golog.Logger) (*SegmentedImage, error) {
 	var si *SegmentedImage
 	var err error

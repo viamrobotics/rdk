@@ -15,14 +15,17 @@ type CameraSystem interface {
 	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
 }
 
+// IsAligned returns if the image and depth are aligned.
 func (i *ImageWithDepth) IsAligned() bool {
 	return i.aligned
 }
 
-func (i *ImageWithDepth) GetCameraSystem() CameraSystem {
+// CameraSystem returns the camera system that captured the image.
+func (i *ImageWithDepth) CameraSystem() CameraSystem {
 	return i.camera
 }
 
+// SetCameraSystem sets the camera system that captured the image.
 func (i *ImageWithDepth) SetCameraSystem(s CameraSystem) {
 	i.camera = s
 }

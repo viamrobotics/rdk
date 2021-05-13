@@ -94,16 +94,19 @@ type BrushlessMotor struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// Position TODO
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
 // This should eventually be a supported feature.
 func (m *BrushlessMotor) Position(ctx context.Context) (float64, error) {
 	return float64(atomic.LoadInt64(&m.steps)) / float64(m.cfg.TicksPerRotation), nil
 }
 
+// PositionSupported returns true.
 func (m *BrushlessMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// Power TODO
 // TODO(pl): Implement this feature once we have a driver board allowing PWM control.
 func (m *BrushlessMotor) Power(ctx context.Context, powerPct float32) error {
 	return errors.New("power not supported for stepper motors on dual H-bridges")
@@ -150,6 +153,7 @@ func (m *BrushlessMotor) step(ctx context.Context, d pb.DirectionRelative, wait 
 	return nil
 }
 
+// Go TODO
 // Use this to launch a goroutine that will rotate in a direction while listening on a channel for Off().
 func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	m.motorManagerStart()
@@ -161,7 +165,7 @@ func (m *BrushlessMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPc
 	return nil
 }
 
-// Turn in the given direction the given number of times at the given speed. Does not block.
+// GoFor turn in the given direction the given number of times at the given speed. Does not block.
 func (m *BrushlessMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error {
 	// Set our wait time off of the specified RPM
 	m.motorManagerStart()
@@ -174,6 +178,7 @@ func (m *BrushlessMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm 
 	return nil
 }
 
+// IsOn returns if the motor is currently on or not.
 func (m *BrushlessMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
@@ -196,7 +201,7 @@ func (m *BrushlessMotor) turnOnOrOff(turnOn bool) error {
 	return err
 }
 
-// Turn off power to the motor and stop all movement.
+// Off turns off power to the motor and stop all movement.
 func (m *BrushlessMotor) Off(ctx context.Context) error {
 	if m.on {
 		return m.turnOnOrOff(false)
@@ -273,6 +278,7 @@ func (m *BrushlessMotor) motorManagerStart() {
 	}, m.activeBackgroundWorkers.Done)
 }
 
+// Close cleanly stops the motor and waits for background goroutines to finish.
 func (m *BrushlessMotor) Close() error {
 	m.cancel()
 	close(m.done)
