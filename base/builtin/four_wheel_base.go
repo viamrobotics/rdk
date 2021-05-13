@@ -168,6 +168,7 @@ func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
+// CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
 	board := r.BoardByName(config.Attributes.String("board"))
 	if board == nil {

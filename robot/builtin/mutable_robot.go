@@ -170,6 +170,7 @@ func (r *mutableRobot) Logger() golog.Logger {
 	return r.logger
 }
 
+// NewBlankRobot returns a new robot with no parts.
 func NewBlankRobot(logger golog.Logger) robot.MutableRobot {
 	return &mutableRobot{
 		parts:  newRobotParts(logger),
@@ -177,6 +178,7 @@ func NewBlankRobot(logger golog.Logger) robot.MutableRobot {
 	}
 }
 
+// NewRobot returns a new robot with parts sourced from the given config.
 func NewRobot(ctx context.Context, config *config.Config, logger golog.Logger) (robot.MutableRobot, error) {
 	r := NewBlankRobot(logger).(*mutableRobot)
 
