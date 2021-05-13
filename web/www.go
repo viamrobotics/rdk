@@ -49,7 +49,7 @@ func ResolveSharedDir(target string) string {
 			return "/usr/share/viam"
 		}
 	}
-	return utils.ResolveFile("robot/web/runtime-shared")
+	return utils.ResolveFile("web/runtime-shared")
 }
 
 // robotWebApp hosts a web server to interact with a robot in addition to hosting

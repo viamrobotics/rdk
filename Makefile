@@ -23,7 +23,7 @@ build-go:
 	go build $(TAGS) ./...
 
 build-web:
-	cd robot/web/frontend && npm install && npx webpack
+	cd web/frontend && npm install && npx webpack
 
 buf:
 	buf lint
@@ -75,8 +75,8 @@ deb-server: server
 	mkdir etc/packaging/work/
 	cp -r etc/packaging/viam-server-0.1/ etc/packaging/work/
 	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-0.1/usr/bin/viam-server
-	install -m 644 -D robot/web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/templates/
-	install -m 644 -D robot/web/runtime-shared/static/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/static/
+	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/templates/
+	install -m 644 -D web/runtime-shared/static/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/static/
 	cd etc/packaging/work/viam-server-0.1/ \
 	&& dch -v 0.1+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
