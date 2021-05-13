@@ -5,7 +5,7 @@ import (
 	"image"
 	"math"
 
-	"go.viam.com/robotcore/utils"
+	"go.viam.com/core/utils"
 )
 
 // Input a vector in cartesian coordinates and return the vector in polar coordinates.
