@@ -16,7 +16,7 @@
             "id": "base_top",
             "parent": "waist",
             "translation": {
-               "x": 56,
+               "x": -56,
                "y": 0,
                "z": 283
             }
@@ -34,7 +34,7 @@
             "id": "upper_forearm",
             "parent": "elbow",
             "translation": {
-               "x": -56,
+               "x": 56,
                "y": 0,
                "z": 124
             }
@@ -52,7 +52,7 @@
             "id": "gripper_mount",
             "parent": "wrist",
             "translation": {
-               "x": -65,
+               "x": 65,
                "y": 0,
                "z": 104
             }
