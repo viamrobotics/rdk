@@ -14,8 +14,10 @@ type rangeArrayHelper struct {
 func TestRangeArray(t *testing.T) {
 	cases := []rangeArrayHelper{
 		{5, []int{-2, -1, 0, 1, 2}},
-		{4, []int{-2, -1, 1, 2}},
+		{4, []int{-2, -1, 0, 1}},
 		{3, []int{-1, 0, 1}},
+		{2, []int{-1, 0}},
+		{1, []int{0}},
 		{0, []int{}},
 		{-2, []int{}},
 	}

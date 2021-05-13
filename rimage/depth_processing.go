@@ -17,20 +17,23 @@ func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 
 // Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
 // i is the position within the kernel and dx gives the offset within the depth map.
-func makeRangeArray(dim int) []int {
-	if dim <= 0 {
+// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1}
+func makeRangeArray(length int) []int {
+	if length <= 0 {
 		return make([]int, 0)
 	}
-	rangeArray := make([]int, dim)
+	rangeArray := make([]int, length)
 	var span int
-	if dim%2 == 0 {
-		span = dim / 2
+	if length%2 == 0 {
+		oddArr := makeRangeArray(length - 1)
+		span = length / 2
+		rangeArray = append([]int{-span}, oddArr...)
 	} else {
-		span = (dim - 1) / 2
-	}
-	for i := 0; i < span; i++ {
-		rangeArray[dim-1-i] = span - i
-		rangeArray[i] = -span + i
+		span = (length - 1) / 2
+		for i := 0; i < span; i++ {
+			rangeArray[length-1-i] = span - i
+			rangeArray[i] = -span + i
+		}
 	}
 	return rangeArray
 }
