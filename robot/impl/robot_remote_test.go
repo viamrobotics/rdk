@@ -362,7 +362,7 @@ func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
 		return err
 	}
 
-	robot, err := NewRobot(context.Background(), conf, w.logger)
+	robot, err := New(context.Background(), conf, w.logger)
 	if err != nil {
 		return err
 	}

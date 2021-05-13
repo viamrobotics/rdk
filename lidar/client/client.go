@@ -33,7 +33,7 @@ func init() {
 
 // NewClient returns a lidar backed by a gRPC client.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Lidar, error) {
-	robotClient, err := grpcclient.NewRobotClient(ctx, address, logger)
+	robotClient, err := grpcclient.NewClient(ctx, address, logger)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
 	}

@@ -403,14 +403,14 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = NewRobotClient(cancelCtx, listener1.Addr().String(), logger)
+	_, err = NewClient(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return &pb.Status{}, nil
 	}
-	client, err := NewRobotClient(context.Background(), listener1.Addr().String(), logger)
+	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -486,7 +486,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
-	client, err = NewRobotClient(context.Background(), listener2.Addr().String(), logger)
+	client, err = NewClient(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := client.Status(context.Background())
@@ -667,7 +667,7 @@ func TestClientReferesh(t *testing.T) {
 
 	start := time.Now()
 	dur := 100 * time.Millisecond
-	client, err := NewRobotClientWithOptions(
+	client, err := NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
 		RobotClientOptions{RefreshEvery: dur},
@@ -697,7 +697,7 @@ func TestClientReferesh(t *testing.T) {
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	client, err = NewRobotClientWithOptions(
+	client, err = NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
 		RobotClientOptions{RefreshEvery: dur},
@@ -749,9 +749,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &trackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := NewRobotClient(ctx, listener.Addr().String(), logger)
+	client1, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := NewRobotClient(ctx, listener.Addr().String(), logger)
+	client2, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.dialCalled, test.ShouldEqual, 2)
 
