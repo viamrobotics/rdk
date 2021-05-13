@@ -243,9 +243,9 @@ func (rc *RobotClient) SensorByName(name string) sensor.Sensor {
 	sensorType := rc.sensorTypes[name]
 	sc := &sensorClient{rc, name, sensorType}
 	switch sensorType {
-	case compass.CompassType:
+	case compass.Type:
 		return &compassClient{sc}
-	case compass.RelativeCompassType:
+	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}
 	default:
 		return sc
@@ -865,7 +865,7 @@ func (cc *compassClient) StopCalibration(ctx context.Context) error {
 }
 
 func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{compass.CompassType, ""}
+	return sensor.Description{compass.Type, ""}
 }
 
 // relativeCompassClient satisfies a gRPC based compas.RelativeDevice. Refer to the interface
@@ -882,5 +882,5 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 }
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeCompassType, ""}
+	return sensor.Description{compass.RelativeType, ""}
 }

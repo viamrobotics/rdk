@@ -31,7 +31,7 @@ const ModelName = "lidar"
 
 // init registers the lidar compass type.
 func init() {
-	registry.RegisterSensor(compass.CompassType, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return New(ctx, config, logger)
 	})
 }
@@ -66,7 +66,7 @@ func New(ctx context.Context, config config.Component, logger golog.Logger) (com
 
 // Desc returns a description of the compass.
 func (li *Lidar) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeCompassType, ""}
+	return sensor.Description{compass.RelativeType, ""}
 }
 
 // Desc stops and closes the underlying lidar.

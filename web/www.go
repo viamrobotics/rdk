@@ -17,7 +17,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/core/action"
-	apiserver "go.viam.com/core/grpc/server"
+	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
@@ -302,7 +302,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 	if err := rpcServer.RegisterServiceServer(
 		ctx,
 		&pb.RobotService_ServiceDesc,
-		apiserver.New(theRobot),
+		grpcserver.New(theRobot),
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
 		return err

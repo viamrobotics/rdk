@@ -46,7 +46,7 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 }
 
 func (c *Compass) Desc() sensor.Description {
-	return sensor.Description{compass.CompassType, ""}
+	return sensor.Description{compass.Type, ""}
 }
 
 func (c *Compass) Close() error {
@@ -109,5 +109,5 @@ func (rc *RelativeCompass) Close() error {
 }
 
 func (rc *RelativeCompass) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeCompassType, ""}
+	return sensor.Description{compass.RelativeType, ""}
 }

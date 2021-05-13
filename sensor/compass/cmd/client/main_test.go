@@ -38,7 +38,7 @@ func TestMainMain(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.CompassType,
+					Type: compass.Type,
 				},
 			},
 		}, nil
@@ -47,7 +47,7 @@ func TestMainMain(t *testing.T) {
 		return &pb.Status{
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
-					Type: compass.CompassType,
+					Type: compass.Type,
 				},
 			},
 		}, nil

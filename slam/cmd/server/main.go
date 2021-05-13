@@ -90,7 +90,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			return errors.New("only lidar components can be in lidar flag")
 		}
 	}
-	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != config.ComponentTypeSensor || argsParsed.Compass.SubType != compass.CompassType) {
+	if argsParsed.Compass.Type != "" && (argsParsed.Compass.Type != config.ComponentTypeSensor || argsParsed.Compass.SubType != compass.Type) {
 		return errors.New("compass flag must be a sensor component")
 	}
 
