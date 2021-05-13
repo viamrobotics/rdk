@@ -37,8 +37,8 @@ https://github.com/IntelRealSense/librealsense/blob/master/doc/libuvc_installati
 
 ## Make Intel Realsense service
 ```bash
-sudo ln -s ~/work/robotcore/utils/camera_servers/intelrealserver /usr/local/bin
-sudo ln -s ~/work/robotcore/utils/camera_servers/intelrealserver.service /etc/systemd/system/
+sudo ln -s ~/work/core/utils/camera_servers/intelrealserver /usr/local/bin
+sudo ln -s ~/work/core/utils/camera_servers/intelrealserver.service /etc/systemd/system/
 sudo systemctl start intelrealserver
 sudo systemctl enable intelrealserver
 ```
