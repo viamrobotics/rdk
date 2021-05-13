@@ -60,8 +60,8 @@ func TestSobelFilter(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	gradients := SobelFilter(dm)
-	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height()-2)
-	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width()-2)
+	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height())
+	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width())
 	img := gradients.DirectionPicture()
 	err = writePicture(img, outDir+"/circle_gradient.png")
 	test.That(t, err, test.ShouldBeNil)
