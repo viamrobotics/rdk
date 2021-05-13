@@ -74,13 +74,13 @@ func LoadConfigFromFile(path string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(configFile.Close())
+	defer utils.UncheckedErrorFunc(configFile.Close)
 	treePath := filepath.Join(pathDir, DefaultTreeName)
 	treeFile, err := os.Open(treePath)
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(treeFile.Close())
+	defer utils.UncheckedErrorFunc(treeFile.Close)
 
 	configDec := json.NewDecoder(configFile)
 	treeDec := json.NewDecoder(treeFile)
@@ -100,7 +100,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 		if err != nil {
 			return err
 		}
-		defer utils.UncheckedError(newTreeFile.Close())
+		defer utils.UncheckedErrorFunc(newTreeFile.Close)
 		if err := newTreeFile.Truncate(0); err != nil {
 			return err
 		}

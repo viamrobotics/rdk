@@ -71,7 +71,7 @@ func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
 	if err != nil {
 		return cmd, false, err
 	}
-	defer utils.UncheckedError(subFile.Close())
+	defer utils.UncheckedErrorFunc(subFile.Close)
 
 	var sub map[string]interface{}
 	decoder := json.NewDecoder(subFile)
@@ -139,7 +139,7 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(resp.Body.Close())
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
 
 	if resp.StatusCode != http.StatusOK {
 		rd, err := ioutil.ReadAll(resp.Body)
@@ -168,7 +168,7 @@ func Read(filePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(file.Close())
+	defer utils.UncheckedErrorFunc(file.Close)
 
 	return FromReader(filePath, file)
 }

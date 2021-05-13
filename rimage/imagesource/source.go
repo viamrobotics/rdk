@@ -125,7 +125,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 		return nil, err
 	}
 
-	defer utils.UncheckedError(resp.Body.Close())
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	return ioutil.ReadAll(resp.Body)
 }
 

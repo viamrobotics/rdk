@@ -46,14 +46,14 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(f.Close())
+	defer utils.UncheckedErrorFunc(f.Close)
 
 	in, err := gzip.NewReader(f)
 	if err != nil {
 		return nil, err
 	}
 
-	defer utils.UncheckedError(in.Close())
+	defer utils.UncheckedErrorFunc(in.Close)
 
 	allData, err := ioutil.ReadAll(in)
 

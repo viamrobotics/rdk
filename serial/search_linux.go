@@ -44,7 +44,7 @@ var Search = func(filter SearchFilter) []Description {
 	if err != nil {
 		return serialDeviceDescs
 	}
-	defer utils.UncheckedError(devicesDir.Close())
+	defer utils.UncheckedErrorFunc(devicesDir.Close)
 	devices, err := devicesDir.Readdir(0)
 	if err != nil {
 		return serialDeviceDescs

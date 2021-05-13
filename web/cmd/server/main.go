@@ -133,7 +133,7 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedError(resp.Body.Close())
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	return nil
 }
 

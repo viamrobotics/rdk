@@ -218,7 +218,7 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error)
 	if err != nil {
 		return "", fmt.Errorf("error loading from source cache: %w", err)
 	}
-	defer utils.UncheckedError(rc.Close())
+	defer utils.UncheckedErrorFunc(rc.Close)
 	if err := s.cache.Store(nodeHash, rc); err != nil {
 		return "", fmt.Errorf("error storing into file system cache: %w", err)
 	}
@@ -311,7 +311,7 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 			return fmt.Errorf("error opening file to write through cache: %w", err)
 		}
 		if err := func() error {
-			defer utils.UncheckedError(f.Close())
+			defer utils.UncheckedErrorFunc(f.Close)
 			data, err := ioutil.ReadAll(f)
 			if err != nil {
 				return err

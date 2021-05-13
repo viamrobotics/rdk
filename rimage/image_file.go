@@ -27,7 +27,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedError(f.Close())
+	defer utils.UncheckedErrorFunc(f.Close)
 
 	img, _, err := image.Decode(f)
 	if err != nil {

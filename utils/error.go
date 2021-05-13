@@ -60,3 +60,9 @@ func UncheckedError(err error) {
 	}
 	golog.Global.Debugw("unchecked error", "error", err)
 }
+
+// UncheckedErrorFunc is used in places where we really do not care about an error but we
+// want to at least report it. Never use this for closing writers.
+func UncheckedErrorFunc(f func() error) {
+	UncheckedError(f())
+}
