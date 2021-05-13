@@ -67,37 +67,45 @@ func init() {
 	})
 }
 
+// StaticSource TODO
 type StaticSource struct {
 	Img *rimage.ImageWithDepth
 }
 
+// Next TODO
 func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return ss.Img, func() {}, nil
 }
 
+// Close TODO
 func (ss *StaticSource) Close() error {
 	return nil
 }
 
+// FileSource TODO
 type FileSource struct {
 	ColorFN   string
 	DepthFN   string
 	isAligned bool // are color and depth image already aligned
 }
 
+// IsAligned TODO
 func (fs *FileSource) IsAligned() bool {
 	return fs.isAligned
 }
 
+// Next TODO
 func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
 	return img, func() {}, err
 }
 
+// Close TODO
 func (fs *FileSource) Close() error {
 	return nil
 }
 
+// HTTPSource TODO
 type HTTPSource struct {
 	client    http.Client
 	ColorURL  string // this is for a generic image
@@ -105,6 +113,7 @@ type HTTPSource struct {
 	isAligned bool   // are the color and depth image already aligned
 }
 
+// IsAligned TODO
 func (hs *HTTPSource) IsAligned() bool {
 	return hs.isAligned
 }
@@ -119,6 +128,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
+// Next TODO
 func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
@@ -147,11 +157,13 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, hs.IsAligned(), nil), func() {}, nil
 }
 
+// Close TODO
 func (hs *HTTPSource) Close() error {
 	hs.client.CloseIdleConnections()
 	return nil
 }
 
+// IntelServerSource TODO
 type IntelServerSource struct {
 	client    http.Client
 	BothURL   string
@@ -160,14 +172,17 @@ type IntelServerSource struct {
 	camera    rimage.CameraSystem
 }
 
+// IsAligned TODO
 func (s *IntelServerSource) IsAligned() bool {
 	return s.isAligned
 }
 
-func (s *IntelServerSource) GetCameraSystem() rimage.CameraSystem {
+// CameraSystem TODO
+func (s *IntelServerSource) CameraSystem() rimage.CameraSystem {
 	return s.camera
 }
 
+// NewIntelServerSource TODO
 func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*IntelServerSource, error) {
 	num := "0"
 	numString, has := attrs["num"]
@@ -186,10 +201,12 @@ func NewIntelServerSource(host string, port int, attrs config.AttributeMap) (*In
 	}, nil
 }
 
+// Close TODO
 func (s *IntelServerSource) Close() error {
 	return nil
 }
 
+// Next TODO
 func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	allData, err := readyBytesFromURL(s.client, s.BothURL)
 	if err != nil {
@@ -200,6 +217,6 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, err
 	}
-	img.SetCameraSystem(s.GetCameraSystem())
+	img.SetCameraSystem(s.CameraSystem())
 	return img, func() {}, err
 }

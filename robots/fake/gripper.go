@@ -17,18 +17,22 @@ func init() {
 	})
 }
 
+// Gripper is a fake gripper that can simply read and set properties.
 type Gripper struct {
 	Name string
 }
 
+// Open does nothing.
 func (g *Gripper) Open(ctx context.Context) error {
 	return nil
 }
 
+// Close does nothing.
 func (g *Gripper) Close() error {
 	return nil
 }
 
+// Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
 }

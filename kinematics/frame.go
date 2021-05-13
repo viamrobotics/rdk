@@ -7,6 +7,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+// Frame TODO
 // TODO(pl): add more descriptive field names once I work out what they ought to be
 type Frame struct {
 	i             Transform
@@ -18,6 +19,7 @@ type Frame struct {
 	Name          string
 }
 
+// NewFrame TODO
 func NewFrame() *Frame {
 	f := Frame{}
 	f.IsWorld = false
@@ -28,10 +30,12 @@ func NewFrame() *Frame {
 	return &f
 }
 
+// GetVertexDescriptor TODO
 func (f *Frame) GetVertexDescriptor() int64 {
 	return f.id
 }
 
+// SetVertexDescriptor TODO
 func (f *Frame) SetVertexDescriptor(newID int64) {
 	f.id = newID
 }
@@ -39,13 +43,15 @@ func (f *Frame) SetVertexDescriptor(newID int64) {
 // ForwardPosition does nothing in a frame- it is handled by *Transform
 // Why is it here? Because we need it to implement Element.
 // That said, we can probably completely remove Element in the future
-// TODO(pl): Remove Element
+// TODO(pl): Rem
 func (f *Frame) ForwardPosition() {
 }
 
+// ForwardVelocity TODO
 func (f *Frame) ForwardVelocity() {
 }
 
+// GetVelocity TODO
 func (f *Frame) GetVelocity() dualquat.Number {
 	return f.v
 }

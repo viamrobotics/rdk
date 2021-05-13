@@ -332,7 +332,7 @@ func (rc *RobotClient) RemoteNames() []string {
 	return nil
 }
 
-// RemoteNames returns the names of all known arms.
+// ArmNames returns the names of all known arms.
 func (rc *RobotClient) ArmNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
@@ -388,9 +388,9 @@ func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
 	return rexec.NoopProcessManager
 }
 
-// GetConfig is not yet implemented and probably will not be due to it not
+// Config is not yet implemented and probably will not be due to it not
 // making much sense in a remote context.
-func (rc *RobotClient) GetConfig(ctx context.Context) (*config.Config, error) {
+func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 	debug.PrintStack()
 	return nil, errUnimplemented
 }
@@ -572,9 +572,9 @@ func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
 	panic(errUnimplemented)
 }
 
-// GetConfig is not yet implemented and probably will not be due to it not
+// Config is not yet implemented and probably will not be due to it not
 // making much sense in a remote context.
-func (bc *boardClient) GetConfig(ctx context.Context) (board.Config, error) {
+func (bc *boardClient) Config(ctx context.Context) (board.Config, error) {
 	debug.PrintStack()
 	return board.Config{}, errUnimplemented
 }

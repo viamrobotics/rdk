@@ -116,22 +116,26 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev *GY511, err
 	return gy, nil
 }
 
+// Desc returns that this is a compass.
 func (gy *GY511) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
+// StartCalibration asks the device to start calibrating.
 func (gy *GY511) StartCalibration(ctx context.Context) error {
 	atomic.StoreUint32(&gy.calibrating, 1)
 	_, err := gy.rwc.Write([]byte{'1'})
 	return err
 }
 
+// StopCalibration asks the device to stop calibrating.
 func (gy *GY511) StopCalibration(ctx context.Context) error {
 	atomic.StoreUint32(&gy.calibrating, 0)
 	_, err := gy.rwc.Write([]byte{'0'})
 	return err
 }
 
+// Readings returns the current yaw measurement.
 func (gy *GY511) Readings(ctx context.Context) ([]interface{}, error) {
 	heading, err := gy.Heading(ctx)
 	if err != nil {
@@ -140,6 +144,7 @@ func (gy *GY511) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{heading}, nil
 }
 
+// Heading returns the current yaw measurement.
 func (gy *GY511) Heading(ctx context.Context) (float64, error) {
 	if atomic.LoadUint32(&gy.calibrating) == 1 {
 		return math.NaN(), nil
@@ -151,6 +156,7 @@ func (gy *GY511) Heading(ctx context.Context) (float64, error) {
 	return heading, nil
 }
 
+// Close terminates the serial connection.
 func (gy *GY511) Close() error {
 	close(gy.closeCh)
 	err := gy.rwc.Close()
@@ -166,18 +172,22 @@ type RawGY511 struct {
 	failAfter   int32
 }
 
+// NewRawGY511 returns a mocked representation of a serial based GY511.
 func NewRawGY511() *RawGY511 {
 	return &RawGY511{failAfter: -1}
 }
 
+// SetHeading sets the heading to return on reads.
 func (rgy *RawGY511) SetHeading(heading float64) {
 	rgy.heading.Store(heading)
 }
 
+// SetFailAfter sets after how many reads it should start erroring out.
 func (rgy *RawGY511) SetFailAfter(after int) {
 	atomic.StoreInt32(&rgy.failAfter, int32(after))
 }
 
+// Read returns data based on the current state of the machine.
 func (rgy *RawGY511) Read(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, errors.New("expected read data to be non-empty")
@@ -203,6 +213,7 @@ func (rgy *RawGY511) Read(p []byte) (int, error) {
 	return n, nil
 }
 
+// Write accepts input to change the state of the machine.
 func (rgy *RawGY511) Write(p []byte) (int, error) {
 	if len(p) > 1 {
 		return 0, errors.New("write data must be one byte")
@@ -224,6 +235,7 @@ func (rgy *RawGY511) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Close does nothing.
 func (rgy *RawGY511) Close() error {
 	return nil
 }

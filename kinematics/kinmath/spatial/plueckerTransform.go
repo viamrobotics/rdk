@@ -4,11 +4,13 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 )
 
+// PlueckerTransform TODO
 type PlueckerTransform struct {
 	Translation mgl64.Vec3
 	Rotation    mgl64.Mat3
 }
 
+// Linear TODO
 func (p PlueckerTransform) Linear() mgl64.Mat3 {
 	return p.Rotation
 }

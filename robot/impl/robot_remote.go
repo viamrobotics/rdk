@@ -194,8 +194,8 @@ func (rr *remoteRobot) ProcessManager() rexec.ProcessManager {
 	return rexec.NoopProcessManager
 }
 
-func (rr *remoteRobot) GetConfig(ctx context.Context) (*config.Config, error) {
-	return rr.robot.GetConfig(ctx)
+func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
+	return rr.robot.Config(ctx)
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

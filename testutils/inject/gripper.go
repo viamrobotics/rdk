@@ -7,6 +7,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// Gripper is an injected gripper.
 type Gripper struct {
 	gripper.Gripper
 	OpenFunc  func(ctx context.Context) error
@@ -14,6 +15,7 @@ type Gripper struct {
 	CloseFunc func() error
 }
 
+// Open calls the injected Open or the real version.
 func (g *Gripper) Open(ctx context.Context) error {
 	if g.OpenFunc == nil {
 		return g.Gripper.Open(ctx)
@@ -21,6 +23,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 	return g.OpenFunc(ctx)
 }
 
+// Grab calls the injected Grab or the real version.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	if g.GrabFunc == nil {
 		return g.Gripper.Grab(ctx)
@@ -28,6 +31,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return g.GrabFunc(ctx)
 }
 
+// Close calls the injected Close or the real version.
 func (g *Gripper) Close() error {
 	if g.CloseFunc == nil {
 		return utils.TryClose(g.Gripper)

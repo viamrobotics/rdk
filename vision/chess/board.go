@@ -13,20 +13,22 @@ import (
 	"github.com/gonum/stat"
 )
 
-const (
-	EdgeThreshold = 100
-)
+// EdgeThreshold TODO
+const EdgeThreshold = 100
 
+// Board TODO
 type Board struct {
 	img    *rimage.ImageWithDepth
 	edges  *image.Gray
 	logger golog.Logger
 }
 
+// FindAndWarpBoardFromFilesRoot TODO
 func FindAndWarpBoardFromFilesRoot(root string, aligned bool, logger golog.Logger) (*Board, error) {
 	return FindAndWarpBoardFromFiles(root+".png", root+".dat.gz", aligned, logger)
 }
 
+// FindAndWarpBoardFromFiles TODO
 func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger golog.Logger) (*Board, error) {
 	img, err := rimage.NewImageWithDepth(colorFN, depthFN, aligned)
 	if err != nil {
@@ -38,6 +40,7 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger gol
 	return FindAndWarpBoard(img, logger)
 }
 
+// FindAndWarpBoard TODO
 func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, error) {
 	_, corners, err := findChessCorners(img, logger)
 	if err != nil {
@@ -60,11 +63,14 @@ func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, 
 	return &Board{a, edges, logger}, nil
 }
 
+// SquareCenterHeight TODO
 func (b *Board) SquareCenterHeight(square string, radius int) float64 {
 	return b.SquareCenterHeight2(square, radius, false)
 }
 
-// return highest delta, average floor height
+// SquareCenterHeight2 TODO
+// return highes
+// SquareCenterHeight2 TODOt delta, average floor height
 func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) float64 {
 
 	edges := b.SquareCenterEdges(square)
@@ -146,6 +152,7 @@ func (b *Board) SquareCenterHeight2(square string, radius int, matchColor bool) 
 	return res
 }
 
+// SquareCenterEdges TODO
 func (b *Board) SquareCenterEdges(square string) int {
 	corner := getMinChessCorner(square)
 	center := image.Point{corner.X + 50, corner.Y + 50}
@@ -153,8 +160,10 @@ func (b *Board) SquareCenterEdges(square string) int {
 	return rimage.CountBrightSpots(b.edges, center, 25, 255)
 }
 
+// SquareFunc TODO
 type SquareFunc func(b *Board, square string) error
 
+// WriteDebugImages TODO
 func (b *Board) WriteDebugImages(prefix string) error {
 	err := b.img.Color.WriteTo(prefix + "-color.png")
 	if err != nil {
@@ -175,6 +184,7 @@ func (b *Board) WriteDebugImages(prefix string) error {
 	return nil
 }
 
+// Annotate TODO
 func (b *Board) Annotate() image.Image {
 	dc := gg.NewContextForImage(b.img.Color)
 
@@ -221,6 +231,7 @@ func (b *Board) Annotate() image.Image {
 	return dc.Image()
 }
 
+// IsBoardBlocked TODO
 func (b *Board) IsBoardBlocked() bool {
 	numPieces := 0
 	for x := 'a'; x <= 'h'; x++ {

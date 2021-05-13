@@ -104,10 +104,12 @@ type BasicDigitalInterrupt struct {
 	pp PostProcessor
 }
 
+// Config returns the config used to create this interrupt.
 func (i *BasicDigitalInterrupt) Config() DigitalInterruptConfig {
 	return i.cfg
 }
 
+// Value returns the amount of ticks that have occurred.
 func (i *BasicDigitalInterrupt) Value() int64 {
 	count := atomic.LoadInt64(&i.count)
 	if i.pp != nil {
@@ -123,6 +125,7 @@ func (i *BasicDigitalInterrupt) ticks(num int, now uint64) {
 	}
 }
 
+// Tick records an interrupt and notifies any interested callbacks.
 func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
 	if high {
 		atomic.AddInt64(&i.count, 1)
@@ -133,10 +136,13 @@ func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
 	}
 }
 
+// AddCallback adds a listener for interrupts.
 func (i *BasicDigitalInterrupt) AddCallback(c chan bool) {
 	i.callbacks = append(i.callbacks, c)
 }
 
+// AddPostProcessor sets the post processor that will modify the value that
+// Value returns.
 func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
 }
@@ -151,6 +157,7 @@ type ServoDigitalInterrupt struct {
 	pp   PostProcessor
 }
 
+// Config returns the config the interrupt was created with.
 func (i *ServoDigitalInterrupt) Config() DigitalInterruptConfig {
 	return i.cfg
 }
@@ -186,10 +193,13 @@ func (i *ServoDigitalInterrupt) Tick(high bool, now uint64) {
 	i.ra.Add(int(diff / 1000))
 }
 
+// AddCallback currently panics.
 func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
 	panic("servos can't have callback")
 }
 
+// AddPostProcessor sets the post processor that will modify the value that
+// Value returns.
 func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
 }

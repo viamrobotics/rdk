@@ -13,7 +13,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// return avg color, avg distances to avg color
+// AverageColorAndStats returns avg color and avg distances to avg color.
 func (i *Image) AverageColorAndStats(p image.Point, radius int) (Color, float64) {
 	avg := i.AverageColor(p, 1)
 
@@ -39,10 +39,12 @@ func (i *Image) AverageColorAndStats(p image.Point, radius int) (Color, float64)
 	return avg, avgDistance
 }
 
+// AverageColor returns the average color about a certain point.
 func (i *Image) AverageColor(p image.Point, radius int) Color {
 	return i.AverageColorXY(p.X, p.Y, radius)
 }
 
+// AverageColorXY returns the average color about a certain point.
 func (i *Image) AverageColorXY(x, y int, radius int) Color {
 	h := 0.0
 	s := 0.0
@@ -69,7 +71,8 @@ func (i *Image) AverageColorXY(x, y int, radius int) Color {
 	return NewColorFromHSV(h/num, s/num, v/num)
 }
 
-// TODO(erh): this and SimpleEdgeDetection are suoer similar, we shouldn't have both probably? or if we do need better names
+// InterestingPixels TODO
+// TODO(erh): this and SimpleEdgeDetection are super similar, we shouldn't have both probably? or if we do need better names
 func (i *Image) InterestingPixels(t float64) *image.Gray {
 	out := image.NewGray(i.Bounds())
 
@@ -97,6 +100,7 @@ func (i *Image) InterestingPixels(t float64) *image.Gray {
 	return out
 }
 
+// SimpleEdgeDetection TODO
 func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, error) {
 	img = ConvertImage(imaging.Blur(img, blur))
 
@@ -130,6 +134,7 @@ func SimpleEdgeDetection(img *Image, t1 float64, blur float64) (*image.Gray, err
 	return out, nil
 }
 
+// CountBrightSpots TODO
 func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold uint8) int {
 	num := 0
 
@@ -145,6 +150,7 @@ func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold
 	return num
 }
 
+// Rotate rotates the image clockwise by a certain amount of degrees.
 func (i *Image) Rotate(amount int) *Image {
 	if amount != 180 {
 		// made this a panic
@@ -166,6 +172,7 @@ func (i *Image) Rotate(amount int) *Image {
 	return i2
 }
 
+// EdgeDetector defines a way to detect edges within an image.
 type EdgeDetector interface {
 	// DetectEdges detects edges in the given image represented in a grayscale image
 	// returns either a map of edges with magnitude or probability or a binary image
@@ -174,15 +181,18 @@ type EdgeDetector interface {
 	GetEdgeMap(*Image, ...float64) *Image
 }
 
+// CannyEdgeDetector TODO
 type CannyEdgeDetector struct {
 	highRatio, lowRatio float64
 	preprocessImage     bool
 }
 
+// NewCannyDericheEdgeDetector TODO
 func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 	return &CannyEdgeDetector{0.8, 0.33, false}
 }
 
+// DetectEdges TODO
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
 
 	imgGradient, err := ForwardGradient(img, blur, cd.preprocessImage)
@@ -204,7 +214,7 @@ func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray,
 	return edges, nil
 }
 
-// Luminance compute the luminance value from the R,G and B values.
+// Luminance computes the luminance value from the R,G and B values.
 // It is defined as (299*R + 587*G + 114*B) / 1000 in order to avoid floating point math issue b/w different
 // architectures
 // Formula from : https://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale - luma coding
@@ -216,6 +226,7 @@ func Luminance(aColor Color) float64 {
 
 }
 
+// ImageGradient TODO
 type ImageGradient struct {
 	GradX, GradY         *mat.Dense
 	Magnitude, Direction *mat.Dense
@@ -277,13 +288,14 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, 
 	return ImageGradient{gradX, gradY, mag, direction}, nil
 }
 
+// MatrixPixelPoint defines a point in a matrix.
 type MatrixPixelPoint struct {
 	I, J int
 }
 
-// GradientNonMaximumSuppressionC8 computes the non maximal suppression of edges in Connectivity 8
+// GradientNonMaximumSuppressionC8 computes the non maximal suppression of edges in Connectivity 8.
 // For each pixel, it checks if at least one the two pixels in the current gradient direction has a greater magnitude
-// than the current pixel
+// than the current pixel.
 func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, error) {
 	r, c := mag.Dims()
 	nms := mat.NewDense(r, c, nil)
@@ -314,12 +326,11 @@ func GradientNonMaximumSuppressionC8(mag, direction *mat.Dense) (*mat.Dense, err
 
 }
 
-// GetHysteresisThresholds computes the low and high thresholds for the Canny Hysteresis Edge Thresholding
-/* John Canny said in his paper "A Computational Approach to Edge Detection" that "The ratio of the
-* high to low threshold in the implementation is in the range two or three to one."
-* So, in this implementation, we should choose tlow ~= 0.5 or 0.33333.
-* A good value for thigh is around 0.8
- */
+// GetHysteresisThresholds computes the low and high thresholds for the Canny Hysteresis Edge Thresholding.
+// John Canny said in his paper "A Computational Approach to Edge Detection" that "The ratio of the
+// high to low threshold in the implementation is in the range two or three to one."
+// So, in this implementation, we should choose tlow ~= 0.5 or 0.33333.
+// A good value for thigh is around 0.8.
 func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (float64, float64, error) {
 	var low, high float64
 	x := make([]float64, len(mag.RawMatrix().Data))
@@ -356,13 +367,12 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 	return low, high, nil
 }
 
-/* GetConnectivity8Neighbors return the pixel coordinates of the neighbors of a pixel (i,j) in connectivity 8;
-Returns only the pixel within the image bounds.
-* Connectivity 8 :
-*  .   .   .
-*  .   o   .
-*  .   .   .
-*/
+// GetConnectivity8Neighbors return the pixel coordinates of the neighbors of a pixel (i,j) in connectivity 8;
+// Returns only the pixel within the image bounds.
+// Connectivity 8 :
+//  .   .   .
+//  .   o   .
+//  .   .   .
 func GetConnectivity8Neighbors(i, j, r, c int) []MatrixPixelPoint {
 	neighbors := make([]MatrixPixelPoint, 0, 8)
 	if i-1 > 0 && j-1 > 0 {
@@ -392,12 +402,11 @@ func GetConnectivity8Neighbors(i, j, r, c int) []MatrixPixelPoint {
 	return neighbors
 }
 
-/* EdgeHysteresisFiltering performs the Non Maximum Suppressed edges hysteresis filtering
-Every pixel whose value is above high is preserved.
-Any pixel whose value falls into [low, high] and that is connected to a high value pixel is preserved as well
-All pixel whose value is below low is set to zero
-This allows to remove weak edges but preserves edges that are strong or partially strong
-*/
+// EdgeHysteresisFiltering performs the Non Maximum Suppressed edges hysteresis filtering
+// every pixel whose value is above high is preserved.
+// Any pixel whose value falls into [low, high] and that is connected to a high value pixel is preserved as well
+// as all pixel whose value is below low is set to zero.
+// This allows to remove weak edges but preserves edges that are strong or partially strong.
 func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, error) {
 	r, c := mag.Dims()
 	visited := map[MatrixPixelPoint]bool{}

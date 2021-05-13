@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/config"
 )
 
+// DistortionModel TODO
 type DistortionModel struct {
 	RadialK1     float64 `json:"rk1"`
 	RadialK2     float64 `json:"rk2"`
@@ -19,6 +20,7 @@ type DistortionModel struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
+// PinholeCameraIntrinsics TODO
 type PinholeCameraIntrinsics struct {
 	Width      int             `json:"width"`
 	Height     int             `json:"height"`
@@ -29,17 +31,20 @@ type PinholeCameraIntrinsics struct {
 	Distortion DistortionModel `json:"distortion"`
 }
 
+// Extrinsics TODO
 type Extrinsics struct {
 	RotationMatrix    []float64 `json:"rotation"`
 	TranslationVector []float64 `json:"translation"`
 }
 
+// DepthColorIntrinsicsExtrinsics TODO
 type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
 	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
 }
 
+// CheckValid TODO
 func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	if dcie == nil {
 		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
@@ -53,6 +58,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 	return nil
 }
 
+// NewEmptyDepthColorIntrinsicsExtrinsics TODO
 func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	return &DepthColorIntrinsicsExtrinsics{
 		ColorCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
@@ -61,6 +67,7 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
+// NewDepthColorIntrinsicsExtrinsics TODO
 func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 
@@ -72,6 +79,7 @@ func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIn
 	return matrices, nil
 }
 
+// NewDepthColorIntrinsicsExtrinsicsFromBytes TODO
 func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorIntrinsicsExtrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// Parse into map
@@ -83,6 +91,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	return intrinsics, nil
 }
 
+// NewDepthColorIntrinsicsExtrinsicsFromJSONFile TODO
 func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColorIntrinsicsExtrinsics, error) {
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
@@ -100,6 +109,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
 }
 
+// NewPinholeCameraIntrinsicsFromJSONFile TODO
 func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*PinholeCameraIntrinsics, error) {
 	intrinsics := NewEmptyDepthColorIntrinsicsExtrinsics()
 	// open json file
@@ -127,8 +137,9 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	return &intrinsics.ColorCamera, nil
 }
 
-// Function to transform a pixel with depth to a 3D point cloud
-// the intrinsics parameters should be the ones of the sensor used to obtain the image that contains the pixel
+// PixelToPoint transforms a pixel with depth to a 3D point cloud.
+// The intrinsics parameters should be the ones of the sensor used to obtain the image that
+// contains the pixel.
 func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, float64, float64) {
 	//TODO(louise): add unit test
 	xOverZ := (x - params.Ppx) / params.Fx
@@ -139,8 +150,8 @@ func (params *PinholeCameraIntrinsics) PixelToPoint(x, y, z float64) (float64, f
 	return xm, ym, z
 }
 
-// Function to project a 3D point to a pixel in an image plane
-// the intrinsics parameters should be the ones of the sensor we want to project to
+// PointToPixel projects a 3D point to a pixel in an image plane.
+// The intrinsics parameters should be the ones of the sensor we want to project to.
 func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, float64) {
 	//TODO(louise): add unit test
 	if z != 0. {
@@ -152,7 +163,7 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 	return -1.0, -1.0
 }
 
-// Function to apply a rigid body transform between two cameras to a 3D point
+// TransformPointToPoint applies a rigid body transform between two cameras to a 3D point.
 func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float64, float64) {
 	rotationMatrix := params.RotationMatrix
 	translationVector := params.TranslationVector
@@ -167,8 +178,8 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 	return xTransformed, yTransformed, zTransformed
 }
 
-// Function input is a pixel+depth (x,y, depth) from the depth camera and output is the coordinates of the color camera
-// Extrinsic matrices in meters, points are in mm, need to convert to m and then back
+// DepthPixelToColorPixel takes a pixel+depth (x,y, depth) from the depth camera and output is the coordinates
+// of the color camera. Extrinsic matrices in meters, points are in mm, need to convert to m and then back.
 func (dcie *DepthColorIntrinsicsExtrinsics) DepthPixelToColorPixel(dx, dy, dz float64) (float64, float64, float64) {
 	m2mm := 1000.0
 	x, y, z := dcie.DepthCamera.PixelToPoint(dx, dy, dz)

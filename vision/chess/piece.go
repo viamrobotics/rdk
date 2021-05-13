@@ -7,6 +7,7 @@ import (
 	"go.viam.com/core/rimage"
 )
 
+// The set of square colors.
 const (
 	SquareEmpty = 0
 	SquareWhite = 1

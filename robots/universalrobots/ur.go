@@ -30,6 +30,7 @@ func init() {
 	})
 }
 
+// URArm TODO
 type URArm struct {
 	mu                      sync.Mutex
 	conn                    net.Conn
@@ -44,6 +45,7 @@ type URArm struct {
 
 const waitBackgroundWorkersDur = 5 * time.Second
 
+// Close TODO
 func (ua *URArm) Close() error {
 	ua.cancel()
 
@@ -71,6 +73,7 @@ func (ua *URArm) Close() error {
 	return nil
 }
 
+// URArmConnect TODO
 func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
@@ -133,12 +136,14 @@ func (ua *URArm) setState(state RobotState) {
 	ua.mu.Unlock()
 }
 
+// State TODO
 func (ua *URArm) State() RobotState {
 	ua.mu.Lock()
 	defer ua.mu.Unlock()
 	return ua.state
 }
 
+// CurrentJointPositions TODO
 func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state := ua.State()
@@ -148,11 +153,13 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 	return arm.JointPositionsFromRadians(radians), nil
 }
 
+// CurrentPosition TODO
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := ua.State().CartesianInfo
 	return arm.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
 }
 
+// JointMoveDelta TODO
 func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	if joint < 0 || joint > 5 {
 		return errors.New("invalid joint")
@@ -169,10 +176,12 @@ func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return ua.MoveToJointPositionRadians(ctx, radians)
 }
 
+// MoveToJointPositions TODO
 func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, arm.JointPositionsToRadians(joints))
 }
 
+// MoveToJointPositionRadians TODO
 func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float64) error {
 	if len(radians) != 6 {
 		return errors.New("need 6 joints")
@@ -234,6 +243,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 }
 
+// MoveToPosition TODO
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	x := float64(pos.X) / 1000
 	y := float64(pos.Y) / 1000
@@ -289,6 +299,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 
 }
 
+// AddToLog TODO
 func (ua *URArm) AddToLog(msg string) error {
 	// TODO(erh): check for " in msg
 	cmd := fmt.Sprintf("textmsg(\"%s\")\r\n", msg)

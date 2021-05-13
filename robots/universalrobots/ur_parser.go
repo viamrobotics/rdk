@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// RobotModeData TODO
 type RobotModeData struct {
 	Timestamp                uint64
 	IsRealRobotConnected     bool
@@ -28,6 +29,7 @@ type RobotModeData struct {
 	TargetSpeedFractionLimit float64
 }
 
+// JointData TODO
 type JointData struct {
 	Qactual   float64 // angle currently in radians
 	Qtarget   float64 // angle target in radians
@@ -39,10 +41,12 @@ type JointData struct {
 	JointMode byte
 }
 
+// AngleDegrees TODO
 func (j JointData) AngleDegrees() float64 {
 	return utils.RadToDeg(j.Qactual)
 }
 
+// ToolData TODO
 type ToolData struct {
 	AnalogInputRange0 byte
 	AnalogInputRange1 byte
@@ -55,6 +59,7 @@ type ToolData struct {
 	ToolMode          byte
 }
 
+// MasterboardData TODO
 type MasterboardData struct {
 	DigitalInputBits                 int32
 	DigitalOutputBits                int32
@@ -79,6 +84,7 @@ type MasterboardData struct {
 	NotUsed2                         byte
 }
 
+// CartesianInfo TODO
 type CartesianInfo struct {
 	X           float64
 	Y           float64
@@ -94,16 +100,19 @@ type CartesianInfo struct {
 	TCPOffsetRz float64
 }
 
+// SimpleString TODO
 func (c CartesianInfo) SimpleString() string {
 	return fmt.Sprintf("x: %f | y: %f | z: %f | Rx: %f | Ry: %f | Rz : %f",
 		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
 }
 
+// NondelimitedString TODO
 func (c CartesianInfo) NondelimitedString() string {
 	return fmt.Sprintf("%f %f %f %f %f %f",
 		c.X, c.Y, c.Z, c.Rx, c.Ry, c.Rz)
 }
 
+// KinematicInfo TODO
 type KinematicInfo struct {
 	Cheksum int32
 	DHtheta float64
@@ -112,6 +121,7 @@ type KinematicInfo struct {
 	Dhalpha float64
 }
 
+// ForceModeData TODO
 type ForceModeData struct {
 	Fx             float64
 	Fy             float64
@@ -122,6 +132,7 @@ type ForceModeData struct {
 	RobotDexterity float64
 }
 
+// RobotState TODO
 type RobotState struct {
 	RobotModeData
 	Joints []JointData

@@ -163,16 +163,16 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = true
 	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("one.sensor1", "one.sensor2"))
 
-	injectRobot.GetConfigFunc = func(ctx context.Context) (*config.Config, error) {
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return nil, errors.New("whoops")
 	}
-	_, err := robot.GetConfig(context.Background())
+	_, err := robot.Config(context.Background())
 	test.That(t, err, test.ShouldResemble, errors.New("whoops"))
 	someConfig := &config.Config{}
-	injectRobot.GetConfigFunc = func(ctx context.Context) (*config.Config, error) {
+	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return someConfig, nil
 	}
-	conf, err := robot.GetConfig(context.Background())
+	conf, err := robot.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldEqual, someConfig)
 

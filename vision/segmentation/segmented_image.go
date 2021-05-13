@@ -9,6 +9,7 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+// SegmentedImage TODO
 type SegmentedImage struct {
 	palette []color.Color
 	dots    []int //  a value of 0 means no segment, < 0 is transient, > 0 is the segment number
@@ -25,10 +26,12 @@ func newSegmentedImage(img *rimage.Image) *SegmentedImage {
 	return si
 }
 
+// Height TODO
 func (si *SegmentedImage) Height() int {
 	return si.height
 }
 
+// Width TODO
 func (si *SegmentedImage) Width() int {
 	return si.width
 }
@@ -43,6 +46,7 @@ func (si *SegmentedImage) fromK(k int) image.Point {
 	return image.Point{x, y}
 }
 
+// GetSegment TODO
 func (si *SegmentedImage) GetSegment(p image.Point) int {
 	return si.get(p)
 }
@@ -63,6 +67,7 @@ func (si *SegmentedImage) set(p image.Point, val int) {
 	si.dots[k] = val
 }
 
+// PixelsInSegmemnt TODO
 func (si *SegmentedImage) PixelsInSegmemnt(segment int) int {
 	num := 0
 	for _, v := range si.dots {
@@ -73,14 +78,17 @@ func (si *SegmentedImage) PixelsInSegmemnt(segment int) int {
 	return num
 }
 
+// ColorModel TODO
 func (si *SegmentedImage) ColorModel() color.Model {
 	return color.RGBAModel
 }
 
+// Bounds TODO
 func (si *SegmentedImage) Bounds() image.Rectangle {
 	return image.Rect(0, 0, si.width, si.height)
 }
 
+// At TODO
 func (si *SegmentedImage) At(x, y int) color.Color {
 	v := si.get(image.Point{x, y})
 	if v <= 0 {
@@ -110,6 +118,7 @@ func (si *SegmentedImage) createPalette() {
 
 }
 
+// NumInAnyCluster TODO
 func (si *SegmentedImage) NumInAnyCluster() int {
 	num := 0
 	for _, v := range si.dots {

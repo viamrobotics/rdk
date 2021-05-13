@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// Board is an injected board.
 type Board struct {
 	board.Board
 	MotorFunc            func(name string) board.Motor
@@ -15,10 +16,11 @@ type Board struct {
 	AnalogReaderFunc     func(name string) board.AnalogReader
 	DigitalInterruptFunc func(name string) board.DigitalInterrupt
 	CloseFunc            func() error
-	GetConfigFunc        func(ctx context.Context) (board.Config, error)
+	ConfigFunc           func(ctx context.Context) (board.Config, error)
 	StatusFunc           func(ctx context.Context) (*pb.BoardStatus, error)
 }
 
+// Motor calls the injected Motor or the real version.
 func (b *Board) Motor(name string) board.Motor {
 	if b.MotorFunc == nil {
 		return b.Board.Motor(name)
@@ -26,6 +28,7 @@ func (b *Board) Motor(name string) board.Motor {
 	return b.MotorFunc(name)
 }
 
+// Servo calls the injected Servo or the real version.
 func (b *Board) Servo(name string) board.Servo {
 	if b.ServoFunc == nil {
 		return b.Board.Servo(name)
@@ -33,6 +36,7 @@ func (b *Board) Servo(name string) board.Servo {
 	return b.ServoFunc(name)
 }
 
+// AnalogReader calls the injected AnalogReader or the real version.
 func (b *Board) AnalogReader(name string) board.AnalogReader {
 	if b.AnalogReaderFunc == nil {
 		return b.Board.AnalogReader(name)
@@ -40,6 +44,7 @@ func (b *Board) AnalogReader(name string) board.AnalogReader {
 	return b.AnalogReaderFunc(name)
 }
 
+// DigitalInterrupt calls the injected DigitalInterrupt or the real version.
 func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
 	if b.DigitalInterruptFunc == nil {
 		return b.Board.DigitalInterrupt(name)
@@ -47,6 +52,7 @@ func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
 	return b.DigitalInterruptFunc(name)
 }
 
+// Close calls the injected Close or the real version.
 func (b *Board) Close() error {
 	if b.CloseFunc == nil {
 		return utils.TryClose(b.Board)
@@ -54,13 +60,15 @@ func (b *Board) Close() error {
 	return b.CloseFunc()
 }
 
-func (b *Board) GetConfig(ctx context.Context) (board.Config, error) {
-	if b.GetConfigFunc == nil {
-		return b.Board.GetConfig(ctx)
+// Config calls the injected Config or the real version.
+func (b *Board) Config(ctx context.Context) (board.Config, error) {
+	if b.ConfigFunc == nil {
+		return b.Board.Config(ctx)
 	}
-	return b.GetConfigFunc(ctx)
+	return b.ConfigFunc(ctx)
 }
 
+// Status calls the injected Status or the real version.
 func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	if b.StatusFunc == nil {
 		return b.Board.Status(ctx)

@@ -20,6 +20,7 @@ import (
 	"github.com/edaniels/gostream"
 )
 
+// Robot is an injected robot.
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc   func(name string) robot.Robot
@@ -40,13 +41,14 @@ type Robot struct {
 	BoardNamesFunc     func() []string
 	SensorNamesFunc    func() []string
 	ProcessManagerFunc func() rexec.ProcessManager
-	GetConfigFunc      func(ctx context.Context) (*config.Config, error)
+	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc         func() golog.Logger
 	CloseFunc          func() error
 	RefreshFunc        func(ctx context.Context) error
 }
 
+// RemoteByName calls the injected RemoteByName or the real version.
 func (r *Robot) RemoteByName(name string) robot.Robot {
 	if r.RemoteByNameFunc == nil {
 		return r.Robot.RemoteByName(name)
@@ -54,6 +56,7 @@ func (r *Robot) RemoteByName(name string) robot.Robot {
 	return r.RemoteByNameFunc(name)
 }
 
+// ArmByName calls the injected ArmByName or the real version.
 func (r *Robot) ArmByName(name string) arm.Arm {
 	if r.ArmByNameFunc == nil {
 		return r.Robot.ArmByName(name)
@@ -61,6 +64,7 @@ func (r *Robot) ArmByName(name string) arm.Arm {
 	return r.ArmByNameFunc(name)
 }
 
+// BaseByName calls the injected BaseByName or the real version.
 func (r *Robot) BaseByName(name string) base.Base {
 	if r.BaseByNameFunc == nil {
 		return r.Robot.BaseByName(name)
@@ -68,6 +72,7 @@ func (r *Robot) BaseByName(name string) base.Base {
 	return r.BaseByNameFunc(name)
 }
 
+// GripperByName calls the injected GripperByName or the real version.
 func (r *Robot) GripperByName(name string) gripper.Gripper {
 	if r.GripperByNameFunc == nil {
 		return r.Robot.GripperByName(name)
@@ -75,6 +80,7 @@ func (r *Robot) GripperByName(name string) gripper.Gripper {
 	return r.GripperByNameFunc(name)
 }
 
+// CameraByName calls the injected CameraByName or the real version.
 func (r *Robot) CameraByName(name string) gostream.ImageSource {
 	if r.CameraByNameFunc == nil {
 		return r.Robot.CameraByName(name)
@@ -82,6 +88,7 @@ func (r *Robot) CameraByName(name string) gostream.ImageSource {
 	return r.CameraByNameFunc(name)
 }
 
+// LidarByName calls the injected LidarByName or the real version.
 func (r *Robot) LidarByName(name string) lidar.Lidar {
 	if r.LidarByNameFunc == nil {
 		return r.Robot.LidarByName(name)
@@ -89,6 +96,7 @@ func (r *Robot) LidarByName(name string) lidar.Lidar {
 	return r.LidarByNameFunc(name)
 }
 
+// BoardByName calls the injected BoardByName or the real version.
 func (r *Robot) BoardByName(name string) board.Board {
 	if r.BoardByNameFunc == nil {
 		return r.Robot.BoardByName(name)
@@ -96,6 +104,7 @@ func (r *Robot) BoardByName(name string) board.Board {
 	return r.BoardByNameFunc(name)
 }
 
+// SensorByName calls the injected SensorByName or the real version.
 func (r *Robot) SensorByName(name string) sensor.Sensor {
 	if r.SensorByNameFunc == nil {
 		return r.Robot.SensorByName(name)
@@ -103,6 +112,7 @@ func (r *Robot) SensorByName(name string) sensor.Sensor {
 	return r.SensorByNameFunc(name)
 }
 
+// ProviderByName calls the injected ProviderByName or the real version.
 func (r *Robot) ProviderByName(name string) robot.Provider {
 	if r.ProviderByNameFunc == nil {
 		return r.Robot.ProviderByName(name)
@@ -110,6 +120,7 @@ func (r *Robot) ProviderByName(name string) robot.Provider {
 	return r.ProviderByNameFunc(name)
 }
 
+// RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
 		return r.Robot.RemoteNames()
@@ -117,6 +128,7 @@ func (r *Robot) RemoteNames() []string {
 	return r.RemoteNamesFunc()
 }
 
+// ArmNames calls the injected ArmNames or the real version.
 func (r *Robot) ArmNames() []string {
 	if r.ArmNamesFunc == nil {
 		return r.Robot.ArmNames()
@@ -124,6 +136,7 @@ func (r *Robot) ArmNames() []string {
 	return r.ArmNamesFunc()
 }
 
+// GripperNames calls the injected GripperNames or the real version.
 func (r *Robot) GripperNames() []string {
 	if r.GripperNamesFunc == nil {
 		return r.Robot.GripperNames()
@@ -131,6 +144,7 @@ func (r *Robot) GripperNames() []string {
 	return r.GripperNamesFunc()
 }
 
+// CameraNames calls the injected CameraNames or the real version.
 func (r *Robot) CameraNames() []string {
 	if r.CameraNamesFunc == nil {
 		return r.Robot.CameraNames()
@@ -138,6 +152,7 @@ func (r *Robot) CameraNames() []string {
 	return r.CameraNamesFunc()
 }
 
+// LidarNames calls the injected LidarNames or the real version.
 func (r *Robot) LidarNames() []string {
 	if r.LidarNamesFunc == nil {
 		return r.Robot.LidarNames()
@@ -145,6 +160,7 @@ func (r *Robot) LidarNames() []string {
 	return r.LidarNamesFunc()
 }
 
+// BaseNames calls the injected BaseNames or the real version.
 func (r *Robot) BaseNames() []string {
 	if r.BaseNamesFunc == nil {
 		return r.Robot.BaseNames()
@@ -152,6 +168,7 @@ func (r *Robot) BaseNames() []string {
 	return r.BaseNamesFunc()
 }
 
+// BoardNames calls the injected BoardNames or the real version.
 func (r *Robot) BoardNames() []string {
 	if r.BoardNamesFunc == nil {
 		return r.Robot.BoardNames()
@@ -159,6 +176,7 @@ func (r *Robot) BoardNames() []string {
 	return r.BoardNamesFunc()
 }
 
+// SensorNames calls the injected SensorNames or the real version.
 func (r *Robot) SensorNames() []string {
 	if r.SensorNamesFunc == nil {
 		return r.Robot.SensorNames()
@@ -166,6 +184,7 @@ func (r *Robot) SensorNames() []string {
 	return r.SensorNamesFunc()
 }
 
+// ProcessManager calls the injected ProcessManager or the real version.
 func (r *Robot) ProcessManager() rexec.ProcessManager {
 	if r.ProcessManagerFunc == nil {
 		return r.Robot.ProcessManager()
@@ -173,13 +192,15 @@ func (r *Robot) ProcessManager() rexec.ProcessManager {
 	return r.ProcessManagerFunc()
 }
 
-func (r *Robot) GetConfig(ctx context.Context) (*config.Config, error) {
-	if r.GetConfigFunc == nil {
-		return r.Robot.GetConfig(ctx)
+// Config calls the injected Config or the real version.
+func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
+	if r.ConfigFunc == nil {
+		return r.Robot.Config(ctx)
 	}
-	return r.GetConfigFunc(ctx)
+	return r.ConfigFunc(ctx)
 }
 
+// Status calls the injected Status or the real version.
 func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
 	if r.StatusFunc == nil {
 		return r.Robot.Status(ctx)
@@ -187,6 +208,7 @@ func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
 	return r.StatusFunc(ctx)
 }
 
+// Logger calls the injected Logger or the real version.
 func (r *Robot) Logger() golog.Logger {
 	if r.LoggerFunc == nil {
 		return r.Robot.Logger()
@@ -194,6 +216,7 @@ func (r *Robot) Logger() golog.Logger {
 	return r.LoggerFunc()
 }
 
+// Close calls the injected Close or the real version.
 func (r *Robot) Close() error {
 	if r.CloseFunc == nil {
 		return utils.TryClose(r.Robot)
@@ -201,6 +224,7 @@ func (r *Robot) Close() error {
 	return r.CloseFunc()
 }
 
+// Refresh calls the injected Refresh or the real version.
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
 		if remote, ok := r.Robot.(robot.Robot); ok {

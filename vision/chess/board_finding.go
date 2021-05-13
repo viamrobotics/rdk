@@ -35,6 +35,7 @@ func inList(l []image.Point, p image.Point) bool {
 	return false
 }
 
+// FindChessCornersPinkCheatInQuadrant TODO
 func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts [][]image.Point, xQ, yQ int, logger golog.Logger) image.Point {
 	debug := false && xQ == 0 && yQ == 1
 
@@ -83,6 +84,7 @@ func FindChessCornersPinkCheatInQuadrant(img *rimage.Image, dc *gg.Context, cnts
 	return myCenter
 }
 
+// FindChessCornersPinkCheat TODO
 func FindChessCornersPinkCheat(ii *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error) {
 	img := ii.Color
 	dc := gg.NewContext(img.Width(), img.Height())

@@ -20,7 +20,7 @@ func init() {
 	RegisterAction("RandomWalk", RandomWalk)
 }
 
-// A RandomWalk instructs the robot to traverse a space randomly for a bounded
+// RandomWalk instructs the robot to traverse a space randomly for a bounded
 // amount of time.
 func RandomWalk(ctx context.Context, theRobot robot.Robot) {
 	defer func() { theRobot.Logger().Debug("RandomWalk done") }()

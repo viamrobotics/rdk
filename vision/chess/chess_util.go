@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/rimage"
 )
 
+// TODO
 var (
 	DepthCheckSizeRadius = 20
 	MinPieceDepth        = 9.9999

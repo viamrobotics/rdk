@@ -158,7 +158,7 @@ func (r *mutableRobot) Close() error {
 	return r.parts.Close()
 }
 
-func (r *mutableRobot) GetConfig(ctx context.Context) (*config.Config, error) {
+func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 	return r.config, nil
 }
 

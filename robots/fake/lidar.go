@@ -18,6 +18,7 @@ import (
 	"github.com/golang/geo/r2"
 )
 
+// LidarType uses the fake model name.
 const LidarType = ModelName
 
 func init() {
@@ -45,10 +46,12 @@ type Lidar struct {
 	seed       int64
 }
 
+// NewLidar returns a new fake lidar.
 func NewLidar(name string) *Lidar {
 	return &Lidar{Name: name}
 }
 
+// SetPosition sets the given position.
 func (l *Lidar) SetPosition(pos r2.Point) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -56,20 +59,24 @@ func (l *Lidar) SetPosition(pos r2.Point) {
 	l.posY = pos.Y
 }
 
+// Seed returns the seed being used for random number generation.
 func (l *Lidar) Seed() int64 {
 	return l.seed
 }
 
+// SetSeed sets the seed to be used for random number generation.
 func (l *Lidar) SetSeed(seed int64) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.seed = seed
 }
 
+// Info returns nothing.
 func (l *Lidar) Info(ctx context.Context) (map[string]interface{}, error) {
 	return nil, nil
 }
 
+// Start marks the lidar as started.
 func (l *Lidar) Start(ctx context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -77,6 +84,7 @@ func (l *Lidar) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop marks the lidar as stopped.
 func (l *Lidar) Stop(ctx context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -84,18 +92,22 @@ func (l *Lidar) Stop(ctx context.Context) error {
 	return nil
 }
 
+// Close stops the lidar.
 func (l *Lidar) Close() error {
 	return l.Stop(context.Background())
 }
 
+// Range always returns the same value.
 func (l *Lidar) Range(ctx context.Context) (float64, error) {
 	return 25, nil
 }
 
+// AngularResolution always returns the same value.
 func (l *Lidar) AngularResolution(ctx context.Context) (float64, error) {
 	return 1, nil
 }
 
+// Bounds always returns the same value.
 func (l *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	r, err := l.Range(ctx)
 	if err != nil {
@@ -105,6 +117,7 @@ func (l *Lidar) Bounds(ctx context.Context) (r2.Point, error) {
 	return r2.Point{x, x}, nil
 }
 
+// Scan returns random measurements based off the currently set seed.
 func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

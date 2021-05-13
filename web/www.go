@@ -127,7 +127,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
-	conf, err := theRobot.GetConfig(ctx)
+	conf, err := theRobot.Config(ctx)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -134,8 +134,13 @@ func NewLocationAwareRobot(
 }
 
 var (
+	// ErrAlreadyStarted is returned when the robot has already been started but
+	// is asked to start again.
 	ErrAlreadyStarted = errors.New("already started")
-	ErrStopped        = errors.New("robot is stopped")
+
+	// ErrStopped is returned if a method is called that requires the robot to be
+	// stopped.
+	ErrStopped = errors.New("robot is stopped")
 )
 
 // Start kicks off the update loop.
@@ -640,16 +645,19 @@ func (lar *LocationAwareRobot) areasToView() ([]lidar.Lidar, r2.Point, []*Square
 	return lar.devices, lar.maxBounds, []*SquareArea{lar.rootArea, lar.presentViewArea}
 }
 
-// relative to first device
+// A DeviceOffset specifies where a device is relative to the first device
+// specified in the robot.
 type DeviceOffset struct {
 	Angle                float64
 	DistanceX, DistanceY float64
 }
 
+// String returns a human readable version of the offset.
 func (do *DeviceOffset) String() string {
 	return fmt.Sprintf("%#v", do)
 }
 
+// Set sets the offset based off a flag format.
 func (do *DeviceOffset) Set(val string) error {
 	parsed, err := parseDeviceOffsetFlag(val)
 	if err != nil {
@@ -659,6 +667,7 @@ func (do *DeviceOffset) Set(val string) error {
 	return nil
 }
 
+// Get returns the offset itself.
 func (do *DeviceOffset) Get() interface{} {
 	return do
 }

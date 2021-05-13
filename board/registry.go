@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 )
 
+// A CreateBoard creates a board from a given config.
 type CreateBoard func(ctx context.Context, cfg Config, logger golog.Logger) (Board, error)
 
 var (

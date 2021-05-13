@@ -287,6 +287,7 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
+// NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	e := &eva{
 		host:    host,

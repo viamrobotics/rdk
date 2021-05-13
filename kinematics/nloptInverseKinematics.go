@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/kinematics/kinmath"
 )
 
+// NloptIK TODO
 type NloptIK struct {
 	Mdl           *Model
 	lowerBound    []float64
@@ -27,6 +28,7 @@ type NloptIK struct {
 	logger        golog.Logger
 }
 
+// CreateNloptIKSolver TODO
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik := &NloptIK{logger: logger}
 	ik.resetHalting()
@@ -117,6 +119,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
+// AddGoal TODO
 func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
@@ -124,23 +127,28 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	ik.resetHalting()
 }
 
+// SetID TODO
 func (ik *NloptIK) SetID(id int) {
 	ik.ID = id
 }
 
+// GetID TODO
 func (ik *NloptIK) GetID() int {
 	return ik.ID
 }
 
+// GetMdl TODO
 func (ik *NloptIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
+// ClearGoals TODO
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
+// GetGoals TODO
 func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
@@ -150,6 +158,7 @@ func (ik *NloptIK) resetHalting() {
 	ik.haltedCh = make(chan struct{})
 }
 
+// Halt TODO
 func (ik *NloptIK) Halt() {
 	close(ik.requestHaltCh)
 	err := ik.opt.ForceStop()
@@ -160,6 +169,7 @@ func (ik *NloptIK) Halt() {
 	ik.resetHalting()
 }
 
+// Solve TODO
 func (ik *NloptIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:

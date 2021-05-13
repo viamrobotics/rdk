@@ -34,14 +34,17 @@ func (m *Model) GetOperationalPosition(idx int) *kinmath.QuatTrans {
 	return m.Nodes[m.Leaves[idx]].i.t
 }
 
+// GetJacobian TODO
 func (m *Model) GetJacobian() *mgl64.MatMxN {
 	return m.Jacobian
 }
 
+// GetJacobianInverse TODO
 func (m *Model) GetJacobianInverse() *mgl64.MatMxN {
 	return m.InvJacobian
 }
 
+// Get6dPosition TODO
 func (m *Model) Get6dPosition(idx int) []float64 {
 	var pose6d []float64
 
@@ -68,6 +71,7 @@ func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
 	return m.Joints[idx].GetOperationalVelocity()
 }
 
+// QuatToEuler TODO
 // See the following wikipedia page for the formulas used here
 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
 func QuatToEuler(q quat.Number) []float64 {
@@ -89,6 +93,7 @@ func QuatToEuler(q quat.Number) []float64 {
 	return angles
 }
 
+// MatToEuler TODO
 func MatToEuler(mat mgl64.Mat4) []float64 {
 	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
 	singular := sy < 1e-6
@@ -108,6 +113,7 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
+// CalculateJacobian TODO
 // This used to support multiple end effectors
 // Removed that support when quaternions were added
 // because nothing we have has multiple end effectors
@@ -153,6 +159,7 @@ func (m *Model) CalculateJacobian() {
 	}
 }
 
+// CalculateJacobianInverse TODO
 func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 	nr := m.Jacobian.NumRows()
 	nc := m.Jacobian.NumCols()
@@ -223,7 +230,7 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 	}
 }
 
-// This function will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
+// ZeroInlineRotation will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
 // are inline by seeing if moving both closer to zero changes the 6d position. If they appear to be inline it will set
 // both to zero if they are not. This should avoid needless twists of inline joints.
 // TODO(pl): Support additional end effectors
@@ -261,6 +268,7 @@ func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
 	return newAngles
 }
 
+// Step TODO
 func (m *Model) Step(posvec, dpos []float64) []float64 {
 
 	var posvec2 []float64

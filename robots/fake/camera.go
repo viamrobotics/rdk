@@ -20,16 +20,19 @@ func init() {
 	})
 }
 
+// Camera is a fake camera that always returns the same image.
 type Camera struct {
 	Name string
 }
 
+// Next always returns the same image with a red dot in the center.
 func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	img := image.NewNRGBA(image.Rect(0, 0, 32, 32))
 	img.Set(16, 16, rimage.Red)
 	return img, func() {}, nil
 }
 
+// Close does nothing.
 func (c *Camera) Close() error {
 	return nil
 }

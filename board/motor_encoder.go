@@ -37,6 +37,7 @@ func setRPMSleepDebug(dur time.Duration, debug bool) func() {
 	}
 }
 
+// WrapMotorWithEncoder takes a motor and adds an encoder onto it in order to understand its odometry.
 func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor, logger golog.Logger) (Motor, error) {
 	if mc.Encoder == "" {
 		return m, nil

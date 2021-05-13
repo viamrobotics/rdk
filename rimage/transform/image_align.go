@@ -15,6 +15,7 @@ import (
 )
 
 var (
+	// IntelConfig is an alignment config for some Intel camera.
 	IntelConfig = AlignConfig{
 		ColorInputSize:  image.Point{1280, 720},
 		ColorWarpPoints: []image.Point{{0, 0}, {1196, 720}},
@@ -27,6 +28,7 @@ var (
 	}
 )
 
+// AlignConfig TODO
 type AlignConfig struct {
 	ColorInputSize  image.Point // this validates input size
 	ColorWarpPoints []image.Point
@@ -39,6 +41,7 @@ type AlignConfig struct {
 	Smooth         bool
 }
 
+// ComputeWarpFromCommon TODO
 func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConfig, error) {
 
 	colorPoints, depthPoints, err := ImageAlign(
@@ -63,6 +66,7 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 	}, nil
 }
 
+// CheckValid TODO
 func (config AlignConfig) CheckValid() error {
 	if config.ColorInputSize.X == 0 ||
 		config.ColorInputSize.Y == 0 {
@@ -89,7 +93,7 @@ func (config AlignConfig) CheckValid() error {
 	return nil
 }
 
-// returns points suitable for calling warp on
+// ImageAlign returns points suitable for calling warp on.
 func ImageAlign(img1Size image.Point, img1Points []image.Point,
 	img2Size image.Point, img2Points []image.Point, logger golog.Logger) ([]image.Point, []image.Point, error) {
 

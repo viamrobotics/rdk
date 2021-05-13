@@ -54,7 +54,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
-	cfgGet, err := p.GetConfig(ctx)
+	cfgGet, err := p.Config(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cfgGet, test.ShouldResemble, cfg)
 	t.Run("analog test", func(t *testing.T) {

@@ -69,7 +69,7 @@ func (li *Lidar) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
 }
 
-// Desc stops and closes the underlying lidar.
+// Close stops and closes the underlying lidar.
 func (li *Lidar) Close() (err error) {
 	defer func() {
 		err = multierr.Combine(err, utils.TryClose(li.Lidar))
@@ -91,14 +91,17 @@ func (li *Lidar) setLidar(lidar lidar.Lidar) {
 	li.Lidar = lidar
 }
 
+// StartCalibration does nothing.
 func (li *Lidar) StartCalibration(ctx context.Context) error {
 	return nil
 }
 
+// StopCalibration does nothing.
 func (li *Lidar) StopCalibration(ctx context.Context) error {
 	return nil
 }
 
+// Readings returns the currently predicted heading.
 func (li *Lidar) Readings(ctx context.Context) ([]interface{}, error) {
 	heading, err := li.Heading(ctx)
 	if err != nil {

@@ -13,7 +13,7 @@ import (
 func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	var status pb.BoardStatus
 
-	cfg, err := b.GetConfig(ctx)
+	cfg, err := b.Config(ctx)
 	if err != nil {
 		return nil, err
 	}

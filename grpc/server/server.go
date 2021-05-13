@@ -198,7 +198,7 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 
 }
 
-// BaseSpin stops a base of the underlying robot.
+// BaseStop stops a base of the underlying robot.
 func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
@@ -316,7 +316,7 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	return &resp, nil
 }
 
-// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+// CameraRenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
 	resp, err := s.CameraFrame(ctx, (*pb.CameraFrameRequest)(req))

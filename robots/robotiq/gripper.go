@@ -23,6 +23,7 @@ func init() {
 	})
 }
 
+// Gripper TODO
 type Gripper struct {
 	conn net.Conn
 
@@ -31,6 +32,7 @@ type Gripper struct {
 	logger     golog.Logger
 }
 
+// NewGripper TODO
 func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper, error) {
 	conn, err := net.Dial("tcp", host+":63352")
 	if err != nil {
@@ -57,6 +59,7 @@ func NewGripper(ctx context.Context, host string, logger golog.Logger) (*Gripper
 	return g, nil
 }
 
+// MultiSet TODO
 func (g *Gripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	for _, i := range cmds {
 		err := g.Set(i[0], i[1])
@@ -79,6 +82,7 @@ func (g *Gripper) MultiSet(ctx context.Context, cmds [][]string) error {
 	return nil
 }
 
+// Send TODO
 func (g *Gripper) Send(msg string) (string, error) {
 	_, err := g.conn.Write([]byte(msg))
 	if err != nil {
@@ -93,6 +97,7 @@ func (g *Gripper) Send(msg string) (string, error) {
 	return res, err
 }
 
+// Set TODO
 func (g *Gripper) Set(what string, to string) error {
 	res, err := g.Send(fmt.Sprintf("SET %s %s\r\n", what, to))
 	if err != nil {
@@ -104,6 +109,7 @@ func (g *Gripper) Set(what string, to string) error {
 	return nil
 }
 
+// Get TODO
 func (g *Gripper) Get(what string) (string, error) {
 	return g.Send(fmt.Sprintf("GET %s\r\n", what))
 }
@@ -123,7 +129,7 @@ func (g *Gripper) read() (string, error) {
 	return strings.TrimSpace(string(buf[0:x])), nil
 }
 
-// return true iff reached desired position
+// SetPos returns true iff reached desired position.
 func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {
 	err := g.Set("POS", pos)
 	if err != nil {
@@ -159,17 +165,19 @@ func (g *Gripper) SetPos(ctx context.Context, pos string) (bool, error) {
 
 }
 
+// Open TODO
 func (g *Gripper) Open(ctx context.Context) error {
 	_, err := g.SetPos(ctx, g.openLimit)
 	return err
 }
 
+// Close TODO
 func (g *Gripper) Close() error {
 	_, err := g.SetPos(context.Background(), g.closeLimit)
 	return err
 }
 
-// return true iff grabbed something
+// Grab returns true iff grabbed something
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	res, err := g.SetPos(ctx, g.closeLimit)
 	if err != nil {
@@ -189,6 +197,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return val == "OBJ 2", nil
 }
 
+// Calibrate TODO
 func (g *Gripper) Calibrate(ctx context.Context) error {
 	err := g.Open(ctx)
 	if err != nil {

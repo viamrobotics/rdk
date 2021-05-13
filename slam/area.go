@@ -104,6 +104,7 @@ type MutableArea interface {
 	Unset(x, y float64)
 }
 
+// Mutate prepares this area for mutation by one caller at a time.
 func (sa *SquareArea) Mutate(mutator func(room MutableArea)) {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/multierr"
 )
 
+// NewFromFile returns a pointcloud read in from the given file.
 func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	switch filepath.Ext(fn) {
 	case ".las":

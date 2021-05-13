@@ -31,10 +31,10 @@ func init() {
 	})
 }
 
-/*
-   open is 5
-   close is 6
-*/
+// Gripper TODO
+//
+// open is 5
+// close is 6
 type Gripper struct {
 	theBoard  board.Board
 	gpioBoard board.GPIOBoard
@@ -46,6 +46,7 @@ type Gripper struct {
 	logger golog.Logger
 }
 
+// NewGripper TODO
 func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config config.Component, logger golog.Logger) (*Gripper, error) {
 	theGripper := &Gripper{
 		theBoard:  b,
@@ -68,6 +69,7 @@ func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config co
 	return theGripper, nil
 }
 
+// Stop TODO
 func (g *Gripper) Stop() error {
 	return multierr.Combine(
 		g.gpioBoard.GPIOSet(g.pinOpen, false),
@@ -76,6 +78,7 @@ func (g *Gripper) Stop() error {
 	)
 }
 
+// Open TODO
 func (g *Gripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
 		g.gpioBoard.GPIOSet(g.pinOpen, true),
@@ -107,6 +110,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 	return g.Stop()
 }
 
+// Grab TODO
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
 		g.gpioBoard.GPIOSet(g.pinClose, true),

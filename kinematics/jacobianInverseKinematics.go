@@ -9,6 +9,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+// JacobianIK TODO
 type JacobianIK struct {
 	Mdl           *Model
 	epsilon       float64
@@ -20,6 +21,7 @@ type JacobianIK struct {
 	haltedCh      chan struct{}
 }
 
+// CreateJacobianIKSolver TODO
 func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	var ik JacobianIK
 	ik.resetHalting()
@@ -30,6 +32,7 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 	return &ik
 }
 
+// AddGoal TODO
 func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
@@ -37,38 +40,46 @@ func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	ik.resetHalting()
 }
 
+// SetID TODO
 func (ik *JacobianIK) SetID(id int) {
 	ik.ID = id
 }
 
+// GetID TODO
 func (ik *JacobianIK) GetID() int {
 	return ik.ID
 }
 
+// GetMdl TODO
 func (ik *JacobianIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
+// ClearGoals TODO
 func (ik *JacobianIK) ClearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
+// GetGoals TODO
 func (ik *JacobianIK) GetGoals() []Goal {
 	return ik.Goals
 }
 
+// resetHalting TODO
 func (ik *JacobianIK) resetHalting() {
 	ik.requestHaltCh = make(chan struct{})
 	ik.haltedCh = make(chan struct{})
 }
 
+// Halt TODO
 func (ik *JacobianIK) Halt() {
 	close(ik.requestHaltCh)
 	<-ik.haltedCh
 	ik.resetHalting()
 }
 
+// Solve TODO
 func (ik *JacobianIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:
@@ -155,6 +166,7 @@ func (ik *JacobianIK) Solve() bool {
 	return false
 }
 
+// PrintMat TODO
 func PrintMat(m *mgl64.MatMxN, name string, logger golog.Logger) {
 	j2 := mat.NewDense(m.NumRows(), m.NumCols(), m.Transpose(nil).Raw())
 	fc := mat.Formatted(j2, mat.Prefix("      "), mat.Squeeze())

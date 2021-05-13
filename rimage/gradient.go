@@ -25,10 +25,12 @@ type VectorField2D struct {
 	data []Vec2D
 }
 
+// Magnitude TODO
 func (g Vec2D) Magnitude() float64 {
 	return g.magnitude
 }
 
+// Direction TODO
 func (g Vec2D) Direction() float64 {
 	return g.direction
 }
@@ -37,26 +39,32 @@ func (vf *VectorField2D) kxy(x, y int) int {
 	return (y * vf.width) + x
 }
 
+// Width TODO
 func (vf *VectorField2D) Width() int {
 	return vf.width
 }
 
+// Height TODO
 func (vf *VectorField2D) Height() int {
 	return vf.height
 }
 
+// Get TODO
 func (vf *VectorField2D) Get(p image.Point) Vec2D {
 	return vf.data[vf.kxy(p.X, p.Y)]
 }
 
+// GetVec2D TODO
 func (vf *VectorField2D) GetVec2D(x, y int) Vec2D {
 	return vf.data[vf.kxy(x, y)]
 }
 
+// Set TODO
 func (vf *VectorField2D) Set(x, y int, val Vec2D) {
 	vf.data[vf.kxy(x, y)] = val
 }
 
+// MakeEmptyVectorField2D TODO
 func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	vf := VectorField2D{
 		width:  width,
@@ -67,7 +75,7 @@ func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	return vf
 }
 
-// Get all the magnitudes of the gradient in the image as a mat.Dense
+// MagnitudeField gets all the magnitudes of the gradient in the image as a mat.Dense.
 func (vf *VectorField2D) MagnitudeField() *mat.Dense {
 	h, w := vf.Height(), vf.Width()
 	mag := make([]float64, 0, h*w)
@@ -79,7 +87,7 @@ func (vf *VectorField2D) MagnitudeField() *mat.Dense {
 	return mat.NewDense(h, w, mag)
 }
 
-// Get all the directions of the gradient in the image as a mat.Dense
+// DirectionField gets all the directions of the gradient in the image as a mat.Dense.
 func (vf *VectorField2D) DirectionField() *mat.Dense {
 	h, w := vf.Height(), vf.Width()
 	dir := make([]float64, 0, h*w)
@@ -91,8 +99,8 @@ func (vf *VectorField2D) DirectionField() *mat.Dense {
 	return mat.NewDense(h, w, dir)
 }
 
-// With a mat.Dense of both the magnitude and direction of the gradients of an image,
-// return a pointer to a VectorField2D
+// VectorField2DFromDense returns a vector from a mat.Dense of both the magnitude and direction
+// of the gradients of an image.
 func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, error) {
 	magH, magW := magnitude.Dims()
 	dirH, dirW := direction.Dims()
@@ -159,7 +167,7 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 
 }
 
-// Input a vector in cartesian coordinates and return the vector in polar coordinates.
+// Input a vector in Cartesian coordinates and return the vector in polar coordinates.
 func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	mag := math.Sqrt(x*x + y*y)
 	// transform angle so that it is between [0, 2pi) rather than [-pi, pi]

@@ -65,6 +65,7 @@ func init() {
 
 var alignCurrentlyWriting = false
 
+// DepthComposed TODO
 type DepthComposed struct {
 	color, depth gostream.ImageSource
 	camera       rimage.CameraSystem
@@ -73,6 +74,7 @@ type DepthComposed struct {
 	logger       golog.Logger
 }
 
+// NewDepthComposed TODO
 func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
 	var camera rimage.CameraSystem
 	var err error
@@ -91,11 +93,13 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeM
 	return &DepthComposed{color, depth, camera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
+// Close does nothing.
 func (dc *DepthComposed) Close() error {
 	// TODO(erh): who owns these?
 	return nil
 }
 
+// Next TODO
 func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := dc.color.Next(ctx)
 	if err != nil {

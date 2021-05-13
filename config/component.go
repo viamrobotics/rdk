@@ -13,6 +13,7 @@ import (
 // A ComponentType defines a type of component.
 type ComponentType string
 
+// The set of known component types.
 const (
 	ComponentTypeBase     = ComponentType("base")
 	ComponentTypeArm      = ComponentType("arm")

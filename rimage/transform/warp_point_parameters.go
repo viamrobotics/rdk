@@ -13,11 +13,13 @@ import (
 	"github.com/edaniels/golog"
 )
 
+// DepthColorWarpTransforms TODO
 type DepthColorWarpTransforms struct {
 	ColorTransform, DepthTransform rimage.TransformationMatrix
 	*AlignConfig                   // anonymous fields
 }
 
+// ImageWithDepthToPointCloud TODO
 func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
@@ -53,6 +55,7 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 	return pc, nil
 }
 
+// AlignImageWithDepth TODO
 func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
 		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dct), nil
@@ -81,7 +84,7 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 	return rimage.MakeImageWithDepth(c2, dm2, true, dct), nil
 }
 
-// Function that takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
+// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the perspective of the color camera frame.
 func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
 	if !cloud.HasColor() {
@@ -111,6 +114,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(cloud pointcloud
 
 }
 
+// NewDepthColorWarpTransforms TODO
 func NewDepthColorWarpTransforms(config *AlignConfig, logger golog.Logger) (*DepthColorWarpTransforms, error) {
 	var err error
 	dst := rimage.ArrayToPoints([]image.Point{{0, 0}, {config.OutputSize.X, config.OutputSize.Y}})

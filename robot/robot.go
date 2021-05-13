@@ -85,9 +85,9 @@ type Robot interface {
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() rexec.ProcessManager
 
-	// GetConfig returns the config used to construct the robot.
+	// Config returns the config used to construct the robot.
 	// This is allowed to be partial or empty.
-	GetConfig(ctx context.Context) (*config.Config, error)
+	Config(ctx context.Context) (*config.Config, error)
 
 	// Status returns the current status of the robot. Usually you
 	// should use the CreateStatus helper instead of directly calling

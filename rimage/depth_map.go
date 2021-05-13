@@ -17,12 +17,13 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// Depth TODO
 type Depth uint16
 
-const (
-	MaxDepth = Depth(math.MaxUint16)
-)
+// MaxDepth TODO
+const MaxDepth = Depth(math.MaxUint16)
 
+// DepthMap TODO
 type DepthMap struct {
 	width  int
 	height int
@@ -34,30 +35,37 @@ func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
 
+// Width TODO
 func (dm *DepthMap) Width() int {
 	return dm.width
 }
 
+// Height TODO
 func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
+// Bounds TODO
 func (dm *DepthMap) Bounds() image.Rectangle {
 	return image.Rect(0, 0, dm.width, dm.height)
 }
 
+// Get TODO
 func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
+// GetDepth TODO
 func (dm *DepthMap) GetDepth(x, y int) Depth {
 	return dm.data[dm.kxy(x, y)]
 }
 
+// Set TODO
 func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
+// Smooth TODO
 func (dm *DepthMap) Smooth() {
 	centerX := dm.width / 2
 	centerY := dm.height / 2
@@ -70,6 +78,7 @@ func (dm *DepthMap) Smooth() {
 	}
 }
 
+// SubImage TODO
 func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
 	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
@@ -133,6 +142,8 @@ func _readNext(r io.Reader) (int64, error) {
 	return 0, fmt.Errorf("got %d bytes, and %w", x, err)
 }
 
+// ParseDepthMap parses a depth map from the given file. It knows
+// how to handle compressed files as well.
 func ParseDepthMap(fn string) (*DepthMap, error) {
 	var f io.Reader
 
@@ -151,6 +162,7 @@ func ParseDepthMap(fn string) (*DepthMap, error) {
 	return ReadDepthMap(bufio.NewReader(f))
 }
 
+// ReadDepthMap returns a depth map from the given reader.
 func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	var err error
 	dm := DepthMap{}
@@ -274,7 +286,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	return &dm, nil
 }
 
-// Extract the depth map from a Z16 image file or a .both.gz image file
+// NewDepthMapFromImageFile extract the depth map from a Z16 image file or a .both.gz image file.
 func NewDepthMapFromImageFile(fn string) (*DepthMap, error) {
 	img, err := readImageFromFile(fn, false) // extracting depth, alignment doesn't matter
 	if err != nil {
@@ -288,6 +300,8 @@ func NewDepthMapFromImageFile(fn string) (*DepthMap, error) {
 	return dm, nil
 }
 
+// ConvertImageToDepthMap takes an image and figures out if it's already an ImageWithDepth
+// or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
 	case *ImageWithDepth:
@@ -299,6 +313,7 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	}
 }
 
+// WriteToFile writes this depth map to the given file.
 func (dm *DepthMap) WriteToFile(fn string) error {
 	f, err := os.Create(fn)
 	if err != nil {
@@ -327,6 +342,7 @@ func (dm *DepthMap) WriteToFile(fn string) error {
 	return f.Sync()
 }
 
+// WriteTo writes this depth map to the given writer.
 func (dm *DepthMap) WriteTo(out io.Writer) error {
 	buf := make([]byte, 8)
 
@@ -355,6 +371,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) error {
 	return nil
 }
 
+// MinMax TODO
 func (dm *DepthMap) MinMax() (Depth, Depth) {
 	min := MaxDepth
 	max := Depth(0)
@@ -377,6 +394,8 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 	return min, max
 }
 
+// ToGray16Picture converts this depth map into a grayscale image of the
+// same dimensions.
 func (dm *DepthMap) ToGray16Picture() image.Image {
 
 	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
@@ -392,6 +411,7 @@ func (dm *DepthMap) ToGray16Picture() image.Image {
 	return grayScale
 }
 
+// ToPrettyPicture TODO.
 func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 	min, max := dm.MinMax()
 
@@ -431,6 +451,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 	return img
 }
 
+// Rotate rotates a copy of this depth map clockwise by the given amount.
 func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	if amount == 180 {
 		return dm.Rotate180()
@@ -448,6 +469,7 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 	panic("vision.DepthMap can only rotate 180 degrees right now")
 }
 
+// Rotate90 rotates a copy of this depth map either by 90 degrees clockwise or counterclockwise.
 func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 
 	newWidth := dm.height
@@ -474,6 +496,7 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 	return dm2
 }
 
+// Rotate180 rotates a copy of this depth map by 180 degrees.
 func (dm *DepthMap) Rotate180() *DepthMap {
 
 	dm2 := &DepthMap{
@@ -494,7 +517,7 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 	return dm2
 }
 
-// returns average distance, average distance to avg
+// AverageDepthAndStats returns average distance, average distance to avg.
 // TODO(erh): should this be std. dev?
 func (dm *DepthMap) AverageDepthAndStats(p image.Point, radius int) (float64, float64) {
 	total := 0.0
@@ -535,6 +558,7 @@ func (dm *DepthMap) AverageDepthAndStats(p image.Point, radius int) (float64, fl
 	return avg, total / float64(len(heights))
 }
 
+// InterestingPixels TODO.
 func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	out := image.NewGray(dm.Bounds())
 
@@ -562,6 +586,7 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	return out
 }
 
+// NewEmptyDepthMap returns an unset depth map with the given dimensions.
 func NewEmptyDepthMap(width, height int) *DepthMap {
 	dm := &DepthMap{
 		width:  width,
@@ -598,6 +623,8 @@ func (w *dmWarpConnector) NumFields() int {
 	return 1
 }
 
+// Warp returns a copy of this depth map warped by the given transformation matrix
+// into a new size.
 func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap {
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)

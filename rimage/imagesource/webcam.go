@@ -78,10 +78,14 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 	}
 }
 
+// An Aligner can align an image with color and depth.
 type Aligner interface {
+	// Align aligns the color and depth parts of an image together into a new
+	// image with depth.
 	Align(ctx context.Context, img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error)
 }
 
+// NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
 func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
 	var err error
 
