@@ -1,5 +1,5 @@
-// Package builtinbase defines implementations of a base.
-package builtinbase
+// Package baseimpl defines implementations of a base.
+package baseimpl
 
 import (
 	"context"
