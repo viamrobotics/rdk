@@ -87,7 +87,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func viewLidar(ctx context.Context, port int, components []config.Component, saveToDisk string, logger golog.Logger) (err error) {
-	r, err := robotimpl.NewRobot(ctx, &config.Config{Components: components}, logger)
+	r, err := robotimpl.New(ctx, &config.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}

@@ -72,9 +72,9 @@ type RobotClientOptions struct {
 	Secure bool
 }
 
-// NewRobotClientWithOptions constructs a new RobotClient that is served at the given address. The given
+// NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation. Additionally, construction time options can be given.
-func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
+func NewClientWithOptions(ctx context.Context, address string, opts RobotClientOptions, logger golog.Logger) (*RobotClient, error) {
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
@@ -96,7 +96,7 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 		}
 	}
 
-	client := pb.NewRobotServiceClient(conn)
+	client := pb.NewServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
 	rc := &RobotClient{
 		address:                 address,
@@ -120,10 +120,10 @@ func NewRobotClientWithOptions(ctx context.Context, address string, opts RobotCl
 	return rc, nil
 }
 
-// NewRobotClient constructs a new RobotClient that is served at the given address. The given
+// NewClient constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
-func NewRobotClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewRobotClientWithOptions(ctx, address, RobotClientOptions{}, logger)
+func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
+	return NewClientWithOptions(ctx, address, RobotClientOptions{}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine

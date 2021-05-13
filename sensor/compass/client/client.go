@@ -35,7 +35,7 @@ func init() {
 // New returns a gRPC based compass at the given address. It properly returns an underlying
 // traditional or relative compass.
 func New(ctx context.Context, address string, logger golog.Logger) (compass.Compass, error) {
-	robotClient, err := grpcclient.NewRobotClient(ctx, address, logger)
+	robotClient, err := grpcclient.NewClient(ctx, address, logger)
 	if err != nil {
 		return nil, err
 	}

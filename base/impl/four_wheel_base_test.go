@@ -16,7 +16,7 @@ import (
 
 func TestFourWheelBase1(t *testing.T) {
 	ctx := context.Background()
-	r, err := robotimpl.NewRobot(ctx,
+	r, err := robotimpl.New(ctx,
 		&config.Config{
 			Boards: []board.Config{
 				{

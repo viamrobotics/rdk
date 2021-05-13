@@ -154,7 +154,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		components = append(components, args.Compass)
 	}
 
-	r, err := robotimpl.NewRobot(ctx, &config.Config{Components: components}, logger)
+	r, err := robotimpl.New(ctx, &config.Config{Components: components}, logger)
 	if err != nil {
 		return err
 	}

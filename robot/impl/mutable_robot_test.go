@@ -29,7 +29,7 @@ func TestConfig1(t *testing.T) {
 	cfg, err := config.Read("data/cfgtest1.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.NewRobot(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(), test.ShouldBeNil)
@@ -50,7 +50,7 @@ func TestConfigFake(t *testing.T) {
 	cfg, err := config.Read("data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.NewRobot(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(), test.ShouldBeNil)
 }
@@ -60,7 +60,7 @@ func TestConfigRemote(t *testing.T) {
 	cfg, err := config.Read("data/fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	r, err := robotimpl.NewRobot(context.Background(), cfg, logger)
+	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -90,7 +90,7 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	r2, err := robotimpl.NewRobot(context.Background(), remoteConfig, logger)
+	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := r2.Status(context.Background())
@@ -172,7 +172,7 @@ func (db *dummyBoard) Close() error {
 	return nil
 }
 
-func TestNewRobotTeardown(t *testing.T) {
+func TestNewTeardown(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	modelName := utils.RandomAlphaString(8)
@@ -203,7 +203,7 @@ func TestNewRobotTeardown(t *testing.T) {
 	cfg, err := config.FromReader("", strings.NewReader(failingConfig))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = robotimpl.NewRobot(context.Background(), cfg, logger)
+	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 	test.That(t, dummyBoard1.closeCount, test.ShouldEqual, 1)

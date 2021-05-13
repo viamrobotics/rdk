@@ -66,7 +66,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 }
 
 func readCompass(ctx context.Context, lidarComponents []config.Component, logger golog.Logger) (err error) {
-	r, err := robotimpl.NewRobot(ctx, &config.Config{Components: lidarComponents}, logger)
+	r, err := robotimpl.New(ctx, &config.Config{Components: lidarComponents}, logger)
 	if err != nil {
 		return err
 	}

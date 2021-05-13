@@ -23,7 +23,7 @@ func TestRobotReconfigure(t *testing.T) {
 	t.Run("no diff", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		robot, err := NewRobot(context.Background(), conf1, logger)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
@@ -69,7 +69,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		robot, err := NewRobot(context.Background(), emptyConf, logger)
+		robot, err := New(context.Background(), emptyConf, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
@@ -116,7 +116,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
-		robot, err := NewRobot(context.Background(), conf1, logger)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
@@ -166,7 +166,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf2 := ConfigFromFile(t, "data/diff_config_2.json")
-		robot, err := NewRobot(context.Background(), conf1, logger)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
@@ -225,7 +225,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf3 := ConfigFromFile(t, "data/diff_config_3.json")
-		robot, err := NewRobot(context.Background(), conf1, logger)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)
@@ -292,7 +292,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
 		conf3 := ConfigFromFile(t, "data/diff_config_3_bad.json")
-		robot, err := NewRobot(context.Background(), conf1, logger)
+		robot, err := New(context.Background(), conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(), test.ShouldBeNil)

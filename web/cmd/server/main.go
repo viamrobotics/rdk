@@ -250,7 +250,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
 	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
-	myRobot, err := robotimpl.NewRobot(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
