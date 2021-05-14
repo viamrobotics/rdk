@@ -117,6 +117,8 @@ type Config struct {
 	Store               StoreConfig  `json:"store"`
 	Tree                TreeNodeTree `json:"tree"`
 	SourcePullSizeLimit int          `json:"source_pull_size_limit"`
+	Ignore              []string     `json:"ignore"`
+	ignoreSet           utils.StringSet
 	configDir           string
 	commitFn            func() error
 }
@@ -148,6 +150,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 		Store               *json.RawMessage `json:"store"`
 		Tree                TreeNodeTree     `json:"tree"`
 		SourcePullSizeLimit *int             `json:"source_pull_size_limit,omitempty"`
+		Ignore              []string         `json:"ignore"`
 	}{}
 	if err := json.Unmarshal(data, rawConfig); err != nil {
 		return err
@@ -159,6 +162,8 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	} else {
 		c.SourcePullSizeLimit = *rawConfig.SourcePullSizeLimit
 	}
+	c.Ignore = rawConfig.Ignore
+	c.ignoreSet = utils.NewStringSet(c.Ignore...)
 
 	if rawConfig.Store != nil {
 		storeConfig, err := unmarshalJSONToStoreConfig([]byte(*rawConfig.Store))
