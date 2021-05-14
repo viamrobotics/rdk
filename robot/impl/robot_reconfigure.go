@@ -2,8 +2,8 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/config"
@@ -70,25 +70,25 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 		if err != nil {
 			draft.original.logger.Infow("rolling back draft changes due to error", "error", err)
 			if rollbackErr := draft.Rollback(); rollbackErr != nil {
-				err = multierr.Combine(err, fmt.Errorf("error rolling back draft changes: %w", rollbackErr))
+				err = multierr.Combine(err, errors.Errorf("error rolling back draft changes: %w", rollbackErr))
 			}
 		}
 	}()
 
 	if err := draft.Process(ctx); err != nil {
-		return fmt.Errorf("error processing draft changes: %w", err)
+		return errors.Errorf("error processing draft changes: %w", err)
 	}
 
 	for name, p := range draft.parts.providers {
 		err := p.Ready(draft.original)
 		if err != nil {
-			return fmt.Errorf("error readying provider %q: %w", name, err)
+			return errors.Errorf("error readying provider %q: %w", name, err)
 		}
 	}
 
 	draft.original.logger.Info("committing draft changes")
 	if err := draft.Commit(); err != nil {
-		return fmt.Errorf("error committing draft changes: %w", err)
+		return errors.Errorf("error committing draft changes: %w", err)
 	}
 	return nil
 }

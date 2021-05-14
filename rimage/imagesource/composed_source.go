@@ -2,9 +2,9 @@ package imagesource
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"image"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -49,7 +49,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 func newOverlay(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
-		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	return &overlaySource{source}, nil
 
@@ -79,7 +79,7 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 func newDepthToPretty(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
-		return nil, fmt.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	return &depthToPretty{source}, nil
 

@@ -2,10 +2,11 @@ package lidar
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/config"

@@ -14,9 +14,11 @@ require (
 	github.com/edaniels/gostream v0.0.0-20210409151622-7dff6175faa1
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
+	github.com/fatih/color v1.10.0
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/fullstorydev/grpcurl v1.8.0
+	github.com/go-errors/errors v1.4.0
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0

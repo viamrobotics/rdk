@@ -2,11 +2,11 @@ package transform
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/utils"
@@ -51,10 +51,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) CheckValid() error {
 		return errors.New("pointer to DepthColorIntrinsicsExtrinsics is nil")
 	}
 	if dcie.ColorCamera.Width == 0 || dcie.ColorCamera.Height == 0 {
-		return fmt.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
+		return errors.Errorf("invalid ColorSize (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	}
 	if dcie.DepthCamera.Width == 0 || dcie.DepthCamera.Height == 0 {
-		return fmt.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
+		return errors.Errorf("invalid DepthSize (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height)
 	}
 	return nil
 }
@@ -86,7 +86,7 @@ func NewDepthColorIntrinsicsExtrinsicsFromBytes(byteJSON []byte) (*DepthColorInt
 	// Parse into map
 	err := json.Unmarshal(byteJSON, intrinsics)
 	if err != nil {
-		err = fmt.Errorf("error parsing byte array - %w", err)
+		err = errors.Errorf("error parsing byte array - %w", err)
 		return nil, err
 	}
 	return intrinsics, nil
@@ -97,14 +97,14 @@ func NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonPath string) (*DepthColor
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
-		err = fmt.Errorf("error opening JSON file - %w", err)
+		err = errors.Errorf("error opening JSON file - %w", err)
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err := ioutil.ReadAll(jsonFile)
 	if err != nil {
-		err = fmt.Errorf("error reading JSON data - %w", err)
+		err = errors.Errorf("error reading JSON data - %w", err)
 		return nil, err
 	}
 	return NewDepthColorIntrinsicsExtrinsicsFromBytes(byteValue)
@@ -116,20 +116,20 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	// open json file
 	jsonFile, err := os.Open(jsonPath)
 	if err != nil {
-		err = fmt.Errorf("error opening JSON file - %w", err)
+		err = errors.Errorf("error opening JSON file - %w", err)
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(jsonFile.Close)
 	// read our opened jsonFile as a byte array.
 	byteValue, err2 := ioutil.ReadAll(jsonFile)
 	if err2 != nil {
-		err2 = fmt.Errorf("error reading JSON data - %w", err2)
+		err2 = errors.Errorf("error reading JSON data - %w", err2)
 		return nil, err2
 	}
 	// Parse into map
 	err = json.Unmarshal(byteValue, intrinsics)
 	if err != nil {
-		err = fmt.Errorf("error parsing JSON string - %w", err)
+		err = errors.Errorf("error parsing JSON string - %w", err)
 		return nil, err
 	}
 	if cameraName == "depth" {

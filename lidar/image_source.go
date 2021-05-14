@@ -2,11 +2,11 @@ package lidar
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"math"
 
 	"github.com/fogleman/gg"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/rimage"
 )
@@ -49,7 +49,7 @@ func (is *ImageSource) Close() error {
 // measurementsToImage converts lidar measurements into an image bounded by the given size.
 func measurementsToImage(measurements Measurements, size image.Point) (image.Image, error) {
 	if size.X != size.Y {
-		return nil, fmt.Errorf("size has to be square, not %v", size)
+		return nil, errors.Errorf("size has to be square, not %v", size)
 	}
 
 	maxDistance := .001

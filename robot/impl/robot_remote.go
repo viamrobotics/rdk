@@ -2,11 +2,12 @@ package robotimpl
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"strings"
 	"sync"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"

@@ -1,11 +1,11 @@
 package transform
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -70,7 +70,7 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 		ii.Color.Height() != dct.ColorInputSize.Y ||
 		ii.Depth.Width() != dct.DepthInputSize.X ||
 		ii.Depth.Height() != dct.DepthInputSize.Y {
-		return nil, fmt.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
+		return nil, errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
 			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dct.AlignConfig)
 	}
 

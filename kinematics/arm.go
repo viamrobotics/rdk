@@ -2,10 +2,10 @@ package kinematics
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics/kinmath"
@@ -95,7 +95,7 @@ func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 	if couldSolve {
 		return nil
 	}
-	return fmt.Errorf("could not solve for position. Target: %v", pos)
+	return errors.Errorf("could not solve for position. Target: %v", pos)
 }
 
 // modelJointsPosition returns the arm's current joint angles in degrees

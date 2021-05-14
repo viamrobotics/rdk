@@ -2,9 +2,10 @@ package testutils
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/zap/zaptest/observer"
 

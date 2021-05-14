@@ -2,10 +2,11 @@ package imagesource
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/config"
@@ -28,13 +29,13 @@ func init() {
 		colorName := attrs.String("color")
 		color := r.CameraByName(colorName)
 		if color == nil {
-			return nil, fmt.Errorf("cannot find color camera (%s)", colorName)
+			return nil, errors.Errorf("cannot find color camera (%s)", colorName)
 		}
 
 		depthName := attrs.String("depth")
 		depth := r.CameraByName(depthName)
 		if depth == nil {
-			return nil, fmt.Errorf("cannot find depth camera (%s)", depthName)
+			return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 		}
 
 		return NewDepthComposed(color, depth, config.Attributes, logger)

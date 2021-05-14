@@ -3,10 +3,10 @@ package baseimpl
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -172,7 +172,7 @@ func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
 	board := r.BoardByName(config.Attributes.String("board"))
 	if board == nil {
-		return nil, fmt.Errorf("need a board for four-wheel, named (%v)", config.Attributes["board"])
+		return nil, errors.Errorf("need a board for four-wheel, named (%v)", config.Attributes["board"])
 	}
 
 	base := &fourWheelBase{

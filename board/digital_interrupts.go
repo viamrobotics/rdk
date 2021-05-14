@@ -1,10 +1,10 @@
 package board
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"github.com/erh/scheme"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 )
@@ -57,13 +57,13 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	case "servo":
 		i = &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
 	default:
-		panic(fmt.Errorf("unknown interrupt type (%s)", cfg.Type))
+		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
 
 	if cfg.Formula != "" {
 		x, err := scheme.Parse(cfg.Formula)
 		if err != nil {
-			return nil, fmt.Errorf("couldn't parse formula for %s %w", cfg.Name, err)
+			return nil, errors.Errorf("couldn't parse formula for %s %w", cfg.Name, err)
 		}
 
 		testScope := scheme.Scope{}
@@ -71,7 +71,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 		testScope["raw"] = &scheme.Value{Float: &num}
 		_, err = scheme.Eval(x, testScope)
 		if err != nil {
-			return nil, fmt.Errorf("test exec failed for %s %w", cfg.Name, err)
+			return nil, errors.Errorf("test exec failed for %s %w", cfg.Name, err)
 		}
 
 		i.AddPostProcessor(func(raw int64) int64 {

@@ -19,6 +19,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/core/artifact"
@@ -96,7 +97,7 @@ func (pCtx *ProcessorContext) CurrentImgConfig(out interface{}) error {
 
 	file, err := os.Open(fn)
 	if err != nil {
-		return fmt.Errorf("error opening %s: %w", fn, err)
+		return errors.Errorf("error opening %s: %w", fn, err)
 	}
 	defer utils.UncheckedErrorFunc(file.Close)
 

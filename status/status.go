@@ -3,7 +3,8 @@ package status
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/go-errors/errors"
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
@@ -20,7 +21,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	for _, name := range r.RemoteNames() {
 		remote := r.RemoteByName(name)
 		if err := remote.Refresh(ctx); err != nil {
-			return nil, fmt.Errorf("error refreshing remote %q: %w", name, err)
+			return nil, errors.Errorf("error refreshing remote %q: %w", name, err)
 		}
 	}
 

@@ -3,13 +3,13 @@ package client
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"image"
 	"math"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
@@ -260,7 +260,7 @@ func (rc *RobotClient) SensorByName(name string) sensor.Sensor {
 func (rc *RobotClient) Refresh(ctx context.Context) error {
 	status, err := rc.status(ctx)
 	if err != nil {
-		return fmt.Errorf("status call failed: %w", err)
+		return errors.Errorf("status call failed: %w", err)
 	}
 
 	rc.storeStatus(status)
@@ -585,7 +585,7 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	if status := bc.rc.getCachedStatus(); status != nil {
 		boardStatus, ok := status.Boards[bc.name]
 		if !ok {
-			return nil, fmt.Errorf("no board with name (%s)", bc.name)
+			return nil, errors.Errorf("no board with name (%s)", bc.name)
 		}
 		return boardStatus, nil
 	}
@@ -704,7 +704,7 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
 		return img, func() {}, err
 	default:
-		return nil, nil, fmt.Errorf("do not how to decode MimeType %s", resp.MimeType)
+		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}
 
 }

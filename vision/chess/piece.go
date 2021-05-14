@@ -1,7 +1,7 @@
 package chess
 
 import (
-	"fmt"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/ml"
 	"go.viam.com/core/rimage"
@@ -34,7 +34,7 @@ func pieceFromColor(theClassifier ml.Classifier, edges int, data rimage.Color) s
 	case SquareEmpty:
 		return "empty"
 	default:
-		panic(fmt.Errorf("unknown what # %d", res))
+		panic(errors.Errorf("unknown what # %d", res))
 	}
 }
 

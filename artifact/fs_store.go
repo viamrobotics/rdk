@@ -1,12 +1,12 @@
 package artifact
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 )
 
@@ -17,7 +17,7 @@ func newFileSystemStore(config *fileSystemStoreConfig) (*fileSystemStore, error)
 		return nil, err
 	}
 	if !dirStat.IsDir() {
-		return nil, fmt.Errorf("expected path to be directory %q", config.Path)
+		return nil, errors.Errorf("expected path to be directory %q", config.Path)
 	}
 	return &fileSystemStore{dir: config.Path}, nil
 }
@@ -101,7 +101,7 @@ func (s *fileSystemStore) Emplace(hash, path string) (err error) {
 	}
 
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("error removing old artifact at %q", path)
+		return errors.Errorf("error removing old artifact at %q", path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/fogleman/gg"
+	"github.com/go-errors/errors"
 	"github.com/gonum/stat"
 )
 
@@ -48,7 +49,7 @@ func FindAndWarpBoard(img *rimage.ImageWithDepth, logger golog.Logger) (*Board, 
 	}
 
 	if len(corners) != 4 {
-		return nil, fmt.Errorf("couldnt find 4 corners, only got %d", len(corners))
+		return nil, errors.Errorf("couldnt find 4 corners, only got %d", len(corners))
 	}
 
 	a, err := warpColorAndDepthToChess(img, corners)

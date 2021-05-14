@@ -4,13 +4,14 @@ package universalrobots
 import (
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/multierr"
 
@@ -110,7 +111,7 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm
 	case <-ctx.Done():
 		return nil, multierr.Combine(ctx.Err(), arm.Close())
 	case <-timer.C:
-		return nil, multierr.Combine(fmt.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
+		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
 		return arm, nil
 	}
@@ -223,7 +224,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		}
 
 		if slept > 10000 {
-			return fmt.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
+			return errors.Errorf("can't reach joint position.\n want: %f %f %f %f %f %f\n   at: %f %f %f %f %f %f",
 				radians[0], radians[1], radians[2], radians[3], radians[4], radians[5],
 				state.Joints[0].Qactual,
 				state.Joints[1].Qactual,
@@ -288,7 +289,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 		}
 
 		if slept > 10000 {
-			return fmt.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
+			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
 				pos, cur,
 				arm.PositionGridDiff(pos, cur), arm.PositionRotationDiff(pos, cur))
 		}
@@ -321,7 +322,7 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 
 		msgSize := binary.BigEndian.Uint32(sizeBuf)
 		if msgSize <= 4 || msgSize > 10000 {
-			return fmt.Errorf("invalid msg size: %d", msgSize)
+			return errors.Errorf("invalid msg size: %d", msgSize)
 		}
 
 		buf, err := utils.ReadBytes(ctx, conn, int(msgSize-4))

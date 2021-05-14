@@ -3,9 +3,10 @@ package universalrobots
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -282,7 +283,7 @@ func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
 		scriptLineNumber := binary.BigEndian.Uint32(buf)
 		scriptColumnNumber := binary.BigEndian.Uint32(buf[4:])
 		msg := string(buf[9:])
-		runtimeErr := fmt.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
+		runtimeErr := errors.Errorf("runtime error at line: %d col: %d msg: %s", scriptLineNumber, scriptColumnNumber, msg)
 		return runtimeErr, nil
 	default:
 		logger.Debugf("unknown robotMessageType: %d ts: %v %v\n", robotMessageType, ts, buf)

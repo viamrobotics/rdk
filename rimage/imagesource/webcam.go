@@ -2,9 +2,10 @@ package imagesource
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"regexp"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"

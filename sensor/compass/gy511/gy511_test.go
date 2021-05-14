@@ -2,11 +2,11 @@ package gy511
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"math"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/serial"
 	"go.viam.com/core/testutils/inject"
@@ -22,7 +22,7 @@ func TestDevice(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "directory")
 
 	defaultOpenFunc := func(devicePath string) (io.ReadWriteCloser, error) {
-		return nil, fmt.Errorf("cannot open %s", devicePath)
+		return nil, errors.Errorf("cannot open %s", devicePath)
 	}
 	prevOpenFunc := serial.Open
 	openDeviceFunc := defaultOpenFunc

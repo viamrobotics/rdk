@@ -3,8 +3,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 

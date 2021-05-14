@@ -2,12 +2,13 @@ package utils
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/go-errors/errors"
 )
 
 // ParseFlags parses arguments derived from and into the given into struct.
@@ -29,7 +30,7 @@ func ParseFlags(args []string, into interface{}) error {
 	if err := UnmarshalFlags(cmdLine, into); err != nil {
 		if errors.Is(err, errRequiredFlagUnspecified) {
 			cmdLine.Usage()
-			return fmt.Errorf("%w\n%s", err, buf.String())
+			return errors.Errorf("%w\n%s", err, buf.String())
 		}
 		return err
 	}
@@ -51,7 +52,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 		v = v.Elem()
 	}
 	if v.Type().Kind() != reflect.Struct || !v.CanAddr() {
-		return fmt.Errorf("expected %T to be an addressable struct", into)
+		return errors.Errorf("expected %T to be an addressable struct", into)
 	}
 	var extraField reflect.Value
 	var extraFieldName string
@@ -68,7 +69,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 		}
 		if info.Extra {
 			if extraField.IsValid() {
-				return fmt.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
+				return errors.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
 			}
 			extraField = v.Field(i)
 			extraFieldName = field.Name
@@ -97,17 +98,17 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 					case reflect.Int:
 						conv, err := strconv.ParseInt(strVal, 10, 64)
 						if err != nil {
-							return fmt.Errorf("error parsing positional argument %d: %w", info.Position, err)
+							return errors.Errorf("error parsing positional argument %d: %w", info.Position, err)
 						}
 						val = int(conv)
 					case reflect.Bool:
 						conv, err := strconv.ParseBool(strVal)
 						if err != nil {
-							return fmt.Errorf("error parsing positional argument %d: %w", info.Position, err)
+							return errors.Errorf("error parsing positional argument %d: %w", info.Position, err)
 						}
 						val = conv
 					default:
-						return fmt.Errorf("error parsing positional argument %d for %s: do not know how to unmarshal a %q",
+						return errors.Errorf("error parsing positional argument %d for %s: do not know how to unmarshal a %q",
 							info.Position,
 							info.Name,
 							field.Type.Kind())
@@ -118,7 +119,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			flagVal := flagSet.Lookup(info.Name)
 			if flagVal == nil {
 				if info.Required {
-					return fmt.Errorf("error parsing flag %q: %w", info.Name, errRequiredFlagUnspecified)
+					return errors.Errorf("error parsing flag %q: %w", info.Name, errRequiredFlagUnspecified)
 				}
 				if info.IsFlagVal {
 					val = info.Default
@@ -144,7 +145,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			}
 		}
 		if info.Required && (val == nil || reflect.ValueOf(val).IsZero()) {
-			return fmt.Errorf("error parsing flag %q: %w", info.Name, errRequiredFlagUnspecified)
+			return errors.Errorf("error parsing flag %q: %w", info.Name, errRequiredFlagUnspecified)
 		}
 
 		valV := reflect.ValueOf(val)
@@ -160,7 +161,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 				fieldV = fieldV.Addr()
 			}
 			if err := fieldV.Interface().(flag.Value).Set(val.(string)); err != nil { // will always be string
-				return fmt.Errorf("error parsing flag %q: %w", info.Name, err)
+				return errors.Errorf("error parsing flag %q: %w", info.Name, err)
 			}
 			continue
 		}
@@ -193,7 +194,7 @@ func UnmarshalFlags(flagSet *flag.FlagSet, into interface{}) error {
 			remArgs = append(remArgs, flagSet.Arg(idx))
 		}
 		if !extraField.IsValid() {
-			return fmt.Errorf("unspecified arguments provided: %v", remArgs)
+			return errors.Errorf("unspecified arguments provided: %v", remArgs)
 		}
 		extraField.Set(reflect.ValueOf(remArgs))
 	}
@@ -240,14 +241,14 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 		case "default":
 			info.DefaultSet = true
 			if len(parted) != 2 {
-				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: default must have value", fieldName)
+				return flagInfo{}, errors.Errorf("error parsing flag info for %q: default must have value", fieldName)
 			}
 			info.Default = parted[1]
 			switch field.Type.Kind() {
 			case reflect.Bool:
 				conv, err := strconv.ParseBool(info.Default)
 				if err != nil {
-					return flagInfo{}, fmt.Errorf("error parsing flag info default for %q: %w", fieldName, err)
+					return flagInfo{}, errors.Errorf("error parsing flag info default for %q: %w", fieldName, err)
 				}
 				info.DefaultIfc = conv
 			case reflect.String:
@@ -255,20 +256,20 @@ func parseFlagInfo(field reflect.StructField, val string) (flagInfo, error) {
 			case reflect.Int:
 				conv, err := strconv.ParseInt(info.Default, 10, 64)
 				if err != nil {
-					return flagInfo{}, fmt.Errorf("error parsing flag info default for %q: %w", fieldName, err)
+					return flagInfo{}, errors.Errorf("error parsing flag info default for %q: %w", fieldName, err)
 				}
 				info.DefaultIfc = int(conv)
 			default:
-				return flagInfo{}, fmt.Errorf("error parsing flag  infofor %q: unsupported default for flag kind %q", info.Name, field.Type.Kind())
+				return flagInfo{}, errors.Errorf("error parsing flag  infofor %q: unsupported default for flag kind %q", info.Name, field.Type.Kind())
 			}
 		case "usage":
 			if len(parted) != 2 {
-				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: usage must have usage string", fieldName)
+				return flagInfo{}, errors.Errorf("error parsing flag info for %q: usage must have usage string", fieldName)
 			}
 			info.Usage = parted[1]
 		case "extra":
 			if field.Type != reflect.TypeOf([]string(nil)) {
-				return flagInfo{}, fmt.Errorf("error parsing flag info for %q: extra field must be []string", fieldName)
+				return flagInfo{}, errors.Errorf("error parsing flag info for %q: extra field must be []string", fieldName)
 			}
 			info.Extra = true
 		}
@@ -312,7 +313,7 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct || !v.CanAddr() {
-		return fmt.Errorf("expected %T to be an addressable struct", from)
+		return errors.Errorf("expected %T to be an addressable struct", from)
 	}
 	var extraField reflect.Value
 	var extraFieldName string
@@ -331,7 +332,7 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 		}
 		if info.Extra {
 			if extraField.IsValid() {
-				return fmt.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
+				return errors.Errorf("found more than one extra field %q; first was %q", field.Name, extraFieldName)
 			}
 			extraField = v.Field(i)
 			extraFieldName = field.Name
@@ -374,21 +375,21 @@ func extractFlags(flagSet *flag.FlagSet, from interface{}) error {
 				ctor = func(val string) (interface{}, error) {
 					newSliceElem := reflect.New(sliceElem)
 					if err := newSliceElem.Interface().(flag.Value).(flag.Value).Set(val); err != nil {
-						return nil, fmt.Errorf("error setting flag for %q: %w", info.Name, err)
+						return nil, errors.Errorf("error setting flag for %q: %w", info.Name, err)
 					}
 					return newSliceElem.Elem().Interface(), nil
 				}
 			} else {
 				switch sliceElem.Kind() {
 				default:
-					return fmt.Errorf("error extracting flag for %q: unsupported slice element type %q", info.Name, sliceElem)
+					return errors.Errorf("error extracting flag for %q: unsupported slice element type %q", info.Name, sliceElem)
 				}
 			}
 			flagSet.Var(&sliceFlag{
 				ctor: ctor,
 			}, info.Name, info.Usage)
 		default:
-			return fmt.Errorf("error extracting flag for %q: unsupported flag kind %q", info.Name, fieldT.Kind())
+			return errors.Errorf("error extracting flag for %q: unsupported flag kind %q", info.Name, fieldT.Kind())
 		}
 	}
 	return nil

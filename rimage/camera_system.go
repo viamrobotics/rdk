@@ -1,8 +1,9 @@
 package rimage
 
 import (
-	"errors"
 	"image/color"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/pointcloud"
 )

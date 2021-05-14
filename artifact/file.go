@@ -9,9 +9,7 @@
 // offer deduplication.
 package artifact
 
-import (
-	"fmt"
-)
+import "github.com/go-errors/errors"
 
 // Path returns the local file system path to the given artifact path. It
 // errors if it does not exist or cannot be ensured to exist.
@@ -22,7 +20,7 @@ func Path(to string) (string, error) {
 	}
 	actualPath, err := cache.Ensure(to)
 	if err != nil {
-		return "", fmt.Errorf("error ensuring %q: %w", to, err)
+		return "", errors.Errorf("error ensuring %q: %w", to, err)
 	}
 	return actualPath, nil
 }

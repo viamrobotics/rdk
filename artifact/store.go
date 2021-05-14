@@ -1,9 +1,10 @@
 package artifact
 
 import (
-	"errors"
 	"fmt"
 	"io"
+
+	"github.com/go-errors/errors"
 )
 
 // A Store is responsible for loading and storing artifacts by their
@@ -32,7 +33,7 @@ func NewStore(config StoreConfig) (Store, error) {
 	case *googleStorageStoreConfig:
 		return newGoogleStorageStore(v)
 	default:
-		return nil, fmt.Errorf("unknown store type %q", config.Type())
+		return nil, errors.Errorf("unknown store type %q", config.Type())
 	}
 }
 

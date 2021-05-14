@@ -3,10 +3,10 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"image"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
@@ -171,10 +171,10 @@ func viewLidar(ctx context.Context, port int, components []config.Component, sav
 		return nil
 	}
 	if err := lar.Stop(); err != nil {
-		return fmt.Errorf("error stopping location aware robot: %w", err)
+		return errors.Errorf("error stopping location aware robot: %w", err)
 	}
 	if err := area.WriteToFile(saveToDisk); err != nil {
-		return fmt.Errorf("error saving to disk: %w", err)
+		return errors.Errorf("error saving to disk: %w", err)
 	}
 	return nil
 }

@@ -4,10 +4,10 @@
 package transform
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/rimage"
 
@@ -70,24 +70,24 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 func (config AlignConfig) CheckValid() error {
 	if config.ColorInputSize.X == 0 ||
 		config.ColorInputSize.Y == 0 {
-		return fmt.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
+		return errors.Errorf("invalid ColorInputSize %#v", config.ColorInputSize)
 	}
 
 	if config.DepthInputSize.X == 0 ||
 		config.DepthInputSize.Y == 0 {
-		return fmt.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
+		return errors.Errorf("invalid DepthInputSize %#v", config.DepthInputSize)
 	}
 
 	if config.OutputSize.X == 0 || config.OutputSize.Y == 0 {
-		return fmt.Errorf("invalid OutputSize %v", config.OutputSize)
+		return errors.Errorf("invalid OutputSize %v", config.OutputSize)
 	}
 
 	if len(config.ColorWarpPoints) != 2 && len(config.ColorWarpPoints) != 4 {
-		return fmt.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
+		return errors.Errorf("invalid ColorWarpPoints, has to be 2 or 4 is %d", len(config.ColorWarpPoints))
 	}
 
 	if len(config.DepthWarpPoints) != 2 && len(config.DepthWarpPoints) != 4 {
-		return fmt.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
+		return errors.Errorf("invalid DepthWarpPoints, has to be 2 or 4 is %d", len(config.DepthWarpPoints))
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 		distA, distB = float64(img1Pt2Dist), float64(img1Pt1Dist)
 		dist1, dist2 = float64(img2Pt2Dist), float64(img2Pt1Dist)
 	default:
-		return -1, -1, fmt.Errorf("both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than) their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)", img1Pt1Dist, img2Pt1Dist, img1Pt2Dist, img2Pt2Dist)
+		return -1, -1, errors.Errorf("both img1Pt1Dist (%v) and img2Pt1Dist (%v) must be greater than (or both less than) their respective img1Pt2Dist (%v) and img2Pt2Dist (%v)", img1Pt1Dist, img2Pt1Dist, img1Pt2Dist, img2Pt2Dist)
 	}
 	// returns whether to trim the first or second image, and by how much.
 	var trimFirst int // 0 means trim 2nd image, 1 means trim first image
@@ -258,6 +258,6 @@ func trim(img1Pt1Dist, img1Pt2Dist, img2Pt1Dist, img2Pt2Dist int) (int, int, err
 		return int(math.Round(trimAmount)), trimFirst, nil
 	}
 
-	return -1, -1, fmt.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
+	return -1, -1, errors.Errorf("ratios were not comparable ratioA: %v, ratio1: %v", ratioA, ratio1)
 
 }

@@ -3,11 +3,11 @@ package artifact
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 )
@@ -61,7 +61,7 @@ func searchConfig() (string, error) {
 		return "", err
 	}
 	if location == "" {
-		return "", fmt.Errorf("%q not found on system", DefaultConfigName)
+		return "", errors.Errorf("%q not found on system", DefaultConfigName)
 	}
 	return location, nil
 }
@@ -177,7 +177,7 @@ func unmarshalJSONToStoreConfig(data []byte) (StoreConfig, error) {
 		}
 		return &config, nil
 	default:
-		return nil, fmt.Errorf("unknown store type %q", partialConfig.Type)
+		return nil, errors.Errorf("unknown store type %q", partialConfig.Type)
 	}
 }
 
@@ -222,10 +222,10 @@ func (tn *TreeNode) UnmarshalJSON(data []byte) error {
 			}
 			tn.internal = tree
 		} else {
-			return fmt.Errorf("invalid json delimiter %q", v)
+			return errors.Errorf("invalid json delimiter %q", v)
 		}
 	default:
-		return fmt.Errorf("invalid tree node type '%T'", tok)
+		return errors.Errorf("invalid tree node type '%T'", tok)
 	}
 	return nil
 }

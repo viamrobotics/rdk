@@ -1,7 +1,6 @@
 package slam
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.viam.com/test"
 )
 
@@ -39,7 +39,7 @@ func TestAcesCLF(t *testing.T) {
 		}
 		laserMessage := message.(*utils.CLFOldLaserMessage)
 		if len(laserMessage.RangeReadings) != 180 {
-			return fmt.Errorf("len(rangeReadings) != 180 : %d", len(laserMessage.RangeReadings))
+			return errors.Errorf("len(rangeReadings) != 180 : %d", len(laserMessage.RangeReadings))
 		}
 
 		theta := utils.RadToDeg(laserMessage.Theta)

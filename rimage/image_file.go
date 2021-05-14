@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -9,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-errors/errors"
 	"github.com/lmittmann/ppm"
 	"go.uber.org/multierr"
 
@@ -62,7 +62,7 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	case ".ppm":
 		return ppm.Encode(f, img)
 	default:
-		return fmt.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
+		return errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
 	}
 
 }

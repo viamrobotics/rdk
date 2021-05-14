@@ -2,10 +2,11 @@ package utils
 
 import (
 	"context"
-	"errors"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"

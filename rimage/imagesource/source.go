@@ -9,11 +9,12 @@ import (
 	"bytes"
 	"context"
 	_ "embed" // for embedding camera parameters
-	"errors"
 	"fmt"
 	"image"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
@@ -133,7 +134,7 @@ func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
 func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 	colorData, err := readyBytesFromURL(hs.client, hs.ColorURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't ready color url: %w", err)
+		return nil, nil, errors.Errorf("couldn't ready color url: %w", err)
 	}
 
 	img, _, err := image.Decode(bytes.NewBuffer(colorData))
@@ -147,7 +148,7 @@ func (hs *HTTPSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 	depthData, err := readyBytesFromURL(hs.client, hs.DepthURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't ready depth url: %w", err)
+		return nil, nil, errors.Errorf("couldn't ready depth url: %w", err)
 	}
 
 	// do this first and make sure ok before creating any mats
@@ -211,7 +212,7 @@ func (s *IntelServerSource) Close() error {
 func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), error) {
 	allData, err := readyBytesFromURL(s.client, s.BothURL)
 	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't read url (%s): %w", s.BothURL, err)
+		return nil, nil, errors.Errorf("couldn't read url (%s): %w", s.BothURL, err)
 	}
 
 	img, err := rimage.ReadBothFromBytes(allData, s.IsAligned())

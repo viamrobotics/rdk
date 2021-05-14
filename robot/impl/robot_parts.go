@@ -2,8 +2,9 @@ package robotimpl
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/multierr"
 
@@ -303,54 +304,54 @@ func (parts *robotParts) Clone() *robotParts {
 func (parts *robotParts) Close() error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
-		allErrs = multierr.Combine(allErrs, fmt.Errorf("error stopping process manager: %w", err))
+		allErrs = multierr.Combine(allErrs, errors.Errorf("error stopping process manager: %w", err))
 	}
 
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing remote: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing remote: %w", err))
 		}
 	}
 
 	for _, x := range parts.arms {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing arm: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing arm: %w", err))
 		}
 	}
 
 	for _, x := range parts.grippers {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing gripper: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing gripper: %w", err))
 		}
 	}
 
 	for _, x := range parts.cameras {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing camera: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing camera: %w", err))
 		}
 	}
 
 	for _, x := range parts.lidars {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing lidar: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing lidar: %w", err))
 		}
 	}
 
 	for _, x := range parts.bases {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing base: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing base: %w", err))
 		}
 	}
 
 	for _, x := range parts.boards {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing board: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing board: %w", err))
 		}
 	}
 
 	for _, x := range parts.sensors {
 		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, fmt.Errorf("error closing sensor: %w", err))
+			allErrs = multierr.Combine(allErrs, errors.Errorf("error closing sensor: %w", err))
 		}
 	}
 
@@ -398,7 +399,7 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 	for _, config := range remotes {
 		robotClient, err := client.NewClient(ctx, config.Address, logger)
 		if err != nil {
-			return fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
+			return errors.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 		}
 
 		configCopy := config
@@ -476,7 +477,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			}
 			parts.AddSensor(sensorDevice, c)
 		default:
-			return fmt.Errorf("unknown component type: %v", c.Type)
+			return errors.Errorf("unknown component type: %v", c.Type)
 		}
 	}
 
@@ -638,7 +639,7 @@ func (result *PartsMergeResult) Process(parts *robotParts) error {
 		if replaced, err := parts.processManager.AddProcess(context.Background(), proc, false); err != nil {
 			return err
 		} else if replaced != nil {
-			return fmt.Errorf("unexpected process replacement %v", replaced)
+			return errors.Errorf("unexpected process replacement %v", replaced)
 		}
 	}
 	return nil
@@ -887,7 +888,7 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 			}
 			filtered.AddSensor(part, compConf)
 		default:
-			return nil, fmt.Errorf("unknown component type: %v", compConf.Type)
+			return nil, errors.Errorf("unknown component type: %v", compConf.Type)
 		}
 	}
 

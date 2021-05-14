@@ -2,11 +2,12 @@ package lidar_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

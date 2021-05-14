@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/server"

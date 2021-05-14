@@ -4,9 +4,9 @@ import (
 	"go.viam.com/core/artifact"
 )
 
-// Export exports any artifacts not present in global cache tree
+// Push pushes any artifacts not present in global cache tree
 // to the underlying store of the cache.
-func Export() error {
+func Push() error {
 	cache, err := artifact.GlobalCache()
 	if err != nil {
 		return err

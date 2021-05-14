@@ -2,10 +2,10 @@
 package main
 
 import (
-	"errors"
 	"flag"
-	"fmt"
 	"os"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -92,6 +92,6 @@ func realMain(args []string) error {
 	case "to-las":
 		return toLas(flags, *aligned)
 	default:
-		return fmt.Errorf("unknown command: [%s]", cmd)
+		return errors.Errorf("unknown command: [%s]", cmd)
 	}
 }

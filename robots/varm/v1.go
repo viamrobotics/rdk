@@ -4,10 +4,10 @@ package varm
 import (
 	"context"
 	_ "embed" // for embedding model file
-	"errors"
-	"fmt"
 	"math"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/board"
@@ -77,10 +77,10 @@ func (j joint) degreesToPosition(deg float64) float64 {
 
 func (j joint) validate() error {
 	if j.posMax-j.posMin < .2 {
-		return fmt.Errorf("difference between posMin and posMax is not enough %#v", j)
+		return errors.Errorf("difference between posMin and posMax is not enough %#v", j)
 	}
 	if j.degMax-j.degMin < 30 {
-		return fmt.Errorf("difference between degMin and degMin is not enough %#v", j)
+		return errors.Errorf("difference between degMin and degMin is not enough %#v", j)
 	}
 
 	return nil
@@ -89,7 +89,7 @@ func (j joint) validate() error {
 func getMotor(ctx context.Context, theBoard board.Board, name string) (board.Motor, error) {
 	m := theBoard.Motor(name)
 	if m == nil {
-		return nil, fmt.Errorf("no motor with name: %s", name)
+		return nil, errors.Errorf("no motor with name: %s", name)
 	}
 
 	pok, err := m.PositionSupported(ctx)
@@ -98,7 +98,7 @@ func getMotor(ctx context.Context, theBoard board.Board, name string) (board.Mot
 	}
 
 	if !pok {
-		return nil, fmt.Errorf("motor %s doesn't support position", name)
+		return nil, errors.Errorf("motor %s doesn't support position", name)
 	}
 
 	return m, nil
@@ -271,7 +271,7 @@ func (a *ArmV1) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions
 		}
 	}
 
-	return fmt.Errorf("arm moved timed out, wanted: %v", pos)
+	return errors.Errorf("arm moved timed out, wanted: %v", pos)
 }
 
 // IsOn TODO
@@ -308,7 +308,7 @@ func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	}
 
 	if joint >= len(joints.Degrees) {
-		return fmt.Errorf("invalid joint number (%d) len: %d", joint, len(joints.Degrees))
+		return errors.Errorf("invalid joint number (%d) len: %d", joint, len(joints.Degrees))
 	}
 
 	joints.Degrees[joint] += amountDegs

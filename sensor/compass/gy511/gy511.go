@@ -3,13 +3,14 @@ package gy511
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
@@ -230,7 +231,7 @@ func (rgy *RawGY511) Write(p []byte) (int, error) {
 	case '1':
 		atomic.StoreUint32(&rgy.calibrating, 1)
 	default:
-		return 0, fmt.Errorf("unknown command on write: %q", c)
+		return 0, errors.Errorf("unknown command on write: %q", c)
 	}
 	return len(p), nil
 }

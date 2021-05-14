@@ -2,11 +2,12 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"testing"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/slam/v1"

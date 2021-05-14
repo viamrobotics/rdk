@@ -2,9 +2,10 @@ package lidar_test
 
 import (
 	"context"
-	"errors"
 	"math"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/testutils/inject"

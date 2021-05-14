@@ -3,13 +3,14 @@ package artifact
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"hash/fnv"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 )
@@ -73,6 +74,10 @@ type Cache interface {
 	// yet versioned are added to the tree and "written through" to
 	// any stores responsible for caching.
 	WriteThroughUser() error
+
+	// Status inspects the root and returns a git like status of what is to
+	// be added.
+	Status() (*Status, error)
 
 	// Close must be called in order to clean up any in use resources.
 	Close() error
@@ -185,7 +190,7 @@ func (s *cachedStore) Ensure(path string) (string, error) {
 	defer s.mu.Unlock()
 	node, err := s.config.Lookup(path)
 	if err != nil {
-		return "", fmt.Errorf("path not in config: %q", path)
+		return "", errors.Errorf("path not in config: %q", path)
 	}
 	return s.ensureNode(node, s.NewPath(path))
 
@@ -206,24 +211,24 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error)
 
 	if err := s.cache.Contains(nodeHash); err == nil {
 		if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
-			return "", fmt.Errorf("error emplacing into file system cache: %w", err)
+			return "", errors.Errorf("error emplacing into file system cache: %w", err)
 		}
 		return dstPath, nil
 	} else if !IsErrArtifactNotFound(err) {
-		return "", fmt.Errorf("error checking if hash is in file system cache: %w", err)
+		return "", errors.Errorf("error checking if hash is in file system cache: %w", err)
 	}
 
 	Logger.Debugw("loading from source", "path", dstPath, "hash", nodeHash)
 	rc, err := s.source.Load(nodeHash)
 	if err != nil {
-		return "", fmt.Errorf("error loading from source cache: %w", err)
+		return "", errors.Errorf("error loading from source cache: %w", err)
 	}
 	defer utils.UncheckedErrorFunc(rc.Close)
 	if err := s.cache.Store(nodeHash, rc); err != nil {
-		return "", fmt.Errorf("error storing into file system cache: %w", err)
+		return "", errors.Errorf("error storing into file system cache: %w", err)
 	}
 	if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
-		return "", fmt.Errorf("error emplacing into file system cache: %w", err)
+		return "", errors.Errorf("error emplacing into file system cache: %w", err)
 	}
 	return dstPath, nil
 }
@@ -259,6 +264,12 @@ func (s *cachedStore) cleanTree(tree map[string]*TreeNode, localPath string) err
 	return nil
 }
 
+func (s *cachedStore) Status() (*Status, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status()
+}
+
 func (s *cachedStore) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -279,9 +290,23 @@ func (s *cachedStore) WriteThroughUser() error {
 	return s.config.commitFn()
 }
 
-// writeThroughUserTree examines the tree with respect to the given local path and stores all artifacts
-// not in the tree into the underlying store and updates the tree with the artifact location/hash.
-func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath []string, localPath string) error {
+// NodeChangeType describes a change to a node.
+type NodeChangeType int
+
+// The set of types of changes.
+const (
+	NodeChangeTypeUnstored NodeChangeType = iota
+	NodeChangeTypeModified
+)
+
+// walkUserTreeUncached examines the tree with respect to the given local path and visits all artifacts
+// not in the tree.
+func (s *cachedStore) walkUserTreeUncached(
+	tree map[string]*TreeNode,
+	treePath []string,
+	localPath string,
+	visit func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error,
+) error {
 	localFileInfos, err := os.ReadDir(localPath)
 	if err != nil {
 		return err
@@ -300,7 +325,7 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 				next = &TreeNode{internal: TreeNodeTree{}}
 				tree[name] = next
 			}
-			if err := s.writeThroughUserTree(next.internal, newTreePath, newLocalPath); err != nil {
+			if err := s.walkUserTreeUncached(next.internal, newTreePath, newLocalPath, visit); err != nil {
 				return err
 			}
 			continue
@@ -308,7 +333,7 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 		existingNode, hasExistingNode := tree[name]
 		f, err := os.Open(newLocalPath)
 		if err != nil {
-			return fmt.Errorf("error opening file to write through cache: %w", err)
+			return errors.Errorf("error opening file to write through cache: %w", err)
 		}
 		if err := func() error {
 			defer utils.UncheckedErrorFunc(f.Close)
@@ -323,16 +348,49 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 			if hasExistingNode && !existingNode.IsInternal() && existingNode.external.hash == nodeHash {
 				return nil
 			}
-			Logger.Debugw("writing through", "path", newLocalPath, "hash", nodeHash)
-			if err := s.store(nodeHash, data); err != nil {
-				return err
+			var changeType NodeChangeType
+			if hasExistingNode {
+				changeType = NodeChangeTypeModified
+			} else {
+				changeType = NodeChangeTypeUnstored
 			}
-			return s.config.storeHash(nodeHash, newTreePath)
+			return visit(changeType, nodeHash, newLocalPath, newTreePath, data)
 		}(); err != nil {
 			return err
 		}
 	}
 	return nil
+
+}
+
+// writeThroughUserTree examines the tree with respect to the given local path and stores all artifacts
+// not in the tree into the underlying store and updates the tree with the artifact location/hash.
+func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath []string, localPath string) error {
+	return s.walkUserTreeUncached(tree, treePath, localPath, func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
+		Logger.Debugw("writing through", "path", localPath, "hash", nodeHash)
+		if err := s.store(nodeHash, data); err != nil {
+			return err
+		}
+		return s.config.storeHash(nodeHash, treePath)
+	})
+}
+
+// status examines the tree with respect to the given local path and reports all artifacts
+// not in the tree.
+func (s *cachedStore) status() (*Status, error) {
+	var status Status
+	if err := s.walkUserTreeUncached(s.config.Tree, nil, s.rootDir, func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
+		switch nodeChangeType {
+		case NodeChangeTypeUnstored:
+			status.Unstored = append(status.Unstored, localPath)
+		case NodeChangeTypeModified:
+			status.Modified = append(status.Modified, localPath)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return &status, nil
 }
 
 func computeHash(data []byte) (string, error) {

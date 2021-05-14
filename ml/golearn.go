@@ -1,9 +1,10 @@
 package ml
 
 import (
-	"errors"
 	"fmt"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"github.com/sjwhitworth/golearn/base"
 	"github.com/sjwhitworth/golearn/knn"
@@ -114,7 +115,7 @@ func _glMakeDataSet(data [][]float64, correct []int) (base.FixedDataGrid, error)
 	}
 
 	if len(data) != len(correct) {
-		return nil, fmt.Errorf("data and correct not the same lengths %d %d", len(data), len(correct))
+		return nil, errors.Errorf("data and correct not the same lengths %d %d", len(data), len(correct))
 	}
 
 	rawData := base.NewDenseInstances()

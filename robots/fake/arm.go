@@ -2,7 +2,8 @@ package fake
 
 import (
 	"context"
-	"errors"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"

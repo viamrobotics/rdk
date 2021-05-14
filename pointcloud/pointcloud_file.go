@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"github.com/jblindsay/lidario"
 
 	"go.viam.com/core/utils"
@@ -22,7 +23,7 @@ func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	case ".las":
 		return NewFromLASFile(fn, logger)
 	default:
-		return nil, fmt.Errorf("do not know how to read file %q", fn)
+		return nil, errors.Errorf("do not know how to read file %q", fn)
 	}
 }
 

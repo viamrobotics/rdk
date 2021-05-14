@@ -2,9 +2,9 @@ package board
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 )
 
 // A CreateBoard creates a board from a given config.
@@ -18,7 +18,7 @@ var (
 func RegisterBoard(name string, creator CreateBoard) {
 	_, old := boardRegistry[name]
 	if old {
-		panic(fmt.Errorf("board model [%s] already registered", name))
+		panic(errors.Errorf("board model [%s] already registered", name))
 	}
 
 	boardRegistry[name] = creator
@@ -29,7 +29,7 @@ func RegisterBoard(name string, creator CreateBoard) {
 func NewBoard(ctx context.Context, cfg Config, logger golog.Logger) (Board, error) {
 	creator, have := boardRegistry[cfg.Model]
 	if !have {
-		return nil, fmt.Errorf("unknown board model: %v", cfg.Model)
+		return nil, errors.Errorf("unknown board model: %v", cfg.Model)
 	}
 	return creator(ctx, cfg, logger)
 }

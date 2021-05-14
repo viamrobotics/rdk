@@ -6,8 +6,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -15,6 +13,8 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -99,7 +99,7 @@ func (s *Server) StatusStream(req *pb.StatusStreamRequest, server pb.RobotServic
 func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoActionResponse, error) {
 	act := action.LookupAction(req.Name)
 	if act == nil {
-		return nil, fmt.Errorf("unknown action name [%s]", req.Name)
+		return nil, errors.Errorf("unknown action name [%s]", req.Name)
 	}
 	s.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -113,7 +113,7 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 	pos, err := arm.CurrentPosition(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPosit
 func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurrentJointPositionsRequest) (*pb.ArmCurrentJointPositionsResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 	pos, err := arm.CurrentJointPositions(ctx)
 	if err != nil {
@@ -141,7 +141,7 @@ func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurren
 func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositionRequest) (*pb.ArmMoveToPositionResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 
 	return &pb.ArmMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
@@ -151,7 +151,7 @@ func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositio
 func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJointPositionsRequest) (*pb.ArmMoveToJointPositionsResponse, error) {
 	arm := s.r.ArmByName(req.Name)
 	if arm == nil {
-		return nil, fmt.Errorf("no arm with name (%s)", req.Name)
+		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 
 	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
@@ -161,7 +161,7 @@ func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJ
 func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
-		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
 	if req.MillisPerSec != 0 {
@@ -181,7 +181,7 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.BaseSpinResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
-		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	degsPerSec := 64.0
 	if req.DegsPerSec != 0 {
@@ -202,7 +202,7 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
 	base := s.r.BaseByName(req.Name)
 	if base == nil {
-		return nil, fmt.Errorf("no base with name (%s)", req.Name)
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	return &pb.BaseStopResponse{}, base.Stop(ctx)
 }
@@ -211,7 +211,7 @@ func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.Bas
 func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
 	gripper := s.r.GripperByName(req.Name)
 	if gripper == nil {
-		return nil, fmt.Errorf("no gripper with that name %s", req.Name)
+		return nil, errors.Errorf("no gripper with that name %s", req.Name)
 	}
 	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
 }
@@ -220,7 +220,7 @@ func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*
 func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
 	gripper := s.r.GripperByName(req.Name)
 	if gripper == nil {
-		return nil, fmt.Errorf("no gripper with that name %s", req.Name)
+		return nil, errors.Errorf("no gripper with that name %s", req.Name)
 	}
 	grabbed, err := gripper.Grab(ctx)
 	if err != nil {
@@ -243,7 +243,7 @@ const (
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
-		return nil, fmt.Errorf("no camera with name (%s)", req.Name)
+		return nil, errors.Errorf("no camera with name (%s)", req.Name)
 	}
 
 	img, release, err := camera.Next(ctx)
@@ -280,21 +280,21 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 		resp.MimeType = mimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, fmt.Errorf("want %s but don't have %T", mimeTypeRawIWD, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", mimeTypeRawIWD, iwd)
 		}
 		err := iwd.RawBytesWrite(&buf)
 		if err != nil {
-			return nil, fmt.Errorf("error writing %s: %w", mimeTypeRawIWD, err)
+			return nil, errors.Errorf("error writing %s: %w", mimeTypeRawIWD, err)
 		}
 
 	case mimeTypeBoth:
 		resp.MimeType = mimeTypeBoth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, fmt.Errorf("want %s but don't have %T", mimeTypeBoth, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", mimeTypeBoth, iwd)
 		}
 		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, fmt.Errorf("for %s need depth and color info", mimeTypeBoth)
+			return nil, errors.Errorf("for %s need depth and color info", mimeTypeBoth)
 		}
 		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
@@ -310,7 +310,7 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("do not know how to encode %q", req.MimeType)
+		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
 	resp.Frame = buf.Bytes()
 	return &resp, nil
@@ -334,7 +334,7 @@ func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFram
 func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	info, err := lidar.Info(ctx)
 	if err != nil {
@@ -351,7 +351,7 @@ func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.L
 func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	err := lidar.Start(ctx)
 	if err != nil {
@@ -364,7 +364,7 @@ func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb
 func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	err := lidar.Stop(ctx)
 	if err != nil {
@@ -377,7 +377,7 @@ func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.L
 func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	opts := scanOptionsFromProto(req)
 	ms, err := lidar.Scan(ctx, opts)
@@ -391,7 +391,7 @@ func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.L
 func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	r, err := lidar.Range(ctx)
 	if err != nil {
@@ -404,7 +404,7 @@ func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb
 func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	bounds, err := lidar.Bounds(ctx)
 	if err != nil {
@@ -417,7 +417,7 @@ func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*
 func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
 	lidar := s.r.LidarByName(req.Name)
 	if lidar == nil {
-		return nil, fmt.Errorf("no lidar with name (%s)", req.Name)
+		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	angRes, err := lidar.AngularResolution(ctx)
 	if err != nil {
@@ -456,7 +456,7 @@ func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
 	b := s.r.BoardByName(req.Name)
 	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.Name)
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
 	}
 
 	status, err := b.Status(ctx)
@@ -471,12 +471,12 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
 	theMotor := b.Motor(req.MotorName)
 	if theMotor == nil {
-		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
 	}
 
 	return &pb.BoardMotorGoResponse{}, theMotor.Go(ctx, req.Direction, req.PowerPct)
@@ -487,12 +487,12 @@ func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) 
 func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
 	theMotor := b.Motor(req.MotorName)
 	if theMotor == nil {
-		return nil, fmt.Errorf("unknown motor: %s", req.MotorName)
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
 	}
 
 	// erh: this isn't right semantically.
@@ -509,12 +509,12 @@ func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForReq
 func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
 	b := s.r.BoardByName(req.BoardName)
 	if b == nil {
-		return nil, fmt.Errorf("no board with name (%s)", req.BoardName)
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
 	theServo := b.Servo(req.ServoName)
 	if theServo == nil {
-		return nil, fmt.Errorf("unknown servo: %s", req.ServoName)
+		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
 	}
 
 	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
@@ -524,7 +524,7 @@ func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveReque
 func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
 	sensorDevice := s.r.SensorByName(req.Name)
 	if sensorDevice == nil {
-		return nil, fmt.Errorf("no sensor with name (%s)", req.Name)
+		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
 	}
 	readings, err := sensorDevice.Readings(ctx)
 	if err != nil {
@@ -544,7 +544,7 @@ func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsReque
 func (s *Server) compassByName(name string) (compass.Compass, error) {
 	sensorDevice := s.r.SensorByName(name)
 	if sensorDevice == nil {
-		return nil, fmt.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no sensor with name (%s)", name)
 	}
 	return sensorDevice.(compass.Compass), nil
 }

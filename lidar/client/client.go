@@ -3,8 +3,9 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"
@@ -35,7 +36,7 @@ func init() {
 func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.Lidar, error) {
 	robotClient, err := grpcclient.NewClient(ctx, address, logger)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't connect to lidar server (%s): %w", address, err)
+		return nil, errors.Errorf("couldn't connect to lidar server (%s): %w", address, err)
 	}
 	names := robotClient.LidarNames()
 	if len(names) == 0 {

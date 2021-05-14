@@ -3,12 +3,13 @@ package testutils
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 
@@ -200,7 +201,7 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 					if err == nil {
 						tError(t, errCompletedBeforeExpected)
 					} else {
-						tError(t, fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+						tError(t, errors.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
 					}
 				}
 				waitMu.Unlock()
@@ -217,7 +218,7 @@ func TestMain(t *testing.T, mainWithArgs func(ctx context.Context, args []string
 					if err == nil {
 						fatal(t, errCompletedBeforeExpected)
 					} else {
-						fatal(t, fmt.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
+						fatal(t, errors.Errorf("%s with error: %w", completedBeforeExpected, doneErr))
 					}
 					return
 				}

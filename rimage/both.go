@@ -4,14 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"errors"
-	"fmt"
 	"image"
 	"image/png"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/multierr"
 
@@ -24,7 +24,7 @@ func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't read depth map (both): %w", err)
+		return nil, errors.Errorf("couldn't read depth map (both): %w", err)
 	}
 
 	img, _, err := image.Decode(reader)

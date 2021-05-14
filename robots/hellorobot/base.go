@@ -2,9 +2,10 @@ package hellorobot
 
 import (
 	"context"
-	"errors"
 	"math"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"

@@ -5,13 +5,14 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -211,7 +212,7 @@ func (lar *LocationAwareRobot) Move(ctx context.Context, amountMillis *int, rota
 		case pb.Direction_DIRECTION_LEFT:
 			to = 270
 		default:
-			return fmt.Errorf("do not know how to rotate to absolute %q", *rotateTo)
+			return errors.Errorf("do not know how to rotate to absolute %q", *rotateTo)
 		}
 		var rotateBy float64
 		if from > to {
@@ -297,7 +298,7 @@ func (lar *LocationAwareRobot) detectObstacle(toX, toY float64, orientation floa
 		})
 	})
 	if collides {
-		return fmt.Errorf("cannot move to (%v,%v) via %f; would collide", toX, toY, moveOrientation)
+		return errors.Errorf("cannot move to (%v,%v) via %f; would collide", toX, toY, moveOrientation)
 	}
 	return nil
 }
@@ -346,7 +347,7 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis i
 
 	amountScaled := lar.millimetersToMeasuredUnit(amountMillis)
 
-	errMsg := fmt.Errorf("cannot move at orientation %f; stuck", orientation)
+	errMsg := errors.Errorf("cannot move at orientation %f; stuck", orientation)
 	quadLen := lar.rootArea.QuadrantLength()
 	switch orientation {
 	case 0:
@@ -374,7 +375,7 @@ func (lar *LocationAwareRobot) calculateMove(orientation float64, amountMillis i
 		}
 		newX = posX
 	default:
-		return r2.Point{}, fmt.Errorf("cannot move at orientation %f", orientation)
+		return r2.Point{}, errors.Errorf("cannot move at orientation %f", orientation)
 	}
 	return r2.Point{newX, newY}, nil
 }
@@ -412,7 +413,7 @@ func (lar *LocationAwareRobot) moveRect(toX, toY float64, orientation float64) (
 		pathX1 = pathX0 - distX - bufferScaled
 		pathY1 = pathY0 + baseRect.Size().Y
 	default:
-		return r2.EmptyRect(), fmt.Errorf("bad orientation %f", orientation)
+		return r2.EmptyRect(), errors.Errorf("bad orientation %f", orientation)
 	}
 	return r2.RectFromPoints(r2.Point{pathX0, pathY0}, r2.Point{pathX1, pathY1}), nil
 }
@@ -593,7 +594,7 @@ func (lar *LocationAwareRobot) scanAndStore(ctx context.Context, devices []lidar
 	for i, dev := range devices {
 		measurements, err := dev.Scan(ctx, lidar.ScanOptions{})
 		if err != nil {
-			return fmt.Errorf("bad scan on device %d: %w", i, err)
+			return errors.Errorf("bad scan on device %d: %w", i, err)
 		}
 		allMeasurements[i] = measurements
 	}

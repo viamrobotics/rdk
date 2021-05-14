@@ -2,7 +2,8 @@ package board
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/go-errors/errors"
 
 	pb "go.viam.com/core/proto/api/v1"
 )
@@ -65,7 +66,7 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 			x := b.AnalogReader(name)
 			val, err := x.Read(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't read analog (%s) : %w", name, err)
+				return nil, errors.Errorf("couldn't read analog (%s) : %w", name, err)
 			}
 			status.Analogs[name] = &pb.AnalogStatus{Value: int32(val)}
 		}

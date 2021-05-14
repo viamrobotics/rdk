@@ -2,8 +2,8 @@ package board
 
 import (
 	"context"
-	"errors"
-	"fmt"
+
+	"github.com/go-errors/errors"
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
@@ -87,7 +87,7 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 		)
 	}
 
-	return fmt.Errorf("unknown direction %v", d)
+	return errors.Errorf("unknown direction %v", d)
 }
 
 // GoFor is not yet supported.

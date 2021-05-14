@@ -2,9 +2,10 @@
 package chess
 
 import (
-	"fmt"
 	"image"
 	"sort"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/ml"
 )
@@ -46,13 +47,13 @@ func NewGame(initialBoard *Board) (*Game, error) {
 
 			if y == '1' || y == '2' || y == '7' || y == '8' {
 				if status == emptyStatus {
-					return nil, fmt.Errorf("initial square %s wrong, got: %s", square, status)
+					return nil, errors.Errorf("initial square %s wrong, got: %s", square, status)
 				}
 				pieceHeights = append(pieceHeights, height)
 				pieceEdges = append(pieceEdges, edges)
 			} else {
 				if status != emptyStatus {
-					return nil, fmt.Errorf("initial square %s wrong, got: %s", square, status)
+					return nil, errors.Errorf("initial square %s wrong, got: %s", square, status)
 				}
 				emptyHeights = append(emptyHeights, height)
 				emptyEdges = append(emptyEdges, edges)
@@ -68,15 +69,15 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	lowestPiece := pieceHeights[0]
 
 	if biggestEmpty >= lowestPiece {
-		return nil, fmt.Errorf("highest empty square bigger than lowest piece %f %f", biggestEmpty, lowestPiece)
+		return nil, errors.Errorf("highest empty square bigger than lowest piece %f %f", biggestEmpty, lowestPiece)
 	}
 
 	if biggestEmpty >= MinPieceDepth {
-		return nil, fmt.Errorf("biggestEmpty too big %f", biggestEmpty)
+		return nil, errors.Errorf("biggestEmpty too big %f", biggestEmpty)
 	}
 
 	if lowestPiece <= MinPieceDepth {
-		return nil, fmt.Errorf("lowestPiece too small %f", lowestPiece)
+		return nil, errors.Errorf("lowestPiece too small %f", lowestPiece)
 	}
 
 	// TODO(erh): should i store this info and use instead of MinPieceDepth
@@ -92,7 +93,7 @@ func NewGame(initialBoard *Board) (*Game, error) {
 	//fmt.Printf("biggestEmptyEdges: %d\n", biggestEmptyEdges)
 
 	if lowestPieceEdges-biggestEmptyEdges < 15 {
-		return nil, fmt.Errorf("not enough gap in edges %d %d", biggestEmptyEdges, lowestPieceEdges)
+		return nil, errors.Errorf("not enough gap in edges %d %d", biggestEmptyEdges, lowestPieceEdges)
 	}
 
 	g.edgesThreshold = 5 + ((lowestPieceEdges + biggestEmptyEdges) / 2)
@@ -116,7 +117,7 @@ func (g *Game) SquareColorStatus(board *Board, square string) (string, error) {
 
 	if g.edgesThreshold >= 0 {
 		if res == emptyStatus && edges > g.edgesThreshold {
-			return "", fmt.Errorf("got empty but had %d edges for square: %s threshold: %v", edges, square, g.edgesThreshold)
+			return "", errors.Errorf("got empty but had %d edges for square: %s threshold: %v", edges, square, g.edgesThreshold)
 		}
 	}
 
@@ -139,14 +140,14 @@ func (g *Game) GetPieceHeight(board *Board, square string) (float64, error) {
 		if centerHeight < MinPieceDepth {
 			return 0, nil
 		}
-		return -1, fmt.Errorf("got no color but a center height of %f for %s edges: %d", centerHeight, square, board.SquareCenterEdges(square))
+		return -1, errors.Errorf("got no color but a center height of %f for %s edges: %d", centerHeight, square, board.SquareCenterEdges(square))
 	}
 
 	if centerHeight < MinPieceDepth {
 		// try again with a different idea
 		centerHeight = board.SquareCenterHeight2(square, DepthCheckSizeRadius+5, true)
 		if centerHeight < MinPieceDepth {
-			return -1, fmt.Errorf("got a color (%s) for square %s but a center height that is too small of %f edges: %d",
+			return -1, errors.Errorf("got a color (%s) for square %s but a center height that is too small of %f edges: %d",
 				color, square, centerHeight, board.SquareCenterEdges(square))
 		}
 	}

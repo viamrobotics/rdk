@@ -1,10 +1,10 @@
 package segmentation
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -500,7 +500,7 @@ func shapeWalkEntireDebugOnePass(img *rimage.ImageWithDepth, options ShapeWalkOp
 
 		var walkErr MyWalkError
 		if !errors.As(found, &walkErr) {
-			return fmt.Errorf("expected %T but got %w", walkErr, found)
+			return errors.Errorf("expected %T but got %w", walkErr, found)
 		}
 		start := walkErr.pos
 		numPixels := ws.piece(start, nextColor)

@@ -3,12 +3,13 @@ package wx250s
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
@@ -352,39 +353,39 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 func setServoDefaults(newServo *servo.Servo) error {
 	dm, err := newServo.DriveMode()
 	if err != nil {
-		return fmt.Errorf("error DriveMode servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error DriveMode servo %d: %w", newServo.ID, err)
 	}
 	if dm == 4 {
 		err = newServo.SetDriveMode(0)
 		if err != nil {
-			return fmt.Errorf("error SetDriveMode0 servo %d: %w", newServo.ID, err)
+			return errors.Errorf("error SetDriveMode0 servo %d: %w", newServo.ID, err)
 		}
 	}
 	if dm == 5 {
 		err = newServo.SetDriveMode(1)
 		if err != nil {
-			return fmt.Errorf("error DriveMode1 servo %d: %w", newServo.ID, err)
+			return errors.Errorf("error DriveMode1 servo %d: %w", newServo.ID, err)
 		}
 	}
 	err = newServo.SetPGain(2800)
 	if err != nil {
-		return fmt.Errorf("error SetPGain servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error SetPGain servo %d: %w", newServo.ID, err)
 	}
 	err = newServo.SetIGain(50)
 	if err != nil {
-		return fmt.Errorf("error SetIGain servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error SetIGain servo %d: %w", newServo.ID, err)
 	}
 	err = newServo.SetTorqueEnable(true)
 	if err != nil {
-		return fmt.Errorf("error SetTorqueEnable servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error SetTorqueEnable servo %d: %w", newServo.ID, err)
 	}
 	err = newServo.SetProfileVelocity(50)
 	if err != nil {
-		return fmt.Errorf("error SetProfileVelocity servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error SetProfileVelocity servo %d: %w", newServo.ID, err)
 	}
 	err = newServo.SetProfileAcceleration(10)
 	if err != nil {
-		return fmt.Errorf("error SetProfileAcceleration servo %d: %w", newServo.ID, err)
+		return errors.Errorf("error SetProfileAcceleration servo %d: %w", newServo.ID, err)
 	}
 	return nil
 }
@@ -394,11 +395,11 @@ func setServoDefaults(newServo *servo.Servo) error {
 func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, error) {
 	baudRate, err := strconv.Atoi(baudRateStr)
 	if err != nil {
-		return nil, fmt.Errorf("mangled baudrate: %w", err)
+		return nil, errors.Errorf("mangled baudrate: %w", err)
 	}
 	armServoCount, err := strconv.Atoi(armServoCountStr)
 	if err != nil {
-		return nil, fmt.Errorf("mangled servo count: %w", err)
+		return nil, errors.Errorf("mangled servo count: %w", err)
 	}
 
 	options := serial.OpenOptions{
@@ -412,7 +413,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 	serial, err := serial.Open(options)
 	if err != nil {
-		return nil, fmt.Errorf("error opening serial port: %w", err)
+		return nil, errors.Errorf("error opening serial port: %w", err)
 	}
 
 	var servos []*servo.Servo
@@ -424,7 +425,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 		//Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
-			return nil, fmt.Errorf("error initializing servo %d: %w", i, err)
+			return nil, errors.Errorf("error initializing servo %d: %w", i, err)
 		}
 
 		err = setServoDefaults(newServo)
