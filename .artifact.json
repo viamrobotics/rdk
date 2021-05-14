@@ -4,5 +4,8 @@
     {
         "type": "google_storage",
         "bucket": "viam-artifacts"
-    }
+    },
+    "ignore": [
+        ".DS_Store"
+    ]
 }

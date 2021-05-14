@@ -338,6 +338,9 @@ func (s *cachedStore) walkUserTreeUncached(
 	}
 	for _, info := range localFileInfos {
 		name := info.Name()
+		if _, ok := s.config.ignoreSet[name]; ok {
+			continue
+		}
 		newTreePath := append(treePath, name)
 		newLocalPath := filepath.Join(localPath, name)
 		stat, err := os.Stat(newLocalPath)
