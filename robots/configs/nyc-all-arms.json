@@ -3,7 +3,7 @@
         { "name" : "chess-ur5-1",
           "type": "arm",
           "model": "ur",
-          "host" : "10.237.115.238"
+          "host" : "10.237.115.65"
         },
         { "name" : "table-view",
           "type" : "camera",
@@ -17,7 +17,7 @@
         { "name" : "robotiq-2finger",
           "type": "gripper",
           "model": "robotiq",
-          "host" : "10.237.115.238"
+          "host" : "10.237.115.65"
         },
         { "name" : "chess-over",
           "type" : "camera",

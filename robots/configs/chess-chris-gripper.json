@@ -3,7 +3,7 @@
         { "name" : "pieceArm",
           "type": "arm",
           "model": "ur",
-          "host" : "10.237.115.238"
+          "host" : "10.237.115.65"
         },
         { "name" : "cameraOver",
           "type" : "camera",

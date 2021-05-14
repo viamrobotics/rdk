@@ -12,13 +12,13 @@
   ],
   "components": [
     {
-      "host": "10.237.115.238",
+      "host": "10.237.115.65",
       "model": "ur",
       "name": "pieceArm",
       "type": "arm"
     },
     {
-      "host": "10.237.115.238",
+      "host": "10.237.115.65",
       "model": "robotiq",
       "name": "pieceGripper",
       "type": "gripper"
@@ -32,7 +32,7 @@
     },
     {
       "attributes": {
-        "color": "http://10.237.115.238:4242/current.jpg"
+        "color": "http://10.237.115.65:4242/current.jpg"
       },
       "model": "url",
       "name": "wristCam",
