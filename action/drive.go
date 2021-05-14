@@ -2,9 +2,10 @@ package action
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/gostream"
 

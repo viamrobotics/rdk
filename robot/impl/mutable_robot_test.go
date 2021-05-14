@@ -2,11 +2,12 @@ package robotimpl_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"

@@ -2,11 +2,11 @@ package artifact
 
 import (
 	"context"
-	"errors"
 	"io"
 	"os"
 
 	"cloud.google.com/go/storage"
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 	"google.golang.org/api/option"
 )
@@ -14,12 +14,21 @@ import (
 // newGoogleStorageStore returns a new googleStorageStore based on the given config.
 func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStore, error) {
 	var opts []option.ClientOption
+	var noAuth bool
 	if path, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS"); !ok || path == "" {
+		noAuth = true
 		opts = append(opts, option.WithoutAuthentication())
 	}
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {
-		return nil, err
+		if noAuth {
+			return nil, errors.Wrap(err, 0)
+		}
+		opts = append(opts, option.WithoutAuthentication())
+		client, err = storage.NewClient(context.Background(), opts...)
+		if err != nil {
+			return nil, errors.Wrap(err, 0)
+		}
 	}
 
 	return &googleStorageStore{client: client, bucket: client.Bucket(config.Bucket)}, nil

@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/go-errors/errors"
+
 	"go.viam.com/core/utils"
 )
 
@@ -56,7 +58,7 @@ func openSub(original, target string) (*os.File, error) {
 		return targetFile, nil
 	}
 
-	return nil, fmt.Errorf("cannot find file: %s", target)
+	return nil, errors.Errorf("cannot find file: %s", target)
 }
 
 func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
@@ -105,7 +107,7 @@ func createCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 
 	r, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request for %s : %w", url, err)
+		return nil, errors.Errorf("error creating request for %s : %w", url, err)
 	}
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
@@ -147,9 +149,9 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 			return nil, err
 		}
 		if len(rd) != 0 {
-			return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+			return nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
 		}
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
+		return nil, errors.Errorf("unexpected status %d", resp.StatusCode)
 	}
 
 	// read the actual config and do not make a cloud request again to avoid
@@ -186,7 +188,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 	decoder := json.NewDecoder(r)
 	if err := decoder.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("cannot parse config %w", err)
+		return nil, errors.Errorf("cannot parse config %w", err)
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -219,7 +221,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 
 			n, err := conv(v)
 			if err != nil {
-				return nil, fmt.Errorf("error converting attribute for (%s, %s, %s) %w", c.Type, c.Model, k, err)
+				return nil, errors.Errorf("error converting attribute for (%s, %s, %s) %w", c.Type, c.Model, k, err)
 			}
 			cfg.Components[idx].Attributes[k] = n
 

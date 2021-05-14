@@ -10,10 +10,10 @@ import "C"
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -92,14 +92,14 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	internals |= C.PI_CFG_NOSIGHANDLER
 	resCode := C.gpioCfgSetInternals(internals)
 	if resCode < 0 {
-		return nil, fmt.Errorf("gpioCfgSetInternals failed with code: %d", resCode)
+		return nil, errors.Errorf("gpioCfgSetInternals failed with code: %d", resCode)
 	}
 
 	// setup
 	piInstance = &piPigpio{cfg: cfg, logger: logger}
 	resCode = C.gpioInitialise()
 	if resCode < 0 {
-		return nil, fmt.Errorf("gpioInitialise failed with code: %d", resCode)
+		return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 	}
 
 	// setup servos
@@ -107,7 +107,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	for _, c := range cfg.Servos {
 		bcom, have := piHWPinToBroadcom[c.Pin]
 		if !have {
-			return nil, fmt.Errorf("no hw mapping for %s", c.Pin)
+			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
 		}
 
 		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
@@ -118,7 +118,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	for _, ac := range cfg.Analogs {
 		channel, err := strconv.Atoi(ac.Pin)
 		if err != nil {
-			return nil, fmt.Errorf("bad analog pin (%s)", ac.Pin)
+			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel}
@@ -131,7 +131,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	for _, c := range cfg.DigitalInterrupts {
 		bcom, have := piHWPinToBroadcom[c.Pin]
 		if !have {
-			return nil, fmt.Errorf("no hw mapping for %s", c.Pin)
+			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
 		}
 
 		di, err := board.CreateDigitalInterrupt(c)
@@ -173,7 +173,7 @@ func (pi *piPigpio) Config(ctx context.Context) (board.Config, error) {
 func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
-		return fmt.Errorf("no hw pin for (%s)", pin)
+		return errors.Errorf("no hw pin for (%s)", pin)
 	}
 	return pi.GPIOSetBcom(int(bcom), high)
 }
@@ -182,7 +182,7 @@ func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
-		return fmt.Errorf("no hw pin for (%s)", pin)
+		return errors.Errorf("no hw pin for (%s)", pin)
 	}
 	return pi.PWMSetBcom(int(bcom), dutyCycle)
 }
@@ -191,7 +191,7 @@ func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
 	if res != 0 {
-		return fmt.Errorf("pwm set fail %d", res)
+		return errors.Errorf("pwm set fail %d", res)
 	}
 	return nil
 }
@@ -204,7 +204,7 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 		}
 		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
 		if res != 0 {
-			return fmt.Errorf("failed to set mode %d", res)
+			return errors.Errorf("failed to set mode %d", res)
 		}
 		pi.gpioConfigSet[bcom] = true
 	}
@@ -236,7 +236,7 @@ func (pi *piPigpio) AnalogRead(channel int) (int, error) {
 	if !pi.analogEnabled {
 		pi.analogSpi = C.spiOpen(0, 1000000, 0)
 		if pi.analogSpi < 0 {
-			return -1, fmt.Errorf("spiOpen failed %d", pi.analogSpi)
+			return -1, errors.Errorf("spiOpen failed %d", pi.analogSpi)
 		}
 		pi.analogEnabled = true
 	}
@@ -255,7 +255,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	val := 500 + (2000.0 * float64(angle) / 180.0)
 	res := C.gpioServo(s.pin, C.uint(val))
 	if res != 0 {
-		return fmt.Errorf("gpioServo failed with %d", res)
+		return errors.Errorf("gpioServo failed with %d", res)
 	}
 	return nil
 }

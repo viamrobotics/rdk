@@ -3,11 +3,11 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
@@ -118,7 +118,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	}
 
 	if len(argsParsed.LidarOffsets) != 0 && len(argsParsed.LidarOffsets) >= len(argsParsed.Lidars) {
-		return fmt.Errorf("can only have up to %d lidar offsets", len(argsParsed.Lidars)-1)
+		return errors.Errorf("can only have up to %d lidar offsets", len(argsParsed.Lidars)-1)
 	}
 
 	return runSlam(ctx, argsParsed, logger)
@@ -146,7 +146,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 			return err
 		}
 	default:
-		return fmt.Errorf("do not know how to make a %q base", args.BaseType)
+		return errors.Errorf("do not know how to make a %q base", args.BaseType)
 	}
 
 	components := args.Lidars
@@ -172,7 +172,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		sensorDevice := r.SensorByName(r.SensorNames()[0])
 		compassSensor, ok = sensorDevice.(compass.Compass)
 		if !ok {
-			return fmt.Errorf("expected to get a compasss but got a %T", sensorDevice)
+			return errors.Errorf("expected to get a compasss but got a %T", sensorDevice)
 		}
 	}
 

@@ -3,10 +3,10 @@ package registry
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
@@ -55,7 +55,7 @@ var (
 func RegisterCamera(model string, creator CreateCamera) {
 	_, old := cameraRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two cameras with same model %s", model))
+		panic(errors.Errorf("trying to register two cameras with same model %s", model))
 	}
 	cameraRegistry[model] = creator
 }
@@ -64,7 +64,7 @@ func RegisterCamera(model string, creator CreateCamera) {
 func RegisterArm(model string, creator CreateArm) {
 	_, old := armRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two arms with same model %s", model))
+		panic(errors.Errorf("trying to register two arms with same model %s", model))
 	}
 	armRegistry[model] = creator
 }
@@ -73,7 +73,7 @@ func RegisterArm(model string, creator CreateArm) {
 func RegisterGripper(model string, creator CreateGripper) {
 	_, old := gripperRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two grippers with same model %s", model))
+		panic(errors.Errorf("trying to register two grippers with same model %s", model))
 	}
 	gripperRegistry[model] = creator
 }
@@ -82,7 +82,7 @@ func RegisterGripper(model string, creator CreateGripper) {
 func RegisterProvider(model string, creator CreateProvider) {
 	_, old := providerRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two providers with same model %s", model))
+		panic(errors.Errorf("trying to register two providers with same model %s", model))
 	}
 	providerRegistry[model] = creator
 }
@@ -91,7 +91,7 @@ func RegisterProvider(model string, creator CreateProvider) {
 func RegisterBase(model string, creator CreateBase) {
 	_, old := baseRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two bases with same model %s", model))
+		panic(errors.Errorf("trying to register two bases with same model %s", model))
 	}
 	baseRegistry[model] = creator
 }
@@ -100,7 +100,7 @@ func RegisterBase(model string, creator CreateBase) {
 func RegisterLidar(model string, creator CreateLidar) {
 	_, old := lidarRegistry[model]
 	if old {
-		panic(fmt.Errorf("trying to register two lidars with same model %s", model))
+		panic(errors.Errorf("trying to register two lidars with same model %s", model))
 	}
 	lidarRegistry[model] = creator
 }
@@ -112,7 +112,7 @@ func RegisterSensor(sensorType sensor.Type, model string, creator CreateSensor) 
 	}
 	_, old := sensorRegistry[sensorType][model]
 	if old {
-		panic(fmt.Errorf("trying to register two sensors with same model %s", model))
+		panic(errors.Errorf("trying to register two sensors with same model %s", model))
 	}
 	sensorRegistry[sensorType][model] = creator
 }

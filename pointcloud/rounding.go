@@ -1,10 +1,10 @@
 package pointcloud
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 )
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
@@ -26,14 +26,14 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 	roundingPc := NewRoundingPointCloud()
 	pc, err := NewFromFile(fn, logger)
 	if err != nil {
-		return nil, fmt.Errorf("error creating NewRoundingPointCloudFromFile - %w", err)
+		return nil, errors.Errorf("error creating NewRoundingPointCloudFromFile - %w", err)
 	}
 	// Round all the points in the pointcloud
 	pc.Iterate(func(pt Point) bool {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
 			return false
 		}
 		return true

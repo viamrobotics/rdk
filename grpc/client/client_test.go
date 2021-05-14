@@ -3,12 +3,13 @@ package client
 import (
 	"bytes"
 	"context"
-	"errors"
 	"image"
 	"image/jpeg"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"

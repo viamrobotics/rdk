@@ -5,7 +5,8 @@ package action
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/robot"
 )
@@ -19,7 +20,7 @@ var actionRegistry = map[string]Action{}
 func RegisterAction(name string, action Action) {
 	_, old := actionRegistry[name]
 	if old {
-		panic(fmt.Errorf("trying to register 2 actions with the same name (%s)", name))
+		panic(errors.Errorf("trying to register 2 actions with the same name (%s)", name))
 	}
 	actionRegistry[name] = action
 }

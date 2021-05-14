@@ -2,13 +2,13 @@ package imagesource
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
@@ -21,7 +21,7 @@ func init() {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
-			return nil, fmt.Errorf("cannot find source camera for rotate (%s)", sourceName)
+			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
 		return &RotateImageDepthSource{source}, nil
@@ -31,7 +31,7 @@ func init() {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
-			return nil, fmt.Errorf("cannot find source camera for resize (%s)", sourceName)
+			return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
 		}
 
 		width := config.Attributes.Int("width", 800)

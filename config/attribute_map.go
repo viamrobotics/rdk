@@ -1,6 +1,6 @@
 package config
 
-import "fmt"
+import "github.com/go-errors/errors"
 
 // An AttributeMap is a convenience wrapper for pulling out
 // typed information from a map.
@@ -27,7 +27,7 @@ func (am AttributeMap) String(name string) string {
 		return s
 	}
 
-	panic(fmt.Errorf("wanted a string for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted a string for (%s) but got (%v) %T", name, x, x))
 }
 
 // Int attempts to return an integer present in the map with
@@ -49,7 +49,7 @@ func (am AttributeMap) Int(name string, def int) int {
 		return int(v)
 	}
 
-	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
 }
 
 // Float64 attempts to return a float64 present in the map with
@@ -67,7 +67,7 @@ func (am AttributeMap) Float64(name string, def float64) float64 {
 		return v
 	}
 
-	panic(fmt.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted an int for (%s) but got (%v) %T", name, x, x))
 }
 
 // Bool attempts to return a boolean present in the map with
@@ -85,5 +85,5 @@ func (am AttributeMap) Bool(name string, def bool) bool {
 		return v
 	}
 
-	panic(fmt.Errorf("wanted a bool for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted a bool for (%s) but got (%v) %T", name, x, x))
 }

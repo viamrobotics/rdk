@@ -2,10 +2,10 @@ package rimage
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"image"
 	"image/color"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 )
@@ -101,7 +101,7 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	}
 
 	if maxY <= minY {
-		return nil, fmt.Errorf("invalid depth data: %v %v", minY, maxY)
+		return nil, errors.Errorf("invalid depth data: %v %v", minY, maxY)
 	}
 
 	for minX = 0; minX < i.Width(); minX++ {
@@ -177,12 +177,12 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
 	}
 
 	dm, err := NewDepthMapFromImageFile(depthFN)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
 	}
 
 	return &ImageWithDepth{img, dm, isAligned, nil}, nil
@@ -192,17 +192,17 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
 	}
 
 	dm, err := ParseDepthMap(depthFN)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
 	}
 
 	if isAligned {
 		if img.Width() != dm.Width() || img.Height() != dm.Height() {
-			return nil, fmt.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
+			return nil, errors.Errorf("color and depth size doesn't match %d,%d vs %d,%d",
 				img.Width(), img.Height(), dm.Width(), dm.Height())
 		}
 	}
@@ -277,7 +277,7 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	dst := utils.RawBytesFromSlice(iwd.Depth.data)
 	read := copy(dst, b)
 	if read != width*height*2 {
-		return nil, fmt.Errorf("invalid copy of depth data read: %d x: %d y: %d", read, width, height)
+		return nil, errors.Errorf("invalid copy of depth data read: %d x: %d y: %d", read, width, height)
 	}
 	b = b[read:]
 
@@ -285,7 +285,7 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	dst = utils.RawBytesFromSlice(iwd.Color.data)
 	read = copy(dst, b)
 	if read != width*height*8 {
-		return nil, fmt.Errorf("invalid copy of color data read: %d x: %d y: %d", read, width, height)
+		return nil, errors.Errorf("invalid copy of color data read: %d x: %d y: %d", read, width, height)
 	}
 	b = b[read:]
 

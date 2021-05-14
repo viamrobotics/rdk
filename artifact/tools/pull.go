@@ -3,8 +3,8 @@ package tools
 
 import "go.viam.com/core/artifact"
 
-// Import ensures all artifacts in the global cache tree are present locally.
-func Import() error {
+// Pull ensures all artifacts in the global cache tree are present locally.
+func Pull() error {
 	cache, err := artifact.GlobalCache()
 	if err != nil {
 		return err

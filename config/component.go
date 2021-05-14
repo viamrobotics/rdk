@@ -1,11 +1,12 @@
 package config
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/utils"
 )
@@ -86,7 +87,7 @@ func ParseComponentFlag(flag string) (Component, error) {
 		case "port":
 			port, err := strconv.ParseInt(keyVal[1], 10, 64)
 			if err != nil {
-				return Component{}, fmt.Errorf("error parsing port: %w", err)
+				return Component{}, errors.Errorf("error parsing port: %w", err)
 			}
 			cmp.Port = int(port)
 		case "type":

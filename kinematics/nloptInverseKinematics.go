@@ -1,10 +1,10 @@
 package kinematics
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
@@ -46,7 +46,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
 	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
 	if err != nil {
-		panic(fmt.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
+		panic(errors.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
 	ik.opt = opt
 

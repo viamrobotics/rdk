@@ -2,11 +2,12 @@ package rexec
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"

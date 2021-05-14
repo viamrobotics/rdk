@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/multierr"
 	"go.viam.com/test"

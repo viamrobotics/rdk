@@ -2,9 +2,10 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	pb "go.viam.com/core/proto/slam/v1"
@@ -269,6 +270,6 @@ func (lar *LocationAwareRobot) HandleClick(ctx context.Context, x, y, viewWidth,
 
 		return fmt.Sprintf("(%d,%d): object=%t, angleCenter=%f,%f, distanceCenter=%dcm distanceFront=%dcm", int(areaX), int(areaY), present, angleCenter, angelCenterRad, int(distanceCenter), int(distanceFront)), nil
 	default:
-		return "", fmt.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
+		return "", errors.Errorf("do not know how to handle click in mode %q", lar.clientClickMode)
 	}
 }

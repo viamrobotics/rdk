@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/fatih/color"
+
 	"go.viam.com/core/artifact/tools"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/utils"
 )
 
 func main() {
-	usage := "usage: artifact [clean|import|export]"
+	usage := "usage: artifact [clean|pull|push|status]"
 	if len(os.Args) <= 1 {
 		fmt.Println(usage)
 		os.Exit(0)
@@ -20,13 +23,33 @@ func main() {
 		if err := tools.Clean(); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "import":
-		if err := tools.Import(); err != nil {
+	case "pull":
+		if err := tools.Pull(); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "export":
-		if err := tools.Export(); err != nil {
+	case "push":
+		if err := tools.Push(); err != nil {
 			rlog.Logger.Fatal(err)
+		}
+	case "status":
+		status, err := tools.Status()
+		if err != nil {
+			utils.PrintStackErr(err)
+			rlog.Logger.Fatal(err)
+		}
+		if len(status.Modified) != 0 {
+			fmt.Println("Modified:")
+			for _, name := range status.Modified {
+				fmt.Print("\t")
+				color.Yellow(name)
+			}
+		}
+		if len(status.Unstored) != 0 {
+			fmt.Println("Unstored:")
+			for _, name := range status.Unstored {
+				fmt.Print("\t")
+				color.Red(name)
+			}
 		}
 	default:
 		fmt.Println(usage)

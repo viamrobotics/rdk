@@ -3,8 +3,9 @@ package client
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/client"

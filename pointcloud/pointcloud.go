@@ -6,10 +6,10 @@
 package pointcloud
 
 import (
-	"fmt"
 	"io"
 	"math"
 
+	"github.com/go-errors/errors"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/core/utils"
@@ -158,7 +158,7 @@ const (
 // newOutOfRangeErr returns an error informing that a value is numerically out of range to
 // be stored precisely.
 func newOutOfRangeErr(dim string, val float64) error {
-	return fmt.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
+	return errors.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
 }
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
@@ -237,7 +237,7 @@ func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense,
 			j = v.Y
 			k = v.Z
 		default:
-			err = fmt.Errorf("unknown dim %d", dim)
+			err = errors.Errorf("unknown dim %d", dim)
 			return false
 		}
 		if k != idx {

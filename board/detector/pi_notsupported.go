@@ -4,7 +4,8 @@ package detector
 
 import (
 	"context"
-	"errors"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 

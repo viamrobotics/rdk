@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/zap/zaptest/observer"
 

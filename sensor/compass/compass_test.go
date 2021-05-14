@@ -2,8 +2,9 @@ package compass_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"

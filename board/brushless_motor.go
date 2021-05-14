@@ -2,11 +2,12 @@ package board
 
 import (
 	"context"
-	"errors"
 	"math"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"

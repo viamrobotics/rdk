@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/zap/zaptest/observer"
 
@@ -28,7 +28,7 @@ func TestMainMain(t *testing.T) {
 		return searchDevicesFunc(filter)
 	}
 	defaultOpenFunc := func(devicePath string) (io.ReadWriteCloser, error) {
-		return nil, fmt.Errorf("cannot open %s", devicePath)
+		return nil, errors.Errorf("cannot open %s", devicePath)
 	}
 	prevOpenFunc := serial.Open
 	openDeviceFunc := defaultOpenFunc

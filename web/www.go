@@ -3,7 +3,6 @@ package web
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"html/template"
 	"image"
@@ -12,6 +11,8 @@ import (
 	"net/http/pprof"
 	"os"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"

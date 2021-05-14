@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -104,7 +105,7 @@ func (g *Gripper) Set(what string, to string) error {
 		return err
 	}
 	if res != "ack" {
-		return fmt.Errorf("didn't get ack back, got [%s]", res)
+		return errors.Errorf("didn't get ack back, got [%s]", res)
 	}
 	return nil
 }
@@ -121,7 +122,7 @@ func (g *Gripper) read() (string, error) {
 		return "", err
 	}
 	if x > 100 {
-		return "", fmt.Errorf("read too much: %d", x)
+		return "", errors.Errorf("read too much: %d", x)
 	}
 	if x == 0 {
 		return "", nil

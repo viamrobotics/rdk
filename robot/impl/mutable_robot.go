@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"go.viam.com/core/arm"
@@ -35,6 +34,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/go-errors/errors"
 )
 
 // mutableRobot satisfies robot.MutableRobot and defers most
@@ -210,7 +210,7 @@ func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot
 func (r *mutableRobot) newProvider(ctx context.Context, config config.Component) (robot.Provider, error) {
 	f := registry.ProviderLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown provider model: %s", config.Model)
+		return nil, errors.Errorf("unknown provider model: %s", config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }
@@ -218,7 +218,7 @@ func (r *mutableRobot) newProvider(ctx context.Context, config config.Component)
 func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (base.Base, error) {
 	f := registry.BaseLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown base model: %s", config.Model)
+		return nil, errors.Errorf("unknown base model: %s", config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }
@@ -226,7 +226,7 @@ func (r *mutableRobot) newBase(ctx context.Context, config config.Component) (ba
 func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm.Arm, error) {
 	f := registry.ArmLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown arm model: %s", config.Model)
+		return nil, errors.Errorf("unknown arm model: %s", config.Model)
 	}
 
 	return f(ctx, r, config, r.logger)
@@ -235,7 +235,7 @@ func (r *mutableRobot) newArm(ctx context.Context, config config.Component) (arm
 func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) (gripper.Gripper, error) {
 	f := registry.GripperLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown gripper model: %s", config.Model)
+		return nil, errors.Errorf("unknown gripper model: %s", config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }
@@ -243,7 +243,7 @@ func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) 
 func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (gostream.ImageSource, error) {
 	f := registry.CameraLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown camera model: %s", config.Model)
+		return nil, errors.Errorf("unknown camera model: %s", config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }
@@ -251,7 +251,7 @@ func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (
 func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {
 	f := registry.LidarLookup(config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown lidar model: %s", config.Model)
+		return nil, errors.Errorf("unknown lidar model: %s", config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }
@@ -259,7 +259,7 @@ func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (l
 func (r *mutableRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
 	f := registry.SensorLookup(sensorType, config.Model)
 	if f == nil {
-		return nil, fmt.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
+		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
 	}
 	return f(ctx, r, config, r.logger)
 }

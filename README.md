@@ -72,7 +72,7 @@ Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull 
 # get GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
 go install go.viam.com/core/artifact/cmd/artifact
 # place new artifacts in artifact_data
-artifact export
+artifact push
 git add .artifact.tree.json
 # commit the file at some point
 ```

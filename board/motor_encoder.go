@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 )
 
 var (
@@ -44,19 +44,19 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 	}
 
 	if mc.TicksPerRotation == 0 {
-		return nil, fmt.Errorf("need a TicksPerRotation for motor (%s)", mc.Name)
+		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", mc.Name)
 	}
 
 	i := b.DigitalInterrupt(mc.Encoder)
 	if i == nil {
-		return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
+		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
 	}
 
 	var encoderB DigitalInterrupt
 	if mc.EncoderB != "" {
 		encoderB = b.DigitalInterrupt(mc.EncoderB)
 		if encoderB == nil {
-			return nil, fmt.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
+			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
 		}
 	}
 

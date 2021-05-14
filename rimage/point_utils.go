@@ -1,12 +1,12 @@
 package rimage
 
 import (
-	"fmt"
 	"image"
 	"math"
 
 	"go.viam.com/core/utils"
 
+	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 )
 
@@ -86,7 +86,7 @@ func ArrayToPoints(pts []image.Point) []image.Point {
 		}
 	}
 
-	panic(fmt.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
+	panic(errors.Errorf("invalid number of points passed to ArrayToPoints %d", len(pts)))
 }
 
 // PointAngle TODO

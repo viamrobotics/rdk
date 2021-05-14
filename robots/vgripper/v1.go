@@ -3,10 +3,10 @@ package vgripper
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"math"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
@@ -96,7 +96,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, fmt.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
+		return nil, errors.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
 	}
 
 	if hasPressureA {
@@ -113,7 +113,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, fmt.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
+		return nil, errors.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
 	}
 
 	return vg, vg.Open(ctx)
@@ -151,7 +151,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			return vg.stopAfterError(ctx, fmt.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now))
+			return vg.stopAfterError(ctx, errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now))
 		}
 	}
 }
@@ -200,7 +200,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, err
 			}
-			return false, vg.stopAfterError(ctx, fmt.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
+			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
 		}
 	}
 }
@@ -214,7 +214,7 @@ func (vg *GripperV1) processCurrentReading(ctx context.Context, current int, whe
 	if vg.numBadCurrentReadings < CurrentBadReadingCounts {
 		return nil
 	}
-	return fmt.Errorf("current too high for too long, currently %d during %s", current, where)
+	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
 }
 
 // Close TODO

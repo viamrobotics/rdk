@@ -1,12 +1,13 @@
 package utils
 
 import (
-	"errors"
-	"fmt"
 	"strings"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 // FilterOutError filters out an error based on the given target. For
@@ -43,14 +44,16 @@ func FilterOutError(err, target error) error {
 // NewConfigValidationError returns a config validation error
 // occurring at a given path.
 func NewConfigValidationError(path string, err error) error {
-	return fmt.Errorf("error validating %q: %w", path, err)
+	return errors.Errorf("error validating %q: %w", path, err)
 }
 
 // NewConfigValidationFieldRequiredError returns a config validation
 // error for a field missing at a given path.
 func NewConfigValidationFieldRequiredError(path, field string) error {
-	return NewConfigValidationError(path, fmt.Errorf("%q is required", field))
+	return NewConfigValidationError(path, errors.Errorf("%q is required", field))
 }
+
+var loggerWithSkipUtils = golog.Global.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar()
 
 // UncheckedError is used in places where we really do not care about an error but we
 // want to at least report it. Never use this for closing writers.
@@ -58,11 +61,20 @@ func UncheckedError(err error) {
 	if err == nil {
 		return
 	}
-	golog.Global.Debugw("unchecked error", "error", err)
+	PrintStackErr(err)
+	loggerWithSkipUtils.Debugw("unchecked error", "error", err)
 }
 
 // UncheckedErrorFunc is used in places where we really do not care about an error but we
 // want to at least report it. Never use this for closing writers.
 func UncheckedErrorFunc(f func() error) {
 	UncheckedError(f())
+}
+
+// PrintStackErr prints stack trace information from an error if it's available.
+func PrintStackErr(err error) {
+	var stackErr *errors.Error
+	if errors.As(err, &stackErr) {
+		loggerWithSkipUtils.Error(stackErr.ErrorStack())
+	}
 }

@@ -4,9 +4,10 @@ package main
 
 import (
 	"context"
-	"errors"
 	_ "net/http/pprof"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 

@@ -2,12 +2,12 @@
 package segmentation
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/go-errors/errors"
 
 	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -51,7 +51,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 		}
 		if err != nil {
 			pos := pt.Position()
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pos.X, pos.Y, pos.Z, err)
+			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", pos.X, pos.Y, pos.Z, err)
 			return false
 		}
 		return true
@@ -180,7 +180,7 @@ func pointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments
 		cloud.Iterate(func(pt pc.Point) bool {
 			pos := pt.Position()
 			if seen := visitedPoints[pos]; seen {
-				err = fmt.Errorf("point clouds in array must be distinct, have already seen point (%v,%v,%v)", pos.X, pos.Y, pos.Z)
+				err = errors.Errorf("point clouds in array must be distinct, have already seen point (%v,%v,%v)", pos.X, pos.Y, pos.Z)
 				return false
 			}
 			visitedPoints[pos] = true

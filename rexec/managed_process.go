@@ -3,7 +3,6 @@ package rexec
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -111,7 +112,7 @@ func (p *managedProcess) Start(ctx context.Context) error {
 		if runErr == nil {
 			return nil
 		}
-		return fmt.Errorf("error running process %q: %w", p.name, runErr)
+		return errors.Errorf("error running process %q: %w", p.name, runErr)
 	}
 
 	// This is fully managed so we will control when to kill the process and not
@@ -278,7 +279,7 @@ func (p *managedProcess) Stop() error {
 	p.logger.Info("stopping")
 	// First let's try to interrupt the process.
 	if err := p.cmd.Process.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return fmt.Errorf("error interrupting process: %w", err)
+		return errors.Errorf("error interrupting process: %w", err)
 	}
 
 	// If after a while the process still isn't stopping, let's kill it.
@@ -287,7 +288,7 @@ func (p *managedProcess) Stop() error {
 	select {
 	case <-timer.C:
 		if err := p.cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-			return fmt.Errorf("error killing process: %w", err)
+			return errors.Errorf("error killing process: %w", err)
 		}
 	case <-p.managingCh:
 	}
@@ -321,5 +322,5 @@ func (p *managedProcess) Stop() error {
 		}
 		return p.lastWaitErr
 	}
-	return fmt.Errorf("non-successful exit code: %d", p.cmd.ProcessState.ExitCode())
+	return errors.Errorf("non-successful exit code: %d", p.cmd.ProcessState.ExitCode())
 }

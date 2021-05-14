@@ -3,12 +3,13 @@ package server_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"image"
 	"image/png"
 	"math"
 	"testing"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/arm"

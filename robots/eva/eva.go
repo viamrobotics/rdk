@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.uber.org/multierr"
 
@@ -99,7 +100,7 @@ func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPo
 
 	err2 := e.resetErrors(ctx)
 	if err2 != nil {
-		return fmt.Errorf("move failure, and couldn't reset errors %w", multierr.Combine(err, err2))
+		return errors.Errorf("move failure, and couldn't reset errors %w", multierr.Combine(err, err2))
 	}
 
 	return e.doMoveJoints(ctx, radians)
@@ -187,7 +188,7 @@ func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, p
 			}
 		}
 
-		return fmt.Errorf("got unexpected response code: %d for %s %s", res.StatusCode, fullPath, more)
+		return errors.Errorf("got unexpected response code: %d for %s %s", res.StatusCode, fullPath, more)
 	}
 
 	if out == nil {
@@ -195,7 +196,7 @@ func (e *eva) apiRequestRetry(ctx context.Context, method string, path string, p
 	}
 
 	if !strings.HasPrefix(res.Header["Content-Type"][0], "application/json") {
-		return fmt.Errorf("expected json response from eva, got: %v", res.Header["Content-Type"])
+		return errors.Errorf("expected json response from eva, got: %v", res.Header["Content-Type"])
 	}
 
 	decoder := json.NewDecoder(res.Body)

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -38,6 +37,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
+	"github.com/go-errors/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -125,7 +125,7 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 
 	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
-		return fmt.Errorf("error creating log request %w", err)
+		return errors.Errorf("error creating log request %w", err)
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
 

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/binary"
-	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/utils"
@@ -141,7 +141,7 @@ func _readNext(r io.Reader) (int64, error) {
 		return int64(binary.LittleEndian.Uint64(data)), nil
 	}
 
-	return 0, fmt.Errorf("got %d bytes, and %w", x, err)
+	return 0, errors.Errorf("got %d bytes, and %w", x, err)
 }
 
 // ParseDepthMap parses a depth map from the given file. It knows
@@ -186,7 +186,7 @@ func ReadDepthMap(f *bufio.Reader) (*DepthMap, error) {
 	dm.height = int(rawHeight)
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
 	dm.data = make([]Depth, dm.width*dm.height)
@@ -220,7 +220,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	bytesPerPixelString = strings.TrimSpace(bytesPerPixelString)
 
 	if bytesPerPixelString != "2" {
-		return nil, fmt.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
+		return nil, errors.Errorf("i only know how to handle 2 bytes per pixel in new format, not %s", bytesPerPixelString)
 	}
 
 	unitsString, err := r.ReadString('\n')
@@ -257,7 +257,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	}
 
 	if dm.width <= 0 || dm.width >= 100000 || dm.height <= 0 || dm.height >= 100000 {
-		return nil, fmt.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
+		return nil, errors.Errorf("bad width or height for depth map %v %v", dm.width, dm.height)
 	}
 
 	temp := make([]byte, 2)
@@ -277,7 +277,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 			}
 
 			if n != 2 || err != nil {
-				return nil, fmt.Errorf("didn't read 2 bytes, got: %d err: %w x,y: %d,%x", n, err, x, y)
+				return nil, errors.Errorf("didn't read 2 bytes, got: %d err: %w x,y: %d,%x", n, err, x, y)
 			}
 
 			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
@@ -311,7 +311,7 @@ func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	case *image.Gray16:
 		return imageToDepthMap(ii), nil
 	default:
-		return nil, fmt.Errorf("don't know how to make DepthMap from %T", img)
+		return nil, errors.Errorf("don't know how to make DepthMap from %T", img)
 	}
 }
 

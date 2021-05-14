@@ -2,8 +2,9 @@ package base_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	"go.viam.com/core/testutils/inject"

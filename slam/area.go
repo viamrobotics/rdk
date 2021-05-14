@@ -1,9 +1,9 @@
 package slam
 
 import (
-	"errors"
-	"fmt"
 	"sync"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 
@@ -130,10 +130,10 @@ func (msa *mutableSquareArea) At(x, y float64) int {
 
 func (msa *mutableSquareArea) Set(x, y float64, v int) error {
 	if x < -msa.quadLength || x >= msa.quadLength {
-		return fmt.Errorf("x must be between [%v,%v)", -msa.quadLength, msa.quadLength)
+		return errors.Errorf("x must be between [%v,%v)", -msa.quadLength, msa.quadLength)
 	}
 	if y < -msa.quadLength || y >= msa.quadLength {
-		return fmt.Errorf("y must be between [%v,%v)", -msa.quadLength, msa.quadLength)
+		return errors.Errorf("y must be between [%v,%v)", -msa.quadLength, msa.quadLength)
 	}
 	return msa.cloud.Set(pointcloud.NewValuePoint(x, y, 0, v))
 }

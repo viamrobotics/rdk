@@ -1,9 +1,10 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/go-errors/errors"
 )
 
 // RawBytesFromSlice returns a view of the given slice value. It is valid
@@ -11,7 +12,7 @@ import (
 func RawBytesFromSlice(val interface{}) []byte {
 	valV := reflect.ValueOf(val)
 	if valV.Kind() != reflect.Slice {
-		panic(fmt.Errorf("expected slice but got %T", val))
+		panic(errors.Errorf("expected slice but got %T", val))
 	}
 	if valV.Len() == 0 {
 		return nil

@@ -3,8 +3,9 @@ package softrobotics
 
 import (
 	"context"
-	"errors"
 	"time"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"

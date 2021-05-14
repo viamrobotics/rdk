@@ -1,11 +1,12 @@
 package rimage
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"math"
 	"sort"
+
+	"github.com/go-errors/errors"
 
 	"github.com/disintegration/imaging"
 	"github.com/gonum/floats"

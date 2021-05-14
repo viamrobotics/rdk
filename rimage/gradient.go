@@ -1,10 +1,10 @@
 package rimage
 
 import (
-	"fmt"
 	"image"
 	"math"
 
+	"github.com/go-errors/errors"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -105,7 +105,7 @@ func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, er
 	magH, magW := magnitude.Dims()
 	dirH, dirW := direction.Dims()
 	if magW != dirW && magH != dirH {
-		return nil, fmt.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH)
+		return nil, errors.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH)
 	}
 	g := make([]Vec2D, 0, dirW*dirH)
 	for y := 0; y < dirH; y++ {

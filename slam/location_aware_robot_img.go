@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/fogleman/gg"
+	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 )
 
@@ -24,7 +25,7 @@ func (lar *LocationAwareRobot) Next(ctx context.Context) (image.Image, func(), e
 	case pb.LidarViewMode_LIDAR_VIEW_MODE_LIVE:
 		return lar.renderLiveView(ctx)
 	default:
-		return nil, nil, fmt.Errorf("unknown view mode %q", lar.clientLidarViewMode)
+		return nil, nil, errors.Errorf("unknown view mode %q", lar.clientLidarViewMode)
 	}
 }
 

@@ -2,9 +2,10 @@ package base_test
 
 import (
 	"context"
-	"errors"
 	"math"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

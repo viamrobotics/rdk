@@ -1,11 +1,11 @@
 package transform
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"math"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -33,10 +33,10 @@ func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.Image
 // as the color image
 func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
-		return nil, fmt.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
+		return nil, errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)", dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
 	}
 	if img.Depth.Height() != dcie.DepthCamera.Height || img.Depth.Width() != dcie.DepthCamera.Width {
-		return nil, fmt.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
+		return nil, errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)", dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
 	}
 	inmap := img.Depth
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
@@ -84,7 +84,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 	// Check dimensions, they should be aligned to the color frame
 	if iwd.Depth.Width() != iwd.Color.Width() ||
 		iwd.Depth.Height() != iwd.Color.Height() {
-		return nil, fmt.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
+		return nil, errors.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
 			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
 	pc := pointcloud.New()
@@ -152,7 +152,7 @@ func DepthMapToPointCloud(depthImage *rimage.DepthMap, pixel2meter float64, para
 				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
 				err := pcOut.Set(pt)
 				if err != nil {
-					err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", xPoint, yPoint, z, err)
+					err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", xPoint, yPoint, z, err)
 					return nil, err
 				}
 			}
@@ -178,7 +178,7 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 		}
 		err = transformedPoints.Set(ptTransformed)
 		if err != nil {
-			err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
 			return false
 		}
 		return true
@@ -202,7 +202,7 @@ func ProjectPointCloudToRGBPlane(pts pointcloud.PointCloud, h, w int, params Pin
 			pt2d := pointcloud.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
 			err = coordinates.Set(pt2d)
 			if err != nil {
-				err = fmt.Errorf("error setting point (%v, %v, %v) in point cloud - %w", j, i, pt.Position().Z, err)
+				err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", j, i, pt.Position().Z, err)
 				return false
 			}
 		}

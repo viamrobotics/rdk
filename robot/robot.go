@@ -3,7 +3,6 @@ package robot
 
 import (
 	"context"
-	"fmt"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/go-errors/errors"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -146,7 +146,7 @@ func AsMutable(r Robot) (MutableRobot, error) {
 	if m, ok := r.(MutableRobot); ok {
 		return m, nil
 	}
-	return nil, fmt.Errorf("expected %T to be a MutableRobot", r)
+	return nil, errors.Errorf("expected %T to be a MutableRobot", r)
 }
 
 // A Provider is responsible for providing functionality to parts in a

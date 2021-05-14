@@ -6,7 +6,6 @@ package lidar
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"runtime"
 	"sort"
@@ -22,6 +21,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 	"gonum.org/v1/gonum/mat"
 )
@@ -52,7 +52,7 @@ func New(ctx context.Context, config config.Component, logger golog.Logger) (com
 	lidarType := config.Attributes.String("type")
 	f := registry.LidarLookup(lidarType)
 	if f == nil {
-		return nil, fmt.Errorf("unknown lidar model: %s", lidarType)
+		return nil, errors.Errorf("unknown lidar model: %s", lidarType)
 	}
 	lidar, err := f(ctx, nil, config, logger)
 	if err != nil {

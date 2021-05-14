@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 
+	"github.com/go-errors/errors"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -55,7 +56,7 @@ func NewColorFromHex(hex string) (Color, error) {
 	var r, g, b uint8
 	n, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b)
 	if n != 3 || err != nil {
-		return Color(0), fmt.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
+		return Color(0), errors.Errorf("couldn't parse hex (%s) n: %d err: %w", hex, n, err)
 	}
 	return NewColor(r, g, b), nil
 }

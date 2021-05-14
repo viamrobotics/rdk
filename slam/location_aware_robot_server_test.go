@@ -2,12 +2,13 @@ package slam
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"os"
 	"testing"
+
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/base"
 	pb "go.viam.com/core/proto/slam/v1"

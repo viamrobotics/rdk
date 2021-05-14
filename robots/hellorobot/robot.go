@@ -3,7 +3,8 @@ package hellorobot
 
 import (
 	"context"
-	"errors"
+
+	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
