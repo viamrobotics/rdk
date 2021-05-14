@@ -25,3 +25,21 @@ func TestStringSet(t *testing.T) {
 	_, ok := ss["foo"]
 	test.That(t, ok, test.ShouldBeTrue)
 }
+
+func TestStringSliceRemove(t *testing.T) {
+	for idx, tc := range []struct {
+		In  []string
+		At  int
+		Out []string
+	}{
+		{[]string{}, 0, []string{}},
+		{[]string{}, 1, []string{}},
+		{[]string{"1"}, 1, []string{"1"}},
+		{[]string{"1", "2"}, 1, []string{"1"}},
+		{[]string{"1", "2", "3", "4"}, 2, []string{"1", "2", "4"}},
+	} {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
+			test.That(t, StringSliceRemove(tc.In, tc.At), test.ShouldResemble, tc.Out)
+		})
+	}
+}
