@@ -5,7 +5,6 @@
   <a href="https://codecov.io/gh/viamrobotics/core"><img src="https://codecov.io/gh/viamrobotics/core/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 
-* [Packages](#packages)
 * [Programs](#programs)
 * [Dependencies](#dependencies)
 * [Development](#development)
