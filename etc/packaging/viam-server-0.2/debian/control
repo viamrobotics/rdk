@@ -10,9 +10,7 @@ Standards-Version: 4.1.3
 
 Package: viam-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends},
- libpigpio1, libpython2.7, libx264-155, libx11-6,
- libxext6, libnlopt0 (>=2.7.0)
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Viam's robot controlling daemon
  Control server providing gRPC access for control
  of robots.
