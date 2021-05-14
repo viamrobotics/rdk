@@ -25,7 +25,11 @@ func main() {
 			rlog.Logger.Fatal(err)
 		}
 	case "pull":
-		if err := tools.Pull(); err != nil {
+		var all bool
+		if len(os.Args) == 3 && os.Args[2] == "--all" {
+			all = true
+		}
+		if err := tools.Pull(all); err != nil {
 			rlog.Logger.Fatal(err)
 		}
 	case "push":

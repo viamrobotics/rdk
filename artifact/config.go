@@ -1,7 +1,6 @@
 package artifact
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -113,12 +112,13 @@ func LoadConfigFromFile(path string) (*Config, error) {
 
 // A Config describes how artifact should function.
 type Config struct {
-	Cache     string       `json:"cache"`
-	Root      string       `json:"root"`
-	Store     StoreConfig  `json:"store"`
-	Tree      TreeNodeTree `json:"tree"`
-	configDir string
-	commitFn  func() error
+	Cache               string       `json:"cache"`
+	Root                string       `json:"root"`
+	Store               StoreConfig  `json:"store"`
+	Tree                TreeNodeTree `json:"tree"`
+	SourcePullSizeLimit int          `json:"source_pull_size_limit"`
+	configDir           string
+	commitFn            func() error
 }
 
 // Lookup looks an artifact up by its path and returns its
@@ -135,19 +135,30 @@ func (c *Config) Lookup(path string) (*TreeNode, error) {
 	return node, nil
 }
 
+// DefaultSourcePullSizeLimitBytes is the limit where if a normal pull happens,
+// a file larger than this size will not be pulled down from source
+// unless pull with ignoring the limit is used.
+const DefaultSourcePullSizeLimitBytes = 1 << 22
+
 // UnmarshalJSON unmarshals the config from JSON data.
 func (c *Config) UnmarshalJSON(data []byte) error {
 	rawConfig := &struct {
-		Cache string           `json:"cache"`
-		Root  string           `json:"root"`
-		Store *json.RawMessage `json:"store"`
-		Tree  TreeNodeTree     `json:"tree"`
+		Cache               string           `json:"cache"`
+		Root                string           `json:"root"`
+		Store               *json.RawMessage `json:"store"`
+		Tree                TreeNodeTree     `json:"tree"`
+		SourcePullSizeLimit *int             `json:"source_pull_size_limit,omitempty"`
 	}{}
 	if err := json.Unmarshal(data, rawConfig); err != nil {
 		return err
 	}
 	c.Cache = rawConfig.Cache
 	c.Root = rawConfig.Root
+	if rawConfig.SourcePullSizeLimit == nil {
+		c.SourcePullSizeLimit = DefaultSourcePullSizeLimitBytes
+	} else {
+		c.SourcePullSizeLimit = *rawConfig.SourcePullSizeLimit
+	}
 
 	if rawConfig.Store != nil {
 		storeConfig, err := unmarshalJSONToStoreConfig([]byte(*rawConfig.Store))
@@ -181,8 +192,8 @@ func unmarshalJSONToStoreConfig(data []byte) (StoreConfig, error) {
 	}
 }
 
-func (c *Config) storeHash(nodeHash string, path []string) error {
-	return c.Tree.storeHash(nodeHash, path)
+func (c *Config) storeHash(nodeHash string, nodeSize int, path []string) error {
+	return c.Tree.storeHash(nodeHash, nodeSize, path)
 }
 
 // RemovePath removes nodes that fall into the given path.
@@ -205,34 +216,21 @@ func (tn *TreeNode) IsInternal() bool {
 // A TreeNodeExternal is an external node representing the location
 // of an artifact identified by its content hash.
 type TreeNodeExternal struct {
-	hash string
+	Hash string `json:"hash"`
+	Size int    `json:"size"`
 }
 
 // UnmarshalJSON unmarshals JSON into a specific tree node
 // that may be internal or external.
 func (tn *TreeNode) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	tok, err := dec.Token()
-	if err != nil {
-		return err
+	var temp struct {
+		Size *int `json:"size"`
 	}
-	switch v := tok.(type) {
-	case string:
-		tn.external = &TreeNodeExternal{hash: v}
-	case json.Delim:
-		if v == '{' {
-			var tree TreeNodeTree
-			if err := json.Unmarshal(data, &tree); err != nil {
-				return err
-			}
-			tn.internal = tree
-		} else {
-			return errors.Errorf("invalid json delimiter %q", v)
-		}
-	default:
-		return errors.Errorf("invalid tree node type '%T'", tok)
+	if err := json.Unmarshal(data, &temp); err == nil && temp.Size != nil {
+		tn.external = &TreeNodeExternal{}
+		return json.Unmarshal(data, tn.external)
 	}
-	return nil
+	return json.Unmarshal(data, &tn.internal)
 }
 
 // MarshalJSON marshals the node out into JSON.
@@ -240,7 +238,7 @@ func (tn *TreeNode) MarshalJSON() ([]byte, error) {
 	if tn.IsInternal() {
 		return json.Marshal(tn.internal)
 	}
-	return json.Marshal(tn.external.hash)
+	return json.Marshal(tn.external)
 }
 
 // A TreeNodeTree is an internal node with mappings to other
@@ -264,25 +262,25 @@ func (tnt TreeNodeTree) lookup(path []string) (*TreeNode, bool) {
 
 // storeHash stores a node hash by traversing down the tree to the destination
 // creating nodes along the way.
-func (tnt TreeNodeTree) storeHash(nodeHash string, path []string) error {
+func (tnt TreeNodeTree) storeHash(nodeHash string, nodeSize int, path []string) error {
 	if tnt == nil || len(path) == 0 {
 		return nil
 	}
 	if len(path) == 1 {
-		tnt[path[0]] = &TreeNode{external: &TreeNodeExternal{hash: nodeHash}}
+		tnt[path[0]] = &TreeNode{external: &TreeNodeExternal{Hash: nodeHash, Size: nodeSize}}
 		return nil
 	}
 	node, ok := tnt[path[0]]
 	if !ok {
 		next := TreeNodeTree{}
 		tnt[path[0]] = &TreeNode{internal: next}
-		return next.storeHash(nodeHash, path[1:])
+		return next.storeHash(nodeHash, nodeSize, path[1:])
 	}
 	if !node.IsInternal() {
 		node = &TreeNode{internal: TreeNodeTree{}}
 		tnt[path[0]] = node
 	}
-	return node.internal.storeHash(nodeHash, path[1:])
+	return node.internal.storeHash(nodeHash, nodeSize, path[1:])
 }
 
 // removePath removes nodes that fall into the given path.

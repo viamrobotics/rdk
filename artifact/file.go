@@ -18,7 +18,7 @@ func Path(to string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	actualPath, err := cache.Ensure(to)
+	actualPath, err := cache.Ensure(to, true)
 	if err != nil {
 		return "", errors.Errorf("error ensuring %q: %w", to, err)
 	}

@@ -65,7 +65,7 @@ type Cache interface {
 	// Ensure guarantees that a user visible path is populated with
 	// the cached artifact. This can error if the path is unknown
 	// or a failure happens retrieving it from underlying Store.
-	Ensure(path string) (string, error)
+	Ensure(path string, ignoreLimit bool) (string, error)
 
 	// Remove removes the given path from the tree and root if present
 	// but not from the cache. Use clean with cache true to clear out
@@ -191,29 +191,28 @@ func (s *cachedStore) NewPath(to string) string {
 	return filepath.Join(s.rootDir, to)
 }
 
-func (s *cachedStore) Ensure(path string) (string, error) {
+func (s *cachedStore) Ensure(path string, ignoreLimit bool) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	node, err := s.config.Lookup(path)
 	if err != nil {
 		return "", errors.Errorf("path not in config: %q", path)
 	}
-	return s.ensureNode(node, s.NewPath(path))
-
+	return s.ensureNode(node, s.NewPath(path), ignoreLimit)
 }
 
 // ensureNode verifies that all nodes living under a tree with respect to a given
 // path are placed in the cache.
-func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error) {
+func (s *cachedStore) ensureNode(node *TreeNode, dstPath string, ignoreLimit bool) (string, error) {
 	if node.IsInternal() {
 		for name, child := range node.internal {
-			if _, err := s.ensureNode(child, filepath.Join(dstPath, name)); err != nil {
+			if _, err := s.ensureNode(child, filepath.Join(dstPath, name), ignoreLimit); err != nil {
 				return "", err
 			}
 		}
 		return dstPath, nil
 	}
-	nodeHash := node.external.hash
+	nodeHash := node.external.Hash
 
 	if err := s.cache.Contains(nodeHash); err == nil {
 		if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
@@ -222,6 +221,11 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error)
 		return dstPath, nil
 	} else if !IsErrArtifactNotFound(err) {
 		return "", errors.Errorf("error checking if hash is in file system cache: %w", err)
+	}
+
+	if !ignoreLimit && s.config.SourcePullSizeLimit != 0 && node.external.Size > s.config.SourcePullSizeLimit {
+		Logger.Infow("too large to load from source", "path", dstPath, "hash", nodeHash, "size", node.external.Size)
+		return "", nil
 	}
 
 	Logger.Debugw("loading from source", "path", dstPath, "hash", nodeHash)
@@ -260,7 +264,7 @@ func (s *cachedStore) Clean() error {
 
 // cleanTree removes any files not referenced by the tree with respect to the given
 // local path.
-func (s *cachedStore) cleanTree(tree map[string]*TreeNode, localPath string) error {
+func (s *cachedStore) cleanTree(tree TreeNodeTree, localPath string) error {
 	localFileInfos, err := os.ReadDir(localPath)
 	if err != nil {
 		return err
@@ -271,7 +275,9 @@ func (s *cachedStore) cleanTree(tree map[string]*TreeNode, localPath string) err
 		node, ok := tree[name]
 		if ok {
 			if node.IsInternal() {
-				return s.cleanTree(node.internal, newLocalPath)
+				if err := s.cleanTree(node.internal, newLocalPath); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -364,7 +370,7 @@ func (s *cachedStore) walkUserTreeUncached(
 			if err != nil {
 				return err
 			}
-			if hasExistingNode && !existingNode.IsInternal() && existingNode.external.hash == nodeHash {
+			if hasExistingNode && !existingNode.IsInternal() && existingNode.external.Hash == nodeHash {
 				return nil
 			}
 			var changeType NodeChangeType
@@ -390,7 +396,7 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 		if err := s.store(nodeHash, data); err != nil {
 			return err
 		}
-		return s.config.storeHash(nodeHash, treePath)
+		return s.config.storeHash(nodeHash, len(data), treePath)
 	})
 }
 

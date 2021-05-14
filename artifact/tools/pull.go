@@ -4,12 +4,12 @@ package tools
 import "go.viam.com/core/artifact"
 
 // Pull ensures all artifacts in the global cache tree are present locally.
-func Pull() error {
+func Pull(all bool) error {
 	cache, err := artifact.GlobalCache()
 	if err != nil {
 		return err
 	}
 
-	_, err = cache.Ensure("/")
+	_, err = cache.Ensure("/", all)
 	return err
 }
