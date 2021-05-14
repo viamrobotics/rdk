@@ -38,6 +38,8 @@ func makeRangeArray(length int) []int {
 	return rangeArray
 }
 
+// DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a
+// grayscale image.
 func (cd *CannyEdgeDetector) DetectDepthEdges(dm *DepthMap) (*image.Gray, error) {
 
 	vectorField := SobelFilter(dm)
@@ -64,7 +66,7 @@ var (
 	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
 )
 
-// Sobel Filter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
+// SobelFilter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
 // creates a  vector in polar form, and returns a vector field.
 func SobelFilter(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
@@ -185,7 +187,7 @@ func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func
 	return nil
 }
 
-// A closing morphological transform is a Dilation followed by an Erosion.
+// ClosingMorph applies a closing morphological transform, which is a Dilation followed by an Erosion.
 // Closing smooths an image by fusing narrow breaks and filling small holes and gaps.
 func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
@@ -201,7 +203,7 @@ func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	return outDM, nil
 }
 
-// An opening morphological transform is a Erosion followed by a Dilation.
+// OpeningMorph applies an opening morphological transform, which is a Erosion followed by a Dilation.
 // Opening smooths an image by eliminating thin protrusions and narrow outcroppings.
 func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
