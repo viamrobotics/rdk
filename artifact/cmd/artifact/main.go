@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/fatih/color"
 
@@ -13,10 +14,10 @@ import (
 )
 
 func main() {
-	usage := "usage: artifact [clean|pull|push|status]"
+	usage := "usage: artifact [clean|pull|push|rm|status]"
 	if len(os.Args) <= 1 {
-		fmt.Println(usage)
-		os.Exit(0)
+		fmt.Fprintln(os.Stderr, usage)
+		os.Exit(1)
 	}
 	switch os.Args[1] {
 	case "clean":
@@ -29,6 +30,27 @@ func main() {
 		}
 	case "push":
 		if err := tools.Push(); err != nil {
+			rlog.Logger.Fatal(err)
+		}
+	case "rm":
+		if len(os.Args) != 3 {
+			fmt.Fprintln(os.Stderr, "usage: artifact rm <path>")
+			os.Exit(1)
+		}
+		filePath := os.Args[2]
+		if !filepath.IsAbs(filePath) {
+			wd, err := os.Getwd()
+			if err != nil {
+				rlog.Logger.Fatal(err)
+			}
+			absPath, err := filepath.Abs(wd)
+			if err != nil {
+				rlog.Logger.Fatal(err)
+			}
+			filePath = filepath.Join(absPath, filePath)
+		}
+
+		if err := tools.Remove(filePath); err != nil {
 			rlog.Logger.Fatal(err)
 		}
 	case "status":

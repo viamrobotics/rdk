@@ -185,6 +185,11 @@ func (c *Config) storeHash(nodeHash string, path []string) error {
 	return c.Tree.storeHash(nodeHash, path)
 }
 
+// RemovePath removes nodes that fall into the given path.
+func (c *Config) RemovePath(path string) {
+	c.Tree.removePath(strings.Split(path, "/"))
+}
+
 // A TreeNode represents a node in an artifact tree. The tree
 // is a hierarchy of artifacts that mimics a file system.
 type TreeNode struct {
@@ -278,4 +283,20 @@ func (tnt TreeNodeTree) storeHash(nodeHash string, path []string) error {
 		tnt[path[0]] = node
 	}
 	return node.internal.storeHash(nodeHash, path[1:])
+}
+
+// removePath removes nodes that fall into the given path.
+func (tnt TreeNodeTree) removePath(path []string) {
+	if tnt == nil || len(path) == 0 {
+		return
+	}
+	if len(path) == 1 {
+		delete(tnt, path[0])
+		return
+	}
+	node, ok := tnt[path[0]]
+	if !ok {
+		return
+	}
+	node.internal.removePath(path[1:])
 }
