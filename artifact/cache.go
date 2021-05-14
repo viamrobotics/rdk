@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/go-errors/errors"
@@ -65,6 +66,11 @@ type Cache interface {
 	// the cached artifact. This can error if the path is unknown
 	// or a failure happens retrieving it from underlying Store.
 	Ensure(path string) (string, error)
+
+	// Remove removes the given path from the tree and root if present
+	// but not from the cache. Use clean with cache true to clear out
+	// the cache.
+	Remove(path string) error
 
 	// Clean makes sure that the user visible assets reflect 1:1
 	// the versioned assets in the tree.
@@ -231,6 +237,19 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string) (string, error)
 		return "", errors.Errorf("error emplacing into file system cache: %w", err)
 	}
 	return dstPath, nil
+}
+
+func (s *cachedStore) Remove(path string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if strings.HasPrefix(path, s.rootDir) {
+		path = strings.TrimPrefix(path, s.rootDir+"/")
+	}
+	if path != "/" {
+		path = strings.TrimPrefix(path, "/")
+	}
+	s.config.RemovePath(path)
+	return s.config.commitFn()
 }
 
 func (s *cachedStore) Clean() error {
