@@ -240,7 +240,7 @@ func readURRobotMessage(buf []byte, logger golog.Logger) (error, error) {
 		robotMessageData := binary.BigEndian.Uint32(buf[16:])
 		robotCommTextMessage := string(buf[20:])
 
-		logger.Debugf("robot error! code: %d argument: %d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
+		logger.Debugf("robot error! code: C%dA%d reportLevel: %d, dataType: %d, data: %d, msg: %s\n",
 			robotMessageCode, robotMessageArgument, robotMessageReportLevel, robotMessageDataType, robotMessageData, robotCommTextMessage)
 
 	case 3: // Version
