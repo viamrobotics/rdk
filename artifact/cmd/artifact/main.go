@@ -2,11 +2,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/edaniels/golog"
 	"github.com/fatih/color"
+	"github.com/go-errors/errors"
 
 	"go.viam.com/core/artifact/tools"
 	"go.viam.com/core/rlog"
@@ -14,34 +17,60 @@ import (
 )
 
 func main() {
-	usage := "usage: artifact [clean|pull|push|rm|status]"
-	if len(os.Args) <= 1 {
-		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(1)
+	utils.ContextualMain(mainWithArgs, logger)
+}
+
+var logger = golog.NewDevelopmentLogger("artifact")
+
+type topArguments struct {
+	Command string   `flag:"0,required,usage=<clean|pull|push|rm|status>"`
+	Extra   []string `flag:",extra"` // for sub-commands
+}
+
+type pullArguments struct {
+	All bool `flag:"all,usage=pull all files regardless of size"`
+}
+
+type removeArguments struct {
+	Path string `flag:"0,required,usage=rm <path>"`
+}
+
+const (
+	commandNameClean  = "clean"
+	commandNamePull   = "pull"
+	commandNamePush   = "push"
+	commandNameRemove = "rm"
+	commandNameStatus = "status"
+)
+
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
+	var topArgsParsed topArguments
+	if err := utils.ParseFlags(args, &topArgsParsed); err != nil {
+		return err
 	}
-	switch os.Args[1] {
-	case "clean":
+	switch topArgsParsed.Command {
+	case commandNameClean:
 		if err := tools.Clean(); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "pull":
-		var all bool
-		if len(os.Args) == 3 && os.Args[2] == "--all" {
-			all = true
+	case commandNamePull:
+		var pullArgsParsed pullArguments
+		if err := utils.ParseFlags(append(args[:1], args[2:]...), &pullArgsParsed); err != nil {
+			return err
 		}
-		if err := tools.Pull(all); err != nil {
+		if err := tools.Pull(pullArgsParsed.All); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "push":
+	case commandNamePush:
 		if err := tools.Push(); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "rm":
-		if len(os.Args) != 3 {
-			fmt.Fprintln(os.Stderr, "usage: artifact rm <path>")
-			os.Exit(1)
+	case commandNameRemove:
+		var removeArgsParsed removeArguments
+		if err := utils.ParseFlags(append(args[:1], args[2:]...), &removeArgsParsed); err != nil {
+			return err
 		}
-		filePath := os.Args[2]
+		filePath := removeArgsParsed.Path
 		if !filepath.IsAbs(filePath) {
 			wd, err := os.Getwd()
 			if err != nil {
@@ -57,7 +86,7 @@ func main() {
 		if err := tools.Remove(filePath); err != nil {
 			rlog.Logger.Fatal(err)
 		}
-	case "status":
+	case commandNameStatus:
 		status, err := tools.Status()
 		if err != nil {
 			utils.PrintStackErr(err)
@@ -78,7 +107,7 @@ func main() {
 			}
 		}
 	default:
-		fmt.Println(usage)
-		os.Exit(1)
+		return errors.New("usage: artifact <clean|pull|push|rm|status>")
 	}
+	return nil
 }
