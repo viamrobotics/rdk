@@ -48,3 +48,11 @@ func NewStringSet(values ...string) StringSet {
 	}
 	return set
 }
+
+// StringSliceRemove removes an element from the slice at the given position.
+func StringSliceRemove(from []string, at int) []string {
+	if at >= len(from) {
+		return from
+	}
+	return append(from[:at], from[at+1:]...)
+}

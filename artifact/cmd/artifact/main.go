@@ -56,7 +56,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 	case commandNamePull:
 		var pullArgsParsed pullArguments
-		if err := utils.ParseFlags(append(args[:1], args[2:]...), &pullArgsParsed); err != nil {
+		if err := utils.ParseFlags(utils.StringSliceRemove(args, 1), &pullArgsParsed); err != nil {
 			return err
 		}
 		if err := tools.Pull(pullArgsParsed.TreePath, pullArgsParsed.All); err != nil {
@@ -68,7 +68,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 	case commandNameRemove:
 		var removeArgsParsed removeArguments
-		if err := utils.ParseFlags(append(args[:1], args[2:]...), &removeArgsParsed); err != nil {
+		if err := utils.ParseFlags(utils.StringSliceRemove(args, 1), &removeArgsParsed); err != nil {
 			return err
 		}
 		filePath, err := makePathToArtifact(removeArgsParsed.Path)
