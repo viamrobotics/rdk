@@ -28,7 +28,8 @@ type topArguments struct {
 }
 
 type pullArguments struct {
-	All bool `flag:"all,usage=pull all files regardless of size"`
+	All      bool   `flag:"all,usage=pull all files regardless of size"`
+	TreePath string `flag:"0,usage=pull a specific path from the tree in"`
 }
 
 type removeArguments struct {
@@ -58,7 +59,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		if err := utils.ParseFlags(append(args[:1], args[2:]...), &pullArgsParsed); err != nil {
 			return err
 		}
-		if err := tools.Pull(pullArgsParsed.All); err != nil {
+		if err := tools.Pull(pullArgsParsed.TreePath, pullArgsParsed.All); err != nil {
 			rlog.Logger.Fatal(err)
 		}
 	case commandNamePush:
@@ -70,17 +71,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		if err := utils.ParseFlags(append(args[:1], args[2:]...), &removeArgsParsed); err != nil {
 			return err
 		}
-		filePath := removeArgsParsed.Path
-		if !filepath.IsAbs(filePath) {
-			wd, err := os.Getwd()
-			if err != nil {
-				rlog.Logger.Fatal(err)
-			}
-			absPath, err := filepath.Abs(wd)
-			if err != nil {
-				rlog.Logger.Fatal(err)
-			}
-			filePath = filepath.Join(absPath, filePath)
+		filePath, err := makePathToArtifact(removeArgsParsed.Path)
+		if err != nil {
+			rlog.Logger.Fatal(err)
 		}
 
 		if err := tools.Remove(filePath); err != nil {
@@ -110,4 +103,23 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return errors.New("usage: artifact <clean|pull|push|rm|status>")
 	}
 	return nil
+}
+
+func makePathToArtifact(filePath string) (string, error) {
+	if filePath == "" {
+		return "", nil
+	}
+	if filepath.IsAbs(filePath) {
+		return filePath, nil
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	absPath, err := filepath.Abs(wd)
+	if err != nil {
+		return "", err
+	}
+	filePath = filepath.Join(absPath, filePath)
+	return filePath, nil
 }
