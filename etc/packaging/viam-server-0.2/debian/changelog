@@ -1,0 +1,11 @@
+viam-server (0.2) viam; urgency=medium
+
+  * Added camera servers binaries
+
+ -- James Otting <james@viam.com>  Thu, 13 May 2021 09:57:15 -0700
+
+viam-server (0.1) viam; urgency=medium
+
+  * Initial Release.
+
+ -- James Otting <james@viam.com>  Tue, 20 Apr 2021 09:35:38 -0700

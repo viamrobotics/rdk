@@ -70,20 +70,26 @@ python-macos:
 server:
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
-deb-server: server
+cameras:
+	cd etc/camera_servers && make royaleserver
+	cd etc/camera_servers && make intelrealserver
+
+deb-server: server cameras
 	rm -rf etc/packaging/work/
 	mkdir etc/packaging/work/
-	cp -r etc/packaging/viam-server-0.1/ etc/packaging/work/
-	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-0.1/usr/bin/viam-server
-	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/templates/
-	install -m 644 -D web/runtime-shared/static/* --target-directory=etc/packaging/work/viam-server-0.1/usr/share/viam/static/
-	cd etc/packaging/work/viam-server-0.1/ \
-	&& dch -v 0.1+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
+	cp -r etc/packaging/viam-server-0.2/ etc/packaging/work/
+	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-0.2/usr/bin/viam-server
+	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-0.2/usr/bin/intelrealserver
+	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-0.2/usr/bin/royaleserver
+	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/templates/
+	install -m 644 -D web/runtime-shared/static/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/static/
+	cd etc/packaging/work/viam-server-0.2/ \
+	&& dch -v 0.2+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
 	&& dpkg-buildpackage -us -uc -b \
 
 deb-install: deb-server
-	sudo dpkg -i etc/packaging/work/viam-server_0.1+*.deb
+	sudo dpkg -i etc/packaging/work/viam-server_0.2+*.deb
 
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
