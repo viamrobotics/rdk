@@ -1,5 +1,10 @@
 package referenceframe
 
+import (
+	"fmt"
+	"go.viam.com/core/kinematics/kinmath"
+)
+
 type Position struct {
 	X, Y, Z int64 // millimeters
 }
@@ -14,6 +19,13 @@ type Offset struct {
 }
 
 func (o Offset) UnProject(p Position) Position {
+	q := kinmath.NewQuatTransFromRotation(o.MyRotation.Rx, o.MyRotation.Ry, o.MyRotation.Rz)
+	q.SetX(float64(o.Translation.X))
+	q.SetY(float64(o.Translation.Y))
+	q.SetZ(float64(o.Translation.Z))
+
+	fmt.Printf("hi %#v\n", q)
+	
 	panic(1)
 }
 
