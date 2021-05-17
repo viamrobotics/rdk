@@ -15,7 +15,7 @@ type Store interface {
 	Store(hash string, r io.Reader) error
 }
 
-// A StoreType indentifies a specific type of Store.
+// A StoreType identifies a specific type of Store.
 type StoreType string
 
 // The set of known store types.

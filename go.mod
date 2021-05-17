@@ -3,6 +3,7 @@ module go.viam.com/core
 go 1.16
 
 require (
+	cloud.google.com/go v0.74.0
 	cloud.google.com/go/storage v1.10.0
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
@@ -59,6 +60,7 @@ require (
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
 	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197 // indirect
 	golang.org/x/tools v0.1.0
 	gonum.org/v1/gonum v0.8.2

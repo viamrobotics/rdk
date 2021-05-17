@@ -3,41 +3,101 @@ package artifact
 import (
 	"context"
 	"io"
+	"net/http"
 	"os"
+	"sync"
 
 	"cloud.google.com/go/storage"
 	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/oauth2"
 	"google.golang.org/api/option"
+	gcphttp "google.golang.org/api/transport/http"
 )
+
+func init() {
+	if path, ok := os.LookupEnv("ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS"); ok && path != "" {
+		setGoogleCredsPath(path)
+	}
+}
+
+var (
+	_googleCredsMu   sync.Mutex
+	_googleCredsPath string
+)
+
+func getGoogleCredsPath() string {
+	_googleCredsMu.Lock()
+	defer _googleCredsMu.Unlock()
+	return _googleCredsPath
+}
+
+func setGoogleCredsPath(path string) func() {
+	_googleCredsMu.Lock()
+	prevGoogleCredsPath := _googleCredsPath
+	_googleCredsPath = path
+	_googleCredsMu.Unlock()
+	return func() {
+		setGoogleCredsPath(prevGoogleCredsPath)
+	}
+}
 
 // newGoogleStorageStore returns a new googleStorageStore based on the given config.
 func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStore, error) {
+	if config.Bucket == "" {
+		return nil, errors.New("bucket required")
+	}
+
 	var opts []option.ClientOption
 	var noAuth bool
-	if path, ok := os.LookupEnv("GOOGLE_APPLICATION_CREDENTIALS"); !ok || path == "" {
+	credsPath := getGoogleCredsPath()
+	if credsPath == "" {
 		noAuth = true
 		opts = append(opts, option.WithoutAuthentication())
+	} else {
+		opts = append(opts, option.WithCredentialsFile(credsPath), option.WithScopes(storage.ScopeFullControl))
 	}
-	client, err := storage.NewClient(context.Background(), opts...)
+
+	var httpTransport http.Transport
+	var err error
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: &httpTransport})
+	gcpTransport, err := gcphttp.NewTransport(ctx, &httpTransport, opts...)
 	if err != nil {
+		return nil, err
+	}
+
+	httpClient := &http.Client{Transport: gcpTransport}
+	clientOpt := option.WithHTTPClient(httpClient)
+	client, err := storage.NewClient(context.Background(), clientOpt)
+	if err != nil {
+		httpTransport.CloseIdleConnections()
 		if noAuth {
 			return nil, errors.Wrap(err, 0)
 		}
-		opts = append(opts, option.WithoutAuthentication())
-		client, err = storage.NewClient(context.Background(), opts...)
+		httpClient.Transport, err = gcphttp.NewTransport(ctx, &httpTransport, option.WithoutAuthentication())
 		if err != nil {
+			return nil, err
+		}
+
+		client, err = storage.NewClient(context.Background(), clientOpt)
+		if err != nil {
+			httpTransport.CloseIdleConnections()
 			return nil, errors.Wrap(err, 0)
 		}
 	}
 
-	return &googleStorageStore{client: client, bucket: client.Bucket(config.Bucket)}, nil
+	return &googleStorageStore{
+		client:        client,
+		bucket:        client.Bucket(config.Bucket),
+		httpTransport: &httpTransport,
+	}, nil
 }
 
 // A googleStorageStore is able to load and store artifacts by their hashes and content.
 type googleStorageStore struct {
-	client *storage.Client
-	bucket *storage.BucketHandle
+	client        *storage.Client
+	bucket        *storage.BucketHandle
+	httpTransport *http.Transport
 }
 
 func (s *googleStorageStore) Contains(hash string) error {
@@ -77,5 +137,6 @@ func (s *googleStorageStore) Store(hash string, r io.Reader) (err error) {
 }
 
 func (s *googleStorageStore) Close() error {
+	s.httpTransport.CloseIdleConnections()
 	return s.client.Close()
 }

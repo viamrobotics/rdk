@@ -69,7 +69,7 @@ Some guidelines on using these:
 Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull down with git and is typically not needed except for certain tests. In order to add large data test artifacts, you need to do the following:
 
 ```
-# get GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
+# get ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
 go install go.viam.com/core/artifact/cmd/artifact
 # place new artifacts in artifact_data
 artifact push

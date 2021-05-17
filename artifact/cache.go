@@ -215,7 +215,7 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string, ignoreLimit boo
 	nodeHash := node.external.Hash
 
 	if err := s.cache.Contains(nodeHash); err == nil {
-		if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
+		if err := emplaceFile(s.cache, nodeHash, dstPath); err != nil {
 			return "", errors.Errorf("error emplacing into file system cache: %w", err)
 		}
 		return dstPath, nil
@@ -237,7 +237,7 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string, ignoreLimit boo
 	if err := s.cache.Store(nodeHash, rc); err != nil {
 		return "", errors.Errorf("error storing into file system cache: %w", err)
 	}
-	if err := s.cache.Emplace(nodeHash, dstPath); err != nil {
+	if err := emplaceFile(s.cache, nodeHash, dstPath); err != nil {
 		return "", errors.Errorf("error emplacing into file system cache: %w", err)
 	}
 	return dstPath, nil
