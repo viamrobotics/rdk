@@ -62,7 +62,7 @@ jobs:
         mv .artifact.json .artifact.json.bak
         mv .artifact.test.json .artifact.json
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
-        export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=artifact_google_creds.json
+        export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
         make cover
 
     - name: Upload coverage to Codecov
