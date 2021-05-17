@@ -1,12 +1,12 @@
-package artifact
+package artifact_test
 
 import (
 	"testing"
 
-	"go.viam.com/core/testutils"
+	testutilsext "go.viam.com/core/testutils/ext"
 )
 
 // TestMain is used to control the execution of all tests run within this package (including _test packages)
 func TestMain(m *testing.M) {
-	testutils.VerifyTestMain(m)
+	testutilsext.VerifyTestMain(m)
 }
