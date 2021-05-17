@@ -87,10 +87,11 @@ const (
 	defaultCloudPath   = "https://app.viam.com/api/json1/config"
 	defaultCoudLogPath = "https://app.viam.com/api/json1/log"
 
-	cloudConfigSecretField       = "Secret"
-	cloudConfigUserInfoField     = "User-Info"
-	cloudConfigUserInfoHostField = "host"
-	cloudConfigUserInfoOSField   = "os"
+	cloudConfigSecretField           = "Secret"
+	cloudConfigUserInfoField         = "User-Info"
+	cloudConfigUserInfoHostField     = "host"
+	cloudConfigUserInfoOSField       = "os"
+	cloudConfigUserInfoLocalIPsField = "ips"
 )
 
 // createCloudRequest makes a request to fetch the robot config
@@ -118,6 +119,12 @@ func createCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 	}
 	userInfo[cloudConfigUserInfoHostField] = hostname
 	userInfo[cloudConfigUserInfoOSField] = runtime.GOOS
+
+	ips, err := utils.GetAllLocalIPv4s()
+	if err != nil {
+		return nil, err
+	}
+	userInfo[cloudConfigUserInfoLocalIPsField] = ips
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
