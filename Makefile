@@ -45,14 +45,14 @@ lint: goformat
 
 cover:
 	(trap 'kill 0' INT;\
-		go test -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
-		go test -coverprofile=coverage2.txt go.viam.com/core/vision/... go.viam.com/core/rimage/...)
+		go test -tags=no_skip -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
+		go test -tags=no_skip -coverprofile=coverage2.txt go.viam.com/core/vision/... go.viam.com/core/rimage/...)
 	sed '1d' coverage2.txt >> coverage.txt
 
 test:
 	(trap 'kill 0' INT;\
-		go test -race `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
-		go test go.viam.com/core/vision/... go.viam.com/core/rimage/...)
+		go test -tags=no_skip -race `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
+		go test -tags=no_skip go.viam.com/core/vision/... go.viam.com/core/rimage/...)
 
 testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi

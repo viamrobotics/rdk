@@ -9,7 +9,15 @@
 // offer deduplication.
 package artifact
 
-import "github.com/go-errors/errors"
+import (
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
+	"github.com/go-errors/errors"
+	"go.uber.org/multierr"
+)
 
 // Path returns the local file system path to the given artifact path. It
 // errors if it does not exist or cannot be ensured to exist.
@@ -50,4 +58,59 @@ func MustNewPath(to string) string {
 		panic(err)
 	}
 	return resolved
+}
+
+// emplaceFile ensures that a given artifact identified by a given hash
+// is placed in the given path (creating parent directories along the way).
+func emplaceFile(store Store, hash, path string) (err error) {
+	if err := store.Contains(hash); err != nil {
+		return err
+	}
+
+	if existing, err := os.Open(path); err == nil {
+		data, err := ioutil.ReadAll(existing)
+		if err != nil {
+			return multierr.Combine(err, existing.Close())
+		}
+		if err := existing.Close(); err != nil {
+			return err
+		}
+		existingHash, err := computeHash(data)
+		if err != nil {
+			return err
+		}
+		if existingHash == hash {
+			return nil
+		}
+		if err := os.Remove(path); err != nil {
+			return errors.Errorf("error removing old artifact at %q", path)
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	hashFile, err := store.Load(hash)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = multierr.Combine(err, hashFile.Close())
+	}()
+
+	emplacedFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = multierr.Combine(err, os.Remove(path))
+		} else {
+			err = emplacedFile.Close()
+		}
+	}()
+	_, err = io.Copy(emplacedFile, hashFile)
+	return
 }

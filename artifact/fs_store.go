@@ -2,7 +2,6 @@ package artifact
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -67,66 +66,5 @@ func (s *fileSystemStore) Store(hash string, r io.Reader) (err error) {
 		}
 	}()
 	_, err = io.Copy(f, r)
-	return
-}
-
-// Emplace ensures that a given artifact identified by a given hash
-// is placed in the given path (creating parent directories along the way).
-func (s *fileSystemStore) Emplace(hash, path string) (err error) {
-	if err := s.Contains(hash); err != nil {
-		return err
-	}
-	pointsTo, err := os.Readlink(path)
-	if err == nil {
-		if filepath.Base(pointsTo) == hash {
-			return nil
-		}
-	}
-
-	if existing, err := os.Open(path); err == nil {
-		data, err := ioutil.ReadAll(existing)
-		if err != nil {
-			return multierr.Combine(err, existing.Close())
-		}
-		if err := existing.Close(); err != nil {
-			return err
-		}
-		existingHash, err := computeHash(data)
-		if err != nil {
-			return err
-		}
-		if existingHash == hash {
-			return nil
-		}
-	}
-
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		return errors.Errorf("error removing old artifact at %q", path)
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-
-	hashFile, err := os.Open(s.pathToHashFile(hash))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = multierr.Combine(err, hashFile.Close())
-	}()
-
-	emplacedFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			err = multierr.Combine(err, os.Remove(path))
-		} else {
-			err = emplacedFile.Close()
-		}
-	}()
-	_, err = io.Copy(emplacedFile, hashFile)
 	return
 }
