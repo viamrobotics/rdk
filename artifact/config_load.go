@@ -1,0 +1,116 @@
+package artifact
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+
+	"github.com/go-errors/errors"
+
+	"go.viam.com/core/utils"
+)
+
+// The default artifact file names.
+const (
+	DefaultConfigName = ".artifact.json"
+	DefaultTreeName   = ".artifact.tree.json"
+)
+
+// LoadConfig attempts to automatically load an artifact config
+// by searching for the default configuration file upwards in
+// the file system.
+func LoadConfig() (*Config, error) {
+	configPath, err := searchConfig()
+	if err != nil {
+		return nil, err
+	}
+	return LoadConfigFromFile(configPath)
+}
+
+// searchConfig searches for the default configuration file by
+// traversing the filesystem upwards from the current working
+// directory.
+func searchConfig() (string, error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	wdAbs, err := filepath.Abs(wd)
+	if err != nil {
+		return "", err
+	}
+	var helper func(path string) (string, error)
+	helper = func(path string) (string, error) {
+		candidate := filepath.Join(path, DefaultConfigName)
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", err
+		}
+
+		next := filepath.Join(path, "..")
+		if next == path {
+			return "", nil
+		}
+		return helper(next)
+	}
+	location, err := helper(wdAbs)
+	if err != nil {
+		return "", err
+	}
+	if location == "" {
+		return "", errors.Errorf("%q not found on system", DefaultConfigName)
+	}
+	return location, nil
+}
+
+// LoadConfigFromFile loads a Config from the given path. It also
+// searches for an adjacent tree file (not required to exist).
+func LoadConfigFromFile(path string) (*Config, error) {
+	pathDir := filepath.Dir(path)
+	configFile, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.UncheckedErrorFunc(configFile.Close)
+
+	configDec := json.NewDecoder(configFile)
+
+	var config Config
+	if err := configDec.Decode(&config); err != nil {
+		return nil, err
+	}
+
+	treePath := filepath.Join(pathDir, DefaultTreeName)
+	config.configDir = pathDir
+	config.commitFn = func() error {
+		newTreeFile, err := os.OpenFile(treePath, os.O_RDWR|os.O_CREATE, 0755)
+		if err != nil {
+			return err
+		}
+		defer utils.UncheckedErrorFunc(newTreeFile.Close)
+		if err := newTreeFile.Truncate(0); err != nil {
+			return err
+		}
+		enc := json.NewEncoder(newTreeFile)
+		enc.SetIndent("", "  ")
+		return enc.Encode(config.tree)
+	}
+
+	treeFile, err := os.Open(treePath)
+	if err == nil {
+		defer utils.UncheckedErrorFunc(treeFile.Close)
+
+		treeDec := json.NewDecoder(treeFile)
+
+		var tree TreeNodeTree
+		if err := treeDec.Decode(&tree); err != nil {
+			return nil, err
+		}
+		config.tree = tree
+	} else {
+		config.tree = TreeNodeTree{}
+	}
+
+	return &config, nil
+}

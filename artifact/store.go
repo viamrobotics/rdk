@@ -28,9 +28,9 @@ const (
 // if making the store fails or the underlying type has no constructor.
 func NewStore(config StoreConfig) (Store, error) {
 	switch v := config.(type) {
-	case *fileSystemStoreConfig:
+	case *FileSystemStoreConfig:
 		return newFileSystemStore(v)
-	case *googleStorageStoreConfig:
+	case *GoogleStorageStoreConfig:
 		return newGoogleStorageStore(v)
 	default:
 		return nil, errors.Errorf("unknown store type %q", config.Type())

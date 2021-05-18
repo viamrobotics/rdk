@@ -8,6 +8,19 @@ import (
 	"go.viam.com/test"
 )
 
+type unknownConfig struct {
+}
+
+func (uc unknownConfig) Type() StoreType {
+	return "unknown"
+}
+
+func TestNewStore(t *testing.T) {
+	_, err := NewStore(unknownConfig{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown store type")
+}
+
 func testStore(t *testing.T, store Store, readOnly bool) {
 	content1 := "mycoolcontent"
 	content2 := "myothercoolcontent"
@@ -19,11 +32,13 @@ func testStore(t *testing.T, store Store, readOnly bool) {
 
 	if !readOnly {
 		err = store.Contains(hashVal1)
+		test.That(t, IsErrArtifactNotFound(err), test.ShouldBeTrue)
 		test.That(t, err, test.ShouldResemble, &errArtifactNotFound{hash: &hashVal1})
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 		test.That(t, err.Error(), test.ShouldContainSubstring, hashVal1)
 
 		_, err = store.Load(hashVal1)
+		test.That(t, IsErrArtifactNotFound(err), test.ShouldBeTrue)
 		test.That(t, err, test.ShouldResemble, &errArtifactNotFound{hash: &hashVal1})
 
 		err = store.Store(hashVal1, strings.NewReader(content1))
@@ -53,7 +68,9 @@ func testStore(t *testing.T, store Store, readOnly bool) {
 
 	unknownHash := "foo"
 	err = store.Contains(unknownHash)
+	test.That(t, IsErrArtifactNotFound(err), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldResemble, &errArtifactNotFound{hash: &unknownHash})
 	_, err = store.Load(unknownHash)
+	test.That(t, IsErrArtifactNotFound(err), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldResemble, &errArtifactNotFound{hash: &unknownHash})
 }

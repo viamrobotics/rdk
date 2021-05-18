@@ -43,7 +43,7 @@ func setGoogleCredsPath(path string) func() {
 }
 
 // newGoogleStorageStore returns a new googleStorageStore based on the given config.
-func newGoogleStorageStore(config *googleStorageStoreConfig) (*googleStorageStore, error) {
+func newGoogleStorageStore(config *GoogleStorageStoreConfig) (*googleStorageStore, error) {
 	if config.Bucket == "" {
 		return nil, errors.New("bucket required")
 	}

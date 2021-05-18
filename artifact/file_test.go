@@ -12,18 +12,93 @@ import (
 	"go.viam.com/core/testutils"
 )
 
+func TestPath(t *testing.T) {
+	dir, undo := TestSetupGlobalCache(t)
+	defer undo()
+
+	_, err := Path("to/somewhere")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	test.That(t, func() {
+		MustPath("to/somewhere")
+	}, test.ShouldPanic)
+
+	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, ioutil.WriteFile(confPath, []byte(`{
+	"cache": "somedir",
+	"root": "someotherdir",
+	"source_pull_size_limit": 5,
+	"ignore": ["one", "two"]
+}`), 0644), test.ShouldBeNil)
+	found, err := searchConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	rootDir := filepath.Join(filepath.Dir(found), "someotherdir")
+
+	_, err = Path("to/somewhere")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "to/somewhere")
+
+	test.That(t, func() {
+		MustPath("to/somewhere")
+	}, test.ShouldPanic)
+
+	cache, err := GlobalCache()
+	test.That(t, err, test.ShouldBeNil)
+
+	toSomePath := filepath.Join(rootDir, "to/somewhere")
+	test.That(t, os.MkdirAll(filepath.Dir(toSomePath), 0755), test.ShouldBeNil)
+	test.That(t, ioutil.WriteFile(toSomePath, []byte("hello world"), 0644), test.ShouldBeNil)
+	test.That(t, cache.WriteThroughUser(), test.ShouldBeNil)
+
+	resolved, err := Path("to/somewhere")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldEqual, filepath.Join(filepath.Dir(found), "someotherdir/to/somewhere"))
+
+	resolved = MustPath("to/somewhere")
+	test.That(t, resolved, test.ShouldEqual, filepath.Join(filepath.Dir(found), "someotherdir/to/somewhere"))
+}
+
+func TestNewPath(t *testing.T) {
+	dir, undo := TestSetupGlobalCache(t)
+	defer undo()
+
+	_, err := NewPath("to/somewhere")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	test.That(t, func() {
+		MustNewPath("to/somewhere")
+	}, test.ShouldPanic)
+
+	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, ioutil.WriteFile(confPath, []byte(confRaw), 0644), test.ShouldBeNil)
+	found, err := searchConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	resolved, err := NewPath("to/somewhere")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldEqual, filepath.Join(filepath.Dir(found), "someotherdir/to/somewhere"))
+
+	resolved = MustNewPath("to/somewhere")
+	test.That(t, resolved, test.ShouldEqual, filepath.Join(filepath.Dir(found), "someotherdir/to/somewhere"))
+}
+
 func TestEmplaceFile(t *testing.T) {
 	storeDir := testutils.TempDir(t, "file_test", "")
 	defer os.RemoveAll(storeDir)
 	rootDir := testutils.TempDir(t, "file_test", "")
 	defer os.RemoveAll(rootDir)
 
-	store, err := newFileSystemStore(&fileSystemStoreConfig{Path: storeDir})
+	store, err := newFileSystemStore(&FileSystemStoreConfig{Path: storeDir})
 	test.That(t, err, test.ShouldBeNil)
 
 	unknownHash := "foo"
 	file1Path := filepath.Join(storeDir, "file1")
 	err = emplaceFile(store, unknownHash, file1Path)
+	test.That(t, IsErrArtifactNotFound(err), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldResemble, &errArtifactNotFound{hash: &unknownHash})
 	_, err = os.Stat(file1Path)
 	test.That(t, err, test.ShouldNotBeNil)
