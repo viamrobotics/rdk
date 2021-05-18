@@ -73,7 +73,7 @@ Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull 
 go install go.viam.com/core/artifact/cmd/artifact
 # place new artifacts in artifact_data
 artifact push
-git add .artifact.tree.json
+git add .artifact
 # commit the file at some point
 ```
 
