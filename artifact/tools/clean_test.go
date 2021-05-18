@@ -14,7 +14,8 @@ import (
 func TestClean(t *testing.T) {
 	dir, undo := artifact.TestSetupGlobalCache(t)
 	defer undo()
-	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 	test.That(t, ioutil.WriteFile(confPath, []byte(`{}`), 0644), test.ShouldBeNil)
 
 	test.That(t, Clean(), test.ShouldBeNil)

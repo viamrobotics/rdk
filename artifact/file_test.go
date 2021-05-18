@@ -24,7 +24,8 @@ func TestPath(t *testing.T) {
 		MustPath("to/somewhere")
 	}, test.ShouldPanic)
 
-	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, os.MkdirAll(filepath.Join(dir, DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, DotDir, ConfigName)
 	test.That(t, ioutil.WriteFile(confPath, []byte(`{
 	"cache": "somedir",
 	"root": "someotherdir",
@@ -73,7 +74,8 @@ func TestNewPath(t *testing.T) {
 		MustNewPath("to/somewhere")
 	}, test.ShouldPanic)
 
-	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, os.MkdirAll(filepath.Join(dir, DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, DotDir, ConfigName)
 	test.That(t, ioutil.WriteFile(confPath, []byte(confRaw), 0644), test.ShouldBeNil)
 	found, err := searchConfig()
 	test.That(t, err, test.ShouldBeNil)

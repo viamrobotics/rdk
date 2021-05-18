@@ -24,13 +24,15 @@ func TestMainMain(t *testing.T) {
 
 	before := func(t *testing.T, _ golog.Logger, _ *testutils.ContextualMainExecution) {
 		dir, _ := artifact.TestSetupGlobalCache(t)
-		confPath := filepath.Join(dir, ".artifact.json")
+		test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+		confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 		test.That(t, ioutil.WriteFile(confPath, []byte(`{}`), 0644), test.ShouldBeNil)
 	}
 
 	pullBeforeWithLimit := func(t *testing.T, limit bool) {
 		dir, _ := artifact.TestSetupGlobalCache(t)
-		confPath := filepath.Join(dir, ".artifact.json")
+		test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+		confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 		sourcePath := filepath.Join(dir, "source")
 		test.That(t, os.MkdirAll(sourcePath, 0755), test.ShouldBeNil)
 		if limit {
@@ -49,7 +51,7 @@ func TestMainMain(t *testing.T) {
 			}
 		}`, sourcePath)), 0644), test.ShouldBeNil)
 		}
-		treePath := filepath.Join(dir, ".artifact.tree.json")
+		treePath := filepath.Join(dir, artifact.DotDir, artifact.TreeName)
 		test.That(t, ioutil.WriteFile(treePath, []byte(`{
 			"one": {
 				"two": {
@@ -83,7 +85,8 @@ func TestMainMain(t *testing.T) {
 
 	pushBefore := func(t *testing.T, _ golog.Logger, _ *testutils.ContextualMainExecution) {
 		dir, _ := artifact.TestSetupGlobalCache(t)
-		confPath := filepath.Join(dir, ".artifact.json")
+		test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+		confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 		test.That(t, ioutil.WriteFile(confPath, []byte(`{}`), 0644), test.ShouldBeNil)
 
 		filePath := artifact.MustNewPath("some/file")
@@ -96,7 +99,8 @@ func TestMainMain(t *testing.T) {
 
 	removeBefore := func(t *testing.T, _ golog.Logger, _ *testutils.ContextualMainExecution) {
 		dir, _ := artifact.TestSetupGlobalCache(t)
-		confPath := filepath.Join(dir, ".artifact.json")
+		test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+		confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 		test.That(t, ioutil.WriteFile(confPath, []byte(`{}`), 0644), test.ShouldBeNil)
 
 		filePath := artifact.MustNewPath("some/file")
@@ -110,7 +114,8 @@ func TestMainMain(t *testing.T) {
 
 	statusBefore := func(t *testing.T, _ golog.Logger, _ *testutils.ContextualMainExecution) {
 		dir, _ := artifact.TestSetupGlobalCache(t)
-		confPath := filepath.Join(dir, ".artifact.json")
+		test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+		confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 		test.That(t, ioutil.WriteFile(confPath, []byte(`{}`), 0644), test.ShouldBeNil)
 
 		filePath := artifact.MustNewPath("some/file")
