@@ -67,19 +67,6 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-// Smooth TODO
-func (dm *DepthMap) Smooth() {
-	centerX := dm.width / 2
-	centerY := dm.height / 2
-	if err := utils.Walk(centerX, centerY, 1+(utils.MaxInt(dm.width, dm.height)/2), func(x, y int) error {
-		dm._getDepthOrEstimate(x, y)
-		return nil
-	}); err != nil {
-		// shouldn't happen
-		panic(err)
-	}
-}
-
 // SubImage TODO
 func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
@@ -95,43 +82,6 @@ func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 		newData = append(newData, dm.data[begin:end]...)
 	}
 	return DepthMap{width: width, height: height, data: newData}
-}
-
-func (dm *DepthMap) _getDepthOrEstimate(x, y int) Depth {
-	if x < 0 || y < 0 || x >= dm.width || y >= dm.height {
-		return 0
-	}
-	z := dm.GetDepth(x, y)
-	if z > 0 {
-		return z
-	}
-
-	total := 0.0
-	num := 0.0
-
-	offset := 0
-	for offset = 1; offset < 1000 && num == 0; offset++ {
-		startX := utils.MaxInt(0, x-offset)
-		startY := utils.MaxInt(0, y-offset)
-
-		for a := startX; a < x+offset && a < dm.width; a++ {
-			for b := startY; b < y+offset && b < dm.height; b++ {
-				temp := dm.GetDepth(a, b)
-				if temp == 0 {
-					continue
-				}
-				total += float64(temp)
-				num++
-			}
-		}
-	}
-
-	if num == 0 {
-		return 0
-	}
-
-	dm.Set(x, y, Depth(total/num))
-	return dm.GetDepth(x, y)
 }
 
 func _readNext(r io.Reader) (int64, error) {

@@ -36,8 +36,6 @@ func FindAndWarpBoardFromFiles(colorFN, depthFN string, aligned bool, logger gol
 		return nil, err
 	}
 
-	img.Depth.Smooth()
-
 	return FindAndWarpBoard(img, logger)
 }
 

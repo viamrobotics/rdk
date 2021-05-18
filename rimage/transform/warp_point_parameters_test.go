@@ -24,7 +24,6 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 		DepthInputSize:  image.Point{224, 171},
 		DepthWarpPoints: []image.Point{{89, 109}, {206, 132}},
 		OutputSize:      image.Point{448, 342},
-		Smooth:          true,
 	}
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)

@@ -16,7 +16,6 @@ import (
 func TestDepthMap1(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	m.Smooth()
 
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
@@ -38,7 +37,6 @@ func TestDepthMap1(t *testing.T) {
 func TestDepthMap2(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
-	m.Smooth()
 
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
