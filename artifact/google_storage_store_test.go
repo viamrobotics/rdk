@@ -27,18 +27,18 @@ func TestNewGoogleStorageStore(t *testing.T) {
 	testutils.SkipUnlessInternet(t)
 	testutils.SkipUnlessArtifactGoogleCreds(t)
 
-	_, err := newGoogleStorageStore(&googleStorageStoreConfig{})
+	_, err := NewStore(&GoogleStorageStoreConfig{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bucket required")
 
 	undo := setGoogleCredsPath("")
 	defer undo()
-	store, err := newGoogleStorageStore(&googleStorageStoreConfig{Bucket: "somebucket"})
+	store, err := NewStore(&GoogleStorageStoreConfig{Bucket: "somebucket"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, store.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(store), test.ShouldBeNil)
 
 	setGoogleCredsPath("unknownpath")
-	store, err = newGoogleStorageStore(&googleStorageStoreConfig{Bucket: "somebucket"})
+	_, err = NewStore(&GoogleStorageStoreConfig{Bucket: "somebucket"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file")
 
@@ -94,27 +94,27 @@ func TestNewGoogleStorageStore(t *testing.T) {
 	test.That(t, bucket.IAM().V3().SetPolicy(ctx, policy), test.ShouldBeNil)
 
 	setGoogleCredsPath(testutils.ArtifactGoogleCreds(t))
-	store, err = newGoogleStorageStore(&googleStorageStoreConfig{Bucket: bucketName})
+	store, err = NewStore(&GoogleStorageStoreConfig{Bucket: bucketName})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, store.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(store), test.ShouldBeNil)
 	}()
 
 	testStore(t, store, false)
 
 	setGoogleCredsPath(testutils.ArtifactGoogleCreds(t))
-	sameStore, err := newGoogleStorageStore(&googleStorageStoreConfig{Bucket: bucketName})
+	sameStore, err := NewStore(&GoogleStorageStoreConfig{Bucket: bucketName})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, sameStore.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(sameStore), test.ShouldBeNil)
 	}()
 	testStore(t, sameStore, true)
 
 	setGoogleCredsPath("")
-	readOnlyStore, err := newGoogleStorageStore(&googleStorageStoreConfig{Bucket: bucketName})
+	readOnlyStore, err := NewStore(&GoogleStorageStoreConfig{Bucket: bucketName})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
-		test.That(t, readOnlyStore.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(readOnlyStore), test.ShouldBeNil)
 	}()
 	testStore(t, readOnlyStore, true)
 }

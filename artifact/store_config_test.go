@@ -8,10 +8,10 @@ import (
 )
 
 func TestFileSystemStoreConfig(t *testing.T) {
-	var empty fileSystemStoreConfig
+	var empty FileSystemStoreConfig
 	test.That(t, empty.Type(), test.ShouldEqual, StoreTypeFileSystem)
 
-	var fromJSON fileSystemStoreConfig
+	var fromJSON FileSystemStoreConfig
 	err := json.Unmarshal([]byte(`{"path": 1}`), &fromJSON)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot")
@@ -22,10 +22,10 @@ func TestFileSystemStoreConfig(t *testing.T) {
 }
 
 func TestGoogleStorageStoreConfig(t *testing.T) {
-	var empty googleStorageStoreConfig
+	var empty GoogleStorageStoreConfig
 	test.That(t, empty.Type(), test.ShouldEqual, StoreTypeGoogleStorage)
 
-	var fromJSON googleStorageStoreConfig
+	var fromJSON GoogleStorageStoreConfig
 	err := json.Unmarshal([]byte(`{"bucket": 1}`), &fromJSON)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot")

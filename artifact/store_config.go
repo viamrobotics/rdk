@@ -6,24 +6,24 @@ type StoreConfig interface {
 	Type() StoreType
 }
 
-// fileSystemStoreConfig is for configuring a local file system
+// FileSystemStoreConfig is for configuring a local file system
 // based Store.
-type fileSystemStoreConfig struct {
+type FileSystemStoreConfig struct {
 	Path string `json:"path"`
 }
 
 // Type returns that this is a file system Store.
-func (c *fileSystemStoreConfig) Type() StoreType {
+func (c *FileSystemStoreConfig) Type() StoreType {
 	return StoreTypeFileSystem
 }
 
-// googleStorageStoreConfig is for configuring a Google based
+// GoogleStorageStoreConfig is for configuring a Google based
 // Store that has its credentials automatically looked up.
-type googleStorageStoreConfig struct {
+type GoogleStorageStoreConfig struct {
 	Bucket string `json:"bucket"`
 }
 
 // Type returns that this is a Google storage Store.
-func (c *googleStorageStoreConfig) Type() StoreType {
+func (c *GoogleStorageStoreConfig) Type() StoreType {
 	return StoreTypeGoogleStorage
 }

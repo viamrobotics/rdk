@@ -10,13 +10,14 @@ import (
 )
 
 // newFileSystemStore returns a new fileSystemStore based on the given config.
-func newFileSystemStore(config *fileSystemStoreConfig) (*fileSystemStore, error) {
+func newFileSystemStore(config *FileSystemStoreConfig) (*fileSystemStore, error) {
 	dirStat, err := os.Stat(config.Path)
-	if err != nil {
-		return nil, err
-	}
-	if !dirStat.IsDir() {
+	if err == nil && !dirStat.IsDir() {
 		return nil, errors.Errorf("expected path to be directory %q", config.Path)
+	} else if err != nil {
+		if err := os.MkdirAll(config.Path, 0755); err != nil {
+			return nil, err
+		}
 	}
 	return &fileSystemStore{dir: config.Path}, nil
 }

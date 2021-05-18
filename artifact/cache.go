@@ -16,10 +16,6 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// DefaultCachePath is the default relative location to store all cached
-// files (by hash).
-const DefaultCachePath = ".artifact"
-
 // the global cache singleton is used in all contexts where
 // a config or cache are not explicitly created
 var (
@@ -118,23 +114,25 @@ func NewCache(config *Config) (Cache, error) {
 	if err := os.MkdirAll(artifactsRoot, 0755); err != nil {
 		return nil, err
 	}
-	fsStore, err := newFileSystemStore(&fileSystemStoreConfig{Path: cacheDir})
+	fsStore, err := newFileSystemStore(&FileSystemStoreConfig{Path: cacheDir})
 	if err != nil {
 		return nil, err
 	}
-	if config.Store == nil {
-		return &cachedStore{cache: fsStore}, nil
-	}
-	sourceStore, err := NewStore(config.Store)
-	if err != nil {
-		return nil, err
-	}
-	return &cachedStore{
+	cStore := cachedStore{
 		cache:   fsStore,
-		source:  sourceStore,
 		config:  config,
 		rootDir: artifactsRoot,
-	}, nil
+	}
+	if config.SourceStore == nil {
+		cStore.source = fsStore
+		return &cStore, nil
+	}
+	sourceStore, err := NewStore(config.SourceStore)
+	if err != nil {
+		return nil, err
+	}
+	cStore.source = sourceStore
+	return &cStore, nil
 }
 
 type cachedStore struct {
@@ -180,13 +178,6 @@ func (s *cachedStore) Store(hash string, r io.Reader) error {
 	return s.cache.Store(hash, bytes.NewReader(data))
 }
 
-func (s *cachedStore) store(hash string, data []byte) error {
-	if err := s.source.Store(hash, bytes.NewReader(data)); err != nil {
-		return err
-	}
-	return s.cache.Store(hash, bytes.NewReader(data))
-}
-
 func (s *cachedStore) NewPath(to string) string {
 	return filepath.Join(s.rootDir, to)
 }
@@ -196,9 +187,61 @@ func (s *cachedStore) Ensure(path string, ignoreLimit bool) (string, error) {
 	defer s.mu.Unlock()
 	node, err := s.config.Lookup(path)
 	if err != nil {
-		return "", errors.Errorf("path not in config: %q", path)
+		return "", err
 	}
 	return s.ensureNode(node, s.NewPath(path), ignoreLimit)
+}
+
+func (s *cachedStore) Remove(path string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if strings.HasPrefix(path, s.rootDir) {
+		path = strings.TrimPrefix(path, s.rootDir+"/")
+	}
+	if path != "/" {
+		path = strings.TrimPrefix(path, "/")
+	}
+	s.config.RemovePath(path)
+	return s.config.commitFn()
+}
+
+func (s *cachedStore) Clean() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cleanTree(s.config.tree, s.rootDir)
+}
+
+// WriteThroughUser writes all objects in the user visible area to the
+// through to the file system cache and the source cache
+func (s *cachedStore) WriteThroughUser() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writeThroughUserTree(s.config.tree, nil, s.rootDir); err != nil {
+		return err
+	}
+	return s.config.commitFn()
+}
+
+func (s *cachedStore) Status() (*Status, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status()
+}
+
+func (s *cachedStore) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if closer, ok := s.source.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
+}
+
+func (s *cachedStore) store(hash string, data []byte) error {
+	if err := s.source.Store(hash, bytes.NewReader(data)); err != nil {
+		return err
+	}
+	return s.cache.Store(hash, bytes.NewReader(data))
 }
 
 // ensureNode verifies that all nodes living under a tree with respect to a given
@@ -243,25 +286,6 @@ func (s *cachedStore) ensureNode(node *TreeNode, dstPath string, ignoreLimit boo
 	return dstPath, nil
 }
 
-func (s *cachedStore) Remove(path string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if strings.HasPrefix(path, s.rootDir) {
-		path = strings.TrimPrefix(path, s.rootDir+"/")
-	}
-	if path != "/" {
-		path = strings.TrimPrefix(path, "/")
-	}
-	s.config.RemovePath(path)
-	return s.config.commitFn()
-}
-
-func (s *cachedStore) Clean() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.cleanTree(s.config.Tree, s.rootDir)
-}
-
 // cleanTree removes any files not referenced by the tree with respect to the given
 // local path.
 func (s *cachedStore) cleanTree(tree TreeNodeTree, localPath string) error {
@@ -289,39 +313,13 @@ func (s *cachedStore) cleanTree(tree TreeNodeTree, localPath string) error {
 	return nil
 }
 
-func (s *cachedStore) Status() (*Status, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.status()
-}
-
-func (s *cachedStore) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if closer, ok := s.source.(io.Closer); ok {
-		return closer.Close()
-	}
-	return nil
-}
-
-// WriteThroughUser writes all objects in the user visible area to the
-// through to the file system cache and the source cache
-func (s *cachedStore) WriteThroughUser() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.writeThroughUserTree(s.config.Tree, nil, s.rootDir); err != nil {
-		return err
-	}
-	return s.config.commitFn()
-}
-
-// NodeChangeType describes a change to a node.
-type NodeChangeType int
+// nodeChangeType describes a change to a node.
+type nodeChangeType int
 
 // The set of types of changes.
 const (
-	NodeChangeTypeUnstored NodeChangeType = iota
-	NodeChangeTypeModified
+	nodeChangeTypeUnstored nodeChangeType = iota
+	nodeChangeTypeModified
 )
 
 // walkUserTreeUncached examines the tree with respect to the given local path and visits all artifacts
@@ -330,7 +328,7 @@ func (s *cachedStore) walkUserTreeUncached(
 	tree map[string]*TreeNode,
 	treePath []string,
 	localPath string,
-	visit func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error,
+	visit func(changeType nodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error,
 ) error {
 	localFileInfos, err := os.ReadDir(localPath)
 	if err != nil {
@@ -338,8 +336,10 @@ func (s *cachedStore) walkUserTreeUncached(
 	}
 	for _, info := range localFileInfos {
 		name := info.Name()
-		if _, ok := s.config.ignoreSet[name]; ok {
-			continue
+		if !info.IsDir() {
+			if _, ok := s.config.ignoreSet[name]; ok {
+				continue
+			}
 		}
 		newTreePath := append(treePath, name)
 		newLocalPath := filepath.Join(localPath, name)
@@ -376,11 +376,11 @@ func (s *cachedStore) walkUserTreeUncached(
 			if hasExistingNode && !existingNode.IsInternal() && existingNode.external.Hash == nodeHash {
 				return nil
 			}
-			var changeType NodeChangeType
+			var changeType nodeChangeType
 			if hasExistingNode {
-				changeType = NodeChangeTypeModified
+				changeType = nodeChangeTypeModified
 			} else {
-				changeType = NodeChangeTypeUnstored
+				changeType = nodeChangeTypeUnstored
 			}
 			return visit(changeType, nodeHash, newLocalPath, newTreePath, data)
 		}(); err != nil {
@@ -394,12 +394,13 @@ func (s *cachedStore) walkUserTreeUncached(
 // writeThroughUserTree examines the tree with respect to the given local path and stores all artifacts
 // not in the tree into the underlying store and updates the tree with the artifact location/hash.
 func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath []string, localPath string) error {
-	return s.walkUserTreeUncached(tree, treePath, localPath, func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
+	return s.walkUserTreeUncached(tree, treePath, localPath, func(changeType nodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
 		Logger.Debugw("writing through", "path", localPath, "hash", nodeHash)
 		if err := s.store(nodeHash, data); err != nil {
 			return err
 		}
-		return s.config.storeHash(nodeHash, len(data), treePath)
+		s.config.StoreHash(nodeHash, len(data), treePath)
+		return nil
 	})
 }
 
@@ -407,11 +408,11 @@ func (s *cachedStore) writeThroughUserTree(tree map[string]*TreeNode, treePath [
 // not in the tree.
 func (s *cachedStore) status() (*Status, error) {
 	var status Status
-	if err := s.walkUserTreeUncached(s.config.Tree, nil, s.rootDir, func(nodeChangeType NodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
-		switch nodeChangeType {
-		case NodeChangeTypeUnstored:
+	if err := s.walkUserTreeUncached(s.config.tree, nil, s.rootDir, func(changeType nodeChangeType, nodeHash, localPath string, treePath []string, data []byte) error {
+		switch changeType {
+		case nodeChangeTypeUnstored:
 			status.Unstored = append(status.Unstored, localPath)
-		case NodeChangeTypeModified:
+		case nodeChangeTypeModified:
 			status.Modified = append(status.Modified, localPath)
 		}
 		return nil

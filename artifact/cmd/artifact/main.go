@@ -2,8 +2,8 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -12,7 +12,6 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/artifact/tools"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 )
 
@@ -52,7 +51,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	switch topArgsParsed.Command {
 	case commandNameClean:
 		if err := tools.Clean(); err != nil {
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
 	case commandNamePull:
 		var pullArgsParsed pullArguments
@@ -60,11 +59,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			return err
 		}
 		if err := tools.Pull(pullArgsParsed.TreePath, pullArgsParsed.All); err != nil {
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
 	case commandNamePush:
 		if err := tools.Push(); err != nil {
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
 	case commandNameRemove:
 		var removeArgsParsed removeArguments
@@ -73,31 +72,44 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 		filePath, err := makePathToArtifact(removeArgsParsed.Path)
 		if err != nil {
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
 
 		if err := tools.Remove(filePath); err != nil {
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
 	case commandNameStatus:
 		status, err := tools.Status()
 		if err != nil {
 			utils.PrintStackErr(err)
-			rlog.Logger.Fatal(err)
+			logger.Fatal(err)
 		}
+		var buf bytes.Buffer
 		if len(status.Modified) != 0 {
-			fmt.Println("Modified:")
+			buf.WriteString("Modified:")
+			yellowColor := color.New(color.FgYellow)
 			for _, name := range status.Modified {
-				fmt.Print("\t")
-				color.Yellow(name)
+				buf.WriteString("\n\t")
+				if _, err := yellowColor.Fprint(&buf, name); err != nil {
+					logger.Fatal(err)
+				}
 			}
 		}
 		if len(status.Unstored) != 0 {
-			fmt.Println("Unstored:")
-			for _, name := range status.Unstored {
-				fmt.Print("\t")
-				color.Red(name)
+			if len(status.Modified) != 0 {
+				buf.WriteString("\n")
 			}
+			buf.WriteString("Unstored:")
+			redColor := color.New(color.FgRed)
+			for _, name := range status.Unstored {
+				buf.WriteString("\n\t")
+				if _, err := redColor.Fprint(&buf, name); err != nil {
+					logger.Fatal(err)
+				}
+			}
+		}
+		if buf.Len() != 0 {
+			logger.Info("\n" + buf.String())
 		}
 	default:
 		return errors.New("usage: artifact <clean|pull|push|rm|status>")
