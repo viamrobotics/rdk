@@ -10,10 +10,10 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// The default artifact file names.
+// The artifact file names.
 const (
-	DefaultConfigName = ".artifact.json"
-	DefaultTreeName   = ".artifact.tree.json"
+	ConfigName = "config.json"
+	TreeName   = "tree.json"
 )
 
 // LoadConfig attempts to automatically load an artifact config
@@ -41,7 +41,7 @@ func searchConfig() (string, error) {
 	}
 	var helper func(path string) (string, error)
 	helper = func(path string) (string, error) {
-		candidate := filepath.Join(path, DefaultConfigName)
+		candidate := filepath.Join(path, DotDir, ConfigName)
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		} else if !errors.Is(err, os.ErrNotExist) {
@@ -59,7 +59,7 @@ func searchConfig() (string, error) {
 		return "", err
 	}
 	if location == "" {
-		return "", errors.Errorf("%q not found on system", DefaultConfigName)
+		return "", errors.Errorf("%q not found on system", ConfigName)
 	}
 	return location, nil
 }
@@ -81,7 +81,7 @@ func LoadConfigFromFile(path string) (*Config, error) {
 		return nil, err
 	}
 
-	treePath := filepath.Join(pathDir, DefaultTreeName)
+	treePath := filepath.Join(pathDir, TreeName)
 	config.configDir = pathDir
 	config.commitFn = func() error {
 		newTreeFile, err := os.OpenFile(treePath, os.O_RDWR|os.O_CREATE, 0755)

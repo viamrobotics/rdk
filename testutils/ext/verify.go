@@ -16,7 +16,7 @@ import (
 func VerifyTestMain(m goleak.TestingM) {
 	cache, err := artifact.GlobalCache()
 	if err != nil {
-		rlog.Logger.Fatal("error opening artifact", "error", err)
+		rlog.Logger.Fatalw("error opening artifact", "error", err)
 	}
 	exitCode := m.Run()
 	if err := cache.Close(); err != nil {

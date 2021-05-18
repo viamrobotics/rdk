@@ -2,6 +2,7 @@ package artifact
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -9,9 +10,18 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// DefaultCachePath is the default relative location to store all cached
-// files (by hash).
-var DefaultCachePath = ".artifact"
+var (
+	// DotDir is the location that artifact uses for itself.
+	DotDir = ".artifact"
+
+	// DefaultCachePath is the default relative location to store all cached
+	// files (by hash).
+	DefaultCachePath = filepath.Join(DotDir, "cache")
+
+	// DefaultRootPath is the default relative location to store artifacts pulled
+	// from the tree.
+	DefaultRootPath = filepath.Join(DotDir, "data")
+)
 
 // DefaultSourcePullSizeLimitBytes is the limit where if a normal pull happens,
 // a file larger than this size will not be pulled down from source

@@ -28,7 +28,7 @@ build-web:
 buf:
 	buf lint
 	buf generate
-	buf generate --template buf.web.gen.yaml buf.build/beta/googleapis
+	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis
 
 lint: goformat
 	go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -41,7 +41,7 @@ lint: goformat
 	go install github.com/polyfloyd/go-errorlint
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs `go env GOPATH`/bin/go-errorlint -errorf
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --config=./etc/.golangci.yaml
 
 cover:
 	(trap 'kill 0' INT;\
@@ -58,7 +58,7 @@ testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi
 
 dockerlocal:
-	docker build -f Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
+	docker build -f etc/Dockerfile.fortest -t 'echolabs/robotcoretest:latest' .
 
 docker: dockerlocal
 	docker push 'echolabs/robotcoretest:latest'

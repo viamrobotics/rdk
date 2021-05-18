@@ -17,7 +17,8 @@ func TestPull(t *testing.T) {
 	dir, undo := artifact.TestSetupGlobalCache(t)
 	defer undo()
 
-	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 	sourcePath := filepath.Join(dir, "source")
 	test.That(t, os.MkdirAll(sourcePath, 0755), test.ShouldBeNil)
 	test.That(t, ioutil.WriteFile(confPath, []byte(fmt.Sprintf(`{
@@ -26,7 +27,7 @@ func TestPull(t *testing.T) {
 			"path": "%s"
 		}
 	}`, sourcePath)), 0644), test.ShouldBeNil)
-	treePath := filepath.Join(dir, ".artifact.tree.json")
+	treePath := filepath.Join(dir, artifact.DotDir, artifact.TreeName)
 	test.That(t, ioutil.WriteFile(treePath, []byte(`{
 		"one": {
 			"two": {
@@ -73,7 +74,8 @@ func TestPullLimit(t *testing.T) {
 	dir, undo := artifact.TestSetupGlobalCache(t)
 	defer undo()
 
-	confPath := filepath.Join(dir, ".artifact.json")
+	test.That(t, os.MkdirAll(filepath.Join(dir, artifact.DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, artifact.DotDir, artifact.ConfigName)
 	sourcePath := filepath.Join(dir, "source")
 	test.That(t, os.MkdirAll(sourcePath, 0755), test.ShouldBeNil)
 	test.That(t, ioutil.WriteFile(confPath, []byte(fmt.Sprintf(`{
@@ -83,7 +85,7 @@ func TestPullLimit(t *testing.T) {
 		},
 		"source_pull_size_limit": 3
 	}`, sourcePath)), 0644), test.ShouldBeNil)
-	treePath := filepath.Join(dir, ".artifact.tree.json")
+	treePath := filepath.Join(dir, artifact.DotDir, artifact.TreeName)
 	test.That(t, ioutil.WriteFile(treePath, []byte(`{
 		"one": {
 			"two": {

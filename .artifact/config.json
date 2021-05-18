@@ -1,5 +1,6 @@
 {
-    "root": "artifact_data",
+    "cache": "cache",
+    "root": "data",
     "source_store":
     {
         "type": "google_storage",

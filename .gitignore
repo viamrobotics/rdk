@@ -55,5 +55,5 @@ out/
 bin/
 
 # artifact
-.artifact
-artifact_data
+.artifact/cache
+.artifact/data
