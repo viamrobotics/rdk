@@ -294,6 +294,38 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, 
 	return ImageGradient{gradX, gradY, mag, direction}, nil
 }
 
+// SobelFilterColor takes in a color image, approximates the gradient in the X and Y direction at every pixel
+// creates a  vector in polar form, and returns a vector field.
+func SobelFilterColor(img *Image) (VectorField2D, error) {
+	width, height := img.Width(), img.Height()
+	maxMag := 0.0
+	g := make([]Vec2D, 0, width*height)
+	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// apply the Sobel Filter over a 3x3 square around each pixel
+			sX, sY := 0., 0.
+			for i, dx := range xRange {
+				for j, dy := range yRange {
+					if x+dx < 0 || y+dy < 0 || x+dx >= width || y+dy >= height {
+						continue
+					}
+					c := Luminance(img.GetXY(x+dy, y+dy))
+					// rows are height j, columns are width i
+					sX += float64(sobelX[j][i]) * c
+					sY += float64(sobelY[j][i]) * c
+				}
+			}
+			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
+			g = append(g, Vec2D{mag, dir})
+			maxMag = math.Max(math.Abs(mag), maxMag)
+		}
+	}
+	vf := VectorField2D{width, height, g, maxMag}
+	return vf, nil
+
+}
+
 // MatrixPixelPoint defines a point in a matrix.
 type MatrixPixelPoint struct {
 	I, J int

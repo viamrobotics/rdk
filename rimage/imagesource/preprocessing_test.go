@@ -50,10 +50,6 @@ func (h *smoothTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, 
 	closedDM3, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM3.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
-	// size 5, 3 iterations
-	closedDM4, err := rimage.ClosingMorph(fixed.Depth, 5, 3)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(closedDM4.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-3")
 
 	return nil
 }
@@ -88,10 +84,18 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(fixed.Color, "color-fixed")
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
+	holes := rimage.MissingDepthData(fixed.Depth)
+	pCtx.GotDebugImage(holes, "depth-holes")
+
 	vectorField := rimage.SobelFilter(fixed.Depth)
 	pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
 	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
 
+	vectorField2 := rimage.ForwardGradientDepth(fixed.Depth)
+	pCtx.GotDebugImage(vectorField2.MagnitudePicture(), "forward-depth-grad-magnitude")
+	pCtx.GotDebugImage(vectorField2.DirectionPicture(), "forward-depth-grad-direction")
+
+	//cannyColor := rimage.NewCannyDericheEdgeDetectorWithParameters(0.7, 0.25, false)
 	cannyColor := rimage.NewCannyDericheEdgeDetector()
 	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.9, 0.55, false)
 
@@ -105,18 +109,23 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 
 	closedDM, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
 	test.That(t, err, test.ShouldBeNil)
-	dmClosedEdges, err := cannyDepth.DetectDepthEdges(closedDM)
+	morphed := rimage.MakeImageWithDepth(fixed.Color, closedDM, fixed.IsAligned(), fixed.CameraSystem())
+	dmClosedEdges, err := cannyDepth.DetectDepthEdges(morphed.Depth)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(closedDM.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
+	pCtx.GotDebugImage(morphed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
 	pCtx.GotDebugImage(dmClosedEdges, "depth-edges-preprocess-1")
-
-	closedDMHeavy, err := rimage.ClosingMorph(fixed.Depth, 5, 4)
+	morphedPCD, err := morphed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
-	dmEdgesHeavy, err := cannyDepth.DetectDepthEdges(closedDMHeavy)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(closedDMHeavy.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-heavy")
-	pCtx.GotDebugImage(dmEdgesHeavy, "depth-edges-preprocess-2")
+	pCtx.GotDebugPointCloud(morphedPCD, "morphed-pcd")
 
+	kernelSize := 9
+	spatialVar, colorVar, depthVar := 6.0, 15.0, 20.0
+	filtered, err := rimage.JointTrilateralFilter(morphed, kernelSize, spatialVar, colorVar, depthVar)
+	test.That(t, err, test.ShouldBeNil)
+	dmFilteredEdges, err := cannyDepth.DetectDepthEdges(filtered.Depth)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(filtered.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-filtered")
+	pCtx.GotDebugImage(dmFilteredEdges, "depth-edges-filtered")
 	return nil
 }
 
@@ -128,6 +137,18 @@ func TestCannyEdgeGripper(t *testing.T) {
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	err = d.Process(t, &cannyTestHelper{c.Attributes})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCannyEdgeIntel(t *testing.T) {
+	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	c := config.FindComponent("front")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err = d.Process(t, &cannyTestHelper{c.Attributes})
 	test.That(t, err, test.ShouldBeNil)
 }
