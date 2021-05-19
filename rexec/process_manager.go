@@ -21,7 +21,7 @@ type ProcessManager interface {
 
 	// RemoveProcessByID removes a managed process by the given ID if it exists.
 	// It does not stop it it.
-	RemoveProcessByID(id string) bool
+	RemoveProcessByID(id string) (ManagedProcess, bool)
 
 	// Start starts all added processes and errors if any fail to start. The
 	// given context is only used for one shot processes.
@@ -81,15 +81,15 @@ func (pm *processManager) ProcessByID(id string) (ManagedProcess, bool) {
 	return proc, ok
 }
 
-func (pm *processManager) RemoveProcessByID(id string) bool {
+func (pm *processManager) RemoveProcessByID(id string) (ManagedProcess, bool) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	_, ok := pm.processesByID[id]
+	proc, ok := pm.processesByID[id]
 	if !ok {
-		return false
+		return nil, false
 	}
 	delete(pm.processesByID, id)
-	return true
+	return proc, true
 }
 
 func (pm *processManager) Start(ctx context.Context) error {
@@ -187,11 +187,17 @@ func MergeAddProcessManagers(dst, src ProcessManager) ([]ManagedProcess, error) 
 
 // MergeRemoveProcessManagers merges in another process manager and removes ownership of
 // its own processes. It does not stop the processes.
-func MergeRemoveProcessManagers(dst, src ProcessManager) {
+func MergeRemoveProcessManagers(dst, src ProcessManager) []ManagedProcess {
 	ids := src.ProcessIDs()
+	removed := make([]ManagedProcess, 0, len(ids))
 	for _, id := range ids {
-		dst.RemoveProcessByID(id)
+		proc, ok := dst.RemoveProcessByID(id)
+		if !ok {
+			continue // should not happen
+		}
+		removed = append(removed, proc)
 	}
+	return removed
 }
 
 type noopProcessManager struct{}
@@ -208,8 +214,8 @@ func (noop noopProcessManager) ProcessByID(id string) (ManagedProcess, bool) {
 	return nil, false
 }
 
-func (noop noopProcessManager) RemoveProcessByID(id string) bool {
-	return false
+func (noop noopProcessManager) RemoveProcessByID(id string) (ManagedProcess, bool) {
+	return nil, false
 }
 
 func (noop noopProcessManager) Start(ctx context.Context) error {

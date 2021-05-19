@@ -20,6 +20,9 @@ type Base interface {
 
 	// WidthMillis returns the width of the base.
 	WidthMillis(ctx context.Context) (int, error)
+
+	// Reconfigure replaces this base with the given base.
+	Reconfigure(newBase Base)
 }
 
 // A Move describes instructions for a robot to spin followed by moving straight.

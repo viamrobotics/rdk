@@ -40,7 +40,8 @@ func TestProcessManagerProcessIDs(t *testing.T) {
 
 	test.That(t, utils.NewStringSet(pm.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-	test.That(t, pm.RemoveProcessByID("1"), test.ShouldBeTrue)
+	_, ok := pm.RemoveProcessByID("1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, utils.NewStringSet(pm.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("2"))
 }
 
@@ -64,26 +65,28 @@ func TestProcessManagerProcessByID(t *testing.T) {
 	_, ok = pm.ProcessByID("2")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	fp = &fakeProcess{id: "1"}
-	_, err = pm.AddProcess(context.Background(), fp, true)
+	fp1 := &fakeProcess{id: "1"}
+	_, err = pm.AddProcess(context.Background(), fp1, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	proc, ok = pm.ProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, proc, test.ShouldEqual, fp)
+	test.That(t, proc, test.ShouldEqual, fp1)
 
-	fp = &fakeProcess{id: "2"}
-	_, err = pm.AddProcess(context.Background(), fp, true)
+	fp2 := &fakeProcess{id: "2"}
+	_, err = pm.AddProcess(context.Background(), fp2, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	proc, ok = pm.ProcessByID("2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, proc, test.ShouldEqual, fp)
+	test.That(t, proc, test.ShouldEqual, fp2)
 
-	test.That(t, pm.RemoveProcessByID("1"), test.ShouldBeTrue)
+	proc, ok = pm.RemoveProcessByID("1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, proc, test.ShouldEqual, fp1)
 	proc, ok = pm.ProcessByID("2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, proc, test.ShouldEqual, fp)
+	test.That(t, proc, test.ShouldEqual, fp2)
 }
 
 func TestProcessManagerRemoveProcessByID(t *testing.T) {
@@ -92,30 +95,36 @@ func TestProcessManagerRemoveProcessByID(t *testing.T) {
 	defer func() {
 		test.That(t, pm.Stop(), test.ShouldBeNil)
 	}()
-	test.That(t, pm.RemoveProcessByID("1"), test.ShouldBeFalse)
-
-	fp := &fakeProcess{id: "1"}
-	_, err := pm.AddProcess(context.Background(), fp, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, pm.RemoveProcessByID("2"), test.ShouldBeFalse)
-	test.That(t, pm.RemoveProcessByID("1"), test.ShouldBeTrue)
-
-	_, ok := pm.ProcessByID("1")
+	_, ok := pm.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	_, err = pm.AddProcess(context.Background(), fp, true)
+	fp1 := &fakeProcess{id: "1"}
+	_, err := pm.AddProcess(context.Background(), fp1, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	fp = &fakeProcess{id: "2"}
-	_, err = pm.AddProcess(context.Background(), fp, true)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, pm.RemoveProcessByID("1"), test.ShouldBeTrue)
-
-	proc, ok := pm.ProcessByID("2")
+	_, ok = pm.RemoveProcessByID("2")
+	test.That(t, ok, test.ShouldBeFalse)
+	proc, ok := pm.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, proc, test.ShouldEqual, fp)
+	test.That(t, proc, test.ShouldEqual, fp1)
+
+	_, ok = pm.ProcessByID("1")
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = pm.AddProcess(context.Background(), fp1, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	fp2 := &fakeProcess{id: "2"}
+	_, err = pm.AddProcess(context.Background(), fp2, true)
+	test.That(t, err, test.ShouldBeNil)
+
+	proc, ok = pm.RemoveProcessByID("1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, proc, test.ShouldEqual, fp1)
+
+	proc, ok = pm.ProcessByID("2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, proc, test.ShouldEqual, fp2)
 }
 
 func TestProcessManagerAddProcess(t *testing.T) {
@@ -418,9 +427,11 @@ func TestProcessManagerClone(t *testing.T) {
 
 	clone2 := pm.Clone()
 	test.That(t, utils.NewStringSet(clone2.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2", "3"))
-	test.That(t, clone2.RemoveProcessByID("2"), test.ShouldBeTrue)
+	proc, ok := clone2.RemoveProcessByID("2")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, proc, test.ShouldEqual, fp2)
 
-	proc, ok := pm.ProcessByID("2")
+	proc, ok = pm.ProcessByID("2")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, proc, test.ShouldEqual, fp2)
 
@@ -534,7 +545,8 @@ func TestMergeRemoveProcessManagers(t *testing.T) {
 	_, err = pm2.AddProcess(context.Background(), fp7, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	MergeRemoveProcessManagers(pm1, pm2)
+	removed := MergeRemoveProcessManagers(pm1, pm2)
+	test.That(t, removed, test.ShouldResemble, []ManagedProcess{fp2, fp3})
 
 	test.That(t, utils.NewStringSet(pm1.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1"))
 

@@ -59,11 +59,17 @@ func TestDiffConfigs(t *testing.T) {
 				Name:  "arm1",
 				Type:  ComponentType("arm"),
 				Model: "fake",
+				Attributes: AttributeMap{
+					"one": float64(1),
+				},
 			},
 			{
 				Name:  "base1",
 				Type:  ComponentType("base"),
 				Model: "fake",
+				Attributes: AttributeMap{
+					"two": float64(2),
+				},
 			},
 		},
 		Processes: []rexec.ProcessConfig{
@@ -82,7 +88,7 @@ func TestDiffConfigs(t *testing.T) {
 		},
 	}
 
-	config2 := Config{
+	config2 := ModifiedConfigDiff{
 		Remotes: []Remote{
 			{
 				Name:    "remote1",
@@ -95,33 +101,43 @@ func TestDiffConfigs(t *testing.T) {
 				Prefix:  false,
 			},
 		},
-		Boards: []board.Config{
-			{
-				Name:  "board1",
-				Model: "fake",
-				Motors: []board.MotorConfig{
-					{
-						Name:             "h",
-						Pins:             map[string]string{"a": "2", "b": "3", "pwm": "4"},
-						Encoder:          "encoder",
-						TicksPerRotation: 101,
-					},
+		Boards: map[string]board.ConfigDiff{
+			"board1": {
+				Added: &board.Config{
+					Name:  "board1",
+					Model: "fake",
 				},
-				Servos: []board.ServoConfig{
-					{
-						Name: "servo1",
-						Pin:  "13",
-					},
+				Removed: &board.Config{
+					Name:  "board1",
+					Model: "fake",
 				},
-				Analogs: []board.AnalogConfig{
-					{
-						Name: "analog1",
-						Pin:  "1",
+				Modified: &board.Config{
+					Name:  "board1",
+					Model: "fake",
+					Motors: []board.MotorConfig{
+						{
+							Name:             "g",
+							Pins:             map[string]string{"a": "2", "b": "3", "pwm": "4"},
+							Encoder:          "encoder",
+							TicksPerRotation: 101,
+						},
 					},
-				}, DigitalInterrupts: []board.DigitalInterruptConfig{
-					{
-						Name: "encoder",
-						Pin:  "15",
+					Servos: []board.ServoConfig{
+						{
+							Name: "servo1",
+							Pin:  "13",
+						},
+					},
+					Analogs: []board.AnalogConfig{
+						{
+							Name: "analog1",
+							Pin:  "1",
+						},
+					}, DigitalInterrupts: []board.DigitalInterruptConfig{
+						{
+							Name: "encoder",
+							Pin:  "15",
+						},
 					},
 				},
 			},
@@ -130,12 +146,18 @@ func TestDiffConfigs(t *testing.T) {
 			{
 				Name:  "arm1",
 				Type:  ComponentType("arm"),
-				Model: "fake2",
+				Model: "fake",
+				Attributes: AttributeMap{
+					"two": float64(2),
+				},
 			},
 			{
 				Name:  "base1",
 				Type:  ComponentType("base"),
-				Model: "fake2",
+				Model: "fake",
+				Attributes: AttributeMap{
+					"three": float64(3),
+				},
 			},
 		},
 		Processes: []rexec.ProcessConfig{
@@ -166,7 +188,7 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_empty.json",
 			Diff{
 				Added:    &Config{},
-				Modified: &Config{},
+				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
 				Removed:  &Config{},
 				Equal:    true,
 			},
@@ -177,7 +199,7 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			Diff{
 				Added:    &Config{},
-				Modified: &Config{},
+				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
 				Removed:  &Config{},
 				Equal:    true,
 			},
@@ -188,7 +210,7 @@ func TestDiffConfigs(t *testing.T) {
 			"data/diff_config_1.json",
 			Diff{
 				Added:    &config1,
-				Modified: &Config{},
+				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
 				Removed:  &Config{},
 				Equal:    false,
 			},
@@ -200,7 +222,7 @@ func TestDiffConfigs(t *testing.T) {
 			Diff{
 				Added:    &Config{},
 				Removed:  &config1,
-				Modified: &Config{},
+				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
 				Equal:    false,
 			},
 		},
@@ -231,7 +253,7 @@ func TestDiffConfigs(t *testing.T) {
 						{
 							Name:  "base2",
 							Type:  ComponentType("base"),
-							Model: "fake2",
+							Model: "fake",
 						},
 					},
 					Processes: []rexec.ProcessConfig{
@@ -243,7 +265,7 @@ func TestDiffConfigs(t *testing.T) {
 						},
 					},
 				},
-				Modified: &Config{
+				Modified: &ModifiedConfigDiff{
 					Remotes: []Remote{
 						{
 							Name:    "remote1",
@@ -254,21 +276,35 @@ func TestDiffConfigs(t *testing.T) {
 							Address: "addr4",
 						},
 					},
-					Boards: []board.Config{
-						{
-							Name:              "board1",
-							Model:             "fake",
-							Motors:            []board.MotorConfig{{Name: "h", Pins: map[string]string{"a": "2", "b": "3", "pwm": "4"}, Encoder: "encoder", EncoderB: "", TicksPerRotation: 101}},
-							Servos:            []board.ServoConfig{{Name: "servo1", Pin: "13"}},
-							Analogs:           []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
-							DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder", Pin: "15"}},
+					Boards: map[string]board.ConfigDiff{
+						"board1": {
+							Added: &board.Config{
+								Name:   "board1",
+								Model:  "fake",
+								Motors: []board.MotorConfig{{Name: "h", Pins: map[string]string{"a": "2", "b": "3", "pwm": "4"}, Encoder: "encoder", EncoderB: "", TicksPerRotation: 101}},
+							},
+							Removed: &board.Config{
+								Name:              "board1",
+								Model:             "fake",
+								Motors:            []board.MotorConfig{{Name: "g", Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, Encoder: "encoder", EncoderB: "", TicksPerRotation: 100}},
+								DigitalInterrupts: []board.DigitalInterruptConfig{{Name: "encoder", Pin: "14"}},
+							},
+							Modified: &board.Config{
+								Name:    "board1",
+								Model:   "fake",
+								Servos:  []board.ServoConfig{{Name: "servo1", Pin: "13"}},
+								Analogs: []board.AnalogConfig{{Name: "analog1", Pin: "1"}},
+							},
 						},
 					},
 					Components: []Component{
 						{
 							Name:  "arm1",
 							Type:  ComponentType("arm"),
-							Model: "fake2",
+							Model: "fake",
+							Attributes: AttributeMap{
+								"two": float64(2),
+							},
 						},
 					},
 					Processes: []rexec.ProcessConfig{
@@ -286,6 +322,9 @@ func TestDiffConfigs(t *testing.T) {
 							Name:  "base1",
 							Type:  ComponentType("base"),
 							Model: "fake",
+							Attributes: AttributeMap{
+								"two": float64(2),
+							},
 						},
 					},
 					Processes: []rexec.ProcessConfig{
@@ -321,6 +360,57 @@ func TestDiffConfigs(t *testing.T) {
 			tc.Expected.Right = diff.Right
 
 			test.That(t, diff, test.ShouldResemble, &tc.Expected)
+		})
+	}
+}
+
+func TestDiffConfigErrors(t *testing.T) {
+	for _, tc := range []struct {
+		Name      string
+		LeftFile  string
+		RightFile string
+		Expected  string
+	}{
+		{
+			"board model",
+			"data/diff_config_1.json",
+			"data/diff_config_1_board_model.json",
+			"cannot modify model of existing board",
+		},
+		{
+			"digital interrupt type",
+			"data/diff_config_1.json",
+			"data/diff_config_1_digital_interrupt_type.json",
+			"cannot modify type of existing digital interrupt",
+		},
+		{
+			"component type",
+			"data/diff_config_1.json",
+			"data/diff_config_1_component_type.json",
+			"cannot modify type of existing component",
+		},
+		{
+			"component subtype",
+			"data/diff_config_1.json",
+			"data/diff_config_1_component_subtype.json",
+			"cannot modify type of existing component",
+		},
+		{
+			"component model",
+			"data/diff_config_1.json",
+			"data/diff_config_1_component_model.json",
+			"cannot modify model of existing component",
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			left, err := Read(tc.LeftFile)
+			test.That(t, err, test.ShouldBeNil)
+			right, err := Read(tc.RightFile)
+			test.That(t, err, test.ShouldBeNil)
+
+			_, err = DiffConfigs(left, right)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, tc.Expected)
 		})
 	}
 }

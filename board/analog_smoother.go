@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 )
 
@@ -24,7 +26,7 @@ type AnalogSmoother struct {
 	lastError               atomic.Value // errValue
 	logger                  golog.Logger
 	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 // SmoothAnalogReader wraps the given reader in a smoother.
@@ -35,11 +37,12 @@ func SmoothAnalogReader(r AnalogReader, c AnalogConfig, logger golog.Logger) Ana
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	smoother := &AnalogSmoother{
-		Raw:               r,
-		AverageOverMillis: c.AverageOverMillis,
-		SamplesPerSecond:  c.SamplesPerSecond,
-		logger:            logger,
-		cancel:            cancel,
+		Raw:                     r,
+		AverageOverMillis:       c.AverageOverMillis,
+		SamplesPerSecond:        c.SamplesPerSecond,
+		logger:                  logger,
+		cancel:                  cancel,
+		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 	smoother.Start(cancelCtx)
 	return smoother
@@ -119,4 +122,16 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			}
 		}
 	}, as.activeBackgroundWorkers.Done)
+}
+
+// Reconfigure replaces this analog reader with the given analog reader.
+func (as *AnalogSmoother) Reconfigure(newAnalog AnalogReader) {
+	actual, ok := newAnalog.(*AnalogSmoother)
+	if !ok {
+		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newAnalog))
+	}
+	if err := as.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*as = *actual
 }

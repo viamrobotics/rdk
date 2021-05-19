@@ -166,7 +166,7 @@ func NewMultipleImageTestDebugger(t *testing.T, prefix, glob string, imagesAlign
 	d.name = prefix + "-" + t.Name()
 	d.name = strings.Replace(d.name, "/", "-", 100)
 	d.name = strings.Replace(d.name, " ", "-", 100)
-	d.out = testutils.TempDir(t, "", strings.ReplaceAll(prefix, "/", "_"))
+	d.out = testutils.TempDirT(t, "", strings.ReplaceAll(prefix, "/", "_"))
 	return &d
 }
 

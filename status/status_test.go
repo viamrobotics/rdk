@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
@@ -19,7 +20,6 @@ import (
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 )
 
@@ -60,7 +60,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.GripperByNameFunc = func(name string) gripper.Gripper {
 		return &fake.Gripper{Name: name}
 	}
-	injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+	injectRobot.CameraByNameFunc = func(name string) camera.Camera {
 		return &fake.Camera{Name: name}
 	}
 	injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {

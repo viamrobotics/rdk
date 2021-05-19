@@ -89,9 +89,9 @@ func TestNewPath(t *testing.T) {
 }
 
 func TestEmplaceFile(t *testing.T) {
-	storeDir := testutils.TempDir(t, "file_test", "")
+	storeDir := testutils.TempDirT(t, "file_test", "")
 	defer os.RemoveAll(storeDir)
-	rootDir := testutils.TempDir(t, "file_test", "")
+	rootDir := testutils.TempDirT(t, "file_test", "")
 	defer os.RemoveAll(rootDir)
 
 	store, err := newFileSystemStore(&FileSystemStoreConfig{Path: storeDir})

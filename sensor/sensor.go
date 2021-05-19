@@ -8,8 +8,14 @@ import (
 // A Sensor represents a general purpose sensors that can give arbitrary readings
 // of some thing that it is sensing.
 type Sensor interface {
+	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context) ([]interface{}, error)
+
+	// Desc returns a description of this sensor.
 	Desc() Description
+
+	// Reconfigure replaces this sensor with the given sensor.
+	Reconfigure(newSensor Sensor)
 }
 
 // Type specifies the type of sensor.

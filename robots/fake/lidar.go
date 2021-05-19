@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
@@ -40,7 +41,7 @@ func init() {
 // A Lidar outputs noisy scans based on its current position and seed.
 type Lidar struct {
 	Name       string
-	mu         sync.Mutex
+	mu         *sync.Mutex
 	posX, posY float64
 	started    bool
 	seed       int64
@@ -48,7 +49,7 @@ type Lidar struct {
 
 // NewLidar returns a new fake lidar.
 func NewLidar(name string) *Lidar {
-	return &Lidar{Name: name}
+	return &Lidar{Name: name, mu: &sync.Mutex{}}
 }
 
 // SetPosition sets the given position.
@@ -147,4 +148,16 @@ func (l *Lidar) Scan(ctx context.Context, options lidar.ScanOptions) (lidar.Meas
 			getFloat64()*360, getFloat64()*rang))
 	}
 	return measurements, nil
+}
+
+// Reconfigure replaces this lidar with the given lidar.
+func (l *Lidar) Reconfigure(newLidar lidar.Lidar) {
+	actual, ok := newLidar.(*Lidar)
+	if !ok {
+		panic(fmt.Errorf("expected new lidar to be %T but got %T", actual, newLidar))
+	}
+	if err := l.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*l = *actual
 }

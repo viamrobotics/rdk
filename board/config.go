@@ -44,6 +44,47 @@ func (config *Config) Validate(path string) error {
 	return nil
 }
 
+// Merge merges this config with another config to produce a new config. We will
+// assume name and model are the same in both configs.
+func (config *Config) Merge(with *Config) (*Config, error) {
+	if config.Name != with.Name {
+		return nil, fmt.Errorf("expected board names to be the same %q!=%q", config.Name, with.Name)
+	}
+	if config.Model != with.Model {
+		return nil, fmt.Errorf("expected board models to be the same %q!=%q", config.Model, with.Model)
+	}
+	merged := Config{
+		Name:  config.Name,
+		Model: config.Model,
+	}
+	if len(config.Motors) != 0 || len(with.Motors) != 0 {
+		merged.Motors = append(append([]MotorConfig{}, config.Motors...), with.Motors...)
+	}
+	if len(config.Servos) != 0 || len(with.Servos) != 0 {
+		merged.Servos = append(append([]ServoConfig{}, config.Servos...), with.Servos...)
+	}
+	if len(config.Analogs) != 0 || len(with.Analogs) != 0 {
+		merged.Analogs = append(append([]AnalogConfig{}, config.Analogs...), with.Analogs...)
+	}
+	if len(config.DigitalInterrupts) != 0 || len(with.DigitalInterrupts) != 0 {
+		merged.DigitalInterrupts = append(append([]DigitalInterruptConfig{}, config.DigitalInterrupts...), with.DigitalInterrupts...)
+	}
+	return &merged, nil
+}
+
+// ConfigDiff is the different between two board configs.
+type ConfigDiff struct {
+	Added    *Config
+	Modified *Config
+	Removed  *Config
+}
+
+// ToConfig converts this diff into a board config suitable for
+// construction/reconfiguration. As such, removals are not considered.
+func (diff *ConfigDiff) ToConfig() (*Config, error) {
+	return diff.Added.Merge(diff.Modified)
+}
+
 // MotorConfig describes the configuration of a motor on a board.
 type MotorConfig struct {
 	Name             string            `json:"name"`

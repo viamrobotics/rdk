@@ -47,7 +47,7 @@ func TestImageSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer release()
 
-	outDir := testutils.TempDir(t, "", "lidar")
+	outDir := testutils.TempDirT(t, "", "lidar")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = rimage.WriteImageToFile(outDir+"/out.png", img)
 	test.That(t, err, test.ShouldBeNil)

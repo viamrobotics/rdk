@@ -57,8 +57,9 @@
         {
             "model": "fake",
             "name": "arm1",
-            "type": "arm_huh",
+            "type": "arm",
             "attributes": {
+                "fail_new": true,
                 "one": 2
             }
         },

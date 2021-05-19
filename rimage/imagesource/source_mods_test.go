@@ -3,7 +3,6 @@ package imagesource
 import (
 	"context"
 	"image"
-	"io/ioutil"
 	"testing"
 
 	"go.viam.com/test"
@@ -11,13 +10,14 @@ import (
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/testutils"
 )
 
 var outDir string
 
 func init() {
 	var err error
-	outDir, err = ioutil.TempDir("", "rimage_imagesource")
+	outDir, err = testutils.TempDir("", "rimage_imagesource")
 	if err != nil {
 		panic(err)
 	}

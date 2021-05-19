@@ -22,10 +22,7 @@
             ],
             "digitalInterrupts":
             [
-                {
-                    "name": "encoder",
-                    "pin": "15"
-                }
+                
             ],
             "model": "fake",
             "motors":
@@ -65,12 +62,15 @@
     "components":
     [
         {
-            "model": "fake2",
+            "model": "fake",
             "name": "arm1",
-            "type": "arm"
+            "type": "arm",
+            "attributes": {
+                "two": 2
+            }
         },
         {
-            "model": "fake2",
+            "model": "fake",
             "name": "base2",
             "type": "base"
         }

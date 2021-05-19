@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -25,7 +26,6 @@ import (
 	"go.viam.com/core/testutils/inject"
 	"go.viam.com/core/utils"
 
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -777,7 +777,7 @@ func TestServer(t *testing.T) {
 	t.Run("CameraFrame", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
 			capName = name
 			return nil
 		}
@@ -789,12 +789,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 		test.That(t, capName, test.ShouldEqual, "camera1")
 
-		injectImageSource := &inject.ImageSource{}
-		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
-			return injectImageSource
+		injectCamera := &inject.Camera{}
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+			return injectCamera
 		}
 		err1 := errors.New("whoops")
-		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, nil, err1
 		}
 		_, err = server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
@@ -807,7 +807,7 @@ func TestServer(t *testing.T) {
 		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 		var released bool
-		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return img, func() { released = true }, nil
 		}
 
@@ -842,7 +842,7 @@ func TestServer(t *testing.T) {
 	t.Run("CameraRenderFrame", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
 			capName = name
 			return nil
 		}
@@ -854,12 +854,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 		test.That(t, capName, test.ShouldEqual, "camera1")
 
-		injectImageSource := &inject.ImageSource{}
-		injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
-			return injectImageSource
+		injectCamera := &inject.Camera{}
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+			return injectCamera
 		}
 		err1 := errors.New("whoops")
-		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return nil, nil, err1
 		}
 		_, err = server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
@@ -872,7 +872,7 @@ func TestServer(t *testing.T) {
 		test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
 		var released bool
-		injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 			return img, func() { released = true }, nil
 		}
 

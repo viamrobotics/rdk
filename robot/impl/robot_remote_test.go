@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 )
 
@@ -81,7 +81,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return &fake.Gripper{Name: name}
 	}
-	injectRobot.CameraByNameFunc = func(name string) gostream.ImageSource {
+	injectRobot.CameraByNameFunc = func(name string) camera.Camera {
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
 			return nil
 		}
@@ -168,7 +168,8 @@ func TestRemoteRobot(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	_, err := robot.Config(context.Background())
-	test.That(t, err, test.ShouldResemble, errors.New("whoops"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 	someConfig := &config.Config{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return someConfig, nil
@@ -181,7 +182,8 @@ func TestRemoteRobot(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	_, err = robot.Status(context.Background())
-	test.That(t, err, test.ShouldResemble, errors.New("whoops"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 	someStatus := &pb.Status{
 		Arms: map[string]*pb.ArmStatus{
 			"arm1": {},

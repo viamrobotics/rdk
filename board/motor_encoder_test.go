@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -18,7 +19,7 @@ func TestMotorEncoder1(t *testing.T) {
 	defer undo()
 
 	cfg := MotorConfig{TicksPerRotation: 100}
-	real := &FakeMotor{}
+	real := &FakeMotor{mu: &sync.Mutex{}}
 	encoder := &BasicDigitalInterrupt{}
 
 	motor := newEncodedMotor(cfg, real, encoder)
@@ -125,7 +126,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	defer undo()
 
 	cfg := MotorConfig{TicksPerRotation: 100}
-	real := &FakeMotor{}
+	real := &FakeMotor{mu: &sync.Mutex{}}
 	encoderA := &BasicDigitalInterrupt{}
 	encoderB := &BasicDigitalInterrupt{}
 
@@ -205,7 +206,7 @@ func TestMotorEncoderHall(t *testing.T) {
 
 func TestWrapMotorWithEncoder(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	real := &FakeMotor{}
+	real := &FakeMotor{mu: &sync.Mutex{}}
 
 	// don't wrap with no encoder
 	m, err := WrapMotorWithEncoder(context.Background(), nil, MotorConfig{}, real, logger)

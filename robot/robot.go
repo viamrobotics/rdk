@@ -7,6 +7,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 )
 
@@ -40,7 +40,7 @@ type Robot interface {
 
 	// CameraByName returns a camera by name. If it does not exist
 	// nil is returned.
-	CameraByName(name string) gostream.ImageSource
+	CameraByName(name string) camera.Camera
 
 	// LidarByName returns a lidar by name. If it does not exist
 	// nil is returned.
@@ -97,6 +97,9 @@ type Robot interface {
 	// Refresh instructs the Robot to manually refresh the details of itself.
 	Refresh(ctx context.Context) error
 
+	// Reconfigure replaces this robot with the given robot.
+	Reconfigure(newRobot Robot, diff *config.Diff)
+
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
 }
@@ -106,7 +109,7 @@ type MutableRobot interface {
 	Robot
 
 	// AddRemote adds a remote robot to the robot.
-	AddRemote(remote Robot, c config.Remote)
+	AddRemote(r Robot, c config.Remote)
 
 	// AddBoard adds a board to the robot.
 	AddBoard(b board.Board, c board.Config)
@@ -118,10 +121,10 @@ type MutableRobot interface {
 	AddGripper(g gripper.Gripper, c config.Component)
 
 	// AddCamera adds a camera to the robot.
-	AddCamera(camera gostream.ImageSource, c config.Component)
+	AddCamera(c camera.Camera, cc config.Component)
 
 	// AddLidar adds a lidar to the robot.
-	AddLidar(device lidar.Lidar, c config.Component)
+	AddLidar(l lidar.Lidar, c config.Component)
 
 	// AddBase adds a base to the robot.
 	AddBase(b base.Base, c config.Component)
@@ -132,9 +135,9 @@ type MutableRobot interface {
 	// AddProvider adds a provider to the robot.
 	AddProvider(p Provider, c config.Component)
 
-	// Reconfigure instructs the robot to safely reconfigure itself based
+	// ReconfigureFromConfig instructs the robot to safely reconfigure itself based
 	// on the given new config.
-	Reconfigure(ctx context.Context, newConfig *config.Config) error
+	ReconfigureFromConfig(ctx context.Context, newConfig *config.Config) error
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close() error
@@ -155,4 +158,7 @@ type Provider interface {
 	// Ready does any provider/platform initialization once robot configuration is
 	// finishing.
 	Ready(r Robot) error
+
+	// Reconfigure replaces this provider with the given provider.
+	Reconfigure(newProvider Provider)
 }

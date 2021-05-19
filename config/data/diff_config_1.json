@@ -57,12 +57,18 @@
         {
             "model": "fake",
             "name": "arm1",
-            "type": "arm"
+            "type": "arm",
+            "attributes": {
+                "one": 1
+            }
         },
         {
             "model": "fake",
             "name": "base1",
-            "type": "base"
+            "type": "base",
+            "attributes": {
+                "two": 2
+            }
         }
     ],
     "processes":

@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
@@ -26,7 +27,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r2"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -202,7 +202,7 @@ func TestClient(t *testing.T) {
 	injectRobot1.BoardByNameFunc = func(name string) board.Board {
 		return nil
 	}
-	injectRobot1.CameraByNameFunc = func(name string) gostream.ImageSource {
+	injectRobot1.CameraByNameFunc = func(name string) camera.Camera {
 		return nil
 	}
 	injectRobot1.LidarByNameFunc = func(name string) lidar.Lidar {
@@ -315,18 +315,18 @@ func TestClient(t *testing.T) {
 		capBoardName = name
 		return injectBoard
 	}
-	injectImageSource := &inject.ImageSource{}
+	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
 	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
 	var imageReleased bool
-	injectImageSource.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
+	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
 	}
-	injectRobot2.CameraByNameFunc = func(name string) gostream.ImageSource {
+	injectRobot2.CameraByNameFunc = func(name string) camera.Camera {
 		capCameraName = name
-		return injectImageSource
+		return injectCamera
 	}
 
 	injectLidarDev := &inject.Lidar{}

@@ -24,6 +24,9 @@ type Arm interface {
 
 	// JointMoveDelta moves a specific join of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
+
+	// Reconfigure replaces this arm with the given arm.
+	Reconfigure(newarm Arm)
 }
 
 // NewPositionFromMetersAndRadians returns a three-dimensional arm position

@@ -3,11 +3,11 @@
     [
         {
             "name": "remote1",
-            "address": "addr3"
+            "address": "addr1"
         },
         {
             "name": "remote2",
-            "address": "addr4"
+            "address": "addr2"
         }
     ],
     "boards":
@@ -17,14 +17,15 @@
             [
                 {
                     "name": "analog1",
-                    "pin": "1"
+                    "pin": "0"
                 }
             ],
             "digitalInterrupts":
             [
                 {
                     "name": "encoder",
-                    "pin": "15"
+                    "pin": "14",
+                    "type": "other"
                 }
             ],
             "model": "fake",
@@ -35,11 +36,11 @@
                     "name": "g",
                     "pins":
                     {
-                        "a": "2",
-                        "b": "3",
-                        "pwm": "4"
+                        "a": "1",
+                        "b": "2",
+                        "pwm": "3"
                     },
-                    "ticksPerRotation": 101
+                    "ticksPerRotation": 100
                 }
             ],
             "name": "board1",
@@ -47,7 +48,7 @@
             [
                 {
                     "name": "servo1",
-                    "pin": "13"
+                    "pin": "12"
                 }
             ]
         }
@@ -59,7 +60,7 @@
             "name": "arm1",
             "type": "arm",
             "attributes": {
-                "two": 2
+                "one": 1
             }
         },
         {
@@ -67,7 +68,7 @@
             "name": "base1",
             "type": "base",
             "attributes": {
-                "three": 3
+                "two": 2
             }
         }
     ],
@@ -79,8 +80,7 @@
             "args":
             [
                 "hello",
-                "world",
-                "again"
+                "world"
             ],
             "one_shot": true
         },
@@ -90,7 +90,7 @@
             "args":
             [
                 "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hello; sleep 2; done"
+                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
             ],
             "log": true
         }

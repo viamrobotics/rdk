@@ -74,7 +74,7 @@ func TestAcesCLF(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	outDir := testutils.TempDir(t, "", "slam")
+	outDir := testutils.TempDirT(t, "", "slam")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = rimage.WriteImageToFile(outDir+"/foo.png", AreaToImage(area))
 	test.That(t, err, test.ShouldBeNil)

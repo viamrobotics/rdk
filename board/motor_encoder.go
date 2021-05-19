@@ -2,11 +2,13 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -74,27 +76,30 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder DigitalInterrupt) *enc
 func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB DigitalInterrupt) *encodedMotor {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	return &encodedMotor{
-		cfg:       cfg,
-		real:      real,
-		encoder:   encoderA,
-		encoderB:  encoderB,
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		cfg:                     cfg,
+		real:                    real,
+		encoder:                 encoderA,
+		encoderB:                encoderB,
+		cancelCtx:               cancelCtx,
+		cancel:                  cancel,
+		stateMu:                 &sync.RWMutex{},
+		startedRPMMonitorMu:     &sync.Mutex{},
 	}
 }
 
 type encodedMotor struct {
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     MotorConfig
 	real                    Motor
 	encoder                 DigitalInterrupt
 	encoderB                DigitalInterrupt
 
-	stateMu sync.RWMutex
+	stateMu *sync.RWMutex
 	state   encodedMotorState
 
 	startedRPMMonitor   bool
-	startedRPMMonitorMu sync.Mutex
+	startedRPMMonitorMu *sync.Mutex
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -567,4 +572,15 @@ func (m *encodedMotor) Close() error {
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 	return nil
+}
+
+func (m *encodedMotor) Reconfigure(newMotor Motor) {
+	actual, ok := newMotor.(*encodedMotor)
+	if !ok {
+		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
+	}
+	if err := m.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*m = *actual
 }

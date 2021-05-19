@@ -537,7 +537,7 @@ func TestColorSegment1(t *testing.T) {
 		}
 	}
 
-	outDir := testutils.TempDir(t, "", "rimage")
+	outDir := testutils.TempDirT(t, "", "rimage")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	err = diffs.WriteTo(outDir + "/foo.html")
 	test.That(t, err, test.ShouldBeNil)

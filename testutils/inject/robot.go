@@ -7,6 +7,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -17,7 +18,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 )
 
 // Robot is an injected robot.
@@ -27,7 +27,7 @@ type Robot struct {
 	ArmByNameFunc      func(name string) arm.Arm
 	BaseByNameFunc     func(name string) base.Base
 	GripperByNameFunc  func(name string) gripper.Gripper
-	CameraByNameFunc   func(name string) gostream.ImageSource
+	CameraByNameFunc   func(name string) camera.Camera
 	LidarByNameFunc    func(name string) lidar.Lidar
 	BoardByNameFunc    func(name string) board.Board
 	SensorByNameFunc   func(name string) sensor.Sensor
@@ -81,7 +81,7 @@ func (r *Robot) GripperByName(name string) gripper.Gripper {
 }
 
 // CameraByName calls the injected CameraByName or the real version.
-func (r *Robot) CameraByName(name string) gostream.ImageSource {
+func (r *Robot) CameraByName(name string) camera.Camera {
 	if r.CameraByNameFunc == nil {
 		return r.Robot.CameraByName(name)
 	}

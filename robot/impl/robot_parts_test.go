@@ -140,7 +140,7 @@ func TestPartsClone(t *testing.T) {
 
 	newParts := parts.Clone()
 
-	// remove and delet eparts to prove clone
+	// remove and delete parts to prove clone
 	delete(parts.remotes, "remote1")
 	parts.remotes = nil
 	delete(parts.arms, "arm1")
@@ -157,7 +157,8 @@ func TestPartsClone(t *testing.T) {
 	parts.boards = nil
 	delete(parts.sensors, "sensor1")
 	parts.sensors = nil
-	test.That(t, parts.processManager.RemoveProcessByID("1"), test.ShouldBeTrue)
+	_, ok := parts.processManager.RemoveProcessByID("1")
+	test.That(t, ok, test.ShouldBeTrue)
 	parts.processManager.Stop()
 
 	test.That(t, utils.NewStringSet(newParts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2"))
@@ -236,14 +237,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func testPartsMergeAddModify(t *testing.T, add bool) {
-	var modFunc func(rcv, toChange *robotParts) (*PartsMergeResult, error)
-	if add {
-		modFunc = (*robotParts).MergeAdd
-	} else {
-		modFunc = (*robotParts).MergeModify
-	}
-
+func TestPartsMergeAdd(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
@@ -279,7 +273,7 @@ func testPartsMergeAddModify(t *testing.T, add bool) {
 		test.That(t, utils.NewStringSet(toCheck.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "sensor1_r1", "sensor2_r1", "sensor1_r2", "sensor2_r2"))
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 	}
-	result, err := modFunc(parts, newRobotParts(logger))
+	result, err := parts.MergeAdd(newRobotParts(logger))
 	test.That(t, err, test.ShouldBeNil)
 	checkSame(parts)
 
@@ -290,7 +284,7 @@ func testPartsMergeAddModify(t *testing.T, add bool) {
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
 	otherParts := partsForRemoteRobot(otherRobot)
 	otherParts.AddRemote(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{Name: "other1"})
-	result, err = modFunc(parts, otherParts)
+	result, err = parts.MergeAdd(otherParts)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
@@ -315,7 +309,7 @@ func testPartsMergeAddModify(t *testing.T, add bool) {
 	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	result, err = modFunc(parts, sameParts)
+	result, err = parts.MergeAdd(sameParts)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldResemble, utils.NewStringSet("remote1", "remote2", "other1"))
@@ -345,12 +339,7 @@ func testPartsMergeAddModify(t *testing.T, add bool) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected")
 }
 
-func TestPartsMergeAdd(t *testing.T) {
-	testPartsMergeAddModify(t, true)
-}
-
 func TestPartsMergeModify(t *testing.T) {
-	testPartsMergeAddModify(t, false)
 }
 
 func TestPartsMergeRemove(t *testing.T) {

@@ -276,7 +276,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			case <-ctx.Done():
 				return
 			case config := <-watcher.Config():
-				if err := myRobot.Reconfigure(ctx, config); err != nil {
+				if err := myRobot.ReconfigureFromConfig(ctx, config); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
 				}
 			}

@@ -1,16 +1,15 @@
 package rimage
 
 import (
-	"io/ioutil"
-
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/testutils"
 )
 
 var outDir string
 
 func init() {
 	var err error
-	outDir, err = ioutil.TempDir("", "rimage")
+	outDir, err = testutils.TempDir("", "rimage")
 	if err != nil {
 		panic(err)
 	}

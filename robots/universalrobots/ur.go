@@ -19,6 +19,7 @@ import (
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 
@@ -33,7 +34,7 @@ func init() {
 
 // URArm TODO
 type URArm struct {
-	mu                      sync.Mutex
+	mu                      *sync.Mutex
 	conn                    net.Conn
 	state                   RobotState
 	runtimeError            error
@@ -41,7 +42,7 @@ type URArm struct {
 	haveData                bool
 	logger                  golog.Logger
 	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -84,11 +85,13 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	arm := &URArm{
-		conn:     conn,
-		debug:    false,
-		haveData: false,
-		logger:   logger,
-		cancel:   cancel,
+		mu:                      &sync.Mutex{},
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		conn:                    conn,
+		debug:                   false,
+		haveData:                false,
+		logger:                  logger,
+		cancel:                  cancel,
 	}
 
 	onData := make(chan struct{})
@@ -298,6 +301,18 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 		}
 	}
 
+}
+
+// Reconfigure replaces this arm with the given arm.
+func (ua *URArm) Reconfigure(newArm arm.Arm) {
+	actual, ok := newArm.(*URArm)
+	if !ok {
+		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
+	}
+	if err := ua.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*ua = *actual
 }
 
 // AddToLog TODO

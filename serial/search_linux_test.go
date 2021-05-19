@@ -14,9 +14,9 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	tempDir1 := testutils.TempDir(t, "", "")
+	tempDir1 := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(tempDir1)
-	tempDir2 := testutils.TempDir(t, "", "")
+	tempDir2 := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(tempDir2)
 
 	prevSysPaths := usb.SysPaths
@@ -27,16 +27,16 @@ func TestSearch(t *testing.T) {
 	defer func() {
 		devPath = prevDebPath
 	}()
-	devPathDir := testutils.TempDir(t, "", "")
+	devPathDir := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(devPathDir)
 	jetsonPath := filepath.Join(devPathDir, "ttyTHS0")
 	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0666), test.ShouldBeNil)
 
-	dev2Root := testutils.TempDir(t, tempDir1, "")
-	dev3Root := testutils.TempDir(t, tempDir1, "")
-	dev1 := testutils.TempDir(t, tempDir2, "")
-	dev2 := testutils.TempDir(t, dev2Root, "")
-	dev3 := testutils.TempDir(t, dev3Root, "")
+	dev2Root := testutils.TempDirT(t, tempDir1, "")
+	dev3Root := testutils.TempDirT(t, tempDir1, "")
+	dev1 := testutils.TempDirT(t, tempDir2, "")
+	dev2 := testutils.TempDirT(t, dev2Root, "")
+	dev3 := testutils.TempDirT(t, dev3Root, "")
 
 	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=2341/0043"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)
