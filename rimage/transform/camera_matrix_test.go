@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"io/ioutil"
 	"math"
 	"os"
 	"testing"
@@ -11,13 +10,14 @@ import (
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/testutils"
 )
 
 var outDir string
 
 func init() {
 	var err error
-	outDir, err = ioutil.TempDir("", "rimage_calib")
+	outDir, err = testutils.TempDir("", "rimage_calib")
 	if err != nil {
 		panic(err)
 	}

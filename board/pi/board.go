@@ -10,8 +10,10 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
+	"sync"
 
 	"github.com/go-errors/errors"
 
@@ -80,12 +82,14 @@ type piPigpio struct {
 	logger        golog.Logger
 }
 
+var (
+	initOnce bool
+	initMu   sync.Mutex
+)
+
 // NewPigpio makes a new pigpio based Board using the given config.
 func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 	var err error
-	if piInstance != nil {
-		return nil, errors.New("can only have 1 piPigpio instance")
-	}
 
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
@@ -96,11 +100,18 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	}
 
 	// setup
-	piInstance = &piPigpio{cfg: cfg, logger: logger}
-	resCode = C.gpioInitialise()
-	if resCode < 0 {
-		return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
+	piInstance := &piPigpio{cfg: cfg, logger: logger}
+
+	initMu.Lock()
+	if !initOnce {
+		resCode = C.gpioInitialise()
+		if resCode < 0 {
+			initMu.Unlock()
+			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
+		}
+		initOnce = true
 	}
+	initMu.Unlock()
 
 	// setup servos
 	piInstance.servos = map[string]board.Servo{}
@@ -227,6 +238,14 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	return par.pi.AnalogRead(par.channel)
 }
 
+func (par *piPigpioAnalogReader) Reconfigure(newAnalog board.AnalogReader) {
+	actual, ok := newAnalog.(*piPigpioAnalogReader)
+	if !ok {
+		panic(fmt.Errorf("expected new analog to be %T but got %T", actual, newAnalog))
+	}
+	*par = *actual
+}
+
 func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
 	return pi.analogs[name]
 }
@@ -269,6 +288,14 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
+func (s *piPigpioServo) Reconfigure(newServo board.Servo) {
+	actual, ok := newServo.(*piPigpioServo)
+	if !ok {
+		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
+	}
+	*s = *actual
+}
+
 func (pi *piPigpio) Servo(name string) board.Servo {
 	return pi.servos[name]
 }
@@ -291,7 +318,6 @@ func (pi *piPigpio) Close() error {
 
 	C.gpioTerminate()
 	pi.logger.Debug("Pi GPIO terminated properly.")
-	piInstance = nil
 
 	var err error
 	for _, motor := range pi.motors {
@@ -315,14 +341,120 @@ func (pi *piPigpio) Close() error {
 	}
 	return err
 }
+
 func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
 }
 
+// assumes we only have one board on host
+func (pi *piPigpio) Reconfigure(newBoard board.Board) {
+	actual, ok := newBoard.(*piPigpio)
+	if !ok {
+		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBoard))
+	}
+
+	// removals first here just because of bcom mappings
+	for _, c := range diff.Removed.Motors {
+		toRemove, ok := pi.motors[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing motor but still reconfiguring", "error", err)
+		}
+		delete(pi.motors, c.Name)
+	}
+	for _, c := range diff.Removed.Servos {
+		toRemove, ok := pi.servos[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing servo but still reconfiguring", "error", err)
+		}
+		delete(pi.servos, c.Name)
+	}
+	for _, c := range diff.Removed.Analogs {
+		toRemove, ok := pi.analogs[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing analog but still reconfiguring", "error", err)
+		}
+		delete(pi.analogs, c.Name)
+	}
+	for _, c := range diff.Removed.DigitalInterrupts {
+		toRemove, ok := pi.interrupts[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing digital interrupt but still reconfiguring", "error", err)
+		}
+		delete(pi.interrupts, c.Name)
+		bcom, have := piHWPinToBroadcom[c.Pin]
+		if !have {
+			return panic(errors.Errorf("no hw mapping for %s", c.Pin))
+		}
+		delete(pi.interruptsHW, bcom)
+	}
+
+	if pi.motors == nil && len(diff.Added.Motors) != 0 {
+		pi.motors = make(map[string]board.Motor, len(diff.Added.Motors))
+	}
+	if pi.servos == nil && len(diff.Added.Servos) != 0 {
+		pi.servos = make(map[string]board.Servo, len(diff.Added.Servos))
+	}
+	if pi.analogs == nil && len(diff.Added.Analogs) != 0 {
+		pi.analogs = make(map[string]board.AnalogReader, len(diff.Added.Analogs))
+	}
+	if pi.interrupts == nil && len(diff.Added.DigitalInterrupts) != 0 {
+		pi.interrupts = make(map[string]board.DigitalInterrupt, len(diff.Added.DigitalInterrupts))
+		pi.interruptsHW = make(map[uint]board.DigitalInterrupt, len(diff.Added.DigitalInterrupts))
+	}
+
+	for _, c := range diff.Added.Motors {
+		pi.motors[c.Name] = actual.motors[c.Name]
+	}
+	for _, c := range diff.Added.Servos {
+		pi.servos[c.Name] = actual.servos[c.Name]
+	}
+	for _, c := range diff.Added.Analogs {
+		pi.analogs[c.Name] = actual.analogs[c.Name]
+	}
+	for _, c := range diff.Added.DigitalInterrupts {
+		pi.interrupts[c.Name] = actual.interrupts[c.Name]
+		bcom, have := piHWPinToBroadcom[c.Pin]
+		if !have {
+			return panic(errors.Errorf("no hw mapping for %s", c.Pin))
+		}
+		pi.interruptsHW[bcom] = actual.interruptsHW[bcom]
+	}
+
+	for _, c := range diff.Modified.Motors {
+		pi.motors[c.Name].Reconfigure(actual.motors[c.Name])
+	}
+	for _, c := range diff.Modified.Servos {
+		pi.servos[c.Name].Reconfigure(actual.servos[c.Name])
+	}
+	for _, c := range diff.Modified.Analogs {
+		pi.analogs[c.Name].Reconfigure(actual.analogs[c.Name])
+	}
+	for _, c := range diff.Modified.DigitalInterrupts {
+		pi.interrupts[c.Name].Reconfigure(actual.interrupts[c.Name])
+	}
+
+	pi.cfg = actual.cfg
+	pi.analogEnabled = actual.analogEnabled
+	pi.analogSpi = actual.analogSpi
+	pi.gpioConfigSet = actual.gpioConfigSet
+	pi.logger = actual.logger
+}
+
 var (
-	piInstance    *piPigpio = nil
-	lastTick                = uint32(0)
-	tickRollevers           = 0
+	lastTick      = uint32(0)
+	tickRollevers = 0
 )
 
 //export pigpioInterruptCallback

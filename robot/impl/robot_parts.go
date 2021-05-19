@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
@@ -19,9 +20,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/utils"
-
-	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -30,7 +28,7 @@ type robotParts struct {
 	boards         map[string]board.Board
 	arms           map[string]arm.Arm
 	grippers       map[string]gripper.Gripper
-	cameras        map[string]gostream.ImageSource
+	cameras        map[string]camera.Camera
 	lidars         map[string]lidar.Lidar
 	bases          map[string]base.Base
 	sensors        map[string]sensor.Sensor
@@ -45,7 +43,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		boards:         map[string]board.Board{},
 		arms:           map[string]arm.Arm{},
 		grippers:       map[string]gripper.Gripper{},
-		cameras:        map[string]gostream.ImageSource{},
+		cameras:        map[string]camera.Camera{},
 		lidars:         map[string]lidar.Lidar{},
 		bases:          map[string]base.Base{},
 		sensors:        map[string]sensor.Sensor{},
@@ -95,8 +93,8 @@ func fixType(c config.Component, whichType config.ComponentType, pos int) config
 }
 
 // AddRemote adds a remote to the parts.
-func (parts *robotParts) AddRemote(remote robot.Robot, c config.Remote) {
-	parts.remotes[c.Name] = remote
+func (parts *robotParts) AddRemote(r robot.Robot, c config.Remote) {
+	parts.remotes[c.Name] = r
 }
 
 // AddBoard adds a board to the parts.
@@ -117,15 +115,15 @@ func (parts *robotParts) AddGripper(g gripper.Gripper, c config.Component) {
 }
 
 // AddCamera adds a camera to the parts.
-func (parts *robotParts) AddCamera(camera gostream.ImageSource, c config.Component) {
-	c = fixType(c, config.ComponentTypeCamera, len(parts.cameras))
-	parts.cameras[c.Name] = camera
+func (parts *robotParts) AddCamera(c camera.Camera, cc config.Component) {
+	cc = fixType(cc, config.ComponentTypeCamera, len(parts.cameras))
+	parts.cameras[cc.Name] = c
 }
 
 // AddLidar adds a lidar to the parts.
-func (parts *robotParts) AddLidar(device lidar.Lidar, c config.Component) {
+func (parts *robotParts) AddLidar(l lidar.Lidar, c config.Component) {
 	c = fixType(c, config.ComponentTypeLidar, len(parts.lidars))
-	parts.lidars[c.Name] = device
+	parts.lidars[c.Name] = l
 }
 
 // AddBase adds a base to the parts.
@@ -265,7 +263,7 @@ func (parts *robotParts) Clone() *robotParts {
 		}
 	}
 	if len(parts.cameras) != 0 {
-		clonedParts.cameras = make(map[string]gostream.ImageSource, len(parts.cameras))
+		clonedParts.cameras = make(map[string]camera.Camera, len(parts.cameras))
 		for k, v := range parts.cameras {
 			clonedParts.cameras[k] = v
 		}
@@ -298,6 +296,178 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.processManager = parts.processManager.Clone()
 	}
 	return &clonedParts
+}
+
+// Reconfigure replaces these parts with the given parts.
+func (parts *robotParts) Reconfigure(newParts *robotParts, diff *config.Diff) error {
+	var procsToStop []rexec.ManagedProcess
+
+	for _, c := range diff.Added.Remotes {
+		parts.remotes[c.Name] = newParts.RemoteByName(c.Name)
+	}
+	for _, c := range diff.Added.Boards {
+		parts.boards[c.Name] = newParts.BoardByName(c.Name)
+	}
+	for _, c := range diff.Added.Components {
+		switch c.Type {
+		case config.ComponentTypeProvider:
+			parts.providers[c.Name] = newParts.ProviderByName(c.Name)
+		case config.ComponentTypeBase:
+			parts.bases[c.Name] = newParts.BaseByName(c.Name)
+		case config.ComponentTypeArm:
+			parts.arms[c.Name] = newParts.ArmByName(c.Name)
+		case config.ComponentTypeGripper:
+			parts.grippers[c.Name] = newParts.GripperByName(c.Name)
+		case config.ComponentTypeCamera:
+			parts.cameras[c.Name] = newParts.CameraByName(c.Name)
+		case config.ComponentTypeLidar:
+			parts.lidars[c.Name] = newParts.LidarByName(c.Name)
+		case config.ComponentTypeSensor:
+			parts.sensors[c.Name] = newParts.SensorByName(c.Name)
+		default:
+			panic(errors.Errorf("unknown component type: %v", c.Type))
+		}
+	}
+	for _, c := range diff.Added.Processes {
+		proc, ok := newParts.processManager.ProcessByID(c.ID)
+		if !ok {
+			continue // should not happen
+		}
+		procToStop, err := parts.processManager.AddProcess(context.Background(), proc, false)
+		if err != nil {
+			return err // should not happen
+		}
+		if procToStop != nil {
+			procsToStop = append(procsToStop, procToStop)
+		}
+	}
+
+	for _, c := range diff.Modified.Remotes {
+		parts.remotes[c.Name].Reconfigure(newParts.RemoteByName(c.Name), &config.Diff{}) // diff does not matter
+	}
+	for name, boardDiff := range diff.Modified.Boards {
+		parts.boards[name].Reconfigure(newParts.BoardByName(name), boardDiff)
+	}
+	for _, c := range diff.Modified.Components {
+		switch c.Type {
+		case config.ComponentTypeProvider:
+			parts.providers[c.Name].Reconfigure(newParts.ProviderByName(c.Name))
+		case config.ComponentTypeBase:
+			parts.bases[c.Name].Reconfigure(newParts.BaseByName(c.Name))
+		case config.ComponentTypeArm:
+			parts.arms[c.Name].Reconfigure(newParts.ArmByName(c.Name))
+		case config.ComponentTypeGripper:
+			parts.grippers[c.Name].Reconfigure(newParts.GripperByName(c.Name))
+		case config.ComponentTypeCamera:
+			parts.cameras[c.Name].Reconfigure(newParts.CameraByName(c.Name))
+		case config.ComponentTypeLidar:
+			parts.lidars[c.Name].Reconfigure(newParts.LidarByName(c.Name))
+		case config.ComponentTypeSensor:
+			parts.sensors[c.Name].Reconfigure(newParts.SensorByName(c.Name))
+		default:
+			panic(errors.Errorf("unknown component type: %v", c.Type))
+		}
+	}
+	for _, c := range diff.Modified.Processes {
+		proc, ok := newParts.processManager.ProcessByID(c.ID)
+		if !ok {
+			continue // should not happen
+		}
+		procToStop, err := parts.processManager.AddProcess(context.Background(), proc, false)
+		if err != nil {
+			return err // should not happen
+		}
+		if procToStop != nil {
+			procsToStop = append(procsToStop, procToStop)
+		}
+	}
+
+	var err error
+
+	for _, c := range diff.Removed.Remotes {
+		toRemove, ok := parts.remotes[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		err = multierr.Combine(err, utils.TryClose(toRemove))
+		delete(parts.remotes, c.Name)
+	}
+	for _, c := range diff.Removed.Boards {
+		toRemove, ok := parts.boards[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		err = multierr.Combine(err, utils.TryClose(toRemove))
+		delete(parts.boards, c.Name)
+	}
+	for _, c := range diff.Removed.Components {
+		switch c.Type {
+		case config.ComponentTypeProvider:
+			toRemove, ok := parts.providers[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.providers, c.Name)
+		case config.ComponentTypeBase:
+			toRemove, ok := parts.bases[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.bases, c.Name)
+		case config.ComponentTypeArm:
+			toRemove, ok := parts.arms[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.arms, c.Name)
+		case config.ComponentTypeGripper:
+			toRemove, ok := parts.grippers[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.grippers, c.Name)
+		case config.ComponentTypeCamera:
+			toRemove, ok := parts.cameras[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.cameras, c.Name)
+		case config.ComponentTypeLidar:
+			toRemove, ok := parts.lidars[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.lidars, c.Name)
+		case config.ComponentTypeSensor:
+			toRemove, ok := parts.sensors[c.Name]
+			if !ok {
+				continue // should not happen
+			}
+			err = multierr.Combine(err, utils.TryClose(toRemove))
+			delete(parts.sensors, c.Name)
+		default:
+			panic(errors.Errorf("unknown component type: %v", c.Type))
+		}
+	}
+	for _, c := range diff.Removed.Processes {
+		procToStop, ok := parts.processManager.RemoveProcessByID(c.ID)
+		if !ok || procToStop == nil {
+			continue // should not happen
+		}
+		procsToStop = append(procsToStop, procToStop)
+	}
+
+	for _, proc := range procsToStop {
+		err = multierr.Combine(err, proc.Stop())
+	}
+
+	return err
 }
 
 // Close attempts to close/stop all parts.
@@ -384,6 +554,32 @@ func (parts *robotParts) processConfig(
 	return nil
 }
 
+// processModifiedConfig ingests a given config and constructs all constituent parts.
+func (parts *robotParts) processModifiedConfig(
+	ctx context.Context,
+	config *config.ModifiedConfigDiff,
+	robot *mutableRobot,
+	logger golog.Logger,
+) error {
+	if err := parts.newProcesses(ctx, config.Processes); err != nil {
+		return err
+	}
+
+	if err := parts.newRemotes(ctx, config.Remotes, logger); err != nil {
+		return err
+	}
+
+	if err := parts.newBoardsModified(ctx, config.Boards, logger); err != nil {
+		return err
+	}
+
+	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // newProcesses constructs all processes defined.
 func (parts *robotParts) newProcesses(ctx context.Context, processes []rexec.ProcessConfig) error {
 	for _, procConf := range processes {
@@ -420,6 +616,22 @@ func (parts *robotParts) newBoards(ctx context.Context, boards []board.Config, l
 	return nil
 }
 
+// newBoardsModified constructs all boards defined from modifications.
+func (parts *robotParts) newBoardsModified(ctx context.Context, boardDiffs map[string]board.ConfigDiff, logger golog.Logger) error {
+	for _, diff := range boardDiffs {
+		config, err := diff.ToConfig()
+		if err != nil {
+			return err
+		}
+		b, err := board.NewBoard(ctx, *config, logger)
+		if err != nil {
+			return err
+		}
+		parts.AddBoard(b, *config)
+	}
+	return nil
+}
+
 // newComponents constructs all components defined.
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *mutableRobot) error {
 	for _, c := range components {
@@ -436,7 +648,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 	for _, c := range components {
 		switch c.Type {
 		case config.ComponentTypeProvider:
-			// hanlded above
+			// handled above
 		case config.ComponentTypeBase:
 			b, err := r.newBase(ctx, c)
 			if err != nil {
@@ -566,7 +778,7 @@ func (parts *robotParts) GripperByName(name string) gripper.Gripper {
 
 // CameraByName returns the given camera by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) CameraByName(name string) gostream.ImageSource {
+func (parts *robotParts) CameraByName(name string) camera.Camera {
 	part, ok := parts.cameras[name]
 	if ok {
 		return part
@@ -686,7 +898,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.cameras) != 0 {
 		if parts.cameras == nil {
-			parts.cameras = make(map[string]gostream.ImageSource, len(toAdd.cameras))
+			parts.cameras = make(map[string]camera.Camera, len(toAdd.cameras))
 		}
 		for k, v := range toAdd.cameras {
 			parts.cameras[k] = v
@@ -744,9 +956,120 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 // MergeModify merges in the given modified parts and returns results for
 // later processing.
-func (parts *robotParts) MergeModify(toModify *robotParts) (*PartsMergeResult, error) {
-	// modifications treated as replacements, so we can just add
-	return parts.MergeAdd(toModify)
+func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, diff *config.Diff) (*PartsMergeResult, error) {
+	var result PartsMergeResult
+	if toModify.processManager != nil {
+		// assume parts.processManager is non-nil
+		// adding also replaces here
+		replaced, err := rexec.MergeAddProcessManagers(parts.processManager, toModify.processManager)
+		if err != nil {
+			return nil, err
+		}
+		result.ReplacedProcesses = replaced
+	}
+
+	// this is the point of no return during reconfiguration
+
+	if len(toModify.remotes) != 0 {
+		for k, v := range toModify.remotes {
+			old, ok := parts.remotes[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v, &config.Diff{}) // diff does not matter
+		}
+	}
+
+	if len(toModify.boards) != 0 {
+		for k, v := range toModify.boards {
+			old, ok := parts.boards[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v, diff.Modified.Boards[k])
+		}
+	}
+
+	if len(toModify.arms) != 0 {
+		for k, v := range toModify.arms {
+			old, ok := parts.arms[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.grippers) != 0 {
+		for k, v := range toModify.grippers {
+			old, ok := parts.grippers[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.cameras) != 0 {
+		for k, v := range toModify.cameras {
+			old, ok := parts.cameras[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.lidars) != 0 {
+		for k, v := range toModify.lidars {
+			old, ok := parts.lidars[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.bases) != 0 {
+		for k, v := range toModify.bases {
+			old, ok := parts.bases[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.sensors) != 0 {
+		for k, v := range toModify.sensors {
+			old, ok := parts.sensors[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	if len(toModify.providers) != 0 {
+		for k, v := range toModify.providers {
+			old, ok := parts.providers[k]
+			if !ok {
+				// should not happen
+				continue
+			}
+			old.Reconfigure(v)
+		}
+	}
+
+	return &result, nil
 }
 
 // MergeRemove merges in the given removed parts but does no work
@@ -808,6 +1131,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 
 	if toRemove.processManager != nil {
 		// assume parts.processManager is non-nil
+		// ignoring result as we will filter out the processes to remove and stop elsewhere
 		rexec.MergeRemoveProcessManagers(parts.processManager, toRemove.processManager)
 	}
 }

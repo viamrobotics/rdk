@@ -1,15 +1,4 @@
 {
-    "remotes":
-    [
-        {
-            "name": "remote1",
-            "address": "addr3"
-        },
-        {
-            "name": "remote2",
-            "address": "addr4"
-        }
-    ],
     "boards":
     [
         {
@@ -17,6 +6,10 @@
             [
                 {
                     "name": "analog1",
+                    "pin": "0"
+                },
+                {
+                    "name": "analog2",
                     "pin": "1"
                 }
             ],
@@ -24,7 +17,7 @@
             [
                 {
                     "name": "encoder",
-                    "pin": "15"
+                    "pin": "14"
                 }
             ],
             "model": "fake",
@@ -35,11 +28,11 @@
                     "name": "g",
                     "pins":
                     {
-                        "a": "2",
-                        "b": "3",
-                        "pwm": "4"
+                        "a": "1",
+                        "b": "2",
+                        "pwm": "3"
                     },
-                    "ticksPerRotation": 101
+                    "ticksPerRotation": 100
                 }
             ],
             "name": "board1",
@@ -47,7 +40,7 @@
             [
                 {
                     "name": "servo1",
-                    "pin": "13"
+                    "pin": "12"
                 }
             ]
         }
@@ -57,18 +50,17 @@
         {
             "model": "fake",
             "name": "arm1",
-            "type": "arm",
-            "attributes": {
-                "two": 2
-            }
+            "type": "arm"
         },
         {
             "model": "fake",
             "name": "base1",
-            "type": "base",
-            "attributes": {
-                "three": 3
-            }
+            "type": "base"
+        },
+        {
+            "model": "fake",
+            "name": "base2",
+            "type": "base"
         }
     ],
     "processes":
@@ -79,20 +71,20 @@
             "args":
             [
                 "hello",
-                "world",
-                "again"
+                "world"
             ],
             "one_shot": true
         },
         {
             "id": "2",
-            "name": "bash",
+            "name": "echo",
             "args":
             [
-                "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hello; sleep 2; done"
+                "hello",
+                "world",
+                "again"
             ],
-            "log": true
+            "one_shot": true
         }
     ]
 }

@@ -13,9 +13,9 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	tempDir1 := testutils.TempDir(t, "", "")
+	tempDir1 := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(tempDir1) // clean up
-	tempDir2 := testutils.TempDir(t, "", "")
+	tempDir2 := testutils.TempDirT(t, "", "")
 	defer os.RemoveAll(tempDir2) // clean up
 
 	prevSysPaths := SysPaths
@@ -23,19 +23,19 @@ func TestSearch(t *testing.T) {
 		SysPaths = prevSysPaths
 	}()
 
-	dev2Root := testutils.TempDir(t, tempDir1, "")
-	dev3Root := testutils.TempDir(t, tempDir1, "")
-	dev4Root := testutils.TempDir(t, tempDir1, "")
-	dev5Root := testutils.TempDir(t, tempDir1, "")
-	dev6Root := testutils.TempDir(t, tempDir1, "")
-	dev7Root := testutils.TempDir(t, tempDir1, "")
-	dev1 := testutils.TempDir(t, tempDir2, "")
-	_ = testutils.TempDir(t, dev2Root, "")
-	dev3 := testutils.TempDir(t, dev3Root, "")
-	dev4 := testutils.TempDir(t, dev4Root, "")
-	dev5 := testutils.TempDir(t, dev5Root, "")
-	dev6 := testutils.TempDir(t, dev6Root, "")
-	dev7 := testutils.TempDir(t, dev7Root, "")
+	dev2Root := testutils.TempDirT(t, tempDir1, "")
+	dev3Root := testutils.TempDirT(t, tempDir1, "")
+	dev4Root := testutils.TempDirT(t, tempDir1, "")
+	dev5Root := testutils.TempDirT(t, tempDir1, "")
+	dev6Root := testutils.TempDirT(t, tempDir1, "")
+	dev7Root := testutils.TempDirT(t, tempDir1, "")
+	dev1 := testutils.TempDirT(t, tempDir2, "")
+	_ = testutils.TempDirT(t, dev2Root, "")
+	dev3 := testutils.TempDirT(t, dev3Root, "")
+	dev4 := testutils.TempDirT(t, dev4Root, "")
+	dev5 := testutils.TempDirT(t, dev5Root, "")
+	dev6 := testutils.TempDirT(t, dev6Root, "")
+	dev7 := testutils.TempDirT(t, dev7Root, "")
 
 	test.That(t, os.WriteFile(filepath.Join(tempDir2, "uevent"), []byte("PRODUCT=10c4/ea60"), 0666), test.ShouldBeNil)
 	test.That(t, os.WriteFile(filepath.Join(dev3Root, "uevent"), []byte("PRODUCT=10c5/ea61"), 0666), test.ShouldBeNil)

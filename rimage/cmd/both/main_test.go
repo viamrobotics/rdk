@@ -19,7 +19,7 @@ func TestBothMain(t *testing.T) {
 	test.That(t, realMain([]string{"to-las", "x"}), test.ShouldBeError)
 	test.That(t, realMain([]string{"xxx"}), test.ShouldBeError)
 
-	outDir := testutils.TempDir(t, "", "rimage_cmd_both")
+	outDir := testutils.TempDirT(t, "", "rimage_cmd_both")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 
 	out := outDir + "/board1.both.gz"

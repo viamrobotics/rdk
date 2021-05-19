@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -33,7 +34,6 @@ import (
 	_ "go.viam.com/core/vision" // this is for interesting camera types, depth, etc...
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 )
 
@@ -66,7 +66,7 @@ func (r *mutableRobot) GripperByName(name string) gripper.Gripper {
 	return r.parts.GripperByName(name)
 }
 
-func (r *mutableRobot) CameraByName(name string) gostream.ImageSource {
+func (r *mutableRobot) CameraByName(name string) camera.Camera {
 	return r.parts.CameraByName(name)
 }
 
@@ -82,8 +82,8 @@ func (r *mutableRobot) ProviderByName(name string) robot.Provider {
 	return r.parts.ProviderByName(name)
 }
 
-func (r *mutableRobot) AddRemote(remote robot.Robot, c config.Remote) {
-	r.parts.AddRemote(remote, c)
+func (r *mutableRobot) AddRemote(rr robot.Robot, c config.Remote) {
+	r.parts.AddRemote(rr, c)
 }
 
 func (r *mutableRobot) AddBoard(b board.Board, c board.Config) {
@@ -98,12 +98,12 @@ func (r *mutableRobot) AddGripper(g gripper.Gripper, c config.Component) {
 	r.parts.AddGripper(g, c)
 }
 
-func (r *mutableRobot) AddCamera(camera gostream.ImageSource, c config.Component) {
-	r.parts.AddCamera(camera, c)
+func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
+	r.parts.AddCamera(c, cc)
 }
 
-func (r *mutableRobot) AddLidar(device lidar.Lidar, c config.Component) {
-	r.parts.AddLidar(device, c)
+func (r *mutableRobot) AddLidar(l lidar.Lidar, c config.Component) {
+	r.parts.AddLidar(l, c)
 }
 
 func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
@@ -240,12 +240,16 @@ func (r *mutableRobot) newGripper(ctx context.Context, config config.Component) 
 	return f(ctx, r, config, r.logger)
 }
 
-func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (gostream.ImageSource, error) {
+func (r *mutableRobot) newCamera(ctx context.Context, config config.Component) (camera.Camera, error) {
 	f := registry.CameraLookup(config.Model)
 	if f == nil {
 		return nil, errors.Errorf("unknown camera model: %s", config.Model)
 	}
-	return f(ctx, r, config, r.logger)
+	is, err := f(ctx, r, config, r.logger)
+	if err != nil {
+		return nil, err
+	}
+	return &camera.ImageSource{is}, nil
 }
 
 func (r *mutableRobot) newLidar(ctx context.Context, config config.Component) (lidar.Lidar, error) {

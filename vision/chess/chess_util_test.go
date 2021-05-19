@@ -1,12 +1,12 @@
 package chess
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/testutils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -16,7 +16,7 @@ var outDir string
 
 func init() {
 	var err error
-	outDir, err = ioutil.TempDir("", "vision_chess")
+	outDir, err = testutils.TempDir("", "vision_chess")
 	if err != nil {
 		panic(err)
 	}

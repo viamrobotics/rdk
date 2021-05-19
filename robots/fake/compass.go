@@ -2,11 +2,13 @@ package fake
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -56,6 +58,18 @@ func (c *Compass) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
+// Reconfigure replaces this compass with the given compass.
+func (c *Compass) Reconfigure(newCompass sensor.Sensor) {
+	actual, ok := newCompass.(*Compass)
+	if !ok {
+		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
+	}
+	if err := c.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*c = *actual
+}
+
 // RelativeCompass is a fake relative compass that always returns the same readings.
 type RelativeCompass struct {
 	*Compass
@@ -69,4 +83,16 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 // Desc returns that this is a relative compass.
 func (rc *RelativeCompass) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
+}
+
+// Reconfigure replaces this compass with the given compass.
+func (rc *RelativeCompass) Reconfigure(newCompass sensor.Sensor) {
+	actual, ok := newCompass.(*RelativeCompass)
+	if !ok {
+		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
+	}
+	if err := rc.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*rc = *actual
 }

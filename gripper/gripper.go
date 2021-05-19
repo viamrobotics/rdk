@@ -12,4 +12,7 @@ type Gripper interface {
 
 	// Grab makes the gripper grab.
 	Grab(ctx context.Context) (bool, error)
+
+	// Reconfigure replaces this gripper with the given gripper.
+	Reconfigure(newGripper Gripper)
 }

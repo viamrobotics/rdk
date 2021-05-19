@@ -3,6 +3,7 @@ package vgripper
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 
@@ -333,4 +335,16 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 		}
 	}
 
+}
+
+// Reconfigure replaces this gripper with the given gripper.
+func (vg *GripperV1) Reconfigure(newGripper gripper.Gripper) {
+	actual, ok := newGripper.(*GripperV1)
+	if !ok {
+		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
+	}
+	if err := vg.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*vg = *actual
 }

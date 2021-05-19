@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-errors/errors"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -35,19 +37,20 @@ func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logg
 	// being controlled via the timing of the ABCD pins. Otherwise we risk partial steps and getting the
 	// motor coils into a bad state.
 	m := &BrushlessMotor{
-		cfg:       mc,
-		Board:     b,
-		A:         pins["a"],
-		B:         pins["b"],
-		C:         pins["c"],
-		D:         pins["d"],
-		PWMs:      []string{pins["pwm"]},
-		on:        false,
-		commands:  make(chan brushlessMotorCmd),
-		logger:    logger,
-		done:      make(chan struct{}),
-		cancelCtx: cancelCtx,
-		cancel:    cancel,
+		cfg:                     mc,
+		Board:                   b,
+		A:                       pins["a"],
+		B:                       pins["b"],
+		C:                       pins["c"],
+		D:                       pins["d"],
+		PWMs:                    []string{pins["pwm"]},
+		on:                      false,
+		commands:                make(chan brushlessMotorCmd),
+		logger:                  logger,
+		done:                    make(chan struct{}),
+		cancelCtx:               cancelCtx,
+		cancel:                  cancel,
+		activeBackgroundWorkers: &sync.WaitGroup{},
 	}
 	if _, ok := pins["pwmb"]; ok {
 		// The two PWM inputs can be controlled by one pin whose output is forked, above, or two individual pins.
@@ -92,7 +95,7 @@ type BrushlessMotor struct {
 	done                    chan struct{}
 	cancelCtx               context.Context
 	cancel                  func()
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 }
 
 // Position TODO
@@ -285,4 +288,16 @@ func (m *BrushlessMotor) Close() error {
 	close(m.done)
 	m.activeBackgroundWorkers.Wait()
 	return m.turnOnOrOff(false)
+}
+
+// Reconfigure replaces this motor with the given motor.
+func (m *BrushlessMotor) Reconfigure(newMotor Motor) {
+	actual, ok := newMotor.(*BrushlessMotor)
+	if !ok {
+		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
+	}
+	if err := m.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*m = *actual
 }

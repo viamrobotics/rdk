@@ -29,6 +29,9 @@ func (t *testReader) Read(ctx context.Context) (int, error) {
 	return t.r.Intn(100), nil
 }
 
+func (t *testReader) Reconfigure(reader AnalogReader) {
+}
+
 func TestAnalogSmoother1(t *testing.T) {
 
 	testReader := testReader{

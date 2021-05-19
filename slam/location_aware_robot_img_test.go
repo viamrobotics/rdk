@@ -106,7 +106,7 @@ func TestRobotNext(t *testing.T) {
 			return artifact.MustPath(fmt.Sprintf("slam/%s.png", testName))
 		}
 
-		tempDir := testutils.TempDir(t, "", "slam")
+		tempDir := testutils.TempDirT(t, "", "slam")
 		getNewDataFileName := func(testName string) string {
 			return fmt.Sprintf("%s/%s_new.png", tempDir, testName)
 		}

@@ -535,8 +535,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "invalid")
 
-		th.bot.devices[0] = &fake.Lidar{}
-		th.bot.devices = append(th.bot.devices, &fake.Lidar{})
+		th.bot.devices[0] = fake.NewLidar("")
+		th.bot.devices = append(th.bot.devices, fake.NewLidar(""))
 		th.bot.devices = append(th.bot.devices, &inject.Lidar{})
 		getResp, err := server.GetLidarSeed(context.Background(), &pb.GetLidarSeedRequest{})
 		test.That(t, err, test.ShouldBeNil)

@@ -2,17 +2,38 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/robot"
 )
 
-// Reconfigure will safely reconfigure a robot based on the given config. It will make
+// Reconfigure replaces this robot with the given robot.
+func (r *mutableRobot) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
+	actual, ok := newRobot.(*mutableRobot)
+	if !ok {
+		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newRobot))
+	}
+
+	r.mu.Lock()
+	actual.mu.Lock()
+	defer actual.mu.Unlock()
+	defer r.mu.Unlock()
+
+	if err := r.parts.Reconfigure(actual.parts, diff); err != nil {
+		r.logger.Errorw("error during reconfiguration but proceeding", "error", err)
+	}
+	r.config = actual.config
+	r.logger = actual.logger
+}
+
+// ReconfigureFromConfig will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
-func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config) error {
+func (r *mutableRobot) ReconfigureFromConfig(ctx context.Context, newConfig *config.Config) error {
 	diff, err := config.DiffConfigs(r.config, newConfig)
 	if err != nil {
 		return err
@@ -36,10 +57,9 @@ type draftRobot struct {
 
 	// additions and removals consist of modifications as well since we treat
 	// any modification as a removal to commit and an addition to rollback.
-	additions            *robotParts
-	modifications        *robotParts
-	removals             *robotParts
-	modificationRemovals *robotParts
+	additions     *robotParts
+	modifications *robotParts
+	removals      *robotParts
 }
 
 // newDraftRobot returns a new draft of a robot based on the given
@@ -47,13 +67,12 @@ type draftRobot struct {
 // should look like.
 func newDraftRobot(r *mutableRobot, diff *config.Diff) *draftRobot {
 	return &draftRobot{
-		original:             r,
-		diff:                 diff,
-		parts:                r.parts.Clone(),
-		additions:            newRobotParts(r.logger),
-		modifications:        newRobotParts(r.logger),
-		removals:             newRobotParts(r.logger),
-		modificationRemovals: newRobotParts(r.logger),
+		original:      r,
+		diff:          diff,
+		parts:         r.parts.Clone(),
+		additions:     newRobotParts(r.logger),
+		modifications: newRobotParts(r.logger),
+		removals:      newRobotParts(r.logger),
 	}
 }
 
@@ -87,7 +106,7 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 	}
 
 	draft.original.logger.Info("committing draft changes")
-	if err := draft.Commit(); err != nil {
+	if err := draft.Commit(ctx); err != nil {
 		return errors.Errorf("error committing draft changes: %w", err)
 	}
 	return nil
@@ -95,7 +114,7 @@ func (draft *draftRobot) ProcessAndCommit(ctx context.Context) (err error) {
 
 // Commit commits all changes and updates the original
 // robot in place.
-func (draft *draftRobot) Commit() error {
+func (draft *draftRobot) Commit(ctx context.Context) error {
 	draft.original.mu.Lock()
 	defer draft.original.mu.Unlock()
 
@@ -103,7 +122,7 @@ func (draft *draftRobot) Commit() error {
 	if err != nil {
 		return err
 	}
-	modifyResult, err := draft.parts.MergeModify(draft.modifications)
+	modifyResult, err := draft.parts.MergeModify(ctx, draft.modifications, draft.diff)
 	if err != nil {
 		return err
 	}
@@ -119,9 +138,6 @@ func (draft *draftRobot) Commit() error {
 	}
 	if err := draft.removals.Close(); err != nil {
 		draft.original.logger.Errorw("error closing parts removed but still committing changes", "error", err)
-	}
-	if err := draft.modificationRemovals.Close(); err != nil {
-		draft.original.logger.Errorw("error closing parts modified but still committing changes", "error", err)
 	}
 	return nil
 }
@@ -151,20 +167,7 @@ func (draft *draftRobot) ProcessAddChanges(ctx context.Context) error {
 
 // ProcessModifyChanges processes only modificative changes.
 func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
-	if err := draft.modifications.processConfig(ctx, draft.diff.Modified, draft.original, draft.original.logger); err != nil {
-		return err
-	}
-	// all modifications are replacements right now resulting in removals so let's
-	// get all the existing parts we will modify.
-	// TODO(https://github.com/viamrobotics/core/issues/56): This is not ideal in situations
-	// where someone has a handle on one of the parts and it is closed behind their back,
-	// especially when its an internal user like a gripper using a board.
-	filtered, err := draft.parts.FilterFromConfig(draft.diff.Modified, draft.original.logger)
-	if err != nil {
-		return err
-	}
-	draft.modificationRemovals = filtered
-	return nil
+	return draft.modifications.processModifiedConfig(ctx, draft.diff.Modified, draft.original, draft.original.logger)
 }
 
 // ProcessRemoveChanges processes only subtractive changes.

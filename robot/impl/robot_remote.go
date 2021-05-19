@@ -12,17 +12,18 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rexec"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -62,6 +63,21 @@ func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	}
 	rr.parts = partsForRemoteRobot(rr.robot)
 	return nil
+}
+
+// Reconfigure replaces this robot with the given robot.
+func (rr *remoteRobot) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
+	rr.mu.Lock()
+	defer rr.mu.Unlock()
+
+	actual, ok := newRobot.(*remoteRobot)
+	if !ok {
+		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newRobot))
+	}
+
+	if err := rr.parts.Reconfigure(actual.parts, diff); err != nil {
+		rlog.Logger.Errorw("error during reconfiguration but proceeding", "error", err)
+	}
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
@@ -167,7 +183,7 @@ func (rr *remoteRobot) GripperByName(name string) gripper.Gripper {
 	return rr.parts.GripperByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) CameraByName(name string) gostream.ImageSource {
+func (rr *remoteRobot) CameraByName(name string) camera.Camera {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.CameraByName(rr.unprefixName(name))

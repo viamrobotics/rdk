@@ -22,6 +22,7 @@ import (
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 
@@ -66,7 +67,7 @@ type eva struct {
 	token        string
 	sessionToken string
 
-	moveLock sync.Mutex
+	moveLock *sync.Mutex
 	logger   golog.Logger
 }
 
@@ -121,6 +122,18 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 
 func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
+}
+
+// Reconfigure replaces this arm with the given arm.
+func (e *eva) Reconfigure(newArm arm.Arm) {
+	actual, ok := newArm.(*eva)
+	if !ok {
+		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
+	}
+	if err := e.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*e = *actual
 }
 
 func (e *eva) Close() error {
@@ -291,10 +304,11 @@ func (e *eva) apiUnlock(ctx context.Context) {
 // NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	e := &eva{
-		host:    host,
-		version: "v1",
-		token:   attrs.String("token"),
-		logger:  logger,
+		host:     host,
+		version:  "v1",
+		token:    attrs.String("token"),
+		logger:   logger,
+		moveLock: &sync.Mutex{},
 	}
 
 	name, err := e.apiName(ctx)

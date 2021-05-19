@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"math"
 	"runtime/debug"
@@ -14,12 +15,14 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
+	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/rpc"
 	"go.viam.com/core/sensor"
@@ -27,7 +30,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/golang/geo/r2"
 	"google.golang.org/grpc"
 )
@@ -43,7 +45,7 @@ type RobotClient struct {
 	conn    rpc.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu      sync.Mutex
+	namesMu      *sync.Mutex
 	armNames     []string
 	baseNames    []string
 	gripperNames []string
@@ -54,13 +56,13 @@ type RobotClient struct {
 
 	sensorTypes map[string]sensor.Type
 
-	activeBackgroundWorkers sync.WaitGroup
+	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
 
 	cachingStatus  bool
 	cachedStatus   *pb.Status
-	cachedStatusMu sync.Mutex
+	cachedStatusMu *sync.Mutex
 }
 
 // RobotClientOptions are extra construction time options.
@@ -105,6 +107,9 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		logger:                  logger,
+		namesMu:                 &sync.Mutex{},
+		activeBackgroundWorkers: &sync.WaitGroup{},
+		cachedStatusMu:          &sync.Mutex{},
 	}
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
@@ -219,7 +224,7 @@ func (rc *RobotClient) GripperByName(name string) gripper.Gripper {
 
 // CameraByName returns a camera by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) CameraByName(name string) gostream.ImageSource {
+func (rc *RobotClient) CameraByName(name string) camera.Camera {
 	return &cameraClient{rc, name}
 }
 
@@ -412,6 +417,18 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
+// Reconfigure replaces this robot with the given robot.
+func (rc *RobotClient) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
+	actual, ok := newRobot.(*RobotClient)
+	if !ok {
+		panic(fmt.Errorf("expected new robot to be %T but got %T", actual, newRobot))
+	}
+	if err := rc.Close(); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	*rc = *actual
+}
+
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
 // for descriptions of its methods.
 type baseClient struct {
@@ -464,6 +481,15 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	return 0, errUnimplemented
 }
 
+// Reconfigure replaces this base with the given base.
+func (bc *baseClient) Reconfigure(newBase base.Base) {
+	actual, ok := newBase.(*baseClient)
+	if !ok {
+		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
+	}
+	*bc = *actual
+}
+
 // armClient satisfies a gRPC based arm.Arm. Refer to the interface
 // for descriptions of its methods.
 type armClient struct {
@@ -513,6 +539,15 @@ func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs f
 	return errUnimplemented
 }
 
+// Reconfigure replaces this arm with the given arm.
+func (ac *armClient) Reconfigure(newArm arm.Arm) {
+	actual, ok := newArm.(*armClient)
+	if !ok {
+		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
+	}
+	*ac = *actual
+}
+
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
 // for descriptions of its methods.
 type gripperClient struct {
@@ -535,6 +570,15 @@ func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return resp.Grabbed, nil
+}
+
+// Reconfigure replaces this gripper with the given gripper.
+func (gc *gripperClient) Reconfigure(newGripper gripper.Gripper) {
+	actual, ok := newGripper.(*gripperClient)
+	if !ok {
+		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
+	}
+	*gc = *actual
 }
 
 // boardClient satisfies a gRPC based board.Board. Refer to the interface
@@ -598,6 +642,15 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return resp.Status, nil
 }
 
+// Reconfigure replaces this board with the given board.
+func (bc *boardClient) Reconfigure(newBoard board.Board, diff board.ConfigDiff) {
+	actual, ok := newBoard.(*boardClient)
+	if !ok {
+		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
+	}
+	*bc = *actual
+}
+
 // motorClient satisfies a gRPC based board.Motor. Refer to the interface
 // for descriptions of its methods.
 type motorClient struct {
@@ -657,6 +710,15 @@ func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
 	return false, errUnimplemented
 }
 
+// Reconfigure replaces this motor with the given motor.
+func (mc *motorClient) Reconfigure(newMotor board.Motor) {
+	actual, ok := newMotor.(*motorClient)
+	if !ok {
+		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
+	}
+	*mc = *actual
+}
+
 // servoClient satisfies a gRPC based board.Servo. Refer to the interface
 // for descriptions of its methods.
 type servoClient struct {
@@ -680,7 +742,16 @@ func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
 	return 0, errUnimplemented
 }
 
-// cameraClient satisfies a gRPC based gostream.ImageSource. Refer to the interface
+// Reconfigure replaces this servo with the given servo.
+func (sc *servoClient) Reconfigure(newServo board.Servo) {
+	actual, ok := newServo.(*servoClient)
+	if !ok {
+		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
+	}
+	*sc = *actual
+}
+
+// cameraClient satisfies a gRPC based camera.Camera. Refer to the interface
 // for descriptions of its methods.
 type cameraClient struct {
 	rc   *RobotClient
@@ -707,6 +778,15 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}
 
+}
+
+// Reconfigure replaces this camera with the given camera.
+func (cc *cameraClient) Reconfigure(newCamera camera.Camera) {
+	actual, ok := newCamera.(*cameraClient)
+	if !ok {
+		panic(fmt.Errorf("expected new camera to be %T but got %T", actual, newCamera))
+	}
+	*cc = *actual
 }
 
 func (cc *cameraClient) Close() error {
@@ -786,6 +866,15 @@ func (ldc *lidarClient) AngularResolution(ctx context.Context) (float64, error) 
 	return resp.AngularResolution, nil
 }
 
+// Reconfigure replaces this lidar with the given lidar.
+func (ldc *lidarClient) Reconfigure(newLidar lidar.Lidar) {
+	actual, ok := newLidar.(*lidarClient)
+	if !ok {
+		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newLidar))
+	}
+	*ldc = *actual
+}
+
 func measurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
 	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
 }
@@ -826,7 +915,16 @@ func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
 }
 
-// compassClient satisfies a gRPC based compas.Device. Refer to the interface
+// Reconfigure replaces this sensor with the given sensor.
+func (sc *sensorClient) Reconfigure(newSensor sensor.Sensor) {
+	actual, ok := newSensor.(*sensorClient)
+	if !ok {
+		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
+	}
+	*sc = *actual
+}
+
+// compassClient satisfies a gRPC based compass.Device. Refer to the interface
 // for descriptions of its methods.
 type compassClient struct {
 	*sensorClient
@@ -868,7 +966,16 @@ func (cc *compassClient) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
-// relativeCompassClient satisfies a gRPC based compas.RelativeDevice. Refer to the interface
+// Reconfigure replaces this sensor with the given sensor.
+func (cc *compassClient) Reconfigure(newCompass sensor.Sensor) {
+	actual, ok := newCompass.(*compassClient)
+	if !ok {
+		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
+	}
+	*cc = *actual
+}
+
+// relativeCompassClient satisfies a gRPC based compass.RelativeDevice. Refer to the interface
 // for descriptions of its methods.
 type relativeCompassClient struct {
 	*compassClient
@@ -883,4 +990,13 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
+}
+
+// Reconfigure replaces this sensor with the given sensor.
+func (rcc *relativeCompassClient) Reconfigure(newCompass sensor.Sensor) {
+	actual, ok := newCompass.(*relativeCompassClient)
+	if !ok {
+		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
+	}
+	*rcc = *actual
 }

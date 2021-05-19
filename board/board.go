@@ -38,6 +38,9 @@ type Board interface {
 	// should use the CreateStatus helper instead of directly calling
 	// this.
 	Status(ctx context.Context) (*pb.BoardStatus, error)
+
+	// Reconfigure replaces this board with the given board.
+	Reconfigure(newBoard Board, diff ConfigDiff)
 }
 
 // A Motor represents a physical motor connected to a board.
@@ -68,6 +71,9 @@ type Motor interface {
 
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
+
+	// Reconfigure replaces this motor with the given motor.
+	Reconfigure(newMotor Motor)
 }
 
 // A Servo represents a physical servo connected to a board.
@@ -78,12 +84,18 @@ type Servo interface {
 
 	// Current returns the current set angle (degrees) of the servo.
 	Current(ctx context.Context) (uint8, error)
+
+	// Reconfigure replaces this servo with the given servo.
+	Reconfigure(newServo Servo)
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.
 type AnalogReader interface {
 	// Read reads off the current value.
 	Read(ctx context.Context) (int, error)
+
+	// Reconfigure replaces this analog reader with the given analog reader.
+	Reconfigure(newAnalog AnalogReader)
 }
 
 // A PostProcessor takes a raw input and transforms it into a new value.

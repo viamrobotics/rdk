@@ -16,12 +16,15 @@ func TestSetupGlobalCache(t *testing.T) (string, func()) {
 	globalCacheSingleton = nil
 	globalCacheSingletonMu.Unlock()
 	cwd, err := os.Getwd()
-	test.That(t, err, test.ShouldBeNil)
+	undoFunc := func() {}
+	if err == nil {
+		undoFunc = func() {
+			test.That(t, os.Chdir(cwd), test.ShouldBeNil)
+		}
+	}
 	dir := t.TempDir()
 	startAt := filepath.Join(dir, "one", "two", "three")
 	test.That(t, os.MkdirAll(startAt, 0755), test.ShouldBeNil)
 	test.That(t, os.Chdir(startAt), test.ShouldBeNil)
-	return startAt, func() {
-		test.That(t, os.Chdir(cwd), test.ShouldBeNil)
-	}
+	return startAt, undoFunc
 }

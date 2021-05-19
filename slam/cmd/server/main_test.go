@@ -61,28 +61,28 @@ func TestMainMain(t *testing.T) {
 	defer gServer.Stop()
 
 	registry.RegisterLidar("fail_info", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
-		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
+		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, errors.New("whoops")
 		}
 		return dev, nil
 	})
 	registry.RegisterLidar("fail_width", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
-		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
+		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.BoundsFunc = func(ctx context.Context) (r2.Point, error) {
 			return r2.Point{}, errors.New("whoops")
 		}
 		return dev, nil
 	})
 	registry.RegisterLidar("fail_ang", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
-		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
+		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), errors.New("whoops")
 		}
 		return dev, nil
 	})
 	registry.RegisterLidar("fail_stop", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
-		dev := &inject.Lidar{Lidar: &fake.Lidar{}}
+		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.StopFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
