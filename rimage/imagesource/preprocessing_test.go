@@ -87,42 +87,61 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	holes := rimage.MissingDepthData(fixed.Depth)
 	pCtx.GotDebugImage(holes, "depth-holes")
 
-	vectorField := rimage.SobelFilter(fixed.Depth)
-	pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
-	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
+	toFill := rimage.PixelsToBeFilled(holes, 21)
+	pCtx.GotDebugImage(toFill, "depth-holes-to-fill")
 
-	vectorField2 := rimage.ForwardGradientDepth(fixed.Depth)
-	pCtx.GotDebugImage(vectorField2.MagnitudePicture(), "forward-depth-grad-magnitude")
-	pCtx.GotDebugImage(vectorField2.DirectionPicture(), "forward-depth-grad-direction")
+	/*
+		vectorField2 := rimage.SobelFilter(smoothed.Depth)
+		pCtx.GotDebugImage(vectorField2.MagnitudePicture(), "depth-grad-magnitude-smooth")
+		pCtx.GotDebugImage(vectorField2.DirectionPicture(), "depth-grad-direction-smooth")
+	*/
 
-	//cannyColor := rimage.NewCannyDericheEdgeDetectorWithParameters(0.7, 0.25, false)
 	cannyColor := rimage.NewCannyDericheEdgeDetector()
-	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.9, 0.55, false)
+	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.99, 0.5, true)
 
 	colEdges, err := cannyColor.DetectEdges(fixed.Color, 0.5)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(colEdges, "color-edges-nopreprocess")
 
-	dmEdges, err := cannyDepth.DetectDepthEdges(fixed.Depth)
+	dmEdges, err := cannyDepth.DetectDepthEdges(fixed.Depth, 0.0)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(dmEdges, "depth-edges-nopreprocess")
 
-	closedDM, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
+	// morphological
+	openedDM, err := rimage.OpeningMorph(fixed.Depth, 3, 3)
+	test.That(t, err, test.ShouldBeNil)
+	closedDM, err := rimage.ClosingMorph(openedDM, 5, 1)
 	test.That(t, err, test.ShouldBeNil)
 	morphed := rimage.MakeImageWithDepth(fixed.Color, closedDM, fixed.IsAligned(), fixed.CameraSystem())
-	dmClosedEdges, err := cannyDepth.DetectDepthEdges(morphed.Depth)
+	dmClosedEdges, err := cannyDepth.DetectDepthEdges(morphed.Depth, 0.0)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(morphed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
 	pCtx.GotDebugImage(dmClosedEdges, "depth-edges-preprocess-1")
-	morphedPCD, err := morphed.ToPointCloud()
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(morphedPCD, "morphed-pcd")
 
-	kernelSize := 9
-	spatialVar, colorVar, depthVar := 6.0, 15.0, 20.0
+	/*
+		// inpainting
+		inpaintDM, err := rimage.DepthRayMarching(morphed.Depth, colEdges)
+		test.That(t, err, test.ShouldBeNil)
+		inpainted := rimage.MakeImageWithDepth(morphed.Color, inpaintDM, morphed.IsAligned(), morphed.CameraSystem())
+		dmInpaintEdges, err := cannyDepth.DetectDepthEdges(inpainted.Depth)
+		test.That(t, err, test.ShouldBeNil)
+		pCtx.GotDebugImage(inpainted.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-inpainted")
+		pCtx.GotDebugImage(dmInpaintEdges, "depth-edges-inpainted")
+	*/
+	//smoothed
+	smoothDM := rimage.GaussianBlur(morphed.Depth, 1.2)
+	smoothed := rimage.MakeImageWithDepth(morphed.Color, smoothDM, fixed.IsAligned(), fixed.CameraSystem())
+	dmSmoothedEdges, err := cannyDepth.DetectDepthEdges(smoothed.Depth, 0.0)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(smoothed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-smoothed")
+	pCtx.GotDebugImage(dmSmoothedEdges, "depth-edges-smoothed")
+
+	// trilateral filter
+	kernelSize := 7
+	spatialVar, colorVar, depthVar := 1.0, 0.02, 10.0
 	filtered, err := rimage.JointTrilateralFilter(morphed, kernelSize, spatialVar, colorVar, depthVar)
 	test.That(t, err, test.ShouldBeNil)
-	dmFilteredEdges, err := cannyDepth.DetectDepthEdges(filtered.Depth)
+	dmFilteredEdges, err := cannyDepth.DetectDepthEdges(filtered.Depth, 1.0)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(filtered.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-filtered")
 	pCtx.GotDebugImage(dmFilteredEdges, "depth-edges-filtered")

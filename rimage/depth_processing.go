@@ -39,11 +39,69 @@ func makeRangeArray(length int) []int {
 	return rangeArray
 }
 
-// GaussianKernel takes in a variance and returns a gaussian kernel useful for weighing averages or blurring.
-func GaussianKernel(sigma float64) func(p float64) float64 {
+// GaussianFunction1D takes in a sigma and returns a gaussian function useful for weighing averages or blurring.
+func GaussianFunction1D(sigma float64) func(p float64) float64 {
 	return func(p float64) float64 {
-		return math.Exp(-0.5 * math.Pow(p, 2) / math.Pow(sigma, 2))
+		return math.Exp(-0.5*math.Pow(p, 2)/math.Pow(sigma, 2)) / (sigma * math.Sqrt(2.*math.Pi))
 	}
+}
+
+// GaussianFunction2D takes in a sigma and returns an isotropic 2D gaussian
+func GaussianFunction2D(sigma float64) func(p1, p2 float64) float64 {
+	return func(p1, p2 float64) float64 {
+		return math.Exp(-0.5*(p1*p1+p2*p2)/math.Pow(sigma, 2)) / (sigma * sigma * 2. * math.Pi)
+	}
+}
+
+func GaussianKernel(sigma float64) [][]float64 {
+	gaus2D := GaussianFunction2D(sigma)
+	// size of the kernel is determined by size of sigma. want to get 3 sigma worth of gaussian function
+	k := utils.MaxInt(3, 1+2*int(3.*sigma))
+	xRange := makeRangeArray(k)
+	kernel := [][]float64{}
+	for y := 0; y < k; y++ {
+		row := make([]float64, k)
+		for i, x := range xRange {
+			row[i] = gaus2D(float64(x), float64(y))
+		}
+		kernel = append(kernel, row)
+	}
+	return kernel
+}
+
+func GaussianBlur(dm *DepthMap, sigma float64) *DepthMap {
+	if sigma <= 0. {
+		return dm
+	}
+	width, height := dm.Width(), dm.Height()
+	outDM := NewEmptyDepthMap(width, height)
+	kernel := GaussianKernel(sigma)
+	k := len(kernel)
+	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			// apply the blur around the depth map pixel (x,y)
+			val := 0.0
+			weight := 0.0
+			for i, dx := range xRange {
+				for j, dy := range yRange {
+					if !dm.In(x+dx, y+dy) {
+						continue
+					}
+					d := float64(dm.GetDepth(x+dx, y+dy))
+					if d == 0.0 {
+						continue
+					}
+					// rows are height j, columns are width i
+					val += kernel[j][i] * d
+					weight += kernel[j][i]
+				}
+			}
+			val = math.Max(0, val/weight)
+			outDM.Set(x, y, Depth(val))
+		}
+	}
+	return outDM
 }
 
 // JointTrilateralFilter smooths the depth map using information from the color image.
@@ -56,29 +114,35 @@ func JointTrilateralFilter(ii *ImageWithDepth, k int, spatialVar, colorVar, dept
 	}
 	width, height := ii.Width(), ii.Height()
 	outDM := NewEmptyDepthMap(width, height)
-	spatialFilter := GaussianKernel(spatialVar)
-	depthFilter := GaussianKernel(depthVar)
-	colorFilter := GaussianKernel(colorVar)
+	spatialFilter := GaussianFunction1D(spatialVar)
+	//depthFilter := GaussianFunction1D(depthVar)
+	colorFilter := GaussianFunction1D(colorVar)
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			// apply the Joint Trilateral Filter over a k x k square around each pixel
-			pDepth := float64(ii.Depth.GetDepth(x, y))
+			//pDepth := float64(ii.Depth.GetDepth(x, y))
 			pColor := ii.Color.GetXY(x, y)
 			newDepth := 0.0
+			totalWeight := 0.0
 			for _, dx := range xRange {
 				for _, dy := range yRange {
 					if !ii.Color.In(x+dx, y+dy) {
 						continue
 					}
-					weight := float64(ii.Depth.GetDepth(x+dx, y+dy))
-					weight *= spatialFilter(float64(dx)) * spatialFilter(float64(dy))
+					d := float64(ii.Depth.GetDepth(x+dx, y+dy))
+					if d == 0.0 {
+						continue
+					}
+					weight := spatialFilter(float64(dx)) * spatialFilter(float64(dy))
 					weight *= colorFilter(pColor.DistanceLab(ii.Color.GetXY(x+dx, y+dy)))
-					weight *= depthFilter(pDepth - float64(ii.Depth.GetDepth(x+dx, y+dy)))
-					newDepth += weight
+					//weight *= depthFilter(pDepth - d)
+					//fmt.Printf("colorDist: %v, depthDist: %v\n", pColor.DistanceLab(ii.Color.GetXY(x+dx, y+dy)), pDepth-d)
+					newDepth += d * weight
+					totalWeight += weight
 				}
 			}
-			outDM.Set(x, y, Depth(newDepth))
+			outDM.Set(x, y, Depth(newDepth/totalWeight))
 		}
 	}
 	return MakeImageWithDepth(ii.Color, outDM, ii.IsAligned(), ii.CameraSystem()), nil
@@ -86,9 +150,15 @@ func JointTrilateralFilter(ii *ImageWithDepth, k int, spatialVar, colorVar, dept
 
 // DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a
 // grayscale image.
-func (cd *CannyEdgeDetector) DetectDepthEdges(dm *DepthMap) (*image.Gray, error) {
+func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*image.Gray, error) {
+	var err error
+	var dm *DepthMap
+	if cd.preprocessImage {
+		dm = GaussianBlur(dmIn, blur)
+	} else {
+		dm = dmIn
+	}
 
-	//vectorField := SobelFilter(dm)
 	vectorField := ForwardGradientDepth(dm)
 	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.DirectionField()
 
@@ -128,7 +198,7 @@ func SobelFilter(dm *DepthMap) VectorField2D {
 			sX, sY := 0, 0
 			for i, dx := range xRange {
 				for j, dy := range yRange {
-					if x+dx < 0 || y+dy < 0 || x+dx >= width || y+dy >= height {
+					if !dm.In(x+dx, y+dy) {
 						continue
 					}
 					d := int(dm.GetDepth(x+dx, y+dy))
@@ -291,7 +361,36 @@ func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	return outDM, nil
 }
 
-// Missing data and hole identification
+// Missing data and hole inprinting
+
+// PixlesToBeFilled categorizes the pixels to be left blank or filled with data. Depends on the majority within the window
+func PixelsToBeFilled(dm *image.Gray, k int) *image.Gray {
+	holes := image.NewGray(dm.Bounds())
+	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
+	zero := color.Gray{0}
+	for y := 0; y < dm.Bounds().Dy(); y++ {
+		for x := 0; x < dm.Bounds().Dx(); x++ {
+			hole, nonHole := 0, 0
+			for _, dx := range xRange {
+				for _, dy := range yRange {
+					point := image.Point{x + dx, y + dy}
+					if !point.In(dm.Bounds()) {
+						continue
+					}
+					if dm.At(point.X, point.Y) == zero {
+						nonHole += 1
+					} else {
+						hole += 1
+					}
+				}
+			}
+			if hole > nonHole {
+				holes.Set(x, y, color.Gray{255})
+			}
+		}
+	}
+	return holes
+}
 
 // MissingDepthData outputs a binary map where white represents where the holes in the depth image are
 func MissingDepthData(dm *DepthMap) *image.Gray {
@@ -306,7 +405,61 @@ func MissingDepthData(dm *DepthMap) *image.Gray {
 	return holes
 }
 
-// missingDepthEdgesAndHoles takes in a mask of the missing depth pixels as well as an edge mask from the color image, and return a mask of all the missing edge data and non-edge data.
-func missingDepthEdgesAndHoles(missingDepth, imgEdges *image.Gray) (edges, holes *image.Gray) {
-	return nil, nil
+type direction image.Point
+
+func eightPointInprint(x, y int, dm *DepthMap, edges *image.Gray) Depth {
+	directions := []direction{
+		{0, 1},   //up
+		{0, -1},  //down
+		{-1, 0},  //left
+		{1, 0},   //right
+		{-1, 1},  // upper-left
+		{1, 1},   // upper-right
+		{-1, -1}, // lower-left
+		{1, -1},  //lower-right
+	}
+	valAvg := 0.0
+	count := 0.0
+	zero := color.Gray{0}
+	for _, dir := range directions {
+		val := 0
+		i, j := x, y
+		for val == 0 { // increment in the given direction until you reach a filled pixel
+			i += dir.X
+			j += dir.Y
+			if !dm.In(i, j) { // skip if out of picture
+				break
+			}
+			val = int(dm.GetDepth(i, j))
+			if edges.At(i, j) != zero { // stop if we've reached an edge
+				break
+			}
+		}
+		if val != 0 {
+			valAvg = (valAvg*count + float64(val)) / (count + 1.)
+			count += 1.
+		}
+	}
+	valAvg = math.Max(valAvg, 0.0) // depth cannot be zero
+	return Depth(valAvg)
+}
+
+func DepthRayMarching(dm *DepthMap, edges *image.Gray) (*DepthMap, error) {
+	// loop over pixels until finding an empty one
+	// fill empty pixel with 8 direction average
+	// // if the pixel is an edge, or you reach the border without finding a pixel, ignore it
+	filledDM := NewEmptyDepthMap(dm.Width(), dm.Height())
+	*filledDM = *dm
+	for y := 0; y < dm.Height(); y++ {
+		for x := 0; x < dm.Width(); x++ {
+			d := filledDM.GetDepth(x, y)
+			if d != 0 {
+				filledDM.Set(x, y, d)
+			} else {
+				inprint := eightPointInprint(x, y, filledDM, edges)
+				filledDM.Set(x, y, inprint)
+			}
+		}
+	}
+	return filledDM, nil
 }
