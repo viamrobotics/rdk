@@ -347,7 +347,7 @@ func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
 }
 
 // assumes we only have one board on host
-func (pi *piPigpio) Reconfigure(newBoard board.Board) {
+func (pi *piPigpio) Reconfigure(newBoard board.Board, diff board.ConfigDiff) {
 	actual, ok := newBoard.(*piPigpio)
 	if !ok {
 		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBoard))
@@ -395,7 +395,7 @@ func (pi *piPigpio) Reconfigure(newBoard board.Board) {
 		delete(pi.interrupts, c.Name)
 		bcom, have := piHWPinToBroadcom[c.Pin]
 		if !have {
-			return panic(errors.Errorf("no hw mapping for %s", c.Pin))
+			panic(errors.Errorf("no hw mapping for %s", c.Pin))
 		}
 		delete(pi.interruptsHW, bcom)
 	}
@@ -427,7 +427,7 @@ func (pi *piPigpio) Reconfigure(newBoard board.Board) {
 		pi.interrupts[c.Name] = actual.interrupts[c.Name]
 		bcom, have := piHWPinToBroadcom[c.Pin]
 		if !have {
-			return panic(errors.Errorf("no hw mapping for %s", c.Pin))
+			panic(errors.Errorf("no hw mapping for %s", c.Pin))
 		}
 		pi.interruptsHW[bcom] = actual.interruptsHW[bcom]
 	}
