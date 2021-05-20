@@ -300,23 +300,12 @@ func SobelFilterColor(img *Image) (VectorField2D, error) {
 	width, height := img.Width(), img.Height()
 	maxMag := 0.0
 	g := make([]Vec2D, 0, width*height)
-	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
+	sobel := SobelColorFilter()
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
-			// apply the Sobel Filter over a 3x3 square around each pixel
-			sX, sY := 0., 0.
-			for i, dx := range xRange {
-				for j, dy := range yRange {
-					if x+dx < 0 || y+dy < 0 || x+dx >= width || y+dy >= height {
-						continue
-					}
-					c := Luminance(img.GetXY(x+dy, y+dy))
-					// rows are height j, columns are width i
-					sX += float64(sobelX[j][i]) * c
-					sY += float64(sobelY[j][i]) * c
-				}
-			}
-			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
+			point := image.Point{x, y}
+			sX, sY := sobel(point, img)
+			mag, dir := getMagnitudeAndDirection(sX, sY)
 			g = append(g, Vec2D{mag, dir})
 			maxMag = math.Max(math.Abs(mag), maxMag)
 		}
