@@ -83,8 +83,9 @@ type piPigpio struct {
 }
 
 var (
-	initOnce bool
-	initMu   sync.Mutex
+	initOnce   bool
+	instanceMu sync.Mutex
+	instances  map[*piPigpio]struct{}
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
@@ -102,16 +103,16 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	// setup
 	piInstance := &piPigpio{cfg: cfg, logger: logger}
 
-	initMu.Lock()
+	instanceMu.Lock()
 	if !initOnce {
 		resCode = C.gpioInitialise()
 		if resCode < 0 {
-			initMu.Unlock()
+			instanceMu.Unlock()
 			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 		}
 		initOnce = true
 	}
-	initMu.Unlock()
+	instanceMu.Unlock()
 
 	// setup servos
 	piInstance.servos = map[string]board.Servo{}
@@ -171,6 +172,10 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 
 		piInstance.motors[c.Name] = m
 	}
+
+	instanceMu.Lock()
+	instances[piInstance] = struct{}{}
+	instanceMu.Unlock()
 
 	return piInstance, nil
 }
@@ -466,14 +471,20 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 
 	tick := (uint64(tickRollevers) * uint64(math.MaxUint32)) + uint64(rawTick)
 
-	i := piInstance.interruptsHW[uint(gpio)]
-	if i == nil {
-		rlog.Logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
-		return
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+	for instance := range instances {
+		i := instance.interruptsHW[uint(gpio)]
+		if i == nil {
+			rlog.Logger.Infof("no DigitalInterrupt configured for gpio %d", gpio)
+			continue
+		}
+		high := true
+		if level == 0 {
+			high = false
+		}
+		// this should *not* block for long otherwise the lock
+		// will be held
+		i.Tick(high, tick*1000)
 	}
-	high := true
-	if level == 0 {
-		high = false
-	}
-	i.Tick(high, tick*1000)
 }
