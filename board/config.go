@@ -74,9 +74,10 @@ func (config *Config) Merge(with *Config) (*Config, error) {
 
 // ConfigDiff is the different between two board configs.
 type ConfigDiff struct {
-	Added    *Config
-	Modified *Config
-	Removed  *Config
+	Left, Right *Config
+	Added       *Config
+	Modified    *Config
+	Removed     *Config
 }
 
 // ToConfig converts this diff into a board config suitable for

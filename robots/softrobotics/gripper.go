@@ -3,7 +3,6 @@ package softrobotics
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -144,13 +143,4 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 
 	return false, g.Stop()
 
-}
-
-// Reconfigure replaces this gripper with the given gripper.
-func (g *Gripper) Reconfigure(newGripper gripper.Gripper) {
-	actual, ok := newGripper.(*Gripper)
-	if !ok {
-		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
-	}
-	*g = *actual
 }

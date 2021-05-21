@@ -6,7 +6,6 @@ package lidar
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"runtime"
 	"sort"
@@ -16,7 +15,6 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -69,18 +67,6 @@ func New(ctx context.Context, config config.Component, logger golog.Logger) (com
 // Desc returns a description of the compass.
 func (li *Lidar) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
-}
-
-// Reconfigure replaces this compass with the given compass.
-func (li *Lidar) Reconfigure(newCompass sensor.Sensor) {
-	actual, ok := newCompass.(*Lidar)
-	if !ok {
-		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
-	}
-	if err := li.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*li = *actual
 }
 
 // Close stops and closes the underlying lidar.

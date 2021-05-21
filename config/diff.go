@@ -184,12 +184,9 @@ func diffBoard(left, right board.Config, diff *Diff) (bool, error) {
 		return false, nil
 	}
 
-	// TODO(https://github.com/viamrobotics/core/issues/76) - allow
-	if left.Model != right.Model {
-		return false, fmt.Errorf("cannot modify model of existing board %q", left.Name)
-	}
-
 	boardDiff := board.ConfigDiff{
+		Left:  &left,
+		Right: &right,
 		Added: &board.Config{
 			Name:  right.Name,
 			Model: right.Model,
@@ -381,13 +378,10 @@ func diffBoardDigitalInterrupts(left, right []board.DigitalInterruptConfig, diff
 	return different, nil
 }
 
-func diffBoardDigitalInterrupt(left, right board.DigitalInterruptConfig, diff *board.ConfigDiff) (bool, error) {
+func diffBoardDigitalInterrupt(
+	left, right board.DigitalInterruptConfig, diff *board.ConfigDiff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
-	}
-	// TODO(https://github.com/viamrobotics/core/issues/76) - allow
-	if left.Type != right.Type {
-		return false, fmt.Errorf("cannot modify type of existing digital interrupt %q", left.Name)
 	}
 	diff.Modified.DigitalInterrupts = append(diff.Modified.DigitalInterrupts, right)
 	return true, nil
@@ -434,12 +428,8 @@ func diffComponent(left, right Component, diff *Diff) (bool, error) {
 	if reflect.DeepEqual(left, right) {
 		return false, nil
 	}
-	// TODO(https://github.com/viamrobotics/core/issues/76) - allow
 	if left.Type != right.Type || left.SubType != right.SubType {
 		return false, fmt.Errorf("cannot modify type of existing component %q", left.Name)
-	}
-	if left.Model != right.Model {
-		return false, fmt.Errorf("cannot modify model of existing component %q", left.Name)
 	}
 	diff.Modified.Components = append(diff.Modified.Components, right)
 	return true, nil

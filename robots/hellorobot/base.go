@@ -2,7 +2,6 @@ package hellorobot
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 
@@ -66,18 +64,6 @@ func (b *Base) WidthMillis(ctx context.Context) (int, error) {
 func (b *Base) Stop(ctx context.Context) error {
 	b.baseObj.CallMethod("stop")
 	return checkPythonErr()
-}
-
-// Reconfigure replaces this base with the given base.
-func (b *Base) Reconfigure(newBase base.Base) {
-	actual, ok := newBase.(*Base)
-	if !ok {
-		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := b.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*b = *actual
 }
 
 // Close calls stop.

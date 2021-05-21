@@ -2,7 +2,6 @@ package kinematics
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"math"
 
@@ -11,7 +10,6 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -166,16 +164,4 @@ func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	joints := &pb.JointPositions{Degrees: k.modelJointsPosition()}
 
 	return k.MoveToJointPositions(ctx, joints)
-}
-
-// Reconfigure replaces this arm with the given arm.
-func (k *Arm) Reconfigure(newArm arm.Arm) {
-	actual, ok := newArm.(*Arm)
-	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
-	}
-	if err := k.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*k = *actual
 }

@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -180,11 +179,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	return piInstance, nil
 }
 
-// Config returns the config this board was constructed with.
-func (pi *piPigpio) Config(ctx context.Context) (board.Config, error) {
-	return pi.cfg, nil
-}
-
 // GPIOSet sets the given pin to high or low.
 func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 	bcom, have := piHWPinToBroadcom[pin]
@@ -243,12 +237,40 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	return par.pi.AnalogRead(par.channel)
 }
 
-func (par *piPigpioAnalogReader) Reconfigure(newAnalog board.AnalogReader) {
-	actual, ok := newAnalog.(*piPigpioAnalogReader)
-	if !ok {
-		panic(fmt.Errorf("expected new analog to be %T but got %T", actual, newAnalog))
+// MotorNames returns the name of all known motors.
+func (pi *piPigpio) MotorNames() []string {
+	names := []string{}
+	for k := range pi.motors {
+		names = append(names, k)
 	}
-	*par = *actual
+	return names
+}
+
+// ServoNames returns the name of all known servos.
+func (pi *piPigpio) ServoNames() []string {
+	names := []string{}
+	for k := range pi.servos {
+		names = append(names, k)
+	}
+	return names
+}
+
+// AnalogReaderNames returns the name of all known analog readers.
+func (pi *piPigpio) AnalogReaderNames() []string {
+	names := []string{}
+	for k := range pi.analogs {
+		names = append(names, k)
+	}
+	return names
+}
+
+// DigitalInterruptNames returns the name of all known digital interrupts.
+func (pi *piPigpio) DigitalInterruptNames() []string {
+	names := []string{}
+	for k := range pi.interrupts {
+		names = append(names, k)
+	}
+	return names
 }
 
 func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
@@ -293,14 +315,6 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
-func (s *piPigpioServo) Reconfigure(newServo board.Servo) {
-	actual, ok := newServo.(*piPigpioServo)
-	if !ok {
-		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
-	}
-	*s = *actual
-}
-
 func (pi *piPigpio) Servo(name string) board.Servo {
 	return pi.servos[name]
 }
@@ -313,6 +327,10 @@ func (pi *piPigpio) Motor(name string) board.Motor {
 	return pi.motors[name]
 }
 
+func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
+	return board.ModelAttributes{}
+}
+
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close() error {
 	if pi.analogEnabled {
@@ -321,8 +339,13 @@ func (pi *piPigpio) Close() error {
 		pi.analogEnabled = false
 	}
 
-	C.gpioTerminate()
-	pi.logger.Debug("Pi GPIO terminated properly.")
+	instanceMu.Lock()
+	if len(instances) == 1 {
+		C.gpioTerminate()
+		pi.logger.Debug("Pi GPIO terminated properly.")
+	}
+	delete(instances, pi)
+	instanceMu.Unlock()
 
 	var err error
 	for _, motor := range pi.motors {
@@ -349,112 +372,6 @@ func (pi *piPigpio) Close() error {
 
 func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
-}
-
-// assumes we only have one board on host
-func (pi *piPigpio) Reconfigure(newBoard board.Board, diff board.ConfigDiff) {
-	actual, ok := newBoard.(*piPigpio)
-	if !ok {
-		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBoard))
-	}
-
-	// removals first here just because of bcom mappings
-	for _, c := range diff.Removed.Motors {
-		toRemove, ok := pi.motors[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing motor but still reconfiguring", "error", err)
-		}
-		delete(pi.motors, c.Name)
-	}
-	for _, c := range diff.Removed.Servos {
-		toRemove, ok := pi.servos[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing servo but still reconfiguring", "error", err)
-		}
-		delete(pi.servos, c.Name)
-	}
-	for _, c := range diff.Removed.Analogs {
-		toRemove, ok := pi.analogs[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing analog but still reconfiguring", "error", err)
-		}
-		delete(pi.analogs, c.Name)
-	}
-	for _, c := range diff.Removed.DigitalInterrupts {
-		toRemove, ok := pi.interrupts[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		if err := utils.TryClose(toRemove); err != nil {
-			rlog.Logger.Errorw("error closing digital interrupt but still reconfiguring", "error", err)
-		}
-		delete(pi.interrupts, c.Name)
-		bcom, have := piHWPinToBroadcom[c.Pin]
-		if !have {
-			panic(errors.Errorf("no hw mapping for %s", c.Pin))
-		}
-		delete(pi.interruptsHW, bcom)
-	}
-
-	if pi.motors == nil && len(diff.Added.Motors) != 0 {
-		pi.motors = make(map[string]board.Motor, len(diff.Added.Motors))
-	}
-	if pi.servos == nil && len(diff.Added.Servos) != 0 {
-		pi.servos = make(map[string]board.Servo, len(diff.Added.Servos))
-	}
-	if pi.analogs == nil && len(diff.Added.Analogs) != 0 {
-		pi.analogs = make(map[string]board.AnalogReader, len(diff.Added.Analogs))
-	}
-	if pi.interrupts == nil && len(diff.Added.DigitalInterrupts) != 0 {
-		pi.interrupts = make(map[string]board.DigitalInterrupt, len(diff.Added.DigitalInterrupts))
-		pi.interruptsHW = make(map[uint]board.DigitalInterrupt, len(diff.Added.DigitalInterrupts))
-	}
-
-	for _, c := range diff.Added.Motors {
-		pi.motors[c.Name] = actual.motors[c.Name]
-	}
-	for _, c := range diff.Added.Servos {
-		pi.servos[c.Name] = actual.servos[c.Name]
-	}
-	for _, c := range diff.Added.Analogs {
-		pi.analogs[c.Name] = actual.analogs[c.Name]
-	}
-	for _, c := range diff.Added.DigitalInterrupts {
-		pi.interrupts[c.Name] = actual.interrupts[c.Name]
-		bcom, have := piHWPinToBroadcom[c.Pin]
-		if !have {
-			panic(errors.Errorf("no hw mapping for %s", c.Pin))
-		}
-		pi.interruptsHW[bcom] = actual.interruptsHW[bcom]
-	}
-
-	for _, c := range diff.Modified.Motors {
-		pi.motors[c.Name].Reconfigure(actual.motors[c.Name])
-	}
-	for _, c := range diff.Modified.Servos {
-		pi.servos[c.Name].Reconfigure(actual.servos[c.Name])
-	}
-	for _, c := range diff.Modified.Analogs {
-		pi.analogs[c.Name].Reconfigure(actual.analogs[c.Name])
-	}
-	for _, c := range diff.Modified.DigitalInterrupts {
-		pi.interrupts[c.Name].Reconfigure(actual.interrupts[c.Name])
-	}
-
-	pi.cfg = actual.cfg
-	pi.analogEnabled = actual.analogEnabled
-	pi.analogSpi = actual.analogSpi
-	pi.gpioConfigSet = actual.gpioConfigSet
-	pi.logger = actual.logger
 }
 
 var (

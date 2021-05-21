@@ -94,50 +94,32 @@ type Robot interface {
 	// this.
 	Status(ctx context.Context) (*pb.Status, error)
 
-	// Refresh instructs the Robot to manually refresh the details of itself.
-	Refresh(ctx context.Context) error
-
-	// Reconfigure replaces this robot with the given robot.
-	Reconfigure(newRobot Robot, diff *config.Diff)
-
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger
+}
+
+// A Refresher can refresh the contents of a robot.
+type Refresher interface {
+	// Refresh instructs the Robot to manually refresh the contents of itself.
+	Refresh(ctx context.Context) error
 }
 
 // A MutableRobot is a Robot that can have its parts modified.
 type MutableRobot interface {
 	Robot
 
-	// AddRemote adds a remote robot to the robot.
-	AddRemote(r Robot, c config.Remote)
-
-	// AddBoard adds a board to the robot.
-	AddBoard(b board.Board, c board.Config)
-
-	// AddArm adds an arm to the robot.
-	AddArm(a arm.Arm, c config.Component)
-
-	// AddGripper adds a gripper to the robot.
-	AddGripper(g gripper.Gripper, c config.Component)
+	// AddBase adds a base to the robot.
+	AddBase(b base.Base, c config.Component)
 
 	// AddCamera adds a camera to the robot.
 	AddCamera(c camera.Camera, cc config.Component)
 
-	// AddLidar adds a lidar to the robot.
-	AddLidar(l lidar.Lidar, c config.Component)
-
-	// AddBase adds a base to the robot.
-	AddBase(b base.Base, c config.Component)
-
-	// AddSensor adds a sensor to the robot.
-	AddSensor(s sensor.Sensor, c config.Component)
-
 	// AddProvider adds a provider to the robot.
 	AddProvider(p Provider, c config.Component)
 
-	// ReconfigureFromConfig instructs the robot to safely reconfigure itself based
+	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
-	ReconfigureFromConfig(ctx context.Context, newConfig *config.Config) error
+	Reconfigure(ctx context.Context, newConfig *config.Config) error
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
 	Close() error
@@ -158,7 +140,4 @@ type Provider interface {
 	// Ready does any provider/platform initialization once robot configuration is
 	// finishing.
 	Ready(r Robot) error
-
-	// Reconfigure replaces this provider with the given provider.
-	Reconfigure(newProvider Provider)
 }

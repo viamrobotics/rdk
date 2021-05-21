@@ -2,7 +2,6 @@ package fake
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -10,7 +9,6 @@ import (
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
@@ -36,11 +34,10 @@ func NewArm(name string) *Arm {
 
 // Arm is a fake arm that can simply read and set properties.
 type Arm struct {
-	Name             string
-	position         *pb.ArmPosition
-	joints           *pb.JointPositions
-	CloseCount       int
-	ReconfigureCount int
+	Name       string
+	position   *pb.ArmPosition
+	joints     *pb.JointPositions
+	CloseCount int
 }
 
 // CurrentPosition returns the set position.
@@ -68,22 +65,6 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 // JointMoveDelta returns an error.
 func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("arm JointMoveDelta does nothing")
-}
-
-// Reconfigure replaces this arm with the given arm.
-func (a *Arm) Reconfigure(newArm arm.Arm) {
-	actual, ok := newArm.(*Arm)
-	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
-	}
-	if err := a.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	oldCloseCount := a.CloseCount
-	oldReconfigureCount := a.ReconfigureCount + 1
-	*a = *actual
-	a.CloseCount += oldCloseCount
-	a.ReconfigureCount += oldReconfigureCount
 }
 
 // Close does nothing.

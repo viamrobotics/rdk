@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 )
 
@@ -122,16 +120,4 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			}
 		}
 	}, as.activeBackgroundWorkers.Done)
-}
-
-// Reconfigure replaces this analog reader with the given analog reader.
-func (as *AnalogSmoother) Reconfigure(newAnalog AnalogReader) {
-	actual, ok := newAnalog.(*AnalogSmoother)
-	if !ok {
-		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newAnalog))
-	}
-	if err := as.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*as = *actual
 }

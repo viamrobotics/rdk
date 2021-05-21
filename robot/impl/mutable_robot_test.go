@@ -41,7 +41,7 @@ func TestConfig1(t *testing.T) {
 
 	bounds := pic.Bounds()
 
-	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 100)
+	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
 
 	test.That(t, cfg.Components[0].Attributes["bar"], test.ShouldEqual, fmt.Sprintf("a%sb%sc", os.Getenv("HOME"), os.Getenv("HOME")))
 }
@@ -166,6 +166,26 @@ func TestConfigRemote(t *testing.T) {
 type dummyBoard struct {
 	board.Board
 	closeCount int
+}
+
+func (db *dummyBoard) MotorNames() []string {
+	return nil
+}
+
+func (db *dummyBoard) ServoNames() []string {
+	return nil
+}
+
+func (db *dummyBoard) AnalogReaderNames() []string {
+	return nil
+}
+
+func (db *dummyBoard) DigitalInterruptNames() []string {
+	return nil
+}
+
+func (db *dummyBoard) ModelAttributes() board.ModelAttributes {
+	return board.ModelAttributes{}
 }
 
 func (db *dummyBoard) Close() error {

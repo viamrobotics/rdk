@@ -227,9 +227,10 @@ func (r *Robot) Close() error {
 // Refresh calls the injected Refresh or the real version.
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
-		if remote, ok := r.Robot.(robot.Robot); ok {
-			return remote.Refresh(ctx)
+		if refresher, ok := r.Robot.(robot.Refresher); ok {
+			return refresher.Refresh(ctx)
 		}
+		return nil
 	}
 	return r.RefreshFunc(ctx)
 }

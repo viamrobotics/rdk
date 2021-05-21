@@ -83,6 +83,16 @@ var emptyStatus = &pb.Status{
 				"encoder": {},
 			},
 		},
+		"board2": {
+			Motors: map[string]*pb.MotorStatus{
+				"motor2": {},
+			},
+		},
+		"board3": {
+			Servos: map[string]*pb.ServoStatus{
+				"servo1": {},
+			},
+		},
 	},
 }
 
@@ -409,7 +419,16 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return &pb.Status{}, nil
+		return &pb.Status{
+			Boards: map[string]*pb.BoardStatus{
+				"board1": {},
+				"board2": {
+					Motors: map[string]*pb.MotorStatus{
+						"motor1": {},
+					},
+				},
+			},
+		}, nil
 	}
 	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -458,6 +477,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
 	board1 := client.BoardByName("board1")
+	test.That(t, board1, test.ShouldNotBeNil)
 
 	_, err = board1.Status(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -712,7 +732,7 @@ func TestClientReferesh(t *testing.T) {
 	test.That(t, utils.NewStringSet(client.CameraNames()...), test.ShouldResemble, utils.NewStringSet("camera1"))
 	test.That(t, utils.NewStringSet(client.LidarNames()...), test.ShouldResemble, utils.NewStringSet("lidar1"))
 	test.That(t, utils.NewStringSet(client.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
-	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1"))
+	test.That(t, utils.NewStringSet(client.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1", "board2", "board3"))
 	test.That(t, utils.NewStringSet(client.SensorNames()...), test.ShouldResemble, utils.NewStringSet("compass1", "compass2"))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
