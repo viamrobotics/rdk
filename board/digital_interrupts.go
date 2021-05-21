@@ -1,7 +1,6 @@
 package board
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"github.com/erh/scheme"
@@ -42,9 +41,6 @@ type DigitalInterrupt interface {
 	// AddPostProcessor adds a post processor that should be used to modify
 	// what is returned by Value.
 	AddPostProcessor(pp PostProcessor)
-
-	// Reconfigure replaces this digital interrupt with the given digital interrupt.
-	Reconfigure(newDigitalInterrupt DigitalInterrupt)
 }
 
 // CreateDigitalInterrupt is a factory method for creating a specific DigitalInterrupt based
@@ -151,15 +147,6 @@ func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
 }
 
-// Reconfigure replaces this digital interrupt with the given digital interrupt.
-func (i *BasicDigitalInterrupt) Reconfigure(newDigitalInterrupt DigitalInterrupt) {
-	actual, ok := newDigitalInterrupt.(*BasicDigitalInterrupt)
-	if !ok {
-		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newDigitalInterrupt))
-	}
-	*i = *actual
-}
-
 // A ServoDigitalInterrupt is an interrupt associated with a servo in order to
 // track the amount of time that has passed between low signals (pulse width). Post processors
 // make meaning of these widths.
@@ -215,13 +202,4 @@ func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
 // Value returns.
 func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
-}
-
-// Reconfigure replaces this digital interrupt with the given digital interrupt.
-func (i *ServoDigitalInterrupt) Reconfigure(newDigitalInterrupt DigitalInterrupt) {
-	actual, ok := newDigitalInterrupt.(*ServoDigitalInterrupt)
-	if !ok {
-		panic(fmt.Errorf("expected new digital interrupt to be %T but got %T", actual, newDigitalInterrupt))
-	}
-	*i = *actual
 }

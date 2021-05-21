@@ -225,12 +225,3 @@ func (g *Gripper) Calibrate(ctx context.Context) error {
 	g.logger.Debugf("limits %s %s", g.openLimit, g.closeLimit)
 	return nil
 }
-
-// Reconfigure replaces this gripper with the given gripper.
-func (g *Gripper) Reconfigure(newGripper gripper.Gripper) {
-	actual, ok := newGripper.(*Gripper)
-	if !ok {
-		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
-	}
-	*g = *actual
-}

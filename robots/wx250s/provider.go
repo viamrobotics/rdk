@@ -1,7 +1,6 @@
 package wx250s
 
 import (
-	"fmt"
 	"sync"
 
 	"go.viam.com/core/config"
@@ -16,15 +15,6 @@ type Provider struct {
 // Ready TODO
 func (p *Provider) Ready(r robot.Robot) error {
 	return nil
-}
-
-// Reconfigure replaces this provider with the given provider.
-func (p *Provider) Reconfigure(newProvider robot.Provider) {
-	actual, ok := newProvider.(*Provider)
-	if !ok {
-		panic(fmt.Errorf("expected new provider to be %T but got %T", actual, newProvider))
-	}
-	*p = *actual
 }
 
 func getProviderOrCreate(r robot.MutableRobot) *Provider {

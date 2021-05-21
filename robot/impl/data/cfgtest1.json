@@ -2,9 +2,8 @@
     "components" : [
         { "name" : "c1",
           "type" : "camera",
-          "model" : "url",
+          "model" : "fake",
           "attributes" : {
-              "color" : "http://placehold.it/120x120&text=image1",
               "bar" : "a${HOME}b${HOME}c",
               "aligned" : false
           }

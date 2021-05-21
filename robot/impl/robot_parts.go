@@ -19,67 +19,38 @@ import (
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
+	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/utils"
 )
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes        map[string]robot.Robot
-	boards         map[string]board.Board
-	arms           map[string]arm.Arm
-	grippers       map[string]gripper.Gripper
-	cameras        map[string]camera.Camera
-	lidars         map[string]lidar.Lidar
-	bases          map[string]base.Base
+	remotes        map[string]*remoteRobot
+	boards         map[string]*proxyBoard
+	arms           map[string]*proxyArm
+	grippers       map[string]*proxyGripper
+	cameras        map[string]*proxyCamera
+	lidars         map[string]*proxyLidar
+	bases          map[string]*proxyBase
 	sensors        map[string]sensor.Sensor
-	providers      map[string]robot.Provider
+	providers      map[string]*proxyProvider
 	processManager rexec.ProcessManager
 }
 
 // newRobotParts returns a properly initialized set of parts.
 func newRobotParts(logger golog.Logger) *robotParts {
 	return &robotParts{
-		remotes:        map[string]robot.Robot{},
-		boards:         map[string]board.Board{},
-		arms:           map[string]arm.Arm{},
-		grippers:       map[string]gripper.Gripper{},
-		cameras:        map[string]camera.Camera{},
-		lidars:         map[string]lidar.Lidar{},
-		bases:          map[string]base.Base{},
+		remotes:        map[string]*remoteRobot{},
+		boards:         map[string]*proxyBoard{},
+		arms:           map[string]*proxyArm{},
+		grippers:       map[string]*proxyGripper{},
+		cameras:        map[string]*proxyCamera{},
+		lidars:         map[string]*proxyLidar{},
+		bases:          map[string]*proxyBase{},
 		sensors:        map[string]sensor.Sensor{},
-		providers:      map[string]robot.Provider{},
+		providers:      map[string]*proxyProvider{},
 		processManager: rexec.NewProcessManager(logger),
 	}
-}
-
-// partsForRemoteRobot integrates all parts from a given robot
-// except for its remotes. This is for a remote robot to integrate
-// which should be unaware of remotes.
-// Be sure to update this function if robotParts grows.
-func partsForRemoteRobot(robot robot.Robot) *robotParts {
-	parts := newRobotParts(robot.Logger().Named("parts"))
-	for _, name := range robot.ArmNames() {
-		parts.AddArm(robot.ArmByName(name), config.Component{Name: name})
-	}
-	for _, name := range robot.BaseNames() {
-		parts.AddBase(robot.BaseByName(name), config.Component{Name: name})
-	}
-	for _, name := range robot.BoardNames() {
-		parts.AddBoard(robot.BoardByName(name), board.Config{Name: name})
-	}
-	for _, name := range robot.CameraNames() {
-		parts.AddCamera(robot.CameraByName(name), config.Component{Name: name})
-	}
-	for _, name := range robot.GripperNames() {
-		parts.AddGripper(robot.GripperByName(name), config.Component{Name: name})
-	}
-	for _, name := range robot.LidarNames() {
-		parts.AddLidar(robot.LidarByName(name), config.Component{Name: name})
-	}
-	for _, name := range robot.SensorNames() {
-		parts.AddSensor(robot.SensorByName(name), config.Component{Name: name})
-	}
-	return parts
 }
 
 // fixType ensures that the component has correct type information.
@@ -92,55 +63,91 @@ func fixType(c config.Component, whichType config.ComponentType, pos int) config
 	return c
 }
 
-// AddRemote adds a remote to the parts.
-func (parts *robotParts) AddRemote(r robot.Robot, c config.Remote) {
+// addRemote adds a remote to the parts.
+func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
 }
 
 // AddBoard adds a board to the parts.
 func (parts *robotParts) AddBoard(b board.Board, c board.Config) {
-	parts.boards[c.Name] = b
+	if proxy, ok := b.(*proxyBoard); ok {
+		b = proxy.actual
+	}
+	parts.boards[c.Name] = newProxyBoard(b)
 }
 
 // AddArm adds an arm to the parts.
 func (parts *robotParts) AddArm(a arm.Arm, c config.Component) {
 	c = fixType(c, config.ComponentTypeArm, len(parts.arms))
-	parts.arms[c.Name] = a
+	if proxy, ok := a.(*proxyArm); ok {
+		a = proxy.actual
+	}
+	parts.arms[c.Name] = &proxyArm{actual: a}
 }
 
 // AddGripper adds a gripper to the parts.
 func (parts *robotParts) AddGripper(g gripper.Gripper, c config.Component) {
 	c = fixType(c, config.ComponentTypeGripper, len(parts.grippers))
-	parts.grippers[c.Name] = g
+	if proxy, ok := g.(*proxyGripper); ok {
+		g = proxy.actual
+	}
+	parts.grippers[c.Name] = &proxyGripper{actual: g}
 }
 
 // AddCamera adds a camera to the parts.
 func (parts *robotParts) AddCamera(c camera.Camera, cc config.Component) {
 	cc = fixType(cc, config.ComponentTypeCamera, len(parts.cameras))
-	parts.cameras[cc.Name] = c
+	if proxy, ok := c.(*proxyCamera); ok {
+		c = proxy.actual
+	}
+	parts.cameras[cc.Name] = &proxyCamera{actual: c}
 }
 
 // AddLidar adds a lidar to the parts.
 func (parts *robotParts) AddLidar(l lidar.Lidar, c config.Component) {
 	c = fixType(c, config.ComponentTypeLidar, len(parts.lidars))
-	parts.lidars[c.Name] = l
+	if proxy, ok := l.(*proxyLidar); ok {
+		l = proxy.actual
+	}
+	parts.lidars[c.Name] = &proxyLidar{actual: l}
 }
 
 // AddBase adds a base to the parts.
 func (parts *robotParts) AddBase(b base.Base, c config.Component) {
 	c = fixType(c, config.ComponentTypeBase, len(parts.bases))
-	parts.bases[c.Name] = b
+	if proxy, ok := b.(*proxyBase); ok {
+		b = proxy.actual
+	}
+	parts.bases[c.Name] = &proxyBase{actual: b}
 }
 
 // AddSensor adds a sensor to the parts.
 func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 	c = fixType(c, config.ComponentTypeSensor, len(parts.sensors))
-	parts.sensors[c.Name] = s
+	switch pType := s.(type) {
+	case *proxySensor:
+		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
+	case *proxyCompass:
+		parts.sensors[c.Name] = newProxyCompass(pType)
+	case *proxyRelativeCompass:
+		parts.sensors[c.Name] = newProxyRelativeCompass(pType)
+	default:
+		if r, ok := s.(compass.RelativeCompass); ok {
+			parts.sensors[c.Name] = newProxyRelativeCompass(r)
+		} else if cc, ok := s.(compass.Compass); ok {
+			parts.sensors[c.Name] = newProxyCompass(cc)
+		} else {
+			parts.sensors[c.Name] = &proxySensor{actual: s}
+		}
+	}
 }
 
 // AddProvider adds a provider to the parts.
 func (parts *robotParts) AddProvider(p robot.Provider, c config.Component) {
-	parts.providers[c.Name] = p
+	if proxy, ok := p.(*proxyProvider); ok {
+		p = proxy.actual
+	}
+	parts.providers[c.Name] = &proxyProvider{actual: p}
 }
 
 // RemoteNames returns the names of all remotes in the parts.
@@ -239,43 +246,43 @@ func (parts *robotParts) SensorNames() []string {
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
 	if len(parts.remotes) != 0 {
-		clonedParts.remotes = make(map[string]robot.Robot, len(parts.remotes))
+		clonedParts.remotes = make(map[string]*remoteRobot, len(parts.remotes))
 		for k, v := range parts.remotes {
 			clonedParts.remotes[k] = v
 		}
 	}
 	if len(parts.boards) != 0 {
-		clonedParts.boards = make(map[string]board.Board, len(parts.boards))
+		clonedParts.boards = make(map[string]*proxyBoard, len(parts.boards))
 		for k, v := range parts.boards {
 			clonedParts.boards[k] = v
 		}
 	}
 	if len(parts.arms) != 0 {
-		clonedParts.arms = make(map[string]arm.Arm, len(parts.arms))
+		clonedParts.arms = make(map[string]*proxyArm, len(parts.arms))
 		for k, v := range parts.arms {
 			clonedParts.arms[k] = v
 		}
 	}
 	if len(parts.grippers) != 0 {
-		clonedParts.grippers = make(map[string]gripper.Gripper, len(parts.grippers))
+		clonedParts.grippers = make(map[string]*proxyGripper, len(parts.grippers))
 		for k, v := range parts.grippers {
 			clonedParts.grippers[k] = v
 		}
 	}
 	if len(parts.cameras) != 0 {
-		clonedParts.cameras = make(map[string]camera.Camera, len(parts.cameras))
+		clonedParts.cameras = make(map[string]*proxyCamera, len(parts.cameras))
 		for k, v := range parts.cameras {
 			clonedParts.cameras[k] = v
 		}
 	}
 	if len(parts.lidars) != 0 {
-		clonedParts.lidars = make(map[string]lidar.Lidar, len(parts.lidars))
+		clonedParts.lidars = make(map[string]*proxyLidar, len(parts.lidars))
 		for k, v := range parts.lidars {
 			clonedParts.lidars[k] = v
 		}
 	}
 	if len(parts.bases) != 0 {
-		clonedParts.bases = make(map[string]base.Base, len(parts.bases))
+		clonedParts.bases = make(map[string]*proxyBase, len(parts.bases))
 		for k, v := range parts.bases {
 			clonedParts.bases[k] = v
 		}
@@ -287,7 +294,7 @@ func (parts *robotParts) Clone() *robotParts {
 		}
 	}
 	if len(parts.providers) != 0 {
-		clonedParts.providers = make(map[string]robot.Provider, len(parts.providers))
+		clonedParts.providers = make(map[string]*proxyProvider, len(parts.providers))
 		for k, v := range parts.providers {
 			clonedParts.providers[k] = v
 		}
@@ -296,178 +303,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.processManager = parts.processManager.Clone()
 	}
 	return &clonedParts
-}
-
-// Reconfigure replaces these parts with the given parts.
-func (parts *robotParts) Reconfigure(newParts *robotParts, diff *config.Diff) error {
-	var procsToStop []rexec.ManagedProcess
-
-	for _, c := range diff.Added.Remotes {
-		parts.remotes[c.Name] = newParts.RemoteByName(c.Name)
-	}
-	for _, c := range diff.Added.Boards {
-		parts.boards[c.Name] = newParts.BoardByName(c.Name)
-	}
-	for _, c := range diff.Added.Components {
-		switch c.Type {
-		case config.ComponentTypeProvider:
-			parts.providers[c.Name] = newParts.ProviderByName(c.Name)
-		case config.ComponentTypeBase:
-			parts.bases[c.Name] = newParts.BaseByName(c.Name)
-		case config.ComponentTypeArm:
-			parts.arms[c.Name] = newParts.ArmByName(c.Name)
-		case config.ComponentTypeGripper:
-			parts.grippers[c.Name] = newParts.GripperByName(c.Name)
-		case config.ComponentTypeCamera:
-			parts.cameras[c.Name] = newParts.CameraByName(c.Name)
-		case config.ComponentTypeLidar:
-			parts.lidars[c.Name] = newParts.LidarByName(c.Name)
-		case config.ComponentTypeSensor:
-			parts.sensors[c.Name] = newParts.SensorByName(c.Name)
-		default:
-			panic(errors.Errorf("unknown component type: %v", c.Type))
-		}
-	}
-	for _, c := range diff.Added.Processes {
-		proc, ok := newParts.processManager.ProcessByID(c.ID)
-		if !ok {
-			continue // should not happen
-		}
-		procToStop, err := parts.processManager.AddProcess(context.Background(), proc, false)
-		if err != nil {
-			return err // should not happen
-		}
-		if procToStop != nil {
-			procsToStop = append(procsToStop, procToStop)
-		}
-	}
-
-	for _, c := range diff.Modified.Remotes {
-		parts.remotes[c.Name].Reconfigure(newParts.RemoteByName(c.Name), &config.Diff{}) // diff does not matter
-	}
-	for name, boardDiff := range diff.Modified.Boards {
-		parts.boards[name].Reconfigure(newParts.BoardByName(name), boardDiff)
-	}
-	for _, c := range diff.Modified.Components {
-		switch c.Type {
-		case config.ComponentTypeProvider:
-			parts.providers[c.Name].Reconfigure(newParts.ProviderByName(c.Name))
-		case config.ComponentTypeBase:
-			parts.bases[c.Name].Reconfigure(newParts.BaseByName(c.Name))
-		case config.ComponentTypeArm:
-			parts.arms[c.Name].Reconfigure(newParts.ArmByName(c.Name))
-		case config.ComponentTypeGripper:
-			parts.grippers[c.Name].Reconfigure(newParts.GripperByName(c.Name))
-		case config.ComponentTypeCamera:
-			parts.cameras[c.Name].Reconfigure(newParts.CameraByName(c.Name))
-		case config.ComponentTypeLidar:
-			parts.lidars[c.Name].Reconfigure(newParts.LidarByName(c.Name))
-		case config.ComponentTypeSensor:
-			parts.sensors[c.Name].Reconfigure(newParts.SensorByName(c.Name))
-		default:
-			panic(errors.Errorf("unknown component type: %v", c.Type))
-		}
-	}
-	for _, c := range diff.Modified.Processes {
-		proc, ok := newParts.processManager.ProcessByID(c.ID)
-		if !ok {
-			continue // should not happen
-		}
-		procToStop, err := parts.processManager.AddProcess(context.Background(), proc, false)
-		if err != nil {
-			return err // should not happen
-		}
-		if procToStop != nil {
-			procsToStop = append(procsToStop, procToStop)
-		}
-	}
-
-	var err error
-
-	for _, c := range diff.Removed.Remotes {
-		toRemove, ok := parts.remotes[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		err = multierr.Combine(err, utils.TryClose(toRemove))
-		delete(parts.remotes, c.Name)
-	}
-	for _, c := range diff.Removed.Boards {
-		toRemove, ok := parts.boards[c.Name]
-		if !ok {
-			continue // should not happen
-		}
-		err = multierr.Combine(err, utils.TryClose(toRemove))
-		delete(parts.boards, c.Name)
-	}
-	for _, c := range diff.Removed.Components {
-		switch c.Type {
-		case config.ComponentTypeProvider:
-			toRemove, ok := parts.providers[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.providers, c.Name)
-		case config.ComponentTypeBase:
-			toRemove, ok := parts.bases[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.bases, c.Name)
-		case config.ComponentTypeArm:
-			toRemove, ok := parts.arms[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.arms, c.Name)
-		case config.ComponentTypeGripper:
-			toRemove, ok := parts.grippers[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.grippers, c.Name)
-		case config.ComponentTypeCamera:
-			toRemove, ok := parts.cameras[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.cameras, c.Name)
-		case config.ComponentTypeLidar:
-			toRemove, ok := parts.lidars[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.lidars, c.Name)
-		case config.ComponentTypeSensor:
-			toRemove, ok := parts.sensors[c.Name]
-			if !ok {
-				continue // should not happen
-			}
-			err = multierr.Combine(err, utils.TryClose(toRemove))
-			delete(parts.sensors, c.Name)
-		default:
-			panic(errors.Errorf("unknown component type: %v", c.Type))
-		}
-	}
-	for _, c := range diff.Removed.Processes {
-		procToStop, ok := parts.processManager.RemoveProcessByID(c.ID)
-		if !ok || procToStop == nil {
-			continue // should not happen
-		}
-		procsToStop = append(procsToStop, procToStop)
-	}
-
-	for _, proc := range procsToStop {
-		err = multierr.Combine(err, proc.Stop())
-	}
-
-	return err
 }
 
 // Close attempts to close/stop all parts.
@@ -599,7 +434,7 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 		}
 
 		configCopy := config
-		parts.AddRemote(newRemoteRobot(robotClient, configCopy), configCopy)
+		parts.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
 	}
 	return nil
 }
@@ -862,7 +697,7 @@ func (result *PartsMergeResult) Process(parts *robotParts) error {
 func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) {
 	if len(toAdd.remotes) != 0 {
 		if parts.remotes == nil {
-			parts.remotes = make(map[string]robot.Robot, len(toAdd.remotes))
+			parts.remotes = make(map[string]*remoteRobot, len(toAdd.remotes))
 		}
 		for k, v := range toAdd.remotes {
 			parts.remotes[k] = v
@@ -871,7 +706,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.boards) != 0 {
 		if parts.boards == nil {
-			parts.boards = make(map[string]board.Board, len(toAdd.boards))
+			parts.boards = make(map[string]*proxyBoard, len(toAdd.boards))
 		}
 		for k, v := range toAdd.boards {
 			parts.boards[k] = v
@@ -880,7 +715,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.arms) != 0 {
 		if parts.arms == nil {
-			parts.arms = make(map[string]arm.Arm, len(toAdd.arms))
+			parts.arms = make(map[string]*proxyArm, len(toAdd.arms))
 		}
 		for k, v := range toAdd.arms {
 			parts.arms[k] = v
@@ -889,7 +724,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.grippers) != 0 {
 		if parts.grippers == nil {
-			parts.grippers = make(map[string]gripper.Gripper, len(toAdd.grippers))
+			parts.grippers = make(map[string]*proxyGripper, len(toAdd.grippers))
 		}
 		for k, v := range toAdd.grippers {
 			parts.grippers[k] = v
@@ -898,7 +733,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.cameras) != 0 {
 		if parts.cameras == nil {
-			parts.cameras = make(map[string]camera.Camera, len(toAdd.cameras))
+			parts.cameras = make(map[string]*proxyCamera, len(toAdd.cameras))
 		}
 		for k, v := range toAdd.cameras {
 			parts.cameras[k] = v
@@ -907,7 +742,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.lidars) != 0 {
 		if parts.lidars == nil {
-			parts.lidars = make(map[string]lidar.Lidar, len(toAdd.lidars))
+			parts.lidars = make(map[string]*proxyLidar, len(toAdd.lidars))
 		}
 		for k, v := range toAdd.lidars {
 			parts.lidars[k] = v
@@ -916,7 +751,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.bases) != 0 {
 		if parts.bases == nil {
-			parts.bases = make(map[string]base.Base, len(toAdd.bases))
+			parts.bases = make(map[string]*proxyBase, len(toAdd.bases))
 		}
 		for k, v := range toAdd.bases {
 			parts.bases[k] = v
@@ -934,7 +769,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 
 	if len(toAdd.providers) != 0 {
 		if parts.providers == nil {
-			parts.providers = make(map[string]robot.Provider, len(toAdd.providers))
+			parts.providers = make(map[string]*proxyProvider, len(toAdd.providers))
 		}
 		for k, v := range toAdd.providers {
 			parts.providers[k] = v
@@ -977,7 +812,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v, &config.Diff{}) // diff does not matter
+			old.replace(v)
 		}
 	}
 
@@ -988,7 +823,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v, diff.Modified.Boards[k])
+			old.merge(v, diff.Modified.Boards[k])
 		}
 	}
 
@@ -999,7 +834,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1010,7 +845,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1021,7 +856,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1032,7 +867,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1043,7 +878,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1054,7 +889,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.(interface{ replace(newSensor sensor.Sensor) }).replace(v)
 		}
 	}
 
@@ -1065,7 +900,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.Reconfigure(v)
+			old.replace(v)
 		}
 	}
 
@@ -1152,11 +987,11 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 	}
 
 	for _, conf := range conf.Remotes {
-		part := parts.RemoteByName(conf.Name)
+		part := parts.remotes[conf.Name]
 		if part == nil {
 			continue
 		}
-		filtered.AddRemote(part, conf)
+		filtered.addRemote(part, conf)
 	}
 
 	for _, conf := range conf.Boards {

@@ -59,8 +59,6 @@ jobs:
       env:
         ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
       run: |
-        mv .artifact/config.json .artifact/config.json.bak
-        mv .artifact/config.test.json .artifact/config.json
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
         make cover

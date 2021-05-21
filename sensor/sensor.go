@@ -13,9 +13,6 @@ type Sensor interface {
 
 	// Desc returns a description of this sensor.
 	Desc() Description
-
-	// Reconfigure replaces this sensor with the given sensor.
-	Reconfigure(newSensor Sensor)
 }
 
 // Type specifies the type of sensor.

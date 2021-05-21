@@ -20,8 +20,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	// manually refresh all remotes to get an up to date status
 	for _, name := range r.RemoteNames() {
 		remote := r.RemoteByName(name)
-		if err := remote.Refresh(ctx); err != nil {
-			return nil, errors.Errorf("error refreshing remote %q: %w", name, err)
+		if refresher, ok := remote.(robot.Refresher); ok {
+			if err := refresher.Refresh(ctx); err != nil {
+				return nil, errors.Errorf("error refreshing remote %q: %w", name, err)
+			}
 		}
 	}
 

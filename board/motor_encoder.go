@@ -2,13 +2,11 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -572,15 +570,4 @@ func (m *encodedMotor) Close() error {
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 	return nil
-}
-
-func (m *encodedMotor) Reconfigure(newMotor Motor) {
-	actual, ok := newMotor.(*encodedMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	if err := m.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*m = *actual
 }

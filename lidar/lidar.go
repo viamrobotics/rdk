@@ -39,9 +39,6 @@ type Lidar interface {
 	// AngularResolution reports the minimum distance in degrees that the lidar
 	// can produce measurements for.
 	AngularResolution(ctx context.Context) (float64, error)
-
-	// Reconfigure replaces this lidar with the given lidar.
-	Reconfigure(newLidar Lidar)
 }
 
 // Type identifies the type of lidar. These are typically registered in

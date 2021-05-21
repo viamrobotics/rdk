@@ -257,58 +257,58 @@ func TestRemoteRobot(t *testing.T) {
 
 	robot.conf.Prefix = false
 	arm1 := robot.ArmByName("arm1")
-	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
 	arm1 = robot.ArmByName("one.arm1")
-	test.That(t, arm1.(*fake.Arm).Name, test.ShouldEqual, "arm1")
+	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	test.That(t, robot.ArmByName("arm1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	base1 := robot.BaseByName("base1")
-	test.That(t, base1.(*fake.Base).Name, test.ShouldEqual, "base1")
+	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	robot.conf.Prefix = true
 	base1 = robot.BaseByName("one.base1")
-	test.That(t, base1.(*fake.Base).Name, test.ShouldEqual, "base1")
+	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	test.That(t, robot.BaseByName("base1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	gripper1 := robot.GripperByName("gripper1")
-	test.That(t, gripper1.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
+	test.That(t, gripper1.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
 	robot.conf.Prefix = true
 	gripper1 = robot.GripperByName("one.gripper1")
-	test.That(t, gripper1.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
+	test.That(t, gripper1.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
 	test.That(t, robot.GripperByName("gripper1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	camera1 := robot.CameraByName("camera1")
-	test.That(t, camera1.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	robot.conf.Prefix = true
 	camera1 = robot.CameraByName("one.camera1")
-	test.That(t, camera1.(*fake.Camera).Name, test.ShouldEqual, "camera1")
+	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	test.That(t, robot.CameraByName("camera1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	lidar1 := robot.LidarByName("lidar1")
-	test.That(t, lidar1.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
+	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
 	robot.conf.Prefix = true
 	lidar1 = robot.LidarByName("one.lidar1")
-	test.That(t, lidar1.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
+	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
 	test.That(t, robot.LidarByName("lidar1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	board1 := robot.BoardByName("board1")
-	test.That(t, board1.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
 	robot.conf.Prefix = true
 	board1 = robot.BoardByName("one.board1")
-	test.That(t, board1.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
+	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
 	test.That(t, robot.BoardByName("board1_what"), test.ShouldBeNil)
 
 	robot.conf.Prefix = false
 	sensor1 := robot.SensorByName("sensor1")
-	test.That(t, sensor1.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
+	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	robot.conf.Prefix = true
 	sensor1 = robot.SensorByName("one.sensor1")
-	test.That(t, sensor1.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
+	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	test.That(t, robot.SensorByName("sensor1_what"), test.ShouldBeNil)
 
 	wrapped.errRefresh = true
@@ -327,10 +327,10 @@ func TestRemoteRobot(t *testing.T) {
 
 	robot.conf.Prefix = false
 	pieceGripper := robot.GripperByName("pieceGripper")
-	test.That(t, pieceGripper.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
+	test.That(t, pieceGripper.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
 	robot.conf.Prefix = true
 	pieceGripper = robot.GripperByName("one.pieceGripper")
-	test.That(t, pieceGripper.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
+	test.That(t, pieceGripper.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
 
 	test.That(t, robot.SensorByName("sensor1"), test.ShouldBeNil)
 	test.That(t, robot.SensorByName("one.sensor1"), test.ShouldBeNil)

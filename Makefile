@@ -44,17 +44,13 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --config=./etc/.golangci.yaml
 
 cover:
-	(trap 'kill 0' INT;\
-		go test -tags=no_skip -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
-		go test -tags=no_skip -coverprofile=coverage2.txt go.viam.com/core/vision/... go.viam.com/core/rimage/... &\
-		wait)
+	go test -tags=no_skip -race -coverprofile=coverage.txt `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"`
+	go test -tags=no_skip -coverprofile=coverage2.txt go.viam.com/core/vision/... go.viam.com/core/rimage/...
 	sed '1d' coverage2.txt >> coverage.txt
 
 test:
-	(trap 'kill 0' INT;\
-		go test -tags=no_skip -race `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"` &\
-		go test -tags=no_skip go.viam.com/core/vision/... go.viam.com/core/rimage/... &\
-		wait)
+	go test -tags=no_skip -race `go list ./... | grep -Ev "go.viam.com/core/(vision|rimage)"`
+	go test -tags=no_skip go.viam.com/core/vision/... go.viam.com/core/rimage/...
 
 testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/core/board/pi

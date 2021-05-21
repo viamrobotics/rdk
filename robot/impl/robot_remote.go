@@ -18,7 +18,6 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rexec"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/utils"
@@ -58,15 +57,21 @@ func newRemoteRobot(robot robot.Robot, config config.Remote) *remoteRobot {
 func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	if err := rr.robot.Refresh(ctx); err != nil {
+	refresher, ok := rr.robot.(robot.Refresher)
+	if !ok {
+		return nil
+	}
+	if err := refresher.Refresh(ctx); err != nil {
 		return err
 	}
 	rr.parts = partsForRemoteRobot(rr.robot)
 	return nil
 }
 
-// Reconfigure replaces this robot with the given robot.
-func (rr *remoteRobot) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
+// replace replaces this robot with the given robot. We can do a full
+// replacement here since we will always get a full view of the parts,
+// not one partially created from a diff.
+func (rr *remoteRobot) replace(newRobot robot.Robot) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
@@ -75,9 +80,7 @@ func (rr *remoteRobot) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
 		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newRobot))
 	}
 
-	if err := rr.parts.Reconfigure(actual.parts, diff); err != nil {
-		rlog.Logger.Errorw("error during reconfiguration but proceeding", "error", err)
-	}
+	rr.parts.replaceForRemote(actual.parts)
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
@@ -274,4 +277,167 @@ func (rr *remoteRobot) Logger() golog.Logger {
 
 func (rr *remoteRobot) Close() error {
 	return utils.TryClose(rr.robot)
+}
+
+// partsForRemoteRobot integrates all parts from a given robot
+// except for its remotes. This is for a remote robot to integrate
+// which should be unaware of remotes.
+// Be sure to update this function if robotParts grows.
+func partsForRemoteRobot(robot robot.Robot) *robotParts {
+	parts := newRobotParts(robot.Logger().Named("parts"))
+	for _, name := range robot.ArmNames() {
+		parts.AddArm(robot.ArmByName(name), config.Component{Name: name})
+	}
+	for _, name := range robot.BaseNames() {
+		parts.AddBase(robot.BaseByName(name), config.Component{Name: name})
+	}
+	for _, name := range robot.BoardNames() {
+		parts.AddBoard(robot.BoardByName(name), board.Config{Name: name})
+	}
+	for _, name := range robot.CameraNames() {
+		parts.AddCamera(robot.CameraByName(name), config.Component{Name: name})
+	}
+	for _, name := range robot.GripperNames() {
+		parts.AddGripper(robot.GripperByName(name), config.Component{Name: name})
+	}
+	for _, name := range robot.LidarNames() {
+		parts.AddLidar(robot.LidarByName(name), config.Component{Name: name})
+	}
+	for _, name := range robot.SensorNames() {
+		parts.AddSensor(robot.SensorByName(name), config.Component{Name: name})
+	}
+	return parts
+}
+
+// replaceForRemote replaces these parts with the given parts coming from a remote.
+func (parts *robotParts) replaceForRemote(newParts *robotParts) {
+	var oldBoardNames map[string]struct{}
+	var oldArmNames map[string]struct{}
+	var oldGripperNames map[string]struct{}
+	var oldCameraNames map[string]struct{}
+	var oldLidarNames map[string]struct{}
+	var oldBaseNames map[string]struct{}
+	var oldSensorNames map[string]struct{}
+
+	if len(parts.boards) != 0 {
+		oldBoardNames = make(map[string]struct{}, len(parts.boards))
+		for name := range parts.boards {
+			oldBoardNames[name] = struct{}{}
+		}
+	}
+	if len(parts.arms) != 0 {
+		oldArmNames = make(map[string]struct{}, len(parts.arms))
+		for name := range parts.arms {
+			oldArmNames[name] = struct{}{}
+		}
+	}
+	if len(parts.grippers) != 0 {
+		oldGripperNames = make(map[string]struct{}, len(parts.grippers))
+		for name := range parts.grippers {
+			oldGripperNames[name] = struct{}{}
+		}
+	}
+	if len(parts.cameras) != 0 {
+		oldCameraNames = make(map[string]struct{}, len(parts.cameras))
+		for name := range parts.cameras {
+			oldCameraNames[name] = struct{}{}
+		}
+	}
+	if len(parts.lidars) != 0 {
+		oldLidarNames = make(map[string]struct{}, len(parts.lidars))
+		for name := range parts.lidars {
+			oldLidarNames[name] = struct{}{}
+		}
+	}
+	if len(parts.bases) != 0 {
+		oldBaseNames = make(map[string]struct{}, len(parts.bases))
+		for name := range parts.bases {
+			oldBaseNames[name] = struct{}{}
+		}
+	}
+	if len(parts.sensors) != 0 {
+		oldSensorNames = make(map[string]struct{}, len(parts.sensors))
+		for name := range parts.sensors {
+			oldSensorNames[name] = struct{}{}
+		}
+	}
+
+	for name, newPart := range newParts.boards {
+		oldPart, ok := parts.boards[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.boards[name] = newPart
+	}
+	for name, newPart := range newParts.arms {
+		oldPart, ok := parts.arms[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.arms[name] = newPart
+	}
+	for name, newPart := range newParts.grippers {
+		oldPart, ok := parts.grippers[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.grippers[name] = newPart
+	}
+	for name, newPart := range newParts.cameras {
+		oldPart, ok := parts.cameras[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.cameras[name] = newPart
+	}
+	for name, newPart := range newParts.lidars {
+		oldPart, ok := parts.lidars[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.lidars[name] = newPart
+	}
+	for name, newPart := range newParts.bases {
+		oldPart, ok := parts.bases[name]
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		parts.bases[name] = newPart
+	}
+	for name, newPart := range newParts.sensors {
+		oldPart, ok := parts.sensors[name]
+		if ok {
+			oldPart.(interface{ replace(newSensor sensor.Sensor) }).replace(newPart)
+			continue
+		}
+		parts.sensors[name] = newPart
+	}
+
+	for name := range oldBoardNames {
+		delete(parts.boards, name)
+	}
+	for name := range oldArmNames {
+		delete(parts.arms, name)
+	}
+	for name := range oldGripperNames {
+		delete(parts.grippers, name)
+	}
+	for name := range oldCameraNames {
+		delete(parts.cameras, name)
+	}
+	for name := range oldLidarNames {
+		delete(parts.lidars, name)
+	}
+	for name := range oldBaseNames {
+		delete(parts.bases, name)
+	}
+	for name := range oldSensorNames {
+		delete(parts.sensors, name)
+	}
 }

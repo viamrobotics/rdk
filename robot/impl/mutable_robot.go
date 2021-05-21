@@ -37,6 +37,8 @@ import (
 	"github.com/go-errors/errors"
 )
 
+var _ = robot.MutableRobot(&mutableRobot{})
+
 // mutableRobot satisfies robot.MutableRobot and defers most
 // logic to its parts.
 type mutableRobot struct {
@@ -46,141 +48,149 @@ type mutableRobot struct {
 	logger golog.Logger
 }
 
+// RemoteByName returns a remote robot by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) RemoteByName(name string) robot.Robot {
 	return r.parts.RemoteByName(name)
 }
 
+// BoardByName returns a board by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) BoardByName(name string) board.Board {
 	return r.parts.BoardByName(name)
 }
 
+// ArmByName returns an arm by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) ArmByName(name string) arm.Arm {
 	return r.parts.ArmByName(name)
 }
 
+// BaseByName returns a base by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) BaseByName(name string) base.Base {
 	return r.parts.BaseByName(name)
 }
 
+// GripperByName returns a gripper by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) GripperByName(name string) gripper.Gripper {
 	return r.parts.GripperByName(name)
 }
 
+// CameraByName returns a camera by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) CameraByName(name string) camera.Camera {
 	return r.parts.CameraByName(name)
 }
 
+// LidarByName returns a lidar by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) LidarByName(name string) lidar.Lidar {
 	return r.parts.LidarByName(name)
 }
 
+// SensorByName returns a sensor by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) SensorByName(name string) sensor.Sensor {
 	return r.parts.SensorByName(name)
 }
 
+// ProviderByName returns a provider by name. If it does not exist
+// nil is returned.
 func (r *mutableRobot) ProviderByName(name string) robot.Provider {
 	return r.parts.ProviderByName(name)
 }
 
-func (r *mutableRobot) AddRemote(rr robot.Robot, c config.Remote) {
-	r.parts.AddRemote(rr, c)
-}
-
-func (r *mutableRobot) AddBoard(b board.Board, c board.Config) {
-	r.parts.AddBoard(b, c)
-}
-
-func (r *mutableRobot) AddArm(a arm.Arm, c config.Component) {
-	r.parts.AddArm(a, c)
-}
-
-func (r *mutableRobot) AddGripper(g gripper.Gripper, c config.Component) {
-	r.parts.AddGripper(g, c)
-}
-
+// AddCamera adds a camera to the robot.
 func (r *mutableRobot) AddCamera(c camera.Camera, cc config.Component) {
 	r.parts.AddCamera(c, cc)
 }
 
-func (r *mutableRobot) AddLidar(l lidar.Lidar, c config.Component) {
-	r.parts.AddLidar(l, c)
-}
-
+// AddBase adds a base to the robot.
 func (r *mutableRobot) AddBase(b base.Base, c config.Component) {
 	r.parts.AddBase(b, c)
 }
 
-func (r *mutableRobot) AddSensor(s sensor.Sensor, c config.Component) {
-	r.parts.AddSensor(s, c)
-}
-
+// AddProvider adds a provider to the robot.
 func (r *mutableRobot) AddProvider(p robot.Provider, c config.Component) {
 	r.parts.AddProvider(p, c)
 }
 
+// RemoteNames returns the name of all known remote robots.
 func (r *mutableRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
 }
 
+// ArmNames returns the name of all known arms.
 func (r *mutableRobot) ArmNames() []string {
 	return r.parts.ArmNames()
 }
 
+// GripperNames returns the name of all known grippers.
 func (r *mutableRobot) GripperNames() []string {
 	return r.parts.GripperNames()
 }
 
+// CameraNames returns the name of all known cameras.
 func (r *mutableRobot) CameraNames() []string {
 	return r.parts.CameraNames()
 }
 
+// LidarNames returns the name of all known lidars.
 func (r *mutableRobot) LidarNames() []string {
 	return r.parts.LidarNames()
 }
 
+// BaseNames returns the name of all known bases.
 func (r *mutableRobot) BaseNames() []string {
 	return r.parts.BaseNames()
 }
 
+// BoardNames returns the name of all known boards.
 func (r *mutableRobot) BoardNames() []string {
 	return r.parts.BoardNames()
 }
 
+// SensorNames returns the name of all known sensors.
 func (r *mutableRobot) SensorNames() []string {
 	return r.parts.SensorNames()
 }
 
+// ProcessManager returns the process manager for the robot.
 func (r *mutableRobot) ProcessManager() rexec.ProcessManager {
 	return r.parts.processManager
 }
 
+// Close attempts to cleanly close down all constituent parts of the robot.
 func (r *mutableRobot) Close() error {
 	return r.parts.Close()
 }
 
+// Config returns the config used to construct the robot.
+// This is allowed to be partial or empty.
 func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 	return r.config, nil
 }
 
+// Status returns the current status of the robot. Usually you
+// should use the CreateStatus helper instead of directly calling
+// this.
 func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
+// Logger returns the logger the robot is using.
 func (r *mutableRobot) Logger() golog.Logger {
 	return r.logger
 }
 
-// NewBlank returns a new robot with no parts.
-func NewBlank(logger golog.Logger) robot.MutableRobot {
-	return &mutableRobot{
+// New returns a new robot with parts sourced from the given config.
+func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.MutableRobot, error) {
+	r := &mutableRobot{
 		parts:  newRobotParts(logger),
 		logger: logger,
 	}
-}
-
-// New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, config *config.Config, logger golog.Logger) (robot.MutableRobot, error) {
-	r := NewBlank(logger).(*mutableRobot)
 
 	var successful bool
 	defer func() {

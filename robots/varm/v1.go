@@ -4,7 +4,6 @@ package varm
 import (
 	"context"
 	_ "embed" // for embedding model file
-	"fmt"
 	"math"
 	"time"
 
@@ -315,15 +314,6 @@ func (a *ArmV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	joints.Degrees[joint] += amountDegs
 
 	return a.MoveToJointPositions(ctx, joints)
-}
-
-// Reconfigure replaces this arm with the given arm.
-func (a *ArmV1) Reconfigure(newArm arm.Arm) {
-	actual, ok := newArm.(*ArmV1)
-	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
-	}
-	*a = *actual
 }
 
 func computeInnerJointAngle(j0, j1 float64) float64 {

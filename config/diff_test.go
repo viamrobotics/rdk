@@ -358,13 +358,28 @@ func TestDiffConfigs(t *testing.T) {
 			diff.prettyDiff = ""
 			tc.Expected.Left = diff.Left
 			tc.Expected.Right = diff.Right
+			for name, boardDiff := range tc.Expected.Modified.Boards {
+				for _, b := range left.Boards {
+					if b.Name == name {
+						boardDiff.Left = &b
+						break
+					}
+				}
+				for _, b := range right.Boards {
+					if b.Name == name {
+						boardDiff.Right = &b
+						break
+					}
+				}
+				tc.Expected.Modified.Boards[name] = boardDiff
+			}
 
 			test.That(t, diff, test.ShouldResemble, &tc.Expected)
 		})
 	}
 }
 
-func TestDiffConfigErrors(t *testing.T) {
+func TestDiffConfigHeterogenousTypes(t *testing.T) {
 	for _, tc := range []struct {
 		Name      string
 		LeftFile  string
@@ -375,13 +390,13 @@ func TestDiffConfigErrors(t *testing.T) {
 			"board model",
 			"data/diff_config_1.json",
 			"data/diff_config_1_board_model.json",
-			"cannot modify model of existing board",
+			"",
 		},
 		{
 			"digital interrupt type",
 			"data/diff_config_1.json",
 			"data/diff_config_1_digital_interrupt_type.json",
-			"cannot modify type of existing digital interrupt",
+			"",
 		},
 		{
 			"component type",
@@ -399,7 +414,7 @@ func TestDiffConfigErrors(t *testing.T) {
 			"component model",
 			"data/diff_config_1.json",
 			"data/diff_config_1_component_model.json",
-			"cannot modify model of existing component",
+			"",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
@@ -409,6 +424,10 @@ func TestDiffConfigErrors(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = DiffConfigs(left, right)
+			if tc.Expected == "" {
+				test.That(t, err, test.ShouldBeNil)
+				return
+			}
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, tc.Expected)
 		})

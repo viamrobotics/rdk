@@ -2,38 +2,17 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/core/config"
-	"go.viam.com/core/robot"
 )
 
-// Reconfigure replaces this robot with the given robot.
-func (r *mutableRobot) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
-	actual, ok := newRobot.(*mutableRobot)
-	if !ok {
-		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newRobot))
-	}
-
-	r.mu.Lock()
-	actual.mu.Lock()
-	defer actual.mu.Unlock()
-	defer r.mu.Unlock()
-
-	if err := r.parts.Reconfigure(actual.parts, diff); err != nil {
-		r.logger.Errorw("error during reconfiguration but proceeding", "error", err)
-	}
-	r.config = actual.config
-	r.logger = actual.logger
-}
-
-// ReconfigureFromConfig will safely reconfigure a robot based on the given config. It will make
+// Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources.
-func (r *mutableRobot) ReconfigureFromConfig(ctx context.Context, newConfig *config.Config) error {
+func (r *mutableRobot) Reconfigure(ctx context.Context, newConfig *config.Config) error {
 	diff, err := config.DiffConfigs(r.config, newConfig)
 	if err != nil {
 		return err
