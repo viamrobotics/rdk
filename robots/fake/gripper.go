@@ -2,14 +2,12 @@ package fake
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 )
 
@@ -37,16 +35,4 @@ func (g *Gripper) Close() error {
 // Grab does nothing.
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	return false, nil
-}
-
-// Reconfigure replaces this gripper with the given gripper.
-func (g *Gripper) Reconfigure(newGripper gripper.Gripper) {
-	actual, ok := newGripper.(*Gripper)
-	if !ok {
-		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
-	}
-	if err := g.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*g = *actual
 }

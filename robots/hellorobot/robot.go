@@ -3,7 +3,6 @@ package hellorobot
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -66,15 +65,6 @@ func New() (*Robot, error) {
 // Ready does nothing.
 func (r *Robot) Ready(theRobot robot.Robot) error {
 	return nil
-}
-
-// Reconfigure replaces this provider with the given provider.
-func (r *Robot) Reconfigure(newProvider robot.Provider) {
-	actual, ok := newProvider.(*Robot)
-	if !ok {
-		panic(fmt.Errorf("expected new provider to be %T but got %T", actual, newProvider))
-	}
-	*r = *actual
 }
 
 func (r *Robot) pushCommand() error {

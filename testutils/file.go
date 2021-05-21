@@ -14,7 +14,6 @@ import (
 
 // TempDirT creates a temporary directory and fails the test if it cannot.
 func TempDirT(t *testing.T, dir, pattern string) string {
-	t.Helper()
 	tempDir, err := TempDir(dir, pattern)
 	test.That(t, err, test.ShouldBeNil)
 	return tempDir

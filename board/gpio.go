@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -108,13 +107,4 @@ func (m *GPIOMotor) Off(ctx context.Context) error {
 		m.Board.GPIOSet(m.A, false),
 		m.Board.GPIOSet(m.B, false),
 	)
-}
-
-// Reconfigure replaces this motor with the given motor.
-func (m *GPIOMotor) Reconfigure(newMotor Motor) {
-	actual, ok := newMotor.(*GPIOMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	*m = *actual
 }

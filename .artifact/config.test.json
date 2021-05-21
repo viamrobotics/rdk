@@ -1,8 +1,0 @@
-{
-    "cache": "/github/home/artifact_cache",
-    "store":
-    {
-        "type": "google_storage",
-        "bucket": "viam-artifacts"
-    }
-}

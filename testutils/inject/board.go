@@ -60,14 +60,6 @@ func (b *Board) Close() error {
 	return b.CloseFunc()
 }
 
-// Config calls the injected Config or the real version.
-func (b *Board) Config(ctx context.Context) (board.Config, error) {
-	if b.ConfigFunc == nil {
-		return b.Board.Config(ctx)
-	}
-	return b.ConfigFunc(ctx)
-}
-
 // Status calls the injected Status or the real version.
 func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	if b.StatusFunc == nil {

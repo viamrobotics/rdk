@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -156,18 +155,6 @@ func (gy *GY511) Heading(ctx context.Context) (float64, error) {
 		return math.NaN(), nil
 	}
 	return heading, nil
-}
-
-// Reconfigure replaces this compass with the given compass.
-func (gy *GY511) Reconfigure(newCompass sensor.Sensor) {
-	actual, ok := newCompass.(*GY511)
-	if !ok {
-		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
-	}
-	if err := gy.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*gy = *actual
 }
 
 // Close terminates the serial connection.

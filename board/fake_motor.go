@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -85,13 +84,4 @@ func (m *FakeMotor) IsOn(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.d != pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED && m.powerPct > 0, nil
-}
-
-// Reconfigure replaces this motor with the given motor.
-func (m *FakeMotor) Reconfigure(newMotor Motor) {
-	actual, ok := newMotor.(*FakeMotor)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	*m = *actual
 }

@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"image"
 	"math"
 	"runtime/debug"
@@ -22,7 +21,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/rpc"
 	"go.viam.com/core/sensor"
@@ -49,7 +47,7 @@ type RobotClient struct {
 	armNames     []string
 	baseNames    []string
 	gripperNames []string
-	boardNames   []string
+	boardNames   []boardInfo
 	cameraNames  []string
 	lidarNames   []string
 	sensorNames  []string
@@ -123,6 +121,14 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		}, rc.activeBackgroundWorkers.Done)
 	}
 	return rc, nil
+}
+
+type boardInfo struct {
+	name                  string
+	motorNames            []string
+	servoNames            []string
+	analogReaderNames     []string
+	digitalInterruptNames []string
 }
 
 // NewClient constructs a new RobotClient that is served at the given address. The given
@@ -237,7 +243,12 @@ func (rc *RobotClient) LidarByName(name string) lidar.Lidar {
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) board.Board {
-	return &boardClient{rc, name}
+	for _, info := range rc.boardNames {
+		if info.name == name {
+			return &boardClient{rc, info}
+		}
+	}
+	return nil
 }
 
 // SensorByName returns a sensor by name. It is assumed to exist on the
@@ -294,9 +305,34 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 	}
 	rc.boardNames = nil
 	if len(status.Boards) != 0 {
-		rc.boardNames = make([]string, 0, len(status.Boards))
-		for name := range status.Boards {
-			rc.boardNames = append(rc.boardNames, name)
+		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
+		for name, boardStatus := range status.Boards {
+			info := boardInfo{name: name}
+			if len(boardStatus.Motors) != 0 {
+				info.motorNames = make([]string, 0, len(boardStatus.Motors))
+				for name := range boardStatus.Motors {
+					info.motorNames = append(info.motorNames, name)
+				}
+			}
+			if len(boardStatus.Servos) != 0 {
+				info.servoNames = make([]string, 0, len(boardStatus.Servos))
+				for name := range boardStatus.Servos {
+					info.servoNames = append(info.servoNames, name)
+				}
+			}
+			if len(boardStatus.Analogs) != 0 {
+				info.analogReaderNames = make([]string, 0, len(boardStatus.Analogs))
+				for name := range boardStatus.Analogs {
+					info.analogReaderNames = append(info.analogReaderNames, name)
+				}
+			}
+			if len(boardStatus.DigitalInterrupts) != 0 {
+				info.digitalInterruptNames = make([]string, 0, len(boardStatus.DigitalInterrupts))
+				for name := range boardStatus.DigitalInterrupts {
+					info.digitalInterruptNames = append(info.digitalInterruptNames, name)
+				}
+			}
+			rc.boardNames = append(rc.boardNames, info)
 		}
 	}
 	rc.cameraNames = nil
@@ -376,7 +412,11 @@ func (rc *RobotClient) BaseNames() []string {
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.boardNames)
+	out := make([]string, 0, len(rc.boardNames))
+	for _, info := range rc.boardNames {
+		out = append(out, info.name)
+	}
+	return out
 }
 
 // SensorNames returns the names of all known sensors.
@@ -415,18 +455,6 @@ func (rc *RobotClient) AddProvider(p robot.Provider, c config.Component) {
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
-}
-
-// Reconfigure replaces this robot with the given robot.
-func (rc *RobotClient) Reconfigure(newRobot robot.Robot, diff *config.Diff) {
-	actual, ok := newRobot.(*RobotClient)
-	if !ok {
-		panic(fmt.Errorf("expected new robot to be %T but got %T", actual, newRobot))
-	}
-	if err := rc.Close(); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	*rc = *actual
 }
 
 // baseClient satisfies a gRPC based base.Base. Refer to the interface
@@ -481,15 +509,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	return 0, errUnimplemented
 }
 
-// Reconfigure replaces this base with the given base.
-func (bc *baseClient) Reconfigure(newBase base.Base) {
-	actual, ok := newBase.(*baseClient)
-	if !ok {
-		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	*bc = *actual
-}
-
 // armClient satisfies a gRPC based arm.Arm. Refer to the interface
 // for descriptions of its methods.
 type armClient struct {
@@ -539,15 +558,6 @@ func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs f
 	return errUnimplemented
 }
 
-// Reconfigure replaces this arm with the given arm.
-func (ac *armClient) Reconfigure(newArm arm.Arm) {
-	actual, ok := newArm.(*armClient)
-	if !ok {
-		panic(fmt.Errorf("expected new arm to be %T but got %T", actual, newArm))
-	}
-	*ac = *actual
-}
-
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
 // for descriptions of its methods.
 type gripperClient struct {
@@ -572,26 +582,17 @@ func (gc *gripperClient) Grab(ctx context.Context) (bool, error) {
 	return resp.Grabbed, nil
 }
 
-// Reconfigure replaces this gripper with the given gripper.
-func (gc *gripperClient) Reconfigure(newGripper gripper.Gripper) {
-	actual, ok := newGripper.(*gripperClient)
-	if !ok {
-		panic(fmt.Errorf("expected new gripper to be %T but got %T", actual, newGripper))
-	}
-	*gc = *actual
-}
-
 // boardClient satisfies a gRPC based board.Board. Refer to the interface
 // for descriptions of its methods.
 type boardClient struct {
 	rc   *RobotClient
-	name string
+	info boardInfo
 }
 
 func (bc *boardClient) Motor(name string) board.Motor {
 	return &motorClient{
 		rc:        bc.rc,
-		boardName: bc.name,
+		boardName: bc.info.name,
 		motorName: name,
 	}
 }
@@ -599,42 +600,57 @@ func (bc *boardClient) Motor(name string) board.Motor {
 func (bc *boardClient) Servo(name string) board.Servo {
 	return &servoClient{
 		rc:        bc.rc,
-		boardName: bc.name,
+		boardName: bc.info.name,
 		servoName: name,
 	}
 }
 
 // AnalogReader needs to be implemented.
 func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return &analogReaderClient{
+		rc:               bc.rc,
+		boardName:        bc.info.name,
+		analogReaderName: name,
+	}
 }
 
 // DigitalInterrupt needs to be implemented.
 func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return &digitalInterruptClient{
+		rc:                   bc.rc,
+		boardName:            bc.info.name,
+		digitalInterruptName: name,
+	}
 }
 
-// Config is not yet implemented and probably will not be due to it not
-// making much sense in a remote context.
-func (bc *boardClient) Config(ctx context.Context) (board.Config, error) {
-	debug.PrintStack()
-	return board.Config{}, errUnimplemented
+func (bc *boardClient) MotorNames() []string {
+	return copyStringSlice(bc.info.motorNames)
+}
+
+func (bc *boardClient) ServoNames() []string {
+	return copyStringSlice(bc.info.servoNames)
+}
+
+func (bc *boardClient) AnalogReaderNames() []string {
+	return copyStringSlice(bc.info.analogReaderNames)
+}
+
+func (bc *boardClient) DigitalInterruptNames() []string {
+	return copyStringSlice(bc.info.digitalInterruptNames)
 }
 
 // Status uses the parent robot client's cached status or a newly fetched
 // board status to return the state of the board.
 func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	if status := bc.rc.getCachedStatus(); status != nil {
-		boardStatus, ok := status.Boards[bc.name]
+		boardStatus, ok := status.Boards[bc.info.name]
 		if !ok {
-			return nil, errors.Errorf("no board with name (%s)", bc.name)
+			return nil, errors.Errorf("no board with name (%s)", bc.info.name)
 		}
 		return boardStatus, nil
 	}
 	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
-		Name: bc.name,
+		Name: bc.info.name,
 	})
 	if err != nil {
 		return nil, err
@@ -642,13 +658,8 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 	return resp.Status, nil
 }
 
-// Reconfigure replaces this board with the given board.
-func (bc *boardClient) Reconfigure(newBoard board.Board, diff board.ConfigDiff) {
-	actual, ok := newBoard.(*boardClient)
-	if !ok {
-		panic(fmt.Errorf("expected new board to be %T but got %T", actual, newBoard))
-	}
-	*bc = *actual
+func (bc *boardClient) ModelAttributes() board.ModelAttributes {
+	return board.ModelAttributes{Remote: true}
 }
 
 // motorClient satisfies a gRPC based board.Motor. Refer to the interface
@@ -710,15 +721,6 @@ func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
 	return false, errUnimplemented
 }
 
-// Reconfigure replaces this motor with the given motor.
-func (mc *motorClient) Reconfigure(newMotor board.Motor) {
-	actual, ok := newMotor.(*motorClient)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newMotor))
-	}
-	*mc = *actual
-}
-
 // servoClient satisfies a gRPC based board.Servo. Refer to the interface
 // for descriptions of its methods.
 type servoClient struct {
@@ -742,13 +744,50 @@ func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
 	return 0, errUnimplemented
 }
 
-// Reconfigure replaces this servo with the given servo.
-func (sc *servoClient) Reconfigure(newServo board.Servo) {
-	actual, ok := newServo.(*servoClient)
-	if !ok {
-		panic(fmt.Errorf("expected new servo to be %T but got %T", actual, newServo))
-	}
-	*sc = *actual
+// analogReaderClient satisfies a gRPC based board.Motor. Refer to the interface
+// for descriptions of its methods.
+type analogReaderClient struct {
+	rc               *RobotClient
+	boardName        string
+	analogReaderName string
+}
+
+func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
+// digitalInterruptClient satisfies a gRPC based board.Motor. Refer to the interface
+// for descriptions of its methods.
+type digitalInterruptClient struct {
+	rc                   *RobotClient
+	boardName            string
+	digitalInterruptName string
+}
+
+func (dic *digitalInterruptClient) Config() board.DigitalInterruptConfig {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
+func (dic *digitalInterruptClient) Value() int64 {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
+func (dic *digitalInterruptClient) Tick(high bool, nanos uint64) {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
+func (dic *digitalInterruptClient) AddCallback(c chan bool) {
+	debug.PrintStack()
+	panic(errUnimplemented)
+}
+
+func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 // cameraClient satisfies a gRPC based camera.Camera. Refer to the interface
@@ -778,15 +817,6 @@ func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}
 
-}
-
-// Reconfigure replaces this camera with the given camera.
-func (cc *cameraClient) Reconfigure(newCamera camera.Camera) {
-	actual, ok := newCamera.(*cameraClient)
-	if !ok {
-		panic(fmt.Errorf("expected new camera to be %T but got %T", actual, newCamera))
-	}
-	*cc = *actual
 }
 
 func (cc *cameraClient) Close() error {
@@ -866,15 +896,6 @@ func (ldc *lidarClient) AngularResolution(ctx context.Context) (float64, error) 
 	return resp.AngularResolution, nil
 }
 
-// Reconfigure replaces this lidar with the given lidar.
-func (ldc *lidarClient) Reconfigure(newLidar lidar.Lidar) {
-	actual, ok := newLidar.(*lidarClient)
-	if !ok {
-		panic(fmt.Errorf("expected new motor to be %T but got %T", actual, newLidar))
-	}
-	*ldc = *actual
-}
-
 func measurementFromProto(pm *pb.LidarMeasurement) *lidar.Measurement {
 	return lidar.NewMeasurement(pm.AngleDeg, pm.Distance)
 }
@@ -913,15 +934,6 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 
 func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
-}
-
-// Reconfigure replaces this sensor with the given sensor.
-func (sc *sensorClient) Reconfigure(newSensor sensor.Sensor) {
-	actual, ok := newSensor.(*sensorClient)
-	if !ok {
-		panic(fmt.Errorf("expected new sensor to be %T but got %T", actual, newSensor))
-	}
-	*sc = *actual
 }
 
 // compassClient satisfies a gRPC based compass.Device. Refer to the interface
@@ -966,15 +978,6 @@ func (cc *compassClient) Desc() sensor.Description {
 	return sensor.Description{compass.Type, ""}
 }
 
-// Reconfigure replaces this sensor with the given sensor.
-func (cc *compassClient) Reconfigure(newCompass sensor.Sensor) {
-	actual, ok := newCompass.(*compassClient)
-	if !ok {
-		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
-	}
-	*cc = *actual
-}
-
 // relativeCompassClient satisfies a gRPC based compass.RelativeDevice. Refer to the interface
 // for descriptions of its methods.
 type relativeCompassClient struct {
@@ -990,13 +993,4 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
-}
-
-// Reconfigure replaces this sensor with the given sensor.
-func (rcc *relativeCompassClient) Reconfigure(newCompass sensor.Sensor) {
-	actual, ok := newCompass.(*relativeCompassClient)
-	if !ok {
-		panic(fmt.Errorf("expected new compass to be %T but got %T", actual, newCompass))
-	}
-	*rcc = *actual
 }

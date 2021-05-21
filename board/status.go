@@ -14,15 +14,9 @@ import (
 func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	var status pb.BoardStatus
 
-	cfg, err := b.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(cfg.Motors) != 0 {
-		status.Motors = make(map[string]*pb.MotorStatus, len(cfg.Motors))
-		for _, c := range cfg.Motors {
-			name := c.Name
+	if names := b.MotorNames(); len(names) != 0 {
+		status.Motors = make(map[string]*pb.MotorStatus, len(names))
+		for _, name := range names {
 			x := b.Motor(name)
 			isOn, err := x.IsOn(ctx)
 			if err != nil {
@@ -44,10 +38,9 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 		}
 	}
 
-	if len(cfg.Servos) != 0 {
-		status.Servos = make(map[string]*pb.ServoStatus, len(cfg.Servos))
-		for _, c := range cfg.Servos {
-			name := c.Name
+	if names := b.ServoNames(); len(names) != 0 {
+		status.Servos = make(map[string]*pb.ServoStatus, len(names))
+		for _, name := range names {
 			x := b.Servo(name)
 			current, err := x.Current(ctx)
 			if err != nil {
@@ -59,10 +52,9 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 		}
 	}
 
-	if len(cfg.Analogs) != 0 {
-		status.Analogs = make(map[string]*pb.AnalogStatus, len(cfg.Analogs))
-		for _, c := range cfg.Analogs {
-			name := c.Name
+	if names := b.AnalogReaderNames(); len(names) != 0 {
+		status.Analogs = make(map[string]*pb.AnalogStatus, len(names))
+		for _, name := range names {
 			x := b.AnalogReader(name)
 			val, err := x.Read(ctx)
 			if err != nil {
@@ -72,10 +64,9 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 		}
 	}
 
-	if len(cfg.DigitalInterrupts) != 0 {
-		status.DigitalInterrupts = make(map[string]*pb.DigitalInterruptStatus, len(cfg.DigitalInterrupts))
-		for _, c := range cfg.DigitalInterrupts {
-			name := c.Name
+	if names := b.DigitalInterruptNames(); len(names) != 0 {
+		status.DigitalInterrupts = make(map[string]*pb.DigitalInterruptStatus, len(names))
+		for _, name := range names {
 			x := b.DigitalInterrupt(name)
 			status.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
 		}
