@@ -35,7 +35,7 @@ func init() {
 // TODO
 const (
 	MaxCurrent              = 300
-	CurrentBadReadingCounts = 6
+	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
 	MaxRotationGap          = 3.0
 )
