@@ -85,7 +85,7 @@ type piPigpio struct {
 var (
 	initOnce   bool
 	instanceMu sync.Mutex
-	instances  map[*piPigpio]struct{}
+	instances  = map[*piPigpio]struct{}{}
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
