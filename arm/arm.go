@@ -30,9 +30,9 @@ type Arm interface {
 // defined by a point in space in meters and an orientation defined in radians.
 func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
-		X:  int64(x * 1000),
-		Y:  int64(y * 1000),
-		Z:  int64(z * 1000),
+		X:  x * 1000,
+		Y:  y * 1000,
+		Z:  z * 1000,
 		RX: utils.RadToDeg(rx),
 		RY: utils.RadToDeg(ry),
 		RZ: utils.RadToDeg(rz),

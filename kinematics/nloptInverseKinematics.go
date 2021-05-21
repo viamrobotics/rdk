@@ -5,7 +5,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
@@ -34,10 +33,10 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.resetHalting()
 	ik.Mdl = mdl
 	// How close we want to get to the goal
-	ik.epsilon = 0.01
+	ik.epsilon = 0.0001
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 50000
+	ik.maxIterations = 5
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
@@ -69,35 +68,36 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				dx[dxIdx+i] = delta
 			}
 		}
+		
+		dist := WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 
 		if len(gradient) > 0 {
-			// mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
-			// out into a bunch of variables instead of being nicely composed.
-			ik.Mdl.CalculateJacobian()
-			j := ik.Mdl.GetJacobian()
-			grad2 := mgl64.NewVecN(len(dx))
-			j2 := j.Transpose(mgl64.NewMatrix(j.NumCols(), j.NumRows()))
-			j2 = j2.Mul(j2, -2)
-
-			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
-			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
-			for i, v := range gradient2 {
-				gradient[i] = v
-				// Do some rounding on large (>2^15) numbers because of floating point inprecision
-				// Shouldn't matter since these values should converge to zero
-				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
-				// Then this might be your culprit
-				if math.Abs(v) > 1<<15 {
-					gradient[i] = math.Round(v)
+			
+			for i, _ := range gradient {
+				// Deep copy of our current joint positions
+				xBak := append([]float64{}, x...)
+				xBak[i] += 0.00000001
+				ik.Mdl.SetPosition(xBak)
+				ik.Mdl.ForwardPosition()
+				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*6)
+				for _, goal := range ik.GetGoals() {
+					dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+					dxIdx := goal.EffectorID * len(dxDelta)
+					for i, delta := range dxDelta {
+						dx2[dxIdx+i] = delta
+					}
 				}
+				dist2 := WeightedSquaredNorm(dx2, ik.Mdl.DistCfg)
+				
+				gradient[i] = dist2 - dist
 			}
 		}
 
 		// We need to use gradient to make the linter happy
-		if len(gradient) > 0 {
-			return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
-		}
-		return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
+		//~ if len(gradient) > 0 {
+			//~ return dist
+		//~ }
+		return dist
 	}
 
 	err = multierr.Combine(
@@ -199,6 +199,7 @@ func (ik *NloptIK) Solve() bool {
 		if result < ik.epsilon*ik.epsilon {
 			angles = ik.Mdl.ZeroInlineRotation(angles)
 			ik.Mdl.SetPosition(angles)
+			ik.Mdl.ForwardPosition()
 			return true
 		}
 		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
