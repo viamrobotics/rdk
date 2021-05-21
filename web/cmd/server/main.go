@@ -103,6 +103,12 @@ func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	}
 
 	nl.addToQueue(x)
+
+	if e.Level == zapcore.FatalLevel || e.Level == zapcore.DPanicLevel || e.Level == zapcore.PanicLevel {
+		// program is going to go away, let's try and sync all our messages before then
+		return nl.Sync()
+	}
+
 	return nil
 }
 
