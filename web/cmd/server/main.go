@@ -252,15 +252,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}()
 	}
 
-	err = finishMain(ctx, cfg, argsParsed, logger)
+	err = serveWeb(ctx, cfg, argsParsed, logger)
 	if err != nil {
-		// We do this to make sure we log to the cloud
-		logger.Error(err)
+		logger.Errorw("error serving web", "error", err)
 	}
 	return err
 }
 
-func finishMain(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
+func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
@@ -307,9 +306,6 @@ func finishMain(ctx context.Context, cfg *config.Config, argsParsed Arguments, l
 	options.SharedDir = argsParsed.SharedDir
 
 	err = web.RunWeb(ctx, myRobot, options, logger)
-	if err != nil {
-		logger.Errorw("error running web", "error", err)
-	}
 	<-onWatchDone
 	return err
 }
