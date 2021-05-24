@@ -252,6 +252,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}()
 	}
 
+	err = finishMain(ctx, cfg, argsParsed, logger)
+	if err != nil {
+		// We do this to make sure we log to the cloud
+		logger.Error(err)
+	}
+	return err
+}
+
+func finishMain(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
