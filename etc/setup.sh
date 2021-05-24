@@ -37,7 +37,13 @@ if [ "$(uname)" = "Darwin" ]; then
     exit 1
   fi
   brew tap bufbuild/buf
-	brew install libvpx x264 pkgconfig protobuf buf
+  brew bundle --file=- <<-EOS
+    brew "libvpx"
+    brew "x264"
+    brew "pkgconfig"
+    brew "protobuf", args: ["ignore-dependencies", "go"]
+    brew "buf"
+EOS
 	make python-macos
   curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
   chmod +x protoc-gen-grpc-web
