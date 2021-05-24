@@ -471,3 +471,16 @@ func EdgeHysteresisFiltering(mag *mat.Dense, low, high float64) (*image.Gray, er
 	}
 	return edges, nil
 }
+
+// InvertGrayImage produces a negated version of the input image
+func InvertGrayImage(img *image.Gray) *image.Gray {
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	dst := image.NewGray(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			val := img.At(x, y).(color.Gray)
+			dst.Set(x, y, color.Gray{255 - val.Y})
+		}
+	}
+	return dst
+}

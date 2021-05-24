@@ -11,7 +11,7 @@ import (
 
 // Vec2D represents the gradient of an image at a point.
 // The gradient has both a magnitude and direction.
-// Magnitude has values (0, infinity) and direction is [0, 2pi)
+// Magnitude has values (0, infinity) and direction is [-pi, pi]
 type Vec2D struct {
 	magnitude float64
 	direction float64
@@ -37,8 +37,35 @@ func (g Vec2D) Direction() float64 {
 	return g.direction
 }
 
+// Unit returns the Vec2D with magnitude 1
+func (g Vec2D) Unit() Vec2D {
+	return Vec2D{1., g.direction}
+}
+
+// Input a vector in polar coordinates and return the vector in cartesian coordinates.
+func (g Vec2D) Cartesian() (float64, float64) {
+	x := g.Magnitude() * math.Cos(g.Direction())
+	y := g.Magnitude() * math.Sin(g.Direction())
+	return x, y
+}
+
+func NewVec2D(mag, dir float64) Vec2D {
+	if mag < 0. {
+		panic("vector cannot have magnitude less than 0")
+	}
+	if dir > math.Pi || dir < -math.Pi {
+		panic("vector direction can only be between -pi and pi")
+	}
+	return Vec2D{mag, dir}
+}
+
 func (vf *VectorField2D) kxy(x, y int) int {
 	return (y * vf.width) + x
+}
+
+// MaxMagnitude returns the largest magnitude value in the field.
+func (vf *VectorField2D) MaxMagnitude() float64 {
+	return vf.maxMagnitude
 }
 
 // Width TODO
@@ -49,6 +76,11 @@ func (vf *VectorField2D) Width() int {
 // Height TODO
 func (vf *VectorField2D) Height() int {
 	return vf.height
+}
+
+// Contains returns whether the given point is in the vector field
+func (vf *VectorField2D) Contains(p image.Point) bool {
+	return p.X >= 0 && p.Y >= 0 && p.X < vf.width && p.Y < vf.height
 }
 
 // Get TODO
@@ -77,6 +109,21 @@ func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	}
 
 	return vf
+}
+
+// Blur takes in a radius and creates a new blurred vector field from the input vector field
+func (vf *VectorField2D) Blur(radius int) VectorField2D {
+	k := 1 + 2*radius
+	newVF := MakeEmptyVectorField2D(vf.Width(), vf.Height())
+	blur := VectorBlurFilter(k)
+	for y := 0; y < vf.Height(); y++ {
+		for x := 0; x < vf.Width(); x++ {
+			point := image.Point{x, y}
+			blurredVec := blur(point, vf)
+			newVF.Set(x, y, blurredVec)
+		}
+	}
+	return newVF
 }
 
 // MagnitudeField gets all the magnitudes of the gradient in the image as a mat.Dense.
@@ -159,4 +206,11 @@ func radZeroTo2Pi(rad float64) float64 {
 		rad += 2. * math.Pi
 	}
 	return rad
+}
+
+// Input a vector in cartesian coordinates and return the vector in polar coordinates.
+func getMagnitudeAndDirection(x, y float64) (float64, float64) {
+	mag := math.Sqrt(x*x + y*y)
+	dir := math.Atan2(y, x)
+	return mag, dir
 }
