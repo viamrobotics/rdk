@@ -433,6 +433,9 @@ func TestClient(t *testing.T) {
 	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	_, err = client.Config(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
@@ -453,6 +456,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
+	_, err = client.BaseByName("base1").WidthMillis(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+
 	_, err = client.ArmByName("arm1").CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -469,6 +475,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
+	err = client.ArmByName("arm1").JointMoveDelta(context.Background(), 0, 0)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+
 	err = client.GripperByName("gripper1").Open(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
@@ -478,6 +487,10 @@ func TestClient(t *testing.T) {
 
 	board1 := client.BoardByName("board1")
 	test.That(t, board1, test.ShouldNotBeNil)
+
+	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
+
+	test.That(t, client.BoardByName("boardwhat"), test.ShouldBeNil)
 
 	_, err = board1.Status(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -490,9 +503,30 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
+	err = board1.Motor("motor1").Power(context.Background(), 0)
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	_, err = board1.Motor("motor1").Position(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	_, err = board1.Motor("motor1").PositionSupported(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	err = board1.Motor("motor1").Off(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	_, err = board1.Motor("motor1").IsOn(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+
 	err = board1.Servo("servo1").Move(context.Background(), 5)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	_, err = board1.Servo("servo1").Current(context.Background())
+	test.That(t, err, test.ShouldEqual, errUnimplemented)
+
+	test.That(t, func() { board1.AnalogReader("analog1").Read(context.Background()) }, test.ShouldPanic)
+	test.That(t, func() { board1.DigitalInterrupt("digital1").Config() }, test.ShouldPanic)
+	test.That(t, func() { board1.DigitalInterrupt("digital1").Value() }, test.ShouldPanic)
+	test.That(t, func() { board1.DigitalInterrupt("digital1").Tick(true, 0) }, test.ShouldPanic)
+	test.That(t, func() { board1.DigitalInterrupt("digital1").AddCallback(nil) }, test.ShouldPanic)
+	test.That(t, func() { board1.DigitalInterrupt("digital1").AddPostProcessor(nil) }, test.ShouldPanic)
 
 	_, _, err = client.CameraByName("camera1").Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -531,6 +565,8 @@ func TestClient(t *testing.T) {
 	test.That(t, capBaseName, test.ShouldEqual, "base3")
 	test.That(t, spun, test.ShouldEqual, 7.2)
 
+	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
+
 	pos, err := client.ArmByName("arm1").CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
@@ -565,11 +601,17 @@ func TestClient(t *testing.T) {
 	test.That(t, gripperGrabCalled, test.ShouldBeTrue)
 	test.That(t, capGripperName, test.ShouldEqual, "gripper2")
 
-	boardStatus, err := client.BoardByName("board1").Status(context.Background())
+	board1 = client.BoardByName("board1")
+	boardStatus, err := board1.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, boardStatus.String(), test.ShouldResemble, status.Boards["board1"].String())
 
-	err = client.BoardByName("board1").Motor("motor1").Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
+	test.That(t, utils.NewStringSet(board1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("g"))
+	test.That(t, utils.NewStringSet(board1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1"))
+	test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1"))
+	test.That(t, utils.NewStringSet(board1.DigitalInterruptNames()...), test.ShouldResemble, utils.NewStringSet("encoder"))
+
+	err = board1.Motor("motor1").Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(1)})
 	test.That(t, capBoardName, test.ShouldEqual, "board1")
