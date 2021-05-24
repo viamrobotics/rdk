@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	"fmt"
 	"context"
 	"io/ioutil"
 	"math"
@@ -67,9 +66,9 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	pos := &pb.ArmPosition{}
-	pos.X = pos6d[0]
-	pos.Y = pos6d[1]
-	pos.Z = pos6d[2]
+	pos.X = int64(pos6d[0])
+	pos.Y = int64(pos6d[1])
+	pos.Z = int64(pos6d[2])
 	pos.RX = pos6d[3]
 	pos.RY = pos6d[4]
 	pos.RZ = pos6d[5]
@@ -84,11 +83,8 @@ func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
 
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
-	transform.SetTranslation(pos.X, pos.Y, pos.Z)
-	fmt.Println("toq", transform)
-	//~ fmt.Println("to", transform)
-	
-	
+	transform.SetTranslation(float64(pos.X), float64(pos.Y), float64(pos.Z))
+
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
 	k.Model.ForwardPosition()

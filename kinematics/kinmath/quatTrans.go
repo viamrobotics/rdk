@@ -2,7 +2,6 @@
 package kinmath
 
 import (
-	//~ "fmt"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -32,7 +31,7 @@ func NewQuatTransFromRotation(x, y, z float64) *QuatTrans {
 	}}
 }
 
-// Clone TODO
+// Clone returns a QuatTrans object identical to this one
 func (m *QuatTrans) Clone() *QuatTrans {
 	t := &QuatTrans{}
 	// No need for deep copies here, dualquats are primitives all the way down
@@ -40,24 +39,20 @@ func (m *QuatTrans) Clone() *QuatTrans {
 	return t
 }
 
-// Quaternion TODO
-func (m *QuatTrans) Quaternion() dualquat.Number {
-	return m.Quat
-}
-
 // Rotation returns the rotation quaternion.
 func (m *QuatTrans) Rotation() quat.Number {
 	return m.Quat.Real
 }
 
-// Translation returns the translation quaternion.
-func (m *QuatTrans) Translation() quat.Number {
-	return m.Quat.Dual
+// Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat
+// and the dual is
+func (m *QuatTrans) Translation() dualquat.Number {
+	return dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation
 func (m *QuatTrans) SetTranslation(x, y, z float64) {
-	m.Quat.Dual = quat.Number{0, x/2, y/2, z/2}
+	m.Quat.Dual = quat.Number{0, x / 2, y / 2, z / 2}
 	m.Rotate()
 }
 
@@ -78,7 +73,7 @@ func (m *QuatTrans) SetZ(z float64) {
 
 // Rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
 func (m *QuatTrans) Rotate() {
-	m.Quat.Dual = quat.Mul(m.Quat.Real, m.Quat.Dual)
+	m.Quat.Dual = quat.Mul(m.Quat.Dual, m.Quat.Real)
 }
 
 // ToDelta returns the difference between two QuatTrans'.
@@ -98,16 +93,14 @@ func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
 	return ret
 }
 
-// Transformation TODO
+// Transformation multiplies the dual quat contained in this QuatTrans by another dual quat
 func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
+	// Ensure we are multiplying by a unit dual quaternion
 	if len := quat.Abs(by.Real); len != 1 {
 		by.Real = quat.Scale(1/len, by.Real)
 	}
-	
+
 	result := dualquat.Mul(m.Quat, by)
-	//~ if(result.Real.Kmag < 0){
-		//~ result.Real = Flip(result.Real)
-	//~ }
 
 	return result
 }
@@ -121,16 +114,15 @@ func QuatToAxisAngle(q quat.Number) []float64 {
 	if q.Real < 0 {
 		angle *= -1
 	}
-	//~ fmt.Println("q angle", angle)
 
 	axisAngle := []float64{}
 
 	if denom < 1e-6 {
 		axisAngle = append(axisAngle, angle, 0, 0)
 	} else {
-		axisAngle = append(axisAngle, angle * q.Imag/denom)
-		axisAngle = append(axisAngle, angle * q.Jmag/denom)
-		axisAngle = append(axisAngle, angle * q.Kmag/denom)
+		axisAngle = append(axisAngle, angle*q.Imag/denom)
+		axisAngle = append(axisAngle, angle*q.Jmag/denom)
+		axisAngle = append(axisAngle, angle*q.Kmag/denom)
 	}
 	return axisAngle
 }
@@ -139,17 +131,16 @@ func QuatToAxisAngle(q quat.Number) []float64 {
 // See: https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToQuaternion/index.htm
 func AxisAngleToQuat(x, y, z float64) quat.Number {
 	angle := math.Sqrt(x*x + y*y + z*z)
-	//~ fmt.Println("aa angle", angle)
-	sinA := math.Sin(angle/2)
+	sinA := math.Sin(angle / 2)
 	// Get the unit-sphere components
 	if angle < 1e-6 {
 		// If angle is zero, we return the identity quaternion
 		return quat.Number{1, 0, 0, 0}
 	}
-	ax := x/angle * sinA
-	ay := y/angle * sinA
-	az := z/angle * sinA
-	w := math.Cos(angle/2)
+	ax := x / angle * sinA
+	ay := y / angle * sinA
+	az := z / angle * sinA
+	w := math.Cos(angle / 2)
 	quatAA := quat.Number{w, ax, ay, az}
 	return quatAA
 }
@@ -177,7 +168,8 @@ func QuatToEuler(q quat.Number) []float64 {
 	return angles
 }
 
-// MatToEuler TODO
+// MatToEuler Converts a 4x4 matrix to Euler angles.
+// Euler angles are terrible, don't use them.
 func MatToEuler(mat mgl64.Mat4) []float64 {
 	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
 	singular := sy < 1e-6

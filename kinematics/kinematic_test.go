@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-//~ "fmt"
+	//~ "fmt"
 	"math"
 	"testing"
 
@@ -49,7 +49,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	expect = []float64{258.0935, -258.0935, 360.25, 0.744, -0.31, -0.744}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-	
+
 	// Test the 6dof arm we actually have
 	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/ur5.json"))
 	test.That(t, err, test.ShouldBeNil)

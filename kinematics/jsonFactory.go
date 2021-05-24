@@ -100,7 +100,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 		linkT.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 		model.Edges[linkT.GetEdgeDescriptor()] = linkT
 		linkT.t = kinmath.NewQuatTrans()
-		
+
 		linkT.t.SetTranslation(link.Translation.X, link.Translation.Y, link.Translation.Z)
 	}
 

@@ -24,7 +24,7 @@ func TestCreateJacIKSolver(t *testing.T) {
 	pos.RZ *= math.Pi / 180
 
 	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
-	transform.SetTranslation(pos.X, pos.Y, pos.Z)
+	transform.SetTranslation(float64(pos.X), float64(pos.Y), float64(pos.Z))
 
 	ik.AddGoal(transform, 0)
 	solved := ik.Solve()

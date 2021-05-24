@@ -49,10 +49,10 @@ func TestCombinedIKinematics(t *testing.T) {
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 }
-func TestBenchCombinedIKinematics(t *testing.T) {
+func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 	nCPU := runtime.NumCPU()
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s_mm.json"), nCPU, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/eva.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
@@ -63,11 +63,7 @@ func TestBenchCombinedIKinematics(t *testing.T) {
 		jPos := wxArm.Model.RandomJointPositions()
 		wxArm.Model.SetPosition(jPos)
 		rPos := wxArm.GetForwardPosition()
-		fmt.Println("at", rPos)
-		fmt.Println("atq", wxArm.Model.GetOperationalPosition(0))
-		//~ startPos := wxArm.Model.RandomJointPositions()
-		//~ wxArm.Model.SetPosition(startPos)
-		wxArm.Model.SetPosition([]float64{0,0,0,0,0,0})
+		wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
 		err = wxArm.SetForwardPosition(rPos)
 		if err == nil {
 			solved++
@@ -101,23 +97,21 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
-	
+
 	wxArm.Model.SetPosition([]float64{2.2504444089658406, -3.5367666493993783, -1.864931855627623, -1.7483413388268039, 0.8881065796393912, 4.555201747501936})
 	wxArm.Model.ForwardPosition()
 	goal := wxArm.Model.GetOperationalPosition(0).Clone()
-	fmt.Println("at 6d", wxArm.GetForwardPosition())
-	fmt.Println("at quat", wxArm.Model.GetOperationalPosition(0))
-	wxArm.Model.SetPosition([]float64{0,0,0,0,0,0})
+	wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
 	wxArm.Model.ForwardPosition()
 	ik.AddGoal(goal, 0)
 	ik.Solve()
-	
+
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestBenchNloptIKinematics(t *testing.T) {
+func BenchNloptIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("nloptBenchmark")
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s_mm.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/eva.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
@@ -130,10 +124,7 @@ func TestBenchNloptIKinematics(t *testing.T) {
 		wxArm.Model.SetPosition(jPos)
 		fmt.Println("Starting at", jPos)
 		goal := wxArm.Model.GetOperationalPosition(0).Clone()
-		//~ rPos := wxArm.GetForwardPosition()
-		//~ startPos := wxArm.Model.RandomJointPositions()
-		//~ wxArm.Model.SetPosition(startPos)
-		wxArm.Model.SetPosition([]float64{0,0,0,0,0,0})
+		wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
 		ik.AddGoal(goal, 0)
 		didSolve := ik.Solve()
 		if didSolve {
@@ -201,7 +192,7 @@ func TestIKTolerances(t *testing.T) {
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	v1Arm, err = NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/v1_tol_test.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
-	v1Arm.SetJointPositions([]float64{5, 0})
+	v1Arm.SetJointPositions([]float64{62, -130})
 	err = v1Arm.SetForwardPosition(pos)
 
 	test.That(t, err, test.ShouldBeNil)

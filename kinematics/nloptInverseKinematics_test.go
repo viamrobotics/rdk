@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"math"
+	//~ "fmt"
 	"testing"
 
 	pb "go.viam.com/core/proto/api/v1"
@@ -19,20 +20,21 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(m, logger)
 
-	pos := pb.ArmPosition{X: 340, Y: 0, Z: 360, RX: 0, RY: 0, RZ: 0}
+	pos := pb.ArmPosition{X: 360, Y: 0, Z: 362, RX: 0, RY: 0, RZ: 0}
 	transform := kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
-	transform.SetTranslation(pos.X, pos.Y, pos.Z)
+	transform.SetTranslation(float64(pos.X), float64(pos.Y), float64(pos.Z))
 
 	ik.AddGoal(transform, 0)
 
 	m.SetPosition([]float64{1, 1, 1, 1, 1, 0})
+	m.ForwardPosition()
 
 	solved := ik.Solve()
 	test.That(t, solved, test.ShouldBeTrue)
 
-	pos = pb.ArmPosition{X: -46, Y: -133, Z: 372, RX: -18, RY: -33, RZ: -11}
-	transform = kinmath.NewQuatTransFromRotation(pos.RX*math.Pi/180, pos.RY*math.Pi/180, pos.RZ*math.Pi/180)
-	transform.SetTranslation(pos.X, pos.Y, pos.Z)
+	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, RX: -1.8, RY: 3.3, RZ: 1.1}
+	transform = kinmath.NewQuatTransFromRotation(pos.RX, pos.RY, pos.RZ)
+	transform.SetTranslation(float64(pos.X), float64(pos.Y), float64(pos.Z))
 
 	ik.AddGoal(transform, 0)
 
