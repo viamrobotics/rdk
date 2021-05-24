@@ -128,9 +128,9 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 	case *proxySensor:
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
 	case *proxyCompass:
-		parts.sensors[c.Name] = newProxyCompass(pType)
+		parts.sensors[c.Name] = newProxyCompass(pType.actual)
 	case *proxyRelativeCompass:
-		parts.sensors[c.Name] = newProxyRelativeCompass(pType)
+		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	default:
 		if r, ok := s.(compass.RelativeCompass); ok {
 			parts.sensors[c.Name] = newProxyRelativeCompass(r)
