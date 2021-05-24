@@ -91,13 +91,35 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.LidarNames()...)[name]; !ok {
 			return nil
 		}
-		return &fake.Lidar{Name: name}
+		return fake.NewLidar(name)
 	}
 	injectRobot.BoardByNameFunc = func(name string) board.Board {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
 			return nil
 		}
-		return &board.FakeBoard{Name: name}
+		fakeBoard, err := board.NewFakeBoard(context.Background(), board.Config{
+			Name: name,
+			Motors: []board.MotorConfig{
+				{Name: "motor1"},
+				{Name: "motor2"},
+			},
+			Servos: []board.ServoConfig{
+				{Name: "servo1"},
+				{Name: "servo2"},
+			},
+			Analogs: []board.AnalogConfig{
+				{Name: "analog1"},
+				{Name: "analog2"},
+			},
+			DigitalInterrupts: []board.DigitalInterruptConfig{
+				{Name: "digital1"},
+				{Name: "digital2"},
+			},
+		}, logger)
+		if err != nil {
+			panic(err)
+		}
+		return fakeBoard
 	}
 	injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
 		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {

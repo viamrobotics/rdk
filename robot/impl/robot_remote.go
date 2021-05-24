@@ -364,6 +364,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 
 	for name, newPart := range newParts.boards {
 		oldPart, ok := parts.boards[name]
+		delete(oldBoardNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -372,6 +373,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.arms {
 		oldPart, ok := parts.arms[name]
+		delete(oldArmNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -380,6 +382,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.grippers {
 		oldPart, ok := parts.grippers[name]
+		delete(oldGripperNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -388,6 +391,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.cameras {
 		oldPart, ok := parts.cameras[name]
+		delete(oldCameraNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -396,6 +400,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.lidars {
 		oldPart, ok := parts.lidars[name]
+		delete(oldLidarNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -404,6 +409,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.bases {
 		oldPart, ok := parts.bases[name]
+		delete(oldBaseNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -412,6 +418,7 @@ func (parts *robotParts) replaceForRemote(newParts *robotParts) {
 	}
 	for name, newPart := range newParts.sensors {
 		oldPart, ok := parts.sensors[name]
+		delete(oldSensorNames, name)
 		if ok {
 			oldPart.(interface{ replace(newSensor sensor.Sensor) }).replace(newPart)
 			continue

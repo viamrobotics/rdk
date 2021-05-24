@@ -11,13 +11,17 @@ import (
 // Board is an injected board.
 type Board struct {
 	board.Board
-	MotorFunc            func(name string) board.Motor
-	ServoFunc            func(name string) board.Servo
-	AnalogReaderFunc     func(name string) board.AnalogReader
-	DigitalInterruptFunc func(name string) board.DigitalInterrupt
-	CloseFunc            func() error
-	ConfigFunc           func(ctx context.Context) (board.Config, error)
-	StatusFunc           func(ctx context.Context) (*pb.BoardStatus, error)
+	MotorFunc                 func(name string) board.Motor
+	ServoFunc                 func(name string) board.Servo
+	AnalogReaderFunc          func(name string) board.AnalogReader
+	DigitalInterruptFunc      func(name string) board.DigitalInterrupt
+	MotorNamesFunc            func() []string
+	ServoNamesFunc            func() []string
+	AnalogReaderNamesFunc     func() []string
+	DigitalInterruptNamesFunc func() []string
+	CloseFunc                 func() error
+	ConfigFunc                func(ctx context.Context) (board.Config, error)
+	StatusFunc                func(ctx context.Context) (*pb.BoardStatus, error)
 }
 
 // Motor calls the injected Motor or the real version.
@@ -50,6 +54,38 @@ func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
 		return b.Board.DigitalInterrupt(name)
 	}
 	return b.DigitalInterruptFunc(name)
+}
+
+// MotorNames calls the injected MotorNames or the real version.
+func (b *Board) MotorNames() []string {
+	if b.MotorNamesFunc == nil {
+		return b.Board.MotorNames()
+	}
+	return b.MotorNamesFunc()
+}
+
+// ServoNames calls the injected ServoNames or the real version.
+func (b *Board) ServoNames() []string {
+	if b.ServoNamesFunc == nil {
+		return b.Board.ServoNames()
+	}
+	return b.ServoNamesFunc()
+}
+
+// AnalogReaderNames calls the injected AnalogReaderNames or the real version.
+func (b *Board) AnalogReaderNames() []string {
+	if b.AnalogReaderNamesFunc == nil {
+		return b.Board.AnalogReaderNames()
+	}
+	return b.AnalogReaderNamesFunc()
+}
+
+// DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
+func (b *Board) DigitalInterruptNames() []string {
+	if b.DigitalInterruptNamesFunc == nil {
+		return b.Board.DigitalInterruptNames()
+	}
+	return b.DigitalInterruptNamesFunc()
 }
 
 // Close calls the injected Close or the real version.

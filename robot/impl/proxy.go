@@ -614,26 +614,26 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
-	if len(actual.motors) != 0 {
-		oldMotorNames = make(map[string]struct{}, len(actual.motors))
+	if len(p.motors) != 0 {
+		oldMotorNames = make(map[string]struct{}, len(p.motors))
 		for name := range p.motors {
 			oldMotorNames[name] = struct{}{}
 		}
 	}
-	if len(actual.servos) != 0 {
-		oldServoNames = make(map[string]struct{}, len(actual.servos))
+	if len(p.servos) != 0 {
+		oldServoNames = make(map[string]struct{}, len(p.servos))
 		for name := range p.servos {
 			oldServoNames[name] = struct{}{}
 		}
 	}
-	if len(actual.analogs) != 0 {
-		oldAnalogReaderNames = make(map[string]struct{}, len(actual.analogs))
+	if len(p.analogs) != 0 {
+		oldAnalogReaderNames = make(map[string]struct{}, len(p.analogs))
 		for name := range p.analogs {
 			oldAnalogReaderNames[name] = struct{}{}
 		}
 	}
-	if len(actual.digitals) != 0 {
-		oldDigitalInterruptNames = make(map[string]struct{}, len(actual.digitals))
+	if len(p.digitals) != 0 {
+		oldDigitalInterruptNames = make(map[string]struct{}, len(p.digitals))
 		for name := range p.digitals {
 			oldDigitalInterruptNames[name] = struct{}{}
 		}
@@ -641,6 +641,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 
 	for name, newPart := range actual.motors {
 		oldPart, ok := p.motors[name]
+		delete(oldMotorNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -649,6 +650,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	}
 	for name, newPart := range actual.servos {
 		oldPart, ok := p.servos[name]
+		delete(oldServoNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -657,6 +659,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	}
 	for name, newPart := range actual.analogs {
 		oldPart, ok := p.analogs[name]
+		delete(oldAnalogReaderNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -665,6 +668,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	}
 	for name, newPart := range actual.digitals {
 		oldPart, ok := p.digitals[name]
+		delete(oldDigitalInterruptNames, name)
 		if ok {
 			oldPart.replace(newPart)
 			continue
@@ -673,16 +677,16 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	}
 
 	for name := range oldMotorNames {
-		delete(actual.motors, name)
+		delete(p.motors, name)
 	}
 	for name := range oldServoNames {
-		delete(actual.servos, name)
+		delete(p.servos, name)
 	}
 	for name := range oldAnalogReaderNames {
-		delete(actual.analogs, name)
+		delete(p.analogs, name)
 	}
 	for name := range oldDigitalInterruptNames {
-		delete(actual.digitals, name)
+		delete(p.digitals, name)
 	}
 
 	p.actual = actual
