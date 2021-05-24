@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"math"
+	//~ "fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -25,6 +26,7 @@ type NloptIK struct {
 	requestHaltCh chan struct{}
 	haltedCh      chan struct{}
 	logger        golog.Logger
+	jump          float64
 }
 
 // CreateNloptIKSolver TODO
@@ -33,13 +35,15 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.resetHalting()
 	ik.Mdl = mdl
 	// How close we want to get to the goal
-	ik.epsilon = 0.0001
+	ik.epsilon = 0.01
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 5
+	ik.maxIterations = 50000
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
+	// How much to adjust joints to determine slope
+	ik.jump = 0.00000001
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -63,20 +67,21 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
 			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+
 			dxIdx := goal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
 		}
-		
+
 		dist := WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 
 		if len(gradient) > 0 {
-			
-			for i, _ := range gradient {
+
+			for i := range gradient {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
-				xBak[i] += 0.00000001
+				xBak[i] += ik.jump
 				ik.Mdl.SetPosition(xBak)
 				ik.Mdl.ForwardPosition()
 				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*6)
@@ -88,15 +93,10 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 					}
 				}
 				dist2 := WeightedSquaredNorm(dx2, ik.Mdl.DistCfg)
-				
-				gradient[i] = dist2 - dist
+
+				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
 		}
-
-		// We need to use gradient to make the linter happy
-		//~ if len(gradient) > 0 {
-			//~ return dist
-		//~ }
 		return dist
 	}
 
@@ -119,7 +119,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-// AddGoal TODO
+// AddGoal Adds a nlopt IK goal
 func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
@@ -127,28 +127,28 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	ik.resetHalting()
 }
 
-// SetID TODO
+// SetID Sets the ID of this nloptIK object
 func (ik *NloptIK) SetID(id int) {
 	ik.ID = id
 }
 
-// GetID TODO
+// GetID Returns the ID of this nloptIK object. Note that the linter won't let this be just "ID()"
 func (ik *NloptIK) GetID() int {
 	return ik.ID
 }
 
-// GetMdl TODO
+// GetMdl Returns the underlying kinematics model
 func (ik *NloptIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
-// ClearGoals TODO
+// ClearGoals Clears all goals for the Ik object
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
-// GetGoals TODO
+// GetGoals Returns the list of all current goal positions
 func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
@@ -158,7 +158,7 @@ func (ik *NloptIK) resetHalting() {
 	ik.haltedCh = make(chan struct{})
 }
 
-// Halt TODO
+// Halt Causes this nlopt IK to immediately cease all processing and return with no solution
 func (ik *NloptIK) Halt() {
 	close(ik.requestHaltCh)
 	err := ik.opt.ForceStop()
@@ -169,7 +169,7 @@ func (ik *NloptIK) Halt() {
 	ik.resetHalting()
 }
 
-// Solve TODO
+// Solve Attempts to solve for all goals
 func (ik *NloptIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:
@@ -180,6 +180,7 @@ func (ik *NloptIK) Solve() bool {
 	defer close(ik.haltedCh)
 	ik.iterations = 0
 	origJointPos := ik.Mdl.GetPosition()
+
 	for ik.iterations < ik.maxIterations {
 		select {
 		case <-ik.requestHaltCh:

@@ -286,9 +286,9 @@ message ArmStatus {
 
 message ArmPosition {
 	// millimeters of the end effector from the base
-	double x = 1;
-	double y = 2;
-	double z = 3;
+	int64 x = 1;
+	int64 y = 2;
+	int64 z = 3;
 
 	// angle axis components
 	double r_x = 4;
