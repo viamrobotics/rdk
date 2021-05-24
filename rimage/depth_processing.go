@@ -2,41 +2,43 @@ package rimage
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+
+	"go.viam.com/core/utils"
 )
 
-// Input a vector in cartesian coordinates and return the vector in polar coordinates.
-func getMagnitudeAndDirection(x, y float64) (float64, float64) {
-	mag := math.Sqrt(x*x + y*y)
-	dir := math.Atan2(y, x)
-	return mag, dir
-}
-
-// Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
-// i is the position within the kernel and dx gives the offset within the depth map.
-// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1}
-func makeRangeArray(length int) []int {
-	if length <= 0 {
-		return make([]int, 0)
+// expandDepthMapForConvolution pads the image on every side with a mirror image of the data. This is so evaluation
+// of the convolution at the borders will happen smoothly and will not draw sharp edges.
+func expandDepthMapForConvolution(dm *DepthMap, radius int) *DepthMap {
+	if radius <= 0 {
+		return dm
 	}
-	rangeArray := make([]int, length)
-	var span int
-	if length%2 == 0 {
-		oddArr := makeRangeArray(length - 1)
-		span = length / 2
-		rangeArray = append([]int{-span}, oddArr...)
-	} else {
-		span = (length - 1) / 2
-		for i := 0; i < span; i++ {
-			rangeArray[length-1-i] = span - i
-			rangeArray[i] = -span + i
+	width, height := dm.Width(), dm.Height()
+	outDM := NewEmptyDepthMap(width+2*radius, height+2*radius)
+	for y := -radius; y < height+radius; y++ {
+		for x := -radius; x < width+radius; x++ {
+			outDM.Set(x+radius, y+radius, dm.GetDepth(utils.AbsInt(x%width), utils.AbsInt(y%height)))
 		}
 	}
-	return rangeArray
+	return outDM
 }
 
+// BoolMapToGrayImage creates an image out of true/false map of points
+func BoolMapToGrayImage(boolMap map[image.Point]bool, width, height int) (*image.Gray, error) {
+	dst := image.NewGray(image.Rect(0, 0, width, height))
+	for point, _ := range boolMap {
+		if !point.In(dst.Bounds()) {
+			return nil, fmt.Errorf("point (%d,%d) not in bounds of image with dim (%d,%d)", point.X, point.Y, width, height)
+		}
+		dst.Set(point.X, point.Y, color.Gray{255})
+	}
+	return dst, nil
+}
+
+// Gaussian blur applies a blurring with a given sigma over the input depth map
 func GaussianBlur(dm *DepthMap, sigma float64) *DepthMap {
 	if sigma <= 0. {
 		return dm
@@ -46,6 +48,9 @@ func GaussianBlur(dm *DepthMap, sigma float64) *DepthMap {
 	outDM := NewEmptyDepthMap(width, height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
+			if dm.GetDepth(x, y) == 0 {
+				continue
+			}
 			point := image.Point{x, y}
 			val := blurFilter(point, dm)
 			outDM.Set(point.X, point.Y, Depth(val))
@@ -54,19 +59,127 @@ func GaussianBlur(dm *DepthMap, sigma float64) *DepthMap {
 	return outDM
 }
 
-func SmoothNonZeroData(ii *ImageWithDepth, spatialXVar, spatialYVar, colorVar, depthVar float64) (*ImageWithDepth, error) {
+// SavistkyGolaySmoothing is used to smooth two dimensional data affected by noise. The algorithm is as follows:
+func SavitskyGolaySmoothing(dm, outDM *DepthMap, validPoints *image.Gray, radius, polyOrder int) error {
+	if radius <= 0 || polyOrder <= 0 {
+		outDM = dm
+		return nil
+	}
+	filter, err := SavitskyGolayFilter(radius, polyOrder)
+	if err != nil {
+		return err
+	}
+	width, height := dm.Width(), dm.Height()
+	dmForConv := expandDepthMapForConvolution(dm, radius)
+	zero := color.Gray{0}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if validPoints.At(x, y) == zero {
+				continue
+			}
+			pointForConv := image.Point{x + radius, y + radius}
+			val := filter(pointForConv, dmForConv)
+			dmForConv.Set(x, y, Depth(val))
+			outDM.Set(x, y, Depth(val))
+		}
+	}
+	return nil
+}
+
+// MissingDepthData outputs a binary map where white represents where data is, and black is where data is missing.
+func MissingDepthData(dm *DepthMap) *image.Gray {
+	nonHoles := image.NewGray(image.Rect(0, 0, dm.Width(), dm.Height()))
+	for y := 0; y < dm.Height(); y++ {
+		for x := 0; x < dm.Width(); x++ {
+			if dm.GetDepth(x, y) != 0 {
+				nonHoles.Set(x, y, color.Gray{255})
+			}
+		}
+	}
+	return nonHoles
+}
+
+func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Point]bool) []image.Point {
+	neighbors := make([]image.Point, 0, 4)
+	directions := []direction{
+		{0, 1},  //up
+		{0, -1}, //down
+		{-1, 0}, //left
+		{1, 0},  //right
+	}
+	zero := color.Gray{0}
+	for _, dir := range directions {
+		neighbor := image.Point{pt.X + dir.X, pt.Y + dir.Y}
+		if neighbor.In(valid.Bounds()) && !visited[neighbor] && valid.At(neighbor.X, neighbor.Y) != zero {
+			neighbors = append(neighbors, neighbor)
+			visited[neighbor] = true
+		}
+	}
+	return neighbors
+}
+
+// SegmentBinaryImage does a bredth-first search on a black and white image and splits the non-connected white regions
+// into different segments.
+func SegmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
+	regionMap := make(map[int]map[image.Point]bool)
+	visited := make(map[image.Point]bool)
+	region := 0
+	queue := make([]image.Point, 0)
+	height, width := img.Bounds().Dy(), img.Bounds().Dx()
+	zero := color.Gray{0}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			p := image.Point{x, y}
+			if visited[p] || img.At(x, y) == zero {
+				continue
+			}
+			queue = append(queue, p)
+			segment := make(map[image.Point]bool)
+			for len(queue) != 0 {
+				// pop off element in queue and add to segment
+				point := queue[0]
+				segment[point] = true
+				queue = queue[1:]
+				// get non-visited, valid (i.e. non-zero) neighbors
+				neighbors := getValidNeighbors(point, img, visited)
+				// add neighbors to queue
+				queue = append(queue, neighbors...)
+			}
+			regionMap[region] = segment
+			region++
+		}
+	}
+	return regionMap
+}
+
+// CleanDepthMap uses a breadth-first graph search to create a map of all the connected components of data.
+// Removes the small regions below a certain thershold.
+func CleanDepthMap(dm *DepthMap, threshold int) {
+	// Create a list of connected non-empty regions in depth map
+	// only keeping the largest regions
+	validData := MissingDepthData(dm)
+	regionMap := SegmentBinaryImage(validData)
+	for _, seg := range regionMap {
+		if len(seg) < threshold {
+			for point, _ := range seg {
+				dm.Set(point.X, point.Y, Depth(0))
+			}
+		}
+	}
+}
+
+func SmoothNonZeroData(ii *ImageWithDepth) (*ImageWithDepth, error) {
 	if !ii.IsAligned() {
 		return nil, errors.New("input ImageWithDepth is not aligned.")
 	}
-	// Use canny edges from
-	width, height := ii.Width(), ii.Height()
-	outDM := NewEmptyDepthMap(width, height)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			outDM.Set(x, y, Depth(0))
-		}
+	validPoints := MissingDepthData(ii.Depth)
+	sgDepth := NewEmptyDepthMap(ii.Depth.Width(), ii.Depth.Height())
+	err := SavitskyGolaySmoothing(ii.Depth, sgDepth, validPoints, 3, 3)
+	if err != nil {
+		return nil, err
 	}
-	return MakeImageWithDepth(ii.Color, outDM, ii.IsAligned(), ii.CameraSystem()), nil
+
+	return MakeImageWithDepth(ii.Color, sgDepth, ii.IsAligned(), ii.CameraSystem()), nil
 }
 
 // DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a
@@ -80,7 +193,8 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 		dm = dmIn
 	}
 
-	vectorField := ForwardGradientDepth(dm)
+	vectorField := ForwardDepthGradient(dm)
+	//vectorField := SobelDepthGradient(dm)
 	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.DirectionField()
 
 	nms, err := GradientNonMaximumSuppressionC8(dmMagnitude, dmDirection)
@@ -91,6 +205,7 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 	if err != nil {
 		return nil, err
 	}
+	// low, high =
 	edges, err := EdgeHysteresisFiltering(dmMagnitude, low, high)
 	if err != nil {
 		return nil, err
@@ -122,19 +237,21 @@ func SobelDepthGradient(dm *DepthMap) VectorField2D {
 
 }
 
-// ForwardGradientDepth computes the forward gradients in the X and Y direction of a depth map
-func ForwardGradientDepth(dm *DepthMap) VectorField2D {
+// ForwardDepthGradient computes the forward gradients in the X and Y direction of a depth map
+func ForwardDepthGradient(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
 	maxMag := 0.0
 	g := make([]Vec2D, 0, width*height)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			sX, sY := 0, 0
-			if x+1 >= 0 && x+1 < width {
-				sX = int(dm.GetDepth(x+1, y)) - int(dm.GetDepth(x, y))
-			}
-			if y+1 >= 0 && y+1 < height {
-				sY = int(dm.GetDepth(x, y+1)) - int(dm.GetDepth(x, y))
+			if dm.GetDepth(x, y) != 0 {
+				if x+1 >= 0 && x+1 < width && dm.GetDepth(x+1, y) != 0 {
+					sX = int(dm.GetDepth(x+1, y)) - int(dm.GetDepth(x, y))
+				}
+				if y+1 >= 0 && y+1 < height && dm.GetDepth(x, y+1) != 0 {
+					sY = int(dm.GetDepth(x, y+1)) - int(dm.GetDepth(x, y))
+				}
 			}
 			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
 			g = append(g, Vec2D{mag, dir})
@@ -146,19 +263,6 @@ func ForwardGradientDepth(dm *DepthMap) VectorField2D {
 }
 
 // Missing data and hole inprinting
-
-// MissingDepthData outputs a binary map where white represents where the holes in the depth image are
-func MissingDepthData(dm *DepthMap) *image.Gray {
-	holes := image.NewGray(image.Rect(0, 0, dm.Width(), dm.Height()))
-	for y := 0; y < dm.Height(); y++ {
-		for x := 0; x < dm.Width(); x++ {
-			if dm.GetDepth(x, y) == 0 {
-				holes.Set(x, y, color.Gray{255})
-			}
-		}
-	}
-	return holes
-}
 
 type direction image.Point
 
@@ -217,67 +321,4 @@ func DepthRayMarching(dm *DepthMap, edges *image.Gray) (*DepthMap, error) {
 		}
 	}
 	return filledDM, nil
-}
-
-func getValidNeighbors(pt image.Point, dm *DepthMap, visited map[image.Point]bool) []image.Point {
-	neighbors := make([]image.Point, 0, 4)
-	directions := []direction{
-		{0, 1},  //up
-		{0, -1}, //down
-		{-1, 0}, //left
-		{1, 0},  //right
-	}
-	for _, dir := range directions {
-		neighbor := image.Point{pt.X + dir.X, pt.Y + dir.Y}
-		if dm.In(neighbor.X, neighbor.Y) && !visited[neighbor] && dm.Get(neighbor) != 0 {
-			neighbors = append(neighbors, neighbor)
-			visited[neighbor] = true
-		}
-	}
-	return neighbors
-}
-
-func CleanDepthMap(dm *DepthMap, threshold int) {
-	// Create a list of connected non-empty regions in depth map
-	// only keeping the largest regions
-	regionMap := make(map[int][]image.Point)
-	visited := make(map[image.Point]bool)
-	region := 0
-	queue := make([]image.Point, 0)
-	for y := 0; y < dm.Height(); y++ {
-		for x := 0; x < dm.Width(); x++ {
-			p := image.Point{x, y}
-			if visited[p] || dm.Get(p) == 0 {
-				continue
-			}
-			queue = append(queue, p)
-			segment := []image.Point{}
-			for len(queue) != 0 {
-				// pop off element in queue and add to segment
-				point := queue[0]
-				segment = append(segment, point)
-				queue = queue[1:]
-				// get non-zero depth, non-visited, valid neighbors
-				neighbors := getValidNeighbors(point, dm, visited)
-				// add neighbors to queue
-				queue = append(queue, neighbors...)
-				//fmt.Printf("size: %d, points visited: %d\n", dm.Width()*dm.Height(), len(visited))
-			}
-			regionMap[region] = segment
-			region++
-		}
-	}
-	for _, seg := range regionMap {
-		if len(seg) < threshold {
-			for _, point := range seg {
-				dm.Set(point.X, point.Y, Depth(0))
-			}
-		}
-	}
-	// Then do a morphological closing
-	// closedDM, err := rimage.ClosingMorph(fixed.Depth, 5, 1)
-
-	// smooth the data, first the non-edge regions, and then the edges
-	// now find the segments of the hole regions, ignoring the largest holes, and classifying the remaining into edge/non-edge
-	// Then fill the holes, the non-edges first, and then the edges
 }
