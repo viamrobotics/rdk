@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -86,6 +85,23 @@ func SavitskyGolaySmoothing(dm, outDM *DepthMap, validPoints *image.Gray, radius
 	return nil
 }
 
+func JointTrilateralSmoothing(ii *ImageWithDepth, spatialSigma, colSigma, depSigma float64) *ImageWithDepth {
+	filter := JointTrilateralFilter(spatialSigma, colSigma, depSigma)
+	width, height := ii.Depth.Width(), ii.Depth.Height()
+	outDM := NewEmptyDepthMap(width, height)
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			if ii.Depth.GetDepth(x, y) == 0 {
+				continue
+			}
+			point := image.Point{x, y}
+			val := filter(point, ii)
+			outDM.Set(point.X, point.Y, Depth(val))
+		}
+	}
+	return MakeImageWithDepth(ii.Color, outDM, ii.IsAligned(), ii.CameraSystem())
+}
+
 // MissingDepthData outputs a binary map where white represents where data is, and black is where data is missing.
 func MissingDepthData(dm *DepthMap) *image.Gray {
 	nonHoles := image.NewGray(image.Rect(0, 0, dm.Width(), dm.Height()))
@@ -97,6 +113,19 @@ func MissingDepthData(dm *DepthMap) *image.Gray {
 		}
 	}
 	return nonHoles
+}
+
+// InvertGrayImage produces a negated version of the input image
+func InvertGrayImage(img *image.Gray) *image.Gray {
+	width, height := img.Bounds().Dx(), img.Bounds().Dy()
+	dst := image.NewGray(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			val := img.At(x, y).(color.Gray)
+			dst.Set(x, y, color.Gray{255 - val.Y})
+		}
+	}
+	return dst
 }
 
 func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Point]bool) []image.Point {
@@ -152,8 +181,7 @@ func SegmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
 	return regionMap
 }
 
-// CleanDepthMap uses a breadth-first graph search to create a map of all the connected components of data.
-// Removes the small regions below a certain thershold.
+// CleanDepthMap removes the small clusters of data below a certain thershold.
 func CleanDepthMap(dm *DepthMap, threshold int) {
 	// Create a list of connected non-empty regions in depth map
 	// only keeping the largest regions
@@ -168,18 +196,29 @@ func CleanDepthMap(dm *DepthMap, threshold int) {
 	}
 }
 
-func SmoothNonZeroData(ii *ImageWithDepth) (*ImageWithDepth, error) {
-	if !ii.IsAligned() {
-		return nil, errors.New("input ImageWithDepth is not aligned.")
-	}
-	validPoints := MissingDepthData(ii.Depth)
-	sgDepth := NewEmptyDepthMap(ii.Depth.Width(), ii.Depth.Height())
-	err := SavitskyGolaySmoothing(ii.Depth, sgDepth, validPoints, 3, 3)
+func PreprocessDepth(dm *DepthMap) (*DepthMap, error) {
+	var err error
+	// copy data into a new depthmap
+	dst := make([]Depth, dm.Width()*dm.Height())
+	copy(dst, dm.data)
+	outDM := &DepthMap{dm.width, dm.height, dst}
+	// remove noisy data
+	CleanDepthMap(outDM, 500)
+	// fill in small holes
+	outDM, err = ClosingMorph(outDM, 5, 1)
 	if err != nil {
 		return nil, err
 	}
-
-	return MakeImageWithDepth(ii.Color, sgDepth, ii.IsAligned(), ii.CameraSystem()), nil
+	// fill in large holes
+	FillDepthMap(outDM, 4500)
+	// smooth the data
+	outDM = GaussianBlur(outDM, 1)
+	//validPoints := MissingDepthData(outDM)
+	//err = SavitskyGolaySmoothing(outDM, outDM, validPoints, 3, 3)
+	//if err != nil {
+	//	return nil, err
+	//}
+	return outDM, nil
 }
 
 // DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a
@@ -262,11 +301,9 @@ func ForwardDepthGradient(dm *DepthMap) VectorField2D {
 	return vf
 }
 
-// Missing data and hole inprinting
-
 type direction image.Point
 
-func eightPointInprint(x, y int, dm *DepthMap, edges *image.Gray) Depth {
+func depthInprint(x, y int, dm *DepthMap) Depth {
 	directions := []direction{
 		{0, 1},   //up
 		{0, -1},  //down
@@ -279,7 +316,6 @@ func eightPointInprint(x, y int, dm *DepthMap, edges *image.Gray) Depth {
 	}
 	valAvg := 0.0
 	count := 0.0
-	zero := color.Gray{0}
 	for _, dir := range directions {
 		val := 0
 		i, j := x, y
@@ -290,9 +326,6 @@ func eightPointInprint(x, y int, dm *DepthMap, edges *image.Gray) Depth {
 				break
 			}
 			val = int(dm.GetDepth(i, j))
-			if edges.At(i, j) != zero { // stop if we've reached an edge
-				break
-			}
 		}
 		if val != 0 {
 			valAvg = (valAvg*count + float64(val)) / (count + 1.)
@@ -303,22 +336,16 @@ func eightPointInprint(x, y int, dm *DepthMap, edges *image.Gray) Depth {
 	return Depth(valAvg)
 }
 
-func DepthRayMarching(dm *DepthMap, edges *image.Gray) (*DepthMap, error) {
-	// loop over pixels until finding an empty one
-	// fill empty pixel with 8 direction average
-	// // if the pixel is an edge, or you reach the border without finding a pixel, ignore it
-	filledDM := NewEmptyDepthMap(dm.Width(), dm.Height())
-	*filledDM = *dm
-	for y := 0; y < dm.Height(); y++ {
-		for x := 0; x < dm.Width(); x++ {
-			d := filledDM.GetDepth(x, y)
-			if d != 0 {
-				filledDM.Set(x, y, d)
-			} else {
-				inprint := eightPointInprint(x, y, filledDM, edges)
-				filledDM.Set(x, y, inprint)
+func FillDepthMap(dm *DepthMap, threshold int) {
+	validData := MissingDepthData(dm)
+	missingData := InvertGrayImage(validData)
+	holeMap := SegmentBinaryImage(missingData)
+	for _, seg := range holeMap {
+		if len(seg) < threshold {
+			for point, _ := range seg {
+				val := depthInprint(point.X, point.Y, dm)
+				dm.Set(point.X, point.Y, val)
 			}
 		}
 	}
-	return filledDM, nil
 }
