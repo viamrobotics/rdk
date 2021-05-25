@@ -77,7 +77,7 @@ deb-server: server cameras
 	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-0.2/usr/bin/intelrealserver
 	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-0.2/usr/bin/royaleserver
 	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/templates/
-	install -m 644 -D web/runtime-shared/static/main.js --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/static/main.js
+	install -m 644 -D web/runtime-shared/static/main.js etc/packaging/work/viam-server-0.2/usr/share/viam/static/main.js
 	install -m 644 -D web/runtime-shared/static/third-party/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/static/third-party
 	cd etc/packaging/work/viam-server-0.2/ \
 	&& dch -v 0.2+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
