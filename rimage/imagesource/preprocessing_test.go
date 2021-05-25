@@ -96,7 +96,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	//pCtx.GotDebugImage(blurredVectorField.DirectionPicture(), "depth-grad-direction-blur")
 
 	cannyColor := rimage.NewCannyDericheEdgeDetector()
-	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.95, 0.5, true)
+	cannyDepth := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.33, true)
 
 	colEdges, err := cannyColor.DetectEdges(fixed.Color, 0.5)
 	test.That(t, err, test.ShouldBeNil)
@@ -124,18 +124,15 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(morphed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-closed-5-1")
 	pCtx.GotDebugImage(dmClosedEdges, "depth-edges-preprocess-1")
 
-	/*
-		// inpainting
-		inpaintDM, err := rimage.DepthRayMarching(morphed.Depth, colEdges)
-		test.That(t, err, test.ShouldBeNil)
-		inpainted := rimage.MakeImageWithDepth(morphed.Color, inpaintDM, morphed.IsAligned(), morphed.CameraSystem())
-		dmInpaintEdges, err := cannyDepth.DetectDepthEdges(inpainted.Depth)
-		test.That(t, err, test.ShouldBeNil)
-		pCtx.GotDebugImage(inpainted.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-inpainted")
-		pCtx.GotDebugImage(dmInpaintEdges, "depth-edges-inpainted")
-	*/
+	// filling
+	rimage.FillDepthMap(morphed.Depth, 4500)
+	filledEdges, err := cannyDepth.DetectDepthEdges(morphed.Depth, 0.0)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugImage(morphed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-holes-filled")
+	pCtx.GotDebugImage(filledEdges, "depth-edges-filled")
+
 	//smoothed
-	smoothDM := rimage.GaussianBlur(morphed.Depth, 3)
+	smoothDM := rimage.GaussianBlur(morphed.Depth, 1)
 	smoothed := rimage.MakeImageWithDepth(morphed.Color, smoothDM, fixed.IsAligned(), fixed.CameraSystem())
 	dmSmoothedEdges, err := cannyDepth.DetectDepthEdges(smoothed.Depth, 0.0)
 	test.That(t, err, test.ShouldBeNil)
@@ -153,15 +150,14 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugImage(sg.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-savitskygolay")
 	pCtx.GotDebugImage(sgEdges, "depth-edges-savitskygolay")
 
-	vectorField := rimage.ForwardDepthGradient(sg.Depth)
-	pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
-	pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
+	//vectorField := rimage.ForwardDepthGradient(sg.Depth)
+	//pCtx.GotDebugImage(vectorField.MagnitudePicture(), "depth-grad-magnitude")
+	//pCtx.GotDebugImage(vectorField.DirectionPicture(), "depth-grad-direction")
 
 	// trilateral filter
 	/*
-		kernelSize := 7
-		spatialVar, colorVar, depthVar := 1.0, 0.02, 10.0
-		filtered, err := rimage.JointTrilateralFilter(morphed, kernelSize, spatialVar, colorVar, depthVar)
+		spatialVar, colorVar, depthVar := 1.0, 1.0, 20.0
+		filtered := rimage.JointTrilateralSmoothing(morphed, spatialVar, colorVar, depthVar)
 		test.That(t, err, test.ShouldBeNil)
 		dmFilteredEdges, err := cannyDepth.DetectDepthEdges(filtered.Depth, 0.0)
 		test.That(t, err, test.ShouldBeNil)
