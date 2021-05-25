@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	"fmt"
 	"runtime"
 	"testing"
 
@@ -59,7 +58,6 @@ func BenchCombinedIKinematics(t *testing.B) {
 	// Used for benchmarking solve rate
 	solved := 0
 	for i := 0; i < toSolve; i++ {
-		fmt.Println(i)
 		jPos := wxArm.Model.RandomJointPositions()
 		wxArm.Model.SetPosition(jPos)
 		rPos := wxArm.GetForwardPosition()
@@ -69,7 +67,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 			solved++
 		}
 	}
-	fmt.Println("combined solved: ", solved)
+	logger.Debug("combined solved: ", solved)
 }
 
 func TestNloptIKinematics(t *testing.T) {
@@ -104,9 +102,9 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
 	wxArm.Model.ForwardPosition()
 	ik.AddGoal(goal, 0)
-	ik.Solve()
+	didSolve := ik.Solve()
 
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, didSolve, test.ShouldBeTrue)
 }
 
 func BenchNloptIKinematics(t *testing.B) {
@@ -119,10 +117,8 @@ func BenchNloptIKinematics(t *testing.B) {
 	// Used for benchmarking solve rate
 	solved := 0
 	for i := 0; i < toSolve; i++ {
-		fmt.Println(i)
 		jPos := wxArm.Model.RandomJointPositions()
 		wxArm.Model.SetPosition(jPos)
-		fmt.Println("Starting at", jPos)
 		goal := wxArm.Model.GetOperationalPosition(0).Clone()
 		wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
 		ik.AddGoal(goal, 0)
@@ -131,7 +127,7 @@ func BenchNloptIKinematics(t *testing.B) {
 			solved++
 		}
 	}
-	fmt.Println("nlopt solved: ", solved)
+	logger.Debug("nlopt solved: ", solved)
 }
 
 func TestJacobianIKinematics(t *testing.T) {
@@ -166,7 +162,7 @@ func BenchJacobianIKinematics(t *testing.B) {
 			solved++
 		}
 	}
-	fmt.Println("jacob solved: ", solved)
+	logger.Debug("jacob solved: ", solved)
 }
 
 func TestIKTolerances(t *testing.T) {

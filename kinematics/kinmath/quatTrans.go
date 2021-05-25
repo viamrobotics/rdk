@@ -9,6 +9,8 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+const radToDeg = 180 / math.Pi
+
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
 	Quat dualquat.Number
@@ -22,8 +24,8 @@ func NewQuatTrans() *QuatTrans {
 	}}
 }
 
-// NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose Quaternion has been xyz rotated by the specified number of degrees
-// Prefer not to use this as it's not terribly well defined- gimbal lock will cause weirdness the further Y gets from 0
+// NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
+// axis angle.
 func NewQuatTransFromRotation(x, y, z float64) *QuatTrans {
 	return &QuatTrans{dualquat.Number{
 		Real: AxisAngleToQuat(x, y, z),
@@ -31,7 +33,7 @@ func NewQuatTransFromRotation(x, y, z float64) *QuatTrans {
 	}}
 }
 
-// Clone returns a QuatTrans object identical to this one
+// Clone returns a QuatTrans object identical to this one.
 func (m *QuatTrans) Clone() *QuatTrans {
 	t := &QuatTrans{}
 	// No need for deep copies here, dualquats are primitives all the way down
@@ -44,13 +46,13 @@ func (m *QuatTrans) Rotation() quat.Number {
 	return m.Quat.Real
 }
 
-// Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat
-// and the dual is
+// Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
+// and the dual is representative of 0.5 * real world millimeters.
 func (m *QuatTrans) Translation() dualquat.Number {
 	return dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
 }
 
-// SetTranslation correctly sets the translation quaternion against the rotation
+// SetTranslation correctly sets the translation quaternion against the rotation.
 func (m *QuatTrans) SetTranslation(x, y, z float64) {
 	m.Quat.Dual = quat.Number{0, x / 2, y / 2, z / 2}
 	m.Rotate()
@@ -96,13 +98,11 @@ func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
 // Transformation multiplies the dual quat contained in this QuatTrans by another dual quat
 func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
-	if len := quat.Abs(by.Real); len != 1 {
-		by.Real = quat.Scale(1/len, by.Real)
+	if vecLen := quat.Abs(by.Real); vecLen != 1 {
+		by.Real = quat.Scale(1/vecLen, by.Real)
 	}
 
-	result := dualquat.Mul(m.Quat, by)
-
-	return result
+	return dualquat.Mul(m.Quat, by)
 }
 
 // QuatToAxisAngle converts a quat to an R3 axis angle in the same way the C++ Eigen library does
@@ -137,12 +137,11 @@ func AxisAngleToQuat(x, y, z float64) quat.Number {
 		// If angle is zero, we return the identity quaternion
 		return quat.Number{1, 0, 0, 0}
 	}
-	ax := x / angle * sinA
-	ay := y / angle * sinA
-	az := z / angle * sinA
+	ax := (x / angle) * sinA
+	ay := (y / angle) * sinA
+	az := (z / angle) * sinA
 	w := math.Cos(angle / 2)
-	quatAA := quat.Number{w, ax, ay, az}
-	return quatAA
+	return quat.Number{w, ax, ay, az}
 }
 
 // QuatToEuler Converts a rotation unit quaternion to euler angles
@@ -163,7 +162,7 @@ func QuatToEuler(q quat.Number) []float64 {
 
 	for i := range angles {
 
-		angles[i] *= 180 / math.Pi
+		angles[i] *= radToDeg
 	}
 	return angles
 }
@@ -174,17 +173,17 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
 	singular := sy < 1e-6
 	var angles []float64
-	if !singular {
-		angles = append(angles, math.Atan2(mat.At(2, 1), mat.At(2, 2)))
-		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
-		angles = append(angles, math.Atan2(mat.At(1, 0), mat.At(0, 0)))
-	} else {
+	if singular {
 		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
 		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
 		angles = append(angles, 0)
+	} else {
+		angles = append(angles, math.Atan2(mat.At(2, 1), mat.At(2, 2)))
+		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
+		angles = append(angles, math.Atan2(mat.At(1, 0), mat.At(0, 0)))
 	}
 	for i := range angles {
-		angles[i] *= 180 / math.Pi
+		angles[i] *= radToDeg
 	}
 	return angles
 }
