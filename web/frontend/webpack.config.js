@@ -10,7 +10,7 @@ Object.keys(installedDependencies).forEach(dep => {
 if ("proto" in aliases) {
 	throw new Error("proto is already in aliases");
 }
-aliases["proto"] = path.resolve(__dirname, '../../../dist/js/proto');
+aliases["proto"] = path.resolve(__dirname, '../../dist/js/proto');
 
 module.exports = {
 	mode: "production",
