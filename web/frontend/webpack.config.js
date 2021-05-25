@@ -1,4 +1,5 @@
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
 
 // see https://github.com/facebook/metro/issues/7#issuecomment-421072314
 const installedDependencies = require("./package.json").dependencies;
@@ -13,7 +14,7 @@ if ("proto" in aliases) {
 aliases["proto"] = path.resolve(__dirname, '../../dist/js/proto');
 
 module.exports = {
-	mode: "production",
+	mode: "development",
 	entry: "./src/client.js",
 	resolve: {
 		alias: aliases,
@@ -21,4 +22,10 @@ module.exports = {
 	output: {
 		path: path.resolve(__dirname, '../runtime-shared/static'),
 	},
+	optimization: {
+		minimize: false,
+    minimizer: [new TerserPlugin({
+      extractComments: false,
+    })],
+  },
 };
