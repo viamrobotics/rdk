@@ -224,17 +224,48 @@
 
           const streamReq = new robotApi.StatusStreamRequest();
           streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
-          const statusStream = robotService.statusStream(streamReq);
-          statusStream.on('data', function(response) {
-            updateStatus(response.getStatus());
-          });
-          statusStream.on('status', function(status) {
-            console.log("error streaming robot status");
-            console.log(status.code, " ", status.details);
-          });
-          statusStream.on('end', function(end) {
-            console.log("done streaming robot status");
-          });
+
+          let statusStream;
+          let lastStatusTS = Date.now();
+          const checkInternvalMillis = 3000;
+          const checkLastStatus = function() {
+            if ((Date.now() - lastStatusTS) > checkInternvalMillis) {
+              restartStatusStream();
+              return
+            }
+            setTimeout(checkLastStatus, checkInternvalMillis)
+          }
+
+          const restartStatusStream = function() {
+            if (statusStream) {
+              statusStream.cancel();
+            }
+            statusStream = robotService.statusStream(streamReq);
+            let firstData = true;
+            statusStream.on('data', function(response) {
+              lastStatusTS = Date.now();
+              updateStatus(response.getStatus());
+              if (firstData) {
+                firstData = false;
+                checkLastStatus();
+              }
+            });
+            statusStream.on('status', function(status) {
+              console.log("error streaming robot status");
+              console.log(status.code, " ", status.details);
+            });
+            statusStream.on('end', function(end) {
+              console.log("done streaming robot status");
+              setTimeout(() => restartStatusStream(), 1000);
+            });
+            statusStream.on('error', function(err) {
+              console.log("error streaming robot status");
+              console.log(err);
+              setTimeout(() => restartStatusStream(), 1000);
+            });
+          }
+          restartStatusStream();
+
       }
 
       pcdGlobal = null;
