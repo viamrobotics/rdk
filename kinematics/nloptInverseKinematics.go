@@ -2,7 +2,6 @@ package kinematics
 
 import (
 	"math"
-	//~ "fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -119,7 +118,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-// AddGoal Adds a nlopt IK goal
+// AddGoal adds a nlopt IK goal
 func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
@@ -127,28 +126,28 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	ik.resetHalting()
 }
 
-// SetID Sets the ID of this nloptIK object
+// SetID sets the ID of this nloptIK object
 func (ik *NloptIK) SetID(id int) {
 	ik.ID = id
 }
 
-// GetID Returns the ID of this nloptIK object. Note that the linter won't let this be just "ID()"
+// GetID returns the ID of this nloptIK object. Note that the linter won't let this be just "ID()"
 func (ik *NloptIK) GetID() int {
 	return ik.ID
 }
 
-// GetMdl Returns the underlying kinematics model
+// GetMdl returns the underlying kinematics model
 func (ik *NloptIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
-// ClearGoals Clears all goals for the Ik object
+// ClearGoals clears all goals for the Ik object
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
-// GetGoals Returns the list of all current goal positions
+// GetGoals returns the list of all current goal positions
 func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
@@ -158,7 +157,7 @@ func (ik *NloptIK) resetHalting() {
 	ik.haltedCh = make(chan struct{})
 }
 
-// Halt Causes this nlopt IK to immediately cease all processing and return with no solution
+// Halt causes this nlopt IK to immediately cease all processing and return with no solution
 func (ik *NloptIK) Halt() {
 	close(ik.requestHaltCh)
 	err := ik.opt.ForceStop()
@@ -169,7 +168,7 @@ func (ik *NloptIK) Halt() {
 	ik.resetHalting()
 }
 
-// Solve Attempts to solve for all goals
+// Solve attempts to solve for all goals
 func (ik *NloptIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:

@@ -68,21 +68,21 @@ func NewModel() *Model {
 	return &m
 }
 
-// NextID will return the next ID to use for a node in the directed graph
-// Hypothetically this could eventually overflow
-// If we ever run one model long enough to need 20 sextillion tree nodes, we will deal with it at that time
+// NextID will return the next ID to use for a node in the directed graph.
+// Hypothetically this could eventually overflow.
+// If we ever run one model long enough to need 20 sextillion tree nodes, we will deal with it at that time.
 func (m *Model) NextID() int64 {
 	id := int64(m.nextID)
 	m.nextID++
 	return id
 }
 
-// SetSeed TODO
+// SetSeed sets the starting random seed for this model.
 func (m *Model) SetSeed(seed int64) {
 	m.RandSeed = rand.New(rand.NewSource(seed))
 }
 
-// Add TODO
+// Add adds a Frame (frame-of-reference) object to this model.
 func (m *Model) Add(frame *Frame) {
 	frame.SetVertexDescriptor(m.NextID())
 	m.tree.AddNode(simple.Node(frame.GetVertexDescriptor()))
@@ -92,7 +92,7 @@ func (m *Model) Add(frame *Frame) {
 	m.Nodes[frame.GetVertexDescriptor()] = frame
 }
 
-// AddEdge TODO
+// AddEdge adds an edge on the model graph between two frames.
 // Annoyingly, pointers aren't implemented on edges with simple.DirectedGraph
 func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	edge := m.tree.NewEdge(m.tree.Node(frameA.GetVertexDescriptor()), m.tree.Node(frameB.GetVertexDescriptor()))
@@ -109,12 +109,12 @@ func (m *Model) RandomJointPositions() []float64 {
 	return jointPos
 }
 
-// GetJoint TODO.
+// GetJoint returns the joint at the given index.
 func (m *Model) GetJoint(i int) *Joint {
 	return m.Joints[i]
 }
 
-// GetJoints TODO.
+// GetJoints returns an array of all joints.
 func (m *Model) GetJoints() int {
 	return len(m.Joints)
 }
@@ -192,7 +192,7 @@ func (m *Model) SetVelocity(newVel []float64) {
 	}
 }
 
-// Normalize TODO.
+// Normalize normalizes each of an array of joint positions- that is, enforces they are between +/- 2pi.
 func (m *Model) Normalize(pos []float64) []float64 {
 	i := 0
 	var normalized []float64
@@ -203,7 +203,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 	return normalized
 }
 
-// IsValid TODO.
+// IsValid checks whether the given array of joint positions violates any joint limits.
 func (m *Model) IsValid(pos []float64) bool {
 	i := 0
 	for _, joint := range m.Joints {

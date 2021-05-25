@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	//~ "fmt"
 	"math"
 	"testing"
 
