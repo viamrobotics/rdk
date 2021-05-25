@@ -137,7 +137,7 @@ func TestParseFlags(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ps6.A, test.ShouldBeTrue)
 		test.That(t, ps6.B, test.ShouldEqual, "two")
-		test.That(t, ps6.Extra, test.ShouldResemble, []string{"three", "four"})
+		test.That(t, NewStringSet(ps6.Extra...), test.ShouldResemble, NewStringSet("three", "four"))
 
 		var ps7 parseStruct7
 		err = ParseFlags([]string{"1", "true", "two", "three", "four"}, &ps7)
