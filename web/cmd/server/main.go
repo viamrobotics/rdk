@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -306,6 +307,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 
 	err = web.RunWeb(ctx, myRobot, options, logger)
+	if err != nil {
+		return fmt.Errorf("error running web: %w", err)
+	}
 	<-onWatchDone
 	return err
 }
