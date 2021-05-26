@@ -8,11 +8,19 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-// XYZWeights TODO
+// XYZWeights Defines a struct into which XYZ values can be parsed from JSON
 type XYZWeights struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
+}
+
+// XYZTHWeights Defines a struct into which XYZ + theta values can be parsed from JSON
+type XYZTHWeights struct {
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	Z  float64 `json:"z"`
+	TH float64 `json:"th"`
 }
 
 // DistanceConfig values are used to augment the distance check for a given IK solution.
@@ -23,8 +31,8 @@ type XYZWeights struct {
 // otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
 // that dimension to not be considered at all.
 type DistanceConfig struct {
-	Trans  XYZWeights `json:"translation"`
-	Orient XYZWeights `json:"orientation"`
+	Trans  XYZWeights   `json:"translation"`
+	Orient XYZTHWeights `json:"orientation"`
 }
 
 // Model TODO
@@ -64,7 +72,7 @@ func NewModel() *Model {
 	m.Nodes = make(map[int64]*Frame)
 	m.Edges = make(map[graph.Edge]Link)
 	m.RandSeed = rand.New(rand.NewSource(1))
-	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZWeights{1.0, 1.0, 1.0}}
+	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 

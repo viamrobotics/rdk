@@ -2919,7 +2919,8 @@ proto.proto.api.v1.ArmPosition.toObject = function(includeInstance, msg) {
     z: jspb.Message.getFieldWithDefault(msg, 3, 0),
     rX: jspb.Message.getFloatingPointFieldWithDefault(msg, 4, 0.0),
     rY: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
-    rZ: jspb.Message.getFloatingPointFieldWithDefault(msg, 6, 0.0)
+    rZ: jspb.Message.getFloatingPointFieldWithDefault(msg, 6, 0.0),
+    theta: jspb.Message.getFloatingPointFieldWithDefault(msg, 7, 0.0)
   };
 
   if (includeInstance) {
@@ -2979,6 +2980,10 @@ proto.proto.api.v1.ArmPosition.deserializeBinaryFromReader = function(msg, reade
     case 6:
       var value = /** @type {number} */ (reader.readDouble());
       msg.setRZ(value);
+      break;
+    case 7:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setTheta(value);
       break;
     default:
       reader.skipField();
@@ -3048,6 +3053,13 @@ proto.proto.api.v1.ArmPosition.serializeBinaryToWriter = function(message, write
   if (f !== 0.0) {
     writer.writeDouble(
       6,
+      f
+    );
+  }
+  f = message.getTheta();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      7,
       f
     );
   }
@@ -3159,6 +3171,24 @@ proto.proto.api.v1.ArmPosition.prototype.getRZ = function() {
  */
 proto.proto.api.v1.ArmPosition.prototype.setRZ = function(value) {
   return jspb.Message.setProto3FloatField(this, 6, value);
+};
+
+
+/**
+ * optional double theta = 7;
+ * @return {number}
+ */
+proto.proto.api.v1.ArmPosition.prototype.getTheta = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 7, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.ArmPosition} returns this
+ */
+proto.proto.api.v1.ArmPosition.prototype.setTheta = function(value) {
+  return jspb.Message.setProto3FloatField(this, 7, value);
 };
 
 

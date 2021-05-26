@@ -71,13 +71,14 @@ func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
 	return m.Joints[idx].GetOperationalVelocity()
 }
 
-// CalculateJacobian TODO
+// CalculateJacobian calculates the Jacobian matrix for the end effector's current position
 // This used to support multiple end effectors
 // Removed that support when quaternions were added
 // because nothing we have has multiple end effectors
 // Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
 
+	// TODO (pl): Update this to support R4 AA
 	m.Jacobian = mgl64.NewMatrix(6, m.GetDof())
 
 	q := dualquat.Number{}

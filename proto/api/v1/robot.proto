@@ -294,6 +294,7 @@ message ArmPosition {
 	double r_x = 4;
 	double r_y = 5;
 	double r_z = 6;
+	double theta = 7;
 }
 
 message JointPositions {
