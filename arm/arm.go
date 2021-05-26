@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
@@ -26,16 +27,17 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
-// NewPositionFromMetersAndRadians returns a three-dimensional arm position
-// defined by a point in space in meters and an orientation defined in radians.
-func NewPositionFromMetersAndRadians(x, y, z, rx, ry, rz float64) *pb.ArmPosition {
+// NewPositionFromMetersAndAngleAxis returns a three-dimensional arm position
+// defined by a point in space in meters and an orientation defined as an angle axis.
+func NewPositionFromMetersAndAngleAxis(x, y, z, th, rx, ry, rz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
-		X:  int64(x * 1000),
-		Y:  int64(y * 1000),
-		Z:  int64(z * 1000),
-		RX: utils.RadToDeg(rx),
-		RY: utils.RadToDeg(ry),
-		RZ: utils.RadToDeg(rz),
+		X:     int64(x * 1000),
+		Y:     int64(y * 1000),
+		Z:     int64(z * 1000),
+		RX:    rx,
+		RY:    ry,
+		RZ:    rz,
+		Theta: th,
 	}
 }
 
@@ -69,12 +71,21 @@ func PositionGridDiff(a, b *pb.ArmPosition) float64 {
 	return utils.CubeRoot(diff)
 }
 
-// PositionRotationDiff returns the rotational distance
-// between two arm positions in degrees.
+// PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
 func PositionRotationDiff(a, b *pb.ArmPosition) float64 {
-	diff := utils.Square(a.RX-b.RX) +
+	return utils.Square(a.Theta-b.Theta) +
+		utils.Square(a.RX-b.RX) +
 		utils.Square(a.RY-b.RY) +
 		utils.Square(a.RZ-b.RZ)
+}
 
-	return utils.CubeRoot(diff)
+// R4toR3 converts an R4 angle axis to R3
+func R4toR3(th, x, y, z float64) [3]float64 {
+	return [3]float64{x * th, y * th, z * th}
+}
+
+// R3toR4 converts an R3 angle axis to R4
+func R3toR4(x, y, z float64) [4]float64 {
+	th := math.Sqrt(x*x + y*y + z*z)
+	return [4]float64{th, x / th, y / th, z / th}
 }

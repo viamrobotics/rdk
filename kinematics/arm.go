@@ -69,9 +69,10 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos.X = int64(pos6d[0])
 	pos.Y = int64(pos6d[1])
 	pos.Z = int64(pos6d[2])
-	pos.RX = pos6d[3]
-	pos.RY = pos6d[4]
-	pos.RZ = pos6d[5]
+	pos.Theta = pos6d[3]
+	pos.RX = pos6d[4]
+	pos.RY = pos6d[5]
+	pos.RZ = pos6d[6]
 
 	return pos
 }

@@ -56,7 +56,7 @@ func (m *Model) Get6dPosition(idx int) []float64 {
 	pose6d = append(pose6d, cartQuat.Dual.Jmag)
 	pose6d = append(pose6d, cartQuat.Dual.Kmag)
 
-	// Get euler angles
+	// Get R4 angle axis angles
 	pose6d = append(pose6d, kinmath.QuatToAxisAngle(quat.Real)...)
 	return pose6d
 }

@@ -11,15 +11,13 @@ import (
 )
 
 func TestArmPosition(t *testing.T) {
-	p := NewPositionFromMetersAndRadians(1.0, 2.0, 3.0, 0, math.Pi/2, math.Pi)
+	p := NewPositionFromMetersAndAngleAxis(1.0, 2.0, 3.0, math.Pi/2, 0, 0.7071, 0.7071)
 
 	test.That(t, p.RX, test.ShouldEqual, 0.0)
-	test.That(t, p.RY, test.ShouldEqual, 90.0)
-	test.That(t, p.RZ, test.ShouldEqual, 180.0)
+	test.That(t, p.RY, test.ShouldEqual, 0.7071)
+	test.That(t, p.RZ, test.ShouldEqual, 0.7071)
 
-	test.That(t, utils.DegToRad(p.RX), test.ShouldEqual, 0.0)
-	test.That(t, utils.DegToRad(p.RY), test.ShouldEqual, math.Pi/2)
-	test.That(t, utils.DegToRad(p.RZ), test.ShouldEqual, math.Pi)
+	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
 }
 
 func TestJointPositions(t *testing.T) {
@@ -41,5 +39,19 @@ func TestArmPositionDiff(t *testing.T) {
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{RX: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{RY: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{RZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{RX: 1, RY: 1, RZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, utils.CubeRoot(3))
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{RX: 1, RY: 1, RZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 3)
+}
+
+func TestAAConversion(t *testing.T) {
+	r3 := [3]float64{1.5, 1.5, 1.5}
+	r4 := R3toR4(r3[0], r3[1], r3[2])
+	test.That(t, r4[0], test.ShouldAlmostEqual, 2.598076211353316)
+	test.That(t, r4[1], test.ShouldAlmostEqual, 0.5773502691896257)
+	test.That(t, r4[2], test.ShouldAlmostEqual, 0.5773502691896257)
+	test.That(t, r4[3], test.ShouldAlmostEqual, 0.5773502691896257)
+	r3_2 := R4toR3(r4[0], r4[1], r4[2], r4[3])
+	test.That(t, r3_2[0], test.ShouldAlmostEqual, 1.5)
+	test.That(t, r3_2[1], test.ShouldAlmostEqual, 1.5)
+	test.That(t, r3_2[2], test.ShouldAlmostEqual, 1.5)
+
 }

@@ -159,7 +159,9 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 // CurrentPosition TODO
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := ua.State().CartesianInfo
-	return arm.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
+	// The UR5 arm does not use Euler angles. It returns its orientation in R3 angle axis form, we convert to R4.
+	r4aa := arm.R3toR4(s.Rx, s.Ry, s.Rz)
+	return arm.NewPositionFromMetersAndAngleAxis(s.X, s.Y, s.Z, r4aa[0], r4aa[1], r4aa[2], r4aa[3]), nil
 }
 
 // JointMoveDelta TODO
@@ -251,11 +253,12 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 	x := float64(pos.X) / 1000
 	y := float64(pos.Y) / 1000
 	z := float64(pos.Z) / 1000
-	rx := utils.DegToRad(pos.RX)
-	ry := utils.DegToRad(pos.RY)
-	rz := utils.DegToRad(pos.RZ)
+	th := pos.Theta
+	rx := pos.RX
+	ry := pos.RY
+	rz := pos.RZ
 
-	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, th, rx, ry, rz)
 
 	_, err := ua.conn.Write([]byte(cmd))
 	if err != nil {

@@ -29,7 +29,7 @@
               const [armName, armValue] = old[i];
               var newArm = { name : armName, pieces : [] };
 
-              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["rX", "RX"], ["rY", "RY"], ["rZ", "RZ"]];
+              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["rX", "RX"], ["rY", "RY"], ["rZ", "RZ"]];
               for (var j=0; j<fieldSetters.length; j++ ){
                   newArm.pieces.push( { grid : fieldSetters[j],
                                         joint : j,

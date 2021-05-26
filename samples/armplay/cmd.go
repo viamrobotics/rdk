@@ -20,6 +20,7 @@ import (
 	_ "go.viam.com/core/robots/eva"             // load arm
 	_ "go.viam.com/core/robots/universalrobots" // load arm
 	_ "go.viam.com/core/robots/varm"            // load arm
+	_ "go.viam.com/core/robots/vx300s"          // load arm
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
