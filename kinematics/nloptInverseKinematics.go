@@ -61,7 +61,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
+		dx := make([]float64, ik.Mdl.GetOperationalDof()*7)
 
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
@@ -83,7 +83,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				xBak[i] += ik.jump
 				ik.Mdl.SetPosition(xBak)
 				ik.Mdl.ForwardPosition()
-				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*6)
+				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
 				for _, goal := range ik.GetGoals() {
 					dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
 					dxIdx := goal.EffectorID * len(dxDelta)
