@@ -291,6 +291,10 @@ message ArmPosition {
 	int64 z = 3;
 
 	// angle axis components
+	// See here for a thorough explanation: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
+	// Basic explanation: Imagine a 3d cartesian grid centered at 0,0,0, and a sphere of radius 1 centered at
+	// that same point. An orientation can be expressed by first specifying an axis, i.e. a line from the origin
+	// to a point on that sphere, represented by (r_x, r_y, r_z), and a rotation around that axis, theta.
 	double r_x = 4;
 	double r_y = 5;
 	double r_z = 6;
