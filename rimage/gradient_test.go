@@ -52,7 +52,7 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 }
 
 func TestSobelFilter(t *testing.T) {
-	outDir := testutils.TempDir(t, "", "rimage")
+	outDir := testutils.TempDirT(t, "", "rimage")
 	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
@@ -67,12 +67,12 @@ func TestSobelFilter(t *testing.T) {
 	// reminder: left-handed coordinate system. +x is right, +y is down.
 	// (223,100) is right edge of circle
 	test.That(t, radZeroTo2Pi(gradients.GetVec2D(223, 100).Direction()), test.ShouldEqual, math.Pi)
-	// (149,173) is bottom edge of circle
-	test.That(t, radZeroTo2Pi(gradients.GetVec2D(149, 173).Direction()), test.ShouldEqual, 3.*math.Pi/2.)
+	// (150,173) is bottom edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(150, 173).Direction()), test.ShouldEqual, 3.*math.Pi/2.)
 	// (76,100) is left edge of circle
 	test.That(t, radZeroTo2Pi(gradients.GetVec2D(76, 100).Direction()), test.ShouldEqual, 0)
-	// (149,26) is top edge of circle
-	test.That(t, radZeroTo2Pi(gradients.GetVec2D(149, 26).Direction()), test.ShouldEqual, math.Pi/2.)
+	// (150,27) is top edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(150, 27).Direction()), test.ShouldEqual, math.Pi/2.)
 
 }
 

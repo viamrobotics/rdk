@@ -10,9 +10,14 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+type DepthFilter struct {
+	size   int
+	filter func(p image.Point, dm *DepthMap) float64
+}
+
 // Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
 // i is the position within the kernel and dx gives the offset within the depth map.
-// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1}
+// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1} (even lengths rarely used)
 func makeRangeArray(length int) []int {
 	if length <= 0 {
 		return make([]int, 0)
@@ -101,58 +106,26 @@ func GaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	return filter
 }
 
-func DirectionalJointBilateralFilter(spatialXSigma, spatialYSigma, colorSigma float64) func(p image.Point, direction float64, ii *ImageWithDepth) float64 {
-	spatialXFilter := GaussianFunction1D(spatialXSigma)
-	spatialYFilter := GaussianFunction1D(spatialYSigma)
-	colorFilter := GaussianFunction1D(colorSigma)
-	// k is determined by spatial sigma
-	k := utils.MaxInt(3, 1+2*int(3.*spatialXSigma))
-	k = utils.MaxInt(k, 1+2*int(3.*spatialYSigma))
+func JointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, dm *DepthMap) float64 {
+	spatialFilter := GaussianFunction2D(spatialSigma)
+	depthFilter := GaussianFunction1D(depthSigma)
+	k := utils.MaxInt(3, 1+2*int(3.*spatialSigma)) // 3 sigma worth of area
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
-	filter := func(p image.Point, direction float64, ii *ImageWithDepth) float64 {
-		pColor := ii.Color.GetXY(p.X, p.Y)
+	filter := func(p image.Point, dm *DepthMap) float64 {
 		newDepth := 0.0
 		totalWeight := 0.0
+		center := float64(dm.GetDepth(p.X, p.Y))
 		for _, dx := range xRange {
 			for _, dy := range yRange {
-				if !ii.Color.In(p.X+dx, p.Y+dy) {
+				if !dm.In(p.X+dx, p.Y+dy) {
 					continue
 				}
-				d := float64(ii.Depth.GetDepth(p.X+dx, p.Y+dy))
+				d := float64(dm.GetDepth(p.X+dx, p.Y+dy))
 				if d == 0.0 {
 					continue
 				}
-				weight := spatialXFilter(float64(dx)) * spatialYFilter(float64(dy))
-				weight *= colorFilter(pColor.DistanceLab(ii.Color.GetXY(p.X+dx, p.Y+dy)))
-				newDepth += d * weight
-				totalWeight += weight
-			}
-		}
-		return newDepth / totalWeight
-	}
-	return filter
-}
-
-func JointBilateralFilter(spatialSigma, colorSigma float64) func(p image.Point, ii *ImageWithDepth) float64 {
-	spatialFilter := GaussianFunction1D(spatialSigma)
-	colorFilter := GaussianFunction1D(colorSigma)
-	k := utils.MaxInt(3, 1+2*int(3.*spatialSigma))
-	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
-	filter := func(p image.Point, ii *ImageWithDepth) float64 {
-		pColor := ii.Color.GetXY(p.X, p.Y)
-		newDepth := 0.0
-		totalWeight := 0.0
-		for _, dx := range xRange {
-			for _, dy := range yRange {
-				if !ii.Color.In(p.X+dx, p.Y+dy) {
-					continue
-				}
-				d := float64(ii.Depth.GetDepth(p.X+dx, p.Y+dy))
-				if d == 0.0 {
-					continue
-				}
-				weight := spatialFilter(float64(dx)) * spatialFilter(float64(dy))
-				weight *= colorFilter(pColor.DistanceLab(ii.Color.GetXY(p.X+dx, p.Y+dy)))
+				weight := spatialFilter(float64(dx), float64(dy))
+				weight *= depthFilter(center - d)
 				newDepth += d * weight
 				totalWeight += weight
 			}
