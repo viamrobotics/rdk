@@ -216,17 +216,18 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 // p(x,y) = a0 + a1*x + a2*y + a3*x^2 + a4*y^2 + a5*x*y + ... such that the square difference sum_over_x,y |f(x,y) - p(x,y)|^2
 // is a minimum. f(x,y) is the actual data, in this case the depth info from the input image. We represent the data f(x,y) as a vector
 // f, and the equation p(x,y) as a product of the matrix A and vector of coefs a. Therefore, we want to solve the equation that gets
-// as close as possible to Aa - f = 0 or equivalently a = (A^-1)f. We can pre-compute the psuedo-inverse of A to apply to f later,
+// as close as possible to Aa - f = 0 or equivalently a = (A^-1)f. We can pre-compute the pseudo-inverse of A to apply to f later,
 // and since we only need to know p(0,0), the point at the center of the filter, we only need to use the first row of A^-1
 // which gives a0. If you wanted to get the gradient of the fit as well, you could use the 2nd and 3rd row of A^-1
 // which represent a1 and a2 respectively.
-type Exponents image.Point
 
-func polyExponents(order int) []Exponents {
-	exps := make([]Exponents, 0, (order+1)*(order+2)/2)
+// creates a slice of the exponents on the x and y in each term of the polynomial.
+// e.g. image.Point{0,2} -> a4*y^2, image.Point{1,1} -> a5*x*y
+func polyExponents(order int) []image.Point {
+	exps := make([]image.Point, 0, (order+1)*(order+2)/2)
 	for k := 0; k < order+1; k++ {
 		for n := 0; n < k+1; n++ {
-			exps = append(exps, Exponents{k - n, n})
+			exps = append(exps, image.Point{k - n, n})
 		}
 	}
 	return exps
@@ -258,7 +259,7 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 			}
 		}
 	}
-	// calculate psuedo-inverse of A
+	// calculate pseudo-inverse of A
 	var solution mat.Dense
 	I := eye(nElements)
 	err := solution.Solve(A, I)
@@ -268,9 +269,9 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	// Get the row used to calculate the a0 coefficients and form it back into a square
 	coefs := solution.RowView(0).(*mat.VecDense).RawVector().Data
 	kernel := [][]float64{}
-	for y, _ := range yRange {
+	for y := range yRange {
 		row := make([]float64, windowSize)
-		for x, _ := range xRange {
+		for x := range xRange {
 			row[x] = coefs[y*windowSize+x]
 		}
 		kernel = append(kernel, row)

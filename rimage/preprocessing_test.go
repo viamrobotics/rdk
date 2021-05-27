@@ -198,7 +198,7 @@ func drawAverageHoleDepth(dm *DepthMap) *Image {
 		default:
 			c = blue
 		}
-		for pt, _ := range seg {
+		for pt := range seg {
 			img.Set(pt, c)
 		}
 	}

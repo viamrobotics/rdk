@@ -1,7 +1,6 @@
 package rimage
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -104,7 +103,7 @@ func GaussianSmoothing(dm *DepthMap, sigma float64) (*DepthMap, error) {
 	return outDM, nil
 }
 
-// SavistkyGolaySmoothing smoothes a depth map affected by noise by using a least-squares fit to a 2D polynomial equation.
+// SavitskyGolaySmoothing smoothes a depth map affected by noise by using a least-squares fit to a 2D polynomial equation.
 // radius determines the window of the smoothing, while polyOrder determines the order of the polynomial fit.
 func SavitskyGolaySmoothing(dm *DepthMap, validPoints *image.Gray, radius, polyOrder int) (*DepthMap, error) {
 	width, height := dm.Width(), dm.Height()
@@ -227,7 +226,7 @@ func CleanDepthMap(dm *DepthMap) {
 		avgDepth := averageDepthInSegment(seg, dm)
 		threshold := thresholdFromDepth(avgDepth, dm.Width()*dm.Height())
 		if len(seg) < threshold {
-			for point, _ := range seg {
+			for point := range seg {
 				dm.Set(point.X, point.Y, Depth(0))
 			}
 		}
@@ -244,7 +243,7 @@ func FillDepthMap(dm *DepthMap) {
 		avgDepth := averageDepthAroundHole(seg, dm)
 		threshold := thresholdFromDepth(avgDepth, dm.Width()*dm.Height())
 		if len(seg) < threshold {
-			for point, _ := range seg {
+			for point := range seg {
 				val := depthRayMarching(point.X, point.Y, dm)
 				dm.Set(point.X, point.Y, val)
 			}
@@ -270,7 +269,7 @@ func thresholdFromDepth(depth float64, imgResolution int) int {
 // get the average depth within the segment. assumes segment has only valid points, and no points are out of bounds.
 func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 	sum, count := 0.0, 0.0
-	for point, _ := range segment {
+	for point := range segment {
 		d := float64(dm.GetDepth(point.X, point.Y))
 		sum += d
 		count++
@@ -289,7 +288,7 @@ func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 
 	sum := 0.0
 	count := 0.0
 	visited := make(map[image.Point]bool) // don't double-count border pixels
-	for hole, _ := range segment {
+	for hole := range segment {
 		for _, dir := range directions {
 			point := image.Point{hole.X + dir.X, hole.Y + dir.Y}
 			if !dm.In(point.X, point.Y) {
@@ -407,16 +406,4 @@ func invertGrayImage(img *image.Gray) *image.Gray {
 		}
 	}
 	return dst
-}
-
-// boolMapToGrayImage creates a black and white image out of a true/false map of points. True points map to white.
-func boolMapToGrayImage(boolMap map[image.Point]bool, width, height int) (*image.Gray, error) {
-	dst := image.NewGray(image.Rect(0, 0, width, height))
-	for point, _ := range boolMap {
-		if !point.In(dst.Bounds()) {
-			return nil, fmt.Errorf("point (%d,%d) not in bounds of image with dim (%d,%d)", point.X, point.Y, width, height)
-		}
-		dst.Set(point.X, point.Y, color.Gray{255})
-	}
-	return dst, nil
 }
