@@ -66,9 +66,9 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	pos := &pb.ArmPosition{}
-	pos.X = int64(pos6d[0])
-	pos.Y = int64(pos6d[1])
-	pos.Z = int64(pos6d[2])
+	pos.X = pos6d[0]
+	pos.Y = pos6d[1]
+	pos.Z = pos6d[2]
 	pos.Theta = pos6d[3]
 	pos.RX = pos6d[4]
 	pos.RY = pos6d[5]

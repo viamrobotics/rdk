@@ -252,9 +252,9 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // MoveToPosition TODO
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	x := float64(pos.X) / 1000
-	y := float64(pos.Y) / 1000
-	z := float64(pos.Z) / 1000
+	x := pos.X / 1000
+	y := pos.Y / 1000
+	z := pos.Z / 1000
 	// UR5 arm takes R3 angle axis as input
 	rx := pos.RX * pos.Theta
 	ry := pos.RY * pos.Theta
