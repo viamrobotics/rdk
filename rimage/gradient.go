@@ -80,8 +80,8 @@ func (vf *VectorField2D) Height() int {
 }
 
 // Contains returns whether the given point is in the vector field
-func (vf *VectorField2D) Contains(p image.Point) bool {
-	return p.X >= 0 && p.Y >= 0 && p.X < vf.width && p.Y < vf.height
+func (vf *VectorField2D) Contains(x, y int) bool {
+	return x >= 0 && y >= 0 && x < vf.width && y < vf.height
 }
 
 // Get TODO
