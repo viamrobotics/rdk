@@ -294,13 +294,13 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, 
 	return ImageGradient{gradX, gradY, mag, direction}, nil
 }
 
-// SobelFilterColor takes in a color image, approximates the gradient in the X and Y direction at every pixel
+// SobelColorGradient takes in a color image, approximates the gradient in the X and Y direction at every pixel
 // creates a  vector in polar form, and returns a vector field.
-func SobelFilterColor(img *Image) (VectorField2D, error) {
+func SobelColorGradient(img *Image) (VectorField2D, error) {
 	width, height := img.Width(), img.Height()
 	maxMag := 0.0
 	g := make([]Vec2D, 0, width*height)
-	sobel := SobelColorFilter()
+	sobel := sobelColorFilter()
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			point := image.Point{x, y}

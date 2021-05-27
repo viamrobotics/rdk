@@ -14,7 +14,7 @@ func TestSavitskyGolay(t *testing.T) {
 		[]float64{0.011428571428571434, 0.09714285714285714, 0.1257142857142857, 0.09714285714285714, 0.011428571428571439},
 		[]float64{-0.0742857142857143, 0.01142857142857143, 0.03999999999999997, 0.011428571428571392, -0.07428571428571429},
 	}
-	kernel, err := SavitskyGolayKernel(2, 2)
+	got, err := savitskyGolayKernel(2, 2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expected, test.ShouldResemble, kernel)
+	test.That(t, expected, test.ShouldResemble, got)
 }

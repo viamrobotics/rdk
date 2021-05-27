@@ -18,7 +18,7 @@ func PreprocessDepthMap(dm *DepthMap) (*DepthMap, error) {
 	copy(dst, dm.data)
 	outDM := &DepthMap{dm.width, dm.height, dst}
 	// remove noisy data
-	CleanDepthMap(outDM, 500)
+	CleanDepthMap(outDM)
 	// fill in small holes
 	outDM, err = ClosingMorph(outDM, 5, 1)
 	if err != nil {
@@ -27,14 +27,10 @@ func PreprocessDepthMap(dm *DepthMap) (*DepthMap, error) {
 	// fill in large holes
 	FillDepthMap(outDM)
 	// smooth the data
-	outDM = GaussianSmoothing(outDM, 2)
-	/*
-		validPoints := MissingDepthData(outDM)
-		err = SavitskyGolaySmoothing(outDM, outDM, validPoints, 3, 3)
-		if err != nil {
-			return nil, err
-		}
-	*/
+	outDM, err = GaussianSmoothing(outDM, 1)
+	if err != nil {
+		return nil, err
+	}
 	return outDM, nil
 }
 
@@ -43,13 +39,15 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 	var err error
 	var dm *DepthMap
 	if cd.preprocessImage {
-		dm = GaussianSmoothing(dmIn, blur)
+		dm, err = GaussianSmoothing(dmIn, blur)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		dm = dmIn
 	}
 
 	vectorField := ForwardDepthGradient(dm)
-	//vectorField := SobelDepthGradient(dm)
 	dmMagnitude, dmDirection := vectorField.MagnitudeField(), vectorField.DirectionField()
 
 	nms, err := GradientNonMaximumSuppressionC8(dmMagnitude, dmDirection)
@@ -68,11 +66,31 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 	return edges, nil
 }
 
+// MissingDepthData outputs a binary map where white represents where data is, and black is where data is missing.
+func MissingDepthData(dm *DepthMap) *image.Gray {
+	nonHoles := image.NewGray(image.Rect(0, 0, dm.Width(), dm.Height()))
+	for y := 0; y < dm.Height(); y++ {
+		for x := 0; x < dm.Width(); x++ {
+			if dm.GetDepth(x, y) != 0 {
+				nonHoles.Set(x, y, color.Gray{255})
+			}
+		}
+	}
+	return nonHoles
+}
+
 // Smoothing Functions
 
-func SmoothWithFilter(dm *DepthMap, filter func(p image.Point, d *DepthMap) float64) *DepthMap {
+// GaussianSmoothing smoothes a depth map affect by noise by using a weighted average of the pixel values in a window according
+// to a gaussian distribution with a given sigma.
+func GaussianSmoothing(dm *DepthMap, sigma float64) (*DepthMap, error) {
 	width, height := dm.Width(), dm.Height()
 	outDM := NewEmptyDepthMap(width, height)
+	if sigma <= 0. {
+		*outDM = *dm
+		return outDM, nil
+	}
+	filter := gaussianFilter(sigma)
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			if dm.GetDepth(x, y) == 0 {
@@ -83,31 +101,22 @@ func SmoothWithFilter(dm *DepthMap, filter func(p image.Point, d *DepthMap) floa
 			outDM.Set(point.X, point.Y, Depth(val))
 		}
 	}
-	return outDM
-}
-
-// GaussianSmoothing smoothes a depth map affect by noise by using a weighted average of the pixel values in a window according
-// to a gaussian distribution with a given sigma.
-func GaussianSmoothing(dm *DepthMap, sigma float64) *DepthMap {
-	if sigma <= 0. {
-		return dm
-	}
-	filter := GaussianFilter(sigma)
-	return SmoothWithFilter(dm, filter)
+	return outDM, nil
 }
 
 // SavistkyGolaySmoothing smoothes a depth map affected by noise by using a least-squares fit to a 2D polynomial equation.
 // radius determines the window of the smoothing, while polyOrder determines the order of the polynomial fit.
-func SavitskyGolaySmoothing(dm, outDM *DepthMap, validPoints *image.Gray, radius, polyOrder int) error {
-	if radius <= 0 || polyOrder <= 0 {
-		outDM = dm
-		return nil
-	}
-	filter, err := SavitskyGolayFilter(radius, polyOrder)
-	if err != nil {
-		return err
-	}
+func SavitskyGolaySmoothing(dm *DepthMap, validPoints *image.Gray, radius, polyOrder int) (*DepthMap, error) {
 	width, height := dm.Width(), dm.Height()
+	outDM := NewEmptyDepthMap(width, height)
+	if radius <= 0 || polyOrder <= 0 {
+		*outDM = *dm
+		return outDM, nil
+	}
+	filter, err := savitskyGolayFilter(radius, polyOrder)
+	if err != nil {
+		return nil, err
+	}
 	dmForConv := expandDepthMapForConvolution(dm, radius)
 	zero := color.Gray{0}
 	for y := 0; y < height; y++ {
@@ -121,14 +130,14 @@ func SavitskyGolaySmoothing(dm, outDM *DepthMap, validPoints *image.Gray, radius
 			outDM.Set(x, y, Depth(val))
 		}
 	}
-	return nil
+	return outDM, nil
 }
 
 // JointBilateralSmoothing smoothes a depth map affected by noise by using the product of two gaussian filters,
 // one based on spatial distance, and the other based on depth differences. depthSigma essentially sets a threshold to not
 // smooth across large differences in depth.
-func JointBilateralSmoothing(dm *DepthMap, spatialSigma, depthSigma float64) *DepthMap {
-	filter := JointBilateralFilter(spatialSigma, depthSigma)
+func JointBilateralSmoothing(dm *DepthMap, spatialSigma, depthSigma float64) (*DepthMap, error) {
+	filter := jointBilateralFilter(spatialSigma, depthSigma)
 	width, height := dm.Width(), dm.Height()
 	outDM := NewEmptyDepthMap(width, height)
 	for y := 0; y < height; y++ {
@@ -141,26 +150,7 @@ func JointBilateralSmoothing(dm *DepthMap, spatialSigma, depthSigma float64) *De
 			outDM.Set(point.X, point.Y, Depth(val))
 		}
 	}
-	return outDM
-}
-
-// JointTrilateralSmoothing smoothes a depth map affected by noise by using the product of three gaussian filters,
-// one based on spatial distance, one based on color differences of the associated RGB image, and one based on depth differences.
-func JointTrilateralSmoothing(ii *ImageWithDepth, spatialSigma, colSigma, depSigma float64) *ImageWithDepth {
-	filter := JointTrilateralFilter(spatialSigma, colSigma, depSigma)
-	width, height := ii.Depth.Width(), ii.Depth.Height()
-	outDM := NewEmptyDepthMap(width, height)
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			if ii.Depth.GetDepth(x, y) == 0 {
-				continue
-			}
-			point := image.Point{x, y}
-			val := filter(point, ii)
-			outDM.Set(point.X, point.Y, Depth(val))
-		}
-	}
-	return MakeImageWithDepth(ii.Color, outDM, ii.IsAligned(), ii.CameraSystem())
+	return outDM, nil
 }
 
 // expandDepthMapForConvolution pads an input depth map on every side with a mirror image of the data. This is so evaluation
@@ -186,7 +176,7 @@ func SobelDepthGradient(dm *DepthMap) VectorField2D {
 	width, height := dm.Width(), dm.Height()
 	maxMag := 0.0
 	g := make([]Vec2D, 0, width*height)
-	sobel := SobelDepthFilter()
+	sobel := sobelDepthFilter()
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			// apply the Sobel Filter over a 3x3 square around each pixel
@@ -230,10 +220,12 @@ func ForwardDepthGradient(dm *DepthMap) VectorField2D {
 // Filling and cleaning depth map functions
 
 // CleanDepthMap removes the connected regions of data below a certain size thershold.
-func CleanDepthMap(dm *DepthMap, threshold int) {
+func CleanDepthMap(dm *DepthMap) {
 	validData := MissingDepthData(dm)
-	regionMap := SegmentBinaryImage(validData)
+	regionMap := segmentBinaryImage(validData)
 	for _, seg := range regionMap {
+		avgDepth := averageDepthInSegment(seg, dm)
+		threshold := thresholdFromDepth(avgDepth, dm.Width()*dm.Height())
 		if len(seg) < threshold {
 			for point, _ := range seg {
 				dm.Set(point.X, point.Y, Depth(0))
@@ -246,8 +238,8 @@ func CleanDepthMap(dm *DepthMap, threshold int) {
 // an average of the surrounding pixels by using 8-point ray-marching.
 func FillDepthMap(dm *DepthMap) {
 	validData := MissingDepthData(dm)
-	missingData := InvertGrayImage(validData)
-	holeMap := SegmentBinaryImage(missingData)
+	missingData := invertGrayImage(validData)
+	holeMap := segmentBinaryImage(missingData)
 	for _, seg := range holeMap {
 		avgDepth := averageDepthAroundHole(seg, dm)
 		threshold := thresholdFromDepth(avgDepth, dm.Width()*dm.Height())
@@ -260,21 +252,33 @@ func FillDepthMap(dm *DepthMap) {
 	}
 }
 
-// limits inpainting to holes of a specific size. Farther distance means the same pixel size represents a larger area.
-// It might be better to make it a real function of depth, right now just split into regions of close, middle, far and thresholds based on proportion of the image resolution.
-func thresholdFromDepth(d float64, imgResolution int) int {
+// limits inpainting/cleaning to holes of a specific size. Farther distance means the same pixel size represents a larger area.
+// It might be better to make it a real function of depth, right now just split into regions of close, middle, far based on distance
+// in mm and make thresholds based on proportion of the image resolution.
+func thresholdFromDepth(depth float64, imgResolution int) int {
 	res := float64(imgResolution)
 	switch {
-	case d < 500.:
+	case depth < 500.:
 		return int(0.05 * res)
-	case d >= 500. && d < 4000.:
+	case depth >= 500. && depth < 4000.:
 		return int(0.005 * res)
 	default:
 		return int(0.0005 * res)
 	}
 }
 
-// take the average of the border of the hole as the average inside the hole
+// get the average depth within the segment. assumes segment has only valid points, and no points are out of bounds.
+func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
+	sum, count := 0.0, 0.0
+	for point, _ := range segment {
+		d := float64(dm.GetDepth(point.X, point.Y))
+		sum += d
+		count++
+	}
+	return sum / count
+}
+
+// calculate the average depth inside the hole as the average of the border of the hole
 func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 {
 	directions := []image.Point{
 		{0, 1},  //up
@@ -358,9 +362,9 @@ func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Poin
 	return neighbors
 }
 
-// SegmentBinaryImage does a bredth-first search on a black and white image and splits the non-connected white regions
+// segmentBinaryImage does a bredth-first search on a black and white image and splits the non-connected white regions
 // into different regions.
-func SegmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
+func segmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
 	regionMap := make(map[int]map[image.Point]bool)
 	visited := make(map[image.Point]bool)
 	region := 0
@@ -392,21 +396,8 @@ func SegmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
 	return regionMap
 }
 
-// MissingDepthData outputs a binary map where white represents where data is, and black is where data is missing.
-func MissingDepthData(dm *DepthMap) *image.Gray {
-	nonHoles := image.NewGray(image.Rect(0, 0, dm.Width(), dm.Height()))
-	for y := 0; y < dm.Height(); y++ {
-		for x := 0; x < dm.Width(); x++ {
-			if dm.GetDepth(x, y) != 0 {
-				nonHoles.Set(x, y, color.Gray{255})
-			}
-		}
-	}
-	return nonHoles
-}
-
-// InvertGrayImage produces a negated version of the input image
-func InvertGrayImage(img *image.Gray) *image.Gray {
+// invertGrayImage produces a negated version of the input image
+func invertGrayImage(img *image.Gray) *image.Gray {
 	width, height := img.Bounds().Dx(), img.Bounds().Dy()
 	dst := image.NewGray(image.Rect(0, 0, width, height))
 	for y := 0; y < height; y++ {
@@ -418,8 +409,8 @@ func InvertGrayImage(img *image.Gray) *image.Gray {
 	return dst
 }
 
-// BoolMapToGrayImage creates a black and white image out of a true/false map of points. True points map to white.
-func BoolMapToGrayImage(boolMap map[image.Point]bool, width, height int) (*image.Gray, error) {
+// boolMapToGrayImage creates a black and white image out of a true/false map of points. True points map to white.
+func boolMapToGrayImage(boolMap map[image.Point]bool, width, height int) (*image.Gray, error) {
 	dst := image.NewGray(image.Rect(0, 0, width, height))
 	for point, _ := range boolMap {
 		if !point.In(dst.Bounds()) {
@@ -428,29 +419,4 @@ func BoolMapToGrayImage(boolMap map[image.Point]bool, width, height int) (*image
 		dst.Set(point.X, point.Y, color.Gray{255})
 	}
 	return dst, nil
-}
-
-// DrawAverageHoleDepth
-func DrawAverageHoleDepth(dm *DepthMap) *Image {
-	red, green, blue := NewColor(255, 0, 0), NewColor(0, 255, 0), NewColor(0, 0, 255)
-	img := NewImage(dm.Width(), dm.Height())
-	validData := MissingDepthData(dm)
-	missingData := InvertGrayImage(validData)
-	holeMap := SegmentBinaryImage(missingData)
-	for _, seg := range holeMap {
-		avgDepth := averageDepthAroundHole(seg, dm)
-		var c Color
-		switch {
-		case avgDepth < 500.0:
-			c = red
-		case avgDepth >= 500.0 && avgDepth < 4000.0:
-			c = green
-		default:
-			c = blue
-		}
-		for pt, _ := range seg {
-			img.Set(pt, c)
-		}
-	}
-	return img
 }
