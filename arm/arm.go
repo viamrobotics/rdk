@@ -28,7 +28,8 @@ type Arm interface {
 }
 
 // NewPositionFromMetersAndAngleAxis returns a three-dimensional arm position
-// defined by a point in space in meters and an orientation defined as an angle axis.
+// defined by a point in space in meters and an orientation defined as an axis angle.
+// See kinmath/axisAngle.go for a math explnation
 func NewPositionFromMetersAndAngleAxis(x, y, z, th, rx, ry, rz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
 		X:     int64(x * 1000),
