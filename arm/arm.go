@@ -68,7 +68,9 @@ func PositionGridDiff(a, b *pb.ArmPosition) float64 {
 		utils.Square(float64(a.Y-b.Y)) +
 		utils.Square(float64(a.Z-b.Z))
 
-	return utils.CubeRoot(diff)
+	// Pythagorean theorum in 3d uses sqrt, not cube root
+	// https://www.mathsisfun.com/geometry/pythagoras-3d.html
+	return math.Sqrt(diff)
 }
 
 // PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
@@ -77,15 +79,4 @@ func PositionRotationDiff(a, b *pb.ArmPosition) float64 {
 		utils.Square(a.RX-b.RX) +
 		utils.Square(a.RY-b.RY) +
 		utils.Square(a.RZ-b.RZ)
-}
-
-// R4toR3 converts an R4 angle axis to R3
-func R4toR3(th, x, y, z float64) [3]float64 {
-	return [3]float64{x * th, y * th, z * th}
-}
-
-// R3toR4 converts an R3 angle axis to R4
-func R3toR4(x, y, z float64) [4]float64 {
-	th := math.Sqrt(x*x + y*y + z*z)
-	return [4]float64{th, x / th, y / th, z / th}
 }

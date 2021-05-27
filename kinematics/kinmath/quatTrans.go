@@ -27,8 +27,9 @@ func NewQuatTrans() *QuatTrans {
 // NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
 // axis angle.
 func NewQuatTransFromRotation(th, x, y, z float64) *QuatTrans {
+	aa := R4AA{th, x, y, z}
 	return &QuatTrans{dualquat.Number{
-		Real: AxisAngleToQuat(th, x, y, z),
+		Real: aa.ToQuat(),
 		Dual: quat.Number{},
 	}}
 }
@@ -81,34 +82,39 @@ func (m *QuatTrans) Rotate() {
 // ToDelta returns the difference between two QuatTrans'.
 // We use quaternion/angle axis for this because distances are well-defined.
 func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
-	ret := make([]float64, 3)
+	ret := make([]float64, 7)
 
 	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
 
 	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
 	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	aa := QuatToR4AA(quatBetween)
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
 	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-	axisAngle := QuatToAxisAngle(quatBetween)
-	ret = append(ret, axisAngle...)
+	ret[3] = aa.Theta
+	ret[4] = aa.RX
+	ret[5] = aa.RY
+	ret[6] = aa.RZ
 	return ret
 }
 
 // ToDeltaR3 returns the difference between two QuatTrans' using R3 angle axis.
 // We use quaternion/angle axis for this because distances are well-defined.
 func (m *QuatTrans) ToDeltaR3(other *QuatTrans) []float64 {
-	ret := make([]float64, 3)
+	ret := make([]float64, 6)
 
 	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
 
 	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
 	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	aa := QuatToR3AA(quatBetween)
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
 	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-	axisAngle := QuatToAxisAngleR3(quatBetween)
-	ret = append(ret, axisAngle...)
+	ret[3] = aa.RX
+	ret[4] = aa.RY
+	ret[5] = aa.RZ
 	return ret
 }
 
@@ -122,10 +128,9 @@ func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
 	return dualquat.Mul(m.Quat, by)
 }
 
-// QuatToAxisAngle converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
-// Returns [angle, x, y, z]
+// QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToAxisAngle(q quat.Number) []float64 {
+func QuatToR4AA(q quat.Number) R4AA {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -133,22 +138,15 @@ func QuatToAxisAngle(q quat.Number) []float64 {
 		angle *= -1
 	}
 
-	axisAngle := []float64{angle}
-
 	if denom < 1e-6 {
-		axisAngle = append(axisAngle, 1, 0, 0)
-	} else {
-		axisAngle = append(axisAngle, q.Imag/denom)
-		axisAngle = append(axisAngle, q.Jmag/denom)
-		axisAngle = append(axisAngle, q.Kmag/denom)
+		return R4AA{angle, 1, 0, 0}
 	}
-	return axisAngle
+	return R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
 }
 
-// QuatToAxisAngleR3 converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
-// Returns [angle, x, y, z]
+// QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToAxisAngleR3(q quat.Number) []float64 {
+func QuatToR3AA(q quat.Number) R3AA {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -156,35 +154,10 @@ func QuatToAxisAngleR3(q quat.Number) []float64 {
 		angle *= -1
 	}
 
-	axisAngle := []float64{}
-
 	if denom < 1e-6 {
-		axisAngle = append(axisAngle, 1, 0, 0)
-	} else {
-		axisAngle = append(axisAngle, angle*q.Imag/denom)
-		axisAngle = append(axisAngle, angle*q.Jmag/denom)
-		axisAngle = append(axisAngle, angle*q.Kmag/denom)
+		return R3AA{1, 0, 0}
 	}
-	return axisAngle
-}
-
-// AxisAngleToQuat converts an R4 axis angle to a quat.
-// See: https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToQuaternion/index.htm
-func AxisAngleToQuat(th, x, y, z float64) quat.Number {
-	sinA := math.Sin(th / 2)
-	if th < 1e-6 {
-		// If angle is zero, we return the identity quaternion
-		return quat.Number{1, 0, 0, 0}
-	}
-	// Ensure that point xyz is on the unit sphere
-	aaLen := math.Sqrt(x*x + y*y + z*z)
-
-	// Get the unit-sphere components
-	ax := (x / aaLen) * sinA
-	ay := (y / aaLen) * sinA
-	az := (z / aaLen) * sinA
-	w := math.Cos(th / 2)
-	return quat.Number{w, ax, ay, az}
+	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
 // QuatToEuler Converts a rotation unit quaternion to euler angles.

@@ -1,6 +1,7 @@
 package kinmath
 
 import (
+	"math"
 	"testing"
 
 	"go.viam.com/test"
@@ -11,26 +12,28 @@ import (
 func TestAngleAxisConversion(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
 
-	startAA := []float64{2.5980762, 0.577350, 0.577350, 0.577350}
-	quat := AxisAngleToQuat(startAA[0], startAA[1], startAA[2], startAA[3])
-	endAA := QuatToAxisAngle(quat)
-	for i, v := range startAA {
-		test.That(t, v-endAA[i], test.ShouldBeLessThan, 0.001)
-	}
+	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
+	quat := startAA.ToQuat()
+	end1 := QuatToR4AA(quat)
+	test.That(t, math.Abs(end1.Theta-startAA.Theta), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RX-startAA.RX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RY-startAA.RZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RZ-startAA.RZ), test.ShouldBeLessThan, 0.001)
 }
 
 func TestFlip(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
 
-	startAA := []float64{2.5980762, 0.577350, -0.577350, -0.577350}
-	quat1 := AxisAngleToQuat(startAA[0], startAA[1], startAA[2], startAA[3])
-	quat2 := AxisAngleToQuat(startAA[0], startAA[1], startAA[2], startAA[3])
+	startAA := R4AA{2.5980762, 0.577350, -0.577350, -0.577350}
+	quat1 := startAA.ToQuat()
+	quat2 := startAA.ToQuat()
 	qb1 := quat.Mul(quat1, quat.Conj(quat2))
 	qb2 := quat.Mul(quat1, quat.Conj(Flip(quat2)))
 
-	endAA1 := QuatToAxisAngle(qb1)
-	endAA2 := QuatToAxisAngle(qb2)
-	for i, v := range endAA1 {
-		test.That(t, v-endAA2[i], test.ShouldBeLessThan, 0.001)
-	}
+	end1 := QuatToR4AA(qb1)
+	end2 := QuatToR4AA(qb2)
+	test.That(t, math.Abs(end1.Theta-end2.Theta), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RX-end2.RX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RY-end2.RZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(end1.RZ-end2.RZ), test.ShouldBeLessThan, 0.001)
 }
