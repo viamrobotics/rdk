@@ -291,7 +291,7 @@ func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 
 	for hole := range segment {
 		for _, dir := range directions {
 			point := image.Point{hole.X + dir.X, hole.Y + dir.Y}
-			if !dm.In(point.X, point.Y) {
+			if !dm.Contains(point.X, point.Y) {
 				continue
 			}
 			d := float64(dm.GetDepth(point.X, point.Y))
@@ -326,7 +326,7 @@ func depthRayMarching(x, y int, dm *DepthMap) Depth {
 		for val == 0 { // increment in the given direction until you reach a filled pixel
 			i += dir.X
 			j += dir.Y
-			if !dm.In(i, j) { // skip if out of picture bounds
+			if !dm.Contains(i, j) { // skip if out of picture bounds
 				break
 			}
 			val = int(dm.GetDepth(i, j))

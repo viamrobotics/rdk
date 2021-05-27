@@ -16,5 +16,9 @@ func TestSavitskyGolay(t *testing.T) {
 	}
 	got, err := savitskyGolayKernel(2, 2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, expected, test.ShouldResemble, got)
+	for i := 0; i < 5; i++ {
+		for j := 0; j < 5; j++ {
+			test.That(t, expected[i][j], test.ShouldAlmostEqual, got[i][j])
+		}
+	}
 }

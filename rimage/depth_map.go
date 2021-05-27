@@ -67,8 +67,8 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-// In return whether or not a point is within bounds of the depth map
-func (dm *DepthMap) In(x, y int) bool {
+// Contains returns whether or not a point is within bounds of the depth map
+func (dm *DepthMap) Contains(x, y int) bool {
 	return x >= 0 && y >= 0 && x < dm.width && y < dm.height
 }
 

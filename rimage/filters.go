@@ -86,7 +86,7 @@ func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 		weight := 0.0
 		for i, dx := range xRange {
 			for j, dy := range yRange {
-				if !dm.In(p.X+dx, p.Y+dy) {
+				if !dm.Contains(p.X+dx, p.Y+dy) {
 					continue
 				}
 				d := float64(dm.GetDepth(p.X+dx, p.Y+dy))
@@ -115,7 +115,7 @@ func jointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, 
 		center := float64(dm.GetDepth(p.X, p.Y))
 		for _, dx := range xRange {
 			for _, dy := range yRange {
-				if !dm.In(p.X+dx, p.Y+dy) {
+				if !dm.Contains(p.X+dx, p.Y+dy) {
 					continue
 				}
 				d := float64(dm.GetDepth(p.X+dx, p.Y+dy))
@@ -152,7 +152,7 @@ func sobelDepthFilter() func(p image.Point, dm *DepthMap) (float64, float64) {
 		}
 		for i, dx := range xRange {
 			for j, dy := range yRange {
-				if !dm.In(p.X+dx, p.Y+dy) {
+				if !dm.Contains(p.X+dx, p.Y+dy) {
 					continue
 				}
 				d := float64(dm.GetDepth(p.X+dx, p.Y+dy))
@@ -229,7 +229,7 @@ func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMa
 		val := 0.0
 		for i, dx := range xRange {
 			for j, dy := range yRange {
-				if !dm.In(p.X+dx, p.Y+dy) {
+				if !dm.Contains(p.X+dx, p.Y+dy) {
 					continue
 				}
 				// rows are height j, columns are width i
