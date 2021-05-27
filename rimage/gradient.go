@@ -42,13 +42,14 @@ func (g Vec2D) Unit() Vec2D {
 	return Vec2D{1., g.direction}
 }
 
-// Input a vector in polar coordinates and return the vector in cartesian coordinates.
+// Cartesian returns the componnents of the vector in cartesian coordinates.
 func (g Vec2D) Cartesian() (float64, float64) {
 	x := g.Magnitude() * math.Cos(g.Direction())
 	y := g.Magnitude() * math.Sin(g.Direction())
 	return x, y
 }
 
+// NewVec2D creates a new 2D vector given a magnitude and direction
 func NewVec2D(mag, dir float64) Vec2D {
 	if mag < 0. {
 		panic("vector cannot have magnitude less than 0")

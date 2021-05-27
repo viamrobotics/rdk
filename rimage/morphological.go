@@ -1,4 +1,3 @@
-// morphological functions are used to fill small holes or smooth out rough edges in a depth map.
 package rimage
 
 import (
