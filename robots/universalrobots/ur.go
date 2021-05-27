@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -160,8 +161,9 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := ua.State().CartesianInfo
 	// The UR5 arm does not use Euler angles. It returns its orientation in R3 angle axis form, we convert to R4.
-	r4aa := arm.R3toR4(s.Rx, s.Ry, s.Rz)
-	return arm.NewPositionFromMetersAndAngleAxis(s.X, s.Y, s.Z, r4aa[0], r4aa[1], r4aa[2], r4aa[3]), nil
+	r3aa := kinmath.R3AA{s.Rx, s.Ry, s.Rz}
+	r4aa := r3aa.ToR4()
+	return arm.NewPositionFromMetersAndAngleAxis(s.X, s.Y, s.Z, r4aa.Theta, r4aa.RX, r4aa.RY, r4aa.RZ), nil
 }
 
 // JointMoveDelta TODO

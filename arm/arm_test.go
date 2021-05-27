@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
 
@@ -43,15 +44,15 @@ func TestArmPositionDiff(t *testing.T) {
 }
 
 func TestAAConversion(t *testing.T) {
-	r3 := [3]float64{1.5, 1.5, 1.5}
-	r4 := R3toR4(r3[0], r3[1], r3[2])
-	test.That(t, r4[0], test.ShouldAlmostEqual, 2.598076211353316)
-	test.That(t, r4[1], test.ShouldAlmostEqual, 0.5773502691896257)
-	test.That(t, r4[2], test.ShouldAlmostEqual, 0.5773502691896257)
-	test.That(t, r4[3], test.ShouldAlmostEqual, 0.5773502691896257)
-	r3_2 := R4toR3(r4[0], r4[1], r4[2], r4[3])
-	test.That(t, r3_2[0], test.ShouldAlmostEqual, 1.5)
-	test.That(t, r3_2[1], test.ShouldAlmostEqual, 1.5)
-	test.That(t, r3_2[2], test.ShouldAlmostEqual, 1.5)
+	r3 := kinmath.R3AA{1.5, 1.5, 1.5}
+	r4 := r3.ToR4()
+	test.That(t, r4.Theta, test.ShouldAlmostEqual, 2.598076211353316)
+	test.That(t, r4.RX, test.ShouldAlmostEqual, 0.5773502691896257)
+	test.That(t, r4.RY, test.ShouldAlmostEqual, 0.5773502691896257)
+	test.That(t, r4.RZ, test.ShouldAlmostEqual, 0.5773502691896257)
+	r3_2 := r4.ToR3()
+	test.That(t, r3_2.RX, test.ShouldAlmostEqual, 1.5)
+	test.That(t, r3_2.RY, test.ShouldAlmostEqual, 1.5)
+	test.That(t, r3_2.RZ, test.ShouldAlmostEqual, 1.5)
 
 }
