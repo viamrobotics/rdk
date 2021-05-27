@@ -65,9 +65,9 @@ func JointPositionsFromRadians(radians []float64) *pb.JointPositions {
 // PositionGridDiff returns the euclidean distance between
 // two arm positions in millimeters.
 func PositionGridDiff(a, b *pb.ArmPosition) float64 {
-	diff := utils.Square(float64(a.X-b.X)) +
-		utils.Square(float64(a.Y-b.Y)) +
-		utils.Square(float64(a.Z-b.Z))
+	diff := utils.Square(a.X-b.X) +
+		utils.Square(a.Y-b.Y) +
+		utils.Square(a.Z-b.Z)
 
 	// Pythagorean theorum in 3d uses sqrt, not cube root
 	// https://www.mathsisfun.com/geometry/pythagoras-3d.html
