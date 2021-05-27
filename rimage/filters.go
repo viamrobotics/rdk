@@ -10,7 +10,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
+// Helper function for convolving depth maps with kernels. When used with i, dx := range makeRangeArray(n)
 // i is the position within the kernel and dx gives the offset within the depth map.
 // if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1} (even lengths rarely used)
 func makeRangeArray(length int) []int {
@@ -74,8 +74,9 @@ func gaussianKernel(sigma float64) [][]float64 {
 	return kernel
 }
 
-// Filters for convolutions
+// Filters for convolutions, used in their corresponding smoothing functions
 
+// using just spatial information to fill the kernel values
 func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	kernel := gaussianKernel(sigma)
 	k := len(kernel)
@@ -102,6 +103,7 @@ func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	return filter
 }
 
+// Uses both spatial and depth information to fill the kernel values
 func jointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, dm *DepthMap) float64 {
 	spatialFilter := gaussianFunction2D(spatialSigma)
 	depthFilter := gaussianFunction1D(depthSigma)
@@ -212,6 +214,33 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 	return filter
 }
 
+// SavitskyGolayFilter algorithm is as follows:
+// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an odd number "windowSize".
+// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... . Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from the SavitskyGolayKernel.
+// 3. The output value is computed with the calculated fit parameters multiplied times the input data.
+func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
+	kernel, err := savitskyGolayKernel(radius, polyOrder)
+	if err != nil {
+		return nil, err
+	}
+	k := len(kernel)
+	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
+	filter := func(p image.Point, dm *DepthMap) float64 {
+		val := 0.0
+		for i, dx := range xRange {
+			for j, dy := range yRange {
+				if !dm.In(p.X+dx, p.Y+dy) {
+					continue
+				}
+				// rows are height j, columns are width i
+				val += kernel[j][i] * float64(dm.GetDepth(p.X+dx, p.Y+dy))
+			}
+		}
+		return math.Max(0, val)
+	}
+	return filter, nil
+}
+
 // To calculate a least squares fit to a polynomial equation, one is trying to calculate the coefficients "a" in
 // p(x,y) = a0 + a1*x + a2*y + a3*x^2 + a4*y^2 + a5*x*y + ... such that the square difference sum_over_x,y |f(x,y) - p(x,y)|^2
 // is a minimum. f(x,y) is the actual data, in this case the depth info from the input image. We represent the data f(x,y) as a vector
@@ -277,31 +306,4 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 		kernel = append(kernel, row)
 	}
 	return kernel, nil
-}
-
-// SavitskyGolayFilter algorithm is as follows:
-// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an odd number "windowSize".
-// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... . Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from the SavitskyGolayKernel.
-// 3. The output value is computed with the calculated fit parameters multiplied times the input data.
-func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
-	kernel, err := savitskyGolayKernel(radius, polyOrder)
-	if err != nil {
-		return nil, err
-	}
-	k := len(kernel)
-	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
-	filter := func(p image.Point, dm *DepthMap) float64 {
-		val := 0.0
-		for i, dx := range xRange {
-			for j, dy := range yRange {
-				if !dm.In(p.X+dx, p.Y+dy) {
-					continue
-				}
-				// rows are height j, columns are width i
-				val += kernel[j][i] * float64(dm.GetDepth(p.X+dx, p.Y+dy))
-			}
-		}
-		return math.Max(0, val)
-	}
-	return filter, nil
 }
