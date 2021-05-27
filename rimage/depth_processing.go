@@ -38,7 +38,8 @@ func (cd *CannyEdgeDetector) DetectDepthEdges(dmIn *DepthMap, blur float64) (*im
 	var err error
 	var dm *DepthMap
 	if cd.preprocessImage {
-		dm, err = GaussianSmoothing(dmIn, blur)
+		validPoints := MissingDepthData(dmIn)
+		dm, err = SavitskyGolaySmoothing(dmIn, validPoints, blur, 3)
 		if err != nil {
 			return nil, err
 		}
