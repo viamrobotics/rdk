@@ -253,12 +253,12 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 	x := float64(pos.X) / 1000
 	y := float64(pos.Y) / 1000
 	z := float64(pos.Z) / 1000
-	th := pos.Theta
-	rx := pos.RX
-	ry := pos.RY
-	rz := pos.RZ
+	// UR5 arm takes R3 angle axis as input
+	rx := pos.RX * pos.Theta
+	ry := pos.RY * pos.Theta
+	rz := pos.RZ * pos.Theta
 
-	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, th, rx, ry, rz)
+	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
 
 	_, err := ua.conn.Write([]byte(cmd))
 	if err != nil {
