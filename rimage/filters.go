@@ -10,11 +10,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-type DepthFilter struct {
-	size   int
-	filter func(p image.Point, dm *DepthMap) float64
-}
-
 // Helper function for convolving matrices together, When used with i, dx := range makeRangeArray(n)
 // i is the position within the kernel and dx gives the offset within the depth map.
 // if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1} (even lengths rarely used)
@@ -38,8 +33,8 @@ func makeRangeArray(length int) []int {
 	return rangeArray
 }
 
-// GaussianFunction1D takes in a sigma and returns a gaussian function useful for weighing averages or blurring.
-func GaussianFunction1D(sigma float64) func(p float64) float64 {
+// gaussianFunction1D takes in a sigma and returns a gaussian function useful for weighing averages or blurring.
+func gaussianFunction1D(sigma float64) func(p float64) float64 {
 	if sigma <= 0. {
 		return func(p float64) float64 {
 			return 1.
@@ -50,8 +45,8 @@ func GaussianFunction1D(sigma float64) func(p float64) float64 {
 	}
 }
 
-// GaussianFunction2D takes in a sigma and returns an isotropic 2D gaussian
-func GaussianFunction2D(sigma float64) func(p1, p2 float64) float64 {
+// gaussianFunction2D takes in a sigma and returns an isotropic 2D gaussian useful for weighing averages or blurring.
+func gaussianFunction2D(sigma float64) func(p1, p2 float64) float64 {
 	if sigma <= 0. {
 		return func(p1, p2 float64) float64 {
 			return 1.
@@ -62,8 +57,9 @@ func GaussianFunction2D(sigma float64) func(p1, p2 float64) float64 {
 	}
 }
 
-func GaussianKernel(sigma float64) [][]float64 {
-	gaus2D := GaussianFunction2D(sigma)
+// gaussianKernel takes characteristic length (sigma) as input and creates the k x k 2D array used to create the Guassian filter
+func gaussianKernel(sigma float64) [][]float64 {
+	gaus2D := gaussianFunction2D(sigma)
 	// size of the kernel is determined by size of sigma. want to get 3 sigma worth of gaussian function
 	k := utils.MaxInt(3, 1+2*int(math.Ceil(4.*sigma)))
 	xRange := makeRangeArray(k)
@@ -80,8 +76,8 @@ func GaussianKernel(sigma float64) [][]float64 {
 
 // Filters for convolutions
 
-func GaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
-	kernel := GaussianKernel(sigma)
+func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
+	kernel := gaussianKernel(sigma)
 	k := len(kernel)
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
 	filter := func(p image.Point, dm *DepthMap) float64 {
@@ -106,9 +102,9 @@ func GaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	return filter
 }
 
-func JointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, dm *DepthMap) float64 {
-	spatialFilter := GaussianFunction2D(spatialSigma)
-	depthFilter := GaussianFunction1D(depthSigma)
+func jointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, dm *DepthMap) float64 {
+	spatialFilter := gaussianFunction2D(spatialSigma)
+	depthFilter := gaussianFunction1D(depthSigma)
 	k := utils.MaxInt(3, 1+2*int(3.*spatialSigma)) // 3 sigma worth of area
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
 	filter := func(p image.Point, dm *DepthMap) float64 {
@@ -135,39 +131,6 @@ func JointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, 
 	return filter
 }
 
-func JointTrilateralFilter(spatialSigma, colorSigma, depthSigma float64) func(p image.Point, ii *ImageWithDepth) float64 {
-	spatialFilter := GaussianFunction1D(spatialSigma)
-	depthFilter := GaussianFunction1D(depthSigma)
-	colorFilter := GaussianFunction1D(colorSigma)
-	k := utils.MaxInt(3, 1+2*int(3.*spatialSigma))
-	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
-	filter := func(p image.Point, ii *ImageWithDepth) float64 {
-		pColor := ii.Color.GetXY(p.X, p.Y)
-		pDepth := float64(ii.Depth.GetDepth(p.X, p.Y))
-		newDepth := 0.0
-		totalWeight := 0.0
-		for _, dx := range xRange {
-			for _, dy := range yRange {
-				if !ii.Color.In(p.X+dx, p.Y+dy) {
-					continue
-				}
-				d := float64(ii.Depth.GetDepth(p.X+dx, p.Y+dy))
-				if d == 0.0 {
-					continue
-				}
-				weight := spatialFilter(float64(dx)) * spatialFilter(float64(dy))
-				weight *= colorFilter(pColor.DistanceLab(ii.Color.GetXY(p.X+dx, p.Y+dy)))
-				weight *= depthFilter(pDepth - d)
-				//fmt.Printf("colorDist: %v, depthDist: %v\n", pColor.DistanceLab(ii.Color.GetXY(x+dx, y+dy)), pDepth-d)
-				newDepth += d * weight
-				totalWeight += weight
-			}
-		}
-		return newDepth / totalWeight
-	}
-	return filter
-}
-
 // Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
 
 var (
@@ -177,7 +140,7 @@ var (
 
 // SobelFilter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
 // creates a  vector in polar form, and returns a vector field.
-func SobelDepthFilter() func(p image.Point, dm *DepthMap) (float64, float64) {
+func sobelDepthFilter() func(p image.Point, dm *DepthMap) (float64, float64) {
 	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
 	// apply the Sobel Filter over a 3x3 square around each pixel
 	filter := func(p image.Point, dm *DepthMap) (float64, float64) {
@@ -201,7 +164,7 @@ func SobelDepthFilter() func(p image.Point, dm *DepthMap) (float64, float64) {
 	return filter
 }
 
-func SobelColorFilter() func(p image.Point, img *Image) (float64, float64) {
+func sobelColorFilter() func(p image.Point, img *Image) (float64, float64) {
 	xRange, yRange := makeRangeArray(3), makeRangeArray(3)
 	// apply the Sobel Filter over a 3x3 square around each pixel
 	filter := func(p image.Point, img *Image) (float64, float64) {
@@ -223,7 +186,7 @@ func SobelColorFilter() func(p image.Point, img *Image) (float64, float64) {
 }
 
 // VectorBlurFilter sets the vector at point p to be the average of vectors in a k x k square around it.
-func VectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
+func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 	xRange, yRange := makeRangeArray(k), makeRangeArray(k)
 	filter := func(p image.Point, vf *VectorField2D) Vec2D {
 		sumX, sumY := 0.0, 0.0
@@ -249,6 +212,14 @@ func VectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 	return filter
 }
 
+// To calculate a least squares fit to a polynomial equation, one is trying to calculate the coefficients "a" in
+// p(x,y) = a0 + a1*x + a2*y + a3*x^2 + a4*y^2 + a5*x*y + ... such that the square difference sum_over_x,y |f(x,y) - p(x,y)|^2
+// is a minimum. f(x,y) is the actual data, in this case the depth info from the input image. We represent the data f(x,y) as a vector
+// f, and the equation p(x,y) as a product of the matrix A and vector of coefs a. Therefore, we want to solve the equation that gets
+// as close as possible to Aa - f = 0 or equivalently a = (A^-1)f. We can pre-compute the psuedo-inverse of A to apply to f later,
+// and since we only need to know p(0,0), the point at the center of the filter, we only need to use the first row of A^-1
+// which gives a0. If you wanted to get the gradient of the fit as well, you could use the 2nd and 3rd row of A^-1
+// which represent a1 and a2 respectively.
 type Exponents image.Point
 
 func polyExponents(order int) []Exponents {
@@ -269,16 +240,16 @@ func eye(n int) *mat.Dense {
 	return m
 }
 
-func SavitskyGolayKernel(radius, order int) ([][]float64, error) {
+func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	windowSize := 1 + 2*radius
 	nElements := windowSize * windowSize
+	// we are going to create a least-squares equation fit to a 2D polynomial of order "order"
 	exps := polyExponents(order)
 	nTerms := len(exps)
 	if nElements < nTerms {
 		return nil, fmt.Errorf("n elements in window (%d) is less than terms to solve (%d)", nElements, nTerms)
 	}
 	xRange, yRange := makeRangeArray(windowSize), makeRangeArray(windowSize)
-	// we are going to create a least-squares equation to solve
 	A := mat.NewDense(nElements, nTerms, nil)
 	for i, y := range yRange {
 		for j, x := range xRange {
@@ -287,13 +258,14 @@ func SavitskyGolayKernel(radius, order int) ([][]float64, error) {
 			}
 		}
 	}
-	// calculate psuedo-inverse
+	// calculate psuedo-inverse of A
 	var solution mat.Dense
 	I := eye(nElements)
 	err := solution.Solve(A, I)
 	if err != nil {
 		return nil, err
 	}
+	// Get the row used to calculate the a0 coefficients and form it back into a square
 	coefs := solution.RowView(0).(*mat.VecDense).RawVector().Data
 	kernel := [][]float64{}
 	for y, _ := range yRange {
@@ -309,9 +281,9 @@ func SavitskyGolayKernel(radius, order int) ([][]float64, error) {
 // SavitskyGolayFilter algorithm is as follows:
 // 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an odd number "windowSize".
 // 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... . Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from the SavitskyGolayKernel.
-// 3. The output value is computed with the fit.
-func SavitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
-	kernel, err := SavitskyGolayKernel(radius, polyOrder)
+// 3. The output value is computed with the calculated fit parameters multiplied times the input data.
+func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
+	kernel, err := savitskyGolayKernel(radius, polyOrder)
 	if err != nil {
 		return nil, err
 	}

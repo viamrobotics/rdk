@@ -115,7 +115,7 @@ func MakeEmptyVectorField2D(width, height int) VectorField2D {
 func (vf *VectorField2D) Blur(radius int) VectorField2D {
 	k := 1 + 2*radius
 	newVF := MakeEmptyVectorField2D(vf.Width(), vf.Height())
-	blur := VectorBlurFilter(k)
+	blur := vectorBlurFilter(k)
 	for y := 0; y < vf.Height(); y++ {
 		for x := 0; x < vf.Width(); x++ {
 			point := image.Point{x, y}
