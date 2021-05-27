@@ -196,7 +196,7 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 		for _, dx := range xRange {
 			for _, dy := range yRange {
 				point := image.Point{p.X + dx, p.Y + dy}
-				if !vf.Contains(point) || vf.Get(point).Magnitude() == 0. {
+				if !vf.Contains(point.X, point.Y) || vf.Get(point).Magnitude() == 0. {
 					continue
 				}
 				x, y := vf.Get(point).Cartesian()
