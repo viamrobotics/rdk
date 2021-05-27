@@ -84,7 +84,7 @@ func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
 	transform := kinmath.NewQuatTransFromRotation(pos.Theta, pos.RX, pos.RY, pos.RZ)
 
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
-	transform.SetTranslation(float64(pos.X), float64(pos.Y), float64(pos.Z))
+	transform.SetTranslation(pos.X, pos.Y, pos.Z)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()

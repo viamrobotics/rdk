@@ -47,7 +47,7 @@ type pos struct {
 var (
 	BoardWidth     = int64(381)
 	Center         = pos{-435, 0}
-	BoardHeight    = int64(-230)
+	BoardHeight    = -230.0
 	SafeMoveHeight = BoardHeight + 150
 
 	wantPicture = int32(0)
@@ -76,7 +76,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 	if err != nil {
 		return err
 	}
-	where.Z = SafeMoveHeight + heightModMillis
+	where.Z = SafeMoveHeight + float64(heightModMillis)
 	err = myArm.MoveToPosition(ctx, where)
 	if err != nil {
 		return err
@@ -85,13 +85,13 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 	// move
 	if chess == "-" {
 		f := getCoord("a8")
-		where.X = f.x - int64(60*numPiecesCaptured) // HARD CODED
-		where.Y = f.y - (BoardWidth / 5)            // HARD CODED
+		where.X = float64(f.x - int64(60*numPiecesCaptured)) // HARD CODED
+		where.Y = float64(f.y - (BoardWidth / 5))            // HARD CODED
 		numPiecesCaptured = numPiecesCaptured + 1
 	} else {
 		f := getCoord(chess)
-		where.X = f.x
-		where.Y = f.y
+		where.X = float64(f.x)
+		where.Y = float64(f.y)
 	}
 	return myArm.MoveToPosition(ctx, where)
 }
@@ -133,7 +133,7 @@ func movePiece(ctx context.Context, boardState boardStateGuesser, robot robot.Ro
 	if err != nil {
 		return err
 	}
-	where.Z = BoardHeight + int64(height) + int64(10)
+	where.Z = BoardHeight + height + 10
 	myArm.MoveToPosition(ctx, where)
 
 	// grab piece
@@ -222,8 +222,8 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	if err != nil {
 		return err
 	}
-	where.X = foo.x
-	where.Y = foo.y
+	where.X = float64(foo.x)
+	where.Y = float64(foo.y)
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
 	return myArm.MoveToPosition(ctx, where)
@@ -232,8 +232,8 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 	err := myArm.MoveToPosition(ctx, &pb.ArmPosition{
-		X:  foo.x,
-		Y:  foo.y,
+		X:  float64(foo.x),
+		Y:  float64(foo.y),
 		Z:  SafeMoveHeight,
 		RX: -180,
 		RY: 0,
@@ -326,7 +326,7 @@ func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.Im
 		logger.Debugf("center %v xRatio: %1.4v yRatio: %1.4v xMove: %1.4v yMove: %1.4f", center, xRatio, yRatio, xMove, yMove)
 
 		if math.Abs(xMove) < .001 && math.Abs(yMove) < .001 {
-			Center = pos{where.X, where.Y}
+			Center = pos{int64(where.X), int64(where.Y)}
 
 			// These are hard coded based on camera orientation
 			Center.x += 26
@@ -338,8 +338,8 @@ func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.Im
 			return nil
 		}
 
-		where.X += int64(xMove * 1000)
-		where.Y += int64(yMove * 1000)
+		where.X += xMove * 1000
+		where.Y += yMove * 1000
 		err = myArm.MoveToPosition(ctx, where)
 		if err != nil {
 			return err
@@ -456,8 +456,8 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 
 		fmt.Printf("\t offsetX: %v offsetY: %v diff: %v\n", offsetX, offsetY, diff)
 
-		where.X += int64(offsetX / -2)
-		where.Y += int64(offsetY / 2)
+		where.X += float64(offsetX / -2)
+		where.Y += float64(offsetY / 2)
 
 		fmt.Printf("\t moving to %v,%v\n", where.X, where.Y)
 
