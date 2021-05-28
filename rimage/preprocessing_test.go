@@ -125,8 +125,8 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	return nil
 }
 
-func TestCannyDepth(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "depthpreprocess", "*.both.gz", true)
+func TestDepthPreprocessCanny(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "depthpreprocess", "*both.gz", true)
 	err := d.Process(t, &cannyTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -140,12 +140,12 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	depthImg := ii.Depth
 
 	pCtx.GotDebugImage(depthImg.ToPrettyPicture(0, MaxDepth), "depth-raw")
+	pCtx.GotDebugImage(ii.Overlay(), "raw-overlay")
 
 	missingDepth := MissingDepthData(depthImg)
 	pCtx.GotDebugImage(missingDepth, "depth-raw-missing-data")
 
-	iwd := MakeImageWithDepth(ConvertImage(depthImg.ToPrettyPicture(0, MaxDepth)), depthImg, true, nil)
-	pc, err := iwd.ToPointCloud()
+	pc, err := ii.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "raw-depth-pointcloud")
 
@@ -153,12 +153,12 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	preprocessedImg := preprocessedIwd.Depth
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(preprocessedImg.ToPrettyPicture(0, MaxDepth), "depth-preprocessed")
+	pCtx.GotDebugImage(preprocessedIwd.Overlay(), "preprocessed-overlay")
 
 	missingPreprocessDepth := MissingDepthData(preprocessedImg)
 	pCtx.GotDebugImage(missingPreprocessDepth, "depth-preprocessed-missing-data")
 
-	iwd2 := MakeImageWithDepth(ConvertImage(preprocessedImg.ToPrettyPicture(0, MaxDepth)), preprocessedImg, true, nil)
-	pc2, err := iwd2.ToPointCloud()
+	pc2, err := preprocessedIwd.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc2, "preprocess-depth-pointcloud")
 
