@@ -24,8 +24,7 @@ func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
 	}
 	// fill in large holes using color info
 	FillDepthMap(iwd)
-	CleanDepthMap(iwd.Depth)
-	// smooth the data
+	// smooth the sharp edges out
 	iwd.Depth, err = OpeningMorph(iwd.Depth, 5, 1)
 	return iwd, nil
 }
@@ -238,11 +237,12 @@ func FillDepthMap(iwd *ImageWithDepth) {
 	missingData := invertGrayImage(validData)
 	holeMap := segmentBinaryImage(missingData)
 	for _, seg := range holeMap {
-		avgDepth := averageDepthAroundHole(seg, iwd.Depth)
+		borderPoints := getBorderHolePoints(seg, iwd.Depth)
+		avgDepth := averageDepthInSegment(borderPoints, iwd.Depth)
 		threshold := thresholdFromDepth(avgDepth, iwd.Width()*iwd.Height())
 		if len(seg) < threshold {
 			for point := range seg {
-				val := depthRayMarching(point.X, point.Y, 16, sixteenPoints, iwd)
+				val := depthRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
 				iwd.Depth.Set(point.X, point.Y, val)
 			}
 		}
@@ -268,6 +268,9 @@ func thresholdFromDepth(depth float64, imgResolution int) int {
 func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 	sum, count := 0.0, 0.0
 	for point := range segment {
+		if !point.In(dm.Bounds()) {
+			continue
+		}
 		d := float64(dm.GetDepth(point.X, point.Y))
 		sum += d
 		count++
@@ -275,32 +278,32 @@ func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 	return sum / count
 }
 
-// calculate the average depth inside the hole as the average of the border of the hole
-func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 {
+// calculate the sample mean and std dev of a collection of points
+func depthStats(segment map[image.Point]bool, dm *DepthMap) float64 {
+	return 0.
+}
+
+// calculate the sample mean and std dev inside the hole as the std dev and mean of the border of the hole
+func getBorderHolePoints(segment map[image.Point]bool, dm *DepthMap) map[image.Point]bool {
 	directions := []image.Point{
 		{0, 1},  //up
 		{0, -1}, //down
 		{-1, 0}, //left
 		{1, 0},  //right
 	}
-	sum := 0.0
-	count := 0.0
-	visited := make(map[image.Point]bool) // don't double-count border pixels
+	borderPoints := make(map[image.Point]bool)
 	for hole := range segment {
 		for _, dir := range directions {
 			point := image.Point{hole.X + dir.X, hole.Y + dir.Y}
 			if !dm.Contains(point.X, point.Y) {
 				continue
 			}
-			d := float64(dm.GetDepth(point.X, point.Y))
-			if d != 0. && !visited[point] {
-				sum += d
-				count++
-				visited[point] = true
+			if dm.GetDepth(point.X, point.Y) != 0 {
+				borderPoints[point] = true
 			}
 		}
 	}
-	return sum / count
+	return borderPoints
 }
 
 // directions for ray-marching
@@ -329,16 +332,16 @@ var (
 // Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
 // less to the average.
 func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) Depth {
+	colorGaus := gaussianFunction1D(0.1)
+	spatialGaus := gaussianFunction2D(2.0)
 	centerColor := iwd.Color.GetXY(x, y)
 	depthAvg := 0.0
 	weightTot := 0.0
 	for _, dir := range directions {
-		depth := 0.0
-		count := 0.0
-		var col Color
 		i, j := x, y
 		for iter := 0; iter < iterations; iter++ { // average in the same direction
 			depthIter := 0.0
+			var col Color
 			for depthIter == 0.0 { // increment in the given direction until you reach a filled pixel
 				i += dir.X
 				j += dir.Y
@@ -350,8 +353,8 @@ func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *Image
 			}
 			if depthIter != 0.0 {
 				colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
-				weight := math.Exp(-100.0 * colorDistance)
-				depthAvg = (depthAvg*weightTot + (depth/count)*weight) / (weightTot + weight)
+				weight := colorGaus(colorDistance) * spatialGaus(float64(i-x), float64(j-y))
+				depthAvg = (depthAvg*weightTot + depthIter*weight) / (weightTot + weight)
 				weightTot += weight
 			}
 		}
