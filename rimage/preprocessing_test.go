@@ -89,9 +89,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(drawAverageHoleDepth(closedDM), "hole-depths")
 
 	// filled
-	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned(), ii.CameraSystem())
-	FillDepthMap(morphed)
-	closedDM = morphed.Depth
+	FillDepthMap(closedDM)
 	filledEdges, err := cannyDepth.DetectDepthEdges(closedDM, 0.0)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(closedDM.ToPrettyPicture(0, MaxDepth), "depth-holes-filled")
@@ -125,8 +123,14 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	return nil
 }
 
-func TestCannyDepth(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "depthpreprocess", "*.both.gz", true)
+func TestCannyGripper(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	err := d.Process(t, &cannyTestHelper{})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCannyIntel(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err := d.Process(t, &cannyTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -149,8 +153,7 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "raw-depth-pointcloud")
 
-	preprocessedIwd, err := PreprocessDepthMap(ii)
-	preprocessedImg := preprocessedIwd.Depth
+	preprocessedImg, err := PreprocessDepthMap(depthImg)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(preprocessedImg.ToPrettyPicture(0, MaxDepth), "depth-preprocessed")
 
@@ -165,8 +168,14 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	return nil
 }
 
-func TestDepthPreprocess(t *testing.T) {
-	d := NewMultipleImageTestDebugger(t, "depthpreprocess", "*.both.gz", true)
+func TestDepthPreprocessGripper(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
+	err := d.Process(t, &preprocessTestHelper{})
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestDepthPreprocessIntel(t *testing.T) {
+	d := NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
 	err := d.Process(t, &preprocessTestHelper{})
 	test.That(t, err, test.ShouldBeNil)
 }
