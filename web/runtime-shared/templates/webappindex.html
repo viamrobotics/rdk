@@ -85,6 +85,10 @@
               data: theData,
               methods : {
                   armGridInc : function(name, getterSetter, amount) {
+                      if (getterSetter[0] == 'r' || getterSetter[0] == 'R' ||
+                          getterSetter == "theta" || getterSetter == "Theta") {
+                          amount /= 100;
+                      }
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
                       var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
