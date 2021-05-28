@@ -1,0 +1,7 @@
+
+TS = $(shell date +%Y%m%d.%H%M.%S)
+
+one-camera:
+	curl -o $(TS).both "http://erhnx.local:8181/both?num=0"
+	gzip $(TS).both
+

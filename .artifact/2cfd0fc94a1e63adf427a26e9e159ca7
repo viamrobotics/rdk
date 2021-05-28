@@ -1,0 +1,19 @@
+
+TS = $(shell date +%Y%m%d.%H%M.%S)
+
+rover-one-camera:
+	curl -o $(TS).png "http://erhnx.local:8181/pic.png?num=0"
+	curl -o $(TS).dat "http://erhnx.local:8181/depth.dat?num=0"
+	gzip $(TS).dat
+
+rover-two-cameras:
+	mkdir $(TS)
+	curl -o $(TS)/0.png "http://erhnx.local:8181/pic.png?num=0"
+	curl -o $(TS)/0.dat "http://erhnx.local:8181/depth.dat?num=0"
+	gzip $(TS)/0.dat
+
+	curl -o $(TS)/1.png "http://erhnx.local:8181/pic.png?num=1" 
+	curl -o $(TS)/1.dat "http://erhnx.local:8181/depth.dat?num=1"
+	gzip $(TS)/1.dat	
+
+
