@@ -179,7 +179,8 @@ func drawAverageHoleDepth(dm *DepthMap) *Image {
 	missingData := invertGrayImage(validData)
 	holeMap := segmentBinaryImage(missingData)
 	for _, seg := range holeMap {
-		avgDepth := averageDepthAroundHole(seg, dm)
+		borderPoints := getBorderHolePoints(seg, dm)
+		avgDepth := averageDepthInSegment(borderPoints, dm)
 		var c Color
 		switch {
 		case avgDepth < 500.0:
