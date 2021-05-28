@@ -8,24 +8,29 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth
-func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
+// PreprocessDepthMap applies data cleaning and smoothing procedures to an input depth map. Copies the data in order to leave
+// the original input depth map unmodified.
+func PreprocessDepthMap(dm *DepthMap) (*DepthMap, error) {
 	var err error
+	// copy data into a new depthmap
+	dst := make([]Depth, dm.Width()*dm.Height())
+	copy(dst, dm.data)
+	outDM := &DepthMap{dm.width, dm.height, dst}
 	// remove noisy data
-	CleanDepthMap(iwd.Depth)
+	CleanDepthMap(outDM)
 	// fill in small holes
-	iwd.Depth, err = ClosingMorph(iwd.Depth, 5, 1)
+	outDM, err = ClosingMorph(outDM, 5, 1)
 	if err != nil {
 		return nil, err
 	}
-	// fill in large holes using color info
-	FillDepthMap(iwd)
+	// fill in large holes
+	FillDepthMap(outDM)
 	// smooth the data
-	iwd.Depth, err = GaussianSmoothing(iwd.Depth, 1)
+	outDM, err = GaussianSmoothing(outDM, 1)
 	if err != nil {
 		return nil, err
 	}
-	return iwd, nil
+	return outDM, nil
 }
 
 // DetectDepthEdges uses a Canny edge detector to find edges in a depth map and returns a grayscale image of edges.
@@ -231,17 +236,17 @@ func CleanDepthMap(dm *DepthMap) {
 
 // FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with
 // an average of the surrounding pixels by using 8-point ray-marching.
-func FillDepthMap(iwd *ImageWithDepth) {
-	validData := MissingDepthData(iwd.Depth)
+func FillDepthMap(dm *DepthMap) {
+	validData := MissingDepthData(dm)
 	missingData := invertGrayImage(validData)
 	holeMap := segmentBinaryImage(missingData)
 	for _, seg := range holeMap {
-		avgDepth := averageDepthAroundHole(seg, iwd.Depth)
-		threshold := thresholdFromDepth(avgDepth, iwd.Width()*iwd.Height())
+		avgDepth := averageDepthAroundHole(seg, dm)
+		threshold := thresholdFromDepth(avgDepth, dm.Width()*dm.Height())
 		if len(seg) < threshold {
 			for point := range seg {
-				val := depthRayMarching(point.X, point.Y, iwd)
-				iwd.Depth.Set(point.X, point.Y, val)
+				val := depthRayMarching(point.X, point.Y, dm)
+				dm.Set(point.X, point.Y, val)
 			}
 		}
 	}
@@ -303,9 +308,7 @@ func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 
 
 // depthRayMarching uses 8-point ray-marching to fill in missing data. It marches out in 8 directions from the missing pixel until
 // it encounters a pixel with data, and then averages the values of the non-zero pixels it finds to fill the missing value.
-// Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
-// less to the average.
-func depthRayMarching(x, y int, iwd *ImageWithDepth) Depth {
+func depthRayMarching(x, y int, dm *DepthMap) Depth {
 	directions := []image.Point{
 		{0, 1},   //up
 		{0, -1},  //down
@@ -316,31 +319,26 @@ func depthRayMarching(x, y int, iwd *ImageWithDepth) Depth {
 		{-1, -1}, // lower-left
 		{1, -1},  //lower-right
 	}
-	centerColor := iwd.Color.GetXY(x, y)
-	depthAvg := 0.0
-	weightTot := 0.0
+	valAvg := 0.0
+	count := 0.0
 	for _, dir := range directions {
-		depth := 0
-		var col Color
+		val := 0
 		i, j := x, y
-		for depth == 0 { // increment in the given direction until you reach a filled pixel
+		for val == 0 { // increment in the given direction until you reach a filled pixel
 			i += dir.X
 			j += dir.Y
-			if !iwd.Depth.Contains(i, j) { // skip if out of picture bounds
+			if !dm.Contains(i, j) { // skip if out of picture bounds
 				break
 			}
-			depth = int(iwd.Depth.GetDepth(i, j))
-			col = iwd.Color.GetXY(i, j)
+			val = int(dm.GetDepth(i, j))
 		}
-		if depth != 0 {
-			colorDistance := centerColor.DistanceLab(col)
-			weight := math.Exp(-2.0 * colorDistance)
-			depthAvg = (depthAvg*weightTot + float64(depth)*weight) / (weightTot + weight)
-			weightTot += weight
+		if val != 0 {
+			valAvg = (valAvg*count + float64(val)) / (count + 1.)
+			count += 1.
 		}
 	}
-	depthAvg = math.Max(depthAvg, 0.0) // depth cannot be zero
-	return Depth(depthAvg)
+	valAvg = math.Max(valAvg, 0.0) // depth cannot be zero
+	return Depth(valAvg)
 }
 
 // getValidNeighbors uses both a B+W image of valid points as well as a map of points already visited to determine which points should
