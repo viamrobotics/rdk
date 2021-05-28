@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )
@@ -34,7 +33,7 @@ func TestArmPositionDiff(t *testing.T) {
 	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionGridDiff(&pb.ArmPosition{Y: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionGridDiff(&pb.ArmPosition{Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1, Y: 1, Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, utils.CubeRoot(3))
+	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1, Y: 1, Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, math.Sqrt(3))
 
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 0)
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{RX: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
