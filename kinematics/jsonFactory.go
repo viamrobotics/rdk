@@ -100,9 +100,8 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 		linkT.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 		model.Edges[linkT.GetEdgeDescriptor()] = linkT
 		linkT.t = kinmath.NewQuatTrans()
-		linkT.t.SetX(link.Translation.X / 2)
-		linkT.t.SetY(link.Translation.Y / 2)
-		linkT.t.SetZ(link.Translation.Z / 2)
+
+		linkT.t.SetTranslation(link.Translation.X, link.Translation.Y, link.Translation.Z)
 	}
 
 	// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"

@@ -9,6 +9,8 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+const radToDeg = 180 / math.Pi
+
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
 	Quat dualquat.Number
@@ -22,17 +24,17 @@ func NewQuatTrans() *QuatTrans {
 	}}
 }
 
-// NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose Quaternion has been xyz rotated by the specified number of degrees
-// Prefer not to use this as it's not terribly well defined- gimbal lock will cause weirdness the further Y gets from 0
-func NewQuatTransFromRotation(x, y, z float64) *QuatTrans {
-	mQuat := mgl64.AnglesToQuat(x, y, z, mgl64.ZYX)
+// NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
+// axis angle.
+func NewQuatTransFromRotation(th, x, y, z float64) *QuatTrans {
+	aa := R4AA{th, x, y, z}
 	return &QuatTrans{dualquat.Number{
-		Real: quat.Number{mQuat.W, mQuat.X(), mQuat.Y(), mQuat.Z()},
+		Real: aa.ToQuat(),
 		Dual: quat.Number{},
 	}}
 }
 
-// Clone TODO
+// Clone returns a QuatTrans object identical to this one.
 func (m *QuatTrans) Clone() *QuatTrans {
 	t := &QuatTrans{}
 	// No need for deep copies here, dualquats are primitives all the way down
@@ -40,19 +42,21 @@ func (m *QuatTrans) Clone() *QuatTrans {
 	return t
 }
 
-// Quaternion TODO
-func (m *QuatTrans) Quaternion() dualquat.Number {
-	return m.Quat
-}
-
 // Rotation returns the rotation quaternion.
 func (m *QuatTrans) Rotation() quat.Number {
 	return m.Quat.Real
 }
 
-// Translation returns the translation quaternion.
-func (m *QuatTrans) Translation() quat.Number {
-	return m.Quat.Dual
+// Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
+// and the dual is representative of 0.5 * real world millimeters.
+func (m *QuatTrans) Translation() dualquat.Number {
+	return dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+}
+
+// SetTranslation correctly sets the translation quaternion against the rotation.
+func (m *QuatTrans) SetTranslation(x, y, z float64) {
+	m.Quat.Dual = quat.Number{0, x / 2, y / 2, z / 2}
+	m.Rotate()
 }
 
 // SetX sets the x translation.
@@ -72,38 +76,61 @@ func (m *QuatTrans) SetZ(z float64) {
 
 // Rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
 func (m *QuatTrans) Rotate() {
-	m.Quat.Dual = quat.Mul(m.Quat.Real, m.Quat.Dual)
+	m.Quat.Dual = quat.Mul(m.Quat.Dual, m.Quat.Real)
 }
 
 // ToDelta returns the difference between two QuatTrans'.
 // We use quaternion/angle axis for this because distances are well-defined.
 func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
-	ret := make([]float64, 6)
-
-	// q and -q are the same rotation, so flip rotation quaternions to the positive hemisphere
-	m.Quat.Real.Real = math.Abs(m.Quat.Real.Real)
-	other.Quat.Real.Real = math.Abs(other.Quat.Real.Real)
+	ret := make([]float64, 7)
 
 	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
 
-	otherTrans := dualquat.Scale(2, other.Quat)
+	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
 	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
-
+	aa := QuatToR4AA(quatBetween)
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
 	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-
-	axisAngle := QuatToAxisAngle(quatBetween)
-	ret[3] = axisAngle[1] * axisAngle[0]
-	ret[4] = axisAngle[2] * axisAngle[0]
-	ret[5] = axisAngle[3] * axisAngle[0]
-
+	ret[3] = aa.Theta
+	ret[4] = aa.RX
+	ret[5] = aa.RY
+	ret[6] = aa.RZ
 	return ret
 }
 
-// QuatToAxisAngle converts a quat to an axis angle in the same way the C++ Eigen library does
+// ToDeltaR3 returns the difference between two QuatTrans' using R3 angle axis.
+// We use quaternion/angle axis for this because distances are well-defined.
+func (m *QuatTrans) ToDeltaR3(other *QuatTrans) []float64 {
+	ret := make([]float64, 6)
+
+	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
+
+	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
+	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	aa := QuatToR3AA(quatBetween)
+	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
+	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
+	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
+	ret[3] = aa.RX
+	ret[4] = aa.RY
+	ret[5] = aa.RZ
+	return ret
+}
+
+// Transformation multiplies the dual quat contained in this QuatTrans by another dual quat.
+func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
+	// Ensure we are multiplying by a unit dual quaternion
+	if vecLen := quat.Abs(by.Real); vecLen != 1 {
+		by.Real = quat.Scale(1/vecLen, by.Real)
+	}
+
+	return dualquat.Mul(m.Quat, by)
+}
+
+// QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToAxisAngle(q quat.Number) []float64 {
+func QuatToR4AA(q quat.Number) R4AA {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -111,28 +138,78 @@ func QuatToAxisAngle(q quat.Number) []float64 {
 		angle *= -1
 	}
 
-	axisAngle := []float64{angle}
+	if denom < 1e-6 {
+		return R4AA{angle, 1, 0, 0}
+	}
+	return R4AA{angle, q.Imag / denom, q.Jmag / denom, q.Kmag / denom}
+}
+
+// QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
+// https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
+func QuatToR3AA(q quat.Number) R3AA {
+	denom := Norm(q)
+
+	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
+	if q.Real < 0 {
+		angle *= -1
+	}
 
 	if denom < 1e-6 {
-		axisAngle = append(axisAngle, 1, 0, 0)
+		return R3AA{1, 0, 0}
+	}
+	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+}
+
+// QuatToEuler Converts a rotation unit quaternion to euler angles.
+// See the following wikipedia page for the formulas used here:
+// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
+// Euler angles are terrible, don't use them.
+func QuatToEuler(q quat.Number) []float64 {
+	w := q.Real
+	x := q.Imag
+	y := q.Jmag
+	z := q.Kmag
+
+	var angles []float64
+
+	angles = append(angles, math.Atan2(2*(w*x+y*z), 1-2*(x*x+y*y)))
+	angles = append(angles, math.Asin(2*(w*y-x*z)))
+	angles = append(angles, math.Atan2(2*(w*z+y*x), 1-2*(y*y+z*z)))
+
+	for i := range angles {
+
+		angles[i] *= radToDeg
+	}
+	return angles
+}
+
+// MatToEuler Converts a 4x4 matrix to Euler angles.
+// Euler angles are terrible, don't use them.
+func MatToEuler(mat mgl64.Mat4) []float64 {
+	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
+	singular := sy < 1e-6
+	var angles []float64
+	if singular {
+		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
+		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
+		angles = append(angles, 0)
 	} else {
-		axisAngle = append(axisAngle, q.Imag/denom)
-		axisAngle = append(axisAngle, q.Jmag/denom)
-		axisAngle = append(axisAngle, q.Kmag/denom)
+		angles = append(angles, math.Atan2(mat.At(2, 1), mat.At(2, 2)))
+		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
+		angles = append(angles, math.Atan2(mat.At(1, 0), mat.At(0, 0)))
 	}
-	return axisAngle
+	for i := range angles {
+		angles[i] *= radToDeg
+	}
+	return angles
 }
 
-// Transformation TODO
-func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
-	if len := quat.Abs(by.Real); len != 1 {
-		by.Real = quat.Scale(1/len, by.Real)
-	}
-
-	return dualquat.Mul(m.Quat, by)
-}
-
-// Norm TODO
+// Norm returns the norm of the quaternion, i.e. the sqrt of the squares of the imaginary parts.
 func Norm(q quat.Number) float64 {
-	return math.Sqrt(q.Real*q.Real + q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
+	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
+}
+
+// Flip will multiply a quaternion by -1, returning a quaternion representing the same orientation but in the opposing octant.
+func Flip(q quat.Number) quat.Number {
+	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }

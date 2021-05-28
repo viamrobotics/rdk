@@ -5,7 +5,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
@@ -26,6 +25,7 @@ type NloptIK struct {
 	requestHaltCh chan struct{}
 	haltedCh      chan struct{}
 	logger        golog.Logger
+	jump          float64
 }
 
 // CreateNloptIKSolver TODO
@@ -41,6 +41,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.iterations = 0
 	ik.lowerBound = mdl.GetMinimum()
 	ik.upperBound = mdl.GetMaximum()
+	// How much to adjust joints to determine slope
+	ik.jump = 0.00000001
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -59,45 +61,42 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		ik.Mdl.SetPosition(x)
 		ik.Mdl.ForwardPosition()
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
+		dx := make([]float64, ik.Mdl.GetOperationalDof()*7)
 
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.GetGoals() {
 			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+
 			dxIdx := goal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
 		}
 
-		if len(gradient) > 0 {
-			// mgl64 functions have both a return and an in-place modification, annoyingly, which is why this is split
-			// out into a bunch of variables instead of being nicely composed.
-			ik.Mdl.CalculateJacobian()
-			j := ik.Mdl.GetJacobian()
-			grad2 := mgl64.NewVecN(len(dx))
-			j2 := j.Transpose(mgl64.NewMatrix(j.NumCols(), j.NumRows()))
-			j2 = j2.Mul(j2, -2)
+		dist := WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 
-			// Linter thinks this is ineffectual because it doesn't know about CGo doing magic with pointers
-			gradient2 := j2.MulNx1(grad2, mgl64.NewVecNFromData(dx)).Raw()
-			for i, v := range gradient2 {
-				gradient[i] = v
-				// Do some rounding on large (>2^15) numbers because of floating point inprecision
-				// Shouldn't matter since these values should converge to zero
-				// If you get weird results like calculations terminating early or gradient acting like it isn't updating
-				// Then this might be your culprit
-				if math.Abs(v) > 1<<15 {
-					gradient[i] = math.Round(v)
+		if len(gradient) > 0 {
+
+			for i := range gradient {
+				// Deep copy of our current joint positions
+				xBak := append([]float64{}, x...)
+				xBak[i] += ik.jump
+				ik.Mdl.SetPosition(xBak)
+				ik.Mdl.ForwardPosition()
+				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
+				for _, goal := range ik.GetGoals() {
+					dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+					dxIdx := goal.EffectorID * len(dxDelta)
+					for i, delta := range dxDelta {
+						dx2[dxIdx+i] = delta
+					}
 				}
+				dist2 := WeightedSquaredNorm(dx2, ik.Mdl.DistCfg)
+
+				gradient[i] = (dist2 - dist) / (2 * ik.jump)
 			}
 		}
-
-		// We need to use gradient to make the linter happy
-		if len(gradient) > 0 {
-			return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
-		}
-		return WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
+		return dist
 	}
 
 	err = multierr.Combine(
@@ -119,7 +118,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-// AddGoal TODO
+// AddGoal adds a nlopt IK goal
 func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	newtrans := &kinmath.QuatTrans{}
 	*newtrans = *trans
@@ -127,28 +126,28 @@ func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
 	ik.resetHalting()
 }
 
-// SetID TODO
+// SetID sets the ID of this nloptIK object
 func (ik *NloptIK) SetID(id int) {
 	ik.ID = id
 }
 
-// GetID TODO
+// GetID returns the ID of this nloptIK object. Note that the linter won't let this be just "ID()"
 func (ik *NloptIK) GetID() int {
 	return ik.ID
 }
 
-// GetMdl TODO
+// GetMdl returns the underlying kinematics model
 func (ik *NloptIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
-// ClearGoals TODO
+// ClearGoals clears all goals for the Ik object
 func (ik *NloptIK) ClearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
-// GetGoals TODO
+// GetGoals returns the list of all current goal positions
 func (ik *NloptIK) GetGoals() []Goal {
 	return ik.Goals
 }
@@ -158,7 +157,7 @@ func (ik *NloptIK) resetHalting() {
 	ik.haltedCh = make(chan struct{})
 }
 
-// Halt TODO
+// Halt causes this nlopt IK to immediately cease all processing and return with no solution
 func (ik *NloptIK) Halt() {
 	close(ik.requestHaltCh)
 	err := ik.opt.ForceStop()
@@ -169,7 +168,7 @@ func (ik *NloptIK) Halt() {
 	ik.resetHalting()
 }
 
-// Solve TODO
+// Solve attempts to solve for all goals
 func (ik *NloptIK) Solve() bool {
 	select {
 	case <-ik.haltedCh:
@@ -180,6 +179,7 @@ func (ik *NloptIK) Solve() bool {
 	defer close(ik.haltedCh)
 	ik.iterations = 0
 	origJointPos := ik.Mdl.GetPosition()
+
 	for ik.iterations < ik.maxIterations {
 		select {
 		case <-ik.requestHaltCh:
@@ -199,6 +199,7 @@ func (ik *NloptIK) Solve() bool {
 		if result < ik.epsilon*ik.epsilon {
 			angles = ik.Mdl.ZeroInlineRotation(angles)
 			ik.Mdl.SetPosition(angles)
+			ik.Mdl.ForwardPosition()
 			return true
 		}
 		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())

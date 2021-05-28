@@ -8,11 +8,19 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-// XYZWeights TODO
+// XYZWeights Defines a struct into which XYZ values can be parsed from JSON
 type XYZWeights struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
+}
+
+// XYZTHWeights Defines a struct into which XYZ + theta values can be parsed from JSON
+type XYZTHWeights struct {
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	Z  float64 `json:"z"`
+	TH float64 `json:"th"`
 }
 
 // DistanceConfig values are used to augment the distance check for a given IK solution.
@@ -23,8 +31,8 @@ type XYZWeights struct {
 // otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
 // that dimension to not be considered at all.
 type DistanceConfig struct {
-	Trans  XYZWeights `json:"translation"`
-	Orient XYZWeights `json:"orientation"`
+	Trans  XYZWeights   `json:"translation"`
+	Orient XYZTHWeights `json:"orientation"`
 }
 
 // Model TODO
@@ -64,25 +72,25 @@ func NewModel() *Model {
 	m.Nodes = make(map[int64]*Frame)
 	m.Edges = make(map[graph.Edge]Link)
 	m.RandSeed = rand.New(rand.NewSource(1))
-	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZWeights{1.0, 1.0, 1.0}}
+	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 
-// NextID will return the next ID to use for a node in the directed graph
-// Hypothetically this could eventually overflow
-// If we ever run one model long enough to need 20 sextillion tree nodes, we will deal with it at that time
+// NextID will return the next ID to use for a node in the directed graph.
+// Hypothetically this could eventually overflow.
+// If we ever run one model long enough to need 20 sextillion tree nodes, we will deal with it at that time.
 func (m *Model) NextID() int64 {
 	id := int64(m.nextID)
 	m.nextID++
 	return id
 }
 
-// SetSeed TODO
+// SetSeed sets the starting random seed for this model.
 func (m *Model) SetSeed(seed int64) {
 	m.RandSeed = rand.New(rand.NewSource(seed))
 }
 
-// Add TODO
+// Add adds a Frame (frame-of-reference) object to this model.
 func (m *Model) Add(frame *Frame) {
 	frame.SetVertexDescriptor(m.NextID())
 	m.tree.AddNode(simple.Node(frame.GetVertexDescriptor()))
@@ -92,7 +100,7 @@ func (m *Model) Add(frame *Frame) {
 	m.Nodes[frame.GetVertexDescriptor()] = frame
 }
 
-// AddEdge TODO
+// AddEdge adds an edge on the model graph between two frames.
 // Annoyingly, pointers aren't implemented on edges with simple.DirectedGraph
 func (m *Model) AddEdge(frameA, frameB *Frame) graph.Edge {
 	edge := m.tree.NewEdge(m.tree.Node(frameA.GetVertexDescriptor()), m.tree.Node(frameB.GetVertexDescriptor()))
@@ -109,12 +117,12 @@ func (m *Model) RandomJointPositions() []float64 {
 	return jointPos
 }
 
-// GetJoint TODO.
+// GetJoint returns the joint at the given index.
 func (m *Model) GetJoint(i int) *Joint {
 	return m.Joints[i]
 }
 
-// GetJoints TODO.
+// GetJoints returns an array of all joints.
 func (m *Model) GetJoints() int {
 	return len(m.Joints)
 }
@@ -192,7 +200,7 @@ func (m *Model) SetVelocity(newVel []float64) {
 	}
 }
 
-// Normalize TODO.
+// Normalize normalizes each of an array of joint positions- that is, enforces they are between +/- 2pi.
 func (m *Model) Normalize(pos []float64) []float64 {
 	i := 0
 	var normalized []float64
@@ -203,7 +211,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 	return normalized
 }
 
-// IsValid TODO.
+// IsValid checks whether the given array of joint positions violates any joint limits.
 func (m *Model) IsValid(pos []float64) bool {
 	i := 0
 	for _, joint := range m.Joints {

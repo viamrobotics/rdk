@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -159,7 +160,10 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 // CurrentPosition TODO
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	s := ua.State().CartesianInfo
-	return arm.NewPositionFromMetersAndRadians(s.X, s.Y, s.Z, s.Rx, s.Ry, s.Rz), nil
+	// The UR5 arm does not use Euler angles. It returns its orientation in R3 angle axis form, we convert to R4.
+	r3aa := kinmath.R3AA{s.Rx, s.Ry, s.Rz}
+	r4aa := r3aa.ToR4()
+	return arm.NewPositionFromMetersAndAngleAxis(s.X, s.Y, s.Z, r4aa.Theta, r4aa.RX, r4aa.RY, r4aa.RZ), nil
 }
 
 // JointMoveDelta TODO
@@ -248,12 +252,13 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // MoveToPosition TODO
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	x := float64(pos.X) / 1000
-	y := float64(pos.Y) / 1000
-	z := float64(pos.Z) / 1000
-	rx := utils.DegToRad(pos.RX)
-	ry := utils.DegToRad(pos.RY)
-	rz := utils.DegToRad(pos.RZ)
+	x := pos.X / 1000
+	y := pos.Y / 1000
+	z := pos.Z / 1000
+	// UR5 arm takes R3 angle axis as input
+	rx := pos.RX * pos.Theta
+	ry := pos.RY * pos.Theta
+	rz := pos.RZ * pos.Theta
 
 	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
 

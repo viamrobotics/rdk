@@ -24,7 +24,7 @@ type InverseKinematics interface {
 
 // toArray returns the DistanceConfig as a slice with the components in the same order as the array returned from ToDelta
 func (dc *DistanceConfig) toArray() []float64 {
-	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, dc.Orient.X, dc.Orient.Y, dc.Orient.Z}
+	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, dc.Orient.TH, dc.Orient.X, dc.Orient.Y, dc.Orient.Z}
 }
 
 // SquaredNorm returns the dot product of a vector with itself
@@ -43,5 +43,6 @@ func WeightedSquaredNorm(vec []float64, config DistanceConfig) float64 {
 	for i, v := range vec {
 		norm += v * v * configArr[i]
 	}
-	return norm
+	// With R4 angle axis, we wind up at 0 1 0 0
+	return norm - 1
 }

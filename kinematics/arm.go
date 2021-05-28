@@ -66,12 +66,13 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	pos := &pb.ArmPosition{}
-	pos.X = int64(pos6d[0])
-	pos.Y = int64(pos6d[1])
-	pos.Z = int64(pos6d[2])
-	pos.RX = pos6d[3]
-	pos.RY = pos6d[4]
-	pos.RZ = pos6d[5]
+	pos.X = pos6d[0]
+	pos.Y = pos6d[1]
+	pos.Z = pos6d[2]
+	pos.Theta = pos6d[3]
+	pos.RX = pos6d[4]
+	pos.RY = pos6d[5]
+	pos.RZ = pos6d[6]
 
 	return pos
 }
@@ -80,13 +81,10 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 // Uses ZYX Euler rotation order.
 // Takes degrees as input and converts to radians for kinematics use.
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := kinmath.NewQuatTransFromRotation(utils.DegToRad(pos.RX), utils.DegToRad(pos.RY), utils.DegToRad(pos.RZ))
+	transform := kinmath.NewQuatTransFromRotation(pos.Theta, pos.RX, pos.RY, pos.RZ)
 
-	// Spatial displacements represented in dual quaternions have their distances divided by two
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
-	transform.SetX(float64(pos.X) / 2)
-	transform.SetY(float64(pos.Y) / 2)
-	transform.SetZ(float64(pos.Z) / 2)
+	transform.SetTranslation(pos.X, pos.Y, pos.Z)
 
 	k.ik.AddGoal(transform, k.effectorID)
 	couldSolve := k.ik.Solve()
