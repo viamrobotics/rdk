@@ -1,6 +1,7 @@
 package rimage
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"math"
@@ -10,6 +11,9 @@ import (
 
 // PreprocessDepthMap applies data cleaning and smoothing procedures to an input imagewithdepth
 func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
+	if !iwd.IsAligned() {
+		return nil, errors.New("image with depth is not aligned. Cannot preprocess the depth map")
+	}
 	var err error
 	// remove noisy data
 	CleanDepthMap(iwd.Depth)
@@ -20,11 +24,9 @@ func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
 	}
 	// fill in large holes using color info
 	FillDepthMap(iwd)
+	CleanDepthMap(iwd.Depth)
 	// smooth the data
-	iwd.Depth, err = GaussianSmoothing(iwd.Depth, 1)
-	if err != nil {
-		return nil, err
-	}
+	iwd.Depth, err = OpeningMorph(iwd.Depth, 5, 1)
 	return iwd, nil
 }
 
@@ -240,7 +242,7 @@ func FillDepthMap(iwd *ImageWithDepth) {
 		threshold := thresholdFromDepth(avgDepth, iwd.Width()*iwd.Height())
 		if len(seg) < threshold {
 			for point := range seg {
-				val := depthRayMarching(point.X, point.Y, iwd)
+				val := depthRayMarching(point.X, point.Y, 16, sixteenPoints, iwd)
 				iwd.Depth.Set(point.X, point.Y, val)
 			}
 		}
@@ -301,12 +303,9 @@ func averageDepthAroundHole(segment map[image.Point]bool, dm *DepthMap) float64 
 	return sum / count
 }
 
-// depthRayMarching uses 8-point ray-marching to fill in missing data. It marches out in 8 directions from the missing pixel until
-// it encounters a pixel with data, and then averages the values of the non-zero pixels it finds to fill the missing value.
-// Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
-// less to the average.
-func depthRayMarching(x, y int, iwd *ImageWithDepth) Depth {
-	directions := []image.Point{
+// directions for ray-marching
+var (
+	eightPoints = []image.Point{
 		{0, 1},   //up
 		{0, -1},  //down
 		{-1, 0},  //left
@@ -316,26 +315,49 @@ func depthRayMarching(x, y int, iwd *ImageWithDepth) Depth {
 		{-1, -1}, // lower-left
 		{1, -1},  //lower-right
 	}
+
+	sixteenPoints = []image.Point{
+		{0, 2}, {0, -2}, {-2, 0}, {2, 0},
+		{-2, 2}, {2, 2}, {-2, -2}, {2, -2},
+		{-2, 1}, {-1, 2}, {1, 2}, {2, 1},
+		{-2, -1}, {-1, -2}, {1, -2}, {2, -1},
+	}
+)
+
+// depthRayMarching uses multi-point ray-marching to fill in missing data. It marches out in 8 directions from the missing pixel until
+// it encounters a pixel with data, and then averages the values of the non-zero pixels it finds to fill the missing value.
+// Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
+// less to the average.
+func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) Depth {
 	centerColor := iwd.Color.GetXY(x, y)
 	depthAvg := 0.0
 	weightTot := 0.0
 	for _, dir := range directions {
-		depth := 0
-		var col Color
+		depth := 0.0
+		count := 0.0
+		colArr := make([]Color, 0)
 		i, j := x, y
-		for depth == 0 { // increment in the given direction until you reach a filled pixel
-			i += dir.X
-			j += dir.Y
-			if !iwd.Depth.Contains(i, j) { // skip if out of picture bounds
-				break
+		for iter := 0; iter < iterations; iter++ { // average in the same direction
+			depthIter := 0.0
+			for depthIter == 0.0 { // increment in the given direction until you reach a filled pixel
+				i += dir.X
+				j += dir.Y
+				if !iwd.Depth.Contains(i, j) { // skip if out of picture bounds
+					break
+				}
+				depthIter = float64(iwd.Depth.GetDepth(i, j))
 			}
-			depth = int(iwd.Depth.GetDepth(i, j))
-			col = iwd.Color.GetXY(i, j)
+			if depthIter != 0.0 {
+				depth += depthIter
+				colArr = append(colArr, iwd.Color.GetXY(i, j))
+				count++
+			}
 		}
-		if depth != 0 {
-			colorDistance := centerColor.DistanceLab(col)
-			weight := math.Exp(-2.0 * colorDistance)
-			depthAvg = (depthAvg*weightTot + float64(depth)*weight) / (weightTot + weight)
+		if depth != 0.0 {
+			col := AverageColor(colArr)
+			colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
+			weight := math.Exp(-100.0 * colorDistance)
+			depthAvg = (depthAvg*weightTot + (depth/count)*weight) / (weightTot + weight)
 			weightTot += weight
 		}
 	}

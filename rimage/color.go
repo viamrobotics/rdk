@@ -112,6 +112,21 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
 }
 
+// AverageColor returns the root square mean of the colors in the array. 2-norm is better color correction.
+func AverageColor(colors []Color) Color {
+	avgR, avgG, avgB := 0.0, 0.0, 0.0
+	for _, c := range colors {
+		r, g, b := c.RGB255()
+		avgR += math.Pow(float64(r), 2.0)
+		avgG += math.Pow(float64(g), 2.0)
+		avgB += math.Pow(float64(b), 2.0)
+	}
+	avgR = math.Sqrt(avgR / float64(len(colors)))
+	avgG = math.Sqrt(avgG / float64(len(colors)))
+	avgB = math.Sqrt(avgB / float64(len(colors)))
+	return NewColor(uint8(avgR), uint8(avgG), uint8(avgB))
+}
+
 // RGB255 returns the RGB representation of the color.
 func (c Color) RGB255() (uint8, uint8, uint8) {
 	return uint8(c & 0xFF), uint8((c >> 8) & 0xFF), uint8((c >> 16) & 0xFF)
