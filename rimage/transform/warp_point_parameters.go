@@ -86,9 +86,13 @@ func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDep
 		return nil, errors.Errorf("unexpected aligned dimensions c:(%d,%d) d:(%d,%d) config: %#v",
 			ii.Color.Width(), ii.Color.Height(), ii.Depth.Width(), ii.Depth.Height(), dct.AlignConfig)
 	}
+	dm, err := rimage.PreprocessDepthMap(ii.Depth)
+	if err != nil {
+		return nil, err
+	}
 
 	c2 := rimage.WarpImage(ii, dct.ColorTransform, dct.OutputSize)
-	dm2 := ii.Depth.Warp(dct.DepthTransform, dct.OutputSize)
+	dm2 := dm.Warp(dct.DepthTransform, dct.OutputSize)
 
 	return rimage.MakeImageWithDepth(c2, dm2, true, dct), nil
 }
