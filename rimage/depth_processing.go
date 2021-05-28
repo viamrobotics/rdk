@@ -335,7 +335,7 @@ func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *Image
 	for _, dir := range directions {
 		depth := 0.0
 		count := 0.0
-		colArr := make([]Color, 0)
+		var col Color
 		i, j := x, y
 		for iter := 0; iter < iterations; iter++ { // average in the same direction
 			depthIter := 0.0
@@ -346,19 +346,14 @@ func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *Image
 					break
 				}
 				depthIter = float64(iwd.Depth.GetDepth(i, j))
+				col = iwd.Color.GetXY(i, j)
 			}
 			if depthIter != 0.0 {
-				depth += depthIter
-				colArr = append(colArr, iwd.Color.GetXY(i, j))
-				count++
+				colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
+				weight := math.Exp(-100.0 * colorDistance)
+				depthAvg = (depthAvg*weightTot + (depth/count)*weight) / (weightTot + weight)
+				weightTot += weight
 			}
-		}
-		if depth != 0.0 {
-			col := AverageColor(colArr)
-			colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
-			weight := math.Exp(-100.0 * colorDistance)
-			depthAvg = (depthAvg*weightTot + (depth/count)*weight) / (weightTot + weight)
-			weightTot += weight
 		}
 	}
 	depthAvg = math.Max(depthAvg, 0.0) // depth cannot be zero
