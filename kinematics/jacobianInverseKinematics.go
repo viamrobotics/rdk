@@ -99,6 +99,9 @@ func (ik *JacobianIK) Solve() bool {
 	jointMut := 0
 	// How much to mutate it by
 	jointAmt := 0.05
+
+	// How many numbers are we using to represent a pose
+	spatDOF := 7
 	var dxDelta []float64
 
 	for iteration < ik.iterations {
@@ -110,12 +113,12 @@ func (ik *JacobianIK) Solve() bool {
 			}
 			iteration++
 			ik.Mdl.ForwardPosition()
-			dx := make([]float64, ik.Mdl.GetOperationalDof()*6)
+			dx := make([]float64, ik.Mdl.GetOperationalDof()*spatDOF)
 
 			// Update dx with the delta to the desired position
 			for _, goal := range ik.GetGoals() {
 				dxDelta = ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
-				dxIdx := goal.EffectorID * 6
+				dxIdx := goal.EffectorID * spatDOF
 				for i, delta := range dxDelta {
 					dx[dxIdx+i] = delta
 				}
@@ -130,12 +133,27 @@ func (ik *JacobianIK) Solve() bool {
 				}
 			}
 
+			// Convert dx from R4 to R3 to match the jacobian
+			var dxR3 []float64
+			angle := 1.0
+			for i, v := range dx {
+				if i%spatDOF == 0 {
+					angle = 1
+				}
+				// The fourth element is the angle of the angle axis
+				if i%spatDOF != 3 {
+					dxR3 = append(dxR3, v*angle)
+				} else {
+					angle = v
+				}
+			}
+
 			ik.Mdl.CalculateJacobian()
 
 			ik.Mdl.CalculateJacobianInverse(0, ik.svd)
 			invJ := ik.Mdl.GetJacobianInverse()
 
-			dq := invJ.MulNx1(nil, mgl64.NewVecNFromData(dx)).Raw()
+			dq := invJ.MulNx1(nil, mgl64.NewVecNFromData(dxR3)).Raw()
 
 			q = ik.Mdl.Step(q, dq)
 

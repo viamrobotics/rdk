@@ -18,7 +18,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 300, 0, 360.25
 	m.ForwardPosition()
-	expect := []float64{300, 0, 360.25, 0, 0, 0}
+	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
 	actual := m.Get6dPosition(0)
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
@@ -29,7 +29,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 365, 0, 360.25
 	m.ForwardPosition()
-	expect = []float64{365, 0, 360.25, 0, 0, 0}
+	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
 	actual = m.Get6dPosition(0)
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
@@ -39,15 +39,25 @@ func TestForwardKinematics(t *testing.T) {
 	m.ForwardPosition()
 	actual = m.Get6dPosition(0)
 
-	expect = []float64{57.5, 57.5, 545.1208197765168, 0, -45, 45}
+	expect = []float64{57.5, 57.5, 545.1208197765168, 1.096, 0.28108, -0.6786, 0.6786}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
 	actual = m.Get6dPosition(0)
 
-	expect = []float64{258.0935, -258.0935, 360.25, 45, 0, -45}
+	expect = []float64{258.0935, -258.0935, 360.25, 1.096, 0.6786, -0.28108, -0.6786}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
+
+	// Test the 6dof arm we actually have
+	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/ur5.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Confirm end effector starts at 365, 0, 360.25
+	m.ForwardPosition()
+	newPos = []float64{0, 1.5708, 1.5708, 0, 0, 0}
+	m.SetPosition(newPos)
+	m.ForwardPosition()
 }
 
 func floatDelta(l1, l2 []float64) float64 {

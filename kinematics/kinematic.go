@@ -56,8 +56,12 @@ func (m *Model) Get6dPosition(idx int) []float64 {
 	pose6d = append(pose6d, cartQuat.Dual.Jmag)
 	pose6d = append(pose6d, cartQuat.Dual.Kmag)
 
-	// Get euler angles
-	pose6d = append(pose6d, QuatToEuler(quat.Real)...)
+	// Get R4 angle axis angles
+	r4aa := kinmath.QuatToR4AA(quat.Real)
+	pose6d = append(pose6d, r4aa.Theta)
+	pose6d = append(pose6d, r4aa.RX)
+	pose6d = append(pose6d, r4aa.RY)
+	pose6d = append(pose6d, r4aa.RZ)
 	return pose6d
 }
 
@@ -71,55 +75,14 @@ func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
 	return m.Joints[idx].GetOperationalVelocity()
 }
 
-// QuatToEuler TODO
-// See the following wikipedia page for the formulas used here
-// https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
-func QuatToEuler(q quat.Number) []float64 {
-	w := q.Real
-	x := q.Imag
-	y := q.Jmag
-	z := q.Kmag
-
-	var angles []float64
-
-	angles = append(angles, math.Atan2(2*(w*x+y*z), 1-2*(x*x+y*y)))
-	angles = append(angles, math.Asin(2*(w*y-x*z)))
-	angles = append(angles, math.Atan2(2*(w*z+y*x), 1-2*(y*y+z*z)))
-
-	for i := range angles {
-
-		angles[i] *= 180 / math.Pi
-	}
-	return angles
-}
-
-// MatToEuler TODO
-func MatToEuler(mat mgl64.Mat4) []float64 {
-	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
-	singular := sy < 1e-6
-	var angles []float64
-	if !singular {
-		angles = append(angles, math.Atan2(mat.At(2, 1), mat.At(2, 2)))
-		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
-		angles = append(angles, math.Atan2(mat.At(1, 0), mat.At(0, 0)))
-	} else {
-		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
-		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
-		angles = append(angles, 0)
-	}
-	for i := range angles {
-		angles[i] *= 180 / math.Pi
-	}
-	return angles
-}
-
-// CalculateJacobian TODO
+// CalculateJacobian calculates the Jacobian matrix for the end effector's current position
 // This used to support multiple end effectors
 // Removed that support when quaternions were added
 // because nothing we have has multiple end effectors
 // Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
 
+	// TODO (pl): Update this to support R4 AA
 	m.Jacobian = mgl64.NewMatrix(6, m.GetDof())
 
 	q := dualquat.Number{}
@@ -176,7 +139,7 @@ func (m *Model) CalculateJacobianInverse(lambda float64, doSvd bool) {
 		ok := svd.Factorize(denseJac, mat.SVDFull)
 		if !ok {
 			// This should never happen I hope? RL doesn't have error handling on this step so we're probably good
-			log.Fatal("failed to factorize matrix")
+			log.Fatal("failed to factorize matrix", denseJac)
 		}
 		lambdaSqr := 0.0
 		svdValues := svd.Values(nil)
