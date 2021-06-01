@@ -261,6 +261,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
@@ -299,6 +301,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}, func() {
 		close(onWatchDone)
 	})
+	defer func() {
+		<-onWatchDone
+	}()
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
@@ -308,8 +313,8 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 
 	err = web.RunWeb(ctx, myRobot, options, logger)
 	if err != nil {
+		cancel()
 		return fmt.Errorf("error running web: %w", err)
 	}
-	<-onWatchDone
 	return err
 }
