@@ -208,12 +208,12 @@ type segmentTestHelper struct {
 func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
-	ii, err = rimage.PreprocessDepthMap(ii)
-	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
 	fixed, err := h.cameraParams.AlignImageWithDepth(ii)
+	test.That(t, err, test.ShouldBeNil)
+	fixed, err = rimage.PreprocessDepthMap(fixed)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
