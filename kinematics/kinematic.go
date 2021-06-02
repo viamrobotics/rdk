@@ -57,11 +57,11 @@ func (m *Model) Get6dPosition(idx int) []float64 {
 	pose6d = append(pose6d, cartQuat.Dual.Kmag)
 
 	// Get R4 angle axis angles
-	r4aa := kinmath.QuatToR4AA(quat.Real)
-	pose6d = append(pose6d, r4aa.Theta)
-	pose6d = append(pose6d, r4aa.RX)
-	pose6d = append(pose6d, r4aa.RY)
-	pose6d = append(pose6d, r4aa.RZ)
+	poseOV := kinmath.QuatToOV(quat.Real)
+	pose6d = append(pose6d, poseOV.Theta)
+	pose6d = append(pose6d, poseOV.RX)
+	pose6d = append(pose6d, poseOV.RY)
+	pose6d = append(pose6d, poseOV.RZ)
 	return pose6d
 }
 
@@ -81,7 +81,6 @@ func (m *Model) GetJointOperationalVelocity(idx int) dualquat.Number {
 // because nothing we have has multiple end effectors
 // Multiple end effectors can be re-added here
 func (m *Model) CalculateJacobian() {
-
 	// TODO (pl): Update this to support R4 AA
 	m.Jacobian = mgl64.NewMatrix(6, m.GetDof())
 
