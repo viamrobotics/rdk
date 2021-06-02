@@ -20,7 +20,7 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rpc"
+	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"
@@ -810,8 +810,8 @@ func TestClientDialerOption(t *testing.T) {
 		return emptyStatus, nil
 	}
 
-	td := &trackingDialer{Dialer: rpc.NewCachedDialer()}
-	ctx := rpc.ContextWithDialer(context.Background(), td)
+	td := &trackingDialer{Dialer: dialer.NewCachedDialer()}
+	ctx := dialer.ContextWithDialer(context.Background(), td)
 	client1, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	client2, err := NewClient(ctx, listener.Addr().String(), logger)
@@ -825,11 +825,11 @@ func TestClientDialerOption(t *testing.T) {
 }
 
 type trackingDialer struct {
-	rpc.Dialer
+	dialer.Dialer
 	dialCalled int
 }
 
-func (td *trackingDialer) Dial(ctx context.Context, target string, opts ...grpc.DialOption) (rpc.ClientConn, error) {
+func (td *trackingDialer) Dial(ctx context.Context, target string, opts ...grpc.DialOption) (dialer.ClientConn, error) {
 	td.dialCalled++
 	return td.Dialer.Dial(ctx, target, opts...)
 }

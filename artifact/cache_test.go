@@ -14,7 +14,38 @@ import (
 )
 
 func TestGlobalCache(t *testing.T) {
-	// TODO(erd)
+	dir, undo := TestSetupGlobalCache(t)
+	defer undo()
+
+	_, err := GlobalCache()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "config.json")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	test.That(t, os.MkdirAll(filepath.Join(dir, DotDir), 0755), test.ShouldBeNil)
+	confPath := filepath.Join(dir, DotDir, ConfigName)
+
+	// bad config
+	test.That(t, ioutil.WriteFile(confPath, []byte(`{
+	"cache": "somedir",
+	"root": "someotherdir",
+	"source_pull_size_limit": false,
+	"ignore": ["one", "two"]
+}`), 0644), test.ShouldBeNil)
+
+	_, err = GlobalCache()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "bool")
+
+	test.That(t, ioutil.WriteFile(confPath, []byte(`{
+	"cache": "somedir",
+	"root": "someotherdir",
+	"source_pull_size_limit": 5,
+	"ignore": ["one", "two"]
+}`), 0644), test.ShouldBeNil)
+
+	_, err = GlobalCache()
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestCache(t *testing.T) {

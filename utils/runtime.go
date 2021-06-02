@@ -3,8 +3,10 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
@@ -18,6 +20,13 @@ import (
 // context via SIGTERM. This should be called once per process so as
 // to not clobber the signals from Notify.
 func ContextualMain(main func(ctx context.Context, args []string, logger golog.Logger) error, logger golog.Logger) {
+	// This will only run on a successful exit due to the fatal error
+	// logic in contextualMain.
+	defer func() {
+		if err := FindGoroutineLeaks(); err != nil {
+			fmt.Fprintf(os.Stderr, "goroutine leak(s) detected: %v\n", err)
+		}
+	}()
 	contextualMain(main, false, logger)
 }
 
@@ -119,6 +128,7 @@ func PanicCapturingGoWithCallback(f func(), callback func(err interface{})) {
 	go func() {
 		defer func() {
 			if err := recover(); err != nil {
+				debug.PrintStack()
 				rlog.Logger.Errorw("panic while running function", "error", err)
 				if callback == nil {
 					return

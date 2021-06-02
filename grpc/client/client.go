@@ -22,7 +22,7 @@ import (
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/rpc"
+	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/utils"
@@ -40,7 +40,7 @@ var errUnimplemented = errors.New("unimplemented")
 // client conforming to the robot.proto contract.
 type RobotClient struct {
 	address string
-	conn    rpc.ClientConn
+	conn    dialer.ClientConn
 	client  pb.RobotServiceClient
 
 	namesMu      *sync.Mutex
@@ -78,7 +78,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
-	var conn rpc.ClientConn
+	var conn dialer.ClientConn
 	{
 		var err error
 		dialOpts := []grpc.DialOption{grpc.WithBlock()}
@@ -86,8 +86,8 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 		if !opts.Secure {
 			dialOpts = append(dialOpts, grpc.WithInsecure())
 		}
-		if dialer := rpc.ContextDialer(ctx); dialer != nil {
-			conn, err = dialer.Dial(ctx, address, dialOpts...)
+		if ctxDialer := dialer.ContextDialer(ctx); ctxDialer != nil {
+			conn, err = ctxDialer.Dial(ctx, address, dialOpts...)
 		} else {
 			conn, err = grpc.DialContext(ctx, address, dialOpts...)
 		}
