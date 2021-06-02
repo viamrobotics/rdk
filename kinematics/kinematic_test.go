@@ -39,14 +39,14 @@ func TestForwardKinematics(t *testing.T) {
 	m.ForwardPosition()
 	actual = m.Get6dPosition(0)
 
-	expect = []float64{57.5, 57.5, 545.1208197765168, 1.096, 0.28108, -0.6786, 0.6786}
+	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
 	actual = m.Get6dPosition(0)
 
-	expect = []float64{258.0935, -258.0935, 360.25, 1.096, 0.6786, -0.28108, -0.6786}
+	expect = []float64{258.0935, -258.0935, 360.25, 0.7854, 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	// Test the 6dof arm we actually have
