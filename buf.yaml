@@ -11,10 +11,13 @@ lint:
   ignore_only:
     RPC_RESPONSE_STANDARD_NAME:
       - proto/api/v1/robot.proto
+      - proto/rpc/webrtc/v1/signaling.proto
     RPC_REQUEST_RESPONSE_UNIQUE:
       - proto/api/v1/robot.proto
+      - proto/rpc/webrtc/v1/signaling.proto
     RPC_REQUEST_STANDARD_NAME:
       - proto/api/v1/robot.proto
+      - proto/rpc/webrtc/v1/signaling.proto
 breaking:
   use:
     - FILE
