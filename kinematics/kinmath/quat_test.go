@@ -37,3 +37,29 @@ func TestFlip(t *testing.T) {
 	test.That(t, math.Abs(end1.RY-end2.RZ), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RZ-end2.RZ), test.ShouldBeLessThan, 0.001)
 }
+
+func TestOVConversion(t *testing.T) {
+	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation
+	q1 := quat.Number{0.5, 0.5, 0.5, 0.5}
+	ov1 := QuatToOV(q1)
+	q2 := ov1.ToQuat()
+	ov2 := QuatToOV(q2)
+	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.RX-ov2.RX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.RY-ov2.RY), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.RZ-ov2.RZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Real-q2.Real), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Imag-q2.Imag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Jmag-q2.Jmag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Kmag-q2.Kmag), test.ShouldBeLessThan, 0.001)
+}
+
+func TestOVNormalize(t *testing.T) {
+	// Test that Normalize() will produce a unit vector
+	ov1 := OrientVec{0, 999, 0, 0}
+	ov1.Normalize()
+	test.That(t, ov1.Theta, test.ShouldEqual, 0)
+	test.That(t, ov1.RX, test.ShouldEqual, 1)
+	test.That(t, ov1.RY, test.ShouldEqual, 0)
+	test.That(t, ov1.RZ, test.ShouldEqual, 0)
+}
