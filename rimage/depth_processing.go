@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/aybabtme/uniplot/histogram"
+
 	"go.viam.com/core/utils"
 )
 
@@ -28,6 +29,9 @@ func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
 	FillDepthMap(iwd)
 	// smooth the sharp edges out
 	iwd.Depth, err = OpeningMorph(iwd.Depth, 5, 1)
+	if err != nil {
+		return nil, err
+	}
 	return iwd, nil
 }
 
@@ -303,10 +307,7 @@ func isMultiModal(segment map[image.Point]bool, dm *DepthMap) bool {
 			zeros++
 		}
 	}
-	if peaks > 1 {
-		return true
-	}
-	return false
+	return peaks > 1
 }
 
 // getBorderHolePoints returns a map of the filled-in points on the border of contiguous segments of holes in a depth map
@@ -348,17 +349,6 @@ func pointsMap2Slice(points map[image.Point]bool, dm *DepthMap) []float64 {
 
 // directions for ray-marching
 var (
-	eightPoints = []image.Point{
-		{0, 1},   //up
-		{0, -1},  //down
-		{-1, 0},  //left
-		{1, 0},   //right
-		{-1, 1},  // upper-left
-		{1, 1},   // upper-right
-		{-1, -1}, // lower-left
-		{1, -1},  //lower-right
-	}
-
 	sixteenPoints = []image.Point{
 		{0, 2}, {0, -2}, {-2, 0}, {2, 0},
 		{-2, 2}, {2, 2}, {-2, -2}, {2, -2},
