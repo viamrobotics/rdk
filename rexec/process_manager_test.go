@@ -546,7 +546,15 @@ func TestMergeRemoveProcessManagers(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	removed := MergeRemoveProcessManagers(pm1, pm2)
-	test.That(t, removed, test.ShouldResemble, []ManagedProcess{fp2, fp3})
+	test.That(t, removed, test.ShouldHaveLength, 2)
+	expected := map[ManagedProcess]struct{}{
+		fp2: {},
+		fp3: {},
+	}
+	for _, p := range removed {
+		delete(expected, p)
+	}
+	test.That(t, expected, test.ShouldBeEmpty)
 
 	test.That(t, utils.NewStringSet(pm1.ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1"))
 

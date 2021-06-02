@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/robots/hellorobot"
 	"go.viam.com/core/rpc"
+	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
 	"go.viam.com/core/slam"
@@ -237,7 +238,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	clientWidth := 800
 	clientHeight := 600
 
-	rpcServer, err := rpc.NewServer()
+	rpcServer, err := rpcserver.New(logger)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/utils"
 )
 
 // VerifyTestMain preforms various runtime checks on code that tests run.
@@ -25,10 +26,7 @@ func VerifyTestMain(m goleak.TestingM) {
 	if exitCode != 0 {
 		os.Exit(exitCode)
 	}
-	if err := goleak.Find(
-		goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
-		goleak.IgnoreTopFunction("github.com/desertbit/timer.timerRoutine"), // gRPC uses this
-	); err != nil {
+	if err := utils.FindGoroutineLeaks(); err != nil {
 		fmt.Fprintf(os.Stderr, "goleak: Errors on successful test run: %v\n", err)
 		os.Exit(1)
 	}

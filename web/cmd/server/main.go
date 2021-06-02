@@ -18,7 +18,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/rpc"
+	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
@@ -263,11 +263,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rpcDialer := rpc.NewCachedDialer()
+	rpcDialer := dialer.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
-	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
+	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err

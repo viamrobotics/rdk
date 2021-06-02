@@ -23,7 +23,7 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/rpc"
+	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/utils"
 
 	"github.com/Masterminds/sprig"
@@ -294,7 +294,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 		return err
 	}
 
-	rpcServer, err := rpc.NewServer()
+	rpcServer, err := rpcserver.New(logger)
 	if err != nil {
 		return err
 	}
