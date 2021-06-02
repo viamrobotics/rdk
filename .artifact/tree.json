@@ -2727,6 +2727,10 @@
     "dogtest.both.gz": {
       "hash": "adfa05051e5773dfa0a6258924042ce2",
       "size": 1660034
+    },
+    "dogwithwaterbottle.both.gz": {
+      "hash": "938340d6022508ed500c82c4edc7a982",
+      "size": 1779579
     }
   },
   "minirover2": {
