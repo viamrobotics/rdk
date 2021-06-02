@@ -27,7 +27,12 @@ func NewQuatTrans() *QuatTrans {
 // NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
 // axis angle.
 func NewQuatTransFromRotation(th, x, y, z float64) *QuatTrans {
-	aa := R4AA{th, x, y, z}
+	// Handle the zero case
+	if x == 0 && y == 0 && z == 0 {
+		x = 1
+	}
+	aa := OrientVec{th, x, y, z}
+	aa.Normalize()
 	return &QuatTrans{dualquat.Number{
 		Real: aa.ToQuat(),
 		Dual: quat.Number{},
@@ -160,7 +165,7 @@ func QuatToR3AA(q quat.Number) R3AA {
 	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
-// QuatToEuler Converts a rotation unit quaternion to euler angles.
+// QuatToEuler converts a rotation unit quaternion to euler angles.
 // See the following wikipedia page for the formulas used here:
 // https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Quaternion_to_Euler_angles_conversion
 // Euler angles are terrible, don't use them.
@@ -181,6 +186,45 @@ func QuatToEuler(q quat.Number) []float64 {
 		angles[i] *= radToDeg
 	}
 	return angles
+}
+
+// QuatToOV converts a quaternion to an orientation vector
+func QuatToOV(q quat.Number) OrientVec {
+	xAxis := quat.Number{0, 1, 0, 0}
+	zAxis := quat.Number{0, 0, 0, 1}
+	ov := OrientVec{}
+	// Get the xyz point of our axis on the unit sphere
+	xyz := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
+	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
+	ov.RX = xyz.Imag
+	ov.RY = xyz.Jmag
+	ov.RZ = xyz.Kmag
+
+	// Get the vector normal to the local-x, global-z, origin plane
+	v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
+	v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
+	norm1 := v1.Cross(v2)
+
+	// Get the vector normal to the local-x, local-z, origin plane
+	v3 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
+	v4 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
+	norm2 := v3.Cross(v4)
+
+	// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
+	numerator := norm1.X()*norm2.X() + norm1.Y()*norm2.Y() + norm1.Z()*norm2.Z()
+	denom1 := math.Sqrt(norm1.X()*norm1.X() + norm1.Y()*norm1.Y() + norm1.Z()*norm1.Z())
+	denom2 := math.Sqrt(norm2.X()*norm2.X() + norm2.Y()*norm2.Y() + norm2.Z()*norm2.Z())
+	cosTheta := numerator / (denom1 * denom2)
+	// Account for floating point error
+	if cosTheta > 1 {
+		cosTheta = 1
+	}
+	if cosTheta < -1 {
+		cosTheta = -1
+	}
+	ov.Theta = math.Acos(cosTheta)
+
+	return ov
 }
 
 // MatToEuler Converts a 4x4 matrix to Euler angles.
