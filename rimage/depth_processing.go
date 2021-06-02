@@ -5,7 +5,9 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sort"
 
+	"github.com/aybabtme/uniplot/histogram"
 	"go.viam.com/core/utils"
 )
 
@@ -240,7 +242,7 @@ func FillDepthMap(iwd *ImageWithDepth) {
 		borderPoints := getBorderHolePoints(seg, iwd.Depth)
 		avgDepth := averageDepthInSegment(borderPoints, iwd.Depth)
 		threshold := thresholdFromDepth(avgDepth, iwd.Width()*iwd.Height())
-		if len(seg) < threshold {
+		if len(seg) < threshold && !isMultiModal(borderPoints, iwd.Depth) {
 			for point := range seg {
 				val := depthRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
 				iwd.Depth.Set(point.X, point.Y, val)
@@ -278,12 +280,36 @@ func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 	return sum / count
 }
 
-// calculate the sample mean and std dev of a collection of points
-func depthStats(segment map[image.Point]bool, dm *DepthMap) float64 {
-	return 0.
+// calculate the number of modes in a collection of points
+func isMultiModal(segment map[image.Point]bool, dm *DepthMap) bool {
+	depths := pointsMap2Slice(segment, dm)
+	if len(depths) == 0 {
+		return false
+	}
+	sort.Float64s(depths)
+	r := utils.MaxInt(1, int((depths[len(depths)-1]-depths[0])/100.))
+	// count the number of times the histogram goes to zero for 3 buckets
+	hist := histogram.Hist(r, depths)
+	threshold := 3
+	peaks := 0
+	zeros := threshold
+	for _, bkt := range hist.Buckets {
+		if bkt.Count != 0 {
+			if zeros >= threshold {
+				peaks++
+			}
+			zeros = 0
+		} else {
+			zeros++
+		}
+	}
+	if peaks > 1 {
+		return true
+	}
+	return false
 }
 
-// calculate the sample mean and std dev inside the hole as the std dev and mean of the border of the hole
+// getBorderHolePoints returns a map of the filled-in points on the border of contiguous segments of holes in a depth map
 func getBorderHolePoints(segment map[image.Point]bool, dm *DepthMap) map[image.Point]bool {
 	directions := []image.Point{
 		{0, 1},  //up
@@ -304,6 +330,20 @@ func getBorderHolePoints(segment map[image.Point]bool, dm *DepthMap) map[image.P
 		}
 	}
 	return borderPoints
+}
+
+// get a slice of float64 from a map of points, skipping zero points
+func pointsMap2Slice(points map[image.Point]bool, dm *DepthMap) []float64 {
+	slice := make([]float64, 0, len(points))
+	for point := range points {
+		if !dm.Contains(point.X, point.Y) {
+			continue
+		}
+		if dm.GetDepth(point.X, point.Y) != 0 {
+			slice = append(slice, float64(dm.GetDepth(point.X, point.Y)))
+		}
+	}
+	return slice
 }
 
 // directions for ray-marching
