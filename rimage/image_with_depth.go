@@ -6,6 +6,7 @@ import (
 	"image/color"
 
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/utils"
 )
@@ -39,6 +40,15 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 // TODO(erh): alpha encode with depth
 func (i *ImageWithDepth) At(x, y int) color.Color {
 	return i.Color.At(x, y)
+}
+
+// To3D takes an image pixel coordinate and returns the 3D coordinate in the world
+func (i *ImageWithDepth) To3D(p image.Point) r3.Vector {
+	vec, err := i.camera.ImagePointTo3DPoint(p, i)
+	if err != nil {
+		panic(err)
+	}
+	return vec
 }
 
 // Width returns the horizontal width of the image.
