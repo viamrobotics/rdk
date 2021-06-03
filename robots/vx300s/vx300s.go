@@ -3,6 +3,7 @@ package vx300s
 
 import (
 	"context"
+	_ "embed" // for embedding model file
 	"fmt"
 	"math"
 	"strconv"
@@ -26,6 +27,9 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
 )
+
+//go:embed vx300s_kinematics.json
+var vx300smodeljson []byte
 
 func init() {
 	registry.RegisterArm("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -99,7 +103,7 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 		logger:   logger,
 	}
 
-	return kinematics.NewArmJSONFile(newArm, attributes.String("modelJSON"), 4, logger)
+	return kinematics.NewArm(newArm, vx300smodeljson, 4, logger)
 }
 
 // CurrentPosition TODO
