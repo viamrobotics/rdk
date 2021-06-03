@@ -35,11 +35,11 @@ func TestArmPositionDiff(t *testing.T) {
 	test.That(t, PositionGridDiff(&pb.ArmPosition{Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionGridDiff(&pb.ArmPosition{X: 1, Y: 1, Z: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, math.Sqrt(3))
 
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 0)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OX: 1}}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OY: 1}}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OZ: 1}}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
-	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OX: 1, OY: 1, OZ: 1}}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 3)
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{}}, &pb.ArmPosition{Orient: &pb.OrientationVec{}}), test.ShouldAlmostEqual, 0)
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OX: 1}}, &pb.ArmPosition{Orient: &pb.OrientationVec{}}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OY: 1}}, &pb.ArmPosition{Orient: &pb.OrientationVec{}}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OZ: 1}}, &pb.ArmPosition{Orient: &pb.OrientationVec{}}), test.ShouldAlmostEqual, 1)
+	test.That(t, PositionRotationDiff(&pb.ArmPosition{Orient: &pb.OrientationVec{OX: 1, OY: 1, OZ: 1}}, &pb.ArmPosition{Orient: &pb.OrientationVec{}}), test.ShouldAlmostEqual, 3)
 }
 
 func TestAAConversion(t *testing.T) {
