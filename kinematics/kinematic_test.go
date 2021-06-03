@@ -50,7 +50,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/ur5.json"))
+	m, err = ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/ur5_testmodel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
