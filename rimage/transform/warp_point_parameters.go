@@ -23,7 +23,7 @@ type DepthColorWarpTransforms struct {
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the warp points
 func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
-	if ii.IsAligned() {
+	if !ii.IsAligned() {
 		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
 	}
 	if !(point.In(ii.Bounds())) {
