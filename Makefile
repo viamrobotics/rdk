@@ -3,6 +3,8 @@ BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 TAGS = $(shell sh etc/gotags.sh)
 
+SERVER_DEB_VER = 0.3
+
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
 
@@ -72,20 +74,20 @@ cameras:
 deb-server: server cameras
 	rm -rf etc/packaging/work/
 	mkdir etc/packaging/work/
-	cp -r etc/packaging/viam-server-0.2/ etc/packaging/work/
-	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-0.2/usr/bin/viam-server
-	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-0.2/usr/bin/intelrealserver
-	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-0.2/usr/bin/royaleserver
-	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/templates/
-	install -m 644 -D web/runtime-shared/static/main.js etc/packaging/work/viam-server-0.2/usr/share/viam/static/main.js
-	install -m 644 -D web/runtime-shared/static/third-party/* --target-directory=etc/packaging/work/viam-server-0.2/usr/share/viam/static/third-party
-	cd etc/packaging/work/viam-server-0.2/ \
-	&& dch -v 0.2+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
+	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/
+	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/viam-server
+	install -D etc/camera_servers/intelrealserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/intelrealserver
+	install -D etc/camera_servers/royaleserver etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/bin/royaleserver
+	install -m 644 -D web/runtime-shared/templates/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/templates/
+	install -m 644 -D web/runtime-shared/static/main.js etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/main.js
+	install -m 644 -D web/runtime-shared/static/third-party/* --target-directory=etc/packaging/work/viam-server-$(SERVER_DEB_VER)/usr/share/viam/static/third-party
+	cd etc/packaging/work/viam-server-$(SERVER_DEB_VER)/ \
+	&& dch -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
 	&& dch -r viam \
 	&& dpkg-buildpackage -us -uc -b \
 
 deb-install: deb-server
-	sudo dpkg -i etc/packaging/work/viam-server_0.2+*.deb
+	sudo dpkg -i etc/packaging/work/viam-server_$(SERVER_DEB_VER)+*.deb
 
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
