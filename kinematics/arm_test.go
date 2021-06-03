@@ -26,7 +26,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		X: -46,
 		Y: -133,
 		Z: 372,
-		Orient: &pb.OrientVec{
+		Orient: &pb.OrientationVec{
 			OX: 1.79,
 			OY: -1.32,
 			OZ: -1.11,
@@ -43,7 +43,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		X: -66,
 		Y: -133,
 		Z: 372,
-		Orient: &pb.OrientVec{
+		Orient: &pb.OrientationVec{
 			OX: -178.88747811107424,
 			OY: -33.160094626838045,
 			OZ: -111.02282693533935,
@@ -85,7 +85,7 @@ func TestNloptIKinematics(t *testing.T) {
 		X:      1,
 		Y:      -368,
 		Z:      355,
-		Orient: &pb.OrientVec{},
+		Orient: &pb.OrientationVec{},
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
@@ -139,7 +139,7 @@ func TestJacobianIKinematics(t *testing.T) {
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
 
-	pos := &pb.ArmPosition{X: 350, Y: 10, Z: 355, Orient: &pb.OrientVec{}}
+	pos := &pb.ArmPosition{X: 350, Y: 10, Z: 355, Orient: &pb.OrientationVec{}}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -179,7 +179,7 @@ func TestIKTolerances(t *testing.T) {
 		X: -46,
 		Y: 0,
 		Z: 372,
-		Orient: &pb.OrientVec{
+		Orient: &pb.OrientationVec{
 			OX: -1.78,
 			OY: -3.3,
 			OZ: -1.11,

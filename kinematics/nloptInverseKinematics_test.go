@@ -19,7 +19,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(m, logger)
 
-	pos := pb.ArmPosition{X: 360, Z: 362, Orient: &pb.OrientVec{}}
+	pos := pb.ArmPosition{X: 360, Z: 362, Orient: &pb.OrientationVec{}}
 	transform := kinmath.NewQuatTransFromRotation(pos.Orient)
 	transform.SetTranslation(pos.X, pos.Y, pos.Z)
 
@@ -31,7 +31,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	solved := ik.Solve()
 	test.That(t, solved, test.ShouldBeTrue)
 
-	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, Orient: &pb.OrientVec{Theta: 3.92, OX: -0.46, OY: 0.84, OZ: 0.28}}
+	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, Orient: &pb.OrientationVec{Theta: 3.92, OX: -0.46, OY: 0.84, OZ: 0.28}}
 	transform = kinmath.NewQuatTransFromRotation(pos.Orient)
 	transform.SetTranslation(pos.X, pos.Y, pos.Z)
 
