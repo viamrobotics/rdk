@@ -91,7 +91,7 @@ func TestNloptIKinematics(t *testing.T) {
 
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/ur5.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/ur5_testmodel.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
