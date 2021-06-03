@@ -120,7 +120,7 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (arm.Ar
 	case <-timer.C:
 		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
-		return kinematics.NewArmJSONFile(arm, ur5modeljson, 4, logger)
+		return kinematics.NewArm(arm, ur5modeljson, 4, logger)
 	}
 }
 
