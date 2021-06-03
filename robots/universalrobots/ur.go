@@ -18,7 +18,6 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
