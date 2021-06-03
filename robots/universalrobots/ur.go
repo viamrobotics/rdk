@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
+	"go.viam.com/core/kinematics"
 	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
@@ -28,7 +29,7 @@ import (
 
 func init() {
 	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return URArmConnect(ctx, config.Host, logger)
+		return URArmConnect(ctx, config.Host, config.Attributes, logger)
 	})
 }
 
@@ -76,7 +77,7 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm, error) {
+func URArmConnect(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
@@ -116,7 +117,7 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (*URArm
 	case <-timer.C:
 		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
-		return arm, nil
+		return kinematics.NewArmJSONFile(arm, attrs.String("modelJSON"), 4, logger)
 	}
 }
 
@@ -159,11 +160,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 
 // CurrentPosition TODO
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	s := ua.State().CartesianInfo
-	// The UR5 arm does not use Euler angles. It returns its orientation in R3 angle axis form, we convert to R4.
-	r3aa := kinmath.R3AA{s.Rx, s.Ry, s.Rz}
-	r4aa := r3aa.ToR4()
-	return arm.NewPositionFromMetersAndAngleAxis(s.X, s.Y, s.Z, r4aa.Theta, r4aa.RX, r4aa.RY, r4aa.RZ), nil
+	return errors.New("ur5 low level kinematics should not be used")
 }
 
 // JointMoveDelta TODO
@@ -252,59 +249,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // MoveToPosition TODO
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	x := pos.X / 1000
-	y := pos.Y / 1000
-	z := pos.Z / 1000
-	// UR5 arm takes R3 angle axis as input
-	rx := pos.RX * pos.Theta
-	ry := pos.RY * pos.Theta
-	rz := pos.RZ * pos.Theta
-
-	cmd := fmt.Sprintf("movej(get_inverse_kin(p[%f,%f,%f,%f,%f,%f]), a=1.4, v=4, r=0)\r\n", x, y, z, rx, ry, rz)
-
-	_, err := ua.conn.Write([]byte(cmd))
-	if err != nil {
-		return err
-	}
-
-	retried := false
-
-	slept := 0
-	for {
-		cur, err := ua.CurrentPosition(ctx)
-		if err != nil {
-			return err
-		}
-		if arm.PositionGridDiff(pos, cur) <= 1.5 &&
-			arm.PositionRotationDiff(pos, cur) <= 1.0 {
-			return nil
-		}
-
-		err = ua.getAndResetRuntimeError()
-		if err != nil {
-			return err
-		}
-
-		slept = slept + 10
-
-		if slept > 5000 && !retried {
-			_, err := ua.conn.Write([]byte(cmd))
-			if err != nil {
-				return err
-			}
-			retried = true
-		}
-
-		if slept > 10000 {
-			return errors.Errorf("can't reach position.\n want: %v\n   at: %v\n diffs: %f %f",
-				pos, cur,
-				arm.PositionGridDiff(pos, cur), arm.PositionRotationDiff(pos, cur))
-		}
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return ctx.Err()
-		}
-	}
-
+	return errors.New("ur5 low level kinematics should not be used")
 }
 
 // AddToLog TODO
