@@ -1,11 +1,13 @@
 package transform
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
 
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
@@ -65,6 +67,18 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 		}
 	}
 	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
+}
+
+// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix
+func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
+	if !ii.IsAligned() {
+		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
+	}
+	if !(point.In(ii.Bounds())) {
+		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", point.X, point.Y, ii.Width(), ii.Height())
+	}
+	px, py, pz := dcie.ColorCamera.PixelToPoint(float64(point.X), float64(point.Y), float64(ii.Depth.Get(point)))
+	return r3.Vector{px, py, pz}, nil
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
