@@ -11,7 +11,7 @@ import (
 )
 
 func TestArmPosition(t *testing.T) {
-	p := NewPositionFromMetersAndAngleAxis(1.0, 2.0, 3.0, math.Pi/2, 0, 0.7071, 0.7071)
+	p := NewPositionFromMetersAndOV(1.0, 2.0, 3.0, math.Pi/2, 0, 0.7071, 0.7071)
 
 	test.That(t, p.Orient.OX, test.ShouldEqual, 0.0)
 	test.That(t, p.Orient.OY, test.ShouldEqual, 0.7071)

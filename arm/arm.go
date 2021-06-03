@@ -27,10 +27,10 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
-// NewPositionFromMetersAndAngleAxis returns a three-dimensional arm position
+// NewPositionFromMetersAndOV returns a three-dimensional arm position
 // defined by a point in space in meters and an orientation defined as an OrientationVec.
 // See robot.proto for a math explanation
-func NewPositionFromMetersAndAngleAxis(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
+func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
 		X: x * 1000,
 		Y: y * 1000,
