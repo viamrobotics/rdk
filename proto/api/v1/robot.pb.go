@@ -7,15 +7,14 @@
 package v1
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -489,19 +488,19 @@ func (x *ArmStatus) GetJointPositions() *JointPositions {
 }
 
 // OrientationVec represents an orientation vector
+// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+// from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+// theta will perform an in-line rotation of the end effector.
+// Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+// point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+// zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
 type OrientationVec struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
-	// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
-	// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
-	// from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
-	// theta will perform an in-line rotation of the end effector.
-	// Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
-	// point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
-	// zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
 	OX    float64 `protobuf:"fixed64,1,opt,name=o_x,json=oX,proto3" json:"o_x,omitempty"`
 	OY    float64 `protobuf:"fixed64,2,opt,name=o_y,json=oY,proto3" json:"o_y,omitempty"`
 	OZ    float64 `protobuf:"fixed64,3,opt,name=o_z,json=oZ,proto3" json:"o_z,omitempty"`

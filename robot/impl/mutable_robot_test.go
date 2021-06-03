@@ -104,12 +104,6 @@ func TestConfigRemote(t *testing.T) {
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
-					Orient: &pb.OrientationVec{
-						Theta: 0.0,
-						OX:    1.0,
-						OY:    0.0,
-						OZ:    0.0,
-					},
 				},
 				JointPositions: &pb.JointPositions{
 					Degrees: []float64{0, 0, 0, 0, 0, 0},
@@ -120,12 +114,6 @@ func TestConfigRemote(t *testing.T) {
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
-					Orient: &pb.OrientationVec{
-						Theta: 0.0,
-						OX:    1.0,
-						OY:    0.0,
-						OZ:    0.0,
-					},
 				},
 				JointPositions: &pb.JointPositions{
 					Degrees: []float64{0, 0, 0, 0, 0, 0},
