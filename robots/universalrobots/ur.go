@@ -3,6 +3,7 @@ package universalrobots
 
 import (
 	"context"
+	_ "embed" // for embedding model file
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -26,9 +27,12 @@ import (
 	"github.com/edaniels/golog"
 )
 
+//go:embed ur5.json
+var ur5modeljson []byte
+
 func init() {
 	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return URArmConnect(ctx, config.Host, config.Attributes, logger)
+		return URArmConnect(ctx, config.Host, logger)
 	})
 }
 
@@ -76,7 +80,7 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, host string, logger golog.Logger) (arm.Arm, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
@@ -116,7 +120,7 @@ func URArmConnect(ctx context.Context, host string, attrs config.AttributeMap, l
 	case <-timer.C:
 		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
-		return kinematics.NewArmJSONFile(arm, attrs.String("modelJSON"), 4, logger)
+		return kinematics.NewArmJSONFile(arm, ur5modeljson, 4, logger)
 	}
 }
 
