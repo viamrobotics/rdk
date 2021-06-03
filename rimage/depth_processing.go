@@ -5,9 +5,6 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"sort"
-
-	"github.com/aybabtme/uniplot/histogram"
 
 	"go.viam.com/core/utils"
 )
@@ -26,7 +23,10 @@ func PreprocessDepthMap(iwd *ImageWithDepth) (*ImageWithDepth, error) {
 		return nil, err
 	}
 	// fill in large holes using color info
-	FillDepthMap(iwd)
+	err = FillDepthMap(iwd)
+	if err != nil {
+		return nil, err
+	}
 	// smooth the sharp edges out
 	iwd.Depth, err = OpeningMorph(iwd.Depth, 5, 1)
 	if err != nil {
@@ -236,25 +236,6 @@ func CleanDepthMap(dm *DepthMap) {
 	}
 }
 
-// FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with
-// an average of the surrounding pixels by using 8-point ray-marching.
-func FillDepthMap(iwd *ImageWithDepth) {
-	validData := MissingDepthData(iwd.Depth)
-	missingData := invertGrayImage(validData)
-	holeMap := segmentBinaryImage(missingData)
-	for _, seg := range holeMap {
-		borderPoints := getBorderHolePoints(seg, iwd.Depth)
-		avgDepth := averageDepthInSegment(borderPoints, iwd.Depth)
-		threshold := thresholdFromDepth(avgDepth, iwd.Width()*iwd.Height())
-		if len(seg) < threshold && !isMultiModal(borderPoints, iwd.Depth) {
-			for point := range seg {
-				val := depthRayMarching(point.X, point.Y, 8, sixteenPoints, iwd)
-				iwd.Depth.Set(point.X, point.Y, val)
-			}
-		}
-	}
-}
-
 // limits inpainting/cleaning to holes of a specific size. Farther distance means the same pixel size represents a larger area.
 // It might be better to make it a real function of depth, right now just split into regions of close, middle, far based on distance
 // in mm and make thresholds based on proportion of the image resolution.
@@ -270,7 +251,7 @@ func thresholdFromDepth(depth float64, imgResolution int) int {
 	}
 }
 
-// get the average depth within the segment. assumes segment has only valid points, and no points are out of bounds.
+// get the average depth within the segment. Assumes segment has only valid points. Checks if points are out of bounds.
 func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 	sum, count := 0.0, 0.0
 	for point := range segment {
@@ -282,136 +263,6 @@ func averageDepthInSegment(segment map[image.Point]bool, dm *DepthMap) float64 {
 		count++
 	}
 	return sum / count
-}
-
-// calculate the number of modes in a collection of points
-func isMultiModal(segment map[image.Point]bool, dm *DepthMap) bool {
-	depths := pointsMap2Slice(segment, dm)
-	if len(depths) == 0 {
-		return false
-	}
-	sort.Float64s(depths)
-	r := utils.MaxInt(1, int((depths[len(depths)-1]-depths[0])/100.))
-	// count the number of times the histogram goes to zero for 3 buckets
-	hist := histogram.Hist(r, depths)
-	threshold := 3
-	peaks := 0
-	zeros := threshold
-	for _, bkt := range hist.Buckets {
-		if bkt.Count != 0 {
-			if zeros >= threshold {
-				peaks++
-			}
-			zeros = 0
-		} else {
-			zeros++
-		}
-	}
-	return peaks > 1
-}
-
-// getBorderHolePoints returns a map of the filled-in points on the border of contiguous segments of holes in a depth map
-func getBorderHolePoints(segment map[image.Point]bool, dm *DepthMap) map[image.Point]bool {
-	directions := []image.Point{
-		{0, 1},  //up
-		{0, -1}, //down
-		{-1, 0}, //left
-		{1, 0},  //right
-	}
-	borderPoints := make(map[image.Point]bool)
-	for hole := range segment {
-		for _, dir := range directions {
-			point := image.Point{hole.X + dir.X, hole.Y + dir.Y}
-			if !dm.Contains(point.X, point.Y) {
-				continue
-			}
-			if dm.GetDepth(point.X, point.Y) != 0 {
-				borderPoints[point] = true
-			}
-		}
-	}
-	return borderPoints
-}
-
-// get a slice of float64 from a map of points, skipping zero points
-func pointsMap2Slice(points map[image.Point]bool, dm *DepthMap) []float64 {
-	slice := make([]float64, 0, len(points))
-	for point := range points {
-		if !dm.Contains(point.X, point.Y) {
-			continue
-		}
-		if dm.GetDepth(point.X, point.Y) != 0 {
-			slice = append(slice, float64(dm.GetDepth(point.X, point.Y)))
-		}
-	}
-	return slice
-}
-
-// directions for ray-marching
-var (
-	sixteenPoints = []image.Point{
-		{0, 2}, {0, -2}, {-2, 0}, {2, 0},
-		{-2, 2}, {2, 2}, {-2, -2}, {2, -2},
-		{-2, 1}, {-1, 2}, {1, 2}, {2, 1},
-		{-2, -1}, {-1, -2}, {1, -2}, {2, -1},
-	}
-)
-
-// depthRayMarching uses multi-point ray-marching to fill in missing data. It marches out in 8 directions from the missing pixel until
-// it encounters a pixel with data, and then averages the values of the non-zero pixels it finds to fill the missing value.
-// Uses color info to help. If the color changes "too much" between pixels (exponential weighing), the depth will contribute
-// less to the average.
-func depthRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) Depth {
-	colorGaus := gaussianFunction1D(0.1)
-	spatialGaus := gaussianFunction2D(2.0)
-	centerColor := iwd.Color.GetXY(x, y)
-	depthAvg := 0.0
-	weightTot := 0.0
-	for _, dir := range directions {
-		i, j := x, y
-		for iter := 0; iter < iterations; iter++ { // average in the same direction
-			depthIter := 0.0
-			var col Color
-			for depthIter == 0.0 { // increment in the given direction until you reach a filled pixel
-				i += dir.X
-				j += dir.Y
-				if !iwd.Depth.Contains(i, j) { // skip if out of picture bounds
-					break
-				}
-				depthIter = float64(iwd.Depth.GetDepth(i, j))
-				col = iwd.Color.GetXY(i, j)
-			}
-			if depthIter != 0.0 {
-				colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
-				weight := colorGaus(colorDistance) * spatialGaus(float64(i-x), float64(j-y))
-				depthAvg = (depthAvg*weightTot + depthIter*weight) / (weightTot + weight)
-				weightTot += weight
-			}
-		}
-	}
-	depthAvg = math.Max(depthAvg, 0.0) // depth cannot be zero
-	return Depth(depthAvg)
-}
-
-// getValidNeighbors uses both a B+W image of valid points as well as a map of points already visited to determine which points should
-// be added in the queue for a breadth-first search.
-func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Point]bool) []image.Point {
-	neighbors := make([]image.Point, 0, 4)
-	directions := []image.Point{
-		{0, 1},  //up
-		{0, -1}, //down
-		{-1, 0}, //left
-		{1, 0},  //right
-	}
-	zero := color.Gray{0}
-	for _, dir := range directions {
-		neighbor := image.Point{pt.X + dir.X, pt.Y + dir.Y}
-		if neighbor.In(valid.Bounds()) && !visited[neighbor] && valid.At(neighbor.X, neighbor.Y) != zero {
-			neighbors = append(neighbors, neighbor)
-			visited[neighbor] = true
-		}
-	}
-	return neighbors
 }
 
 // segmentBinaryImage does a bredth-first search on a black and white image and splits the non-connected white regions
@@ -446,6 +297,27 @@ func segmentBinaryImage(img *image.Gray) map[int]map[image.Point]bool {
 		}
 	}
 	return regionMap
+}
+
+// getValidNeighbors uses both a B+W image of valid points as well as a map of points already visited to determine which points should
+// be added in the queue for a breadth-first search.
+func getValidNeighbors(pt image.Point, valid *image.Gray, visited map[image.Point]bool) []image.Point {
+	neighbors := make([]image.Point, 0, 4)
+	directions := []image.Point{
+		{0, 1},  //up
+		{0, -1}, //down
+		{-1, 0}, //left
+		{1, 0},  //right
+	}
+	zero := color.Gray{0}
+	for _, dir := range directions {
+		neighbor := image.Point{pt.X + dir.X, pt.Y + dir.Y}
+		if neighbor.In(valid.Bounds()) && !visited[neighbor] && valid.At(neighbor.X, neighbor.Y) != zero {
+			neighbors = append(neighbors, neighbor)
+			visited[neighbor] = true
+		}
+	}
+	return neighbors
 }
 
 // invertGrayImage produces a negated version of the input image
