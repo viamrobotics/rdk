@@ -39,7 +39,7 @@ var emptyStatus = &pb.Status{
 				X: 0.0,
 				Y: 0.0,
 				Z: 0.0,
-				Orient: &pb.OrientVec{
+				Orient: &pb.OrientationVec{
 					Theta: 0.0,
 					OX:    1.0,
 					OY:    0.0,
@@ -106,7 +106,7 @@ var finalStatus = &pb.Status{
 				X: 0.0,
 				Y: 0.0,
 				Z: 0.0,
-				Orient: &pb.OrientVec{
+				Orient: &pb.OrientationVec{
 					Theta: 0.0,
 					OX:    1.0,
 					OY:    0.0,
@@ -122,7 +122,7 @@ var finalStatus = &pb.Status{
 				X: 0.0,
 				Y: 0.0,
 				Z: 0.0,
-				Orient: &pb.OrientVec{
+				Orient: &pb.OrientationVec{
 					Theta: 0.0,
 					OX:    1.0,
 					OY:    0.0,
@@ -584,7 +584,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientVec{OX: 4, OY: 5, OZ: 6}}
+	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientationVec{OX: 4, OY: 5, OZ: 6}}
 	err = client.ArmByName("arm1").MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())

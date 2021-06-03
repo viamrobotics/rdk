@@ -104,7 +104,7 @@ func TestConfigRemote(t *testing.T) {
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
-					Orient: &pb.OrientVec{
+					Orient: &pb.OrientationVec{
 						Theta: 0.0,
 						OX:    1.0,
 						OY:    0.0,
@@ -120,7 +120,7 @@ func TestConfigRemote(t *testing.T) {
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
-					Orient: &pb.OrientVec{
+					Orient: &pb.OrientationVec{
 						Theta: 0.0,
 						OX:    1.0,
 						OY:    0.0,

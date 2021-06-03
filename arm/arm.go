@@ -28,14 +28,14 @@ type Arm interface {
 }
 
 // NewPositionFromMetersAndAngleAxis returns a three-dimensional arm position
-// defined by a point in space in meters and an orientation defined as an axis angle.
-// See kinmath/axisAngle.go for a math explnation
+// defined by a point in space in meters and an orientation defined as an OrientationVec.
+// See robot.proto for a math explanation
 func NewPositionFromMetersAndAngleAxis(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
 		X: x * 1000,
 		Y: y * 1000,
 		Z: z * 1000,
-		Orient: &pb.OrientVec{
+		Orient: &pb.OrientationVec{
 			OX:    ox,
 			OY:    oy,
 			OZ:    oz,

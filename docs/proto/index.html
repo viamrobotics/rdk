@@ -439,7 +439,7 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.OrientVec"><span class="badge">M</span>OrientVec</a>
+                  <a href="#proto.api.v1.OrientationVec"><span class="badge">M</span>OrientationVec</a>
                 </li>
               
                 <li>
@@ -1041,7 +1041,7 @@
               
                 <tr>
                   <td>orient</td>
-                  <td><a href="#proto.api.v1.OrientVec">OrientVec</a></td>
+                  <td><a href="#proto.api.v1.OrientationVec">OrientationVec</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2459,8 +2459,8 @@
 
         
       
-        <h3 id="proto.api.v1.OrientVec">OrientVec</h3>
-        <p></p>
+        <h3 id="proto.api.v1.OrientationVec">OrientationVec</h3>
+        <p>OrientationVec represents an orientation vector</p>
 
         
           <table class="field-table">
@@ -2473,8 +2473,7 @@
                   <td>o_x</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p>OrientVec represents an orientation vector
-Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+                  <td><p>Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
 with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
 such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
 from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing

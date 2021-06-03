@@ -28,7 +28,7 @@ func NewQuatTrans() *QuatTrans {
 
 // NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
 // axis angle.
-func NewQuatTransFromRotation(ov *pb.OrientVec) *QuatTrans {
+func NewQuatTransFromRotation(ov *pb.OrientationVec) *QuatTrans {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OX = 1
@@ -190,10 +190,10 @@ func QuatToEuler(q quat.Number) []float64 {
 }
 
 // QuatToOV converts a quaternion to an orientation vector
-func QuatToOV(q quat.Number) *pb.OrientVec {
+func QuatToOV(q quat.Number) *pb.OrientationVec {
 	xAxis := quat.Number{0, 1, 0, 0}
 	zAxis := quat.Number{0, 0, 0, 1}
-	ov := &pb.OrientVec{}
+	ov := &pb.OrientationVec{}
 	// Get the xyz point of our axis on the unit sphere
 	xyz := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
 	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
@@ -229,7 +229,7 @@ func QuatToOV(q quat.Number) *pb.OrientVec {
 }
 
 // OVToQuat converts an orientation vector to a quaternion.
-func OVToQuat(ov *pb.OrientVec) quat.Number {
+func OVToQuat(ov *pb.OrientationVec) quat.Number {
 
 	q := quat.Number{}
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
@@ -253,7 +253,7 @@ func OVToQuat(ov *pb.OrientVec) quat.Number {
 }
 
 // NormalizeOV scales the x, y, and z components of an Orientation Vector to be on the unit sphere
-func NormalizeOV(ov *pb.OrientVec) {
+func NormalizeOV(ov *pb.OrientationVec) {
 	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
 	ov.OX /= norm
 	ov.OY /= norm

@@ -45,7 +45,7 @@ var emptyStatus = &pb.StatusResponse{
 					X: 0.0,
 					Y: 0.0,
 					Z: 0.0,
-					Orient: &pb.OrientVec{
+					Orient: &pb.OrientationVec{
 						Theta: 0.0,
 						OX:    1.0,
 						OY:    0.0,
@@ -337,7 +337,7 @@ func TestServer(t *testing.T) {
 		}
 
 		err1 := errors.New("whoops")
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientVec{OX: 4, OY: 5, OZ: 6}}
+		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientationVec{OX: 4, OY: 5, OZ: 6}}
 		injectArm.CurrentPositionFunc = func(ctx context.Context) (*pb.ArmPosition, error) {
 			return nil, err1
 		}
@@ -425,7 +425,7 @@ func TestServer(t *testing.T) {
 			return err1
 		}
 
-		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientVec{OX: 4, OY: 5, OZ: 6}}
+		pos := &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientationVec{OX: 4, OY: 5, OZ: 6}}
 		_, err = server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
 			Name: "arm1",
 			To:   pos,

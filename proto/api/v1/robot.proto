@@ -284,8 +284,8 @@ message ArmStatus {
 	JointPositions joint_positions = 2;
 }
 
-message OrientVec {
-	// OrientVec represents an orientation vector
+// OrientationVec represents an orientation vector
+message OrientationVec {
 	// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
 	// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
 	// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
@@ -306,7 +306,7 @@ message ArmPosition {
 	double y = 2;
 	double z = 3;
 
-	OrientVec orient = 4;
+	OrientationVec orient = 4;
 }
 
 message JointPositions {

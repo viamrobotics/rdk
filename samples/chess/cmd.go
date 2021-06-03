@@ -235,7 +235,7 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		X: float64(foo.x),
 		Y: float64(foo.y),
 		Z: SafeMoveHeight,
-		Orient: &pb.OrientVec{
+		Orient: &pb.OrientationVec{
 			Theta: math.Pi / 2,
 			OX:    1,
 			OY:    0,
