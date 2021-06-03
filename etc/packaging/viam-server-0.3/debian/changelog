@@ -1,3 +1,9 @@
+viam-server (0.3) viam; urgency=medium
+
+  * Add 80 -> 8080 port forwarding rule in service files
+
+ -- James Otting <james@viam.com>  Thu, 03 Jun 2021 10:42:51 -0700
+
 viam-server (0.2) viam; urgency=medium
 
   * Added camera servers binaries
