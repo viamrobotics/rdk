@@ -294,7 +294,10 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 		return err
 	}
 
-	rpcServer, err := rpcserver.New(logger)
+	rpcServer, err := rpcserver.NewWithOptions(
+		rpcserver.Options{WebRTC: rpcserver.WebRTCOptions{Enable: true}},
+		logger,
+	)
 	if err != nil {
 		return err
 	}
@@ -335,16 +338,23 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 		Handler:        h2c.NewHandler(mux, &http2.Server{}),
 	}
 
+	stopped := make(chan struct{})
+	defer func() {
+		<-stopped
+	}()
 	utils.PanicCapturingGo(func() {
+		defer func() {
+			close(stopped)
+		}()
 		<-ctx.Done()
 		webCloser()
 		defer func() {
-			if err := rpcServer.Stop(); err != nil {
-				theRobot.Logger().Errorw("error stopping", "error", err)
+			if err := httpServer.Shutdown(context.Background()); err != nil {
+				theRobot.Logger().Errorw("error shutting down", "error", err)
 			}
 		}()
-		if err := httpServer.Shutdown(context.Background()); err != nil {
-			theRobot.Logger().Errorw("error shutting down", "error", err)
+		if err := rpcServer.Stop(); err != nil {
+			theRobot.Logger().Errorw("error stopping", "error", err)
 		}
 	})
 	utils.PanicCapturingGo(func() {

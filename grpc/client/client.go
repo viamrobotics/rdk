@@ -22,6 +22,7 @@ import (
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
+	rpcclient "go.viam.com/core/rpc/client"
 	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
-	"google.golang.org/grpc"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -78,22 +78,9 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
-	var conn dialer.ClientConn
-	{
-		var err error
-		dialOpts := []grpc.DialOption{grpc.WithBlock()}
-		// if this is secure, there's no way via RobotClientOptions to set credentials yet
-		if !opts.Secure {
-			dialOpts = append(dialOpts, grpc.WithInsecure())
-		}
-		if ctxDialer := dialer.ContextDialer(ctx); ctxDialer != nil {
-			conn, err = ctxDialer.Dial(ctx, address, dialOpts...)
-		} else {
-			conn, err = grpc.DialContext(ctx, address, dialOpts...)
-		}
-		if err != nil {
-			return nil, err
-		}
+	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Secure: opts.Secure}, logger)
+	if err != nil {
+		return nil, err
 	}
 
 	client := pb.NewRobotServiceClient(conn)
