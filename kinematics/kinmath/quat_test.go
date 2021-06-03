@@ -84,4 +84,10 @@ func TestOVNormalize(t *testing.T) {
 	test.That(t, ov1.RX, test.ShouldEqual, 1)
 	test.That(t, ov1.RY, test.ShouldEqual, 0)
 	test.That(t, ov1.RZ, test.ShouldEqual, 0)
+	ov1 = OrientVec{0, 0.5, 0, 0}
+	ov1.Normalize()
+	test.That(t, ov1.Theta, test.ShouldEqual, 0)
+	test.That(t, ov1.RX, test.ShouldEqual, 1)
+	test.That(t, ov1.RY, test.ShouldEqual, 0)
+	test.That(t, ov1.RZ, test.ShouldEqual, 0)
 }
