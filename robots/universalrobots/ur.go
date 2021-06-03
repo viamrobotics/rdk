@@ -163,7 +163,7 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 
 // CurrentPosition TODO
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return errors.New("ur5 low level kinematics should not be used")
+	return nil, errors.New("ur5 low level kinematics should not be used")
 }
 
 // JointMoveDelta TODO
@@ -219,6 +219,11 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 		if good {
 			return nil
+		}
+
+		err = ua.getAndResetRuntimeError()
+		if err != nil {
+			return err
 		}
 
 		if slept > 5000 && !retried {
