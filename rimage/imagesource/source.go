@@ -99,10 +99,6 @@ func (fs *FileSource) IsAligned() bool {
 // Next TODO
 func (fs *FileSource) Next(ctx context.Context) (image.Image, func(), error) {
 	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
-	if err != nil {
-		return nil, nil, err
-	}
-	img, err = rimage.PreprocessDepthMap(img)
 	return img, func() {}, err
 }
 
@@ -220,10 +216,6 @@ func (s *IntelServerSource) Next(ctx context.Context) (image.Image, func(), erro
 	}
 
 	img, err := rimage.ReadBothFromBytes(allData, s.IsAligned())
-	if err != nil {
-		return nil, nil, err
-	}
-	img, err = rimage.PreprocessDepthMap(img)
 	if err != nil {
 		return nil, nil, err
 	}
