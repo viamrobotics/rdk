@@ -46,3 +46,42 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, iwdBad.IsAligned(), test.ShouldEqual, false)
 
 }
+func TestWarpPointsTo3D(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
+
+	// from robots/config/gripper-cam.json
+	config := &AlignConfig{
+		ColorInputSize:  image.Point{1024, 768},
+		ColorWarpPoints: []image.Point{{604, 575}, {695, 115}},
+		DepthInputSize:  image.Point{224, 171},
+		DepthWarpPoints: []image.Point{{89, 109}, {206, 132}},
+		OutputSize:      image.Point{448, 342},
+	}
+	testPoint := image.Point{0, 0}
+	assertTo3DPanic(t, iwd, testPoint)
+
+	dct, err := NewDepthColorWarpTransforms(config, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// align the image now
+	iwd, err = dct.AlignImageWithDepth(iwd)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, iwd.IsAligned(), test.ShouldEqual, true)
+	// test out To3D
+	vec := iwd.To3D(testPoint)
+	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
+	// out of bounds - panic
+	testPoint = image.Point{iwd.Width(), iwd.Height()}
+	assertTo3DPanic(t, iwd, testPoint)
+}
+
+func assertTo3DPanic(t *testing.T, iwd *rimage.ImageWithDepth, point image.Point) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("The code did not panic")
+		}
+	}()
+	iwd.To3D(point)
+}

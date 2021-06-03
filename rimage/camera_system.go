@@ -1,9 +1,11 @@
 package rimage
 
 import (
+	"image"
 	"image/color"
 
 	"github.com/go-errors/errors"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/core/pointcloud"
 )
@@ -14,6 +16,7 @@ type CameraSystem interface {
 	AlignImageWithDepth(*ImageWithDepth) (*ImageWithDepth, error)
 	ImageWithDepthToPointCloud(*ImageWithDepth) (pointcloud.PointCloud, error)
 	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
+	ImagePointTo3DPoint(image.Point, *ImageWithDepth) (r3.Vector, error)
 }
 
 // IsAligned returns if the image and depth are aligned.
