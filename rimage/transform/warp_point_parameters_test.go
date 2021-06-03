@@ -80,7 +80,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 func assertTo3DPanic(t *testing.T, iwd *rimage.ImageWithDepth, point image.Point) {
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
+			t.Error("The code did not panic")
 		}
 	}()
 	iwd.To3D(point)
