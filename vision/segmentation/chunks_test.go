@@ -133,5 +133,4 @@ func TestChunk1(t *testing.T) {
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)
-
 }
