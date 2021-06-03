@@ -65,23 +65,14 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
-	pos := &pb.ArmPosition{}
-	pos.X = pos6d[0]
-	pos.Y = pos6d[1]
-	pos.Z = pos6d[2]
-	pos.Theta = pos6d[3]
-	pos.RX = pos6d[4]
-	pos.RY = pos6d[5]
-	pos.RZ = pos6d[6]
-
-	return pos
+	return pos6d
 }
 
 // SetForwardPosition sets a new goal position.
 // Uses ZYX Euler rotation order.
 // Takes degrees as input and converts to radians for kinematics use.
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := kinmath.NewQuatTransFromRotation(pos.Theta, pos.RX, pos.RY, pos.RZ)
+	transform := kinmath.NewQuatTransFromRotation(pos.Orient)
 
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
 	transform.SetTranslation(pos.X, pos.Y, pos.Z)

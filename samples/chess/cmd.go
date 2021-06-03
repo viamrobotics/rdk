@@ -232,12 +232,15 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 	err := myArm.MoveToPosition(ctx, &pb.ArmPosition{
-		X:  float64(foo.x),
-		Y:  float64(foo.y),
-		Z:  SafeMoveHeight,
-		RX: -180,
-		RY: 0,
-		RZ: 0,
+		X: float64(foo.x),
+		Y: float64(foo.y),
+		Z: SafeMoveHeight,
+		Orient: &pb.OrientVec{
+			Theta: math.Pi / 2,
+			OX:    1,
+			OY:    0,
+			OZ:    0,
+		},
 	})
 
 	if err != nil {
@@ -371,9 +374,10 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		where.X = -420
 		where.Y = 20
 		where.Z = 600
-		where.RX = -2.600206
-		where.RY = -0.007839
-		where.RZ = -0.061827
+		// Note, these are no longer accurate and should be redone. They probably need a theta
+		where.Orient.OX = -2.600206
+		where.Orient.OY = -0.007839
+		where.Orient.OZ = -0.061827
 		err = myArm.MoveToPosition(ctx, where)
 		if err != nil {
 			return err

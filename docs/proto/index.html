@@ -439,6 +439,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.OrientVec"><span class="badge">M</span>OrientVec</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.SensorReadingsRequest"><span class="badge">M</span>SensorReadingsRequest</a>
                 </li>
               
@@ -1036,33 +1040,8 @@
                 </tr>
               
                 <tr>
-                  <td>r_x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p>angle axis components
-See here for a thorough explanation: https://en.wikipedia.org/wiki/Axis%E2%80%93angle_representation
-Basic explanation: Imagine a 3d cartesian grid centered at 0,0,0, and a sphere of radius 1 centered at
-that same point. An orientation can be expressed by first specifying an axis, i.e. a line from the origin
-to a point on that sphere, represented by (r_x, r_y, r_z), and a rotation around that axis, theta. </p></td>
-                </tr>
-              
-                <tr>
-                  <td>r_y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>r_z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>theta</td>
-                  <td><a href="#double">double</a></td>
+                  <td>orient</td>
+                  <td><a href="#proto.api.v1.OrientVec">OrientVec</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2468,6 +2447,59 @@ to a point on that sphere, represented by (r_x, r_y, r_z), and a rotation around
               
                 <tr>
                   <td>position</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.OrientVec">OrientVec</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>o_x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>OrientVec represents an orientation vector
+Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+theta will perform an in-line rotation of the end effector.
+Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+zero as the north/south pole is circled, the Roll will correct itself to remain in-line. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>theta</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>
