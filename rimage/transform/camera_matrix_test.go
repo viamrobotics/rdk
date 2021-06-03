@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"image"
 	"math"
 	"os"
 	"testing"
@@ -58,5 +59,25 @@ func TestPC2(t *testing.T) {
 
 	err = pc.WriteToFile(outDir + "/board2.las")
 	test.That(t, err, test.ShouldBeNil)
+
+}
+
+func TestCameraMatrixTo3D(t *testing.T) {
+	iwd, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), true)
+	test.That(t, err, test.ShouldBeNil)
+
+	// get and set camera matrix parameters
+	jsonFilePath := "../../robots/configs/intel515_parameters.json"
+	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
+	test.That(t, err, test.ShouldBeNil)
+	iwd.SetCameraSystem(cameraMatrices)
+
+	// test To3D
+	testPoint := image.Point{0, 0}
+	vec := iwd.To3D(testPoint)
+	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
+	// out of bounds - panic
+	testPoint = image.Point{iwd.Width(), iwd.Height()}
+	assertTo3DPanic(t, iwd, testPoint)
 
 }
