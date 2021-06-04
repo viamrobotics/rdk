@@ -2,6 +2,7 @@ package rimage
 
 import (
 	"image"
+	"image/color"
 	"math"
 
 	"github.com/go-errors/errors"
@@ -10,7 +11,7 @@ import (
 
 // Vec2D represents the gradient of an image at a point.
 // The gradient has both a magnitude and direction.
-// Magnitude has values (0, infinity) and direction is [0, 2pi)
+// Magnitude has values (0, infinity) and direction is [-pi, pi]
 type Vec2D struct {
 	magnitude float64
 	direction float64
@@ -22,7 +23,8 @@ type VectorField2D struct {
 	width  int
 	height int
 
-	data []Vec2D
+	data         []Vec2D
+	maxMagnitude float64
 }
 
 // Magnitude TODO
@@ -35,8 +37,36 @@ func (g Vec2D) Direction() float64 {
 	return g.direction
 }
 
+// Unit returns the Vec2D with magnitude 1
+func (g Vec2D) Unit() Vec2D {
+	return Vec2D{1., g.direction}
+}
+
+// Cartesian returns the componnents of the vector in cartesian coordinates.
+func (g Vec2D) Cartesian() (float64, float64) {
+	x := g.Magnitude() * math.Cos(g.Direction())
+	y := g.Magnitude() * math.Sin(g.Direction())
+	return x, y
+}
+
+// NewVec2D creates a new 2D vector given a magnitude and direction
+func NewVec2D(mag, dir float64) Vec2D {
+	if mag < 0. {
+		panic("vector cannot have magnitude less than 0")
+	}
+	if dir > math.Pi || dir < -math.Pi {
+		panic("vector direction can only be between -pi and pi")
+	}
+	return Vec2D{mag, dir}
+}
+
 func (vf *VectorField2D) kxy(x, y int) int {
 	return (y * vf.width) + x
+}
+
+// MaxMagnitude returns the largest magnitude value in the field.
+func (vf *VectorField2D) MaxMagnitude() float64 {
+	return vf.maxMagnitude
 }
 
 // Width TODO
@@ -47,6 +77,11 @@ func (vf *VectorField2D) Width() int {
 // Height TODO
 func (vf *VectorField2D) Height() int {
 	return vf.height
+}
+
+// Contains returns whether the given point is in the vector field
+func (vf *VectorField2D) Contains(x, y int) bool {
+	return x >= 0 && y >= 0 && x < vf.width && y < vf.height
 }
 
 // Get TODO
@@ -62,17 +97,34 @@ func (vf *VectorField2D) GetVec2D(x, y int) Vec2D {
 // Set TODO
 func (vf *VectorField2D) Set(x, y int, val Vec2D) {
 	vf.data[vf.kxy(x, y)] = val
+	vf.maxMagnitude = math.Max(math.Abs(val.Magnitude()), vf.maxMagnitude)
 }
 
 // MakeEmptyVectorField2D TODO
 func MakeEmptyVectorField2D(width, height int) VectorField2D {
 	vf := VectorField2D{
-		width:  width,
-		height: height,
-		data:   make([]Vec2D, width*height),
+		width:        width,
+		height:       height,
+		data:         make([]Vec2D, width*height),
+		maxMagnitude: 0.0,
 	}
 
 	return vf
+}
+
+// Blur takes in a radius and creates a new blurred vector field from the input vector field
+func (vf *VectorField2D) Blur(radius int) VectorField2D {
+	k := 1 + 2*radius
+	newVF := MakeEmptyVectorField2D(vf.Width(), vf.Height())
+	blur := vectorBlurFilter(k)
+	for y := 0; y < vf.Height(); y++ {
+		for x := 0; x < vf.Width(); x++ {
+			point := image.Point{x, y}
+			blurredVec := blur(point, vf)
+			newVF.Set(x, y, blurredVec)
+		}
+	}
+	return newVF
 }
 
 // MagnitudeField gets all the magnitudes of the gradient in the image as a mat.Dense.
@@ -107,17 +159,33 @@ func VectorField2DFromDense(magnitude, direction *mat.Dense) (*VectorField2D, er
 	if magW != dirW && magH != dirH {
 		return nil, errors.Errorf("cannot make VectorField2D from two matrices of different sizes (%v,%v), (%v,%v)", magW, magH, dirW, dirH)
 	}
+	maxMag := 0.0
 	g := make([]Vec2D, 0, dirW*dirH)
 	for y := 0; y < dirH; y++ {
 		for x := 0; x < dirW; x++ {
 			g = append(g, Vec2D{magnitude.At(y, x), direction.At(y, x)}) // in mat.Dense, indexing is (row, column)
+			maxMag = math.Max(math.Abs(magnitude.At(y, x)), maxMag)
 		}
 	}
-	return &VectorField2D{dirW, dirH, g}, nil
+	return &VectorField2D{dirW, dirH, g, maxMag}, nil
 }
 
-// ToPrettyPicture creates a picture of the direction that the gradients point to in the original image.
-func (vf *VectorField2D) ToPrettyPicture() image.Image {
+// MagnitudePicture creates a picture of the magnitude that the gradients point to in the original image.
+func (vf *VectorField2D) MagnitudePicture() *image.Gray {
+	img := image.NewGray(image.Rect(0, 0, vf.Width(), vf.Height()))
+	for x := 0; x < vf.Width(); x++ {
+		for y := 0; y < vf.Height(); y++ {
+			p := image.Point{x, y}
+			g := vf.Get(p)
+			val := uint8((g.Magnitude() / vf.maxMagnitude) * 255)
+			img.Set(x, y, color.Gray{val})
+		}
+	}
+	return img
+}
+
+// DirectionPicture creates a picture of the direction that the gradients point to in the original image.
+func (vf *VectorField2D) DirectionPicture() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, vf.Width(), vf.Height()))
 	for x := 0; x < vf.Width(); x++ {
 		for y := 0; y < vf.Height(); y++ {
@@ -126,54 +194,24 @@ func (vf *VectorField2D) ToPrettyPicture() image.Image {
 			if g.Magnitude() == 0 {
 				continue
 			}
-			deg := g.Direction() * (180. / math.Pi)
+			deg := radZeroTo2Pi(g.Direction()) * (180. / math.Pi)
 			img.Set(x, y, NewColorFromHSV(deg, 1.0, 1.0))
 		}
 	}
 	return img
 }
 
-// Sobel filters are used to approximate the gradient of the image intensity. One filter for each direction.
-var (
-	sobelX = [3][3]int{{1, 0, -1}, {2, 0, -2}, {1, 0, -1}}
-	sobelY = [3][3]int{{1, 2, 1}, {0, 0, 0}, {-1, -2, -1}}
-)
-
-// SobelFilter takes in a DepthMap, approximates the gradient in the X and Y direction at every pixel
-// (after shaving a pixel of every side), creates a  vector in polar form, and returns a vector field.
-func SobelFilter(dm *DepthMap) VectorField2D {
-	width, height := dm.Width(), dm.Height()
-	// taking a gradient will remove a pixel from all sides of the image
-	g := make([]Vec2D, 0, (width-2)*(height-2))
-	for y := 1; y < height-1; y++ {
-		for x := 1; x < width-1; x++ {
-			// apply the Sobel Filter over a 3x3 square around each pixel
-			sX, sY := 0, 0
-			xRange, yRange := [3]int{-1, 0, 1}, [3]int{-1, 0, 1}
-			for i, dx := range xRange {
-				for j, dy := range yRange {
-					d := int(dm.GetDepth(x+dx, y+dy))
-					// rows are height j, columns are width i
-					sX += sobelX[j][i] * d
-					sY += sobelY[j][i] * d
-				}
-			}
-			mag, dir := getMagnitudeAndDirection(float64(sX), float64(sY))
-			g = append(g, Vec2D{mag, dir})
-		}
+// changes the radians from between -pi,pi to 0,2pi
+func radZeroTo2Pi(rad float64) float64 {
+	if rad < 0. {
+		rad += 2. * math.Pi
 	}
-	vf := VectorField2D{width - 2, height - 2, g}
-	return vf
-
+	return rad
 }
 
-// Input a vector in Cartesian coordinates and return the vector in polar coordinates.
+// Input a vector in cartesian coordinates and return the vector in polar coordinates.
 func getMagnitudeAndDirection(x, y float64) (float64, float64) {
 	mag := math.Sqrt(x*x + y*y)
-	// transform angle so that it is between [0, 2pi) rather than [-pi, pi]
 	dir := math.Atan2(y, x)
-	if dir < 0. {
-		dir += 2. * math.Pi
-	}
 	return mag, dir
 }

@@ -2719,6 +2719,20 @@
       "size": 5303
     }
   },
+  "depthpreprocess": {
+    "dogdesk.both": {
+      "hash": "3cb71b257355555a0924529b4e687bf0",
+      "size": 8839196
+    },
+    "dogtest.both.gz": {
+      "hash": "adfa05051e5773dfa0a6258924042ce2",
+      "size": 1660034
+    },
+    "dogwithwaterbottle.both.gz": {
+      "hash": "938340d6022508ed500c82c4edc7a982",
+      "size": 1779579
+    }
+  },
   "minirover2": {
     "autodrive": {
       "20201218.0819.08.dat.gz": {
