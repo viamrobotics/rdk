@@ -1,0 +1,100 @@
+{
+    "components" : [
+        { "name" : "color",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "127.0.0.1",
+          "port" : 8181,
+          "attributes" : {
+              "path_pattern" : "video0",
+            "hide" : false,
+            "width" : 1280,
+            "height" : 720
+          }
+        },
+        { "name" : "depth",
+          "type" : "camera",
+          "model" : "intel",
+          "host" : "127.0.0.1",
+          "port" : 8181,
+          "attributes" : {
+            "hide" : false,
+            "format" : "Z16",
+            "width" : 1024,
+            "height" : 768
+          }
+        },
+		{ "name" : "front-composed",
+          "type" : "camera",
+          "model" : "depthComposed",
+          "attributes" : {
+              "hide" : true,
+              "color": "color",
+              "depth": "depth",
+              "make": "intel515",
+              "aligned": true,
+              "debug": false,
+              "matrices": "$load{intel515_parameters.json}"
+          }
+        },
+        { "name" : "front-overlay",
+              "type" : "camera",
+              "model" : "overlay",
+              "attributes" : {
+                  "source" : "front-composed"
+              }
+        },
+        { "name" : "front-preprocess",
+          "type" : "camera",
+          "model" : "preprocessDepth",
+          "host" : "127.0.0.1",
+          "attributes" : {
+              "source" : "front-composed",
+              "hide" : false
+          }
+        },
+        { "name" : "front-preprocess-overlay",
+          "type" : "camera",
+          "model" : "overlay",
+          "host" : "127.0.0.1",
+          "attributes" : {
+              "source" : "front-preprocess",
+              "hide" : false
+          }
+        },
+        { "name" : "depth-edges",
+          "type" : "camera",
+          "model" : "depthEdges",
+          "host" : "127.0.0.1",
+          "attributes" : {
+              "source" : "front-preprocess",
+              "hide" : false
+          }
+        },
+        { "name" : "depth-pretty-awkward",
+          "type" : "camera",
+          "model" : "depthToPretty",
+          "host" : "127.0.0.1",
+          "attributes" : {
+              "source" : "depth",
+              "hide" : false
+          }
+        },
+        { "name" : "depth-pretty",
+          "type" : "camera",
+          "model" : "resize",
+          "attributes" : {
+              "source" : "depth-pretty-awkward",
+              "width" : 448,
+              "height" : 342
+          }
+        }
+    ],
+    "processes": [
+        {
+            "name": "/usr/bin/intelrealserver",
+            "log": true,
+            "id": "0"
+        }
+    ]
+}
