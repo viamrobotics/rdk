@@ -64,6 +64,13 @@
                "x": 0,
                "y": -81.5,
                "z": 0
+            },
+            "setorientation": true,
+            "orientation": {
+               "x": 0,
+               "y": -1,
+               "z": 0,
+               "th": 0
             }
          }
       ],
@@ -78,7 +85,8 @@
                "z": 1
             },
             "max": 360,
-            "min": -360
+            "min": -360,
+            "direction": "ccw"
          },
          {
             "id": "shoulder_lift_joint",
@@ -90,7 +98,8 @@
                "z": 0
             },
             "max": 360,
-            "min": -360
+            "min": -360,
+            "direction": "ccw"
          },
          {
             "id": "elbow_joint",
@@ -102,7 +111,8 @@
                "z": 0
             },
             "max": 180,
-            "min": -180
+            "min": -180,
+            "direction": "ccw"
          },
          {
             "id": "wrist_1_joint",
@@ -114,7 +124,8 @@
                "z": 0
             },
             "max": 360,
-            "min": -360
+            "min": -360,
+            "direction": "ccw"
          },
          {
             "id": "wrist_2_joint",
@@ -126,7 +137,8 @@
                "z": 1
             },
             "max": 360,
-            "min": -360
+            "min": -360,
+            "direction": "ccw"
          },
          {
             "id": "wrist_3_joint",
@@ -138,7 +150,8 @@
                "z": 0
             },
             "max": 360,
-            "min": -360
+            "min": -360,
+            "direction": "ccw"
          }
       ]
    }
