@@ -21,14 +21,17 @@ func init() {
 	})
 }
 
+// PreprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
 type PreprocessDepthSource struct {
 	source gostream.ImageSource
 }
 
+// Close closes the source
 func (os *PreprocessDepthSource) Close() error {
 	return nil
 }
 
+// Next applies depth preprocessing to the next image
 func (os *PreprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {

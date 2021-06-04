@@ -21,16 +21,19 @@ func init() {
 	})
 }
 
+// DepthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth
 type DepthEdgesSource struct {
 	source     gostream.ImageSource
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
+// Close closes the source
 func (os *DepthEdgesSource) Close() error {
 	return nil
 }
 
+// Next applies a canny edge detector on the depth map of the next image
 func (os *DepthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {

@@ -12,7 +12,8 @@ import (
 )
 
 // FillDepthMap finds regions of connected missing data, and for those below a certain size, fills them in with
-// an average of the surrounding pixels by using 16-point ray-marching.
+// an average of the surrounding pixels by using 16-point ray-marching, taking care of regions that are on the
+// boundaries between objects.
 func FillDepthMap(iwd *ImageWithDepth) error {
 	validData := MissingDepthData(iwd.Depth)
 	missingData := invertGrayImage(validData)
@@ -53,7 +54,7 @@ var (
 	}
 )
 
-// function returns a map of the filled-in points on the border of contiguous segments of holes in a depth map
+// function returns a map of the filled-in points on the border of a contiguous segment of holes in a depth map
 func getPointsOnHoleBorder(segment map[image.Point]bool, dm *DepthMap) map[image.Point]bool {
 	directions := []image.Point{
 		{0, 1},  //up
@@ -76,8 +77,10 @@ func getPointsOnHoleBorder(segment map[image.Point]bool, dm *DepthMap) map[image
 	return borderPoints
 }
 
-// calculate the number of modes in a collection of points. Bin widths are 100 mm.
-// threshold sets how many zero bins between filled bins do there need to be to count as separate peaks
+// Quick way of calculating the number of modes/peaks in a collection of points, to distinguish if the collection
+// of points is from one object, or a mixture of foreground and background objects. Bin widths are 100 mm.
+// threshold sets how many zero bins between filled bins do there need to be to count as separate peaks.
+// Could use kernel smoothing and the calculation of first derivatives to definitively find all the peaks in a collection of points.
 func isMultiModal(segment map[image.Point]bool, dm *DepthMap, threshold int) bool {
 	depths := pointsMap2Slice(segment, dm)
 	if len(depths) == 0 {
@@ -116,8 +119,9 @@ func minmax(slice []float64) (float64, float64) {
 	return min, max
 }
 
-// colorDepthPoints are used with kmeans, and have 2D coordinates, depth, and color. They are organized by depth
-// need to define a Coordinates and Distance method for the interface
+// colorDepthPoints are used with kmeans clustering functions. Points are clustered according to
+// their depth value. Other properties are their 2D coordinates and color. To be used with the kmeans module,
+// we need to define a Coordinates and Distance method on colorDepthPoint.
 type colorDepthPoint struct {
 	p image.Point
 	c Color
@@ -133,7 +137,8 @@ func (sp colorDepthPoint) Distance(p clusters.Coordinates) float64 {
 	return math.Abs(float64(sp.d) - p[0])
 }
 
-// if the segment is multimodal in depth, cluster the colors and depths into 2 groups, foreground and background
+// if the segment is multimodal in depth, cluster the colors and depths into 2 groups using kmeans clustering,
+// to distinguish between the points associated with the foreground and background object.
 func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *ImageWithDepth) ([]float64, []Color, error) {
 	var d clusters.Observations
 	for pt := range borderPoints {
@@ -211,6 +216,8 @@ func imputeMissingDepth(x, y int, points map[image.Point]bool, iwd *ImageWithDep
 	return Depth(depthAvg)
 }
 
+// collects points used for imputation of a missing pixel by collecting  the surrounding filled-in points
+// 'iterations' times in the N directions given.
 func pointsFromRayMarching(x, y, iterations int, directions []image.Point, iwd *ImageWithDepth) map[image.Point]bool {
 	rayMarchingPoints := make(map[image.Point]bool)
 	for _, dir := range directions {
