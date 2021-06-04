@@ -18,11 +18,10 @@ func TestCreateJacIKSolver(t *testing.T) {
 	m.SetPosition([]float64{1, 0, 0, 0, 0, 1})
 	m.ForwardPosition()
 
-	pos := pb.ArmPosition{X: 360, Y: 0, Z: 360, Orient: &pb.OrientationVec{OX: 1, OY: 0, OZ: 0, Theta: 15}}
-	pos.Orient.Theta *= math.Pi / 180
+	pos := pb.ArmPosition{X: 360, Y: 0, Z: 360, OX: 1, OY: 0, OZ: 0, Theta: 15}
+	pos.Theta *= math.Pi / 180
 
-	transform := kinmath.NewQuatTransFromRotation(pos.Orient)
-	transform.SetTranslation(pos.X, pos.Y, pos.Z)
+	transform := kinmath.NewQuatTransFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)
 	solved := ik.Solve()

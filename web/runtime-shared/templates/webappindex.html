@@ -29,7 +29,7 @@
               const [armName, armValue] = old[i];
               var newArm = { name : armName, pieces : [] };
 
-              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["orient.theta", "Theta"], ["orient.oX", "OX"], ["orient.oY", "OY"], ["orient.oZ", "OZ"]];
+              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["oX", "OX"], ["oY", "OY"], ["oZ", "OZ"]];
               for (var j=0; j<fieldSetters.length; j++ ){
                   let gridField = fieldSetters[j][0].split(".");
                   let gridValue = armValue.gridPosition[gridField[0]];
@@ -90,7 +90,7 @@
               data: theData,
               methods : {
                   armGridInc : function(name, getterSetter, amount) {
-                      if (getterSetter[0] == 'r' || getterSetter[0] == 'R' ||
+                      if (getterSetter[0] == 'o' || getterSetter[0] == 'O' ||
                           getterSetter == "theta" || getterSetter == "Theta") {
                           amount /= 100;
                       }
