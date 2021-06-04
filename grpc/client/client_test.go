@@ -18,6 +18,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rpc/dialer"
@@ -333,10 +334,18 @@ func TestClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
+	pcA := pointcloud.New()
+	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+	test.That(t, err, test.ShouldBeNil)
+
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
 	}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+		return pcA, nil
+	}
+
 	injectRobot2.CameraByNameFunc = func(name string) camera.Camera {
 		capCameraName = name
 		return injectCamera
@@ -639,6 +648,10 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 	test.That(t, capCameraName, test.ShouldEqual, "camera1")
+
+	pcB, err := client.CameraByName("camera1").NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
 
 	lidarDev := client.LidarByName("lidar1")
 	info, err := lidarDev.Info(context.Background())

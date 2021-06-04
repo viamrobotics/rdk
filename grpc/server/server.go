@@ -238,6 +238,31 @@ const (
 	mimeTypePNG      = "image/png"
 )
 
+// PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
+// can be requested but may not necessarily be the same one returned.
+func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb.PointCloudResponse, error) {
+	camera := s.r.CameraByName(req.Name)
+	if camera == nil {
+		return nil, errors.Errorf("no camera with name (%s)", req.Name)
+	}
+
+	pc, err := camera.NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	err = pc.ToPCD(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.PointCloudResponse{
+		MimeType: "pcd",
+		Frame:    buf.Bytes(),
+	}, nil
+}
+
 // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
