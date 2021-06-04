@@ -17,21 +17,21 @@ import (
 
 func init() {
 	registry.RegisterCamera("depthEdges", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
-		return newDepthEdges(r, config)
+		return newDepthEdgesSource(r, config)
 	})
 }
 
-type depthEdgesSource struct {
+type DepthEdgesSource struct {
 	source     gostream.ImageSource
 	detector   *rimage.CannyEdgeDetector
 	blurRadius float64
 }
 
-func (os *depthEdgesSource) Close() error {
+func (os *DepthEdgesSource) Close() error {
 	return nil
 }
 
-func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *DepthEdgesSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -48,12 +48,12 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	return edges, func() {}, nil
 }
 
-func newDepthEdges(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
+func newDepthEdgesSource(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &depthEdgesSource{source, canny, 3.0}, nil
+	return &DepthEdgesSource{source, canny, 3.0}, nil
 
 }

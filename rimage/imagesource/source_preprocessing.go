@@ -21,15 +21,15 @@ func init() {
 	})
 }
 
-type preprocessSource struct {
+type PreprocessDepthSource struct {
 	source gostream.ImageSource
 }
 
-func (os *preprocessSource) Close() error {
+func (os *PreprocessDepthSource) Close() error {
 	return nil
 }
 
-func (os *preprocessSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (os *PreprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
@@ -51,6 +51,6 @@ func newPreprocessDepth(r robot.Robot, config config.Component) (gostream.ImageS
 	if source == nil {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &preprocessSource{source}, nil
+	return &PreprocessDepthSource{source}, nil
 
 }
