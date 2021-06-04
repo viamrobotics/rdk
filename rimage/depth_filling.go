@@ -168,7 +168,7 @@ func clusterEdgePoints(borderPoints map[image.Point]bool, iwd *ImageWithDepth) (
 
 // match the point's color to the closest cluster, and return the depth associated with that cluster
 func matchDepthToClosestColor(inColor, color1, color2 Color, depth1, depth2 float64) Depth {
-	if inColor.DistanceLab(color1) <= inColor.DistanceLab(color2) {
+	if inColor.Distance(color1) <= inColor.Distance(color2) {
 		return Depth(depth1)
 	}
 	return Depth(depth2)
@@ -207,7 +207,7 @@ func imputeMissingDepth(x, y int, points map[image.Point]bool, iwd *ImageWithDep
 	for pt := range points {
 		depth := float64(iwd.Depth.Get(pt))
 		col := iwd.Color.Get(pt)
-		colorDistance := centerColor.DistanceLab(col) // 0.0 is same color, >=1.0 is extremely different
+		colorDistance := centerColor.Distance(col) // 0.0 is same color, >=1.0 is extremely different
 		weight := colorGaus(colorDistance) * spatialGaus(float64(pt.X-x), float64(pt.Y-y))
 		depthAvg = (depthAvg*weightTot + depth*weight) / (weightTot + weight)
 		weightTot += weight

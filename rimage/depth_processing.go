@@ -219,7 +219,7 @@ func ForwardDepthGradient(dm *DepthMap) VectorField2D {
 	return vf
 }
 
-// Filling and cleaning depth map functions
+// Cleaning depth map functions
 
 // CleanDepthMap removes the connected regions of data below a certain size thershold.
 func CleanDepthMap(dm *DepthMap) {
