@@ -6,8 +6,6 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
-
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -80,13 +78,13 @@ func TestR4Normalize(t *testing.T) {
 
 func TestOVNormalize(t *testing.T) {
 	// Test that Normalize() will produce a unit vector
-	ov1 := &pb.OrientationVec{Theta: 0, OX: 999, OY: 0, OZ: 0}
+	ov1 := &OrientationVec{Theta: 0, OX: 999, OY: 0, OZ: 0}
 	NormalizeOV(ov1)
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
 	test.That(t, ov1.OX, test.ShouldEqual, 1)
 	test.That(t, ov1.OY, test.ShouldEqual, 0)
 	test.That(t, ov1.OZ, test.ShouldEqual, 0)
-	ov1 = &pb.OrientationVec{Theta: 0, OX: 0.5, OY: 0, OZ: 0}
+	ov1 = &OrientationVec{Theta: 0, OX: 0.5, OY: 0, OZ: 0}
 	NormalizeOV(ov1)
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
 	test.That(t, ov1.OX, test.ShouldEqual, 1)

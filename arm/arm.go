@@ -32,15 +32,13 @@ type Arm interface {
 // See robot.proto for a math explanation
 func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
-		X: x * 1000,
-		Y: y * 1000,
-		Z: z * 1000,
-		Orient: &pb.OrientationVec{
-			OX:    ox,
-			OY:    oy,
-			OZ:    oz,
-			Theta: th,
-		},
+		X:     x * 1000,
+		Y:     y * 1000,
+		Z:     z * 1000,
+		OX:    ox,
+		OY:    oy,
+		OZ:    oz,
+		Theta: th,
 	}
 }
 
@@ -78,8 +76,8 @@ func PositionGridDiff(a, b *pb.ArmPosition) float64 {
 
 // PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
 func PositionRotationDiff(a, b *pb.ArmPosition) float64 {
-	return utils.Square(a.Orient.Theta-b.Orient.Theta) +
-		utils.Square(a.Orient.OX-b.Orient.OX) +
-		utils.Square(a.Orient.OY-b.Orient.OY) +
-		utils.Square(a.Orient.OZ-b.Orient.OZ)
+	return utils.Square(a.Theta-b.Theta) +
+		utils.Square(a.OX-b.OX) +
+		utils.Square(a.OY-b.OY) +
+		utils.Square(a.OZ-b.OZ)
 }
