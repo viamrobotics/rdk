@@ -7,6 +7,9 @@ import (
 	"go.viam.com/core/utils"
 )
 
+// resource and tutorial on mathematical morphology:
+// https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html
+
 // makeStructuringElement returns a simple circular Structuring Element used to smooth the image.
 // Structuring elements are like kernels, but only have positive value entries.
 // 0 values represent skipping the pixel, rather than a zero value for the pixel
