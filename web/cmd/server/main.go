@@ -50,6 +50,38 @@ func main() {
 
 var logger = golog.NewDevelopmentLogger("robot_server")
 
+type wrappedLogger struct {
+	base  zapcore.Core
+	extra []zapcore.Field
+}
+
+func (l *wrappedLogger) Close() error {
+	return nil
+}
+
+func (l *wrappedLogger) Enabled(level zapcore.Level) bool {
+	return l.base.Enabled(level)
+}
+
+func (l *wrappedLogger) With(f []zapcore.Field) zapcore.Core {
+	return &wrappedLogger{l, f}
+}
+
+func (l *wrappedLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	return l.base.Check(e, ce)
+}
+
+func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
+	new := []zapcore.Field{}
+	new = append(new, l.extra...)
+	new = append(new, f...)
+	return l.base.Write(e, new)
+}
+
+func (l *wrappedLogger) Sync() error {
+	return l.base.Sync()
+}
+
 func newNetLogger(config *config.Cloud) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -87,7 +119,7 @@ func (nl *netLogger) Enabled(zapcore.Level) bool {
 }
 
 func (nl *netLogger) With(f []zapcore.Field) zapcore.Core {
-	panic(1)
+	return &wrappedLogger{nl, f}
 }
 
 func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
