@@ -74,10 +74,11 @@ func TestCameraMatrixTo3D(t *testing.T) {
 
 	// test To3D
 	testPoint := image.Point{0, 0}
-	vec := iwd.To3D(testPoint)
+	vec, err := iwd.To3D(testPoint)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
 	// out of bounds - panic
 	testPoint = image.Point{iwd.Width(), iwd.Height()}
-	assertTo3DPanic(t, iwd, testPoint)
-
+	_, err = iwd.To3D(testPoint)
+	test.That(t, err, test.ShouldNotBeNil)
 }

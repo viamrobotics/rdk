@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
@@ -199,6 +200,12 @@ func (p *proxyCamera) Next(ctx context.Context) (image.Image, func(), error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Next(ctx)
+}
+
+func (p *proxyCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.NextPointCloud(ctx)
 }
 
 func (p *proxyCamera) Close() error {

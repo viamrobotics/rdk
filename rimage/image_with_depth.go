@@ -43,12 +43,11 @@ func (i *ImageWithDepth) At(x, y int) color.Color {
 }
 
 // To3D takes an image pixel coordinate and returns the 3D coordinate in the world
-func (i *ImageWithDepth) To3D(p image.Point) r3.Vector {
-	vec, err := i.camera.ImagePointTo3DPoint(p, i)
-	if err != nil {
-		panic(err)
+func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
+	if i.camera == nil {
+		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
 	}
-	return vec
+	return i.camera.ImagePointTo3DPoint(p, i)
 }
 
 // Width returns the horizontal width of the image.

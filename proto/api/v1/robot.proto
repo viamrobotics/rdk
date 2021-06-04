@@ -119,6 +119,15 @@ service RobotService {
 		};
 	}
 
+	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+	// can be requested but may not necessarily be the same one returned.
+	rpc PointCloud(PointCloudRequest) returns (PointCloudResponse) {
+		option (google.api.http) = {
+			get: "/v1/camera/{name}/pointcloud"
+		};
+	}
+
+
 	// Lidar
 
 	// LidarInfo returns the info of a lidar of the underlying robot.
@@ -404,6 +413,16 @@ message CameraFrameResponse {
 	bytes frame = 2;
 	int64 dim_x = 3;
 	int64 dim_y = 4;
+}
+
+message PointCloudRequest {
+	string name = 1;
+	string mime_type = 2;
+}
+
+message PointCloudResponse {
+	string mime_type = 1;
+	bytes frame = 2;
 }
 
 // Lidar

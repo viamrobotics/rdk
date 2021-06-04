@@ -4,6 +4,7 @@ package v1
 
 import (
 	context "context"
+
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -49,6 +50,9 @@ type RobotServiceClient interface {
 	// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	CameraRenderFrame(ctx context.Context, in *CameraRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
+	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+	// can be requested but may not necessarily be the same one returned.
+	PointCloud(ctx context.Context, in *PointCloudRequest, opts ...grpc.CallOption) (*PointCloudResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -241,6 +245,15 @@ func (c *robotServiceClient) CameraRenderFrame(ctx context.Context, in *CameraRe
 	return out, nil
 }
 
+func (c *robotServiceClient) PointCloud(ctx context.Context, in *PointCloudRequest, opts ...grpc.CallOption) (*PointCloudResponse, error) {
+	out := new(PointCloudResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/PointCloud", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error) {
 	out := new(LidarInfoResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/LidarInfo", in, out, opts...)
@@ -419,6 +432,9 @@ type RobotServiceServer interface {
 	// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error)
+	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+	// can be requested but may not necessarily be the same one returned.
+	PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -500,6 +516,9 @@ func (UnimplementedRobotServiceServer) CameraFrame(context.Context, *CameraFrame
 }
 func (UnimplementedRobotServiceServer) CameraRenderFrame(context.Context, *CameraRenderFrameRequest) (*httpbody.HttpBody, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CameraRenderFrame not implemented")
+}
+func (UnimplementedRobotServiceServer) PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PointCloud not implemented")
 }
 func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
@@ -813,6 +832,24 @@ func _RobotService_CameraRenderFrame_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).CameraRenderFrame(ctx, req.(*CameraRenderFrameRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_PointCloud_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PointCloudRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).PointCloud(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/PointCloud",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).PointCloud(ctx, req.(*PointCloudRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1163,6 +1200,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CameraRenderFrame",
 			Handler:    _RobotService_CameraRenderFrame_Handler,
+		},
+		{
+			MethodName: "PointCloud",
+			Handler:    _RobotService_PointCloud_Handler,
 		},
 		{
 			MethodName: "LidarInfo",

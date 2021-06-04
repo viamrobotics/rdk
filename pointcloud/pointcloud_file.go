@@ -1,12 +1,14 @@
 package pointcloud
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image/color"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -194,6 +196,13 @@ func _colorToPCDInt(pt Point) int {
 	return x
 }
 
+func _pcdIntToColor(c int) color.NRGBA {
+	r := uint8(0xFF & (c >> 16))
+	g := uint8(0xFF & (c >> 8))
+	b := uint8(0xFF & (c >> 0))
+	return color.NRGBA{r, g, b, 255}
+}
+
 func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 	var err error
 
@@ -235,4 +244,113 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 		return err
 	}
 	return nil
+}
+
+func readPcdHeaderLine(in *bufio.Reader, name string) (string, error) {
+	l, err := in.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.HasPrefix(l, name) {
+		return "", fmt.Errorf("line is supposed to start with %s but is %s", name, l)
+	}
+
+	return strings.TrimSpace(l[len(name)+1:]), nil
+}
+
+func readPcdHeaderLineCheck(in *bufio.Reader, name string, value string) error {
+	l, err := readPcdHeaderLine(in, name)
+	if err != nil {
+		return err
+	}
+	if l != value {
+		return fmt.Errorf("header (%s) supposed to be %s but is %s", name, value, l)
+	}
+	return nil
+}
+
+// ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now
+func ReadPCD(inRaw io.Reader) (PointCloud, error) {
+	in := bufio.NewReader(inRaw)
+
+	err := readPcdHeaderLineCheck(in, "VERSION", ".7")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "FIELDS", "x y z rgb")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "SIZE", "4 4 4 4")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "TYPE", "F F F I")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "COUNT", "1 1 1 1")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = readPcdHeaderLine(in, "WIDTH")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = readPcdHeaderLine(in, "HEIGHT")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "VIEWPOINT", "0 0 0 1 0 0 0")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = readPcdHeaderLine(in, "POINTS")
+	if err != nil {
+		return nil, err
+	}
+
+	err = readPcdHeaderLineCheck(in, "DATA", "ascii")
+	if err != nil {
+		return nil, err
+	}
+
+	pc := New()
+
+	for {
+		l, err := in.ReadString('\n')
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		var x, y, z float64
+		var color int
+
+		n, err := fmt.Sscanf(l, "%f %f %f %d", &x, &y, &z, &color)
+		if err != nil {
+			return nil, err
+		}
+		if n != 4 {
+			return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
+		}
+
+		err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return pc, nil
 }

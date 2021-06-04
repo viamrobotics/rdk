@@ -439,6 +439,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.PointCloudRequest"><span class="badge">M</span>PointCloudRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.PointCloudResponse"><span class="badge">M</span>PointCloudResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.SensorReadingsRequest"><span class="badge">M</span>SensorReadingsRequest</a>
                 </li>
               
@@ -2484,6 +2492,68 @@ zero as the north/south pole is circled, the Roll will correct itself to remain 
 
         
       
+        <h3 id="proto.api.v1.PointCloudRequest">PointCloudRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.PointCloudResponse">PointCloudResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.SensorReadingsRequest">SensorReadingsRequest</h3>
         <p></p>
 
@@ -3086,6 +3156,14 @@ can be requested but may not necessarily be the same one returned.</p></td>
               </tr>
             
               <tr>
+                <td>PointCloud</td>
+                <td><a href="#proto.api.v1.PointCloudRequest">PointCloudRequest</a></td>
+                <td><a href="#proto.api.v1.PointCloudResponse">PointCloudResponse</a></td>
+                <td><p>PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
                 <td>LidarInfo</td>
                 <td><a href="#proto.api.v1.LidarInfoRequest">LidarInfoRequest</a></td>
                 <td><a href="#proto.api.v1.LidarInfoResponse">LidarInfoResponse</a></td>
@@ -3352,6 +3430,16 @@ the request.</p></td>
                 <td>CameraRenderFrame</td>
                 <td>GET</td>
                 <td>/v1/camera/{name}/render_frame</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>PointCloud</td>
+                <td>GET</td>
+                <td>/v1/camera/{name}/pointcloud</td>
                 <td></td>
               </tr>
               
