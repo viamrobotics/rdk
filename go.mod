@@ -41,6 +41,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
+	github.com/pion/datachannel v1.4.22-0.20210420230629-6daf0fdcfcc0 // indirect
 	github.com/pion/mediadevices v0.1.18-0.20210305000905-3d3830f7ffa2
 	github.com/pion/webrtc/v3 v3.0.11
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
