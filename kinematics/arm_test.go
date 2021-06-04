@@ -23,14 +23,12 @@ func TestCombinedIKinematics(t *testing.T) {
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
-		X: -46,
-		Y: -133,
-		Z: 372,
-		Orient: &pb.OrientationVec{
-			OX: 1.79,
-			OY: -1.32,
-			OZ: -1.11,
-		},
+		X:  -46,
+		Y:  -133,
+		Z:  372,
+		OX: 1.79,
+		OY: -1.32,
+		OZ: -1.11,
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
@@ -40,14 +38,12 @@ func TestCombinedIKinematics(t *testing.T) {
 	t.Skip("Skipping problematic position, too few CPUs to solve; fails often")
 	// }
 	pos = &pb.ArmPosition{
-		X: -66,
-		Y: -133,
-		Z: 372,
-		Orient: &pb.OrientationVec{
-			OX: -178.88747811107424,
-			OY: -33.160094626838045,
-			OZ: -111.02282693533935,
-		},
+		X:  -66,
+		Y:  -133,
+		Z:  372,
+		OX: -178.88747811107424,
+		OY: -33.160094626838045,
+		OZ: -111.02282693533935,
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
@@ -82,10 +78,9 @@ func TestNloptIKinematics(t *testing.T) {
 	wxArm.ik = ik
 
 	pos := &pb.ArmPosition{
-		X:      1,
-		Y:      -368,
-		Z:      355,
-		Orient: &pb.OrientationVec{},
+		X: 1,
+		Y: -368,
+		Z: 355,
 	}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
@@ -139,7 +134,7 @@ func TestJacobianIKinematics(t *testing.T) {
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
 
-	pos := &pb.ArmPosition{X: 350, Y: 10, Z: 355, Orient: &pb.OrientationVec{}}
+	pos := &pb.ArmPosition{X: 350, Y: 10, Z: 355}
 	err = wxArm.SetForwardPosition(pos)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -176,14 +171,12 @@ func TestIKTolerances(t *testing.T) {
 
 	// Test inability to arrive at another position due to orientation
 	pos := &pb.ArmPosition{
-		X: -46,
-		Y: 0,
-		Z: 372,
-		Orient: &pb.OrientationVec{
-			OX: -1.78,
-			OY: -3.3,
-			OZ: -1.11,
-		},
+		X:  -46,
+		Y:  0,
+		Z:  372,
+		OX: -1.78,
+		OY: -3.3,
+		OZ: -1.11,
 	}
 	err = v1Arm.SetForwardPosition(pos)
 

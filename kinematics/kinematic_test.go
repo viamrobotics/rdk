@@ -12,7 +12,7 @@ import (
 )
 
 func poseToSlice(p *pb.ArmPosition) []float64 {
-	return []float64{p.X, p.Y, p.Z, p.Orient.Theta, p.Orient.OX, p.Orient.OY, p.Orient.OZ}
+	return []float64{p.X, p.Y, p.Z, p.Theta, p.OX, p.OY, p.OZ}
 }
 
 // This should test forward kinematics functions
