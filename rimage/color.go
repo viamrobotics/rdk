@@ -112,19 +112,28 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 	return uint16(math.MaxUint16 * (h / 360.0)), uint8(s * 255), uint8(v * 255)
 }
 
-// AverageColor returns the root square mean of the colors in the array. 2-norm is better color correction.
+// AverageColor returns the average of the HSV color. H is angle in degrees.
 func AverageColor(colors []Color) Color {
-	avgR, avgG, avgB := 0.0, 0.0, 0.0
-	for _, c := range colors {
-		r, g, b := c.RGB255()
-		avgR += math.Pow(float64(r), 2.0)
-		avgG += math.Pow(float64(g), 2.0)
-		avgB += math.Pow(float64(b), 2.0)
+	avgH, avgS, avgV := 0.0, 0.0, 0.0
+	num := float64(len(colors))
+	if num <= 0. {
+		return NewColorFromHSV(avgH, avgS, avgV)
 	}
-	avgR = math.Sqrt(avgR / float64(len(colors)))
-	avgG = math.Sqrt(avgG / float64(len(colors)))
-	avgB = math.Sqrt(avgB / float64(len(colors)))
-	return NewColor(uint8(avgR), uint8(avgG), uint8(avgB))
+	// turn hue into cartestian coordinates to average, then transform back into angle
+	hueX, hueY := 0.0, 0.0
+	for _, c := range colors {
+		h, s, v := c.HsvNormal()
+		hueX += math.Cos(utils.DegToRad(h))
+		hueY += math.Sin(utils.DegToRad(h))
+		avgS += s
+		avgV += v
+	}
+	hueX = hueX / num
+	hueY = hueY / num
+	avgH = utils.RadToDeg(math.Atan2(hueY, hueX))
+	avgS = avgS / num
+	avgV = avgV / num
+	return NewColorFromHSV(avgH, avgS, avgV)
 }
 
 // RGB255 returns the RGB representation of the color.
