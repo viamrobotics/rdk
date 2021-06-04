@@ -34,7 +34,7 @@ jobs:
       run: |
         git config --global url."https://${TOKEN}@github.com".insteadOf "https://github.com"
 
-    - name: Verify no uncommitted changes from buf generate and goformat
+    - name: Verify no uncommitted changes from build
       run: |
         go install google.golang.org/protobuf/cmd/protoc-gen-go \
           google.golang.org/grpc/cmd/protoc-gen-go-grpc \
@@ -42,8 +42,7 @@ jobs:
           github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc
         git init
         git add .
-        make buf
-        make goformat
+        make build
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"buf generate or goformat" resulted in changes not in git' 1>&2
