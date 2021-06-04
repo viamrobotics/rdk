@@ -439,10 +439,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.OrientationVec"><span class="badge">M</span>OrientationVec</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.SensorReadingsRequest"><span class="badge">M</span>SensorReadingsRequest</a>
                 </li>
               
@@ -1040,8 +1036,37 @@
                 </tr>
               
                 <tr>
-                  <td>orient</td>
-                  <td><a href="#proto.api.v1.OrientationVec">OrientationVec</a></td>
+                  <td>o_x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>ox, oy, oz, theta represents an orientation vector
+Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+theta will perform an in-line rotation of the end effector.
+Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+zero as the north/south pole is circled, the Roll will correct itself to remain in-line. </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>o_z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>theta</td>
+                  <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2447,51 +2472,6 @@
               
                 <tr>
                   <td>position</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.OrientationVec">OrientationVec</h3>
-        <p>OrientationVec represents an orientation vector</p><p>Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation</p><p>with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation</p><p>such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing</p><p>from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing</p><p>theta will perform an in-line rotation of the end effector.</p><p>Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz</p><p>point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at</p><p>zero as the north/south pole is circled, the Roll will correct itself to remain in-line.</p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>o_x</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>o_y</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>o_z</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>theta</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p> </p></td>

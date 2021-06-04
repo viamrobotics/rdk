@@ -58,7 +58,10 @@ func (m *Model) Get6dPosition(idx int) *pb.ArmPosition {
 
 	// Get R4 angle axis angles
 	poseOV := kinmath.QuatToOV(quat.Real)
-	pose6d.Orient = poseOV
+	pose6d.Theta = poseOV.Theta
+	pose6d.OX = poseOV.OX
+	pose6d.OY = poseOV.OY
+	pose6d.OZ = poseOV.OZ
 	return pose6d
 }
 

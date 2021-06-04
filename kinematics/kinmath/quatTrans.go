@@ -18,6 +18,22 @@ type QuatTrans struct {
 	Quat dualquat.Number
 }
 
+// OrientationVec containing ox, oy, oz, theta represents an orientation vector
+// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+// from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+// theta will perform an in-line rotation of the end effector.
+// Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+// point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+// zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+type OrientationVec struct {
+	Theta float64
+	OX    float64
+	OY    float64
+	OZ    float64
+}
+
 // NewQuatTrans returns a pointer to a new QuatTrans object whose Quaternion is an identity Quaternion.
 func NewQuatTrans() *QuatTrans {
 	return &QuatTrans{dualquat.Number{
@@ -27,8 +43,8 @@ func NewQuatTrans() *QuatTrans {
 }
 
 // NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
-// axis angle.
-func NewQuatTransFromRotation(ov *pb.OrientationVec) *QuatTrans {
+// orientation vector.
+func NewQuatTransFromRotation(ov *OrientationVec) *QuatTrans {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OX = 1
@@ -38,6 +54,14 @@ func NewQuatTransFromRotation(ov *pb.OrientationVec) *QuatTrans {
 		Real: OVToQuat(ov),
 		Dual: quat.Number{},
 	}}
+}
+
+// NewQuatTransFromArmPos returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
+// arm position.
+func NewQuatTransFromArmPos(pos *pb.ArmPosition) *QuatTrans {
+	q := NewQuatTransFromRotation(&OrientationVec{pos.Theta, pos.OX, pos.OY, pos.OZ})
+	q.SetTranslation(pos.X, pos.Y, pos.Z)
+	return q
 }
 
 // Clone returns a QuatTrans object identical to this one.
@@ -190,10 +214,10 @@ func QuatToEuler(q quat.Number) []float64 {
 }
 
 // QuatToOV converts a quaternion to an orientation vector
-func QuatToOV(q quat.Number) *pb.OrientationVec {
+func QuatToOV(q quat.Number) *OrientationVec {
 	xAxis := quat.Number{0, 1, 0, 0}
 	zAxis := quat.Number{0, 0, 0, 1}
-	ov := &pb.OrientationVec{}
+	ov := &OrientationVec{}
 	// Get the xyz point of our axis on the unit sphere
 	xyz := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
 	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
@@ -229,7 +253,7 @@ func QuatToOV(q quat.Number) *pb.OrientationVec {
 }
 
 // OVToQuat converts an orientation vector to a quaternion.
-func OVToQuat(ov *pb.OrientationVec) quat.Number {
+func OVToQuat(ov *OrientationVec) quat.Number {
 
 	q := quat.Number{}
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
@@ -253,7 +277,7 @@ func OVToQuat(ov *pb.OrientationVec) quat.Number {
 }
 
 // NormalizeOV scales the x, y, and z components of an Orientation Vector to be on the unit sphere
-func NormalizeOV(ov *pb.OrientationVec) {
+func NormalizeOV(ov *OrientationVec) {
 	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
 	ov.OX /= norm
 	ov.OY /= norm
