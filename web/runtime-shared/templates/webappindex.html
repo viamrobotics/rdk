@@ -29,11 +29,16 @@
               const [armName, armValue] = old[i];
               var newArm = { name : armName, pieces : [] };
 
-              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["rX", "RX"], ["rY", "RY"], ["rZ", "RZ"]];
+              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["orient.theta", "Theta"], ["orient.oX", "OX"], ["orient.oY", "OY"], ["orient.oZ", "OZ"]];
               for (var j=0; j<fieldSetters.length; j++ ){
+                  let gridField = fieldSetters[j][0].split(".");
+                  let gridValue = armValue.gridPosition[gridField[0]];
+                  for (let k = 1; k < gridField.length; k++) {
+                    gridValue = gridValue[gridField[k]];
+                  }
                   newArm.pieces.push( { grid : fieldSetters[j],
                                         joint : j,
-                                        gridValue : armValue.gridPosition[fieldSetters[j][0]],
+                                        gridValue : gridValue,
                                         jointValue : armValue.jointPositions.degreesList[j] || 0,
                                       });
               }
