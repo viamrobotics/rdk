@@ -17,18 +17,19 @@ func makeRangeArray(length int) []int {
 	if length <= 0 {
 		return make([]int, 0)
 	}
+	tailValue := 0
+	if length%2 == 0 { // length is even, save value to prepend to beginning
+		tailValue = length / 2
+		length--
+	}
 	rangeArray := make([]int, length)
-	var span int
-	if length%2 == 0 {
-		oddArr := makeRangeArray(length - 1)
-		span = length / 2
-		rangeArray = append([]int{-span}, oddArr...)
-	} else {
-		span = (length - 1) / 2
-		for i := 0; i < span; i++ {
-			rangeArray[length-1-i] = span - i
-			rangeArray[i] = -span + i
-		}
+	span := (length - 1) / 2
+	for i := 0; i < span; i++ {
+		rangeArray[length-1-i] = span - i
+		rangeArray[i] = -span + i
+	}
+	if tailValue != 0 {
+		rangeArray = append([]int{-tailValue}, rangeArray...)
 	}
 	return rangeArray
 }
