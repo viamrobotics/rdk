@@ -14,6 +14,7 @@ type Transform struct {
 	t          *kinmath.QuatTrans
 	descriptor graph.Edge
 	name       string
+	Rev        bool
 }
 
 // NewTransform TODO
@@ -65,10 +66,19 @@ func (t *Transform) GetOut() *Frame {
 
 // ForwardPosition TODO
 func (t *Transform) ForwardPosition() {
-	t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
+	if t.Rev {
+		t.out.i.t.Quat = t.in.i.t.Transformation(dualquat.Conj(t.t.Quat))
+	} else {
+		t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
+	}
 }
 
 // ForwardVelocity TODO
 func (t *Transform) ForwardVelocity() {
-	t.out.v = dualquat.Mul(t.in.v, t.t.Quat)
+	if t.Rev {
+		t.out.v = dualquat.Mul(t.in.v, dualquat.Conj(t.t.Quat))
+	} else {
+		t.out.v = dualquat.Mul(t.in.v, t.t.Quat)
+	}
+
 }
