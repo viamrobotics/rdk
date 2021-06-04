@@ -36,12 +36,15 @@ var emptyStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm1": {
 			GridPosition: &pb.ArmPosition{
-				X:  0.0,
-				Y:  0.0,
-				Z:  0.0,
-				RX: 0.0,
-				RY: 0.0,
-				RZ: 0.0,
+				X: 0.0,
+				Y: 0.0,
+				Z: 0.0,
+				Orient: &pb.OrientationVec{
+					Theta: 0.0,
+					OX:    1.0,
+					OY:    0.0,
+					OZ:    0.0,
+				},
 			},
 			JointPositions: &pb.JointPositions{
 				Degrees: []float64{0, 0, 0, 0, 0, 0},
@@ -100,12 +103,15 @@ var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
 		"arm2": {
 			GridPosition: &pb.ArmPosition{
-				X:  0.0,
-				Y:  0.0,
-				Z:  0.0,
-				RX: 0.0,
-				RY: 0.0,
-				RZ: 0.0,
+				X: 0.0,
+				Y: 0.0,
+				Z: 0.0,
+				Orient: &pb.OrientationVec{
+					Theta: 0.0,
+					OX:    1.0,
+					OY:    0.0,
+					OZ:    0.0,
+				},
 			},
 			JointPositions: &pb.JointPositions{
 				Degrees: []float64{0, 0, 0, 0, 0, 0},
@@ -113,12 +119,15 @@ var finalStatus = &pb.Status{
 		},
 		"arm3": {
 			GridPosition: &pb.ArmPosition{
-				X:  0.0,
-				Y:  0.0,
-				Z:  0.0,
-				RX: 0.0,
-				RY: 0.0,
-				RZ: 0.0,
+				X: 0.0,
+				Y: 0.0,
+				Z: 0.0,
+				Orient: &pb.OrientationVec{
+					Theta: 0.0,
+					OX:    1.0,
+					OY:    0.0,
+					OZ:    0.0,
+				},
 			},
 			JointPositions: &pb.JointPositions{
 				Degrees: []float64{0, 0, 0, 0, 0, 0},
@@ -575,7 +584,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jp.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].JointPositions.String())
 
-	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, RX: 4, RY: 5, RZ: 6}
+	pos = &pb.ArmPosition{X: 1, Y: 2, Z: 3, Orient: &pb.OrientationVec{OX: 4, OY: 5, OZ: 6}}
 	err = client.ArmByName("arm1").MoveToPosition(context.Background(), pos)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capArmPos.String(), test.ShouldResemble, pos.String())

@@ -27,18 +27,20 @@ type Arm interface {
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
-// NewPositionFromMetersAndAngleAxis returns a three-dimensional arm position
-// defined by a point in space in meters and an orientation defined as an axis angle.
-// See kinmath/axisAngle.go for a math explnation
-func NewPositionFromMetersAndAngleAxis(x, y, z, th, rx, ry, rz float64) *pb.ArmPosition {
+// NewPositionFromMetersAndOV returns a three-dimensional arm position
+// defined by a point in space in meters and an orientation defined as an OrientationVec.
+// See robot.proto for a math explanation
+func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.ArmPosition {
 	return &pb.ArmPosition{
-		X:     x * 1000,
-		Y:     y * 1000,
-		Z:     z * 1000,
-		RX:    rx,
-		RY:    ry,
-		RZ:    rz,
-		Theta: th,
+		X: x * 1000,
+		Y: y * 1000,
+		Z: z * 1000,
+		Orient: &pb.OrientationVec{
+			OX:    ox,
+			OY:    oy,
+			OZ:    oz,
+			Theta: th,
+		},
 	}
 }
 
@@ -76,8 +78,8 @@ func PositionGridDiff(a, b *pb.ArmPosition) float64 {
 
 // PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
 func PositionRotationDiff(a, b *pb.ArmPosition) float64 {
-	return utils.Square(a.Theta-b.Theta) +
-		utils.Square(a.RX-b.RX) +
-		utils.Square(a.RY-b.RY) +
-		utils.Square(a.RZ-b.RZ)
+	return utils.Square(a.Orient.Theta-b.Orient.Theta) +
+		utils.Square(a.Orient.OX-b.Orient.OX) +
+		utils.Square(a.Orient.OY-b.Orient.OY) +
+		utils.Square(a.Orient.OZ-b.Orient.OZ)
 }

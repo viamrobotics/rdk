@@ -4,6 +4,7 @@ package eva
 import (
 	"bytes"
 	"context"
+	_ "embed" // for embedding model file
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,9 @@ import (
 
 	"github.com/edaniels/golog"
 )
+
+//go:embed eva_kinematics.json
+var evamodeljson []byte
 
 func init() {
 	registry.RegisterArm("eva", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -305,5 +309,5 @@ func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger 
 
 	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArmJSONFile(e, attrs.String("modelJSON"), 4, logger)
+	return kinematics.NewArm(e, evamodeljson, 4, logger)
 }

@@ -6,10 +6,10 @@ import (
 	"log"
 	"math"
 
-	"github.com/go-gl/mathgl/mgl64"
-
 	"go.viam.com/core/kinematics/kinmath"
+	pb "go.viam.com/core/proto/api/v1"
 
+	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -44,24 +44,21 @@ func (m *Model) GetJacobianInverse() *mgl64.MatMxN {
 	return m.InvJacobian
 }
 
-// Get6dPosition TODO
-func (m *Model) Get6dPosition(idx int) []float64 {
-	var pose6d []float64
+// Get6dPosition returns the 6d pose of the requested end effector as a pb.ArmPosition
+func (m *Model) Get6dPosition(idx int) *pb.ArmPosition {
+	pose6d := &pb.ArmPosition{}
 
 	endTransform := m.GetOperationalPosition(idx)
 	quat := endTransform.Quat
 	cartQuat := dualquat.Mul(quat, dualquat.Conj(quat))
 	// Get xyz position
-	pose6d = append(pose6d, cartQuat.Dual.Imag)
-	pose6d = append(pose6d, cartQuat.Dual.Jmag)
-	pose6d = append(pose6d, cartQuat.Dual.Kmag)
+	pose6d.X = cartQuat.Dual.Imag
+	pose6d.Y = cartQuat.Dual.Jmag
+	pose6d.Z = cartQuat.Dual.Kmag
 
 	// Get R4 angle axis angles
 	poseOV := kinmath.QuatToOV(quat.Real)
-	pose6d = append(pose6d, poseOV.Theta)
-	pose6d = append(pose6d, poseOV.RX)
-	pose6d = append(pose6d, poseOV.RY)
-	pose6d = append(pose6d, poseOV.RZ)
+	pose6d.Orient = poseOV
 	return pose6d
 }
 

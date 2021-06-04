@@ -6,6 +6,8 @@ import (
 
 	"go.viam.com/test"
 
+	pb "go.viam.com/core/proto/api/v1"
+
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -54,12 +56,12 @@ func TestOVConversion(t *testing.T) {
 	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation
 	q1 := quat.Number{0.5, 0.5, 0.5, 0.5}
 	ov1 := QuatToOV(q1)
-	q2 := ov1.ToQuat()
+	q2 := OVToQuat(ov1)
 	ov2 := QuatToOV(q2)
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
-	test.That(t, math.Abs(ov1.RX-ov2.RX), test.ShouldBeLessThan, 0.001)
-	test.That(t, math.Abs(ov1.RY-ov2.RY), test.ShouldBeLessThan, 0.001)
-	test.That(t, math.Abs(ov1.RZ-ov2.RZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OY-ov2.OY), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OZ-ov2.OZ), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(q1.Real-q2.Real), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(q1.Imag-q2.Imag), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(q1.Jmag-q2.Jmag), test.ShouldBeLessThan, 0.001)
@@ -78,16 +80,16 @@ func TestR4Normalize(t *testing.T) {
 
 func TestOVNormalize(t *testing.T) {
 	// Test that Normalize() will produce a unit vector
-	ov1 := OrientVec{0, 999, 0, 0}
-	ov1.Normalize()
+	ov1 := &pb.OrientationVec{Theta: 0, OX: 999, OY: 0, OZ: 0}
+	NormalizeOV(ov1)
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
-	test.That(t, ov1.RX, test.ShouldEqual, 1)
-	test.That(t, ov1.RY, test.ShouldEqual, 0)
-	test.That(t, ov1.RZ, test.ShouldEqual, 0)
-	ov1 = OrientVec{0, 0.5, 0, 0}
-	ov1.Normalize()
+	test.That(t, ov1.OX, test.ShouldEqual, 1)
+	test.That(t, ov1.OY, test.ShouldEqual, 0)
+	test.That(t, ov1.OZ, test.ShouldEqual, 0)
+	ov1 = &pb.OrientationVec{Theta: 0, OX: 0.5, OY: 0, OZ: 0}
+	NormalizeOV(ov1)
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
-	test.That(t, ov1.RX, test.ShouldEqual, 1)
-	test.That(t, ov1.RY, test.ShouldEqual, 0)
-	test.That(t, ov1.RZ, test.ShouldEqual, 0)
+	test.That(t, ov1.OX, test.ShouldEqual, 1)
+	test.That(t, ov1.OY, test.ShouldEqual, 0)
+	test.That(t, ov1.OZ, test.ShouldEqual, 0)
 }

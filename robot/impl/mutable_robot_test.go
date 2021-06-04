@@ -101,12 +101,9 @@ func TestConfigRemote(t *testing.T) {
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
 				GridPosition: &pb.ArmPosition{
-					X:  0.0,
-					Y:  0.0,
-					Z:  0.0,
-					RX: 0.0,
-					RY: 0.0,
-					RZ: 0.0,
+					X: 0.0,
+					Y: 0.0,
+					Z: 0.0,
 				},
 				JointPositions: &pb.JointPositions{
 					Degrees: []float64{0, 0, 0, 0, 0, 0},
@@ -114,12 +111,9 @@ func TestConfigRemote(t *testing.T) {
 			},
 			"foo.pieceArm": {
 				GridPosition: &pb.ArmPosition{
-					X:  0.0,
-					Y:  0.0,
-					Z:  0.0,
-					RX: 0.0,
-					RY: 0.0,
-					RZ: 0.0,
+					X: 0.0,
+					Y: 0.0,
+					Z: 0.0,
 				},
 				JointPositions: &pb.JointPositions{
 					Degrees: []float64{0, 0, 0, 0, 0, 0},

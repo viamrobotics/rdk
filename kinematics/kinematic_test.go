@@ -4,11 +4,16 @@ import (
 	"math"
 	"testing"
 
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 )
+
+func poseToSlice(p *pb.ArmPosition) []float64 {
+	return []float64{p.X, p.Y, p.Z, p.Orient.Theta, p.Orient.OX, p.Orient.OY, p.Orient.OZ}
+}
 
 // This should test forward kinematics functions
 func TestForwardKinematics(t *testing.T) {
@@ -19,7 +24,7 @@ func TestForwardKinematics(t *testing.T) {
 	// Confirm end effector starts at 300, 0, 360.25
 	m.ForwardPosition()
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	actual := m.Get6dPosition(0)
+	actual := poseToSlice(m.Get6dPosition(0))
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
@@ -30,21 +35,21 @@ func TestForwardKinematics(t *testing.T) {
 	// Confirm end effector starts at 365, 0, 360.25
 	m.ForwardPosition()
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	actual = m.Get6dPosition(0)
+	actual = poseToSlice(m.Get6dPosition(0))
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	newPos := []float64{0.7854, -0.7854, 0, 0, 0, 0}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
-	actual = m.Get6dPosition(0)
+	actual = poseToSlice(m.Get6dPosition(0))
 
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
 	m.SetPosition(newPos)
 	m.ForwardPosition()
-	actual = m.Get6dPosition(0)
+	actual = poseToSlice(m.Get6dPosition(0))
 
 	expect = []float64{258.0935, -258.0935, 360.25, 0.7854, 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
