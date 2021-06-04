@@ -67,6 +67,11 @@ func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
+// Contains returns whether or not a point is within bounds of the depth map
+func (dm *DepthMap) Contains(x, y int) bool {
+	return x >= 0 && y >= 0 && x < dm.width && y < dm.height
+}
+
 // SubImage TODO
 func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)

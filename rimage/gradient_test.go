@@ -10,6 +10,9 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/core/artifact"
+	"go.viam.com/core/testutils"
+
+	"github.com/edaniels/golog"
 )
 
 func writePicture(img image.Image, p string) error {
@@ -49,26 +52,27 @@ func TestVectorFieldToDenseAndBack(t *testing.T) {
 }
 
 func TestSobelFilter(t *testing.T) {
+	outDir := testutils.TempDirT(t, "", "rimage")
+	golog.NewTestLogger(t).Debugf("out dir: %q", outDir)
 	// circle.png is 300x200 canvas, circle is 150 pixels in diameter, centered at (150,100)
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/circle.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	gradients := SobelFilter(dm)
-	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height()-2)
-	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width()-2)
-	// reminder: left-handed coordinate system. +x is right, +y is down.
-	// (223,100) is right edge of circle
-	test.That(t, gradients.GetVec2D(223, 100).Direction(), test.ShouldEqual, 0.)
-	// (149,173) is bottom edge of circle
-	test.That(t, gradients.GetVec2D(149, 173).Direction(), test.ShouldEqual, math.Pi/2.)
-	// (76,100) is left edge of circle
-	test.That(t, gradients.GetVec2D(76, 100).Direction(), test.ShouldEqual, math.Pi)
-	// (149,26) is top edge of circle
-	test.That(t, gradients.GetVec2D(149, 26).Direction(), test.ShouldEqual, 3.*math.Pi/2.)
-
-	img := gradients.ToPrettyPicture()
+	gradients := SobelDepthGradient(dm)
+	test.That(t, gradients.Height(), test.ShouldEqual, dm.Height())
+	test.That(t, gradients.Width(), test.ShouldEqual, dm.Width())
+	img := gradients.DirectionPicture()
 	err = writePicture(img, outDir+"/circle_gradient.png")
 	test.That(t, err, test.ShouldBeNil)
+	// reminder: left-handed coordinate system. +x is right, +y is down.
+	// (223,100) is right edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(223, 100).Direction()), test.ShouldEqual, math.Pi)
+	// (150,173) is bottom edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(150, 173).Direction()), test.ShouldEqual, 3.*math.Pi/2.)
+	// (76,100) is left edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(76, 100).Direction()), test.ShouldEqual, 0)
+	// (150,27) is top edge of circle
+	test.That(t, radZeroTo2Pi(gradients.GetVec2D(150, 27).Direction()), test.ShouldEqual, math.Pi/2.)
 
 }
 
@@ -76,6 +80,6 @@ func BenchmarkSobelFilter(b *testing.B) {
 	dm, err := NewDepthMapFromImageFile(artifact.MustPath("rimage/shelf_grayscale.png"))
 	test.That(b, err, test.ShouldBeNil)
 	for i := 0; i < b.N; i++ {
-		_ = SobelFilter(dm)
+		_ = SobelDepthGradient(dm)
 	}
 }

@@ -193,6 +193,11 @@ func NewCannyDericheEdgeDetector() *CannyEdgeDetector {
 	return &CannyEdgeDetector{0.8, 0.33, false}
 }
 
+// NewCannyDericheEdgeDetectorWithParameters creates a new Canny edge detector with user provided parameters.
+func NewCannyDericheEdgeDetectorWithParameters(hiRatio, loRatio float64, preproc bool) *CannyEdgeDetector {
+	return &CannyEdgeDetector{hiRatio, loRatio, preproc}
+}
+
 // DetectEdges TODO
 func (cd *CannyEdgeDetector) DetectEdges(img *Image, blur float64) (*image.Gray, error) {
 
@@ -287,6 +292,27 @@ func ForwardGradient(img *Image, blur float64, preprocess bool) (ImageGradient, 
 	}
 
 	return ImageGradient{gradX, gradY, mag, direction}, nil
+}
+
+// SobelColorGradient takes in a color image, approximates the gradient in the X and Y direction at every pixel
+// creates a  vector in polar form, and returns a vector field.
+func SobelColorGradient(img *Image) (VectorField2D, error) {
+	width, height := img.Width(), img.Height()
+	maxMag := 0.0
+	g := make([]Vec2D, 0, width*height)
+	sobel := sobelColorFilter()
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			point := image.Point{x, y}
+			sX, sY := sobel(point, img)
+			mag, dir := getMagnitudeAndDirection(sX, sY)
+			g = append(g, Vec2D{mag, dir})
+			maxMag = math.Max(math.Abs(mag), maxMag)
+		}
+	}
+	vf := VectorField2D{width, height, g, maxMag}
+	return vf, nil
+
 }
 
 // MatrixPixelPoint defines a point in a matrix.

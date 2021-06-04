@@ -213,6 +213,8 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 
 	fixed, err := h.cameraParams.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
+	fixed, err = rimage.PreprocessDepthMap(fixed)
+	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
