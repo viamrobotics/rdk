@@ -31,6 +31,7 @@ func makeStructuringElement(k int) *DepthMap {
 
 // Erode takes in a point, a depth map and an struct element and applies the operation erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
+// https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func erode(center image.Point, dm, kernel *DepthMap) Depth {
 	xRange, yRange := makeRangeArray(kernel.Width()), makeRangeArray(kernel.Height())
 	depth := int(MaxDepth)
@@ -54,6 +55,7 @@ func erode(center image.Point, dm, kernel *DepthMap) Depth {
 
 // Dilate takes in a point, a depth map and a struct element and applies the operation dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
+// https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func dilate(center image.Point, dm, kernel *DepthMap) Depth {
 	xRange, yRange := makeRangeArray(kernel.Width()), makeRangeArray(kernel.Height())
 	depth := 0
@@ -99,6 +101,7 @@ func MorphFilter(inDM, outDM *DepthMap, kernelSize, iterations int, process func
 
 // ClosingMorph applies a closing morphological transform, which is a Dilation followed by an Erosion.
 // Closing smooths an image by fusing narrow breaks and filling small holes and gaps.
+// https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch3-A
 func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
 	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
@@ -115,6 +118,7 @@ func ClosingMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 
 // OpeningMorph applies an opening morphological transform, which is a Erosion followed by a Dilation.
 // Opening smooths an image by eliminating thin protrusions and narrow outcroppings.
+// https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch3-A
 func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 	outDM := NewEmptyDepthMap(dm.Width(), dm.Height())
 	tempDM := NewEmptyDepthMap(dm.Width(), dm.Height())
