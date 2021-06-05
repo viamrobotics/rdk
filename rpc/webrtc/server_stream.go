@@ -96,6 +96,26 @@ func (s *ServerStream) SetTrailer(trailer metadata.MD) {
 	}
 }
 
+var maxResponseMessagePacketDataSize int
+
+func init() {
+	md, err := proto.Marshal(&webrtcpb.Response{
+		Stream: &webrtcpb.Stream{
+			Id: 1,
+		},
+		Type: &webrtcpb.Response_Message{
+			Message: &webrtcpb.ResponseMessage{
+				PacketMessage: &webrtcpb.PacketMessage{Eom: true},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	// max msg size - packet size - msg type size - proto padding (?)
+	maxResponseMessagePacketDataSize = maxDataChannelSize - len(md) - 1
+}
+
 // SendMsg sends a message. On error, SendMsg aborts the stream and the
 // error is returned directly.
 //
@@ -120,13 +140,38 @@ func (s *ServerStream) SendMsg(m interface{}) (err error) {
 	if err := s.writeHeaders(); err != nil {
 		return err
 	}
-	md, err := proto.Marshal(m.(proto.Message))
+	data, err := proto.Marshal(m.(proto.Message))
 	if err != nil {
 		return err
 	}
-	return s.ch.writeMessage(s.stream, &webrtcpb.ResponseMessage{
-		Message: md,
-	})
+
+	if len(data) == 0 {
+		return s.ch.writeMessage(s.stream, &webrtcpb.ResponseMessage{
+			PacketMessage: &webrtcpb.PacketMessage{
+				Eom: true,
+			},
+		})
+	}
+
+	for len(data) != 0 {
+		amountToSend := maxResponseMessagePacketDataSize
+		if len(data) < amountToSend {
+			amountToSend = len(data)
+		}
+		packet := &webrtcpb.PacketMessage{
+			Data: data[:amountToSend],
+		}
+		data = data[amountToSend:]
+		if len(data) == 0 {
+			packet.Eom = true
+		}
+		if err := s.ch.writeMessage(s.stream, &webrtcpb.ResponseMessage{
+			PacketMessage: packet,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ServerStream) onRequest(request *webrtcpb.Request) {
@@ -202,7 +247,11 @@ func (s *ServerStream) processMessage(msg *webrtcpb.RequestMessage) {
 		return
 	}
 	if msg.HasMessage {
-		s.msgCh <- msg.Message
+		data, eop := s.baseStream.processMessage(msg.PacketMessage)
+		if !eop {
+			return
+		}
+		s.msgCh <- data
 	}
 	if msg.Eos {
 		s.CloseRecv()

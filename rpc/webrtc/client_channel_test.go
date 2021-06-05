@@ -65,8 +65,11 @@ func TestClientChannel(t *testing.T) {
 			Type: &webrtcpb.Request_Message{
 				Message: &webrtcpb.RequestMessage{
 					HasMessage: true,
-					Message:    someStatusMd,
-					Eos:        true,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: someStatusMd,
+						Eom:  true,
+					},
+					Eos: true,
 				},
 			},
 		},
@@ -111,7 +114,10 @@ func TestClientChannel(t *testing.T) {
 					Stream: &webrtcpb.Stream{Id: idCounter},
 					Type: &webrtcpb.Response_Message{
 						Message: &webrtcpb.ResponseMessage{
-							Message: someOtherStatusMd,
+							PacketMessage: &webrtcpb.PacketMessage{
+								Data: someOtherStatusMd,
+								Eom:  true,
+							},
 						},
 					},
 				}), test.ShouldBeNil)
@@ -141,7 +147,10 @@ func TestClientChannel(t *testing.T) {
 				Stream: &webrtcpb.Stream{Id: 1000},
 				Type: &webrtcpb.Response_Message{
 					Message: &webrtcpb.ResponseMessage{
-						Message: someOtherStatusMd,
+						PacketMessage: &webrtcpb.PacketMessage{
+							Data: someOtherStatusMd,
+							Eom:  true,
+						},
 					},
 				},
 			}), test.ShouldBeNil)
@@ -179,8 +188,11 @@ func TestClientChannel(t *testing.T) {
 			Type: &webrtcpb.Request_Message{
 				Message: &webrtcpb.RequestMessage{
 					HasMessage: true,
-					Message:    someStatusMd,
-					Eos:        true,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: someStatusMd,
+						Eom:  true,
+					},
+					Eos: true,
 				},
 			},
 		},
@@ -211,8 +223,11 @@ func TestClientChannel(t *testing.T) {
 			Type: &webrtcpb.Request_Message{
 				Message: &webrtcpb.RequestMessage{
 					HasMessage: true,
-					Message:    someStatusMd,
-					Eos:        true,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: someStatusMd,
+						Eom:  true,
+					},
+					Eos: true,
 				},
 			},
 		},
@@ -241,8 +256,11 @@ func TestClientChannel(t *testing.T) {
 			Type: &webrtcpb.Request_Message{
 				Message: &webrtcpb.RequestMessage{
 					HasMessage: true,
-					Message:    someStatusMd,
-					Eos:        true,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: someStatusMd,
+						Eom:  true,
+					},
+					Eos: true,
 				},
 			},
 		},
@@ -272,8 +290,11 @@ func TestClientChannel(t *testing.T) {
 			Type: &webrtcpb.Request_Message{
 				Message: &webrtcpb.RequestMessage{
 					HasMessage: true,
-					Message:    someStatusMd,
-					Eos:        true,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: someStatusMd,
+						Eom:  true,
+					},
+					Eos: true,
 				},
 			},
 		},

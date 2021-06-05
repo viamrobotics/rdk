@@ -3,6 +3,7 @@ package rpcwebrtc_test
 import (
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,6 +57,12 @@ func TestClientServer(t *testing.T) {
 	resp, err := echoClient.Echo(context.Background(), &echopb.EchoRequest{Message: "hello"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Message, test.ShouldEqual, "hello")
+
+	// big message
+	bigZ := strings.Repeat("z", 1<<23)
+	resp, err = echoClient.Echo(context.Background(), &echopb.EchoRequest{Message: bigZ})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Message, test.ShouldEqual, bigZ)
 
 	webrtcServer.Stop()
 	answerer.Stop()

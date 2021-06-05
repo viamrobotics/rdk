@@ -577,6 +577,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.rpc.webrtc.v1.PacketMessage"><span class="badge">M</span>PacketMessage</a>
+                </li>
+              
+                <li>
                   <a href="#proto.rpc.webrtc.v1.Request"><span class="badge">M</span>Request</a>
                 </li>
               
@@ -3890,6 +3894,37 @@ the request.</p></td>
 
         
       
+        <h3 id="proto.rpc.webrtc.v1.PacketMessage">PacketMessage</h3>
+        <p>A PacketMessage is used to packetize large messages (> 64KiB) to be able to safely</p><p>transmit over WebRTC data channels.</p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>data</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>eom</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.rpc.webrtc.v1.Request">Request</h3>
         <p>A Request is a frame coming from a client. It is always</p><p>associated with a stream where the client assigns the stream</p><p>identifier. Servers will drop frames where the stream identifier</p><p>has no association (if a non-header frames are sent).</p>
 
@@ -3984,8 +4019,8 @@ the request.</p></td>
                 </tr>
               
                 <tr>
-                  <td>message</td>
-                  <td><a href="#bytes">bytes</a></td>
+                  <td>packet_message</td>
+                  <td><a href="#proto.rpc.webrtc.v1.PacketMessage">PacketMessage</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -4084,8 +4119,8 @@ the request.</p></td>
             <tbody>
               
                 <tr>
-                  <td>message</td>
-                  <td><a href="#bytes">bytes</a></td>
+                  <td>packet_message</td>
+                  <td><a href="#proto.rpc.webrtc.v1.PacketMessage">PacketMessage</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>

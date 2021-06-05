@@ -115,6 +115,26 @@ func (s *ClientStream) writeHeaders(headers *webrtcpb.RequestHeaders) (err error
 	return s.ch.writeHeaders(s.stream, headers)
 }
 
+var maxRequestMessagePacketDataSize int
+
+func init() {
+	md, err := proto.Marshal(&webrtcpb.Request{
+		Stream: &webrtcpb.Stream{
+			Id: 1,
+		},
+		Type: &webrtcpb.Request_Message{
+			Message: &webrtcpb.RequestMessage{
+				PacketMessage: &webrtcpb.PacketMessage{Eom: true},
+			},
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	// max msg size - packet size - msg type size - proto padding (?)
+	maxRequestMessagePacketDataSize = maxDataChannelSize - len(md) - 1
+}
+
 func (s *ClientStream) writeMessage(m interface{}, eos bool) (err error) {
 	defer func() {
 		if err != nil {
@@ -122,18 +142,45 @@ func (s *ClientStream) writeMessage(m interface{}, eos bool) (err error) {
 		}
 	}()
 
-	var md []byte
+	var data []byte
 	if m != nil {
-		md, err = proto.Marshal(m.(proto.Message))
+		data, err = proto.Marshal(m.(proto.Message))
 		if err != nil {
 			return
 		}
 	}
-	return s.ch.writeMessage(s.stream, &webrtcpb.RequestMessage{
-		HasMessage: m != nil,
-		Message:    md,
-		Eos:        eos,
-	})
+
+	if len(data) == 0 {
+		return s.ch.writeMessage(s.stream, &webrtcpb.RequestMessage{
+			HasMessage: m != nil,
+			PacketMessage: &webrtcpb.PacketMessage{
+				Eom: true,
+			},
+			Eos: eos,
+		})
+	}
+
+	for len(data) != 0 {
+		amountToSend := maxRequestMessagePacketDataSize
+		if len(data) < amountToSend {
+			amountToSend = len(data)
+		}
+		packet := &webrtcpb.PacketMessage{
+			Data: data[:amountToSend],
+		}
+		data = data[amountToSend:]
+		if len(data) == 0 {
+			packet.Eom = true
+		}
+		if err := s.ch.writeMessage(s.stream, &webrtcpb.RequestMessage{
+			HasMessage:    m != nil,
+			PacketMessage: packet,
+			Eos:           eos,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ClientStream) onResponse(resp *webrtcpb.Response) {
@@ -149,7 +196,7 @@ func (s *ClientStream) onResponse(resp *webrtcpb.Response) {
 			s.closeWithRecvError(errors.New("headers received after trailers"))
 			return
 		}
-		s.processResponseHeaders(r.Headers)
+		s.processHeaders(r.Headers)
 	case *webrtcpb.Response_Message:
 		select {
 		case <-s.headersReceived:
@@ -161,29 +208,33 @@ func (s *ClientStream) onResponse(resp *webrtcpb.Response) {
 			s.closeWithRecvError(errors.New("message received after trailers"))
 			return
 		}
-		s.processResponseMessage(r.Message)
+		s.processMessage(r.Message)
 	case *webrtcpb.Response_Trailers:
-		s.processResponseTrailers(r.Trailers)
+		s.processTrailers(r.Trailers)
 	default:
 		s.baseStream.logger.Errorf("unknown response type %T", r)
 	}
 }
 
-func (s *ClientStream) processResponseHeaders(headers *webrtcpb.ResponseHeaders) {
+func (s *ClientStream) processHeaders(headers *webrtcpb.ResponseHeaders) {
 	s.headers = metadataFromProto(headers.Metadata)
 	s.userCtx = metadata.NewIncomingContext(s.ctx, s.headers)
 	close(s.headersReceived)
 }
 
-func (s *ClientStream) processResponseMessage(msg *webrtcpb.ResponseMessage) {
+func (s *ClientStream) processMessage(msg *webrtcpb.ResponseMessage) {
 	if s.trailersReceived {
 		s.logger.Error("message received after trailers")
 		return
 	}
-	s.msgCh <- msg.Message
+	data, eop := s.baseStream.processMessage(msg.PacketMessage)
+	if !eop {
+		return
+	}
+	s.msgCh <- data
 }
 
-func (s *ClientStream) processResponseTrailers(trailers *webrtcpb.ResponseTrailers) {
+func (s *ClientStream) processTrailers(trailers *webrtcpb.ResponseTrailers) {
 	s.mu.Lock()
 	metadataFromProto(trailers.Metadata)
 	s.mu.Unlock()

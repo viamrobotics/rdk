@@ -2,6 +2,7 @@ package rpcwebrtc
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,12 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	webrtcpb "go.viam.com/core/proto/rpc/webrtc/v1"
+)
+
+var (
+	// MaxStreamCount is the max number of streams a channel can have.
+	MaxStreamCount = 256
+	errMaxStreams  = errors.New("stream limit hit")
 )
 
 // A ClientChannel reflects the client end of a gRPC connection serviced over
@@ -67,7 +74,10 @@ func (ch *ClientChannel) Close() error {
 //
 // All errors returned by Invoke are compatible with the status package.
 func (ch *ClientChannel) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
-	clientStream := ch.newStream(ctx, ch.nextStreamID())
+	clientStream, err := ch.newStream(ctx, ch.nextStreamID())
+	if err != nil {
+		return err
+	}
 
 	if err := clientStream.writeHeaders(makeRequestHeaders(ctx, method)); err != nil {
 		return err
@@ -97,7 +107,10 @@ func (ch *ClientChannel) Invoke(ctx context.Context, method string, args interfa
 // If none of the above happen, a goroutine and a context will be leaked, and grpc
 // will not call the optionally-configured stats handler with a stats.End message.
 func (ch *ClientChannel) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	clientStream := ch.newStream(ctx, ch.nextStreamID())
+	clientStream, err := ch.newStream(ctx, ch.nextStreamID())
+	if err != nil {
+		return nil, err
+	}
 
 	if err := clientStream.writeHeaders(makeRequestHeaders(ctx, method)); err != nil {
 		return nil, err
@@ -138,11 +151,14 @@ func (ch *ClientChannel) removeStreamByID(id uint64) {
 	ch.mu.Unlock()
 }
 
-func (ch *ClientChannel) newStream(ctx context.Context, stream *webrtcpb.Stream) *ClientStream {
+func (ch *ClientChannel) newStream(ctx context.Context, stream *webrtcpb.Stream) (*ClientStream, error) {
 	id := stream.Id
 	ch.mu.Lock()
 	activeStream, ok := ch.streams[id]
 	if !ok {
+		if len(ch.streams) == MaxStreamCount {
+			return nil, errMaxStreams
+		}
 		ctx, cancel := context.WithCancel(ctx)
 		clientStream := NewClientStream(
 			ctx,
@@ -155,7 +171,7 @@ func (ch *ClientChannel) newStream(ctx context.Context, stream *webrtcpb.Stream)
 		ch.streams[id] = activeStream
 	}
 	ch.mu.Unlock()
-	return activeStream.cs
+	return activeStream.cs, nil
 }
 
 func (ch *ClientChannel) onChannelMessage(msg webrtc.DataChannelMessage) {

@@ -176,7 +176,10 @@ func TestServerChannel(t *testing.T) {
 			Stream: &webrtcpb.Stream{Id: 4},
 			Type: &webrtcpb.Response_Message{
 				Message: &webrtcpb.ResponseMessage{
-					Message: respMd,
+					PacketMessage: &webrtcpb.PacketMessage{
+						Data: respMd,
+						Eom:  true,
+					},
 				},
 			},
 		},
@@ -205,8 +208,11 @@ func TestServerChannel(t *testing.T) {
 		Id: 4,
 	}, &webrtcpb.RequestMessage{
 		HasMessage: true,
-		Message:    reqMd,
-		Eos:        true,
+		PacketMessage: &webrtcpb.PacketMessage{
+			Data: reqMd,
+			Eom:  true,
+		},
+		Eos: true,
 	}), test.ShouldBeNil)
 
 	offer := <-signalServer.callQueue
@@ -244,8 +250,11 @@ func TestServerChannel(t *testing.T) {
 		Id: 5,
 	}, &webrtcpb.RequestMessage{
 		HasMessage: true,
-		Message:    reqMd,
-		Eos:        true,
+		PacketMessage: &webrtcpb.PacketMessage{
+			Data: reqMd,
+			Eom:  true,
+		},
+		Eos: true,
 	}), test.ShouldBeNil)
 
 	offer = <-signalServer.callQueue

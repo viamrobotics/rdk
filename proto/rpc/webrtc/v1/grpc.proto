@@ -6,6 +6,13 @@ package proto.rpc.webrtc.v1;
 import "google/protobuf/duration.proto";
 import "google/rpc/status.proto";
 
+// A PacketMessage is used to packetize large messages (> 64KiB) to be able to safely
+// transmit over WebRTC data channels.
+message PacketMessage {
+	bytes data = 1;
+	bool eom = 2;
+}
+
 // A Stream represents an instance of a gRPC stream between
 // a client and a server.
 message Stream {
@@ -35,7 +42,7 @@ message RequestHeaders {
 // end-of-stream (EOS) marker.
 message RequestMessage {
 	bool has_message = 1;
-	bytes message = 2;
+	PacketMessage packet_message = 2;
 	bool eos = 3;
 }
 
@@ -60,7 +67,7 @@ message ResponseHeaders {
 
 // ResponseMessage contains the data of a response to a call.
 message ResponseMessage {
-	bytes message = 1;
+	PacketMessage packet_message = 1;
 }
 
 // ResponseTrailers contain the status of a response and any custom metadata.

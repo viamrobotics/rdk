@@ -1,6 +1,7 @@
 package rpcwebrtc
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"sync"
@@ -23,6 +24,7 @@ type baseStream struct {
 	recvClosed bool
 	closed     bool
 	logger     golog.Logger
+	packetBuf  bytes.Buffer
 }
 
 // newBaseStream makes a new baseStream where the context should originate
@@ -134,6 +136,25 @@ func (s *baseStream) closeWithRecvError(err error) {
 	}
 	s.cancel()
 	s.onDone(s.stream.Id)
+}
+
+func (s *baseStream) processMessage(msg *webrtcpb.PacketMessage) ([]byte, bool) {
+	if len(msg.Data) == 0 && msg.Eom {
+		return nil, true
+	}
+	if len(msg.Data)+s.packetBuf.Len() > MaxMessageSize {
+		s.packetBuf.Reset()
+		s.logger.Errorf("message size larger than max %d; discarding", MaxMessageSize)
+		return nil, false
+	}
+	s.packetBuf.Write(msg.Data)
+	if msg.Eom {
+		data := make([]byte, s.packetBuf.Len())
+		copy(data, s.packetBuf.Bytes())
+		s.packetBuf.Reset()
+		return data, true
+	}
+	return nil, false
 }
 
 func metadataToProto(md metadata.MD) *webrtcpb.Metadata {
