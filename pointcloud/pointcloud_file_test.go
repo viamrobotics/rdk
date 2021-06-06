@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	"go.viam.com/core/artifact"
@@ -77,9 +78,15 @@ func TestPCD(t *testing.T) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 -0.012000 -0.000000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 -0.006000 -0.001000 16711938\n")
 
-	cloud2, err := ReadPCD(&buf)
+	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
+
+	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
+	test.That(t, err, test.ShouldNotBeNil)
 
 }
 
