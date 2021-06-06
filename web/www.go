@@ -166,7 +166,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	return sources, names, nil
 }
 
-// grabAtCameraPositionHandler lets move a gripper towards an object
+// grabAtCameraPositionHandler moves a gripper towards an object
 type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
@@ -177,10 +177,9 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, arm arm.Arm, c
 		return err
 	}
 
-	return errors.New("please finisn doGrab")
+	return errors.New("please finish doGrab")
 }
 
-// ServeHTTP does the grabAtCameraPositionHandler
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
@@ -209,13 +208,13 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	x, err := strconv.ParseFloat(xString, 64)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("err parsing x (%s): %s", xString, err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("error parsing x (%s): %s", xString, err), http.StatusBadRequest)
 		return
 	}
 
 	y, err := strconv.ParseFloat(yString, 64)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("err parsing y (%s): %s", yString, err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("error parsing y (%s): %s", yString, err), http.StatusBadRequest)
 		return
 	}
 
