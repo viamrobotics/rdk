@@ -25,7 +25,7 @@ func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	return c.NextFunc(ctx)
 }
 
-// NextPointCloud calls the injected Next or the real version.
+// NextPointCloud calls the injected NextPointCloud or the real version.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c.NextPointCloudFunc == nil {
 		return c.Camera.NextPointCloud(ctx)
