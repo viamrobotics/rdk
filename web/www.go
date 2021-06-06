@@ -299,7 +299,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
-	mux.Handle(pat.Get("/grabAtCameraPosition/:arm/:gripper/:camera/:x/:y"), &grabAtCameraPositionHandler{app})
+	mux.Handle(pat.Get("/grab_at_camera_position/:arm/:gripper/:camera/:x/:y"), &grabAtCameraPositionHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
