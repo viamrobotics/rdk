@@ -20,7 +20,7 @@ type Watcher interface {
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
 func NewWatcher(config *Config, logger golog.Logger) (Watcher, error) {
-	if err := config.Validate(); err != nil {
+	if err := config.Validate(false); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {

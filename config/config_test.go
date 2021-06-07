@@ -95,66 +95,73 @@ func TestCreateCloudRequest(t *testing.T) {
 
 func TestConfigValidate(t *testing.T) {
 	var emptyConfig Config
-	test.That(t, emptyConfig.Validate(), test.ShouldBeNil)
+	test.That(t, emptyConfig.Validate(false), test.ShouldBeNil)
 
 	invalidCloud := Config{
 		Cloud: &Cloud{},
 	}
-	err := invalidCloud.Validate()
+	err := invalidCloud.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidCloud.Cloud.ID = "some_id"
-	err = invalidCloud.Validate()
+	err = invalidCloud.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
+	err = invalidCloud.Validate(true)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"self" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
-	test.That(t, invalidCloud.Validate(), test.ShouldBeNil)
+	test.That(t, invalidCloud.Validate(false), test.ShouldBeNil)
+	test.That(t, invalidCloud.Validate(true), test.ShouldNotBeNil)
+	invalidCloud.Cloud.Secret = ""
+	invalidCloud.Cloud.Self = "wooself"
+	test.That(t, invalidCloud.Validate(true), test.ShouldBeNil)
 
 	invalidRemotes := Config{
 		Remotes: []Remote{{}},
 	}
-	err = invalidRemotes.Validate()
+	err = invalidRemotes.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidRemotes.Remotes[0].Name = "foo"
-	err = invalidRemotes.Validate()
+	err = invalidRemotes.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"address" is required`)
 	invalidRemotes.Remotes[0].Address = "bar"
-	test.That(t, invalidRemotes.Validate(), test.ShouldBeNil)
+	test.That(t, invalidRemotes.Validate(false), test.ShouldBeNil)
 
 	invalidBoards := Config{
 		Boards: []board.Config{{}},
 	}
-	err = invalidBoards.Validate()
+	err = invalidBoards.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `boards.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidBoards.Boards[0].Name = "foo"
-	test.That(t, invalidBoards.Validate(), test.ShouldBeNil)
+	test.That(t, invalidBoards.Validate(false), test.ShouldBeNil)
 
 	invalidComponents := Config{
 		Components: []Component{{}},
 	}
-	err = invalidComponents.Validate()
+	err = invalidComponents.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidComponents.Components[0].Name = "foo"
-	test.That(t, invalidComponents.Validate(), test.ShouldBeNil)
+	test.That(t, invalidComponents.Validate(false), test.ShouldBeNil)
 
 	invalidProcesses := Config{
 		Processes: []rexec.ProcessConfig{{}},
 	}
-	err = invalidProcesses.Validate()
+	err = invalidProcesses.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 	invalidProcesses.Processes[0].ID = "bar"
-	err = invalidProcesses.Validate()
+	err = invalidProcesses.Validate(false)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses.Processes[0].Name = "foo"
-	test.That(t, invalidProcesses.Validate(), test.ShouldBeNil)
+	test.That(t, invalidProcesses.Validate(false), test.ShouldBeNil)
 }

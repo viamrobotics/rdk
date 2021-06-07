@@ -13,6 +13,9 @@ type Options struct {
 
 	// SharedDir is the location of static web assets.
 	SharedDir string
+
+	// SignalingAddress is where to listen to WebRTC call offers at.
+	SignalingAddress string
 }
 
 // NewOptions returns a default set of options which will have the

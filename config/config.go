@@ -21,9 +21,9 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (c Config) Validate() error {
+func (c Config) Validate(fromCloud bool) error {
 	if c.Cloud != nil {
-		if err := c.Cloud.Validate("cloud"); err != nil {
+		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
 			return err
 		}
 	}
@@ -90,18 +90,25 @@ func (config *Remote) Validate(path string) error {
 type Cloud struct {
 	ID              string        `json:"id"`
 	Secret          string        `json:"secret"`
+	Self            string        `json:"self"`
 	Path            string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
 	LogPath         string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
 	RefreshInterval time.Duration `json:"refresh_interval,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Cloud) Validate(path string) error {
+func (config *Cloud) Validate(path string, fromCloud bool) error {
 	if config.ID == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "id")
 	}
-	if config.Secret == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "secret")
+	if fromCloud {
+		if config.Self == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "self")
+		}
+	} else {
+		if config.Secret == "" {
+			return utils.NewConfigValidationFieldRequiredError(path, "secret")
+		}
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second

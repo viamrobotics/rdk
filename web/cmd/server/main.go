@@ -89,10 +89,15 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	nl := &netLogger{hostname: hostname, cfg: config, cancel: cancel}
+	nl := &netLogger{
+		hostname:  hostname,
+		cfg:       config,
+		cancelCtx: cancelCtx,
+		cancel:    cancel,
+	}
 	nl.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		nl.backgroundWorker(cancelCtx)
+		nl.backgroundWorker()
 	}, nl.activeBackgroundWorkers.Done)
 	return nl, nil
 }
@@ -104,6 +109,7 @@ type netLogger struct {
 	toLogMutex sync.Mutex
 	toLog      []interface{}
 
+	cancelCtx               context.Context
 	cancel                  func()
 	activeBackgroundWorkers sync.WaitGroup
 }
@@ -167,8 +173,11 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 		return errors.Errorf("error creating log request %w", err)
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
+	r = r.WithContext(nl.cancelCtx)
 
-	resp, err := http.DefaultClient.Do(r)
+	var client http.Client
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(r)
 	if err != nil {
 		return err
 	}
@@ -176,9 +185,9 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 	return nil
 }
 
-func (nl *netLogger) backgroundWorker(ctx context.Context) {
+func (nl *netLogger) backgroundWorker() {
 	for {
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(nl.cancelCtx, 100*time.Millisecond) {
 			return
 		}
 		err := nl.Sync()
@@ -342,6 +351,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.Pprof = argsParsed.WebProfile
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
+	if cfg.Cloud != nil {
+		options.SignalingAddress = cfg.Cloud.Self
+	}
 
 	err = web.RunWeb(ctx, myRobot, options, logger)
 	if err != nil {

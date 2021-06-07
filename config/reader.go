@@ -144,7 +144,9 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(cloudReq)
+	var client http.Client
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(cloudReq)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +169,9 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Cloud = cloudCfg
+	self := cfg.Cloud.Self
+	*cfg.Cloud = *cloudCfg
+	cfg.Cloud.Self = self
 	return cfg, err
 }
 
@@ -197,7 +201,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 	if err := decoder.Decode(&cfg); err != nil {
 		return nil, errors.Errorf("cannot parse config %w", err)
 	}
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.Validate(skipCloud); err != nil {
 		return nil, err
 	}
 
@@ -235,7 +239,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 		}
 	}
 
-	if err := cfg.Validate(); err != nil {
+	if err := cfg.Validate(skipCloud); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
