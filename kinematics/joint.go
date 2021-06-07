@@ -59,6 +59,11 @@ func NewJoint(dPos, dVel int, dir string) *Joint {
 	j.transform = NewTransform()
 	if dir == "ccw" {
 		j.transform.Rev = true
+	} else {
+		// The caller should validate this, but double check we were passed a valid direction
+		if dir != "cw" && dir != "" {
+			panic("Invalid joint direction")
+		}
 	}
 
 	return &j
