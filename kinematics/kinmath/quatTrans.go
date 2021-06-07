@@ -13,6 +13,9 @@ import (
 
 const radToDeg = 180 / math.Pi
 
+// If two angles differ by less than this amount, we consider them the same
+const angleEpsilon = 1e-6
+
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
 	Quat dualquat.Number
@@ -248,16 +251,17 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		}
 
 		theta := math.Acos(cosTheta)
-		if theta > 1e-6 {
+		if theta > angleEpsilon {
 			// Acos will always produce a positive number, we need to determine directionality of the angle
 			// We rotate newZ by -theta around the xyz axis and see if we wind up coplanar with local-x, global-z, origin
-			// If so theta i spositive, otherwise negative
+			// If so theta is positive, otherwise negative
+			// An R4AA is a convenient way to rotate a point by an amount around an arbitrary axis
 			aa := R4AA{-theta, xyz.Imag, xyz.Jmag, xyz.Kmag}
 			q2 := aa.ToQuat()
 			testZ := quat.Mul(quat.Mul(q2, newZ), quat.Conj(q2))
 			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
 			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
-			if 1-cosTest < 0.001 {
+			if 1-cosTest < angleEpsilon {
 				ov.Theta = theta
 			} else {
 				ov.Theta = -theta
