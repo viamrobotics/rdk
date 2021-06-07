@@ -51,7 +51,7 @@ func TestForwardKinematics(t *testing.T) {
 	m.ForwardPosition()
 	actual = poseToSlice(m.Get6dPosition(0))
 
-	expect = []float64{258.0935, -258.0935, 360.25, 0.7854, 0.707, -0.707, 0}
+	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	// Test the 6dof arm we actually have

@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/mat"
@@ -58,7 +59,7 @@ func (m *Model) Get6dPosition(idx int) *pb.ArmPosition {
 
 	// Get R4 angle axis angles
 	poseOV := kinmath.QuatToOV(quat.Real)
-	pose6d.Theta = poseOV.Theta
+	pose6d.Theta = utils.RadToDeg(poseOV.Theta)
 	pose6d.OX = poseOV.OX
 	pose6d.OY = poseOV.OY
 	pose6d.OZ = poseOV.OZ
