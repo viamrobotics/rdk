@@ -125,8 +125,13 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			// TODO(pl): Add speed, wraparound, etc
 			frameA := id2frame[joint.Parent]
 			frameB := id2frame[joint.ID]
+			dir := joint.Direction
+			// Check for valid joint direction
+			if dir != "" && dir != "cw" && dir != "ccw" {
+				return nil, errors.Errorf("unsupported joint direction: %s", dir)
+			}
 
-			rev := NewJoint(1, 1, joint.Direction)
+			rev := NewJoint(1, 1, dir)
 			rev.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 			model.Edges[rev.GetEdgeDescriptor()] = rev
 
