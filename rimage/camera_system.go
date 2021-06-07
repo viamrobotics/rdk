@@ -48,6 +48,9 @@ func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
 	if !ii.IsAligned() {
 		return nil, errors.New("input ImageWithDepth is not aligned")
 	}
+	if ii.Depth == nil {
+		return nil, errors.New("no depth")
+	}
 	pc := pointcloud.New()
 	height := ii.Height()
 	width := ii.Width()

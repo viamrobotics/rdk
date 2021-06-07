@@ -61,7 +61,8 @@ func TestWarpPointsTo3D(t *testing.T) {
 		OutputSize:      image.Point{448, 342},
 	}
 	testPoint := image.Point{0, 0}
-	assertTo3DPanic(t, iwd, testPoint)
+	_, err = iwd.To3D(testPoint)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -70,18 +71,11 @@ func TestWarpPointsTo3D(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, true)
 	// test out To3D
-	vec := iwd.To3D(testPoint)
+	vec, err := iwd.To3D(testPoint)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
 	// out of bounds - panic
 	testPoint = image.Point{iwd.Width(), iwd.Height()}
-	assertTo3DPanic(t, iwd, testPoint)
-}
-
-func assertTo3DPanic(t *testing.T, iwd *rimage.ImageWithDepth, point image.Point) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("The code did not panic")
-		}
-	}()
-	iwd.To3D(point)
+	_, err = iwd.To3D(testPoint)
+	test.That(t, err, test.ShouldNotBeNil)
 }

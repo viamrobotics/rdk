@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -903,6 +904,35 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 		test.That(t, released, test.ShouldBeTrue)
+	})
+
+	t.Run("PointCloud", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		injectCamera := &inject.Camera{}
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+			return injectCamera
+		}
+		err1 := errors.New("whoops")
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return nil, err1
+		}
+		_, err := server.PointCloud(context.Background(), &pb.PointCloudRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		pcA := pointcloud.New()
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return pcA, nil
+		}
+		_, err = server.PointCloud(context.Background(), &pb.PointCloudRequest{
+			Name: "camera1",
+		})
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("Lidar", func(t *testing.T) {

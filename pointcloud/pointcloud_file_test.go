@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"strings"
 	"testing"
 
 	"go.viam.com/core/artifact"
@@ -47,6 +48,7 @@ func TestPCD(t *testing.T) {
 	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
 	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
+	test.That(t, cloud.Size(), test.ShouldEqual, 3)
 	/*
 		The expected string is below, cannot do direct comparison because maps print out in random order.
 		"VERSION .7\n" +
@@ -75,6 +77,17 @@ func TestPCD(t *testing.T) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 0.002000 -0.005000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 -0.012000 -0.000000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 -0.006000 -0.001000 16711938\n")
+
+	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
+
+	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {
@@ -105,4 +118,12 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	nextCloud, err := NewFromFile(temp.Name(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, nextCloud, test.ShouldResemble, cloud)
+}
+
+func TestPCDColor(t *testing.T) {
+	c := color.NRGBA{5, 31, 123, 255}
+	p := NewColoredPoint(0, 0, 0, c)
+	x := _colorToPCDInt(p)
+	c2 := _pcdIntToColor(x)
+	test.That(t, c, test.ShouldResemble, c2)
 }

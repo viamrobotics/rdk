@@ -3,10 +3,12 @@ package fake
 import (
 	"context"
 	"image"
+	"image/color"
 
 	"github.com/edaniels/golog"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -30,6 +32,12 @@ func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	img := image.NewNRGBA(image.Rect(0, 0, 1024, 1024))
 	img.Set(16, 16, rimage.Red)
 	return img, func() {}, nil
+}
+
+// NextPointCloud always returns a pointcloud with a single pixel
+func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	pc := pointcloud.New()
+	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
 }
 
 // Close does nothing.
