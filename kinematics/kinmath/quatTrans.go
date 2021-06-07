@@ -13,6 +13,9 @@ import (
 
 const radToDeg = 180 / math.Pi
 
+// If two angles differ by less than this amount, we consider them the same
+const angleEpsilon = 1e-6
+
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
 	Quat dualquat.Number
@@ -225,36 +228,54 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	ov.OY = xyz.Jmag
 	ov.OZ = xyz.Kmag
 
-	// Get the vector normal to the local-x, global-z, origin plane
-	v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
-	v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
-	norm1 := v1.Cross(v2)
+	if math.Abs(xyz.Kmag) == 1 {
+		// Special case for when we point directly along the Z axis
+		// Get the vector normal to the local-x, global-z, origin plane
+		ov.Theta = math.Atan2(-newZ.Jmag, -newZ.Imag)
+	} else {
+		v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
+		v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
+		norm1 := v1.Cross(v2)
 
-	// Get the vector normal to the local-x, local-z, origin plane
-	v3 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
-	v4 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
-	norm2 := v3.Cross(v4)
+		// Get the vector normal to the local-x, local-z, origin plane
+		norm2 := v1.Cross(mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag})
 
-	// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
-	numerator := norm1.X()*norm2.X() + norm1.Y()*norm2.Y() + norm1.Z()*norm2.Z()
-	denom1 := math.Sqrt(norm1.X()*norm1.X() + norm1.Y()*norm1.Y() + norm1.Z()*norm1.Z())
-	denom2 := math.Sqrt(norm2.X()*norm2.X() + norm2.Y()*norm2.Y() + norm2.Z()*norm2.Z())
-	cosTheta := numerator / (denom1 * denom2)
-	// Account for floating point error
-	if cosTheta > 1 {
-		cosTheta = 1
+		// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
+		cosTheta := norm1.Dot(norm2) / (norm1.Len() * norm2.Len())
+		// Account for floating point error
+		if cosTheta > 1 {
+			cosTheta = 1
+		}
+		if cosTheta < -1 {
+			cosTheta = -1
+		}
+
+		theta := math.Acos(cosTheta)
+		if theta > angleEpsilon {
+			// Acos will always produce a positive number, we need to determine directionality of the angle
+			// We rotate newZ by -theta around the xyz axis and see if we wind up coplanar with local-x, global-z, origin
+			// If so theta is positive, otherwise negative
+			// An R4AA is a convenient way to rotate a point by an amount around an arbitrary axis
+			aa := R4AA{-theta, xyz.Imag, xyz.Jmag, xyz.Kmag}
+			q2 := aa.ToQuat()
+			testZ := quat.Mul(quat.Mul(q2, newZ), quat.Conj(q2))
+			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
+			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
+			if 1-cosTest < angleEpsilon {
+				ov.Theta = theta
+			} else {
+				ov.Theta = -theta
+			}
+		} else {
+			ov.Theta = 0
+		}
 	}
-	if cosTheta < -1 {
-		cosTheta = -1
-	}
-	ov.Theta = math.Acos(cosTheta)
 
 	return ov
 }
 
 // OVToQuat converts an orientation vector to a quaternion.
 func OVToQuat(ov *OrientationVec) quat.Number {
-
 	q := quat.Number{}
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
 	lat := -math.Pi/2 + math.Acos(ov.OZ)
@@ -263,7 +284,7 @@ func OVToQuat(ov *OrientationVec) quat.Number {
 	lon := 0.0
 	if ov.OX == -1 {
 		lon = math.Pi
-	} else if ov.OY != 0 || ov.OX != 0 {
+	} else if ov.OZ != 1 && ov.OZ != -1 {
 		// atan x/y removes some sign information so we use atan2 to do it properly
 		lon = math.Atan2(ov.OY, ov.OX)
 	}
