@@ -37,6 +37,7 @@ type AlignConfig struct {
 
 	WarpFromCommon bool
 	OutputSize     image.Point
+	OutputOrigin   image.Point
 }
 
 // ComputeWarpFromCommon TODO
