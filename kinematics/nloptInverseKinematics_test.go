@@ -30,7 +30,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	solved := ik.Solve()
 	test.That(t, solved, test.ShouldBeTrue)
 
-	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, Theta: 3.92, OX: -0.46, OY: 0.84, OZ: 0.28}
+	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
 	transform = kinmath.NewQuatTransFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)

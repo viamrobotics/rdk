@@ -12,6 +12,7 @@ import (
 )
 
 const radToDeg = 180 / math.Pi
+const degToRad = math.Pi / 180
 
 // If two angles differ by less than this amount, we consider them the same
 const angleEpsilon = 1e-6
@@ -62,7 +63,7 @@ func NewQuatTransFromRotation(ov *OrientationVec) *QuatTrans {
 // NewQuatTransFromArmPos returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
 // arm position.
 func NewQuatTransFromArmPos(pos *pb.ArmPosition) *QuatTrans {
-	q := NewQuatTransFromRotation(&OrientationVec{pos.Theta, pos.OX, pos.OY, pos.OZ})
+	q := NewQuatTransFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }
