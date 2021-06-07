@@ -20,6 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
@@ -229,14 +230,30 @@ func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*
 	return &pb.GripperGrabResponse{Grabbed: grabbed}, nil
 }
 
-const (
-	mimeTypeViamBest = "image/viambest"
-	mimeTypeRawIWD   = "image/raw-iwd"
-	mimeTypeRawRGBA  = "image/raw-rgba"
-	mimeTypeBoth     = "image/both"
-	mimeTypeJPEG     = "image/jpeg"
-	mimeTypePNG      = "image/png"
-)
+// PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
+// can be requested but may not necessarily be the same one returned.
+func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb.PointCloudResponse, error) {
+	camera := s.r.CameraByName(req.Name)
+	if camera == nil {
+		return nil, errors.Errorf("no camera with name (%s)", req.Name)
+	}
+
+	pc, err := camera.NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	err = pc.ToPCD(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.PointCloudResponse{
+		MimeType: grpc.MimeTypePCD,
+		Frame:    buf.Bytes(),
+	}, nil
+}
 
 // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
@@ -253,12 +270,12 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 	defer release()
 
 	// choose the best/fastest representation
-	if req.MimeType == mimeTypeViamBest {
+	if req.MimeType == grpc.MimeTypeViamBest {
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if ok && iwd.Depth != nil && iwd.Color != nil {
-			req.MimeType = mimeTypeRawIWD
+			req.MimeType = grpc.MimeTypeRawIWD
 		} else {
-			req.MimeType = mimeTypeRawRGBA
+			req.MimeType = grpc.MimeTypeRawRGBA
 		}
 	}
 
@@ -271,41 +288,41 @@ func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*
 
 	var buf bytes.Buffer
 	switch req.MimeType {
-	case mimeTypeRawRGBA:
-		resp.MimeType = mimeTypeRawRGBA
+	case grpc.MimeTypeRawRGBA:
+		resp.MimeType = grpc.MimeTypeRawRGBA
 		imgCopy := image.NewRGBA(bounds)
 		draw.Draw(imgCopy, bounds, img, bounds.Min, draw.Src)
 		buf.Write(imgCopy.Pix)
-	case mimeTypeRawIWD:
-		resp.MimeType = mimeTypeRawIWD
+	case grpc.MimeTypeRawIWD:
+		resp.MimeType = grpc.MimeTypeRawIWD
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", mimeTypeRawIWD, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeRawIWD, iwd)
 		}
 		err := iwd.RawBytesWrite(&buf)
 		if err != nil {
-			return nil, errors.Errorf("error writing %s: %w", mimeTypeRawIWD, err)
+			return nil, errors.Errorf("error writing %s: %w", grpc.MimeTypeRawIWD, err)
 		}
 
-	case mimeTypeBoth:
-		resp.MimeType = mimeTypeBoth
+	case grpc.MimeTypeBoth:
+		resp.MimeType = grpc.MimeTypeBoth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", mimeTypeBoth, iwd)
+			return nil, errors.Errorf("want %s but don't have %T", grpc.MimeTypeBoth, iwd)
 		}
 		if iwd.Color == nil || iwd.Depth == nil {
-			return nil, errors.Errorf("for %s need depth and color info", mimeTypeBoth)
+			return nil, errors.Errorf("for %s need depth and color info", grpc.MimeTypeBoth)
 		}
 		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
-	case mimeTypeJPEG:
-		resp.MimeType = mimeTypeJPEG
+	case grpc.MimeTypeJPEG:
+		resp.MimeType = grpc.MimeTypeJPEG
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
-	case "", mimeTypePNG:
-		resp.MimeType = mimeTypePNG
+	case "", grpc.MimeTypePNG:
+		resp.MimeType = grpc.MimeTypePNG
 		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
 		}

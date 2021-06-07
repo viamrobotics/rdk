@@ -2,7 +2,9 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"math"
 	"runtime/debug"
@@ -17,7 +19,9 @@ import (
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
+	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
@@ -787,23 +791,39 @@ type cameraClient struct {
 func (cc *cameraClient) Next(ctx context.Context) (image.Image, func(), error) {
 	resp, err := cc.rc.client.CameraFrame(ctx, &pb.CameraFrameRequest{
 		Name:     cc.name,
-		MimeType: "image/viambest",
+		MimeType: grpc.MimeTypeViamBest,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
 	switch resp.MimeType {
-	case "image/raw-rgba":
+	case grpc.MimeTypeRawRGBA:
 		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
 		img.Pix = resp.Frame
 		return img, func() {}, nil
-	case "image/raw-iwd":
+	case grpc.MimeTypeRawIWD:
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
 		return img, func() {}, err
 	default:
 		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}
 
+}
+
+func (cc *cameraClient) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	resp, err := cc.rc.client.PointCloud(ctx, &pb.PointCloudRequest{
+		Name:     cc.name,
+		MimeType: grpc.MimeTypePCD,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.MimeType != grpc.MimeTypePCD {
+		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+	}
+
+	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
 func (cc *cameraClient) Close() error {

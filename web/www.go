@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -18,10 +19,12 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/arm"
+	"go.viam.com/core/camera"
+	"go.viam.com/core/gripper"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/utils"
@@ -163,6 +166,67 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	return sources, names, nil
 }
 
+// grabAtCameraPositionHandler moves a gripper towards an object
+type grabAtCameraPositionHandler struct {
+	app *robotWebApp
+}
+
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, arm arm.Arm, camera camera.Camera, gripper gripper.Gripper, x, y float64) error {
+	_, err := camera.NextPointCloud(ctx)
+	if err != nil {
+		return err
+	}
+
+	return errors.New("please finish doGrab")
+}
+
+func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
+
+	arm := h.app.theRobot.ArmByName(pat.Param(r, "arm"))
+	if arm == nil {
+		http.NotFound(w, r)
+		return
+	}
+	camera := h.app.theRobot.CameraByName(pat.Param(r, "camera"))
+	if camera == nil {
+		http.NotFound(w, r)
+		return
+	}
+	gripper := h.app.theRobot.GripperByName(pat.Param(r, "gripper"))
+	if camera == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	xString := pat.Param(r, "x")
+	yString := pat.Param(r, "y")
+	if xString == "" || yString == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	x, err := strconv.ParseFloat(xString, 64)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error parsing x (%s): %s", xString, err), http.StatusBadRequest)
+		return
+	}
+
+	y, err := strconv.ParseFloat(yString, 64)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error parsing y (%s): %s", yString, err), http.StatusBadRequest)
+		return
+	}
+
+	err = h.doGrab(ctx, arm, camera, gripper, x, y)
+	if err != nil {
+		h.app.logger.Errorf("error grabbing: %s", err)
+		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+}
+
 // pcdHandler helps serve PCD (point cloud data) files.
 type pcdHandler struct {
 	app *robotWebApp
@@ -178,18 +242,10 @@ func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-
-	img, closer, err := cam.Next(ctx)
+	pc, err := cam.NextPointCloud(ctx)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("error reading camera: %s", err), http.StatusInternalServerError)
-		return
-	}
-	defer closer()
-
-	iwd := rimage.ConvertToImageWithDepth(img)
-	pc, err := iwd.ToPointCloud()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("error converting image to pointcloud: %s", err), http.StatusInternalServerError)
+		h.app.logger.Errorf("error getting pointcloud: %s", err)
+		http.Error(w, fmt.Sprintf("error getting pointcloud: %s", err), http.StatusInternalServerError)
 		return
 	}
 	err = pc.ToPCD(w)
@@ -243,6 +299,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
+	mux.Handle(pat.Get("/grab_at_camera_position/:arm/:gripper/:camera/:x/:y"), &grabAtCameraPositionHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
