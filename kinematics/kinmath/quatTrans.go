@@ -238,7 +238,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		norm2 := v1.Cross(mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag})
 
 		// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
-		cosTheta := norm1.Dot(norm2)
+		cosTheta := norm1.Dot(norm2)/(norm1.Len()*norm2.Len())
 		// Account for floating point error
 		if cosTheta > 1 {
 			cosTheta = 1
@@ -256,7 +256,8 @@ func QuatToOV(q quat.Number) *OrientationVec {
 			q2 := aa.ToQuat()
 			testZ := quat.Mul(quat.Mul(q2, newZ), quat.Conj(q2))
 			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
-			if 1-norm1.Dot(norm3) < 0.001 {
+			cosTest := norm1.Dot(norm3)/(norm1.Len()*norm3.Len())
+			if 1-cosTest < 0.001 {
 				ov.Theta = theta
 			} else {
 				ov.Theta = -theta
