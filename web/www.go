@@ -341,10 +341,11 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 		return err
 	}
 
-	rpcServer, err := rpcserver.NewWithOptions(
-		rpcserver.Options{WebRTC: rpcserver.WebRTCOptions{Enable: true}},
-		logger,
-	)
+	rpcOpts := rpcserver.Options{WebRTC: rpcserver.WebRTCOptions{
+		Enable:           true,
+		SignalingAddress: options.SignalingAddress,
+	}}
+	rpcServer, err := rpcserver.NewWithOptions(rpcOpts, logger)
 	if err != nil {
 		return err
 	}
@@ -401,12 +402,12 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 			}
 		}()
 		if err := rpcServer.Stop(); err != nil {
-			theRobot.Logger().Errorw("error stopping", "error", err)
+			theRobot.Logger().Errorw("error stopping rpc server", "error", err)
 		}
 	})
 	utils.PanicCapturingGo(func() {
 		if err := rpcServer.Start(); err != nil {
-			theRobot.Logger().Errorw("error starting", "error", err)
+			theRobot.Logger().Errorw("error starting rpc server", "error", err)
 		}
 	})
 
