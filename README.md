@@ -16,7 +16,7 @@
 * [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
 * [web/cmd/server](./web/cmd/server) - Run a robot server
 * [rpc/examples/echo/server](./rpc/examples/echo/server) - Run a gRPC echo example server
-* [rpc/examples/echo/webrtcclient](./rpc/examples/echo/webrtcclient) - Run a gRPC echo example client over WebRTC
+* [rpc/examples/echo/client](./rpc/examples/echo/client) - Run a gRPC echo example client
 * [sensor/compass/cmd/client](./sensor/compass/cmd/client) - Run a general WebSocket compass
 * [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
 * [sensor/compass/lidar/cmd/client](./sensor/compass/lidar/cmd/client) - Run a LIDAR based compass
