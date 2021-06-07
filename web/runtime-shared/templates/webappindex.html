@@ -212,6 +212,7 @@
                   },
                   renderPCD : function(cameraName) {
                       initPCDIfNeeded();
+                      pcdGlobal.cameraName = cameraName;
 
                       pcdLoad("/cameras/" + cameraName + "/data.pcd");
                       
@@ -228,36 +229,27 @@
                       }
                       return false;
                   },
-                  haveGrabFromPicture : function() {
-                      if (!theData.status.armsMap || theData.status.armsMap.length != 1) {
-                          return false;
-                      }
-
-                      if (!theData.status.grippersMap || theData.status.grippersMap.length != 1) {
-                          return false;
-                      }
-                      
-                      for ( var x in theData.status.camerasMap) {
-                          var cam = theData.status.camerasMap[x];
-                          if (cam[0] == "combined") {
-                              return true;
-                          }
-                      }
-
-                      return false;
-                  },
                   grabClick : function(e) {
-                      var x = e.offsetX / e.srcElement.offsetWidth;
-                      var y = e.offsetY / e.srcElement.offsetHeight;
-
+                      var mouse = new THREE.Vector2();
+                      mouse.x = ((e.offsetX / e.srcElement.offsetWidth) * 2) - 1
+                      mouse.y = ((e.offsetY / e.srcElement.offsetHeight) * -2) + 1
+                      
+	                  pcdGlobal.raycaster.setFromCamera( mouse, pcdGlobal.camera );
+                      
+	                  var intersects = pcdGlobal.raycaster.intersectObjects( pcdGlobal.scene.children );
+                      var p = intersects[0];
+                      //console.log(p);
+                      console.log(p.point);
+                      
                       var path = "/grab_at_camera_position/"
-                          + theData.status.armsMap[0].name + "/"
-                          + theData.status.grippersMap[0][0] + "/" 
-                          + "combined/" // TODO(erh): hard coded
-                          + x + "/" + y;
+                          + pcdGlobal.cameraName + "/"
+                          + p.point.x + "/" + p.point.y + "/" + p.point.z;
 
+                      console.log(path);
+                      
                       fetch(path).then(console.log);
                   }
+
               }
           })
 
@@ -321,6 +313,7 @@
               scene : new THREE.Scene(),
               camera : new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .1, 2000 ),
               renderer : new THREE.WebGLRenderer(),
+              raycaster : new THREE.Raycaster(),
           };
 
           pcdGlobal.renderer.setSize( window.innerWidth / 2, window.innerHeight / 2 );
@@ -573,15 +566,11 @@
           <td><button v-on:click="doSensorReadings(sensor[0])">Get Readings</button></td>
         </tr>
       </table>
-
-      <div v-if="haveGrabFromPicture()">
-        <img width="600" src="/api/v1/camera/combined/render_frame" v-on:click="grabClick"/>
-      </div>
       
       <div>${res}</div>
-    </div> <!-- end vue app -->
 
-    <div id="pcd"/>
+      <div id="pcd" v-on:click="grabClick"/>
+    </div> <!-- end vue app -->
     
   </body>
 </html>

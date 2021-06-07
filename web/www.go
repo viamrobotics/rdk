@@ -19,9 +19,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/arm"
 	"go.viam.com/core/camera"
-	"go.viam.com/core/gripper"
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
@@ -171,29 +169,14 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, arm arm.Arm, camera camera.Camera, gripper gripper.Gripper, x, y float64) error {
-	_, err := camera.NextPointCloud(ctx)
-	if err != nil {
-		return err
-	}
-
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, camera camera.Camera, x, y, z float64) error {
 	return errors.New("please finish doGrab")
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	arm := h.app.theRobot.ArmByName(pat.Param(r, "arm"))
-	if arm == nil {
-		http.NotFound(w, r)
-		return
-	}
 	camera := h.app.theRobot.CameraByName(pat.Param(r, "camera"))
-	if camera == nil {
-		http.NotFound(w, r)
-		return
-	}
-	gripper := h.app.theRobot.GripperByName(pat.Param(r, "gripper"))
 	if camera == nil {
 		http.NotFound(w, r)
 		return
@@ -201,7 +184,8 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 	xString := pat.Param(r, "x")
 	yString := pat.Param(r, "y")
-	if xString == "" || yString == "" {
+	zString := pat.Param(r, "z")
+	if xString == "" || yString == "" || zString == "" {
 		http.NotFound(w, r)
 		return
 	}
@@ -218,7 +202,13 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = h.doGrab(ctx, arm, camera, gripper, x, y)
+	z, err := strconv.ParseFloat(zString, 64)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error parsing z (%s): %s", zString, err), http.StatusBadRequest)
+		return
+	}
+
+	err = h.doGrab(ctx, camera, x, y, z)
 	if err != nil {
 		h.app.logger.Errorf("error grabbing: %s", err)
 		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)
@@ -299,7 +289,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 	}
 
 	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
-	mux.Handle(pat.Get("/grab_at_camera_position/:arm/:gripper/:camera/:x/:y"), &grabAtCameraPositionHandler{app})
+	mux.Handle(pat.Get("/grab_at_camera_position/:camera/:x/:y/:z"), &grabAtCameraPositionHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)
 
