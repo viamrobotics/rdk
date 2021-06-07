@@ -45,7 +45,7 @@ type Joint struct {
 }
 
 // NewJoint TODO
-func NewJoint(dPos, dVel int) *Joint {
+func NewJoint(dPos, dVel int, dir string) *Joint {
 	j := Joint{}
 	j.dofPosition = dPos
 	j.dofVelocity = dVel
@@ -57,6 +57,14 @@ func NewJoint(dPos, dVel int) *Joint {
 	j.positionD = make([]float64, dVel)
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
+	if dir == "ccw" {
+		j.transform.Rev = true
+	} else {
+		// The caller should validate this, but double check we were passed a valid direction
+		if dir != "cw" && dir != "" {
+			panic("Invalid joint direction")
+		}
+	}
 
 	return &j
 }
