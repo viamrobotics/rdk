@@ -48,7 +48,7 @@
                   "DepthWarpPoints" : [ { "X" : 89, "Y" : 109}, { "X" : 206, "Y" : 132 } ],
                   "WarpFromCommon" : true,
                   "OutputSize" : { "X" : 448, "Y" : 342 },
-                  "Smooth" : false
+                  "OutputOrigin" : { "X" : 227, "Y" : 160 }
               }
           }
         },

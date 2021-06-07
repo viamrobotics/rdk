@@ -24,6 +24,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 		DepthInputSize:  image.Point{224, 171},
 		DepthWarpPoints: []image.Point{{89, 109}, {206, 132}},
 		OutputSize:      image.Point{448, 342},
+		OutputOrigin:    image.Point{227, 160},
 	}
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -59,6 +60,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 		DepthInputSize:  image.Point{224, 171},
 		DepthWarpPoints: []image.Point{{89, 109}, {206, 132}},
 		OutputSize:      image.Point{448, 342},
+		OutputOrigin:    image.Point{227, 160},
 	}
 	testPoint := image.Point{0, 0}
 	_, err = iwd.To3D(testPoint)
@@ -70,8 +72,13 @@ func TestWarpPointsTo3D(t *testing.T) {
 	iwd, err = dct.AlignImageWithDepth(iwd)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, true)
+	// Check to see if the origin point on the pointcloud transformed correctly
+	vec, err := dct.ImagePointTo3DPoint(config.OutputOrigin, iwd)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vec.X, test.ShouldEqual, 0.0)
+	test.That(t, vec.Y, test.ShouldEqual, 0.0)
 	// test out To3D
-	vec, err := iwd.To3D(testPoint)
+	vec, err = iwd.To3D(testPoint)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
 	// out of bounds - panic

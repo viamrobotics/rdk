@@ -29,7 +29,8 @@ func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, ii *
 	if !(point.In(ii.Bounds())) {
 		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", point.X, point.Y, ii.Width(), ii.Height())
 	}
-	return r3.Vector{float64(point.X), float64(point.Y), float64(ii.Depth.Get(point))}, nil
+	i, j := float64(point.X-dct.OutputOrigin.X), float64(point.Y-dct.OutputOrigin.Y)
+	return r3.Vector{i, j, float64(ii.Depth.Get(point))}, nil
 }
 
 // ImageWithDepthToPointCloud TODO
@@ -59,7 +60,8 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 			}
 			c := iwd.Color.GetXY(x, y)
 			r, g, b := c.RGB255()
-			err := pc.Set(pointcloud.NewColoredPoint(float64(x), float64(y), float64(z), color.NRGBA{r, g, b, 255}))
+			i, j := float64(x-dct.OutputOrigin.X), float64(y-dct.OutputOrigin.Y)
+			err := pc.Set(pointcloud.NewColoredPoint(i, j, float64(z), color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}
