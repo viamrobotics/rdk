@@ -8,7 +8,7 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/adrianmo/go-nmea v1.3.0
-	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e // indirect
+	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
@@ -39,6 +39,7 @@ require (
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/miekg/dns v1.1.35
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
