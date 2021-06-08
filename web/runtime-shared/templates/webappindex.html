@@ -239,10 +239,14 @@
                       var p = intersects[0];
                       //console.log(p);
                       console.log(p.point);
+
+                      var r = function(n) {
+                          return Math.round(n*1000);
+                      }
                       
                       var path = "/grab_at_camera_position/"
                           + pcdGlobal.cameraName + "/"
-                          + p.point.x + "/" + p.point.y + "/" + p.point.z;
+                          + r(p.point.x) + "/" + r(p.point.y) + "/" + r(p.point.z);
 
                       console.log(path);
                       

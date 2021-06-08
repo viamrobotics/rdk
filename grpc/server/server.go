@@ -65,6 +65,35 @@ func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusRes
 	return &pb.StatusResponse{Status: status}, nil
 }
 
+// Config returns the robot's underlying config.
+func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigResponse, error) {
+	cfg, err := s.r.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &pb.ConfigResponse{}
+	for _, c := range cfg.Components {
+		cc := &pb.ComponentConfig{
+			Name:   c.Name,
+			Type:   string(c.Type),
+			Parent: c.Parent,
+			Translation: &pb.ArmPosition{
+				X:     c.ParentTranslation.X,
+				Y:     c.ParentTranslation.Y,
+				Z:     c.ParentTranslation.Z,
+				OX:    c.ParentOrientation.X,
+				OY:    c.ParentOrientation.Y,
+				OZ:    c.ParentOrientation.Z,
+				Theta: c.ParentOrientation.TH,
+			},
+		}
+		resp.Components = append(resp.Components, cc)
+	}
+
+	return resp, nil
+}
+
 const defaultStreamInterval = 1 * time.Second
 
 // StatusStream periodically sends the robot's status.

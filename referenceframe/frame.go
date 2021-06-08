@@ -1,70 +1,115 @@
 package referenceframe
 
 import (
+	"context"
 	"fmt"
+
+	"gonum.org/v1/gonum/num/dualquat"
+
 	"go.viam.com/core/kinematics/kinmath"
+	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 )
 
-type Position struct {
-	X, Y, Z int64 // millimeters
+// OffsetAdd takes two offsets and computes the final position
+func OffsetAdd(a, b *pb.ArmPosition) *pb.ArmPosition {
+	q1 := kinmath.NewQuatTransFromArmPos(a)
+	q2 := kinmath.NewQuatTransFromArmPos(b)
+	q3 := q1.Transformation(q2.Quat)
+	final := &pb.ArmPosition{}
+	cartQuat := dualquat.Mul(q3, dualquat.Conj(q3))
+	final.X = cartQuat.Dual.Imag
+	final.Y = cartQuat.Dual.Jmag
+	final.Z = cartQuat.Dual.Kmag
+	poseOV := kinmath.QuatToOV(q3.Real)
+	final.Theta = utils.RadToDeg(poseOV.Theta)
+	final.OX = poseOV.OX
+	final.OY = poseOV.OY
+	final.OZ = poseOV.OZ
+
+	return final
 }
 
-type Rotation struct {
-	Rx, Ry, Rz float64 // degrees
-}
-
-type Offset struct {
-	Translation Position
-	MyRotation  Rotation
-}
-
-func (o Offset) UnProject(p Position) Position {
-	q := kinmath.NewQuatTransFromRotation(o.MyRotation.Rx, o.MyRotation.Ry, o.MyRotation.Rz)
-	q.SetX(float64(o.Translation.X))
-	q.SetY(float64(o.Translation.Y))
-	q.SetZ(float64(o.Translation.Z))
-
-	fmt.Printf("hi %#v\n", q)
-	
-	panic(1)
-}
-
+// Frame represents a single reference frame, e.g. an arm
 type Frame interface {
 	Name() string
-	NumChildren() int
-	ChildFrame(n int) Frame
-	ChildOffset(n int) Offset
+	Parent() string
+	OffsetToParent(ctx context.Context) (*pb.ArmPosition, error)
 }
 
-func FindTranslation(from, to Frame) (Offset, error) {
-	panic(1)
+// FrameLookup is a way to find frames from some source
+type FrameLookup interface {
+	// FindFrame will find frame with name, or return nil if it can't find it
+	FindFrame(name string) Frame
+}
+
+// FindTranslationChildToParent finds the path from one frame to other and computes the translation
+func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, childName, parentName string) (*pb.ArmPosition, error) {
+	offsets := []*pb.ArmPosition{}
+	for {
+
+		child := lookup.FindFrame(childName)
+		if child == nil {
+			return nil, fmt.Errorf("could not find frame: %s", childName)
+		}
+
+		myoffset, err := child.OffsetToParent(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		if myoffset != nil {
+			// if the offset is nil, we assume it has no impact
+			offsets = append(offsets, myoffset)
+		}
+
+		if childName == parentName {
+			break
+		}
+
+		childName = child.Parent()
+	}
+
+	offset := &pb.ArmPosition{}
+	for i := 0; i < len(offsets); i++ {
+		offset = OffsetAdd(offset, offsets[len(offsets)-1-i])
+	}
+	return offset, nil
 }
 
 // ------
 
+// NewBasicFrame creates a simple immutable frame
+func NewBasicFrame(name, parent string, offset *pb.ArmPosition) Frame {
+	return &basicFrame{name, parent, offset}
+}
+
 type basicFrame struct {
-	name     string
-	children []Frame
-	offsets  []Offset
+	name   string
+	parent string
+	offset *pb.ArmPosition
 }
 
 func (f *basicFrame) Name() string {
 	return f.name
 }
 
-func (f *basicFrame) NumChildren() int {
-	return len(f.children)
+func (f *basicFrame) Parent() string {
+	return f.parent
 }
 
-func (f *basicFrame) ChildFrame(n int) Frame {
-	return f.children[n]
+func (f *basicFrame) OffsetToParent(ctx context.Context) (*pb.ArmPosition, error) {
+	return f.offset, nil
 }
 
-func (f *basicFrame) ChildOffset(n int) Offset {
-	return f.offsets[n]
+// ------
+
+type basicFrameMap map[string]Frame
+
+func (m *basicFrameMap) FindFrame(name string) Frame {
+	return (*m)[name]
 }
 
-func (f *basicFrame) AddChild(newF Frame, off Offset) {
-	f.children = append(f.children, newF)
-	f.offsets = append(f.offsets, off)
+func (m *basicFrameMap) add(f Frame) {
+	(*m)[f.Name()] = f
 }
