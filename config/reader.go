@@ -170,8 +170,10 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 		return nil, err
 	}
 	self := cfg.Cloud.Self
+	signalingAddress := cfg.Cloud.SignalingAddress
 	*cfg.Cloud = *cloudCfg
 	cfg.Cloud.Self = self
+	cfg.Cloud.SignalingAddress = signalingAddress
 	return cfg, err
 }
 

@@ -749,7 +749,7 @@ func TestClientReferesh(t *testing.T) {
 	client, err := NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur},
+		RobotClientOptions{RefreshEvery: dur, Insecure: true},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -779,7 +779,7 @@ func TestClientReferesh(t *testing.T) {
 	client, err = NewClientWithOptions(
 		context.Background(),
 		listener.Addr().String(),
-		RobotClientOptions{RefreshEvery: dur},
+		RobotClientOptions{RefreshEvery: dur, Insecure: true},
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -832,8 +832,7 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	client2, err := NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	// 2 times of 1. WebRTC connection 2. Direct gRPC connection.
-	test.That(t, td.dialCalled, test.ShouldEqual, 4)
+	test.That(t, td.dialCalled, test.ShouldEqual, 2)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)

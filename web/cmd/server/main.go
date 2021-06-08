@@ -352,7 +352,10 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 	if cfg.Cloud != nil {
-		options.SignalingAddress = cfg.Cloud.Self
+		options.Name = cfg.Cloud.Self
+		options.SignalingAddress = cfg.Cloud.SignalingAddress
+	} else {
+		options.Insecure = true
 	}
 
 	err = web.RunWeb(ctx, myRobot, options, logger)

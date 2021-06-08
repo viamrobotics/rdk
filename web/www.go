@@ -342,8 +342,10 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 	}
 
 	rpcOpts := rpcserver.Options{WebRTC: rpcserver.WebRTCOptions{
-		Enable: true,
-		// SignalingAddress: options.SignalingAddress,
+		Enable:           true,
+		Insecure:         options.Insecure,
+		SignalingAddress: options.SignalingAddress,
+		SignalingHost:    options.Name,
 	}}
 	rpcServer, err := rpcserver.NewWithOptions(rpcOpts, logger)
 	if err != nil {
