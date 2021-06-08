@@ -1,0 +1,10 @@
+{
+    "components": [
+        {
+            "model": "xArm6",
+            "name": "pieceArm",
+            "type": "arm",
+            "host" : "10.0.0.99"
+        }
+    ]
+}
