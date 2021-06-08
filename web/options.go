@@ -16,6 +16,12 @@ type Options struct {
 
 	// SignalingAddress is where to listen to WebRTC call offers at.
 	SignalingAddress string
+
+	// Name is the FQDN of this host.
+	Name string
+
+	// Insecure determines if communications are expected to be insecure or not.
+	Insecure bool
 }
 
 // NewOptions returns a default set of options which will have the

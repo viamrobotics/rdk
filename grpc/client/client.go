@@ -72,8 +72,9 @@ type RobotClientOptions struct {
 	// RefreshEvery is how often to refresh the status/parts of the
 	// robot. If unset, it will not be refreshed automatically.
 	RefreshEvery time.Duration
-	// Secure determines if the gRPC connection is TLS based.
-	Secure bool
+
+	// Insecure determines if the gRPC connection is TLS based.
+	Insecure bool
 }
 
 // NewClientWithOptions constructs a new RobotClient that is served at the given address. The given
@@ -82,7 +83,7 @@ func NewClientWithOptions(ctx context.Context, address string, opts RobotClientO
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
-	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Secure: opts.Secure}, logger)
+	conn, err := rpcclient.Dial(ctx, address, rpcclient.DialOptions{Insecure: opts.Insecure}, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +126,7 @@ type boardInfo struct {
 // NewClient constructs a new RobotClient that is served at the given address. The given
 // context can be used to cancel the operation.
 func NewClient(ctx context.Context, address string, logger golog.Logger) (*RobotClient, error) {
-	return NewClientWithOptions(ctx, address, RobotClientOptions{}, logger)
+	return NewClientWithOptions(ctx, address, RobotClientOptions{Insecure: true}, logger)
 }
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine

@@ -88,12 +88,13 @@ func (config *Remote) Validate(path string) error {
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
-	ID              string        `json:"id"`
-	Secret          string        `json:"secret"`
-	Self            string        `json:"self"`
-	Path            string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
-	LogPath         string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
-	RefreshInterval time.Duration `json:"refresh_interval,omitempty"`
+	ID               string        `json:"id"`
+	Secret           string        `json:"secret"`
+	Self             string        `json:"self"`
+	SignalingAddress string        `json:"signaling_address"`
+	Path             string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
+	LogPath          string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
+	RefreshInterval  time.Duration `json:"refresh_interval,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
