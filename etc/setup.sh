@@ -56,6 +56,8 @@ go install google.golang.org/protobuf/cmd/protoc-gen-go \
   github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
   github.com/fullstorydev/grpcurl/cmd/grpcurl
 
+sudo npm install -g ts-protoc-gen
+
 NLOPT_OK=1
 pkg-config nlopt || NLOPT_OK=0
 if [ $NLOPT_OK -eq 0 ] ; then
