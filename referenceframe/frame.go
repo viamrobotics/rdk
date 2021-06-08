@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gonum.org/v1/gonum/num/dualquat"
@@ -11,8 +12,8 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// OffsetAdd takes two offsets and computes the final position
-func OffsetAdd(a, b *pb.ArmPosition) *pb.ArmPosition {
+// OffsetBy takes two offsets and computes the final position
+func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 	q1 := kinmath.NewQuatTransFromArmPos(a)
 	q2 := kinmath.NewQuatTransFromArmPos(b)
 	q3 := q1.Transformation(q2.Quat)
@@ -45,8 +46,14 @@ type FrameLookup interface {
 
 // FindTranslationChildToParent finds the path from one frame to other and computes the translation
 func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, childName, parentName string) (*pb.ArmPosition, error) {
+	seen := map[string]bool{}
+
 	offsets := []*pb.ArmPosition{}
 	for {
+		if seen[childName] {
+			return nil, errors.New("infinite loop in FindTranslationChildToParent")
+		}
+		seen[childName] = true
 
 		child := lookup.FindFrame(childName)
 		if child == nil {
@@ -72,7 +79,7 @@ func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, child
 
 	offset := &pb.ArmPosition{}
 	for i := 0; i < len(offsets); i++ {
-		offset = OffsetAdd(offset, offsets[len(offsets)-1-i])
+		offset = OffsetBy(offset, offsets[len(offsets)-1-i])
 	}
 	return offset, nil
 }
