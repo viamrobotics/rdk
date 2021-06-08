@@ -23,7 +23,9 @@ import (
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
+	echopb "go.viam.com/core/proto/rpc/examples/echo/v1"
 	"go.viam.com/core/robot"
+	echoserver "go.viam.com/core/rpc/examples/echo/server"
 	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/utils"
 
@@ -362,6 +364,17 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger g
 		pb.RegisterRobotServiceHandlerFromEndpoint,
 	); err != nil {
 		return err
+	}
+
+	if options.Debug {
+		if err := rpcServer.RegisterServiceServer(
+			context.Background(),
+			&echopb.EchoService_ServiceDesc,
+			&echoserver.Server{},
+			echopb.RegisterEchoServiceHandlerFromEndpoint,
+		); err != nil {
+			return err
+		}
 	}
 
 	mux := goji.NewMux()

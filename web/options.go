@@ -22,6 +22,10 @@ type Options struct {
 
 	// Insecure determines if communications are expected to be insecure or not.
 	Insecure bool
+
+	// Debug turns on various debugging features. For example, the echo gRPC
+	// service is added.
+	Debug bool
 }
 
 // NewOptions returns a default set of options which will have the

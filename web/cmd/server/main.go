@@ -251,6 +251,7 @@ type Arguments struct {
 	LogURL     string            `flag:"logurl,usage=url to log messages to"`
 	SharedDir  string            `flag:"shareddir,usage=web resource directory"`
 	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
+	Debug      bool              `flag:"debug"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
@@ -351,6 +352,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.Pprof = argsParsed.WebProfile
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
+	options.Debug = argsParsed.Debug
 	if cfg.Cloud != nil {
 		options.Name = cfg.Cloud.Self
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
