@@ -15,6 +15,7 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
@@ -442,11 +443,37 @@ func TestClient(t *testing.T) {
 			},
 		}, nil
 	}
+
+	cfg := config.Config{
+		Components: []config.Component{
+			{
+				Name:   "a",
+				Type:   config.ComponentTypeArm,
+				Parent: "b",
+				ParentTranslation: config.Translation{
+					X: 1,
+					Y: 2,
+					Z: 3,
+				},
+				ParentOrientation: config.Orientation{
+					X:  4,
+					Y:  5,
+					Z:  6,
+					TH: 7,
+				},
+			},
+		},
+	}
+	injectRobot1.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return &cfg, nil
+	}
+
 	client, err := NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = client.Config(context.Background())
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	newCfg, err := client.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")

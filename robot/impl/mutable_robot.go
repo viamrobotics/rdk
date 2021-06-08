@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
@@ -178,6 +179,10 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 // this.
 func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
+}
+
+func (r *mutableRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
+	return CreateReferenceFrameLookup(ctx, r)
 }
 
 // Logger returns the logger the robot is using.

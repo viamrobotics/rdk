@@ -24,6 +24,7 @@ type RobotServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	// StatusStream periodically sends the robot's status.
 	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (RobotService_StatusStreamClient, error)
+	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
 	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
@@ -135,6 +136,15 @@ func (x *robotServiceStatusStreamClient) Recv() (*StatusStreamResponse, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
+	out := new(ConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/Config", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
@@ -406,6 +416,7 @@ type RobotServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	// StatusStream periodically sends the robot's status.
 	StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error
+	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
 	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
@@ -480,6 +491,9 @@ func (UnimplementedRobotServiceServer) Status(context.Context, *StatusRequest) (
 }
 func (UnimplementedRobotServiceServer) StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method StatusStream not implemented")
+}
+func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (*ConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Config not implemented")
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
@@ -618,6 +632,24 @@ type robotServiceStatusStreamServer struct {
 
 func (x *robotServiceStatusStreamServer) Send(m *StatusStreamResponse) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _RobotService_Config_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).Config(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/Config",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).Config(ctx, req.(*ConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1152,6 +1184,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Status",
 			Handler:    _RobotService_Status_Handler,
+		},
+		{
+			MethodName: "Config",
+			Handler:    _RobotService_Config_Handler,
 		},
 		{
 			MethodName: "DoAction",

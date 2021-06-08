@@ -238,6 +238,86 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.statusStream =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.ConfigRequest,
+ *   !proto.proto.api.v1.ConfigResponse>}
+ */
+const methodDescriptor_RobotService_Config = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/Config',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.ConfigRequest,
+  proto.proto.api.v1.ConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.ConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.ConfigRequest,
+ *   !proto.proto.api.v1.ConfigResponse>}
+ */
+const methodInfo_RobotService_Config = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.ConfigResponse,
+  /**
+   * @param {!proto.proto.api.v1.ConfigRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.ConfigResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.ConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.ConfigResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.ConfigResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.config =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/Config',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_Config,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.ConfigRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.ConfigResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.config =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/Config',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_Config);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.DoActionRequest,
  *   !proto.proto.api.v1.DoActionResponse>}
  */

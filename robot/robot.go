@@ -12,6 +12,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/sensor"
 
@@ -93,6 +94,10 @@ type Robot interface {
 	// should use the CreateStatus helper instead of directly calling
 	// this.
 	Status(ctx context.Context) (*pb.Status, error)
+
+	// FrameLookup returns a FrameLookup suitable for doing reference frame lookups
+	// and then computing relative offsets of pieces
+	FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error)
 
 	// Logger returns the logger the robot is using.
 	Logger() golog.Logger

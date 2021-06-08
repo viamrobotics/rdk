@@ -343,6 +343,18 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ComponentConfig"><span class="badge">M</span>ComponentConfig</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ConfigRequest"><span class="badge">M</span>ConfigRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ConfigResponse"><span class="badge">M</span>ConfigResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.DigitalInterruptStatus"><span class="badge">M</span>DigitalInterruptStatus</a>
                 </li>
               
@@ -1926,6 +1938,82 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.ComponentConfig">ComponentConfig</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>parent</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>translation</td>
+                  <td><a href="#proto.api.v1.ArmPosition">ArmPosition</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ConfigRequest">ConfigRequest</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.ConfigResponse">ConfigResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>components</td>
+                  <td><a href="#proto.api.v1.ComponentConfig">ComponentConfig</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.DigitalInterruptStatus">DigitalInterruptStatus</h3>
         <p></p>
 
@@ -3075,6 +3163,13 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
               </tr>
             
               <tr>
+                <td>Config</td>
+                <td><a href="#proto.api.v1.ConfigRequest">ConfigRequest</a></td>
+                <td><a href="#proto.api.v1.ConfigResponse">ConfigResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>DoAction</td>
                 <td><a href="#proto.api.v1.DoActionRequest">DoActionRequest</a></td>
                 <td><a href="#proto.api.v1.DoActionResponse">DoActionResponse</a></td>
@@ -3315,6 +3410,16 @@ the request.</p></td>
                 <td>StatusStream</td>
                 <td>GET</td>
                 <td>/v1/status_stream</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>Config</td>
+                <td>GET</td>
+                <td>/v1/config</td>
                 <td></td>
               </tr>
               

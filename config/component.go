@@ -36,6 +36,10 @@ type Component struct {
 	SubType string        `json:"subtype"`
 	Model   string        `json:"model"`
 
+	Parent            string      `json:"parent"`
+	ParentTranslation Translation `json:"translation"`
+	ParentOrientation Orientation `json:"orientation"`
+
 	Attributes AttributeMap `json:"attributes"`
 }
 
