@@ -12,7 +12,7 @@ import (
 func TestOffset(t *testing.T) {
 	a := &pb.ArmPosition{X: 1, Y: 1, Z: 1}
 	b := &pb.ArmPosition{X: 1, Y: 1, Z: 1}
-	c := OffsetAdd(a, b)
+	c := OffsetBy(a, b)
 	test.That(t, c.X, test.ShouldEqual, 2)
 	test.That(t, c.Y, test.ShouldEqual, 2)
 	test.That(t, c.Z, test.ShouldEqual, 2)
@@ -43,8 +43,8 @@ func TestFindTranslation2(t *testing.T) {
 	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
 	b := &pb.ArmPosition{X: 0.5, Y: 0.5, Z: 0.5, OX: 3.2, OY: 5.4, OZ: 5.5, Theta: 5.5}
 
-	c1 := OffsetAdd(a, b)
-	c2 := OffsetAdd(b, a)
+	c1 := OffsetBy(a, b)
+	c2 := OffsetBy(b, a)
 
 	test.That(t, c1.X, test.ShouldNotAlmostEqual, c2.X)
 
@@ -56,4 +56,18 @@ func TestFindTranslation2(t *testing.T) {
 	trans, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, trans.X, test.ShouldAlmostEqual, c1.X)
+}
+
+func TestFindTranslationInfLoop(t *testing.T) {
+	ctx := context.Background()
+
+	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
+	b := &pb.ArmPosition{X: 0.5, Y: 0.5, Z: 0.5, OX: 3.2, OY: 5.4, OZ: 5.5, Theta: 5.5}
+
+	basicFrameMap := basicFrameMap{}
+	basicFrameMap.add(&basicFrame{name: "arm", parent: "camera", offset: a})
+	basicFrameMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
+
+	_, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
+	test.That(t, err, test.ShouldNotBeNil)
 }

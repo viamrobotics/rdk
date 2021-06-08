@@ -184,7 +184,7 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, camera camera.
 		return err
 	}
 
-	pos2 := referenceframe.OffsetAdd(pos, &pb.ArmPosition{X: x, Y: y, Z: z})
+	pos2 := referenceframe.OffsetBy(pos, &pb.ArmPosition{X: x, Y: y, Z: z})
 
 	return fmt.Errorf("please finish doGrab %v", pos2)
 }
