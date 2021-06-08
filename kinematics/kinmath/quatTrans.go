@@ -3,6 +3,7 @@ package kinmath
 
 import (
 	"math"
+	"fmt"
 
 	pb "go.viam.com/core/proto/api/v1"
 
@@ -229,10 +230,16 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	ov.OY = xyz.Jmag
 	ov.OZ = xyz.Kmag
 
-	if math.Abs(xyz.Kmag) == 1 {
+	if xyz.Kmag == 1 {
 		// Special case for when we point directly along the Z axis
 		// Get the vector normal to the local-x, global-z, origin plane
 		ov.Theta = math.Atan2(-newZ.Jmag, -newZ.Imag)
+		fmt.Println("ov theta 1", ov.Theta, newZ)
+	} else if xyz.Kmag == -1 {
+		// Special case for when we point directly along the Z axis
+		// Get the vector normal to the local-x, global-z, origin plane
+		ov.Theta = math.Atan2(newZ.Jmag, newZ.Imag)
+		fmt.Println("ov theta 2", ov.Theta, newZ)
 	} else {
 		v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
 		v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
@@ -270,6 +277,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		} else {
 			ov.Theta = 0
 		}
+		fmt.Println("ov theta 3", ov.Theta, newZ)
 	}
 
 	return ov
