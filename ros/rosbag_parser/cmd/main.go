@@ -28,6 +28,7 @@ func main() {
 	}
 }
 
+// Save image as png in current directory
 func SaveImageAsPng(img image.Image, filename string) {
 	path := ""
 	f, err := os.Create(path + filename)
