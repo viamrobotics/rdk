@@ -28,21 +28,31 @@ func main() {
 	}
 }
 
-// Save image as png in current directory
-func SaveImageAsPng(img image.Image, filename string) {
+// SaveImageAsPng saves image as png in current directory
+func saveImageAsPng(img image.Image, filename string) error {
 	path := ""
 	f, err := os.Create(path + filename)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	defer f.Close()
-	png.Encode(f, img)
+	err = png.Encode(f, img)
+	if err != nil {
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-// Extract planes from an image with depth.
-func ExtractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
+// ExtractPlanes extract planes from an image with depth.
+func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
 	// Set camera matrices in image-with-depth
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	if err != nil {
+		return nil, err
+	}
 	imgWd.SetCameraSystem(camera)
 
 	// Get the pointcloud from the image-with-depth
@@ -59,6 +69,9 @@ func ExtractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 
 	// Project the pointcloud planes into an image
 	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, planes)
+	if err != nil {
+		return nil, err
+	}
 
 	return segImage, nil
 }
@@ -86,12 +99,15 @@ func realMain(args []string) error {
 			// Read bytes into JSON structure
 			measurement, err := v.ReadBytes('\n')
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return err
 			}
-			json.Unmarshal(measurement[:len(measurement)-1], &message)
+			err = json.Unmarshal(measurement[:len(measurement)-1], &message)
+			if err != nil {
+				return err
+			}
 
 			// Create & display image
 			imgWd, err := rimage.ReadBothFromBytes(message.Data.Data, true)
@@ -99,13 +115,22 @@ func realMain(args []string) error {
 				return err
 			}
 			imgNrgba := imgWd.Overlay()
-			SaveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
+			err = saveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
+			if err != nil {
+				return err
+			}
 
 			// Apply plane segmentation on image
-			segImg, err := ExtractPlanes(imgWd)
-			SaveImageAsPng(segImg, "seg_img_"+fmt.Sprint(count)+".png")
+			segImg, err := extractPlanes(imgWd)
+			if err != nil {
+				return err
+			}
+			err = saveImageAsPng(segImg, "seg_img_"+fmt.Sprint(count)+".png")
+			if err != nil {
+				return err
+			}
 
-			count += 1
+			count++
 		}
 	}
 	return nil
