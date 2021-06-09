@@ -3,7 +3,6 @@ package kinmath
 import (
 	"math"
 	"testing"
-	"fmt"
 
 	"go.viam.com/test"
 
@@ -88,6 +87,40 @@ func TestOVConversion2(t *testing.T) {
 	ov1 := QuatToOV(q1)
 	q2 := OVToQuat(ov1)
 	ov2 := QuatToOV(q2)
+	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OY-ov2.OY), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OZ-ov2.OZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Real-q2.Real), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Imag-q2.Imag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Jmag-q2.Jmag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Kmag-q2.Kmag), test.ShouldBeLessThan, 0.001)
+}
+
+func TestOVConversionPole1(t *testing.T) {
+	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation near the poles
+	ov1 := &OrientationVec{Theta: 2.47208, OX: 0, OY: 0, OZ: 1}
+	q1 := OVToQuat(ov1)
+	ov2 := QuatToOV(q1)
+	q2 := OVToQuat(ov2)
+
+	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OY-ov2.OY), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(ov1.OZ-ov2.OZ), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Real-q2.Real), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Imag-q2.Imag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Jmag-q2.Jmag), test.ShouldBeLessThan, 0.001)
+	test.That(t, math.Abs(q1.Kmag-q2.Kmag), test.ShouldBeLessThan, 0.001)
+}
+
+func TestOVConversionPole2(t *testing.T) {
+	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation near the poles
+	ov1 := &OrientationVec{Theta: 2.47208, OX: 0, OY: 0, OZ: -1}
+	q1 := OVToQuat(ov1)
+	ov2 := QuatToOV(q1)
+	q2 := OVToQuat(ov2)
+
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OY-ov2.OY), test.ShouldBeLessThan, 0.001)
