@@ -5,6 +5,8 @@ build:
     - .
   excludes:
     - vendor
+    - rpc/examples/echo/frontend/node_modules
+    - rpc/js/node_modules
 lint:
   use:
     - DEFAULT
