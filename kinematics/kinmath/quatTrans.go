@@ -14,8 +14,9 @@ import (
 const radToDeg = 180 / math.Pi
 const degToRad = math.Pi / 180
 
-// If two angles differ by less than this amount, we consider them the same
-const angleEpsilon = 0.01
+// If two angles differ by less than this amount, we consider them the same for the purpose of doing
+// math around the poles of orientation.
+const angleEpsilon = 0.01 // radians
 
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
