@@ -11,6 +11,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/ros"
