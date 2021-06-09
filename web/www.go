@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	echopb "go.viam.com/core/proto/rpc/examples/echo/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	echoserver "go.viam.com/core/rpc/examples/echo/server"
 	rpcserver "go.viam.com/core/rpc/server"
@@ -172,7 +173,20 @@ type grabAtCameraPositionHandler struct {
 }
 
 func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, camera camera.Camera, x, y, z float64) error {
-	return errors.New("please finish doGrab")
+	if len(h.app.theRobot.ArmNames()) != 1 {
+		return errors.New("robot needs exactly 1 arm to do grabAt")
+	}
+
+	arm := h.app.theRobot.ArmByName(h.app.theRobot.ArmNames()[0])
+
+	pos, err := arm.CurrentPosition(ctx)
+	if err != nil {
+		return err
+	}
+
+	pos2 := referenceframe.OffsetBy(pos, &pb.ArmPosition{X: x, Y: y, Z: z})
+
+	return fmt.Errorf("please finish doGrab %v", pos2)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

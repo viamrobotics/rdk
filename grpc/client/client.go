@@ -23,6 +23,7 @@ import (
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -193,6 +194,37 @@ func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
 		return status, nil
 	}
 	return rc.status(ctx)
+}
+
+// Config gets the config from the remote robot
+// It is only partial a config, including the pieces relevant to remote robots,
+// And not the pieces relevant to local configuration (pins, security keys, etc...)
+func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
+	remoteConfig, err := rc.client.Config(ctx, &pb.ConfigRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg config.Config
+	for _, c := range remoteConfig.Components {
+		cfg.Components = append(cfg.Components, config.Component{
+			Name:   c.Name,
+			Type:   config.ComponentType(c.Type),
+			Parent: c.Parent,
+			ParentTranslation: config.Translation{
+				X: c.Translation.X,
+				Y: c.Translation.Y,
+				Z: c.Translation.Z,
+			},
+			ParentOrientation: config.Orientation{
+				X:  c.Translation.OX,
+				Y:  c.Translation.OY,
+				Z:  c.Translation.OZ,
+				TH: c.Translation.Theta,
+			},
+		})
+	}
+	return &cfg, nil
 }
 
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
@@ -425,9 +457,8 @@ func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
 	return rexec.NoopProcessManager
 }
 
-// Config is not yet implemented and probably will not be due to it not
-// making much sense in a remote context.
-func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
+// FrameLookup not implemented for remote robots
+func (rc *RobotClient) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
 	debug.PrintStack()
 	return nil, errUnimplemented
 }

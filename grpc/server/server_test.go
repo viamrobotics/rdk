@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
 	"go.viam.com/core/camera"
+	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -103,6 +104,35 @@ func TestServer(t *testing.T) {
 		statusResp, err := server.Status(context.Background(), &pb.StatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, statusResp, test.ShouldResemble, emptyStatus)
+	})
+
+	t.Run("Config", func(t *testing.T) {
+		server, injectRobot := newServer()
+		err1 := errors.New("whoops")
+		injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+			return nil, err1
+		}
+		_, err := server.Config(context.Background(), &pb.ConfigRequest{})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		cfg := config.Config{
+			Components: []config.Component{
+				{
+					Name:   "a",
+					Type:   config.ComponentTypeArm,
+					Parent: "b",
+				},
+			},
+		}
+		injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+			return &cfg, nil
+		}
+		statusResp, err := server.Config(context.Background(), &pb.ConfigRequest{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statusResp.Components), test.ShouldEqual, len(cfg.Components))
+		test.That(t, statusResp.Components[0].Name, test.ShouldEqual, cfg.Components[0].Name)
+		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Parent)
+		test.That(t, statusResp.Components[0].Type, test.ShouldResemble, string(cfg.Components[0].Type))
 	})
 
 	t.Run("StatusStream", func(t *testing.T) {
