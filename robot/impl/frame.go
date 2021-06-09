@@ -13,7 +13,7 @@ import (
 
 // CreateReferenceFrameLookup takes a robot and implements the FrameLookup api
 func CreateReferenceFrameLookup(ctx context.Context, r robot.Robot) (referenceframe.FrameLookup, error) {
-	ref := &robotRef{r, map[string]referenceframe.Frame{}}
+	ref := &robotFrameRef{r, map[string]referenceframe.Frame{}}
 
 	cfg, err := r.Config(ctx)
 	if err != nil {
@@ -44,12 +44,12 @@ func CreateReferenceFrameLookup(ctx context.Context, r robot.Robot) (referencefr
 	return ref, nil
 }
 
-type robotRef struct {
+type robotFrameRef struct {
 	robot  robot.Robot
 	frames map[string]referenceframe.Frame
 }
 
-func (rr *robotRef) FindFrame(name string) referenceframe.Frame {
+func (rr *robotFrameRef) FindFrame(name string) referenceframe.Frame {
 	return rr.frames[name]
 }
 
@@ -66,7 +66,7 @@ func (af *armFrame) Parent() string {
 	return af.config.Parent
 }
 
-func (af *armFrame) OffsetToParent(ctx context.Context) (*pb.ArmPosition, error) {
+func (af *armFrame) OffsetFromParent(ctx context.Context) (*pb.ArmPosition, error) {
 	arm := af.robot.ArmByName(af.config.Name)
 	if arm == nil {
 		return nil, fmt.Errorf("no arm named %s", af.config.Name)

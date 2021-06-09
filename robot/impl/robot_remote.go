@@ -220,7 +220,7 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 }
 
 func (rr *remoteRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
-	return nil, errors.New("remoteRobot FrameLookup not done yet")
+	return nil, errors.New("remoteRobot FrameLookup not implemented, should it be?")
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

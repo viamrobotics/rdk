@@ -197,7 +197,8 @@ func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
 }
 
 // Config gets the config from the remote robot
-// It is only parial, including the pieces relevant
+// It is only partial a config, including the pieces relevant to remote robots,
+// And not the pieces relevant to local configuration (pins, security keys, etc...)
 func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 	remoteConfig, err := rc.client.Config(ctx, &pb.ConfigRequest{})
 	if err != nil {
