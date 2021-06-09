@@ -123,7 +123,10 @@ func NewWithListener(
 ) (Server, error) {
 	grpcServer := grpc.NewServer()
 	reflection.Register(grpcServer)
-	grpcWebServer := grpcweb.WrapServer(grpcServer)
+	grpcWebServer := grpcweb.WrapServer(grpcServer, grpcweb.WithOriginFunc(func(origin string) bool {
+		// TODO(erd): limit this to some base url
+		return true
+	}))
 	grpcGatewayHandler := runtime.NewServeMux(runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.HTTPBodyMarshaler{rpc.JSONPB}))
 
 	httpServer := &http.Server{
@@ -204,7 +207,7 @@ const (
 func (ss *simpleServer) getRequestType(r *http.Request) requestType {
 	if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
 		return requestTypeGRPC
-	} else if ss.grpcWebServer.IsGrpcWebRequest(r) {
+	} else if ss.grpcWebServer.IsAcceptableGrpcCorsRequest(r) || ss.grpcWebServer.IsGrpcWebRequest(r) {
 		return requestTypeGRPCWeb
 	}
 	return requestTypeNone
