@@ -229,7 +229,8 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	ov.OX = xyz.Imag
 	ov.OY = xyz.Jmag
 	ov.OZ = xyz.Kmag
-
+	
+	// The contents of ov.xyz.Kmag are not in radians but we use angleEpsilon anyway to check how close we are to the pole
 	if 1-math.Abs(xyz.Kmag) < angleEpsilon {
 		// Special case for when we point directly along the Z axis
 		// Get the vector normal to the local-x, global-z, origin plane
@@ -289,6 +290,8 @@ func OVToQuat(ov *OrientationVec) quat.Number {
 	// If we're pointing at the Z axis then lon can be 0
 	lon := 0.0
 	theta := ov.Theta
+	
+	// The contents of ov.OX are not in radians but we use angleEpsilon anyway to check how close we are to the pole
 	if 1+ov.OX < angleEpsilon {
 		lon = math.Pi
 	} else if 1-math.Abs(ov.OZ) > angleEpsilon {
