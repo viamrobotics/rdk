@@ -106,7 +106,7 @@ func (x *xArm6) newCmd(reg byte) cmd {
 	return cmd{tid: x.tid, prot: 2, reg: reg}
 }
 
-func (x *xArm6) send(c cmd, ctx context.Context) (cmd, error) {
+func (x *xArm6) send(ctx context.Context, c cmd) (cmd, error) {
 
 	x.moveLock.Lock()
 	defer x.moveLock.Unlock()
@@ -139,56 +139,56 @@ func (x *xArm6) response(ctx context.Context) (cmd, error) {
 // 0: Servo motion mode
 // 3: Suspend current movement
 // 4: Stop all motion, restart system
-func (x *xArm6) SetMotionState(state byte, ctx context.Context) error {
+func (x *xArm6) SetMotionState(ctx context.Context, state byte) error {
 	c := x.newCmd(regMap["SetState"])
 	c.params = append(c.params, state)
-	_, err := x.send(c, ctx)
+	_, err := x.send(ctx, c)
 	return err
 }
 
 // SetMotionMode sets the motion mode of the arm.
 // Useful modes:
 // 1: Servo motion mode
-func (x *xArm6) SetMotionMode(mode byte, ctx context.Context) error {
+func (x *xArm6) SetMotionMode(ctx context.Context, mode byte) error {
 	c := x.newCmd(regMap["SetMode"])
 	c.params = append(c.params, mode)
-	_, err := x.send(c, ctx)
+	_, err := x.send(ctx, c)
 	return err
 }
 
 // ToggleServos toggles the servos on or off.
 // True enables servos and disengages brakes.
 // False disables servos without engaging brakes.
-func (x *xArm6) ToggleServos(enable bool, ctx context.Context) error {
+func (x *xArm6) ToggleServos(ctx context.Context, enable bool) error {
 	c := x.newCmd(regMap["ToggleServo"])
 	var enByte byte
 	if enable {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(c, ctx)
+	_, err := x.send(ctx, c)
 	return err
 }
 
 // ToggleBrake toggles the brakes on or off.
 // True disengages brakes, false engages them.
-func (x *xArm6) ToggleBrake(disable bool, ctx context.Context) error {
+func (x *xArm6) ToggleBrake(ctx context.Context, disable bool) error {
 	c := x.newCmd(regMap["ToggleBrake"])
 	var enByte byte
 	if disable {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(c, ctx)
+	_, err := x.send(ctx, c)
 	return err
 }
 
 func (x *xArm6) start() error {
-	err := x.ToggleServos(true, context.Background())
+	err := x.ToggleServos(context.Background(), true)
 	if err != nil {
 		return err
 	}
-	return x.SetMotionState(0, context.Background())
+	return x.SetMotionState(context.Background(), 0)
 }
 
 // MotionWait will block until all arm pieces have stopped moving.
@@ -204,15 +204,15 @@ func (x *xArm6) MotionWait(ctx context.Context) error {
 		}
 		slept += 50
 		// Error if we've been waiting more than 15 seconds for motion
-		if slept > 15000{
-			return errors.New("MotionWait continued to detect motion after 15 seconds")
+		if slept > 15000 {
+			return errors.New("motionWait continued to detect motion after 15 seconds")
 		}
 		c := x.newCmd(regMap["GetState"])
-		sData, err := x.send(c, ctx)
+		sData, err := x.send(ctx, c)
 		if err != nil {
 			return err
 		}
-		if len(sData.params) < 2{
+		if len(sData.params) < 2 {
 			return errors.New("malformed state data response in MotionWait")
 		}
 		if sData.params[1] != 1 {
@@ -224,15 +224,15 @@ func (x *xArm6) MotionWait(ctx context.Context) error {
 
 // Close shuts down the arm servos and engages brakes.
 func (x *xArm6) Close() error {
-	err := x.ToggleBrake(false, context.Background())
+	err := x.ToggleBrake(context.Background(), false)
 	if err != nil {
 		return err
 	}
-	err = x.ToggleServos(false, context.Background())
+	err = x.ToggleServos(context.Background(), false)
 	if err != nil {
 		return err
 	}
-	err = x.SetMotionState(4, context.Background())
+	err = x.SetMotionState(context.Background(), 4)
 	if err != nil {
 		return err
 	}
@@ -259,7 +259,7 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 
 	// add motion time, 0
 	c.params = append(c.params, 0, 0, 0, 0)
-	_, err := x.send(c, ctx)
+	_, err := x.send(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 func (x *xArm6) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
-	jData, err := x.send(c, ctx)
+	jData, err := x.send(ctx, c)
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
