@@ -2,10 +2,9 @@ package xarm
 
 import (
 	"context"
-	_ "embed"
+	_ "embed" // for embedding model file
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"math"
 	"net"
 	"sync"
@@ -18,7 +17,7 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
-	
+
 	"github.com/edaniels/golog"
 )
 
@@ -47,10 +46,10 @@ type cmd struct {
 }
 
 type xArm6 struct {
-	tid   uint16
-	conn  net.Conn
-	speed float32 //speed=20*π/180rad/s
-	accel float32 //acceleration=500*π/180rad/s^2
+	tid      uint16
+	conn     net.Conn
+	speed    float32 //speed=20*π/180rad/s
+	accel    float32 //acceleration=500*π/180rad/s^2
 	moveLock *sync.Mutex
 }
 
@@ -59,11 +58,11 @@ var xArm6modeljson []byte
 
 func init() {
 	registry.RegisterArm("xArm6", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		_, err := robot.AsMutable(r)
+		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err
 		}
-		return NewxArm6(ctx, config.Host, logger)
+		return NewxArm6(ctx, getProviderOrCreate(mut).moveLock, config.Host, logger)
 	})
 }
 
@@ -74,23 +73,11 @@ func (c *cmd) bytes() []byte {
 	bin = append(bin, uintBin...)
 	binary.BigEndian.PutUint16(uintBin, c.prot)
 	bin = append(bin, uintBin...)
-	binary.BigEndian.PutUint16(uintBin, 1 + uint16(len(c.params)))
+	binary.BigEndian.PutUint16(uintBin, 1+uint16(len(c.params)))
 	bin = append(bin, uintBin...)
 	bin = append(bin, c.reg)
 	bin = append(bin, c.params...)
 	return bin
-}
-
-func float64ToByte(f float64) []byte {
-	var buf [8]byte
-	binary.BigEndian.PutUint64(buf[:], math.Float64bits(f))
-	return buf[:]
-}
-
-func float64ToByte32(f float64) []byte {
-	var buf [4]byte
-	binary.BigEndian.PutUint32(buf[:], math.Float32bits(float32(f)))
-	return buf[:]
 }
 
 func float64fromByte32(bytes []byte) float64 {
@@ -99,16 +86,20 @@ func float64fromByte32(bytes []byte) float64 {
 	return float64(float)
 }
 
-
-func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, error) {
-	conn, err := net.Dial("tcp", host + ":502")
+// NewxArm6 returns a new xArm6 arm wrapped in a kinematics arm
+func NewxArm6(ctx context.Context, mutex *sync.Mutex, host string, logger golog.Logger) (arm.Arm, error) {
+	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return &xArm6{}, err
 	}
-	mutex := &sync.Mutex{}
+	// Start with default speed/acceleration parameters
+	// TODO(pl): add settable speed
 	xArm := xArm6{0, conn, 0.35, 8, mutex}
 
 	err = xArm.start()
+	if err != nil {
+		return &xArm6{}, err
+	}
 
 	return kinematics.NewArm(&xArm, xArm6modeljson, 4, logger)
 }
@@ -119,14 +110,17 @@ func (x *xArm6) newCmd(reg byte) cmd {
 }
 
 func (x *xArm6) send(c cmd) (cmd, error) {
-	b := c.bytes()
+
 	x.moveLock.Lock()
+	defer x.moveLock.Unlock()
+
+	b := c.bytes()
 	_, err := x.conn.Write(b)
-	if err != nil{
+	if err != nil {
 		return cmd{}, err
 	}
 	r, err := x.response()
-	x.moveLock.Unlock()
+
 	return r, err
 }
 
@@ -141,7 +135,7 @@ func (x *xArm6) response() (cmd, error) {
 	c.prot = binary.BigEndian.Uint16(buf[2:4])
 	c.reg = buf[6]
 	length := binary.BigEndian.Uint16(buf[4:6])
-	c.params, err = utils.ReadBytes(context.Background(), x.conn, int(length - 1))
+	c.params, err = utils.ReadBytes(context.Background(), x.conn, int(length-1))
 	return c, err
 }
 
@@ -182,26 +176,23 @@ func (x *xArm6) ToggleBrake(enable bool) error {
 }
 
 func (x *xArm6) start() error {
-	fmt.Println("servos on")
 	err := x.ToggleServos(true)
 	if err != nil {
 		return err
 	}
-	x.SetMotionMode(1)
-	x.SetMotionState(0)
-	return err
+	return x.SetMotionState(0)
 }
 
 func (x *xArm6) MotionWait() error {
 	ready := false
-	for !ready{
+	for !ready {
 		time.Sleep(50 * time.Millisecond)
 		c := x.newCmd(regMap["GetState"])
 		sData, err := x.send(c)
-		if err != nil{
+		if err != nil {
 			return err
 		}
-		if sData.params[1] != 1{
+		if sData.params[1] != 1 {
 			ready = true
 		}
 	}
@@ -209,43 +200,42 @@ func (x *xArm6) MotionWait() error {
 }
 
 func (x *xArm6) Close() error {
-	fmt.Println("brakes on")
 	err := x.ToggleBrake(false)
 	if err != nil {
 		return err
 	}
-	fmt.Println("servos off")
 	err = x.ToggleServos(false)
 	if err != nil {
 		return err
 	}
-	x.SetMotionState(4)
-	return err
+	return x.SetMotionState(4)
 }
 
 func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := arm.JointPositionsToRadians(newPositions)
 	c := x.newCmd(regMap["MoveJoints"])
 	jFloatBytes := make([]byte, 4)
-	for _, jRad := range(radians){
+	for _, jRad := range radians {
 		binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(jRad)))
 		c.params = append(c.params, jFloatBytes...)
 	}
 	// xarm 6 has 6 joints, but protocol needs 7
-	c.params = append(c.params, 0,0,0,0)
+	c.params = append(c.params, 0, 0, 0, 0)
 	// Add speed, 0.35
 	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(0.35)))
 	c.params = append(c.params, jFloatBytes...)
 	// Add accel, 8.7
 	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(8.7)))
 	c.params = append(c.params, jFloatBytes...)
-	
+
 	// add motion time, 0
-	c.params = append(c.params, 0,0,0,0)
+	c.params = append(c.params, 0, 0, 0, 0)
 	_, err := x.send(c)
-	//~ time.Sleep(100 * time.Millisecond)
-	x.MotionWait()
-	return err
+	if err != nil {
+		return err
+	}
+	time.Sleep(50 * time.Millisecond)
+	return x.MotionWait()
 }
 
 func (x *xArm6) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
@@ -261,17 +251,16 @@ func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 
 func (x *xArm6) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
-	
+
 	jData, err := x.send(c)
-	if err != nil{
+	if err != nil {
 		return &pb.JointPositions{}, err
 	}
 	var radians []float64
-	for i := 0; i < 6; i++{
+	for i := 0; i < 6; i++ {
 		idx := i*4 + 1
-		radians = append(radians, float64fromByte32(jData.params[idx:idx + 4]))
+		radians = append(radians, float64fromByte32(jData.params[idx:idx+4]))
 	}
-	
+
 	return arm.JointPositionsFromRadians(radians), nil
 }
-
