@@ -94,7 +94,7 @@ func NewxArm6(ctx context.Context, mutex *sync.Mutex, host string, logger golog.
 	}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xArm := xArm6{0, conn, 0.35, 8, mutex}
+	xArm := xArm6{0, conn, 0.35, 8.7, mutex}
 
 	err = xArm.start()
 	if err != nil {
@@ -139,6 +139,11 @@ func (x *xArm6) response() (cmd, error) {
 	return c, err
 }
 
+// SetMotionState sets the motion state of the arm.
+// Useful states:
+// 0: Servo motion mode
+// 3: Suspend current movement
+// 4: Stop all motion, restart system
 func (x *xArm6) SetMotionState(state byte) error {
 	c := x.newCmd(regMap["SetState"])
 	c.params = append(c.params, state)
@@ -146,6 +151,9 @@ func (x *xArm6) SetMotionState(state byte) error {
 	return err
 }
 
+// SetMotionMode sets the motion mode of the arm.
+// Useful modes:
+// 1: Servo motion mode
 func (x *xArm6) SetMotionMode(mode byte) error {
 	c := x.newCmd(regMap["SetMode"])
 	c.params = append(c.params, mode)
@@ -153,6 +161,9 @@ func (x *xArm6) SetMotionMode(mode byte) error {
 	return err
 }
 
+// ToggleServos toggles the servos on or off.
+// True enables servos and disengages brakes.
+// False disables servos without engaging brakes.
 func (x *xArm6) ToggleServos(enable bool) error {
 	c := x.newCmd(regMap["ToggleServo"])
 	var enByte byte
@@ -164,10 +175,12 @@ func (x *xArm6) ToggleServos(enable bool) error {
 	return err
 }
 
-func (x *xArm6) ToggleBrake(enable bool) error {
+// ToggleBrake toggles the brakes on or off.
+// True disengages brakes, false engages them.
+func (x *xArm6) ToggleBrake(disable bool) error {
 	c := x.newCmd(regMap["ToggleBrake"])
 	var enByte byte
-	if enable {
+	if disable {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
@@ -183,6 +196,7 @@ func (x *xArm6) start() error {
 	return x.SetMotionState(0)
 }
 
+// MotionWait will block until all arm pieces have stopped moving.
 func (x *xArm6) MotionWait() error {
 	ready := false
 	for !ready {
@@ -199,6 +213,7 @@ func (x *xArm6) MotionWait() error {
 	return nil
 }
 
+// Close shuts down the arm servos and engages brakes.
 func (x *xArm6) Close() error {
 	err := x.ToggleBrake(false)
 	if err != nil {
@@ -211,6 +226,7 @@ func (x *xArm6) Close() error {
 	return x.SetMotionState(4)
 }
 
+// MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := arm.JointPositionsToRadians(newPositions)
 	c := x.newCmd(regMap["MoveJoints"])
@@ -219,13 +235,13 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 		binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(jRad)))
 		c.params = append(c.params, jFloatBytes...)
 	}
-	// xarm 6 has 6 joints, but protocol needs 7
+	// xarm 6 has 6 joints, but protocol needs 7- add 4 bytes for a blank 7th joint
 	c.params = append(c.params, 0, 0, 0, 0)
-	// Add speed, 0.35
-	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(0.35)))
+	// Add speed
+	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.speed))
 	c.params = append(c.params, jFloatBytes...)
-	// Add accel, 8.7
-	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(float32(8.7)))
+	// Add accel
+	binary.LittleEndian.PutUint32(jFloatBytes, math.Float32bits(x.accel))
 	c.params = append(c.params, jFloatBytes...)
 
 	// add motion time, 0
@@ -238,17 +254,22 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 	return x.MotionWait()
 }
 
+// JointMoveDelta TODO
 func (x *xArm6) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
 }
+
+// CurrentPosition not supported
 func (x *xArm6) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	return nil, errors.New("xArm6 low level doesn't support kinematics")
 }
 
+// MoveToPosition not supported
 func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	return errors.New("xArm6 low level doesn't support kinematics")
 }
 
+// CurrentJointPositions returns the current positions of all joints.
 func (x *xArm6) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
