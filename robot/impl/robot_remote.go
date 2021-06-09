@@ -17,6 +17,7 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
@@ -216,6 +217,10 @@ func (rr *remoteRobot) ProcessManager() rexec.ProcessManager {
 
 func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 	return rr.robot.Config(ctx)
+}
+
+func (rr *remoteRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
+	return nil, errors.New("remoteRobot FrameLookup not implemented, should it be?")
 }
 
 func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {

@@ -1,0 +1,20 @@
+{
+    "components" : [
+        {
+            "name" : "a",
+            "type" : "arm",
+            "model" : "fake"
+        },
+        {
+            "name" : "g",
+            "model" : "fake",
+            "type" : "gripper",
+            "parent" : "a",
+            "translation" : {
+                "x" : 1,
+                "y" : 1,
+                "z" : 1
+            }
+        }                
+    ]
+}
