@@ -134,32 +134,22 @@ func (x *xArm6) response(ctx context.Context) (cmd, error) {
 	return c, err
 }
 
-// SetMotionState sets the motion state of the arm.
+// setMotionState sets the motion state of the arm.
 // Useful states:
 // 0: Servo motion mode
 // 3: Suspend current movement
 // 4: Stop all motion, restart system
-func (x *xArm6) SetMotionState(ctx context.Context, state byte) error {
+func (x *xArm6) setMotionState(ctx context.Context, state byte) error {
 	c := x.newCmd(regMap["SetState"])
 	c.params = append(c.params, state)
 	_, err := x.send(ctx, c)
 	return err
 }
 
-// SetMotionMode sets the motion mode of the arm.
-// Useful modes:
-// 1: Servo motion mode
-func (x *xArm6) SetMotionMode(ctx context.Context, mode byte) error {
-	c := x.newCmd(regMap["SetMode"])
-	c.params = append(c.params, mode)
-	_, err := x.send(ctx, c)
-	return err
-}
-
-// ToggleServos toggles the servos on or off.
+// toggleServos toggles the servos on or off.
 // True enables servos and disengages brakes.
 // False disables servos without engaging brakes.
-func (x *xArm6) ToggleServos(ctx context.Context, enable bool) error {
+func (x *xArm6) toggleServos(ctx context.Context, enable bool) error {
 	c := x.newCmd(regMap["ToggleServo"])
 	var enByte byte
 	if enable {
@@ -170,9 +160,9 @@ func (x *xArm6) ToggleServos(ctx context.Context, enable bool) error {
 	return err
 }
 
-// ToggleBrake toggles the brakes on or off.
+// toggleBrake toggles the brakes on or off.
 // True disengages brakes, false engages them.
-func (x *xArm6) ToggleBrake(ctx context.Context, disable bool) error {
+func (x *xArm6) toggleBrake(ctx context.Context, disable bool) error {
 	c := x.newCmd(regMap["ToggleBrake"])
 	var enByte byte
 	if disable {
@@ -184,15 +174,15 @@ func (x *xArm6) ToggleBrake(ctx context.Context, disable bool) error {
 }
 
 func (x *xArm6) start() error {
-	err := x.ToggleServos(context.Background(), true)
+	err := x.toggleServos(context.Background(), true)
 	if err != nil {
 		return err
 	}
-	return x.SetMotionState(context.Background(), 0)
+	return x.setMotionState(context.Background(), 0)
 }
 
-// MotionWait will block until all arm pieces have stopped moving.
-func (x *xArm6) MotionWait(ctx context.Context) error {
+// motionWait will block until all arm pieces have stopped moving.
+func (x *xArm6) motionWait(ctx context.Context) error {
 	ready := false
 	if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
 		return ctx.Err()
@@ -224,15 +214,15 @@ func (x *xArm6) MotionWait(ctx context.Context) error {
 
 // Close shuts down the arm servos and engages brakes.
 func (x *xArm6) Close() error {
-	err := x.ToggleBrake(context.Background(), false)
+	err := x.toggleBrake(context.Background(), false)
 	if err != nil {
 		return err
 	}
-	err = x.ToggleServos(context.Background(), false)
+	err = x.toggleServos(context.Background(), false)
 	if err != nil {
 		return err
 	}
-	err = x.SetMotionState(context.Background(), 4)
+	err = x.setMotionState(context.Background(), 4)
 	if err != nil {
 		return err
 	}
@@ -263,7 +253,7 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 	if err != nil {
 		return err
 	}
-	return x.MotionWait(ctx)
+	return x.motionWait(ctx)
 }
 
 // JointMoveDelta TODO
