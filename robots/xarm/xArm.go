@@ -58,11 +58,7 @@ var xArm6modeljson []byte
 
 func init() {
 	registry.RegisterArm("xArm6", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		mut, err := robot.AsMutable(r)
-		if err != nil {
-			return nil, err
-		}
-		return NewxArm6(ctx, getProviderOrCreate(mut).moveLock, config.Host, logger)
+		return NewxArm6(ctx, config.Host, logger)
 	})
 }
 
@@ -87,11 +83,12 @@ func float64fromByte32(bytes []byte) float64 {
 }
 
 // NewxArm6 returns a new xArm6 arm wrapped in a kinematics arm
-func NewxArm6(ctx context.Context, mutex *sync.Mutex, host string, logger golog.Logger) (arm.Arm, error) {
+func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, error) {
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return &xArm6{}, err
 	}
+	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
 	xArm := xArm6{0, conn, 0.35, 8.7, mutex}
@@ -109,7 +106,7 @@ func (x *xArm6) newCmd(reg byte) cmd {
 	return cmd{tid: x.tid, prot: 2, reg: reg}
 }
 
-func (x *xArm6) send(c cmd) (cmd, error) {
+func (x *xArm6) send(c cmd, ctx context.Context) (cmd, error) {
 
 	x.moveLock.Lock()
 	defer x.moveLock.Unlock()
@@ -119,14 +116,12 @@ func (x *xArm6) send(c cmd) (cmd, error) {
 	if err != nil {
 		return cmd{}, err
 	}
-	r, err := x.response()
-
-	return r, err
+	return x.response(ctx)
 }
 
-func (x *xArm6) response() (cmd, error) {
+func (x *xArm6) response(ctx context.Context) (cmd, error) {
 	// Read response header
-	buf, err := utils.ReadBytes(context.Background(), x.conn, 7)
+	buf, err := utils.ReadBytes(ctx, x.conn, 7)
 	if err != nil {
 		return cmd{}, err
 	}
@@ -135,7 +130,7 @@ func (x *xArm6) response() (cmd, error) {
 	c.prot = binary.BigEndian.Uint16(buf[2:4])
 	c.reg = buf[6]
 	length := binary.BigEndian.Uint16(buf[4:6])
-	c.params, err = utils.ReadBytes(context.Background(), x.conn, int(length-1))
+	c.params, err = utils.ReadBytes(ctx, x.conn, int(length-1))
 	return c, err
 }
 
@@ -144,67 +139,81 @@ func (x *xArm6) response() (cmd, error) {
 // 0: Servo motion mode
 // 3: Suspend current movement
 // 4: Stop all motion, restart system
-func (x *xArm6) SetMotionState(state byte) error {
+func (x *xArm6) SetMotionState(state byte, ctx context.Context) error {
 	c := x.newCmd(regMap["SetState"])
 	c.params = append(c.params, state)
-	_, err := x.send(c)
+	_, err := x.send(c, ctx)
 	return err
 }
 
 // SetMotionMode sets the motion mode of the arm.
 // Useful modes:
 // 1: Servo motion mode
-func (x *xArm6) SetMotionMode(mode byte) error {
+func (x *xArm6) SetMotionMode(mode byte, ctx context.Context) error {
 	c := x.newCmd(regMap["SetMode"])
 	c.params = append(c.params, mode)
-	_, err := x.send(c)
+	_, err := x.send(c, ctx)
 	return err
 }
 
 // ToggleServos toggles the servos on or off.
 // True enables servos and disengages brakes.
 // False disables servos without engaging brakes.
-func (x *xArm6) ToggleServos(enable bool) error {
+func (x *xArm6) ToggleServos(enable bool, ctx context.Context) error {
 	c := x.newCmd(regMap["ToggleServo"])
 	var enByte byte
 	if enable {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(c)
+	_, err := x.send(c, ctx)
 	return err
 }
 
 // ToggleBrake toggles the brakes on or off.
 // True disengages brakes, false engages them.
-func (x *xArm6) ToggleBrake(disable bool) error {
+func (x *xArm6) ToggleBrake(disable bool, ctx context.Context) error {
 	c := x.newCmd(regMap["ToggleBrake"])
 	var enByte byte
 	if disable {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(c)
+	_, err := x.send(c, ctx)
 	return err
 }
 
 func (x *xArm6) start() error {
-	err := x.ToggleServos(true)
+	err := x.ToggleServos(true, context.Background())
 	if err != nil {
 		return err
 	}
-	return x.SetMotionState(0)
+	return x.SetMotionState(0, context.Background())
 }
 
 // MotionWait will block until all arm pieces have stopped moving.
-func (x *xArm6) MotionWait() error {
+func (x *xArm6) MotionWait(ctx context.Context) error {
 	ready := false
+	if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+		return ctx.Err()
+	}
+	slept := 0
 	for !ready {
-		time.Sleep(50 * time.Millisecond)
+		if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
+			return ctx.Err()
+		}
+		slept += 50
+		// Error if we've been waiting more than 15 seconds for motion
+		if slept > 15000{
+			return errors.New("MotionWait continued to detect motion after 15 seconds")
+		}
 		c := x.newCmd(regMap["GetState"])
-		sData, err := x.send(c)
+		sData, err := x.send(c, ctx)
 		if err != nil {
 			return err
+		}
+		if len(sData.params) < 2{
+			return errors.New("malformed state data response in MotionWait")
 		}
 		if sData.params[1] != 1 {
 			ready = true
@@ -215,15 +224,19 @@ func (x *xArm6) MotionWait() error {
 
 // Close shuts down the arm servos and engages brakes.
 func (x *xArm6) Close() error {
-	err := x.ToggleBrake(false)
+	err := x.ToggleBrake(false, context.Background())
 	if err != nil {
 		return err
 	}
-	err = x.ToggleServos(false)
+	err = x.ToggleServos(false, context.Background())
 	if err != nil {
 		return err
 	}
-	return x.SetMotionState(4)
+	err = x.SetMotionState(4, context.Background())
+	if err != nil {
+		return err
+	}
+	return x.conn.Close()
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
@@ -246,12 +259,11 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 
 	// add motion time, 0
 	c.params = append(c.params, 0, 0, 0, 0)
-	_, err := x.send(c)
+	_, err := x.send(c, ctx)
 	if err != nil {
 		return err
 	}
-	time.Sleep(50 * time.Millisecond)
-	return x.MotionWait()
+	return x.MotionWait(ctx)
 }
 
 // JointMoveDelta TODO
@@ -273,7 +285,7 @@ func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 func (x *xArm6) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
-	jData, err := x.send(c)
+	jData, err := x.send(c, ctx)
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
