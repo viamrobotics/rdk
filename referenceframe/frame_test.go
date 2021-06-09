@@ -21,23 +21,23 @@ func TestOffset(t *testing.T) {
 func TestFindTranslation(t *testing.T) {
 	ctx := context.Background()
 
-	basicFrameMap := basicFrameMap{}
-	basicFrameMap.add(&basicFrame{name: "base"})
-	basicFrameMap.add(&basicFrame{name: "basex"})
-	basicFrameMap.add(&basicFrame{name: "arm", parent: "base", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
-	basicFrameMap.add(&basicFrame{name: "camera", parent: "arm", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
+	myMap := basicFrameMap{}
+	myMap.add(&basicFrame{name: "base"})
+	myMap.add(&basicFrame{name: "basex"})
+	myMap.add(&basicFrame{name: "arm", parent: "base", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
+	myMap.add(&basicFrame{name: "camera", parent: "arm", offset: &pb.ArmPosition{X: 1, Y: 1, Z: 1}})
 
-	trans, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
+	trans, err := FindTranslationChildToParent(ctx, &myMap, "camera", "base")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, trans.X, test.ShouldEqual, 2)
 	test.That(t, trans.Y, test.ShouldEqual, 2)
 	test.That(t, trans.Z, test.ShouldEqual, 2)
 
-	_, err = FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "basex")
+	_, err = FindTranslationChildToParent(ctx, &myMap, "camera", "basex")
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestFindTranslation2(t *testing.T) {
+func TestFindTranslationOrderOfOperations(t *testing.T) {
 	ctx := context.Background()
 
 	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
@@ -64,10 +64,10 @@ func TestFindTranslationInfLoop(t *testing.T) {
 	a := &pb.ArmPosition{X: 0.96, Y: 0.28, Z: 0, OX: 1.2, OY: 1.4, OZ: 1.5, Theta: 1.5}
 	b := &pb.ArmPosition{X: 0.5, Y: 0.5, Z: 0.5, OX: 3.2, OY: 5.4, OZ: 5.5, Theta: 5.5}
 
-	basicFrameMap := basicFrameMap{}
-	basicFrameMap.add(&basicFrame{name: "arm", parent: "camera", offset: a})
-	basicFrameMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
+	myMap := basicFrameMap{}
+	myMap.add(&basicFrame{name: "arm", parent: "camera", offset: a})
+	myMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
 
-	_, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
+	_, err := FindTranslationChildToParent(ctx, &myMap, "camera", "base")
 	test.That(t, err, test.ShouldNotBeNil)
 }

@@ -1,3 +1,7 @@
+// Package referenceframe defines the api and does the math of translating between reference frames
+// Useful for if you have a camera, connected to a gripper, connected to an arm,
+// and need to translate the camera reference frame to the arm reference frame,
+// if you've found something in the camera, and want to move the gripper + arm to get it.
 package referenceframe
 
 import (
@@ -35,7 +39,7 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 type Frame interface {
 	Name() string
 	Parent() string
-	OffsetToParent(ctx context.Context) (*pb.ArmPosition, error)
+	OffsetFromParent(ctx context.Context) (*pb.ArmPosition, error)
 }
 
 // FrameLookup is a way to find frames from some source
@@ -60,7 +64,7 @@ func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, child
 			return nil, fmt.Errorf("could not find frame: %s", childName)
 		}
 
-		myoffset, err := child.OffsetToParent(ctx)
+		myoffset, err := child.OffsetFromParent(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -105,7 +109,7 @@ func (f *basicFrame) Parent() string {
 	return f.parent
 }
 
-func (f *basicFrame) OffsetToParent(ctx context.Context) (*pb.ArmPosition, error) {
+func (f *basicFrame) OffsetFromParent(ctx context.Context) (*pb.ArmPosition, error) {
 	return f.offset, nil
 }
 

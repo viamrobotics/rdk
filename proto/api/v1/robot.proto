@@ -25,6 +25,9 @@ service RobotService {
 		};
 	}
 
+    // Config gets the config from a server
+    // It is only partial a config, including the pieces relevant to remote robots,
+    // And not the pieces relevant to local configuration (pins, security keys, etc...)
     rpc Config(ConfigRequest) returns (ConfigResponse) {
 		option (google.api.http) = {
 			get: "/v1/config"
@@ -291,7 +294,6 @@ message ComponentConfig {
   string type = 2;
   string parent = 3;
   ArmPosition translation = 4;
-
 }
 
 message ConfigRequest {}
