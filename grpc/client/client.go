@@ -205,7 +205,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 		return nil, err
 	}
 
-	cfg := &config.Config{}
+	var cfg config.Config
 	for _, c := range remoteConfig.Components {
 		cfg.Components = append(cfg.Components, config.Component{
 			Name:   c.Name,
@@ -224,7 +224,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 			},
 		})
 	}
-	return cfg, nil
+	return &cfg, nil
 }
 
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
