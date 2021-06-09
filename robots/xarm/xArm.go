@@ -36,6 +36,9 @@ var regMap = map[string]byte{
 	"MoveJoints":  0x17,
 	"ZeroJoints":  0x19,
 	"JointPos":    0x2A,
+	"SetBound":    0x34,
+	"EnableBound": 0x34,
+	"SetEEModel":  0x4E,
 }
 
 type cmd struct {
@@ -203,7 +206,7 @@ func (x *xArm6) motionWait(ctx context.Context) error {
 			return err
 		}
 		if len(sData.params) < 2 {
-			return errors.New("malformed state data response in MotionWait")
+			return errors.New("malformed state data response in motionWait")
 		}
 		if sData.params[1] != 1 {
 			ready = true
