@@ -14,8 +14,9 @@ import (
 const radToDeg = 180 / math.Pi
 const degToRad = math.Pi / 180
 
-// If two angles differ by less than this amount, we consider them the same
-const angleEpsilon = 1e-6
+// If two angles differ by less than this amount, we consider them the same for the purpose of doing
+// math around the poles of orientation.
+const angleEpsilon = 0.01 // radians
 
 // QuatTrans defines functions to perform rigid QuatTransformations in 3D.
 type QuatTrans struct {
@@ -229,10 +230,15 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	ov.OY = xyz.Jmag
 	ov.OZ = xyz.Kmag
 
-	if math.Abs(xyz.Kmag) == 1 {
+	// The contents of ov.xyz.Kmag are not in radians but we use angleEpsilon anyway to check how close we are to the pole
+	if 1-math.Abs(xyz.Kmag) < angleEpsilon {
 		// Special case for when we point directly along the Z axis
 		// Get the vector normal to the local-x, global-z, origin plane
-		ov.Theta = math.Atan2(-newZ.Jmag, -newZ.Imag)
+		ov.Theta = math.Atan2(newZ.Jmag, newZ.Imag)
+		if xyz.Kmag > 0 {
+			ov.Theta = math.Atan2(newZ.Jmag, -newZ.Imag)
+		}
+
 	} else {
 		v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
 		v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
@@ -283,14 +289,20 @@ func OVToQuat(ov *OrientationVec) quat.Number {
 
 	// If we're pointing at the Z axis then lon can be 0
 	lon := 0.0
-	if ov.OX == -1 {
+	theta := ov.Theta
+
+	// The contents of ov.OX are not in radians but we use angleEpsilon anyway to check how close we are to the pole
+	if 1+ov.OX < angleEpsilon {
 		lon = math.Pi
-	} else if ov.OZ != 1 && ov.OZ != -1 {
+	} else if 1-math.Abs(ov.OZ) > angleEpsilon {
 		// atan x/y removes some sign information so we use atan2 to do it properly
 		lon = math.Atan2(ov.OY, ov.OX)
+	} else {
+		// We are pointed at a pole (Z = 1 or -1) so theta is reversed
+		theta *= -1
 	}
 
-	q1 := mgl64.AnglesToQuat(lon, lat, ov.Theta, mgl64.ZYX)
+	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYX)
 	q.Real = q1.W
 	q.Imag = q1.X()
 	q.Jmag = q1.Y()
