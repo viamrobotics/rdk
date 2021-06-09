@@ -24,6 +24,9 @@ type RobotServiceClient interface {
 	Status(ctx context.Context, in *StatusRequest, opts ...grpc.CallOption) (*StatusResponse, error)
 	// StatusStream periodically sends the robot's status.
 	StatusStream(ctx context.Context, in *StatusStreamRequest, opts ...grpc.CallOption) (RobotService_StatusStreamClient, error)
+	// Config gets the config from a server
+	// It is only partial a config, including the pieces relevant to remote robots,
+	// And not the pieces relevant to local configuration (pins, security keys, etc...)
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
@@ -416,6 +419,9 @@ type RobotServiceServer interface {
 	Status(context.Context, *StatusRequest) (*StatusResponse, error)
 	// StatusStream periodically sends the robot's status.
 	StatusStream(*StatusStreamRequest, RobotService_StatusStreamServer) error
+	// Config gets the config from a server
+	// It is only partial a config, including the pieces relevant to remote robots,
+	// And not the pieces relevant to local configuration (pins, security keys, etc...)
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
