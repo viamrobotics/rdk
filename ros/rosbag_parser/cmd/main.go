@@ -12,7 +12,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/core/rimage"
+	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/ros"
+	"go.viam.com/core/utils"
+	"go.viam.com/core/vision/segmentation"
 )
 
 var logger = golog.NewDevelopmentLogger("rosbag_parser")
@@ -24,7 +27,7 @@ func main() {
 	}
 }
 
-func SaveImage(img image.Image, filename string) {
+func SaveImageAsPng(img image.Image, filename string) {
 	path := ""
 	f, err := os.Create(path + filename)
 	if err != nil {
@@ -32,6 +35,30 @@ func SaveImage(img image.Image, filename string) {
 	}
 	defer f.Close()
 	png.Encode(f, img)
+}
+
+// Extract planes from an image with depth.
+func ExtractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
+	// Set camera matrices in image-with-depth
+	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	imgWd.SetCameraSystem(camera)
+
+	// Get the pointcloud from the image-with-depth
+	pcl, err := imgWd.ToPointCloud()
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the planes from the point cloud
+	planes, _, err := segmentation.GetPlanesInPointCloud(pcl, 50, 150000)
+	if err != nil {
+		return nil, err
+	}
+
+	// Project the pointcloud planes into an image
+	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, planes)
+
+	return segImage, nil
 }
 
 func realMain(args []string) error {
@@ -45,17 +72,14 @@ func realMain(args []string) error {
 	}
 
 	topics := []string{"/L515_ImageWithDepth"}
-	// var topics []string
 	err = ros.WriteTopicsJSON(rb, 0, 0, topics)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%T\n", rb.TopicsAsJSON)
 	var message ros.L515Message
-	var messages []ros.L515Message
 	for _, v := range rb.TopicsAsJSON {
-		m_num := 0
+		count := 0
 		for {
 			// Read bytes into JSON structure
 			measurement, err := v.ReadBytes('\n')
@@ -68,15 +92,18 @@ func realMain(args []string) error {
 			json.Unmarshal(measurement[:len(measurement)-1], &message)
 
 			// Create & display image
-			imgwd, err := rimage.ReadBothFromBytes(message.Data.Data, true)
+			imgWd, err := rimage.ReadBothFromBytes(message.Data.Data, true)
 			if err != nil {
 				return err
 			}
-			img := imgwd.Overlay()
-			SaveImage(img, "img_"+fmt.Sprint(m_num)+".png")
+			imgNrgba := imgWd.Overlay()
+			SaveImageAsPng(imgNrgba, "img_"+fmt.Sprint(count)+".png")
 
-			messages = append(messages, message)
-			m_num += 1
+			// Apply plane segmentation on image
+			segImg, err := ExtractPlanes(imgWd)
+			SaveImageAsPng(segImg, "seg_img_"+fmt.Sprint(count)+".png")
+
+			count += 1
 		}
 	}
 	return nil
