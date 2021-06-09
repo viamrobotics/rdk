@@ -225,7 +225,7 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 50, 150000)
 	test.That(t, err, test.ShouldBeNil)
 	planes = append([]pc.PointCloud{nonPlane}, planes...)
-	segImage, err := pointCloudSegmentsToMask(h.cameraParams.ColorCamera, planes)
+	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, planes)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(segImage, "from-pointcloud")

@@ -172,7 +172,7 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 
 // PointCloudSegmentsToMask takes in an instrinsic camera matrix and a slice of pointclouds and projects
 // each pointcloud down to an image.
-func pointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
+func PointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
 	img := newSegmentedImage(rimage.NewImage(params.Width, params.Height))
 	visitedPoints := make(map[pc.Vec3]bool)
 	var err error
