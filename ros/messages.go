@@ -1,5 +1,6 @@
 package ros
 
+// L515Message reflects the JSON data format for rosbag Intel Realsense data
 type L515Message struct {
 	Meta struct {
 		Secs  int
@@ -18,6 +19,7 @@ type L515Message struct {
 	}
 }
 
+// ImuMessage reflects the JSON data format for rosbag imu data
 type ImuMessage struct {
 	Meta struct {
 		Secs  int
@@ -30,7 +32,7 @@ type ImuMessage struct {
 				Secs  int
 				Nsecs int
 			}
-			FrameId string `json:"frame_id"`
+			FrameID string `json:"frame_id"`
 		}
 		Orientation struct {
 			X float64

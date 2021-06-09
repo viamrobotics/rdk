@@ -9,6 +9,7 @@ import (
 	"github.com/starship-technologies/gobag/rosbag"
 )
 
+// ReadBag reads the contents of a rosbag into a gobag data structure
 func ReadBag(filename string) (*rosbag.RosBag, error) {
 	log.Printf("Working with bag file %v.", filename)
 
@@ -16,18 +17,22 @@ func ReadBag(filename string) (*rosbag.RosBag, error) {
 	if err != nil {
 		return nil, errors.Errorf("Unable to open input file, error %w", err)
 	}
-	defer f.Close()
 
 	rb := rosbag.NewRosBag()
 	err = rb.Read(f)
 	if err != nil {
 		return nil, errors.Errorf("Unable to create ros bag, error %w", err)
 	}
-	// rb.DumpChunks(filename)
+
+	err = f.Close()
+	if err != nil {
+		return nil, err
+	}
 	log.Printf("Done with bag file %v.", filename)
 	return rb, nil
 }
 
+// WriteTopicsJSON writes data from a rosbag into JSON files, filtered and sorted by topic.
 func WriteTopicsJSON(rb *rosbag.RosBag, startTime int64, endTime int64, topicsFilter []string) error {
 	log.Println("Starting WriteTopicsJSON")
 	var timeFilterFunc func(int64) bool
