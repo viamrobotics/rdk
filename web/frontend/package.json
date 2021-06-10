@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "license": "Apache-2.0",
   "dependencies": {
-    "google-protobuf": "~3.14.0",
     "@improbable-eng/grpc-web": "^0.13.0",
+    "google-protobuf": "~3.14.0",
     "three": "^0.127.0"
   },
   "devDependencies": {
