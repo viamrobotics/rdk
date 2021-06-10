@@ -11,7 +11,6 @@ export async function newPeerConnectionForClient(): Promise<ReadyPeer> {
 				urls: 'stun:stun.erdaniels.com'
 			},
 			{
-				// TODO(https://github.com/viamrobotics/core/issues/81): Use Viam STUN/TURN.
 				urls: 'turn:stun.erdaniels.com',
 				username: "username",
 				credentialType: "password",
