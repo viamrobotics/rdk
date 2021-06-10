@@ -76,15 +76,12 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		dist := WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
 
 		if len(gradient) > 0 {
+			maxGrad := 0.0
 
 			for i := range gradient {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
-				jump := ik.jump
-				if ik.Mdl.Joints[i].Rev {
-					jump *= -1
-				}
-				xBak[i] += jump
+				xBak[i] += ik.jump
 				ik.Mdl.SetPosition(xBak)
 				ik.Mdl.ForwardPosition()
 				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
@@ -97,7 +94,16 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				}
 				dist2 := WeightedSquaredNorm(dx2, ik.Mdl.DistCfg)
 
-				gradient[i] = (dist2 - dist) / (2 * jump)
+				gradient[i] = (dist2 - dist) / (20000 * ik.jump)
+				if math.Abs(gradient[i]) > maxGrad {
+					maxGrad = math.Abs(gradient[i])
+				}
+			}
+			// Scale gradient so that largest value is not > 2pi
+			if maxGrad > 2*math.Pi {
+				for i, v := range gradient {
+					gradient[i] = v / (maxGrad / (2 * math.Pi))
+				}
 			}
 		}
 		return dist

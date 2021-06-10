@@ -34,9 +34,6 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
-	// if nCPU < 8 {
-	t.Skip("Skipping problematic position, too few CPUs to solve; fails often")
-	// }
 	pos = &pb.ArmPosition{
 		X:  -66,
 		Y:  -133,
@@ -88,18 +85,18 @@ func TestNloptIKinematics(t *testing.T) {
 
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/ur5_testmodel.json"), 1, logger)
+	//~ wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/ur5_testmodel.json"), 2, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/universalrobots/ur5.json"), 2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(wxArm.Model, logger)
-	wxArm.ik = ik
 
-	wxArm.Model.SetPosition([]float64{2.2504444089658406, -3.5367666493993783, -1.864931855627623, -1.7483413388268039, 0.8881065796393912, 4.555201747501936})
+	wxArm.Model.SetPosition([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	wxArm.Model.ForwardPosition()
 	goal := wxArm.Model.GetOperationalPosition(0).Clone()
-	wxArm.Model.SetPosition([]float64{0, 0, 0, 0, 0, 0})
+	wxArm.Model.SetPosition([]float64{0.01, -2.0, 1.98, -1.771, -1.754, -0.4})
 	wxArm.Model.ForwardPosition()
-	ik.AddGoal(goal, 0)
-	didSolve := ik.Solve()
+
+	wxArm.ik.AddGoal(goal, 0)
+	didSolve := wxArm.ik.Solve()
 
 	test.That(t, didSolve, test.ShouldBeTrue)
 }
