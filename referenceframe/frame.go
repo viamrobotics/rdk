@@ -50,7 +50,9 @@ type FrameLookup interface {
 
 // FindTranslationChildToParent finds the path from one frame to other and computes the translation
 func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, childName, parentName string) (*pb.ArmPosition, error) {
+	origChild := childName
 	seen := map[string]bool{}
+	path := []string{}
 
 	offsets := []*pb.ArmPosition{}
 	for {
@@ -58,10 +60,12 @@ func FindTranslationChildToParent(ctx context.Context, lookup FrameLookup, child
 			return nil, errors.New("infinite loop in FindTranslationChildToParent")
 		}
 		seen[childName] = true
+		path = append(path, childName)
 
 		child := lookup.FindFrame(childName)
 		if child == nil {
-			return nil, fmt.Errorf("could not find frame: %s", childName)
+			return nil, fmt.Errorf("could not find frame: (%s) in lookup (%s) -> (%s) path: %v",
+				childName, origChild, parentName, path)
 		}
 
 		myoffset, err := child.OffsetFromParent(ctx)
