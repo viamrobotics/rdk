@@ -42,6 +42,7 @@ type Joint struct {
 	wraparound  []bool
 	descriptor  graph.Edge
 	transform   *Transform
+	Rev         bool
 }
 
 // NewJoint TODO
@@ -57,8 +58,10 @@ func NewJoint(dPos, dVel int, dir string) *Joint {
 	j.positionD = make([]float64, dVel)
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
+	j.Rev = false
 	if dir == "ccw" {
 		j.transform.Rev = true
+		j.Rev = true
 	} else {
 		// The caller should validate this, but double check we were passed a valid direction
 		if dir != "cw" && dir != "" {
