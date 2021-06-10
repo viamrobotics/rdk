@@ -6,7 +6,7 @@ const installedDependencies = require("./package.json").dependencies;
 
 const aliases = {};
 Object.keys(installedDependencies).forEach(dep => {
-  aliases[dep] = path.resolve(__dirname, "node_modules", dep);
+	aliases[dep] = path.resolve(__dirname, "node_modules", dep);
 });
 if ("proto" in aliases) {
 	throw new Error("proto is already in aliases");
@@ -15,7 +15,9 @@ aliases["proto"] = path.resolve(__dirname, '../../dist/js/proto');
 
 module.exports = {
 	mode: "development",
-	entry: "./src/client.js",
+	entry: {
+		control: "./src/control.js"
+	},
 	resolve: {
 		alias: aliases,
 	},
@@ -24,8 +26,8 @@ module.exports = {
 	},
 	optimization: {
 		minimize: false,
-    minimizer: [new TerserPlugin({
-      extractComments: false,
-    })],
-  },
+		minimizer: [new TerserPlugin({
+			extractComments: false,
+		})],
+	},
 };
