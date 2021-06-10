@@ -1,3 +1,4 @@
+// Package ros implements functionality that bridges the gap between `core` and ROS
 package ros
 
 import (
