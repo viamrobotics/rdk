@@ -21,6 +21,7 @@ import (
 	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	// These are the robot pieces we want by default
 	_ "go.viam.com/core/base/impl"
@@ -361,7 +362,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		options.Insecure = true
 	}
 
-	err = web.RunWeb(ctx, myRobot, options, logger)
+	err = webserver.RunWeb(ctx, myRobot, options, logger)
 	if err != nil {
 		cancel()
 		return fmt.Errorf("error running web: %w", err)
