@@ -172,6 +172,7 @@ func (r *mutableRobot) Close() error {
 // This is allowed to be partial or empty.
 func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
+	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
 	for remoteName, r := range r.parts.remotes {
 		rc, err := r.Config(ctx)
