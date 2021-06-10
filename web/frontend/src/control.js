@@ -12,9 +12,7 @@ window.robotServiceReady = new Promise((resolve, reject) => {
 	pReject = reject;
 })
 if (window.webrtcEnabled) {
-	console.log("dialing", window.webrtcSignalingAddress, "for", window.webrtcHost)
 	dial(window.webrtcSignalingAddress, window.webrtcHost).then(cc => {
-		console.log("connected!!??", cc)
 		window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 		pResolve(undefined);
 	}).catch(e => {
