@@ -32,7 +32,7 @@ var ur5modeljson []byte
 
 func init() {
 	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return URArmConnect(ctx, config.Host, logger)
+		return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
 	})
 }
 
@@ -40,6 +40,7 @@ func init() {
 type URArm struct {
 	mu                      *sync.Mutex
 	conn                    net.Conn
+	speed                   float64
 	state                   RobotState
 	runtimeError            error
 	debug                   bool
@@ -80,7 +81,11 @@ func (ua *URArm) Close() error {
 }
 
 // URArmConnect TODO
-func URArmConnect(ctx context.Context, host string, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, host string, speed float64, logger golog.Logger) (arm.Arm, error) {
+	if speed > 1 || speed < .1 {
+		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
+	}
+
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
@@ -92,6 +97,7 @@ func URArmConnect(ctx context.Context, host string, logger golog.Logger) (arm.Ar
 		mu:                      &sync.Mutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		conn:                    conn,
+		speed:                   speed,
 		debug:                   false,
 		haveData:                false,
 		logger:                  logger,
@@ -194,13 +200,17 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		return errors.New("need 6 joints")
 	}
 
-	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=5, v=4, r=0)\r\n",
+	cmd := fmt.Sprintf("movej([%f,%f,%f,%f,%f,%f], a=%1.2f, v=%1.2f, r=0)\r\n",
 		radians[0],
 		radians[1],
 		radians[2],
 		radians[3],
 		radians[4],
-		radians[5])
+		radians[5],
+		5.0*ua.speed,
+		4.0*ua.speed,
+	)
+
 	_, err := ua.conn.Write([]byte(cmd))
 	if err != nil {
 		return err
