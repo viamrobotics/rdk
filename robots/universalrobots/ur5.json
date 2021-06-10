@@ -8,7 +8,7 @@
             "parent": "world",
             "translation": {
                "x": 0,
-               "y": 0,
+               "y": -42.75,
                "z": 69
             }
          },
@@ -26,7 +26,7 @@
             "parent": "shoulder_lift_joint",
             "translation": {
                "x": -425,
-               "y": 0,
+               "y": -134,
                "z": 0
             }
          },
@@ -35,7 +35,7 @@
             "parent": "elbow_joint",
             "translation": {
                "x": -392,
-               "y": -109.3,
+               "y": 119,
                "z": 0
             }
          },
@@ -53,7 +53,7 @@
             "parent": "wrist_2_joint",
             "translation": {
                "x": 0,
-               "y": -81.5,
+               "y": -94.75,
                "z": 0
             }
          },
@@ -62,7 +62,7 @@
             "parent": "wrist_3_joint",
             "translation": {
                "x": 0,
-               "y": 0,
+               "y": -81.5,
                "z": 0
             },
             "setorientation": true,
