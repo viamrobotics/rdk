@@ -76,7 +76,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseGlob(fmt.Sprintf("%s/*.html", ResolveSharedDir(app.options.SharedDir)+"/templates"))
+	}).Funcs(sprig.FuncMap()).ParseFS(AppFS, "runtime-shared/templates/*.html")
 	if err != nil {
 		return err
 	}
@@ -104,8 +104,11 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type Temp struct {
-		Actions []string
-		Views   []View
+		External               bool
+		WebRTCHost             string
+		WebRTCSignalingAddress string
+		Actions                []string
+		Views                  []View
 	}
 
 	temp := Temp{
