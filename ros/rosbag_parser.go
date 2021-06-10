@@ -2,40 +2,38 @@
 package ros
 
 import (
-	"log"
 	"os"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
-
 	"github.com/starship-technologies/gobag/rosbag"
+
+	"go.viam.com/core/utils"
 )
 
 // ReadBag reads the contents of a rosbag into a gobag data structure
-func ReadBag(filename string) (*rosbag.RosBag, error) {
-	log.Printf("Working with bag file %v.", filename)
+func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
+	logger.Debugw("working with bag file", "name", filename)
 
 	f, err := os.Open(filename)
+	defer utils.UncheckedErrorFunc(f.Close)
 	if err != nil {
-		return nil, errors.Errorf("Unable to open input file, error %w", err)
+		return nil, errors.Errorf("unable to open input file, error %w", err)
 	}
 
 	rb := rosbag.NewRosBag()
-	err = rb.Read(f)
-	if err != nil {
-		return nil, errors.Errorf("Unable to create ros bag, error %w", err)
+
+	if err := rb.Read(f); err != nil {
+		return nil, errors.Errorf("unable to create ros bag, error %w", err)
 	}
 
-	err = f.Close()
-	if err != nil {
-		return nil, err
-	}
-	log.Printf("Done with bag file %v.", filename)
+	logger.Debugw("done with bag file", "name", filename)
 	return rb, nil
 }
 
 // WriteTopicsJSON writes data from a rosbag into JSON files, filtered and sorted by topic.
-func WriteTopicsJSON(rb *rosbag.RosBag, startTime int64, endTime int64, topicsFilter []string) error {
-	log.Println("Starting WriteTopicsJSON")
+func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter []string, logger golog.Logger) error {
+	logger.Debugw("Starting WriteTopicsJSON")
 	var timeFilterFunc func(int64) bool
 	if startTime == 0 || endTime == 0 {
 		timeFilterFunc = func(timestamp int64) bool {
@@ -64,9 +62,8 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime int64, endTime int64, topicsFi
 		}
 	}
 
-	err := rb.ParseTopicsToJSON("", timeFilterFunc, topicFilterFunc, false)
-	if err != nil {
-		return errors.Errorf("Error while parsing bag to JSON, error %w", err)
+	if err := rb.ParseTopicsToJSON("", timeFilterFunc, topicFilterFunc, false); err != nil {
+		return errors.Errorf("error while parsing bag to JSON, error %w", err)
 	}
 
 	return nil

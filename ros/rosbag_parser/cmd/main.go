@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -21,14 +22,16 @@ import (
 
 var logger = golog.NewDevelopmentLogger("rosbag_parser")
 
-func main() {
-	err := realMain(os.Args[1:])
-	if err != nil {
-		logger.Fatal(err)
-	}
+// Arguments for the rosbag parser
+type Arguments struct {
+	RosbagFile string `flag:"0"`
 }
 
-// SaveImageAsPng saves image as png in current directory
+func main() {
+	utils.ContextualMain(mainWithArgs, logger)
+}
+
+// saveImageAsPng saves image as png in current directory
 func saveImageAsPng(img image.Image, filename string) error {
 	path := ""
 	f, err := os.Create(path + filename)
@@ -46,7 +49,7 @@ func saveImageAsPng(img image.Image, filename string) error {
 	return nil
 }
 
-// ExtractPlanes extract planes from an image with depth.
+// extractPlanes extract planes from an image with depth.
 func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, error) {
 	// Set camera matrices in image-with-depth
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
@@ -76,18 +79,24 @@ func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 	return segImage, nil
 }
 
-func realMain(args []string) error {
-	if len(args) == 0 {
-		return errors.New("need to specify a rosbag file path")
+func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	var argsParsed Arguments
+
+	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+		return err
 	}
-	filename := args[0]
-	rb, err := ros.ReadBag(filename)
+
+	// if len(args) < 2 {
+	// 	return errors.New("need to specify a rosbag file path")
+	// }
+	// filename := args[1]
+	rb, err := ros.ReadBag(argsParsed.RosbagFile, logger)
 	if err != nil {
 		return err
 	}
 
 	topics := []string{"/L515_ImageWithDepth"}
-	err = ros.WriteTopicsJSON(rb, 0, 0, topics)
+	err = ros.WriteTopicsJSON(rb, 0, 0, topics, logger)
 	if err != nil {
 		return err
 	}

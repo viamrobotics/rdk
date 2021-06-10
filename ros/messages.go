@@ -56,16 +56,19 @@ type L515Message struct {
 	Data ByteMultiArray
 }
 
+// ImuData contains the IMU data
+type ImuData struct {
+	Header                       MessageHeader
+	Orientation                  Quaternion
+	OrientationCovariance        [9]int  `json:"orientation_covariance"`
+	AngularVelocity              Vector3 `json:"angular_velocity"`
+	AngularVelocityCovariance    [9]int  `json:"angular_velocity_covariance"`
+	LinearAcceleration           Vector3 `json:"linear_acceleration"`
+	LinearAccelerationCovariance [9]int  `json:"linear_acceleration_covariance"`
+}
+
 // ImuMessage reflects the JSON data format for rosbag imu data
 type ImuMessage struct {
 	Meta TimeStamp
-	Data struct {
-		Header                       MessageHeader
-		Orientation                  Quaternion
-		OrientationCovariance        [9]int  `json:"orientation_covariance"`
-		AngularVelocity              Vector3 `json:"angular_velocity"`
-		AngularVelocityCovariance    [9]int  `json:"angular_velocity_covariance"`
-		LinearAcceleration           Vector3 `json:"linear_acceleration"`
-		LinearAccelerationCovariance [9]int  `json:"linear_acceleration_covariance"`
-	}
+	Data ImuData
 }
