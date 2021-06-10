@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"go.viam.com/core/arm"
@@ -181,18 +180,13 @@ func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
 		}
 
 		for _, c := range rc.Components {
-			if c.Parent == "@" {
-
+			if c.Parent == "" {
 				for _, rc := range cfgCpy.Remotes {
 					if rc.Name == remoteName {
 						c.Parent = rc.Parent
 						break
 					}
 				}
-				if c.Parent == "@" {
-					return nil, fmt.Errorf("cannot find correct parent for remote %s", remoteName)
-				}
-
 			}
 			cfgCpy.Components = append(cfgCpy.Components, c)
 		}

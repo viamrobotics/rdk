@@ -200,7 +200,7 @@ func TestRemoteRobot(t *testing.T) {
 			},
 			{
 				Name:   "bar",
-				Parent: "@",
+				Parent: "",
 			},
 		},
 	}
@@ -213,7 +213,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "one.foo")
 	test.That(t, conf.Components[0].Parent, test.ShouldEqual, "one.bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "one.bar")
-	test.That(t, conf.Components[1].Parent, test.ShouldEqual, "@")
+	test.That(t, conf.Components[1].Parent, test.ShouldEqual, "")
 
 	robot.conf.Prefix = false
 	conf, err = robot.Config(context.Background())
@@ -221,7 +221,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, conf.Components[0].Name, test.ShouldEqual, "foo")
 	test.That(t, conf.Components[0].Parent, test.ShouldEqual, "bar")
 	test.That(t, conf.Components[1].Name, test.ShouldEqual, "bar")
-	test.That(t, conf.Components[1].Parent, test.ShouldEqual, "@")
+	test.That(t, conf.Components[1].Parent, test.ShouldEqual, "")
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
