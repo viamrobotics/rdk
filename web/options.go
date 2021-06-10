@@ -1,3 +1,4 @@
+// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
 // Options are used for configuring the web server.

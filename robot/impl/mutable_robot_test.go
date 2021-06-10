@@ -18,6 +18,7 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
+	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/rimage/imagesource"
 
@@ -73,7 +74,7 @@ func TestConfigRemote(t *testing.T) {
 
 	webDone := make(chan struct{})
 	go func() {
-		web.RunWeb(cancelCtx, r, options, logger)
+		webserver.RunWeb(cancelCtx, r, options, logger)
 		close(webDone)
 	}()
 

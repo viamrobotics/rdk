@@ -1,5 +1,5 @@
-// Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
-package web
+// Package server implements gRPC/REST/GUI APIs to control and monitor a robot.
+package server
 
 import (
 	"context"
@@ -29,6 +29,7 @@ import (
 	echoserver "go.viam.com/core/rpc/examples/echo/server"
 	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/utils"
+	"go.viam.com/core/web"
 
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
@@ -64,7 +65,7 @@ type robotWebApp struct {
 	views    []gostream.View
 	theRobot robot.Robot
 	logger   golog.Logger
-	options  Options
+	options  web.Options
 }
 
 // Init does template initialization work.
@@ -76,7 +77,7 @@ func (app *robotWebApp) Init() error {
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseFS(AppFS, "runtime-shared/templates/*.html")
+	}).Funcs(sprig.FuncMap()).ParseFS(web.AppFS, "runtime-shared/templates/*.html")
 	if err != nil {
 		return err
 	}
@@ -268,7 +269,7 @@ func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // installWeb prepares the given mux to be able to serve the UI for the robot. It also starts some goroutines
 // for image processing that can be cleaned up with the returned cleanup function.
-func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options Options, logger golog.Logger) (func(), error) {
+func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, options web.Options, logger golog.Logger) (func(), error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, err
@@ -351,7 +352,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
-func RunWeb(ctx context.Context, theRobot robot.Robot, options Options, logger golog.Logger) (err error) {
+func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		err = multierr.Combine(err, utils.TryClose(theRobot))
 	}()
