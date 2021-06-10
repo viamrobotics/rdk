@@ -15,7 +15,6 @@
     {{ end }}
     <script>
       function grpcCallback(err, resp) {
-        console.log(err, resp)
         if (err) {
           theData.error = JSON.stringify(err);
           return;

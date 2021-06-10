@@ -254,6 +254,7 @@ type Arguments struct {
 	SharedDir  string            `flag:"shareddir,usage=web resource directory"`
 	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
 	Debug      bool              `flag:"debug"`
+	LocalCloud bool              `flag:"local-cloud"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
@@ -358,6 +359,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	if cfg.Cloud != nil {
 		options.Name = cfg.Cloud.Self
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
+		if argsParsed.LocalCloud {
+			options.Insecure = true
+		}
 	} else {
 		options.Insecure = true
 	}
