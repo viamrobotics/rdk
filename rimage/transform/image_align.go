@@ -61,6 +61,7 @@ func (config AlignConfig) ComputeWarpFromCommon(logger golog.Logger) (*AlignConf
 		DepthInputSize:  config.DepthInputSize,
 		DepthWarpPoints: rimage.ArrayToPoints(depthPoints),
 		OutputSize:      config.OutputSize,
+		OutputOrigin:    config.OutputOrigin,
 	}, nil
 }
 
