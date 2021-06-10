@@ -14,6 +14,7 @@ type CombinedIK struct {
 	solvers []InverseKinematics
 	Mdl     *Model
 	ID      int
+	logger  golog.Logger
 }
 
 // ReturnTest TODO
@@ -41,6 +42,7 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	for i, solver := range ik.solvers {
 		solver.SetID(i)
 	}
+	ik.logger = logger
 	return ik
 }
 
@@ -101,6 +103,8 @@ func runSolver(solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-ch
 // Solve TODO
 func (ik *CombinedIK) Solve() bool {
 	pos := ik.Mdl.GetPosition()
+	ik.logger.Debugf("starting joint positions: %v", pos)
+	ik.logger.Debugf("starting 6d position: %v", ik.Mdl.Get6dPosition(0))
 	c := make(chan ReturnTest)
 
 	noMoreSolutions := make(chan struct{})
@@ -126,6 +130,8 @@ func (ik *CombinedIK) Solve() bool {
 		if myRT.Success {
 			ik.Mdl.SetPosition(ik.solvers[myRT.ID].GetMdl().GetPosition())
 			ik.Mdl.ForwardPosition()
+			ik.logger.Debugf("solved joint positions: %v", ik.Mdl.GetPosition())
+			ik.logger.Debugf("solved 6d position: %v", ik.Mdl.Get6dPosition(0))
 		}
 	}
 	ik.Halt()
