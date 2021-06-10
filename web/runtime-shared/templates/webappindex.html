@@ -4,8 +4,6 @@
     <script src="./static/main.js"></script>
     <script src="./static/third-party/vue.js"></script>
     <script>
-      const enableDevTools = window.__GRPCWEB_DEVTOOLS__ || (() => {});
-      enableDevTools([robotService]);
       async function consumeClientCall(prom, cb) {
         try {
             const resp = await prom;
@@ -291,11 +289,6 @@
             });
             statusStream.on('end', function(end) {
               console.log("done streaming robot status");
-              setTimeout(() => restartStatusStream(), 1000);
-            });
-            statusStream.on('error', function(err) {
-              console.log("error streaming robot status");
-              console.log(err);
               setTimeout(() => restartStatusStream(), 1000);
             });
           }
