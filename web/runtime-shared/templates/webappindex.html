@@ -2,6 +2,7 @@
   <head>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
+      window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
     </script>
@@ -84,7 +85,7 @@
           theData.status = status;
       }
       
-      function startup() {
+      async function startup() {
           theData = {
               error : "",
               res : {},
@@ -361,10 +362,16 @@
           
       }
 
+      async function waitForClientAndStart() {
+        console.debug("waiting for robot service to be ready");
+        await window.robotServiceReady;
+        console.debug("ready");
+        startup();
+      }
       
     </script>
   </head>
-  <body onLoad="startup()">
+  <body onLoad="waitForClientAndStart()">
     <div id="app">
       <div id="actions">
         {{range $r := .Actions}}
