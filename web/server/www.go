@@ -70,14 +70,23 @@ type robotWebApp struct {
 
 // Init does template initialization work.
 func (app *robotWebApp) Init() error {
-	t, err := template.New("foo").Funcs(template.FuncMap{
+	var err error
+
+	t := template.New("foo").Funcs(template.FuncMap{
 		"jsSafe": func(js string) template.JS {
 			return template.JS(js)
 		},
 		"htmlSafe": func(html string) template.HTML {
 			return template.HTML(html)
 		},
-	}).Funcs(sprig.FuncMap()).ParseFS(web.AppFS, "runtime-shared/templates/*.html")
+	}).Funcs(sprig.FuncMap())
+
+	if app.options.Debug {
+		t, err = t.ParseGlob(fmt.Sprintf("%s/*.html", ResolveSharedDir(app.options.SharedDir)+"/templates"))
+	} else {
+		t, err = t.ParseFS(web.AppFS, "runtime-shared/templates/*.html")
+	}
+
 	if err != nil {
 		return err
 	}
