@@ -13,6 +13,7 @@
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
     {{ end }}
+
     <script>
       function grpcCallback(err, resp) {
         if (err) {
@@ -89,7 +90,8 @@
               error : "",
               res : {},
               rawStatus : null,
-              status : {}
+              status : {},
+              pcdClick : {},
           };
           theApp = new Vue({
               el: '#app',
@@ -255,11 +257,17 @@
                           + pcdGlobal.cameraName + "/"
                           + r(p.point.x) + "/" + r(p.point.y) + "/" + r(p.point.z);
 
-                      console.log(path);
+                      theData.pcdClick.x = r(p.point.x);
+                      theData.pcdClick.y = r(p.point.y);
+                      theData.pcdClick.z = r(p.point.z);
+                      theData.pcdClick.path = path;
                       
-                      fetch(path).then(console.log);
-                  }
 
+                  },
+                  doPCDGrab : function(){
+                      console.log(theData.pcdClick.path);
+                      fetch(theData.pcdClick.path).then(console.log);
+                  }
               }
           })
 
@@ -311,7 +319,7 @@
           if (pcdGlobal) {
               return
           }
-
+          theData.pcdClick.enable = true;
           console.log("initing pcd");
           
           pcdGlobal = {
@@ -580,7 +588,42 @@
       
       <div>${res}</div>
 
-      <div id="pcd" v-on:click="grabClick"/>
+      <div id="pcd_wrapper">
+        <table>
+          <tr>
+            <td><div id="pcd" v-on:click="grabClick"/></td>
+            <td v-if="pcdClick.enable">
+              <table>
+                <tr>
+                  <th colspan=2>
+                    Clicked On
+                  </th>
+                </tr>
+                <tr>
+                  <th>X</th>
+                  <td>${pcdClick.x}</td>
+                </tr>
+                <tr>
+                  <th>Y</th>
+                  <td>${pcdClick.y}</td>
+                </tr>
+                <tr>
+                  <th>Z</th>
+                  <td>${pcdClick.z}</td>
+                </tr>
+                <tr>
+                  <td colspan=2>${pcdClick.path}</td>
+                </tr>
+                <tr>
+                  <td colspan=2>
+                    <button v-on:click="doPCDGrab">Grab</button>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
     </div> <!-- end vue app -->
     
   </body>
