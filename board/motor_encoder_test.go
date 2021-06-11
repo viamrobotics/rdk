@@ -22,7 +22,8 @@ func TestMotorEncoder1(t *testing.T) {
 	real := &FakeMotor{mu: &sync.Mutex{}}
 	encoder := &BasicDigitalInterrupt{}
 
-	motor := newEncodedMotor(cfg, real, encoder)
+	motor, err := newEncodedMotor(cfg, real, encoder)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
@@ -130,7 +131,8 @@ func TestMotorEncoderHall(t *testing.T) {
 	encoderA := &BasicDigitalInterrupt{}
 	encoderB := &BasicDigitalInterrupt{}
 
-	motor := newEncodedMotorTwoEncoders(cfg, real, encoderA, encoderB)
+	motor, err := newEncodedMotorTwoEncoders(cfg, real, encoderA, encoderB)
+	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
@@ -246,4 +248,22 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, m, test.ShouldBeNil)
 	test.That(t, utils.TryClose(m), test.ShouldBeNil)
+}
+
+func TestWrapMotorWithEncoderRampMath(t *testing.T) {
+	m := encodedMotor{rampRate: 0.5}
+
+	test.That(t, m.computeRamp(0, 1), test.ShouldAlmostEqual, .5)
+	test.That(t, m.computeRamp(0.5, 1), test.ShouldAlmostEqual, .75)
+
+	m.rampRate = 1
+	test.That(t, m.computeRamp(0, 1), test.ShouldAlmostEqual, 1)
+	test.That(t, m.computeRamp(0.5, 1), test.ShouldAlmostEqual, 1)
+	test.That(t, m.computeRamp(0.5, .9), test.ShouldAlmostEqual, .9, .001)
+
+	m.rampRate = .25
+	test.That(t, m.computeRamp(0, 1), test.ShouldAlmostEqual, .25)
+	test.That(t, m.computeRamp(0.5, 1), test.ShouldAlmostEqual, .625)
+	test.That(t, m.computeRamp(0.999, 1), test.ShouldAlmostEqual, 1, .0000000001)
+
 }
