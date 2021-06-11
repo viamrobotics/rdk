@@ -264,5 +264,6 @@ func TestWrapMotorWithEncoderRampMath(t *testing.T) {
 	m.rampRate = .25
 	test.That(t, m.computeRamp(0, 1), test.ShouldAlmostEqual, .25)
 	test.That(t, m.computeRamp(0.5, 1), test.ShouldAlmostEqual, .625)
+	test.That(t, m.computeRamp(0.999, 1), test.ShouldAlmostEqual, 1, .0000000001)
 
 }
