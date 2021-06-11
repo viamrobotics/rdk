@@ -85,6 +85,7 @@ func TestConfigRemote(t *testing.T) {
 				Name:    "foo",
 				Address: addr,
 				Prefix:  true,
+				Parent:  "ppp",
 			},
 			{
 				Address: addr,
@@ -150,6 +151,16 @@ func TestConfigRemote(t *testing.T) {
 	}
 
 	test.That(t, status, test.ShouldResemble, expectedStatus)
+
+	cfg2, err := r2.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
+	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
+
+	cfg2, err = r2.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
+	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
 
 	cancel()
 	<-webDone

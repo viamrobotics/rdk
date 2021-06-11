@@ -70,6 +70,7 @@ type Remote struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
 	Prefix  bool   `json:"prefix"`
+	Parent  string `json:"parent"`
 }
 
 // Validate ensures all parts of the config are valid.
