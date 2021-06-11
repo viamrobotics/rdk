@@ -93,6 +93,7 @@ type MotorConfig struct {
 	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
 	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
 	TicksPerRotation int               `json:"ticksPerRotation"`
+	RampRate         float32           `json:"rampRate"` // how fast to ramp power to motor when using rpm control
 }
 
 // Validate ensures all parts of the config are valid.
