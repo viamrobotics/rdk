@@ -186,27 +186,38 @@ type grabAtCameraPositionHandler struct {
 	app *robotWebApp
 }
 
-func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, camera camera.Camera, x, y, z float64) error {
+func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName string, camera camera.Camera, x, y, z float64) error {
 	if len(h.app.theRobot.ArmNames()) != 1 {
 		return errors.New("robot needs exactly 1 arm to do grabAt")
 	}
 
-	arm := h.app.theRobot.ArmByName(h.app.theRobot.ArmNames()[0])
+	armName := h.app.theRobot.ArmNames()[0]
+	arm := h.app.theRobot.ArmByName(armName)
 
-	pos, err := arm.CurrentPosition(ctx)
+	frameLookup, err := h.app.theRobot.FrameLookup(ctx)
 	if err != nil {
 		return err
 	}
 
-	pos2 := referenceframe.OffsetBy(pos, &pb.ArmPosition{X: x, Y: y, Z: z})
+	pos, err := referenceframe.FindTranslationChildToParent(ctx, frameLookup, cameraName, armName)
+	if err != nil {
+		return err
+	}
 
-	return fmt.Errorf("please finish doGrab %v", pos2)
+	h.app.logger.Debugf("move - %v %v %v\n", x, y, z)
+
+	h.app.logger.Debugf("pos a: %#v\n", pos)
+	pos = referenceframe.OffsetBy(&pb.ArmPosition{X: x, Y: y, Z: z}, pos)
+	h.app.logger.Debugf("pos b: %#v\n", pos)
+
+	return arm.MoveToPosition(ctx, pos)
 }
 
 func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	camera := h.app.theRobot.CameraByName(pat.Param(r, "camera"))
+	cameraName := pat.Param(r, "camera")
+	camera := h.app.theRobot.CameraByName(cameraName)
 	if camera == nil {
 		http.NotFound(w, r)
 		return
@@ -238,7 +249,7 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	err = h.doGrab(ctx, camera, x, y, z)
+	err = h.doGrab(ctx, cameraName, camera, x, y, z)
 	if err != nil {
 		h.app.logger.Errorf("error grabbing: %s", err)
 		http.Error(w, fmt.Sprintf("error grabbing: %s", err), http.StatusInternalServerError)

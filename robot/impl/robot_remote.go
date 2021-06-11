@@ -216,7 +216,24 @@ func (rr *remoteRobot) ProcessManager() rexec.ProcessManager {
 }
 
 func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
-	return rr.robot.Config(ctx)
+	cfgReal, err := rr.robot.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := config.Config{
+		Components: make([]config.Component, len(cfgReal.Components)),
+	}
+
+	for idx, c := range cfgReal.Components {
+		c.Name = rr.prefixName(c.Name)
+		if c.Parent != "" {
+			c.Parent = rr.prefixName(c.Parent)
+		}
+		cfg.Components[idx] = c
+	}
+
+	return &cfg, nil
 }
 
 func (rr *remoteRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {

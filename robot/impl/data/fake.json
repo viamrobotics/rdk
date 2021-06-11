@@ -3,7 +3,8 @@
         {
             "model": "fake",
             "name": "pieceGripper",
-            "type": "gripper"
+            "type": "gripper",
+            "parent" : ""
         },
         {
             "model": "file",

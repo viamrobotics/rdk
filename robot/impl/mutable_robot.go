@@ -171,7 +171,29 @@ func (r *mutableRobot) Close() error {
 // Config returns the config used to construct the robot.
 // This is allowed to be partial or empty.
 func (r *mutableRobot) Config(ctx context.Context) (*config.Config, error) {
-	return r.config, nil
+	cfgCpy := *r.config
+	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
+
+	for remoteName, r := range r.parts.remotes {
+		rc, err := r.Config(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, c := range rc.Components {
+			if c.Parent == "" {
+				for _, rc := range cfgCpy.Remotes {
+					if rc.Name == remoteName {
+						c.Parent = rc.Parent
+						break
+					}
+				}
+			}
+			cfgCpy.Components = append(cfgCpy.Components, c)
+		}
+
+	}
+	return &cfgCpy, nil
 }
 
 // Status returns the current status of the robot. Usually you
