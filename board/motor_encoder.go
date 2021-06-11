@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -60,20 +61,23 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		}
 	}
 
-	mm2 := newEncodedMotorTwoEncoders(mc, m, i, encoderB)
+	mm2, err := newEncodedMotorTwoEncoders(mc, m, i, encoderB)
+	if err != nil {
+		return nil, err
+	}
 	mm2.logger = logger
 	mm2.rpmMonitorStart()
 
 	return mm2, nil
 }
 
-func newEncodedMotor(cfg MotorConfig, real Motor, encoder DigitalInterrupt) *encodedMotor {
+func newEncodedMotor(cfg MotorConfig, real Motor, encoder DigitalInterrupt) (*encodedMotor, error) {
 	return newEncodedMotorTwoEncoders(cfg, real, encoder, nil)
 }
 
-func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB DigitalInterrupt) *encodedMotor {
+func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB DigitalInterrupt) (*encodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
-	return &encodedMotor{
+	em := &encodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     cfg,
 		real:                    real,
@@ -83,7 +87,17 @@ func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB 
 		cancel:                  cancel,
 		stateMu:                 &sync.RWMutex{},
 		startedRPMMonitorMu:     &sync.Mutex{},
+		rampRate:                cfg.RampRate,
 	}
+
+	if em.rampRate < 0 || em.rampRate > 1 {
+		return nil, fmt.Errorf("ranp rate needs to be [0,1) but is %v", em.rampRate)
+	}
+	if em.rampRate == 0 { // default
+		em.rampRate = 0.5
+	}
+
+	return em, nil
 }
 
 type encodedMotor struct {
@@ -98,6 +112,11 @@ type encodedMotor struct {
 
 	startedRPMMonitor   bool
 	startedRPMMonitorMu *sync.Mutex
+
+	// how fast as we increase power do we do so
+	// valid numbers are [0, 1)
+	// .01 would ramp very slowly, 1 would ramp instantaneously
+	rampRate float32
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -467,9 +486,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 					neededPowerPct = 1
 				}
 
-				neededPowerPct = (float64(lastPowerPct) + neededPowerPct) / 2 // slow down ramps
-
-				newPowerPct = float32(neededPowerPct)
+				newPowerPct = m.computeRamp(lastPowerPct, float32(neededPowerPct))
 			}
 
 			if newPowerPct != lastPowerPct {
@@ -488,6 +505,14 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 		lastCount = count
 		lastTime = now
 	}
+}
+
+func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
+	delta := newPower - oldPower
+	if delta < 1.0/255.0 {
+		return newPower
+	}
+	return oldPower + (delta * m.rampRate)
 }
 
 func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
