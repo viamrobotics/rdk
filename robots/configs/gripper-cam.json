@@ -41,6 +41,7 @@
               "debug" : false,
               "color" : "color",
               "depth" : "depth",
+              "matrices": "$load{gripper_combo_parameters.json}",
               "config" : {
                   "ColorInputSize" : { "X" : 1024, "Y" : 768 },
                   "ColorWarpPoints" : [ { "X" : 604, "Y" : 575}, { "X" : 695, "Y" : 115 } ],
