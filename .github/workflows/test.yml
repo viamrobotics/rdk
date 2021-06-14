@@ -46,7 +46,7 @@ jobs:
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build goformat" resulted in changes not in git' 1>&2
-            echo "$GEN_DIFF" 1>&2
+            git status
             exit 1
         fi
 
