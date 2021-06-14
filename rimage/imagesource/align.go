@@ -68,30 +68,47 @@ var alignCurrentlyWriting = false
 
 // DepthComposed TODO
 type DepthComposed struct {
-	color, depth gostream.ImageSource
-	camera       rimage.CameraSystem
-	aligned      bool
-	debug        bool
-	logger       golog.Logger
+	color, depth     gostream.ImageSource
+	alignmentCamera  rimage.CameraSystem
+	projectionCamera rimage.CameraSystem
+	aligned          bool
+	debug            bool
+	logger           golog.Logger
 }
 
 // NewDepthComposed TODO
 func NewDepthComposed(color, depth gostream.ImageSource, attrs config.AttributeMap, logger golog.Logger) (*DepthComposed, error) {
-	var camera rimage.CameraSystem
+	var alignCamera rimage.CameraSystem
+	var projectCamera rimage.CameraSystem
 	var err error
 
-	if attrs.Has("config") {
+	if attrs.Has("config") && attrs.Has("matrices") {
 		config := attrs["config"].(*transform.AlignConfig)
-		camera, err = transform.NewDepthColorWarpTransforms(config, logger)
+		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
+		if err != nil {
+			return nil, err
+		}
+		projectCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		if err != nil {
+			return nil, err
+		}
+	} else if attrs.Has("config") {
+		config := attrs["config"].(*transform.AlignConfig)
+		alignCamera, err = transform.NewDepthColorWarpTransforms(config, logger)
+		if err != nil {
+			return nil, err
+		}
+		projectCamera = alignCamera
 	} else if attrs.Has("matrices") {
-		camera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		alignCamera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		if err != nil {
+			return nil, err
+		}
+		projectCamera = alignCamera
 	} else {
 		return nil, errors.New("no camera system config")
 	}
-	if err != nil {
-		return nil, err
-	}
-	return &DepthComposed{color, depth, camera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
+	return &DepthComposed{color, depth, alignCamera, projectCamera, attrs.Bool("aligned", false), attrs.Bool("debug", false), logger}, nil
 }
 
 // Close does nothing.
@@ -120,7 +137,7 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned, dc.camera)
+	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned, dc.alignmentCamera)
 
 	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
@@ -139,7 +156,8 @@ func (dc *DepthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 			})
 		}
 	}
-	aligned, err := dc.camera.AlignImageWithDepth(ii)
+	aligned, err := dc.alignmentCamera.AlignImageWithDepth(ii)
+	aligned.SetCameraSystem(dc.projectionCamera)
 
 	return aligned, func() {}, err
 

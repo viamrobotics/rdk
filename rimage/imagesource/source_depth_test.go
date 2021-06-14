@@ -23,10 +23,12 @@ func (h *depthSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCont
 	// align the images
 	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fixed, err := dc.camera.AlignImageWithDepth(ii)
+	fixed, err := dc.alignmentCamera.AlignImageWithDepth(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
+	// change to use projection camera
+	fixed.SetCameraSystem(dc.projectionCamera)
 	// create edge map
 	source := &StaticSource{fixed}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
