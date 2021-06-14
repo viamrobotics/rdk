@@ -20,9 +20,10 @@ var gripperjson []byte
 func TestChangeCamera(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	// define the alignment and projection systems
 	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761793.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
+
+	// define the alignment and projection systems
 	projectionSystem, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(gripperjson)
 	test.That(t, err, test.ShouldBeNil)
 
