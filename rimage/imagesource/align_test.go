@@ -41,7 +41,7 @@ func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, f
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud")
 
 	// go back to image with depth
-	roundTrip, err := dc.alignmentCamera.PointCloudToImageWithDepth(pc)
+	roundTrip, err := dc.projectionCamera.PointCloudToImageWithDepth(pc)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
 
