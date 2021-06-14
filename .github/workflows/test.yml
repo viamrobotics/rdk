@@ -45,7 +45,7 @@ jobs:
         make build goformat
         GEN_DIFF=$(git diff)
         if [ -n "$GEN_DIFF" ]; then
-            echo '"buf generate or goformat" resulted in changes not in git' 1>&2
+            echo '"make build goformat" resulted in changes not in git' 1>&2
             echo "$GEN_DIFF" 1>&2
             exit 1
         fi
