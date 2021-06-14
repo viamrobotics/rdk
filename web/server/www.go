@@ -374,6 +374,9 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 // until the context is done.
 func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
 	defer func() {
+		if err != nil && utils.FilterOutError(err, context.Canceled) != nil {
+			logger.Errorw("error running web", "error", err)
+		}
 		err = multierr.Combine(err, utils.TryClose(theRobot))
 	}()
 
