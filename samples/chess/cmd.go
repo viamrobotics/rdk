@@ -642,13 +642,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 					}
 				}
 
-				annotatedImageHolder.Img = rimage.ConvertToImageWithDepth(annotated)
+				iwd := rimage.ConvertToImageWithDepth(annotated)
 				if atomic.LoadInt32(&wantPicture) != 0 {
 					tm := time.Now().Unix()
 
 					fn := artifact.MustNewPath(fmt.Sprintf("samples/chess/board-%d.both.gz", tm))
 					logger.Debugf("saving image %s", fn)
-					if err := annotatedImageHolder.Img.WriteTo(fn); err != nil {
+					if err := iwd.WriteTo(fn); err != nil {
 						panic(err)
 					}
 
