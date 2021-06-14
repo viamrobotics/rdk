@@ -72,6 +72,22 @@ func (dm *DepthMap) Contains(x, y int) bool {
 	return x >= 0 && y >= 0 && x < dm.width && y < dm.height
 }
 
+// At returns the depth value as a color.Color so DepthMap can implement image.Image
+func (dm *DepthMap) At(x, y int) color.Color {
+	return color.Gray16{uint16(dm.GetDepth(x, y))}
+}
+
+// ColorModel for DepthMap so that it implements image.Image
+func (dm *DepthMap) ColorModel() color.Model { return &TheDepthModel{} }
+
+// TheDepthModel is the color model used to convert other colors to its own color
+type TheDepthModel struct{}
+
+// Convert will use the Gray16 model as a stand-in for the depth model
+func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
+	return color.Gray16Model.Convert(c)
+}
+
 // SubImage TODO
 func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
@@ -261,6 +277,8 @@ func NewDepthMapFromImageFile(fn string) (*DepthMap, error) {
 // or if it can be converted into one.
 func ConvertImageToDepthMap(img image.Image) (*DepthMap, error) {
 	switch ii := img.(type) {
+	case *DepthMap:
+		return ii, nil
 	case *ImageWithDepth:
 		return ii.Depth, nil
 	case *image.Gray16:

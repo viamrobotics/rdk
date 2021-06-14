@@ -71,7 +71,7 @@ func init() {
 
 // StaticSource TODO
 type StaticSource struct {
-	Img *rimage.ImageWithDepth
+	Img image.Image
 }
 
 // Next TODO
