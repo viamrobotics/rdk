@@ -63,7 +63,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           theBoard.Motor("g"),
 		current:         theBoard.AnalogReader("current"),
 		pressure:        theBoard.AnalogReader("pressure"),
-		defaultPowerPct: 1.0,
+		defaultPowerPct: 0.8,
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
@@ -102,12 +102,12 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	if hasPressureA {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		vg.openPos = posB
+		vg.openPos = posB + 0.1
 		vg.closePos = posA
 	} else {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-		vg.openPos = posA
+		vg.openPos = posA - 0.1
 		vg.closePos = posB
 	}
 
@@ -281,7 +281,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.GoFor(ctx, dir, 30, 0)
+	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct)
 	if err != nil {
 		return -1, false, err
 	}
@@ -311,7 +311,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
-			err := vg.motor.Power(ctx, vg.defaultPowerPct*2)
+			err := vg.motor.Power(ctx, vg.defaultPowerPct*1.1)
 			if err != nil {
 				return -1, false, err
 			}
