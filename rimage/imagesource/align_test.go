@@ -1,6 +1,7 @@
 package imagesource
 
 import (
+	"context"
 	"image"
 	"testing"
 
@@ -20,23 +21,30 @@ type alignTestHelper struct {
 func (h *alignTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
-
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth")
 
-	dc, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	colorSource := &StaticSource{ii.Color}
+	depthSource := &StaticSource{ii.Depth}
+	dc, err := NewDepthComposed(colorSource, depthSource, h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	fixed, err := dc.camera.AlignImageWithDepth(ii)
+	rawAligned, _, err := dc.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
+	fixed := rimage.ConvertToImageWithDepth(rawAligned)
 	pCtx.GotDebugImage(fixed.Color, "color-fixed")
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay")
 
+	// get pointcloud
+	fixed.SetCameraSystem(dc.projectionCamera)
 	pc, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
-	roundTrip, err := dc.camera.PointCloudToImageWithDepth(pc)
+	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud")
+
+	// go back to image with depth
+	roundTrip, err := dc.projectionCamera.PointCloudToImageWithDepth(pc)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud")
 
