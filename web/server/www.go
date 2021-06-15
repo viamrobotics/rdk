@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"github.com/pion/webrtc/v3"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -284,6 +285,25 @@ func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.app.logger.Debugf("error converting to pcd: %s", err)
 		http.Error(w, fmt.Sprintf("error writing pcd: %s", err), http.StatusInternalServerError)
 		return
+	}
+}
+
+var defaultViewConfig = x264.DefaultViewConfig
+
+func init() {
+	defaultViewConfig.WebRTCConfig = webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.viam.cloud"},
+			},
+			{
+				URLs: []string{"turn:stun.viam.cloud"},
+				// TODO(erd): needs real creds so as to not be abused
+				Username:       "username",
+				Credential:     "password",
+				CredentialType: webrtc.ICECredentialTypePassword,
+			},
+		},
 	}
 }
 
