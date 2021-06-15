@@ -319,7 +319,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 
 	if len(displaySources) != 0 {
 		if options.AutoTile {
-			config := x264.DefaultViewConfig
+			config := defaultViewConfig
 			view, err := gostream.NewView(config)
 			if err != nil {
 				return nil, err
