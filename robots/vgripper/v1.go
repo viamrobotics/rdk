@@ -121,7 +121,11 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 // Open TODO
 func (vg *GripperV1) Open(ctx context.Context) error {
-	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultPowerPct)
+	err := vg.Stop(ctx)
+	if err != nil {
+		return err
+	}
+	err = vg.motor.GoFor(ctx, vg.openDirection, 20, 0)
 	if err != nil {
 		return err
 	}
@@ -158,7 +162,11 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 
 // Grab TODO
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
-	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultPowerPct)
+	err := vg.Stop(ctx)
+	if err != nil {
+		return false, err
+	}
+	err = vg.motor.GoFor(ctx, vg.closeDirection, 20, 0)
 	if err != nil {
 		return false, err
 	}
@@ -273,7 +281,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct)
+	err := vg.motor.GoFor(ctx, dir, 20, 0)
 	if err != nil {
 		return -1, false, err
 	}
@@ -283,7 +291,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 		return -1, false, err
 	}
 
-	if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
 		return -1, false, ctx.Err()
 	}
 

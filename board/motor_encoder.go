@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -473,6 +474,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 				if newPowerPct > 1 {
 					newPowerPct = 1
 				}
+				newPowerPct = m.computeRamp(float32(math.Max(float64(lastPowerPct), 0.40)), float32(newPowerPct))
 			} else {
 				dOverC := desiredRPM / currentRPM
 				if dOverC > 2 {
@@ -509,10 +511,13 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	delta := newPower - oldPower
-	if delta < 1.0/255.0 {
+	if math.Abs(float64(delta)) < 1.0/255.0 {
 		return newPower
 	}
-	return oldPower + (delta * m.rampRate)
+	if math.Signbit(float64(delta)){
+		return oldPower - float32(math.Min(float64(m.rampRate), math.Abs(float64(delta))))
+	}
+	return oldPower + float32(math.Min(float64(m.rampRate), math.Abs(float64(delta))))
 }
 
 func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
