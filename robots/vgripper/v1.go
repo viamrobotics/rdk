@@ -125,7 +125,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = vg.motor.GoFor(ctx, vg.openDirection, 20, 0)
+	err = vg.motor.GoFor(ctx, vg.openDirection, 30, 0)
 	if err != nil {
 		return err
 	}
@@ -166,7 +166,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoFor(ctx, vg.closeDirection, 20, 0)
+	err = vg.motor.GoFor(ctx, vg.closeDirection, 30, 0)
 	if err != nil {
 		return false, err
 	}
@@ -281,7 +281,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.GoFor(ctx, dir, 20, 0)
+	err := vg.motor.GoFor(ctx, dir, 30, 0)
 	if err != nil {
 		return -1, false, err
 	}

@@ -67,7 +67,7 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 
 // Go instructs the motor to operate at a certain power percentage in a given direction.
 func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	power := byte(utils.ScaleByPct(255, float64(powerPct)))
+	power := byte(utils.ScaleByPct(254, float64(powerPct)))
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)
