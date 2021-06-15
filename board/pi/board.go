@@ -199,6 +199,10 @@ func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 
 // PWMSetBcom sets the given broadcom pin to the given PWM duty cycle.
 func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
+	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(8000))
+	if newRes != 8000 {
+		return errors.Errorf("pwm set freq fail %d", newRes)
+	}
 	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
 	if res != 0 {
 		return errors.Errorf("pwm set fail %d", res)
