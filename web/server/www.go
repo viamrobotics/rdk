@@ -265,35 +265,6 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 
 }
 
-// pcdHandler helps serve PCD (point cloud data) files.
-type pcdHandler struct {
-	app *robotWebApp
-}
-
-// ServeHTTP converts a particular camera output to PCD and then serves the data.
-// Rendering it is up to the caller.
-func (h *pcdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	camName := pat.Param(r, "name")
-	cam := h.app.theRobot.CameraByName(camName)
-	if cam == nil {
-		http.NotFound(w, r)
-		return
-	}
-	pc, err := cam.NextPointCloud(ctx)
-	if err != nil {
-		h.app.logger.Errorf("error getting pointcloud: %s", err)
-		http.Error(w, fmt.Sprintf("error getting pointcloud: %s", err), http.StatusInternalServerError)
-		return
-	}
-	err = pc.ToPCD(w)
-	if err != nil {
-		h.app.logger.Debugf("error converting to pcd: %s", err)
-		http.Error(w, fmt.Sprintf("error writing pcd: %s", err), http.StatusInternalServerError)
-		return
-	}
-}
-
 var defaultViewConfig = x264.DefaultViewConfig
 
 func init() {
@@ -355,7 +326,6 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 		return nil, err
 	}
 
-	mux.Handle(pat.Get("/cameras/:name/data.pcd"), &pcdHandler{app})
 	mux.Handle(pat.Get("/grab_at_camera_position/:camera/:x/:y/:z"), &grabAtCameraPositionHandler{app})
 	mux.Handle(pat.Get("/static/*"), http.StripPrefix("/static", http.FileServer(http.Dir(ResolveSharedDir(app.options.SharedDir)+"/static"))))
 	mux.Handle(pat.New("/"), app)

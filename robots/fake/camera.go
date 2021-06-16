@@ -7,17 +7,16 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
-
-	"github.com/edaniels/gostream"
 )
 
 func init() {
-	registry.RegisterCamera("fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("fake", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return &Camera{Name: config.Name}, nil
 	})
 }

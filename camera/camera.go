@@ -23,6 +23,9 @@ type ImageSource struct {
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported
 func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if c, ok := is.ImageSource.(Camera); ok {
+		return c.NextPointCloud(ctx)
+	}
 	img, closer, err := is.Next(ctx)
 	if err != nil {
 		return nil, err

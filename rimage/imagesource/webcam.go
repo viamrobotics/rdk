@@ -7,12 +7,12 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/media"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("webcam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("webcam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return NewWebcamSource(config.Attributes, logger)
 	})
 
@@ -79,7 +79,7 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (gostream.ImageSource, error) {
+func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Bool("debug", false)
@@ -127,6 +127,10 @@ func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (gostream.I
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (gostream.ImageSource, error) {
-	return media.GetNamedVideoReader(filepath.Base(path), constraints)
+func tryWebcamOpen(path string, debug bool, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
+	if err != nil {
+		return nil, err
+	}
+	return &camera.ImageSource{reader}, nil
 }

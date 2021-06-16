@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -17,17 +18,17 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("rotate", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("rotate", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
 			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
-		return &RotateImageDepthSource{source}, nil
+		return &camera.ImageSource{&RotateImageDepthSource{source}}, nil
 	})
 
-	registry.RegisterCamera("resize", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("resize", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
 		source := r.CameraByName(sourceName)
 		if source == nil {
@@ -37,7 +38,7 @@ func init() {
 		width := config.Attributes.Int("width", 800)
 		height := config.Attributes.Int("height", 640)
 
-		return gostream.ResizeImageSource{source, width, height}, nil
+		return &camera.ImageSource{gostream.ResizeImageSource{source, width, height}}, nil
 	})
 
 }
