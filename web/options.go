@@ -27,6 +27,10 @@ type Options struct {
 	// Debug turns on various debugging features. For example, the echo gRPC
 	// service is added.
 	Debug bool
+
+	// WebRTC configures whether or not to instruct all clients to prefer to
+	// WebRTC connections over direct gRPC connections.
+	WebRTC bool
 }
 
 // NewOptions returns a default set of options which will have the

@@ -16,7 +16,7 @@ if (window.webrtcEnabled) {
 		window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
 		pResolve(undefined);
 	}).catch(e => {
-		console.error("error dialing", e);
+		console.error("error dialing:", e);
 		pReject(e);
 	})
 } else {
