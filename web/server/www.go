@@ -123,6 +123,16 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Actions: action.AllActionNames(),
 	}
 
+	if app.options.WebRTC {
+		temp.WebRTCEnabled = true
+		if app.options.Insecure {
+			temp.WebRTCSignalingAddress = fmt.Sprintf("http://%s", app.options.SignalingAddress)
+		} else {
+			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
+		}
+		temp.WebRTCHost = app.options.Name
+	}
+
 	for _, view := range app.views {
 		htmlData := view.HTML()
 		temp.Views = append(temp.Views, View{
@@ -414,6 +424,12 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 	defer func() {
 		err = multierr.Combine(err, rpcServer.Stop())
 	}()
+	if options.SignalingAddress == "" {
+		options.SignalingAddress = fmt.Sprintf("localhost:%d", options.Port)
+	}
+	if options.Name == "" {
+		options.Name = rpcServer.SignalingHost()
+	}
 
 	if err := rpcServer.RegisterServiceServer(
 		ctx,

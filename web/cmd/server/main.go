@@ -255,6 +255,7 @@ type Arguments struct {
 	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
 	Debug      bool              `flag:"debug"`
 	LocalCloud bool              `flag:"local-cloud"`
+	WebRTC     bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
@@ -356,6 +357,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
+	options.WebRTC = argsParsed.WebRTC
 	if cfg.Cloud != nil {
 		options.Name = cfg.Cloud.Self
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
