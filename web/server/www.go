@@ -11,13 +11,9 @@ import (
 	"net/http/pprof"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/pion/webrtc/v3"
-
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/camera"
@@ -456,12 +452,11 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
-	httpServer := &http.Server{
-		Addr:           listener.Addr().String(),
-		ReadTimeout:    10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-		Handler:        h2c.NewHandler(mux, &http2.Server{}),
+	httpServer, err := utils.NewPlainTextHTTP2Server(mux)
+	if err != nil {
+		return err
 	}
+	httpServer.Addr = listener.Addr().String()
 
 	stopped := make(chan struct{})
 	defer func() {

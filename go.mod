@@ -44,6 +44,7 @@ require (
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
 	github.com/pion/datachannel v1.4.22-0.20210420230629-6daf0fdcfcc0 // indirect
+	github.com/pion/ice/v2 v2.1.8-0.20210516190306-c7f5f6e56ca5 // indirect
 	github.com/pion/mediadevices v0.1.18-0.20210305000905-3d3830f7ffa2
 	github.com/pion/webrtc/v3 v3.0.11
 	github.com/polyfloyd/go-errorlint v0.0.0-20201127212506-19bd8db6546f
@@ -63,9 +64,8 @@ require (
 	goji.io v2.0.2+incompatible
 	golang.org/x/exp v0.0.0-20201203231725-fa01524bc59d // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
+	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
-	golang.org/x/sys v0.0.0-20210304124612-50617c2ba197 // indirect
 	golang.org/x/tools v0.1.0
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
