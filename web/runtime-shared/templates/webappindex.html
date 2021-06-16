@@ -221,7 +221,6 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      console.log("render frame for", cameraName)
                       req = new robotApi.CameraFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/png';
