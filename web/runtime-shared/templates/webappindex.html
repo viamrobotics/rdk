@@ -15,15 +15,17 @@
     {{ end }}
 
     <script>
-      function grpcCallback(err, resp) {
+      function grpcCallback(err, resp, stringify) {
         if (err) {
           theData.error = JSON.stringify(err);
           return;
         }
-        try {
-          theData.res = JSON.stringify(resp.toObject());
-        } catch (e) {
-          theData.error = JSON.stringify(e);
+        if (stringify === undefined || stringify) {
+          try {
+            theData.res = JSON.stringify(resp.toObject());
+          } catch (e) {
+            theData.error = JSON.stringify(e);
+          }
         }
       }
 
@@ -111,7 +113,7 @@
                       const req = new robotApi.ArmMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToPosition(req, {}, (resp, err) => grpcCallback(resp, err));
+                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
@@ -123,7 +125,7 @@
                       const req = new robotApi.ArmMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (resp, err) => grpcCallback(resp, err));
+                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armHome : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
@@ -137,7 +139,7 @@
                       const req = new robotApi.ArmMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (resp, err) => grpcCallback(resp, err));
+                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   gripperAction : function(name, action) {
                       let req;
@@ -145,12 +147,12 @@
                         case 'open':
                           req = new robotApi.GripperOpenRequest();
                           req.setName(name);
-                          robotService.gripperOpen(req, {}, (resp, err) => grpcCallback(resp, err));
+                          robotService.gripperOpen(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'grab':
                           req = new robotApi.GripperGrabRequest();
                           req.setName(name);
-                          robotService.gripperGrab(req, {}, (resp, err) => grpcCallback(resp, err));
+                          robotService.gripperGrab(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
                   },
@@ -162,7 +164,7 @@
                       req.setBoardName(boardName);
                       req.setServoName(servoName);
                       req.setAngleDeg(angle);
-                      robotService.boardServoMove(req, {}, (resp, err) => grpcCallback(resp, err));
+                      robotService.boardServoMove(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorButton: function(board, motor, cmd) {
                       let req;
@@ -189,15 +191,15 @@
                           break;
                       }
                       if (cmd.r) {
-                        robotService.boardMotorGoFor(req, {}, (resp, err) => grpcCallback(resp, err));
+                        robotService.boardMotorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
                       } else {
-                        robotService.boardMotorGo(req, {}, (resp, err) => grpcCallback(resp, err));
+                        robotService.boardMotorGo(req, {}, (err, resp) => grpcCallback(err, resp));
                       }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
                       req.setName(name);
-                      robotService.doAction(req, {}, (resp, err) => grpcCallback(resp, err));
+                      robotService.doAction(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   baseAction : function(name, action, amount) {
                       let req;
@@ -207,29 +209,41 @@
                           req.setName(name);
                           req.setMillisPerSec(document.getElementById("speed").value)
                           req.setDistanceMillis(document.getElementById("distance").value * amount);
-                          robotService.baseMoveStraight(req, {}, (resp, err) => grpcCallback(resp, err));
+                          robotService.baseMoveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'angle':
                           req = new robotApi.BaseSpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
                           req.setAngleDeg(amount);
-                          robotService.baseSpin(req, {}, (resp, err) => grpcCallback(resp, err));
+                          robotService.baseSpin(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
+                  },
+                  renderFrame : function(cameraName) {
+                      console.log("render frame for", cameraName)
+                      req = new robotApi.CameraFrameRequest();
+                      req.setName(cameraName);
+                      const mimeType = 'image/png';
+                      req.setMimeType(mimeType)
+                      robotService.cameraFrame(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          return;
+                        }
+                        window.open(`data:${mimeType};base64,${resp.getFrame_asB64()}`, '_blank').focus();
+                      });
                   },
                   renderPCD : function(cameraName) {
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
                       pcdLoad("/cameras/" + cameraName + "/data.pcd");
-                      
                   },
                   doSensorReadings : function(name) {
                       var req = new robotApi.SensorReadingsRequest();
                       req.setName(name);
-                      robotService.sensorReadings(req, {}, (resp, err) => grpcCallback(resp, err));
-                      
+                      robotService.sensorReadings(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
@@ -564,7 +578,7 @@
         </tr>
         <tr v-for="(cam,x) in status.camerasMap">
           <td>${cam[0]}</td>
-          <td><a :href="'/api/v1/camera/' + cam[0] + '/render_frame'">frame</a></td>
+          <td><a href="#" v-on:click.prevent="renderFrame(cam[0])">frame</a></td>
           <td><button v-on:click="renderPCD(cam[0])">GO</button></td>
         </tr>
       </table>
