@@ -94,7 +94,7 @@ func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB 
 		return nil, fmt.Errorf("ranp rate needs to be [0,1) but is %v", em.rampRate)
 	}
 	if em.rampRate == 0 { // default
-		em.rampRate = 0.5
+		em.rampRate = 0.3
 	}
 
 	return em, nil
