@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -18,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("changeCameraSystem", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("changeCameraSystem", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newChangeCameraSystem(r, config)
 	})
 
@@ -60,8 +61,8 @@ func (os *CameraSystemChanger) Next(ctx context.Context) (image.Image, func(), e
 	return ii, func() {}, nil
 }
 
-func newChangeCameraSystem(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
-	var camera rimage.CameraSystem
+func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camera, error) {
+	var cam rimage.CameraSystem
 	var err error
 
 	attrs := config.Attributes
@@ -70,12 +71,12 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (gostream.Ima
 		return nil, errors.Errorf("cannot find source camera (%s)", source)
 	}
 	if attrs.Has("matrices") {
-		camera, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
+		cam, err = transform.NewDepthColorIntrinsicsExtrinsics(attrs)
 	} else {
 		return nil, errors.New("no camera system config")
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &CameraSystemChanger{source, camera}, nil
+	return &camera.ImageSource{&CameraSystemChanger{source, cam}}, nil
 }

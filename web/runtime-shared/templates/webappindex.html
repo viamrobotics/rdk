@@ -237,7 +237,18 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      pcdLoad("/cameras/" + cameraName + "/data.pcd");
+                      req = new robotApi.PointCloudRequest();
+                      req.setName(cameraName);
+                      const mimeType = 'pointcloud/pcd';
+                      req.setMimeType(mimeType)
+                      robotService.pointCloud(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          return;
+                        }
+                        pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
+                      });
+
                   },
                   doSensorReadings : function(name) {
                       var req = new robotApi.SensorReadingsRequest();
@@ -357,29 +368,27 @@
           pcdGlobal.controls.update();
           requestAnimationFrame( pcdAnimate );
       }
-      
+
       function pcdLoad(path) {
           var loader = new pcdLib.PCDLoader();
-
           loader.load(
               path,
               
-	          // called when the resource is loaded
-	          function ( mesh ) {
-                  pcdGlobal.scene.clear();
-		          pcdGlobal.scene.add( mesh );
-                  pcdAnimate();
-	          },
-	          // called when loading is in progresses
-	          function ( xhr ) {
-		          //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
-	          },
-	          // called when loading has errors
-	          function ( error ) {
-		          console.log(error);
-	          }
+            // called when the resource is loaded
+            function ( mesh ) {
+              pcdGlobal.scene.clear();
+              pcdGlobal.scene.add( mesh );
+              pcdAnimate();
+            },
+            // called when loading is in progresses
+            function ( xhr ) {
+              //console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // called when loading has errors
+            function ( error ) {
+              console.log(error);
+            }
           );
-          
       }
 
       async function waitForClientAndStart() {

@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -16,7 +17,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("preprocessDepth", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("preprocessDepth", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newPreprocessDepth(r, config)
 	})
 }
@@ -49,11 +50,11 @@ func (os *PreprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 	return ii, func() {}, nil
 }
 
-func newPreprocessDepth(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
+func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &PreprocessDepthSource{source}, nil
+	return &camera.ImageSource{&PreprocessDepthSource{source}}, nil
 
 }

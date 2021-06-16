@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -16,11 +17,11 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthToPretty", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("depthToPretty", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newDepthToPretty(r, config)
 	})
 
-	registry.RegisterCamera("overlay", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("overlay", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newOverlay(r, config)
 	})
 }
@@ -46,12 +47,12 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
+func newOverlay(r robot.Robot, config config.Component) (camera.Camera, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &overlaySource{source}, nil
+	return &camera.ImageSource{&overlaySource{source}}, nil
 
 }
 
@@ -76,11 +77,10 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, config config.Component) (gostream.ImageSource, error) {
+func newDepthToPretty(r robot.Robot, config config.Component) (camera.Camera, error) {
 	source := r.CameraByName(config.Attributes.String("source"))
 	if source == nil {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
-	return &depthToPretty{source}, nil
-
+	return &camera.ImageSource{&depthToPretty{source}}, nil
 }

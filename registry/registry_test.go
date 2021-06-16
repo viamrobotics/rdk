@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/core/arm"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -12,7 +13,6 @@ import (
 	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"go.viam.com/test"
 )
 
@@ -25,7 +25,7 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
-	cf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	cf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return nil, nil
 	}
 

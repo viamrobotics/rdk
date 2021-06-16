@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -24,7 +25,6 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	_ "github.com/lmittmann/ppm" // register ppm
 )
 
@@ -32,12 +32,16 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterCamera("intel", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
-		return NewIntelServerSource(config.Host, config.Port, config.Attributes)
+	registry.RegisterCamera("intel", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
+		if err != nil {
+			return nil, err
+		}
+		return &camera.ImageSource{source}, nil
 	})
 	registry.RegisterCamera("eliot", registry.CameraLookup("intel"))
 
-	registry.RegisterCamera("url", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("url", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		if len(config.Attributes) == 0 {
 			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
@@ -49,14 +53,14 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &HTTPSource{
+		return &camera.ImageSource{&HTTPSource{
 			ColorURL:  config.Attributes.String("color"),
 			DepthURL:  config.Attributes.String("depth"),
 			isAligned: aligned,
-		}, nil
+		}}, nil
 	})
 
-	registry.RegisterCamera("file", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("file", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, errors.New("config for file needs bool attribute 'aligned'")
@@ -65,7 +69,7 @@ func init() {
 		if !ok {
 			return nil, errors.New("attribute 'aligned' must be a bool")
 		}
-		return &FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}, nil
+		return &camera.ImageSource{&FileSource{config.Attributes.String("color"), config.Attributes.String("depth"), aligned}}, nil
 	})
 }
 

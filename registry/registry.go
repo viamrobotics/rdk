@@ -5,11 +5,11 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
@@ -22,7 +22,7 @@ type (
 	CreateProvider func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (robot.Provider, error)
 
 	// A CreateCamera creates a camera from a given config.
-	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error)
+	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
 
 	// A CreateArm creates an arm from a given config.
 	CreateArm func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error)

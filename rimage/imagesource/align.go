@@ -9,6 +9,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/artifact"
+	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
@@ -23,7 +24,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthComposed", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gostream.ImageSource, error) {
+	registry.RegisterCamera("depthComposed", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")
@@ -38,7 +39,11 @@ func init() {
 			return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 		}
 
-		return NewDepthComposed(color, depth, config.Attributes, logger)
+		dc, err := NewDepthComposed(color, depth, config.Attributes, logger)
+		if err != nil {
+			return nil, err
+		}
+		return &camera.ImageSource{dc}, nil
 	})
 
 	config.RegisterAttributeConverter(config.ComponentTypeCamera, "depthComposed", "config", func(val interface{}) (interface{}, error) {
