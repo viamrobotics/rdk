@@ -29,15 +29,11 @@ type memoryCallOffer struct {
 
 // SendOffer sends an offer associated with the given SDP to the given host.
 func (queue *MemoryCallQueue) SendOffer(ctx context.Context, host, sdp string) (string, error) {
-	hostQueue, deref, err := queue.getOrMakeHostQueue(host)
+	hostQueue, release, err := queue.getOrMakeHostQueue(host)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if deref() {
-			queue.removeHostQueue(host)
-		}
-	}()
+	defer release()
 
 	response := make(chan CallAnswer)
 	offer := memoryCallOffer{sdp: sdp, response: response, discard: make(chan struct{})}
@@ -61,15 +57,11 @@ func (queue *MemoryCallQueue) SendOffer(ctx context.Context, host, sdp string) (
 // RecvOffer receives the next offer for the given host. It should respond with an answer
 // once a decision is made.
 func (queue *MemoryCallQueue) RecvOffer(ctx context.Context, host string) (CallOfferResponder, error) {
-	hostQueue, deref, err := queue.getOrMakeHostQueue(host)
+	hostQueue, release, err := queue.getOrMakeHostQueue(host)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if deref() {
-			queue.removeHostQueue(host)
-		}
-	}()
+	defer release()
 
 	select {
 	case <-ctx.Done():
@@ -98,7 +90,7 @@ func (resp *memoryCallOfferResponder) Respond(ctx context.Context, ans CallAnswe
 	}
 }
 
-func (queue *MemoryCallQueue) getOrMakeHostQueue(host string) (chan memoryCallOffer, func() bool, error) {
+func (queue *MemoryCallQueue) getOrMakeHostQueue(host string) (chan memoryCallOffer, func(), error) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 	hostQueueRef, ok := queue.hostQueues[host]
@@ -107,11 +99,11 @@ func (queue *MemoryCallQueue) getOrMakeHostQueue(host string) (chan memoryCallOf
 		queue.hostQueues[host] = hostQueueRef
 	}
 
-	return hostQueueRef.Ref().(chan memoryCallOffer), hostQueueRef.Deref, nil
-}
-
-func (queue *MemoryCallQueue) removeHostQueue(host string) {
-	queue.mu.Lock()
-	delete(queue.hostQueues, host)
-	queue.mu.Unlock()
+	return hostQueueRef.Ref().(chan memoryCallOffer), func() {
+		queue.mu.Lock()
+		defer queue.mu.Unlock()
+		if hostQueueRef.Deref() {
+			delete(queue.hostQueues, host)
+		}
+	}, nil
 }
