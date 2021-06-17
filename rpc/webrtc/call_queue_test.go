@@ -26,8 +26,6 @@ func testCallQueue(t *testing.T, callQueue CallQueue) {
 		test.That(t, err, test.ShouldResemble, context.DeadlineExceeded)
 	})
 
-	// todo(erd): diff hosts
-
 	t.Run("sending successfully with an sdp", func(t *testing.T) {
 		recvErrCh := make(chan error)
 		go func() {
