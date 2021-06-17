@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@improbable-eng/grpc-web": "^0.13.0",
-    "google-protobuf": "~3.14.0",
+    "google-protobuf": "^3.14.0",
     "three": "^0.127.0"
   },
   "devDependencies": {
