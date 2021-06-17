@@ -55,6 +55,13 @@
                "x": 65,
                "y": 0,
                "z": 104
+            },
+            "setorientation": true,
+            "orientation": {
+               "x": 0,
+               "y": 0,
+               "z": 1,
+               "th": 0
             }
          }
       ],
