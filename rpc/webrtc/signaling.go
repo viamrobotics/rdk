@@ -27,9 +27,8 @@ import (
 // waiting answerer to provide an SDP in exchange in order to establish a P2P connection between
 // the two parties.
 type SignalingServer struct {
-	mu sync.Mutex // may need something faster in the future
 	webrtcpb.UnimplementedSignalingServiceServer
-	callQueue map[string]utils.RefCountedValue // of chan callOffer
+	callQueue *MemoryCallQueue
 }
 
 // NewSignalingServer makes a new signaling server that uses an in memory
@@ -38,22 +37,7 @@ type SignalingServer struct {
 // MongoDB as a distributed call queue. This will enable many signaling services to
 // run acting as effectively operators on as switchboard.
 func NewSignalingServer() *SignalingServer {
-	return &SignalingServer{callQueue: map[string]utils.RefCountedValue{}}
-}
-
-// callOffer is the offer to start a call where information about the caller
-// and how it wishes to speak is contained in the SDP.
-type callOffer struct {
-	sdp      string
-	response chan<- callAnswer
-	discard  chan struct{} // used to stop a response to a call offer.
-}
-
-// callAnswer is the response to an offer. An agreement to start the call
-// will contain an SDP about how the answerer wishes to speak.
-type callAnswer struct {
-	sdp string
-	err error
+	return &SignalingServer{callQueue: NewMemoryCallQueue()}
 }
 
 // RPCHostMetadataField is the identifier of a host.
@@ -71,108 +55,52 @@ func hostFromCtx(ctx context.Context) (string, error) {
 	return host, nil
 }
 
-func (srv *SignalingServer) getOrMakeQueue(ctx context.Context) (chan callOffer, func() bool, error) {
-	// TODO(https://github.com/viamrobotics/core/issues/102): Verify robot exists for host
-	host, err := hostFromCtx(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	srv.mu.Lock()
-	defer srv.mu.Unlock()
-	queueRef, ok := srv.callQueue[host]
-	if !ok {
-		queueRef = utils.NewRefCountedValue(make(chan callOffer))
-		srv.callQueue[host] = queueRef
-	}
-
-	return queueRef.Ref().(chan callOffer), queueRef.Deref, nil
-}
-
-func (srv *SignalingServer) removeQueue(ctx context.Context) {
-	host, err := hostFromCtx(ctx)
-	if err != nil {
-		return
-	}
-
-	srv.mu.Lock()
-	delete(srv.callQueue, host)
-	srv.mu.Unlock()
-}
-
 // Call is a request/offer to start a caller with the connected answerer.
 func (srv *SignalingServer) Call(ctx context.Context, req *webrtcpb.CallRequest) (*webrtcpb.CallResponse, error) {
-	queue, deref, err := srv.getOrMakeQueue(ctx)
+	host, err := hostFromCtx(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if deref() {
-			srv.removeQueue(ctx)
-		}
-	}()
-
-	response := make(chan callAnswer)
-	offer := callOffer{sdp: req.Sdp, response: response, discard: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case queue <- offer:
-		select {
-		case <-ctx.Done():
-			close(offer.discard)
-			return nil, ctx.Err()
-		case answer := <-response:
-			if answer.err != nil {
-				return nil, answer.err
-			}
-			return &webrtcpb.CallResponse{Sdp: answer.sdp}, nil
-		}
+	respSDP, err := srv.callQueue.SendOffer(ctx, host, req.Sdp)
+	if err != nil {
+		return nil, err
 	}
+	return &webrtcpb.CallResponse{Sdp: respSDP}, nil
 }
 
 // Answer listens on call/offer queue forever responding with SDPs to agreed to calls.
 // TODO(https://github.com/viamrobotics/core/issues/104): This should be authorized for robots only.
 func (srv *SignalingServer) Answer(server webrtcpb.SignalingService_AnswerServer) error {
-	queue, deref, err := srv.getOrMakeQueue(server.Context())
+	ctx := server.Context()
+	host, err := hostFromCtx(ctx)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if deref() {
-			srv.removeQueue(server.Context())
-		}
-	}()
 
 	for {
-		select {
-		case <-server.Context().Done():
-			return server.Context().Err()
-		case offer := <-queue:
-			ans, cont := func() (callAnswer, bool) {
-				if err := server.Send(&webrtcpb.AnswerRequest{Sdp: offer.sdp}); err != nil {
-					return callAnswer{err: err}, false
-				}
-				answer, err := server.Recv()
-				if err != nil {
-					return callAnswer{err: err}, false
-				}
-				respStatus := status.FromProto(answer.Status)
-				if respStatus.Code() != codes.OK {
-					return callAnswer{err: respStatus.Err()}, true
-				}
-				return callAnswer{sdp: answer.Sdp}, true
-			}()
-
-			select {
-			case offer.response <- ans:
-			case <-offer.discard:
-			case <-server.Context().Done():
-				return server.Context().Err()
+		offer, err := srv.callQueue.RecvOffer(ctx, host)
+		if err != nil {
+			return err
+		}
+		ans, cont := func() (CallAnswer, bool) {
+			if err := server.Send(&webrtcpb.AnswerRequest{Sdp: offer.SDP()}); err != nil {
+				return CallAnswer{Err: err}, false
 			}
-			if !cont {
-				return ans.err
+			answer, err := server.Recv()
+			if err != nil {
+				return CallAnswer{Err: err}, false
 			}
+			respStatus := status.FromProto(answer.Status)
+			if respStatus.Code() != codes.OK {
+				return CallAnswer{Err: respStatus.Err()}, true
+			}
+			return CallAnswer{SDP: answer.Sdp}, true
+		}()
+		if err := offer.Respond(ctx, ans); err != nil {
+			return err
+		}
+		if !cont {
+			return ans.Err
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package rpcwebrtc
 
 import (
+	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -16,7 +17,6 @@ import (
 
 	webrtcpb "go.viam.com/core/proto/rpc/webrtc/v1"
 	"go.viam.com/core/testutils"
-	"go.viam.com/core/utils"
 )
 
 func TestServerChannel(t *testing.T) {
@@ -37,7 +37,6 @@ func TestServerChannel(t *testing.T) {
 		&webrtcpb.SignalingService_ServiceDesc,
 		signalServer,
 	)
-	signalServer.callQueue["yeehaw"] = utils.NewRefCountedValue(make(chan callOffer))
 
 	serverCh := NewServerChannel(server, pc2, dc2, logger)
 	defer func() {
@@ -224,8 +223,9 @@ func TestServerChannel(t *testing.T) {
 		Eos: true,
 	}), test.ShouldBeNil)
 
-	offer := <-signalServer.callQueue["yeehaw"].Ref().(chan callOffer)
-	offer.response <- callAnswer{sdp: "world"}
+	offer, err := signalServer.callQueue.RecvOffer(context.Background(), "yeehaw")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, offer.Respond(context.Background(), CallAnswer{SDP: "world"}), test.ShouldBeNil)
 
 	<-messagesRead
 
@@ -269,8 +269,9 @@ func TestServerChannel(t *testing.T) {
 		Eos: true,
 	}), test.ShouldBeNil)
 
-	offer = <-signalServer.callQueue["yeehaw"].Ref().(chan callOffer)
-	offer.response <- callAnswer{err: errors.New("ohno")}
+	offer, err = signalServer.callQueue.RecvOffer(context.Background(), "yeehaw")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, offer.Respond(context.Background(), CallAnswer{Err: errors.New("ohno")}), test.ShouldBeNil)
 
 	<-messagesRead
 }
