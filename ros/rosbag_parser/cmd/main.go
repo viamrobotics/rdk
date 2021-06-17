@@ -86,10 +86,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		return err
 	}
 
-	// if len(args) < 2 {
-	// 	return errors.New("need to specify a rosbag file path")
-	// }
-	// filename := args[1]
 	rb, err := ros.ReadBag(argsParsed.RosbagFile, logger)
 	if err != nil {
 		return err

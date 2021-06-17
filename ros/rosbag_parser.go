@@ -18,7 +18,7 @@ func ReadBag(filename string, logger golog.Logger) (*rosbag.RosBag, error) {
 	f, err := os.Open(filename)
 	defer utils.UncheckedErrorFunc(f.Close)
 	if err != nil {
-		return nil, errors.Errorf("unable to open input file, error %w", err)
+		return nil, errors.Errorf("unable to open input file: %w", err)
 	}
 
 	rb := rosbag.NewRosBag()
@@ -63,7 +63,7 @@ func WriteTopicsJSON(rb *rosbag.RosBag, startTime, endTime int64, topicsFilter [
 	}
 
 	if err := rb.ParseTopicsToJSON("", timeFilterFunc, topicFilterFunc, false); err != nil {
-		return errors.Errorf("error while parsing bag to JSON, error %w", err)
+		return errors.Errorf("error while parsing bag to JSON: %w", err)
 	}
 
 	return nil
