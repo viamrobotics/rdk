@@ -278,7 +278,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 
 	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 15, 15000)
 	test.That(t, err, test.ShouldBeNil)
-	_, above, err := SplitPointCloudByPlane(nonPlane, planes[0])
+	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(above, "gripper-above-pointcloud")
 

@@ -199,7 +199,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane *Plane) (pc.PointCloud, p
 	var err error
 	cloud.Iterate(func(pt pc.Point) bool {
 		dist := plane.Distance(pt.Position())
-		if plane.Equation()[2] < 0.0 {
+		if plane.Equation()[2] > 0.0 {
 			dist = -dist
 		}
 		if dist > 0.0 {
