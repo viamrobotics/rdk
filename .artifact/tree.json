@@ -3595,17 +3595,13 @@
         "hash": "36486342e42c45bee1d5734f862af696",
         "size": 426443
       },
-      "full_chess2.both.gz": {
-        "hash": "3ff2edcc19053adb4b8975a59e5a0b7c",
-        "size": 423276
+      "full_game.both.gz": {
+        "hash": "9db95d2d7d366f2a09456395a042900f",
+        "size": 454815
       },
-      "gripper_board.both.gz": {
-        "hash": "aaaaa5ac8aca921aa22076d0fe5bfeeb",
-        "size": 441322
-      },
-      "gripper_chessgame.both.gz": {
-        "hash": "8b202462d42aa98d90e2b13a22881fde",
-        "size": 418485
+      "full_game2.both.gz": {
+        "hash": "96f087cec5be0eb7d7281dd6bd1e90aa",
+        "size": 450288
       },
       "gripper_chessgame2.both.gz": {
         "hash": "044dc968a5a1872f1d5a289bef816dfe",
@@ -3614,10 +3610,6 @@
       "gripper_chessgame3.both.gz": {
         "hash": "45943bf49b315882cea99ec74111566f",
         "size": 416431
-      },
-      "gripper_chesspiece.both.gz": {
-        "hash": "f2d9fb7fb80f65e299a6309bebc8c5fa",
-        "size": 345178
       },
       "gripper_chesspiece2.both.gz": {
         "hash": "136968c341f204169e91bb1cf0b34d8a",
