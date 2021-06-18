@@ -11,8 +11,9 @@ import (
 )
 
 type testGPIOBoard struct {
-	gpio map[string]bool
-	pwm  map[string]byte
+	gpio    map[string]bool
+	pwm     map[string]byte
+	pwmFreq map[string]uint
 }
 
 func (b *testGPIOBoard) GPIOSet(pin string, high bool) error {
@@ -31,12 +32,20 @@ func (b *testGPIOBoard) PWMSet(pin string, dutyCycle byte) error {
 	return nil
 }
 
+func (b *testGPIOBoard) PWMSetFreq(pin string, freq uint) error {
+	if b.pwmFreq == nil {
+		b.pwmFreq = map[string]uint{}
+	}
+	b.pwmFreq[pin] = freq
+	return nil
+}
+
 func TestMotor1(t *testing.T) {
 	ctx := context.Background()
 	b := &testGPIOBoard{}
 	logger := golog.NewTestLogger(t)
 
-	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}}, logger)
+	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, PWMFreq: 4000}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)
@@ -64,6 +73,10 @@ func TestMotor1(t *testing.T) {
 
 	test.That(t, m.Power(ctx, .45), test.ShouldBeNil)
 	test.That(t, b.pwm["3"], test.ShouldEqual, byte(114))
+
+	test.That(t, b.pwmFreq["3"], test.ShouldEqual, 4000)
+	test.That(t, b.PWMSetFreq("3", 8000), test.ShouldBeNil)
+	test.That(t, b.pwmFreq["3"], test.ShouldEqual, 8000)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)
 	test.That(t, b.gpio["1"], test.ShouldEqual, false)

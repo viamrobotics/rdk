@@ -281,7 +281,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct / 10)
+	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct/10)
 	if err != nil {
 		return -1, false, err
 	}
