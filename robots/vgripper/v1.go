@@ -114,7 +114,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 	if math.Signbit(vg.openPos - vg.closePos) {
 		vg.openPos += OpenPosOffset
-	}else{
+	} else {
 		vg.openPos -= OpenPosOffset
 	}
 
