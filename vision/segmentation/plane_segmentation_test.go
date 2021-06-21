@@ -288,7 +288,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	test.That(t, err, test.ShouldBeNil)
 
 	// color the segmentation
-	segments, err := RadiusBasedNearestNeighbors(heightLimit, 10.0, 5)
+	segments, err := SegmentPointCloudObjects(heightLimit, 10.0, 5)
 	test.That(t, err, test.ShouldBeNil)
 	coloredSegments, err := ColorPointCloudSegments(segments)
 	test.That(t, err, test.ShouldBeNil)
