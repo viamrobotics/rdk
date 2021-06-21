@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -506,7 +507,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	delta := newPower - oldPower
-	if (delta > 0 && delta < 1.0/255.0) || (delta < 0 && delta > -1.0/255.0) {
+	if math.Abs(float64(delta)) <= 1.0/255.0 {
 		return newPower
 	}
 	return oldPower + (delta * m.rampRate)
