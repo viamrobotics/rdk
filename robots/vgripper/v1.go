@@ -36,6 +36,7 @@ const (
 	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
 	MaxRotationGap          = 3.0
+	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
 // GripperV1 TODO
@@ -102,13 +103,19 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	if hasPressureA {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		vg.openPos = posB + 0.2
+		vg.openPos = posB
 		vg.closePos = posA
 	} else {
 		vg.closeDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		vg.openDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-		vg.openPos = posA - 0.2
+		vg.openPos = posA
 		vg.closePos = posB
+	}
+
+	if math.Signbit(vg.openPos - vg.closePos) {
+		vg.openPos += OpenPosOffset
+	}else{
+		vg.openPos -= OpenPosOffset
 	}
 
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
@@ -244,7 +251,7 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 }
 
 func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < .05
+	return math.Abs(b-a) < .1
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
@@ -349,7 +356,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			return -1, false, err
 		}
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
 			return -1, false, ctx.Err()
 		}
 	}
