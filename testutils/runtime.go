@@ -4,6 +4,7 @@ package testutils
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"sync"
 	"syscall"
@@ -250,4 +251,10 @@ var tError = func(t *testing.T, args ...interface{}) {
 
 var fatal = func(t *testing.T, args ...interface{}) {
 	t.Fatal(args...)
+}
+
+// Teardown cleans up any temporary resources used by tests.
+func Teardown() {
+	teardownMongoDB()
+	http.DefaultClient.CloseIdleConnections()
 }

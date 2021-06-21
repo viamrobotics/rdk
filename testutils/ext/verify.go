@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/core/artifact"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/testutils"
 	"go.viam.com/core/utils"
 )
 
@@ -20,6 +21,7 @@ func VerifyTestMain(m goleak.TestingM) {
 		rlog.Logger.Fatalw("error opening artifact", "error", err)
 	}
 	exitCode := m.Run()
+	testutils.Teardown()
 	if err := cache.Close(); err != nil {
 		rlog.Logger.Errorw("error closing artifact", "error", err)
 	}

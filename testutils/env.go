@@ -7,11 +7,15 @@ import (
 
 	"github.com/go-errors/errors"
 	"go.viam.com/test"
+
+	"go.viam.com/core/rlog"
 )
 
-var noSkip = false
-
-var internetConnected *bool
+var (
+	logger            = rlog.Logger.Named("test")
+	noSkip            = false
+	internetConnected *bool
+)
 
 func skipWithError(t *testing.T, err error) {
 	if noSkip {
@@ -63,4 +67,32 @@ func ArtifactGoogleCreds(t *testing.T) string {
 		return ""
 	}
 	return creds
+}
+
+func backingMongoDBURI() (string, error) {
+	mongoURI, ok := os.LookupEnv("TEST_MONGODB_URI")
+	if !ok || mongoURI == "" {
+		return "", errors.New("no MongoDB URI found")
+	}
+	randomizeMongoDBNamespaces()
+	return mongoURI, nil
+}
+
+// SkipUnlessBackingMongoDBURI verifies there is a backing MongoDB URI to use.
+func SkipUnlessBackingMongoDBURI(t *testing.T) {
+	_, err := backingMongoDBURI()
+	if err == nil {
+		return
+	}
+	skipWithError(t, err)
+}
+
+// BackingMongoDBURI returns the backing MongoDB URI to use.
+func BackingMongoDBURI(t *testing.T) string {
+	mongoURI, err := backingMongoDBURI()
+	if err != nil {
+		skipWithError(t, err)
+		return ""
+	}
+	return mongoURI
 }
