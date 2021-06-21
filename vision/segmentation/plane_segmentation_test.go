@@ -267,24 +267,32 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth")
 
+	// Pre-process the depth map to smooth the noise out and fill holes
 	ii, err = rimage.PreprocessDepthMap(ii)
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
+	// Get the point cloud
 	cloud, err := ii.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
+	// find the planes, and only keep points above the biggest found plane
 	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 15, 15000)
 	test.That(t, err, test.ShouldBeNil)
 	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(above, "gripper-above-pointcloud")
-
 	heightLimit, err := ThresholdPointCloudByPlane(above, planes[0], 100.0)
 	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(heightLimit, "gripper-set-pointcloud")
+
+	// color the segmentation
+	segments, err := RadiusBasedNearestNeighbors(heightLimit, 10.0, 5)
+	test.That(t, err, test.ShouldBeNil)
+	coloredSegments, err := ColorPointCloudSegments(segments)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 
 	return nil
 }
