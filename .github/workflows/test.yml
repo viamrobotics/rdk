@@ -57,6 +57,7 @@ jobs:
     - name: Test
       env:
         ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
+        TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
       run: |
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
