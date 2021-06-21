@@ -71,7 +71,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
 		nn := findNeighborsInRadius(cloud, pt, radius)
-		for neighbor, _ := range nn {
+		for neighbor := range nn {
 			nv := neighbor.Position()
 			ptIndex, ptOk := clusterAssigned[v]
 			neighborIndex, neighborOk := clusterAssigned[nv]
@@ -97,7 +97,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 			if err != nil {
 				return false
 			}
-			for neighbor, _ := range nn {
+			for neighbor := range nn {
 				clusterAssigned[neighbor.Position()] = c
 				clusters, err = assignCluster(neighbor, c, clusters)
 				if err != nil {
