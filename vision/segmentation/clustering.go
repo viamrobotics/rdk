@@ -10,6 +10,41 @@ import (
 	"github.com/lucasb-eyer/go-colorful"
 )
 
+// ColorPointCloudSegments creates a union of point clouds from the slice of point clouds, giving
+// each element of the slice a unique color.
+func ColorPointCloudSegments(clusters []pc.PointCloud) (pc.PointCloud, error) {
+	var err error
+	palette := colorful.FastWarmPalette(len(clusters))
+	colorSegmentation := pc.New()
+	for i, cluster := range clusters {
+		col := color.NRGBAModel.Convert(palette[i])
+		cluster.Iterate(func(pt pc.Point) bool {
+			v := pt.Position()
+			colorPoint := pc.NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
+			err = colorSegmentation.Set(colorPoint)
+			return err == nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return colorSegmentation, nil
+}
+
+// GetMeanCenterOfPointCloud returns the spatial average center of a given point cloud.
+func GetMeanCenterOfPointCloud(cloud pc.PointCloud) r3.Vector {
+	x, y, z := 0.0, 0.0, 0.0
+	n := float64(cloud.Size())
+	cloud.Iterate(func(pt pc.Point) bool {
+		v := pt.Position()
+		x += v.X
+		y += v.Y
+		z += v.Z
+		return true
+	})
+	return r3.Vector{x / n, y / n, z / n}
+}
+
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
 // Partitions must have at least nMin points to be included in the output slice of pointclouds.
 func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
@@ -25,7 +60,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) 
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
 		nn := findNeighborsInRadius(cloud, pt, radius)
-		for neighbor, _ := range nn {
+		for neighbor := range nn {
 			nv := neighbor.Position()
 			ptIndex, ptOk := clusterAssigned[v]
 			neighborIndex, neighborOk := clusterAssigned[nv]
@@ -51,7 +86,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) 
 			if err != nil {
 				return false
 			}
-			for neighbor, _ := range nn {
+			for neighbor := range nn {
 				clusterAssigned[neighbor.Position()] = c
 				clusters, err = assignCluster(neighbor, c, clusters)
 				if err != nil {
@@ -122,23 +157,4 @@ func pruneClusters(clusters []pc.PointCloud, nMin int) []pc.PointCloud {
 		}
 	}
 	return pruned
-}
-
-func ColorPointCloudSegments(clusters []pc.PointCloud) (pc.PointCloud, error) {
-	var err error
-	palette := colorful.FastWarmPalette(len(clusters))
-	colorSegmentation := pc.New()
-	for i, cluster := range clusters {
-		col := color.NRGBAModel.Convert(palette[i])
-		cluster.Iterate(func(pt pc.Point) bool {
-			v := pt.Position()
-			colorPoint := pc.NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
-			err = colorSegmentation.Set(colorPoint)
-			return err == nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return colorSegmentation, nil
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/ros"
@@ -72,7 +73,11 @@ func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 	}
 
 	// Project the pointcloud planes into an image
-	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, planes)
+	segments := make([]pointcloud.PointCloud, 0, len(planes))
+	for _, plane := range planes {
+		segments = append(segments, plane.PointCloud())
+	}
+	segImage, err := segmentation.PointCloudSegmentsToMask(camera.ColorCamera, segments)
 	if err != nil {
 		return nil, err
 	}
