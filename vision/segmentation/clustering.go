@@ -77,7 +77,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 			neighborIndex, neighborOk := clusterAssigned[nv]
 			if ptOk && neighborOk {
 				if ptIndex != neighborIndex {
-					err = mergeClusters(ptIndex, neighborIndex, clusters, clusterAssigned)
+					clusters, err = mergeClusters(ptIndex, neighborIndex, clusters, clusterAssigned)
 				}
 			} else if !ptOk && neighborOk {
 				clusters, err = assignCluster(pt, neighborIndex, clusters)
@@ -143,7 +143,7 @@ func assignCluster(point pc.Point, index int, clusters []pc.PointCloud) ([]pc.Po
 	return clusters, nil
 }
 
-func mergeClusters(from, to int, clusters []pc.PointCloud, clusterMap map[pc.Vec3]int) error {
+func mergeClusters(from, to int, clusters []pc.PointCloud, clusterMap map[pc.Vec3]int) ([]pc.PointCloud, error) {
 	var err error
 	index := utils.MaxInt(from, to)
 	for index >= len(clusters) {
@@ -156,7 +156,7 @@ func mergeClusters(from, to int, clusters []pc.PointCloud, clusterMap map[pc.Vec
 		clusters[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
-	return err
+	return clusters, err
 }
 
 func pruneClusters(clusters []pc.PointCloud, nMin int) []pc.PointCloud {
