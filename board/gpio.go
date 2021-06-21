@@ -32,7 +32,7 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, erro
 
 	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
 	if _, ok := pins["c"]; ok {
-		return NewBrushlessMotor(b, pins, mc, logger)
+		return NewGPIOStepperMotor(b, pins, mc, logger)
 	}
 	m = &GPIOMotor{
 		b,
