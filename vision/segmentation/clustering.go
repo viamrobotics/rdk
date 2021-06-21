@@ -45,9 +45,20 @@ func GetMeanCenterOfPointCloud(cloud pc.PointCloud) r3.Vector {
 	return r3.Vector{x / n, y / n, z / n}
 }
 
+// SegmentPointCloudObjects uses Radius based nearest neighbors to segment the images, and then prunes away
+// segments that do not pass a certain threshold of points
+func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
+	segments, err := RadiusBasedNearestNeighbors(cloud, radius)
+	if err != nil {
+		return nil, err
+	}
+	segments = pruneClusters(segments, nMin)
+	return segments, nil
+}
+
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
 // Partitions must have at least nMin points to be included in the output slice of pointclouds.
-func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
+func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
 	clusterAssigned := make(map[pc.Vec3]int)
 	clusters := make([]pc.PointCloud, 0)
@@ -60,7 +71,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) 
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
 		nn := findNeighborsInRadius(cloud, pt, radius)
-		for neighbor := range nn {
+		for neighbor, _ := range nn {
 			nv := neighbor.Position()
 			ptIndex, ptOk := clusterAssigned[v]
 			neighborIndex, neighborOk := clusterAssigned[nv]
@@ -86,7 +97,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) 
 			if err != nil {
 				return false
 			}
-			for neighbor := range nn {
+			for neighbor, _ := range nn {
 				clusterAssigned[neighbor.Position()] = c
 				clusters, err = assignCluster(neighbor, c, clusters)
 				if err != nil {
@@ -100,7 +111,6 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64, nMin int) 
 	if err != nil {
 		return nil, err
 	}
-	clusters = pruneClusters(clusters, nMin)
 	return clusters, nil
 }
 
