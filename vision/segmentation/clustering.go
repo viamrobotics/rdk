@@ -56,11 +56,13 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 	return segments, nil
 }
 
+// Clusters is a struct for keeping track of the individual segments of a point cloud
 type Clusters struct {
 	PointClouds []pc.PointCloud
 	Indices     map[pc.Vec3]int
 }
 
+// NewClusters creates an empty new Clusters struct
 func NewClusters() *Clusters {
 	pointclouds := make([]pc.PointCloud, 0)
 	indices := make(map[pc.Vec3]int)
@@ -138,6 +140,7 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 	return neighbors
 }
 
+// AssignCluster assigns the given point to the cluster with the given index
 func (c *Clusters) AssignCluster(point pc.Point, index int) error {
 	for index >= len(c.PointClouds) {
 		c.PointClouds = append(c.PointClouds, pc.New())
@@ -147,6 +150,7 @@ func (c *Clusters) AssignCluster(point pc.Point, index int) error {
 	return err
 }
 
+// MergeClusters moves all the points in index "from" to pointclouds at index "to"
 func (c *Clusters) MergeClusters(from, to int) error {
 	var err error
 	index := utils.MaxInt(from, to)
@@ -163,6 +167,7 @@ func (c *Clusters) MergeClusters(from, to int) error {
 	return err
 }
 
+// N gives the number of clusters
 func (c *Clusters) N() int {
 	return len(c.PointClouds)
 }
