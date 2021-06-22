@@ -309,9 +309,16 @@
             setTimeout(checkLastStatus, checkInternvalMillis)
           }
 
-          const restartStatusStream = function() {
+          const restartStatusStream = async function() {
             if (statusStream) {
               statusStream.cancel();
+              try {
+                console.log("reconnecting");
+                await window.reconnect();
+              } catch {
+                console.error("failed to reconnect; retrying");
+                setTimeout(() => restartStatusStream(), 1000);  
+              }
             }
             statusStream = robotService.statusStream(streamReq);
             let firstData = true;
@@ -333,8 +340,7 @@
               setTimeout(() => restartStatusStream(), 1000);
             });
           }
-          restartStatusStream();
-
+          await restartStatusStream();
       }
 
       pcdGlobal = null;
