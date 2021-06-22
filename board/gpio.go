@@ -20,7 +20,7 @@ type GPIOBoard interface {
 	// PWMSet sets the given pin to the given duty cycle.
 	PWMSet(pin string, dutyCycle byte) error
 
-	// PWMSetFreq sets the given pin to the given PWM frequency.
+	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 	PWMSetFreq(pin string, freq uint) error
 }
 
