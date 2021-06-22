@@ -45,7 +45,7 @@ func GetMeanCenterOfPointCloud(cloud pc.PointCloud) r3.Vector {
 	return r3.Vector{x / n, y / n, z / n}
 }
 
-// SegmentPointCloudObjects uses Radius based nearest neighbors to segment the images, and then prunes away
+// SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
 // segments that do not pass a certain threshold of points
 func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
 	segments, err := RadiusBasedNearestNeighbors(cloud, radius)
@@ -57,7 +57,7 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 }
 
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
-// Partitions must have at least nMin points to be included in the output slice of pointclouds.
+// Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008
 func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
 	clusterAssigned := make(map[pc.Vec3]int)
