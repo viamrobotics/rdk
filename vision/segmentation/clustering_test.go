@@ -5,8 +5,9 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/test"
+
+	pc "go.viam.com/core/pointcloud"
 )
 
 func createPointClouds(t *testing.T) *Clusters {
