@@ -11,14 +11,19 @@ window.robotServiceReady = new Promise((resolve, reject) => {
 	pResolve = resolve;
 	pReject = reject;
 })
+window.reconnect = async () => undefined;
 if (window.webrtcEnabled) {
-	dial(window.webrtcSignalingAddress, window.webrtcHost).then(cc => {
-		window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
-		pResolve(undefined);
-	}).catch(e => {
-		console.error("error dialing:", e);
-		pReject(e);
-	})
+	let connect = async () => {
+		try {
+			let cc = await dial(window.webrtcSignalingAddress, window.webrtcHost);
+			window.robotService = new RobotServiceClient(window.webrtcHost, { transport: cc.transportFactory() });
+		} catch (e) {
+			console.error("error dialing:", e);
+			throw e;
+		}
+	}
+	connect().then(pResolve).catch(pReject);
+	window.reconnect = connect;
 } else {
 	const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 	window.robotService = new RobotServiceClient(url);
