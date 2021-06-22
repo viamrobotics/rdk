@@ -19,6 +19,9 @@ type GPIOBoard interface {
 
 	// PWMSet sets the given pin to the given duty cycle.
 	PWMSet(pin string, dutyCycle byte) error
+
+	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+	PWMSetFreq(pin string, freq uint) error
 }
 
 // NewGPIOMotor constructs a new GPIO based motor on the given board using the
@@ -37,6 +40,7 @@ func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, erro
 		pins["b"],
 		pins["pwm"],
 		false,
+		mc.PWMFreq,
 	}
 	return m, nil
 }
@@ -48,6 +52,7 @@ type GPIOMotor struct {
 	Board     GPIOBoard
 	A, B, PWM string
 	on        bool
+	pwmFreq   uint
 }
 
 // Position always returns 0.
@@ -62,6 +67,10 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 
 // Power sets the associated pins PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
+	err := m.Board.PWMSetFreq(m.PWM, m.pwmFreq)
+	if err != nil {
+		return err
+	}
 	return m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
 }
 

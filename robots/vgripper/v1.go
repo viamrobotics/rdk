@@ -36,6 +36,7 @@ const (
 	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
 	MaxRotationGap          = 3.0
+	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
 // GripperV1 TODO
@@ -63,7 +64,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           theBoard.Motor("g"),
 		current:         theBoard.AnalogReader("current"),
 		pressure:        theBoard.AnalogReader("pressure"),
-		defaultPowerPct: 1.0,
+		defaultPowerPct: .7,
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
@@ -111,6 +112,12 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		vg.closePos = posB
 	}
 
+	if math.Signbit(vg.openPos - vg.closePos) {
+		vg.openPos += OpenPosOffset
+	} else {
+		vg.openPos -= OpenPosOffset
+	}
+
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
 		return nil, errors.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
@@ -121,7 +128,11 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 // Open TODO
 func (vg *GripperV1) Open(ctx context.Context) error {
-	err := vg.motor.Go(ctx, vg.openDirection, vg.defaultPowerPct)
+	err := vg.Stop(ctx)
+	if err != nil {
+		return err
+	}
+	err = vg.motor.GoFor(ctx, vg.openDirection, 30, 0)
 	if err != nil {
 		return err
 	}
@@ -158,7 +169,11 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 
 // Grab TODO
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
-	err := vg.motor.Go(ctx, vg.closeDirection, vg.defaultPowerPct)
+	err := vg.Stop(ctx)
+	if err != nil {
+		return false, err
+	}
+	err = vg.motor.GoFor(ctx, vg.closeDirection, 30, 0)
 	if err != nil {
 		return false, err
 	}
@@ -273,9 +288,22 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 	vg.logger.Debugf("starting to move dir: %v", dir)
 
-	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct)
+	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct/10)
 	if err != nil {
 		return -1, false, err
+	}
+
+	// Crude acceleration to a default power limit
+	for n := 1; n <= 10; n++ {
+		powerPct := (vg.defaultPowerPct / 10) * float32(n)
+		vg.logger.Debugf("PowerPct: %v", powerPct)
+		err := vg.motor.Power(ctx, powerPct)
+		if err != nil {
+			return -1, false, err
+		}
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return -1, false, ctx.Err()
+		}
 	}
 
 	last, err := vg.motor.Position(ctx)
@@ -283,7 +311,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 		return -1, false, err
 	}
 
-	if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
+	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
 		return -1, false, ctx.Err()
 	}
 
@@ -303,7 +331,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 
 		if vg.encoderSame(last, now) || hasPressure {
 			// increase power temporarily
-			err := vg.motor.Power(ctx, vg.defaultPowerPct*2)
+			err := vg.motor.Power(ctx, vg.defaultPowerPct*1.1)
 			if err != nil {
 				return -1, false, err
 			}
@@ -328,7 +356,7 @@ func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb
 			return -1, false, err
 		}
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
 			return -1, false, ctx.Err()
 		}
 	}

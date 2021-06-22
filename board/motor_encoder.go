@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -91,10 +92,10 @@ func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB 
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
-		return nil, fmt.Errorf("ranp rate needs to be [0,1) but is %v", em.rampRate)
+		return nil, fmt.Errorf("ramp rate needs to be [0,1) but is %v", em.rampRate)
 	}
-	if em.rampRate == 0 { // default
-		em.rampRate = 0.5
+	if em.rampRate == 0 {
+		em.rampRate = 0.3 // Use a conservative value by default.
 	}
 
 	return em, nil
@@ -469,10 +470,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 			var newPowerPct float32
 
 			if currentRPM == 0 {
-				newPowerPct = lastPowerPct + 0.0625
-				if newPowerPct > 1 {
-					newPowerPct = 1
-				}
+				newPowerPct = m.computeRamp(lastPowerPct, 1)
 			} else {
 				dOverC := desiredRPM / currentRPM
 				if dOverC > 2 {
@@ -509,7 +507,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	delta := newPower - oldPower
-	if delta < 1.0/255.0 {
+	if math.Abs(float64(delta)) <= 1.0/255.0 {
 		return newPower
 	}
 	return oldPower + (delta * m.rampRate)
