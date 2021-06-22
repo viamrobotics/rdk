@@ -56,7 +56,8 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 	return segments, nil
 }
 
-// Clusters is a struct for keeping track of the individual segments of a point cloud
+// Clusters is a struct for keeping track of the individual segments of a point cloud as they are being built.
+// PointClouds is a slice of all the segments, and Indices is a map that assigns each point to the segment index it is a part of.
 type Clusters struct {
 	PointClouds []pc.PointCloud
 	Indices     map[pc.Vec3]int
@@ -150,7 +151,7 @@ func (c *Clusters) AssignCluster(point pc.Point, index int) error {
 	return err
 }
 
-// MergeClusters moves all the points in index "from" to pointclouds at index "to"
+// MergeClusters moves all the points in index "from" to the segment at index "to"
 func (c *Clusters) MergeClusters(from, to int) error {
 	var err error
 	index := utils.MaxInt(from, to)
@@ -167,7 +168,7 @@ func (c *Clusters) MergeClusters(from, to int) error {
 	return err
 }
 
-// N gives the number of clusters
+// N gives the number of clusters in the partition of the point cloud.
 func (c *Clusters) N() int {
 	return len(c.PointClouds)
 }
