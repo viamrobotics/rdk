@@ -56,50 +56,56 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 	return segments, nil
 }
 
+type Clusters struct {
+	PointClouds []pc.PointCloud
+	Indices     map[pc.Vec3]int
+}
+
+func NewClusters() *Clusters {
+	pointclouds := make([]pc.PointCloud, 0)
+	indices := make(map[pc.Vec3]int)
+	return &Clusters{pointclouds, indices}
+}
+
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
 // Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008
 func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
-	clusterAssigned := make(map[pc.Vec3]int)
-	clusters := make([]pc.PointCloud, 0)
+	clusters := NewClusters()
 	c := 0
 	cloud.Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
 		// skip if point already is assigned cluster
-		if _, ok := clusterAssigned[v]; ok {
+		if _, ok := clusters.Indices[v]; ok {
 			return true
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
 		nn := findNeighborsInRadius(cloud, pt, radius)
 		for neighbor := range nn {
 			nv := neighbor.Position()
-			ptIndex, ptOk := clusterAssigned[v]
-			neighborIndex, neighborOk := clusterAssigned[nv]
+			ptIndex, ptOk := clusters.Indices[v]
+			neighborIndex, neighborOk := clusters.Indices[nv]
 			if ptOk && neighborOk {
 				if ptIndex != neighborIndex {
-					clusters, err = mergeClusters(ptIndex, neighborIndex, clusters, clusterAssigned)
+					err = clusters.MergeClusters(ptIndex, neighborIndex)
 				}
 			} else if !ptOk && neighborOk {
-				clusters, err = assignCluster(pt, neighborIndex, clusters)
-				clusterAssigned[v] = neighborIndex
+				err = clusters.AssignCluster(pt, neighborIndex)
 			} else if ptOk && !neighborOk {
-				clusters, err = assignCluster(neighbor, ptIndex, clusters)
-				clusterAssigned[nv] = ptIndex
+				err = clusters.AssignCluster(neighbor, ptIndex)
 			}
 			if err != nil {
 				return false
 			}
 		}
 		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
-		if _, ok := clusterAssigned[v]; !ok {
-			clusterAssigned[v] = c
-			clusters, err = assignCluster(pt, c, clusters)
+		if _, ok := clusters.Indices[v]; !ok {
+			err = clusters.AssignCluster(pt, c)
 			if err != nil {
 				return false
 			}
 			for neighbor := range nn {
-				clusterAssigned[neighbor.Position()] = c
-				clusters, err = assignCluster(neighbor, c, clusters)
+				err = clusters.AssignCluster(neighbor, c)
 				if err != nil {
 					return false
 				}
@@ -111,10 +117,10 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	if err != nil {
 		return nil, err
 	}
-	return clusters, nil
+	return clusters.PointClouds, nil
 }
 
-// this is pretty inefficient since it has to loop through all the points in the pointcloud
+// this is pretty inefficient since it has to loop through all the points in the pointcloud to find only the nearest points.
 func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) map[pc.Point]bool {
 	neighbors := make(map[pc.Point]bool)
 	origin := r3.Vector(point.Position())
@@ -132,31 +138,33 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 	return neighbors
 }
 
-func assignCluster(point pc.Point, index int, clusters []pc.PointCloud) ([]pc.PointCloud, error) {
-	for index >= len(clusters) {
-		clusters = append(clusters, pc.New())
+func (c *Clusters) AssignCluster(point pc.Point, index int) error {
+	for index >= len(c.PointClouds) {
+		c.PointClouds = append(c.PointClouds, pc.New())
 	}
-	err := clusters[index].Set(point)
-	if err != nil {
-		return nil, err
-	}
-	return clusters, nil
+	c.Indices[point.Position()] = index
+	err := c.PointClouds[index].Set(point)
+	return err
 }
 
-func mergeClusters(from, to int, clusters []pc.PointCloud, clusterMap map[pc.Vec3]int) ([]pc.PointCloud, error) {
+func (c *Clusters) MergeClusters(from, to int) error {
 	var err error
 	index := utils.MaxInt(from, to)
-	for index >= len(clusters) {
-		clusters = append(clusters, pc.New())
+	for index >= len(c.PointClouds) {
+		c.PointClouds = append(c.PointClouds, pc.New())
 	}
-	clusters[from].Iterate(func(pt pc.Point) bool {
+	c.PointClouds[from].Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
-		clusterMap[v] = to
-		err = clusters[to].Set(pt)
-		clusters[from].Unset(v.X, v.Y, v.Z)
+		c.Indices[v] = to
+		err = c.PointClouds[to].Set(pt)
+		c.PointClouds[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
-	return clusters, err
+	return err
+}
+
+func (c *Clusters) N() int {
+	return len(c.PointClouds)
 }
 
 func pruneClusters(clusters []pc.PointCloud, nMin int) []pc.PointCloud {
