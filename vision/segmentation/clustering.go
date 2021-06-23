@@ -13,7 +13,7 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 	if err != nil {
 		return nil, err
 	}
-	segments = pruneClusters(segments, nMin)
+	segments = pc.PrunePointClouds(segments, nMin)
 	return segments, nil
 }
 
@@ -86,14 +86,4 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 		return true
 	})
 	return neighbors
-}
-
-func pruneClusters(clusters []pc.PointCloud, nMin int) []pc.PointCloud {
-	pruned := make([]pc.PointCloud, 0, len(clusters))
-	for _, cluster := range clusters {
-		if cluster.Size() >= nMin {
-			pruned = append(pruned, cluster)
-		}
-	}
-	return pruned
 }

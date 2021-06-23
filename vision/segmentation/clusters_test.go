@@ -106,17 +106,3 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, clusters.PointClouds[2].Size(), test.ShouldEqual, 0)
 	test.That(t, clusters.PointClouds[3].Size(), test.ShouldEqual, 5)
 }
-
-func TestPruneCluster(t *testing.T) {
-	clusters := createPointClouds(t)
-	clouds := clusters.PointClouds
-	// before prune
-	test.That(t, len(clouds), test.ShouldEqual, 3)
-	test.That(t, clouds[0].Size(), test.ShouldEqual, 4)
-	test.That(t, clouds[1].Size(), test.ShouldEqual, 4)
-	test.That(t, clouds[2].Size(), test.ShouldEqual, 5)
-	// prune
-	clouds = pruneClusters(clouds, 5)
-	test.That(t, len(clouds), test.ShouldEqual, 1)
-	test.That(t, clouds[0].Size(), test.ShouldEqual, 5)
-}
