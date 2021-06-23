@@ -42,6 +42,7 @@ func CalculateMeanOfPointCloud(cloud PointCloud) r3.Vector {
 	return r3.Vector{x / n, y / n, z / n}
 }
 
+// PrunePointClouds removes point clouds from a slice if the point cloud has less than nMin points.
 func PrunePointClouds(clouds []PointCloud, nMin int) []PointCloud {
 	pruned := make([]PointCloud, 0, len(clouds))
 	for _, cloud := range clouds {
