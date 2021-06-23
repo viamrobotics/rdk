@@ -225,7 +225,7 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	cloud, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 
-	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 50, 150000)
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 50, 150000)
 	test.That(t, err, test.ShouldBeNil)
 	segments := make([]pc.PointCloud, 0, len(planes)+1)
 	segments = append(segments, nonPlane)
@@ -279,7 +279,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// find the planes, and only keep points above the biggest found plane
-	planes, nonPlane, err := GetPlanesInPointCloud(cloud, 15, 15000)
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 15, 15000)
 	test.That(t, err, test.ShouldBeNil)
 	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
@@ -290,7 +290,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	// color the segmentation
 	segments, err := SegmentPointCloudObjects(heightLimit, 10.0, 5)
 	test.That(t, err, test.ShouldBeNil)
-	coloredSegments, err := ColorPointCloudSegments(segments)
+	coloredSegments, err := pc.MergePointCloudsWithColor(segments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 

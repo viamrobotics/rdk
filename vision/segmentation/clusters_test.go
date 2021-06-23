@@ -3,8 +3,6 @@ package segmentation
 import (
 	"testing"
 
-	"github.com/golang/geo/r3"
-
 	"go.viam.com/test"
 
 	pc "go.viam.com/core/pointcloud"
@@ -121,13 +119,4 @@ func TestPruneCluster(t *testing.T) {
 	clouds = pruneClusters(clouds, 5)
 	test.That(t, len(clouds), test.ShouldEqual, 1)
 	test.That(t, clouds[0].Size(), test.ShouldEqual, 5)
-}
-
-func TestMeanCenter(t *testing.T) {
-	clusters := createPointClouds(t)
-	clouds := clusters.PointClouds
-	mean0 := GetMeanCenterOfPointCloud(clouds[0])
-	test.That(t, mean0, test.ShouldResemble, r3.Vector{0, 0.5, 0.5})
-	mean1 := GetMeanCenterOfPointCloud(clouds[1])
-	test.That(t, mean1, test.ShouldResemble, r3.Vector{30, 0.5, 0.5})
 }

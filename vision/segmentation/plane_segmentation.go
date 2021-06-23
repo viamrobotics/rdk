@@ -155,11 +155,11 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Pla
 	return &Plane{planeCloud, bestEquation}, nonPlaneCloud, nil
 }
 
-// GetPlanesInPointCloud takes in a point cloud and outputs an array of the planes and a point cloud of
+// FindPlanesInPointCloud takes in a point cloud and outputs an array of the planes and a point cloud of
 // the leftover points.
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
-func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]*Plane, pc.PointCloud, error) {
+func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]*Plane, pc.PointCloud, error) {
 	planes := make([]*Plane, 0)
 	var err error
 	plane, nonPlaneCloud, err := SegmentPlane(cloud, 2000, threshold)
