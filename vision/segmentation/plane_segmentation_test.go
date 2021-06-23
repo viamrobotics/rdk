@@ -6,13 +6,13 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/core/config"
 	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -12,12 +12,12 @@ import (
 	"github.com/go-errors/errors"
 
 	"github.com/edaniels/golog"
-
-	"go.viam.com/utils"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/ros"
+	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
 )
 
@@ -29,7 +29,7 @@ type Arguments struct {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logger)
+	goutils.ContextualMain(mainWithArgs, logger)
 }
 
 // saveImageAsPng saves image as png in current directory
@@ -83,7 +83,7 @@ func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 
-	if err := utils.ParseFlags(args, &argsParsed); err != nil {
+	if err := goutils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
 
