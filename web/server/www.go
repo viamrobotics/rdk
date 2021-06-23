@@ -24,10 +24,10 @@ import (
 	grpcserver "go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
-	echopb "go.viam.com/core/proto/rpc/examples/echo/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/web"
+	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
