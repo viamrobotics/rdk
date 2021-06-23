@@ -6,8 +6,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/board"
-	"go.viam.com/core/rexec"
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -153,7 +154,7 @@ func TestConfigValidate(t *testing.T) {
 	test.That(t, invalidComponents.Validate(false), test.ShouldBeNil)
 
 	invalidProcesses := Config{
-		Processes: []rexec.ProcessConfig{{}},
+		Processes: []pexec.ProcessConfig{{}},
 	}
 	err = invalidProcesses.Validate(false)
 	test.That(t, err, test.ShouldNotBeNil)

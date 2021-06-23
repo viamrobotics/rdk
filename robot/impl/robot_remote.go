@@ -9,6 +9,9 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -18,10 +21,8 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -211,8 +212,8 @@ func (rr *remoteRobot) SensorByName(name string) sensor.Sensor {
 	return rr.parts.SensorByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) ProcessManager() rexec.ProcessManager {
-	return rexec.NoopProcessManager
+func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
+	return pexec.NoopProcessManager
 }
 
 func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {

@@ -9,6 +9,10 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+	rpcserver "go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/base"
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
@@ -17,12 +21,9 @@ import (
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/robots/hellorobot"
-	"go.viam.com/core/rpc"
-	rpcserver "go.viam.com/core/rpc/server"
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
 	"go.viam.com/core/slam"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"

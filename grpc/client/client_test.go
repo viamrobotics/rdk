@@ -11,6 +11,9 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc/dialer"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -22,11 +25,9 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"

@@ -12,7 +12,7 @@ import (
 	"github.com/lmittmann/ppm"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // readImageFromFile extracts the RGB, Z16, or "both" data from an image file.

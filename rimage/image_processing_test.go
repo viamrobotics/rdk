@@ -7,7 +7,7 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"

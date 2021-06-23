@@ -1,8 +1,9 @@
 package rimage
 
 import (
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/testutils"
 )
 
 var outDir string

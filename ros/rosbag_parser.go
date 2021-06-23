@@ -8,7 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/starship-technologies/gobag/rosbag"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // ReadBag reads the contents of a rosbag into a gobag data structure

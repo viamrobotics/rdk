@@ -4,6 +4,9 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -12,10 +15,8 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -40,7 +41,7 @@ type Robot struct {
 	BaseNamesFunc      func() []string
 	BoardNamesFunc     func() []string
 	SensorNamesFunc    func() []string
-	ProcessManagerFunc func() rexec.ProcessManager
+	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
 	StatusFunc         func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc         func() golog.Logger
@@ -185,7 +186,7 @@ func (r *Robot) SensorNames() []string {
 }
 
 // ProcessManager calls the injected ProcessManager or the real version.
-func (r *Robot) ProcessManager() rexec.ProcessManager {
+func (r *Robot) ProcessManager() pexec.ProcessManager {
 	if r.ProcessManagerFunc == nil {
 		return r.Robot.ProcessManager()
 	}

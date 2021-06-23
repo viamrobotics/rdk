@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )

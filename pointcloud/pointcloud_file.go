@@ -14,7 +14,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/jblindsay/lidario"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 
 	"go.uber.org/multierr"
 )

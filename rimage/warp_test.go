@@ -4,7 +4,7 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/mat"

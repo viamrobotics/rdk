@@ -8,9 +8,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
 )
 
 type depthSourceTestHelper struct {

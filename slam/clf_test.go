@@ -4,11 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"

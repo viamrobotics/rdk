@@ -25,6 +25,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
+	goutils "go.viam.com/utils"
 )
 
 //go:embed ur5.json
@@ -66,7 +67,7 @@ func (ua *URArm) Close() error {
 	// since net.Conns do not utilize contexts.
 	waitCtx, cancel := context.WithTimeout(context.Background(), waitBackgroundWorkersDur)
 	defer cancel()
-	utils.PanicCapturingGo(func() {
+	goutils.PanicCapturingGo(func() {
 		<-waitCtx.Done()
 		if errors.Is(waitCtx.Err(), context.DeadlineExceeded) {
 			closeConn()
@@ -107,7 +108,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	onData := make(chan struct{})
 	var onDataOnce sync.Once
 	arm.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
+	goutils.ManagedGo(func() {
 		if err := reader(cancelCtx, conn, arm, func() {
 			onDataOnce.Do(func() {
 				close(onData)
@@ -257,7 +258,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		}
 
 		// TODO(erh): make responsive on new message
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+		if !goutils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return ctx.Err()
 		}
 		slept += 10
@@ -285,7 +286,7 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			return ctx.Err()
 		default:
 		}
-		sizeBuf, err := utils.ReadBytes(ctx, conn, 4)
+		sizeBuf, err := goutils.ReadBytes(ctx, conn, 4)
 		if err != nil {
 			return err
 		}
@@ -295,7 +296,7 @@ func reader(ctx context.Context, conn io.Reader, ua *URArm, onHaveData func()) e
 			return errors.Errorf("invalid msg size: %d", msgSize)
 		}
 
-		buf, err := utils.ReadBytes(ctx, conn, int(msgSize-4))
+		buf, err := goutils.ReadBytes(ctx, conn, int(msgSize-4))
 		if err != nil {
 			return err
 		}

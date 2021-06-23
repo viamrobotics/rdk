@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"

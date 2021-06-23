@@ -8,8 +8,9 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
-	"go.viam.com/core/utils"
 )
 
 // DistortionModel TODO

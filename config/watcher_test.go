@@ -15,8 +15,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/rexec"
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
@@ -67,7 +67,7 @@ func TestNewWatcherFile(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "1",
 				Name: "echo",
@@ -88,7 +88,7 @@ func TestNewWatcherFile(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "bar",
@@ -128,7 +128,7 @@ func TestNewWatcherFile(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "wee",
 				Name: "mah",
@@ -212,7 +212,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "1",
 				Name: "echo",
@@ -236,7 +236,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "bar",
@@ -268,7 +268,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "wee",
 				Name: "mah",

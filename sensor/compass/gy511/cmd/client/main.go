@@ -9,9 +9,10 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/sensor/compass/gy511"
 	"go.viam.com/core/serial"
-	"go.viam.com/core/utils"
 
 	"go.uber.org/multierr"
 )

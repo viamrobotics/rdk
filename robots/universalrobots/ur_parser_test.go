@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

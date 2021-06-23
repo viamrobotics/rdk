@@ -10,6 +10,8 @@ import (
 
 	"github.com/edaniels/golog"
 
+	goutils "go.viam.com/utils"
+
 	"go.viam.com/core/utils"
 )
 
@@ -97,7 +99,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 	nanosBetween := 1e9 / as.SamplesPerSecond
 
 	as.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
+	goutils.ManagedGo(func() {
 		for {
 			start := time.Now()
 			reading, err := as.Raw.Read(ctx)
@@ -115,7 +117,7 @@ func (as *AnalogSmoother) Start(ctx context.Context) {
 			end := time.Now()
 
 			toSleep := int64(nanosBetween) - (end.UnixNano() - start.UnixNano())
-			if !utils.SelectContextOrWait(ctx, time.Duration(toSleep)) {
+			if !goutils.SelectContextOrWait(ctx, time.Duration(toSleep)) {
 				return
 			}
 		}

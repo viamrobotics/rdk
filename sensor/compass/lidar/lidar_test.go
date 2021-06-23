@@ -8,7 +8,9 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

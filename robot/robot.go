@@ -4,6 +4,8 @@ package robot
 import (
 	"context"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -13,7 +15,6 @@ import (
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/sensor"
 
 	"github.com/edaniels/golog"
@@ -84,7 +85,7 @@ type Robot interface {
 	SensorNames() []string
 
 	// ProcessManager returns the process manager for the robot.
-	ProcessManager() rexec.ProcessManager
+	ProcessManager() pexec.ProcessManager
 
 	// Config returns the config used to construct the robot.
 	// This is allowed to be partial or empty.

@@ -4,7 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/golog"

@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // ReadBothFromBytes reads the given data as an image that contains depth. isAligned

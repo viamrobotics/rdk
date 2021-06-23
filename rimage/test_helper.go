@@ -16,15 +16,15 @@ import (
 
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/testutils"
 )
 
 //go:embed test_helper.html

@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/action"
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
@@ -26,7 +28,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r2"
 	"go.viam.com/test"

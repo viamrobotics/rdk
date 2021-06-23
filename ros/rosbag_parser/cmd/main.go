@@ -13,10 +13,11 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/ros"
-	"go.viam.com/core/utils"
 	"go.viam.com/core/vision/segmentation"
 )
 

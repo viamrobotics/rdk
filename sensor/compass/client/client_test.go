@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar/client"
@@ -13,7 +15,6 @@ import (
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

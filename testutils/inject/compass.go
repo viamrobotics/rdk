@@ -3,9 +3,10 @@ package inject
 import (
 	"context"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
 )
 
 // Compass is an injected compass.

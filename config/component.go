@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // A ComponentType defines a type of component.

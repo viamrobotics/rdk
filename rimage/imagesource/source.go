@@ -16,13 +16,14 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	_ "github.com/lmittmann/ppm" // register ppm

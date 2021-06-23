@@ -7,6 +7,8 @@ import (
 
 	"github.com/edaniels/golog"
 
+	goutils "go.viam.com/utils"
+
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/utils"
 )
@@ -21,7 +23,7 @@ func AugmentWithCompass(base Base, cmp compass.Compass, logger golog.Logger) Bas
 }
 
 // Reduce extracts the underlying base from the given base. If there is
-// no underlying base, the argument iteslf is returned.
+// no underlying base, the argument itself is returned.
 func Reduce(b Base) Base {
 	x, ok := b.(baseWithCompass)
 	if ok {
@@ -61,7 +63,7 @@ func (wc baseWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec
 		if err != nil {
 			return totalSpin, err
 		}
-		if !utils.SelectContextOrWait(ctx, time.Second) {
+		if !goutils.SelectContextOrWait(ctx, time.Second) {
 			return totalSpin, ctx.Err()
 		}
 		endHeading, err := compass.MedianHeading(ctx, wc.compass)

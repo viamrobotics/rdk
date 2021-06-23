@@ -8,7 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // ImageWithDepth is an image of color that has depth associated

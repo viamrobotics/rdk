@@ -8,6 +8,8 @@ import (
 
 	"github.com/golang/geo/r2"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -20,7 +22,6 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
 )
 
 type proxyProvider struct {

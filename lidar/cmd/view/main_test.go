@@ -13,15 +13,16 @@ import (
 
 	"go.uber.org/zap/zaptest/observer"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"

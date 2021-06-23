@@ -10,13 +10,14 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/slam/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 )

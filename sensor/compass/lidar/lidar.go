@@ -23,6 +23,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -72,7 +73,7 @@ func (li *Lidar) Desc() sensor.Description {
 // Close stops and closes the underlying lidar.
 func (li *Lidar) Close() (err error) {
 	defer func() {
-		err = multierr.Combine(err, utils.TryClose(li.Lidar))
+		err = multierr.Combine(err, goutils.TryClose(li.Lidar))
 	}()
 	return li.Lidar.Stop(context.Background()) // because we started it
 }
@@ -260,7 +261,7 @@ func (li *Lidar) groupWorkParallel(ctx context.Context, before beforeParallelGro
 	wait.Add(numGroups)
 	for groupNum := 0; groupNum < numGroups; groupNum++ {
 		groupNumCopy := groupNum
-		utils.PanicCapturingGo(func() {
+		goutils.PanicCapturingGo(func() {
 			defer wait.Done()
 			groupNum := groupNumCopy
 

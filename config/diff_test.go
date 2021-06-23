@@ -5,8 +5,9 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/board"
-	"go.viam.com/core/rexec"
 )
 
 func TestDiffConfigs(t *testing.T) {
@@ -72,7 +73,7 @@ func TestDiffConfigs(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:      "1",
 				Name:    "echo",
@@ -160,7 +161,7 @@ func TestDiffConfigs(t *testing.T) {
 				},
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:      "1",
 				Name:    "echo",
@@ -256,7 +257,7 @@ func TestDiffConfigs(t *testing.T) {
 							Model: "fake",
 						},
 					},
-					Processes: []rexec.ProcessConfig{
+					Processes: []pexec.ProcessConfig{
 						{
 							ID:   "3",
 							Name: "bash",
@@ -307,7 +308,7 @@ func TestDiffConfigs(t *testing.T) {
 							},
 						},
 					},
-					Processes: []rexec.ProcessConfig{
+					Processes: []pexec.ProcessConfig{
 						{
 							ID:      "1",
 							Name:    "echo",
@@ -327,7 +328,7 @@ func TestDiffConfigs(t *testing.T) {
 							},
 						},
 					},
-					Processes: []rexec.ProcessConfig{
+					Processes: []pexec.ProcessConfig{
 						{
 							ID:   "2",
 							Name: "bash",

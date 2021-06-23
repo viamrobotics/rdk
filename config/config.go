@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/board"
-	"go.viam.com/core/rexec"
-	"go.viam.com/core/utils"
 )
 
 // A Config describes the configuration of a robot.
@@ -17,7 +18,7 @@ type Config struct {
 	Remotes        []Remote              `json:"remotes,omitempty"`
 	Boards         []board.Config        `json:"boards,omitempty"`
 	Components     []Component           `json:"components,omitempty"`
-	Processes      []rexec.ProcessConfig `json:"processes,omitempty"`
+	Processes      []pexec.ProcessConfig `json:"processes,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.

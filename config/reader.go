@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-errors/errors"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // An AttributeConverter converts a single attribute into a possibly

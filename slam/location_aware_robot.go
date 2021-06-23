@@ -23,9 +23,9 @@ import (
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/utils"
 
-	"go.uber.org/multierr"
-
 	"github.com/golang/geo/r2"
+	"go.uber.org/multierr"
+	goutils "go.viam.com/utils"
 )
 
 // LocationAwareRobot implements a naive SLAM solution where by the use of LiDARs
@@ -533,7 +533,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 	ticker := time.NewTicker(lar.updateInterval)
 	count := 0
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
-	utils.PanicCapturingGo(func() {
+	goutils.PanicCapturingGo(func() {
 		select {
 		case <-cancelCtx.Done():
 			return
@@ -541,7 +541,7 @@ func (lar *LocationAwareRobot) updateLoop() {
 			cancelFunc()
 		}
 	})
-	utils.ManagedGo(func() {
+	goutils.ManagedGo(func() {
 		for {
 			select {
 			case <-lar.closeCh:

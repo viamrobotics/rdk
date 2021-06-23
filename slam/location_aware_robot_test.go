@@ -9,12 +9,13 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/lidar"
 	pb "go.viam.com/core/proto/slam/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"

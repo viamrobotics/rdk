@@ -6,7 +6,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 )
 
 func _testPieceStatusHelper(t *testing.T, game *Game, board *Board, square, correct string) {

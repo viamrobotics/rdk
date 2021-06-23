@@ -15,6 +15,10 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/pion/webrtc/v3"
 
+	"go.viam.com/utils"
+	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	rpcserver "go.viam.com/utils/rpc/server"
+
 	"go.viam.com/core/action"
 	"go.viam.com/core/camera"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -23,9 +27,6 @@ import (
 	echopb "go.viam.com/core/proto/rpc/examples/echo/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
-	echoserver "go.viam.com/core/rpc/examples/echo/server"
-	rpcserver "go.viam.com/core/rpc/server"
-	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
 	"github.com/Masterminds/sprig"

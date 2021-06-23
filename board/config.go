@@ -3,7 +3,7 @@ package board
 import (
 	"fmt"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // A Config describes the configuration of a board and all of its connected parts.

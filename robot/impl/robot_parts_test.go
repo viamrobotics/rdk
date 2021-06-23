@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -820,7 +821,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "what",
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "what",
 				Name: "echo",
@@ -874,7 +875,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "board2",
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
@@ -930,7 +931,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "board2",
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "2",
 				Name: "echo", // does not matter
@@ -1046,7 +1047,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 				Name: "board3",
 			},
 		},
-		Processes: []rexec.ProcessConfig{
+		Processes: []pexec.ProcessConfig{
 			{
 				ID:   "1",
 				Name: "echo", // does not matter
