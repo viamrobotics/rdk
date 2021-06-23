@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 type testReader struct {

@@ -15,11 +15,12 @@ import (
 
 	"go.uber.org/multierr"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc/dialer"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/rlog"
 	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/rpc/dialer"
-	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 

@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/usb"
 
 	"go.viam.com/test"

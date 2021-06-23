@@ -7,8 +7,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
+	"go.viam.com/utils"
+
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
 )
 
 // init registers a fake board.

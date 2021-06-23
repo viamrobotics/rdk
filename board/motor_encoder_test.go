@@ -5,10 +5,11 @@ import (
 	"sync"
 	"testing"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
+
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/lidar/search"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
 	"go.viam.com/core/slam"
-	"go.viam.com/core/utils"
 
 	// register
 	_ "go.viam.com/core/lidar/client"

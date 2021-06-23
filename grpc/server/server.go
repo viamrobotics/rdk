@@ -19,6 +19,8 @@ import (
 	"google.golang.org/genproto/googleapis/api/httpbody"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/action"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
@@ -26,7 +28,6 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies

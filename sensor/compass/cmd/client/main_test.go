@@ -9,11 +9,12 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/grpc/server"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	"github.com/edaniels/golog"

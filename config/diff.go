@@ -6,8 +6,9 @@ import (
 	"reflect"
 	"sort"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/board"
-	"go.viam.com/core/rexec"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
 )
@@ -29,7 +30,7 @@ type ModifiedConfigDiff struct {
 	Remotes    []Remote
 	Boards     map[string]board.ConfigDiff
 	Components []Component
-	Processes  []rexec.ProcessConfig
+	Processes  []pexec.ProcessConfig
 }
 
 // DiffConfigs returns the difference between the two given configs
@@ -435,9 +436,9 @@ func diffComponent(left, right Component, diff *Diff) (bool, error) {
 	return true, nil
 }
 
-func diffProcesses(left, right []rexec.ProcessConfig, diff *Diff) bool {
+func diffProcesses(left, right []pexec.ProcessConfig, diff *Diff) bool {
 	leftIndex := make(map[string]int)
-	leftM := make(map[string]rexec.ProcessConfig)
+	leftM := make(map[string]pexec.ProcessConfig)
 	for idx, l := range left {
 		leftM[l.ID] = l
 		leftIndex[l.ID] = idx
@@ -468,7 +469,7 @@ func diffProcesses(left, right []rexec.ProcessConfig, diff *Diff) bool {
 	return different
 }
 
-func diffProcess(left, right rexec.ProcessConfig, diff *Diff) bool {
+func diffProcess(left, right pexec.ProcessConfig, diff *Diff) bool {
 	if reflect.DeepEqual(left, right) {
 		return false
 	}

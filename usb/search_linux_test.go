@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"go.viam.com/core/testutils"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/test"
 )

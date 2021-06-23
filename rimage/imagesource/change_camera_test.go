@@ -9,7 +9,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 )

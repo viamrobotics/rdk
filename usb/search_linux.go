@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 )
 
 // SysPaths are where we search for devices. This can be changed for tests.

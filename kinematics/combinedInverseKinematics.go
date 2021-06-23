@@ -3,8 +3,9 @@ package kinematics
 import (
 	"sync"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/kinematics/kinmath"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )

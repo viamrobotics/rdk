@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/test"
 )

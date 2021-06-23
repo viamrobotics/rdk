@@ -4,9 +4,10 @@ import (
 	"context"
 	"image"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/camera"
 	"go.viam.com/core/pointcloud"
-	"go.viam.com/core/utils"
 )
 
 // Camera is an injected camera.

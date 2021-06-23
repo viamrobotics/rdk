@@ -3,7 +3,7 @@ package kinematics
 import (
 	"testing"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/test"
 )

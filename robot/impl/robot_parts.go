@@ -8,6 +8,9 @@ import (
 	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -16,11 +19,9 @@ import (
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/grpc/client"
 	"go.viam.com/core/lidar"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -34,7 +35,7 @@ type robotParts struct {
 	bases          map[string]*proxyBase
 	sensors        map[string]sensor.Sensor
 	providers      map[string]*proxyProvider
-	processManager rexec.ProcessManager
+	processManager pexec.ProcessManager
 }
 
 // newRobotParts returns a properly initialized set of parts.
@@ -49,7 +50,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		bases:          map[string]*proxyBase{},
 		sensors:        map[string]sensor.Sensor{},
 		providers:      map[string]*proxyProvider{},
-		processManager: rexec.NewProcessManager(logger),
+		processManager: pexec.NewProcessManager(logger),
 	}
 }
 
@@ -416,7 +417,7 @@ func (parts *robotParts) processModifiedConfig(
 }
 
 // newProcesses constructs all processes defined.
-func (parts *robotParts) newProcesses(ctx context.Context, processes []rexec.ProcessConfig) error {
+func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
 	for _, procConf := range processes {
 		if _, err := parts.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
 			return err
@@ -677,7 +678,7 @@ func (parts *robotParts) ProviderByName(name string) robot.Provider {
 
 // PartsMergeResult is the result of merging in parts together.
 type PartsMergeResult struct {
-	ReplacedProcesses []rexec.ManagedProcess
+	ReplacedProcesses []pexec.ManagedProcess
 }
 
 // Process integrates the results into the given parts.
@@ -779,7 +780,7 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 	var result PartsMergeResult
 	if toAdd.processManager != nil {
 		// assume parts.processManager is non-nil
-		replaced, err := rexec.MergeAddProcessManagers(parts.processManager, toAdd.processManager)
+		replaced, err := pexec.MergeAddProcessManagers(parts.processManager, toAdd.processManager)
 		if err != nil {
 			return nil, err
 		}
@@ -796,7 +797,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 	if toModify.processManager != nil {
 		// assume parts.processManager is non-nil
 		// adding also replaces here
-		replaced, err := rexec.MergeAddProcessManagers(parts.processManager, toModify.processManager)
+		replaced, err := pexec.MergeAddProcessManagers(parts.processManager, toModify.processManager)
 		if err != nil {
 			return nil, err
 		}
@@ -967,7 +968,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if toRemove.processManager != nil {
 		// assume parts.processManager is non-nil
 		// ignoring result as we will filter out the processes to remove and stop elsewhere
-		rexec.MergeRemoveProcessManagers(parts.processManager, toRemove.processManager)
+		pexec.MergeRemoveProcessManagers(parts.processManager, toRemove.processManager)
 	}
 }
 

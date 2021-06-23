@@ -19,9 +19,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/board"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/utils"
 
 	pb "go.viam.com/core/proto/api/v1"
 )

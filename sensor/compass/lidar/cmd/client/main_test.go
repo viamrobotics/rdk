@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
 
 	// register

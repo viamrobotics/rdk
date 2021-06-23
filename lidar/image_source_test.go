@@ -12,11 +12,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/rimage"
-	"go.viam.com/core/testutils"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 )
 
 func TestImageSource(t *testing.T) {

@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/grpc/server"
 	"go.viam.com/core/lidar"
@@ -12,7 +14,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

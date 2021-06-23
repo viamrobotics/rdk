@@ -11,13 +11,14 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/config"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/lidar/search"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
-	"go.viam.com/core/utils"
 
 	// register
 	_ "go.viam.com/core/lidar/client"

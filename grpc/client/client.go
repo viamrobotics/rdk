@@ -13,6 +13,11 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/pexec"
+	rpcclient "go.viam.com/utils/rpc/client"
+	"go.viam.com/utils/rpc/dialer"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -24,14 +29,10 @@ import (
 	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
-	rpcclient "go.viam.com/core/rpc/client"
-	"go.viam.com/core/rpc/dialer"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
@@ -453,8 +454,8 @@ func (rc *RobotClient) SensorNames() []string {
 // ProcessManager returns a useless process manager for the sake of
 // satisfying the robot.Robot interface. Maybe it should not be part
 // of the interface!
-func (rc *RobotClient) ProcessManager() rexec.ProcessManager {
-	return rexec.NoopProcessManager
+func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
+	return pexec.NoopProcessManager
 }
 
 // FrameLookup not implemented for remote robots

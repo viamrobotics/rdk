@@ -12,7 +12,6 @@ if ("proto" in aliases) {
 	throw new Error("proto is already in aliases");
 }
 aliases["proto"] = path.resolve(__dirname, '../../dist/js/proto');
-aliases["rpc"] = path.resolve(__dirname, '../../rpc/js/src');
 
 module.exports = {
 	mode: "development",

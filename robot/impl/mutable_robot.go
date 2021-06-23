@@ -8,6 +8,8 @@ import (
 	"context"
 	"sync"
 
+	"go.viam.com/utils/pexec"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/base"
 	"go.viam.com/core/board"
@@ -18,7 +20,6 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
-	"go.viam.com/core/rexec"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/status"
@@ -159,7 +160,7 @@ func (r *mutableRobot) SensorNames() []string {
 }
 
 // ProcessManager returns the process manager for the robot.
-func (r *mutableRobot) ProcessManager() rexec.ProcessManager {
+func (r *mutableRobot) ProcessManager() pexec.ProcessManager {
 	return r.parts.processManager
 }
 

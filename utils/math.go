@@ -1,3 +1,5 @@
+// Package utils contains all utility functions that currently have no better home than here.
+// Consider moving them to go.viam.com/utils.
 package utils
 
 import (

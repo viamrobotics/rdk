@@ -3,10 +3,11 @@ package chess
 import (
 	"testing"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
+
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/testutils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

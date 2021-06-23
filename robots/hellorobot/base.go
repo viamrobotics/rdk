@@ -15,6 +15,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/sbinet/go-python"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -84,7 +85,7 @@ func (b *Base) TranslateBy(ctx context.Context, meters float64, block bool) erro
 		return err
 	}
 	if block {
-		if !utils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(meters)/baseTranslateSpeed))*time.Second) {
+		if !goutils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(meters)/baseTranslateSpeed))*time.Second) {
 			return ctx.Err()
 		}
 	}
@@ -105,7 +106,7 @@ func (b *Base) RotateBy(ctx context.Context, angleDeg float64, block bool) error
 		return err
 	}
 	if block {
-		if !utils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(rads)/baseRotateSpeed))*time.Second) {
+		if !goutils.SelectContextOrWait(ctx, time.Duration(math.Ceil(math.Abs(rads)/baseRotateSpeed))*time.Second) {
 			return ctx.Err()
 		}
 	}

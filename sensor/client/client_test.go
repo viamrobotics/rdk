@@ -5,13 +5,14 @@ import (
 	"net"
 	"testing"
 
+	"go.viam.com/utils"
+
 	"go.viam.com/core/grpc/server"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/client"
 	"go.viam.com/core/sensor/compass"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

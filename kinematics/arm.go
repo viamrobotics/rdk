@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	goutils "go.viam.com/utils"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
@@ -56,7 +58,7 @@ func NewArm(real arm.Arm, jsonData []byte, cores int, logger golog.Logger) (*Arm
 
 // Close attempts to close the real arm.
 func (k *Arm) Close() error {
-	return utils.TryClose(k.real) // TODO(erh): who owns this?
+	return goutils.TryClose(k.real) // TODO(erh): who owns this?
 }
 
 // GetForwardPosition returns the end effector's current Position

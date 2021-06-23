@@ -9,8 +9,8 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/artifact"
-	"go.viam.com/core/testutils"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
 
 	"github.com/edaniels/golog"
 )

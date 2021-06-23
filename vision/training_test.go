@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/artifact"
+	"go.viam.com/utils/artifact"
 )
 
 func TestTraining1(t *testing.T) {
