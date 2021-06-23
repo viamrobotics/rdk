@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -27,45 +28,64 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
-// init registers a pi board based on pigpio.
-func init() {
-	board.RegisterBoard("pi", NewPigpio)
-}
-
 var (
 	// piHWPinToBroadcom maps the hardware inscribed pin number to
 	// its Broadcom pin. For the sake of programming, a user typically
 	// knows the hardware pin since they have the board on hand but does
 	// not know the corresponding Broadcom pin.
 	piHWPinToBroadcom = map[string]uint{
-		"3":  2,
-		"5":  3,
-		"7":  4,
-		"11": 17,
-		"13": 27,
-		"15": 22,
-		"19": 10,
-		"21": 9,
-		"23": 11,
-		"29": 5,
-		"31": 6,
-		"33": 13,
-		"35": 19,
-		"37": 26,
-		"8":  14,
-		"10": 15,
-		"12": 18,
-		"16": 23,
-		"18": 24,
-		"22": 25,
-		"24": 8,
-		"26": 7,
-		"32": 12,
-		"36": 16,
-		"38": 20,
-		"40": 21,
+		"3":    2,
+		"5":    3,
+		"7":    4,
+		"11":   17,
+		"13":   27,
+		"15":   22,
+		"19":   10,
+		"21":   9,
+		"23":   11,
+		"29":   5,
+		"31":   6,
+		"33":   13,
+		"35":   19,
+		"37":   26,
+		"8":    14,
+		"10":   15,
+		"12":   18,
+		"16":   23,
+		"18":   24,
+		"22":   25,
+		"24":   8,
+		"26":   7,
+		"32":   12,
+		"36":   16,
+		"38":   20,
+		"40":   21,
+		"sda":  2,
+		"scl":  3,
+		"mosi": 10,
+		"miso": 9,
+		"sclk": 11,
+		"ce0":  8,
+		"ce1":  7,
+		"clk":  18,
 	}
 )
+
+// init registers a pi board based on pigpio.
+func init() {
+	board.RegisterBoard("pi", NewPigpio)
+
+	toAdd := map[string]uint{}
+	for k, v := range piHWPinToBroadcom {
+		if len(k) >= 3 {
+			continue
+		}
+		toAdd[fmt.Sprintf("io%d", v)] = v
+	}
+	for k, v := range toAdd {
+		piHWPinToBroadcom[k] = v
+	}
+}
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
 // accessed via pigpio.
