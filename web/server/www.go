@@ -19,6 +19,8 @@ import (
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	rpcserver "go.viam.com/utils/rpc/server"
 
+	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
+
 	"go.viam.com/core/action"
 	"go.viam.com/core/camera"
 	grpcserver "go.viam.com/core/grpc/server"
@@ -27,7 +29,6 @@ import (
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/web"
-	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
