@@ -1,49 +1,10 @@
 package segmentation
 
 import (
-	"image/color"
-
 	pc "go.viam.com/core/pointcloud"
-	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r3"
-	"github.com/lucasb-eyer/go-colorful"
 )
-
-// ColorPointCloudSegments creates a union of point clouds from the slice of point clouds, giving
-// each element of the slice a unique color.
-func ColorPointCloudSegments(clusters []pc.PointCloud) (pc.PointCloud, error) {
-	var err error
-	palette := colorful.FastWarmPalette(len(clusters))
-	colorSegmentation := pc.New()
-	for i, cluster := range clusters {
-		col := color.NRGBAModel.Convert(palette[i])
-		cluster.Iterate(func(pt pc.Point) bool {
-			v := pt.Position()
-			colorPoint := pc.NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
-			err = colorSegmentation.Set(colorPoint)
-			return err == nil
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-	return colorSegmentation, nil
-}
-
-// GetMeanCenterOfPointCloud returns the spatial average center of a given point cloud.
-func GetMeanCenterOfPointCloud(cloud pc.PointCloud) r3.Vector {
-	x, y, z := 0.0, 0.0, 0.0
-	n := float64(cloud.Size())
-	cloud.Iterate(func(pt pc.Point) bool {
-		v := pt.Position()
-		x += v.X
-		y += v.Y
-		z += v.Z
-		return true
-	})
-	return r3.Vector{x / n, y / n, z / n}
-}
 
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
 // segments that do not pass a certain threshold of points
@@ -54,20 +15,6 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 	}
 	segments = pruneClusters(segments, nMin)
 	return segments, nil
-}
-
-// Clusters is a struct for keeping track of the individual segments of a point cloud as they are being built.
-// PointClouds is a slice of all the segments, and Indices is a map that assigns each point to the segment index it is a part of.
-type Clusters struct {
-	PointClouds []pc.PointCloud
-	Indices     map[pc.Vec3]int
-}
-
-// NewClusters creates an empty new Clusters struct
-func NewClusters() *Clusters {
-	pointclouds := make([]pc.PointCloud, 0)
-	indices := make(map[pc.Vec3]int)
-	return &Clusters{pointclouds, indices}
 }
 
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
@@ -139,38 +86,6 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 		return true
 	})
 	return neighbors
-}
-
-// AssignCluster assigns the given point to the cluster with the given index
-func (c *Clusters) AssignCluster(point pc.Point, index int) error {
-	for index >= len(c.PointClouds) {
-		c.PointClouds = append(c.PointClouds, pc.New())
-	}
-	c.Indices[point.Position()] = index
-	err := c.PointClouds[index].Set(point)
-	return err
-}
-
-// MergeClusters moves all the points in index "from" to the segment at index "to"
-func (c *Clusters) MergeClusters(from, to int) error {
-	var err error
-	index := utils.MaxInt(from, to)
-	for index >= len(c.PointClouds) {
-		c.PointClouds = append(c.PointClouds, pc.New())
-	}
-	c.PointClouds[from].Iterate(func(pt pc.Point) bool {
-		v := pt.Position()
-		c.Indices[v] = to
-		err = c.PointClouds[to].Set(pt)
-		c.PointClouds[from].Unset(v.X, v.Y, v.Z)
-		return err == nil
-	})
-	return err
-}
-
-// N gives the number of clusters in the partition of the point cloud.
-func (c *Clusters) N() int {
-	return len(c.PointClouds)
 }
 
 func pruneClusters(clusters []pc.PointCloud, nMin int) []pc.PointCloud {

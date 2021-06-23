@@ -67,7 +67,7 @@ func extractPlanes(imgWd *rimage.ImageWithDepth) (*segmentation.SegmentedImage, 
 	}
 
 	// Extract the planes from the point cloud
-	planes, _, err := segmentation.GetPlanesInPointCloud(pcl, 50, 150000)
+	planes, _, err := segmentation.FindPlanesInPointCloud(pcl, 50, 150000)
 	if err != nil {
 		return nil, err
 	}
