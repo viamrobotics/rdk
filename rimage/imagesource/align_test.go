@@ -5,11 +5,10 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/core/config"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
+	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

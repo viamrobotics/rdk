@@ -15,7 +15,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/pion/webrtc/v3"
 
-	"go.viam.com/utils"
+	goutils "go.viam.com/utils"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	rpcserver "go.viam.com/utils/rpc/server"
 
@@ -28,6 +28,7 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/utils"
 	"go.viam.com/core/web"
 
 	"github.com/Masterminds/sprig"
@@ -344,7 +345,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 			autoCameraTiler.AddSource(src)
 		}
 		waitCh := make(chan struct{})
-		utils.PanicCapturingGo(func() {
+		goutils.PanicCapturingGo(func() {
 			close(waitCh)
 			gostream.StreamNamedSource(ctx, autoCameraTiler, "Cameras", views[0])
 		})
@@ -352,7 +353,7 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 	} else {
 		for idx, view := range views {
 			waitCh := make(chan struct{})
-			utils.PanicCapturingGo(func() {
+			goutils.PanicCapturingGo(func() {
 				close(waitCh)
 				gostream.StreamNamedSource(ctx, displaySources[idx], displayNames[idx], view)
 			})
@@ -372,10 +373,10 @@ func installWeb(ctx context.Context, mux *goji.Mux, theRobot robot.Robot, option
 // until the context is done.
 func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logger golog.Logger) (err error) {
 	defer func() {
-		if err != nil && utils.FilterOutError(err, context.Canceled) != nil {
+		if err != nil && goutils.FilterOutError(err, context.Canceled) != nil {
 			logger.Errorw("error running web", "error", err)
 		}
-		err = multierr.Combine(err, utils.TryClose(theRobot))
+		err = multierr.Combine(err, goutils.TryClose(theRobot))
 	}()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", options.Port))
@@ -440,7 +441,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
-	httpServer, err := utils.NewPlainTextHTTP2Server(mux)
+	httpServer, err := goutils.NewPlainTextHTTP2Server(mux)
 	if err != nil {
 		return err
 	}
@@ -450,7 +451,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 	defer func() {
 		<-stopped
 	}()
-	utils.PanicCapturingGo(func() {
+	goutils.PanicCapturingGo(func() {
 		defer func() {
 			close(stopped)
 		}()
@@ -465,7 +466,7 @@ func RunWeb(ctx context.Context, theRobot robot.Robot, options web.Options, logg
 			theRobot.Logger().Errorw("error stopping rpc server", "error", err)
 		}
 	})
-	utils.PanicCapturingGo(func() {
+	goutils.PanicCapturingGo(func() {
 		if err := rpcServer.Start(); err != nil {
 			theRobot.Logger().Errorw("error starting rpc server", "error", err)
 		}

@@ -3,9 +3,9 @@ package kinematics
 import (
 	"testing"
 
-	"go.viam.com/utils"
-
 	"go.viam.com/test"
+
+	"go.viam.com/core/utils"
 )
 
 // Tests that yml files are properly parsed and correctly loaded into the model
