@@ -33,6 +33,8 @@ import (
  *      |  |
  *      150
  * that position is 0 degrees for joint 0, and -90 degrees for joint 1 and -90 for the inner joint
+ * ++ on joint 0 should lift
+ * ++ on joint 1 should lift
  */
 const (
 	TestingForce = .5
