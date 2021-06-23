@@ -41,3 +41,13 @@ func CalculateMeanOfPointCloud(cloud PointCloud) r3.Vector {
 	})
 	return r3.Vector{x / n, y / n, z / n}
 }
+
+func PrunePointClouds(clouds []PointCloud, nMin int) []PointCloud {
+	pruned := make([]PointCloud, 0, len(clouds))
+	for _, cloud := range clouds {
+		if cloud.Size() >= nMin {
+			pruned = append(pruned, cloud)
+		}
+	}
+	return pruned
+}
