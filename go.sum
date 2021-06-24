@@ -1243,6 +1243,8 @@ go.viam.com/utils v0.0.0-20210623180447-c3d3a1c422e3 h1:17mlI+TpiQeZPE7N4sKB2N6k
 go.viam.com/utils v0.0.0-20210623180447-c3d3a1c422e3/go.mod h1:sFHnBzOSsW+DUA5ul9TDOLqDqwXhbgQymFzJfHmGMvk=
 go.viam.com/utils v0.0.1 h1:d2hMhcT9w1TmT3/goye+kRzD3FAFoXTmwhJ6EVmcwRQ=
 go.viam.com/utils v0.0.1/go.mod h1:sFHnBzOSsW+DUA5ul9TDOLqDqwXhbgQymFzJfHmGMvk=
+go.viam.com/utils v0.0.2-0.20210624185331-ea2b88c0e347 h1:FXSxqpdoP6CmkN9xS4QGbA2gQz8dZn0DDTK6AYzhdV0=
+go.viam.com/utils v0.0.2-0.20210624185331-ea2b88c0e347/go.mod h1:sFHnBzOSsW+DUA5ul9TDOLqDqwXhbgQymFzJfHmGMvk=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=
