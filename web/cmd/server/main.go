@@ -189,14 +189,20 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 }
 
 func (nl *netLogger) backgroundWorker() {
+	normalInterval := 100 * time.Millisecond
+	abnormalInterval := 5 * time.Second
+	interval := normalInterval
 	for {
-		if !utils.SelectContextOrWait(nl.cancelCtx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
 			return
 		}
 		err := nl.Sync()
 		if err != nil {
+			interval = abnormalInterval
 			// fall back to regular logging
 			rlog.Logger.Infof("error logging to network: %s", err)
+		} else {
+			interval = normalInterval
 		}
 	}
 }
