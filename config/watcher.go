@@ -56,7 +56,7 @@ func newCloudWatcher(config *Cloud, logger golog.Logger) *cloudWatcher {
 			case <-killCh:
 				return
 			case <-ticker.C:
-				newConfig, err := ReadFromCloud(config)
+				newConfig, err := ReadFromCloud(config, false)
 				if err != nil {
 					logger.Errorw("error reading cloud config", "error", err)
 					continue
