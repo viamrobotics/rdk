@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/robot"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 )
 
 var regMap = map[string]byte{
@@ -40,6 +41,7 @@ var regMap = map[string]byte{
 	"SetBound":    0x34,
 	"EnableBound": 0x34,
 	"SetEEModel":  0x4E,
+	"ServoError":  0x6A,
 }
 
 type cmd struct {
@@ -110,7 +112,7 @@ func (x *xArm6) newCmd(reg byte) cmd {
 	return cmd{tid: x.tid, prot: 2, reg: reg}
 }
 
-func (x *xArm6) send(ctx context.Context, c cmd) (cmd, error) {
+func (x *xArm6) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 
 	x.moveLock.Lock()
 	defer x.moveLock.Unlock()
@@ -120,10 +122,10 @@ func (x *xArm6) send(ctx context.Context, c cmd) (cmd, error) {
 	if err != nil {
 		return cmd{}, err
 	}
-	return x.response(ctx)
+	return x.response(ctx, checkError)
 }
 
-func (x *xArm6) response(ctx context.Context) (cmd, error) {
+func (x *xArm6) response(ctx context.Context, checkError bool) (cmd, error) {
 	// Read response header
 	buf, err := utils.ReadBytes(ctx, x.conn, 7)
 	if err != nil {
@@ -135,7 +137,81 @@ func (x *xArm6) response(ctx context.Context) (cmd, error) {
 	c.reg = buf[6]
 	length := binary.BigEndian.Uint16(buf[4:6])
 	c.params, err = utils.ReadBytes(ctx, x.conn, int(length-1))
+	if err != nil {
+		return cmd{}, err
+	}
+	if checkError {
+		state := c.params[0]
+		if state&96 != 0 {
+			// Error (64) and/or warning (32) bit is set
+			return c, x.readError(ctx)
+		}
+		if state&16 != 0 {
+			// 'Could not perform motion' bit is set
+			// If this happens usually readError will be triggered above
+			// but if not we catch that here
+			return c, multierr.Combine(
+				errors.New("xArm Could not perform motion"),
+				x.clearErrorAndWarning(ctx))
+		}
+	}
 	return c, err
+}
+
+// checkServoErrors will query the individual servos for any servo-specific
+// errors. It may be useful for troubleshooting but as the SDK does not call
+// it directly ever, we probably don't need to either during normal operation
+func (x *xArm6) CheckServoErrors(ctx context.Context) error {
+	c := x.newCmd(regMap["ServoError"])
+	e, err := x.send(ctx, c, false)
+	if err != nil {
+		return err
+	}
+	if len(e.params) < 18 {
+		return errors.New("bad servo error query response")
+	}
+
+	// Get error codes for all (8) servos.
+	// xArm 6 has 6, xArm 7 has 7, and plus one in the xArm gripper
+	for i := 1; i < 9; i++ {
+		errCode := e.params[i*2]
+		errMsg, isErr := servoErrorMap[errCode]
+		if isErr {
+			err = multierr.Append(err, errors.New(errMsg))
+		}
+	}
+	return err
+}
+
+func (x *xArm6) clearErrorAndWarning(ctx context.Context) error {
+	c1 := x.newCmd(regMap["ClearError"])
+	c2 := x.newCmd(regMap["ClearWarn"])
+	_, err1 := x.send(ctx, c1, false)
+	_, err2 := x.send(ctx, c2, false)
+	return multierr.Combine(err1, err2)
+}
+
+func (x *xArm6) readError(ctx context.Context) error {
+	c := x.newCmd(regMap["GetError"])
+	e, err := x.send(ctx, c, false)
+	if err != nil {
+		return err
+	}
+	if len(e.params) < 3 {
+		return errors.New("bad arm error query response")
+	}
+
+	errCode := e.params[1]
+	warnCode := e.params[2]
+	errMsg, isErr := armBoxErrorMap[errCode]
+	warnMsg, isWarn := armBoxWarnMap[warnCode]
+	if isErr || isWarn {
+		return multierr.Combine(errors.New(errMsg),
+			errors.New(warnMsg))
+	}
+	// Commands are returning error codes that are not mentioned in the
+	// developer manual
+	return errors.New("xArm: UNKNOWN ERROR")
 }
 
 // setMotionState sets the motion state of the arm.
@@ -146,7 +222,7 @@ func (x *xArm6) response(ctx context.Context) (cmd, error) {
 func (x *xArm6) setMotionState(ctx context.Context, state byte) error {
 	c := x.newCmd(regMap["SetState"])
 	c.params = append(c.params, state)
-	_, err := x.send(ctx, c)
+	_, err := x.send(ctx, c, true)
 	return err
 }
 
@@ -160,7 +236,7 @@ func (x *xArm6) toggleServos(ctx context.Context, enable bool) error {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(ctx, c)
+	_, err := x.send(ctx, c, true)
 	return err
 }
 
@@ -173,7 +249,7 @@ func (x *xArm6) toggleBrake(ctx context.Context, disable bool) error {
 		enByte = 1
 	}
 	c.params = append(c.params, 8, enByte)
-	_, err := x.send(ctx, c)
+	_, err := x.send(ctx, c, true)
 	return err
 }
 
@@ -202,7 +278,7 @@ func (x *xArm6) motionWait(ctx context.Context) error {
 			return errors.New("motionWait continued to detect motion after 15 seconds")
 		}
 		c := x.newCmd(regMap["GetState"])
-		sData, err := x.send(ctx, c)
+		sData, err := x.send(ctx, c, true)
 		if err != nil {
 			return err
 		}
@@ -253,7 +329,7 @@ func (x *xArm6) MoveToJointPositions(ctx context.Context, newPositions *pb.Joint
 
 	// add motion time, 0
 	c.params = append(c.params, 0, 0, 0, 0)
-	_, err := x.send(ctx, c)
+	_, err := x.send(ctx, c, true)
 	if err != nil {
 		return err
 	}
@@ -279,7 +355,7 @@ func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 func (x *xArm6) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
-	jData, err := x.send(ctx, c)
+	jData, err := x.send(ctx, c, true)
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
