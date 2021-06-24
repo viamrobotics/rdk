@@ -65,6 +65,9 @@ func TestConfigRemote(t *testing.T) {
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(), test.ShouldBeNil)
+	}()
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
