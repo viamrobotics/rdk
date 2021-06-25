@@ -6,11 +6,14 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
@@ -83,10 +86,13 @@ func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
 	return sub, true, nil
 }
 
-const (
-	defaultCloudPath   = "https://app.viam.com/api/json1/config"
-	defaultCoudLogPath = "https://app.viam.com/api/json1/log"
+var (
+	defaultCloudBasePath = "https://app.viam.com"
+	defaultCloudPath     = defaultCloudBasePath + "/api/json1/config"
+	defaultCoudLogPath   = defaultCloudBasePath + "/api/json1/log"
+)
 
+const (
 	cloudConfigSecretField           = "Secret"
 	cloudConfigUserInfoField         = "User-Info"
 	cloudConfigUserInfoHostField     = "host"
@@ -136,9 +142,30 @@ func createCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 	return r, nil
 }
 
+var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
+
+func getCloudCacheFilePath(id string) string {
+	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
+}
+
+func openFromCache(id string) (io.ReadCloser, error) {
+	return os.Open(getCloudCacheFilePath(id))
+}
+
+func storeToCache(id string, cfg *Config) error {
+	if err := os.MkdirAll(viamDotDir, 0640); err != nil {
+		return err
+	}
+	md, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(getCloudCacheFilePath(id), md, 0640)
+}
+
 // ReadFromCloud fetches a robot config from the cloud based
 // on the given config.
-func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
+func ReadFromCloud(cloudCfg *Cloud, readFromCache bool) (*Config, error) {
 	cloudReq, err := createCloudRequest(cloudCfg)
 	if err != nil {
 		return nil, err
@@ -147,33 +174,59 @@ func ReadFromCloud(cloudCfg *Cloud) (*Config, error) {
 	var client http.Client
 	defer client.CloseIdleConnections()
 	resp, err := client.Do(cloudReq)
-	if err != nil {
-		return nil, err
-	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
 
-	if resp.StatusCode != http.StatusOK {
-		rd, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
+	var configReader io.ReadCloser
+	if err == nil {
+		if resp.StatusCode != http.StatusOK {
+			defer utils.UncheckedErrorFunc(resp.Body.Close)
+			rd, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			if len(rd) != 0 {
+				return nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+			}
+			return nil, errors.Errorf("unexpected status %d", resp.StatusCode)
+		}
+		configReader = resp.Body
+	} else {
+		if !readFromCache {
 			return nil, err
 		}
-		if len(rd) != 0 {
-			return nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+		var urlErr *url.Error
+		if !errors.As(err, &urlErr) || urlErr.Temporary() {
+			return nil, err
 		}
-		return nil, errors.Errorf("unexpected status %d", resp.StatusCode)
+		var cacheErr error
+		configReader, cacheErr = openFromCache(cloudCfg.ID)
+		if cacheErr != nil {
+			if os.IsNotExist(cacheErr) {
+				return nil, err
+			}
+			return nil, cacheErr
+		}
 	}
+	defer utils.UncheckedErrorFunc(configReader.Close)
 
 	// read the actual config and do not make a cloud request again to avoid
 	// infinite recursion.
-	cfg, err := fromReader("", resp.Body, true)
+	cfg, err := fromReader("", configReader, true)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.Cloud == nil {
+		return nil, errors.New("expected config to have cloud section")
 	}
 	self := cfg.Cloud.Self
 	signalingAddress := cfg.Cloud.SignalingAddress
 	*cfg.Cloud = *cloudCfg
 	cfg.Cloud.Self = self
 	cfg.Cloud.SignalingAddress = signalingAddress
+
+	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
+		golog.Global.Errorw("failed to cache config", "error", err)
+	}
+
 	return cfg, err
 }
 
@@ -208,7 +261,7 @@ func fromReader(originalPath string, r io.Reader, skipCloud bool) (*Config, erro
 	}
 
 	if !skipCloud && cfg.Cloud != nil {
-		return ReadFromCloud(cfg.Cloud)
+		return ReadFromCloud(cfg.Cloud, true)
 	}
 
 	for idx, c := range cfg.Components {
