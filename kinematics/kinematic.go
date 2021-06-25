@@ -6,8 +6,8 @@ import (
 	"log"
 	"math"
 
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -31,7 +31,7 @@ func (m *Model) ForwardVelocity() {
 }
 
 // GetOperationalPosition will return the position of the given end effector ID (usually 0) and its euler angles
-func (m *Model) GetOperationalPosition(idx int) *kinmath.QuatTrans {
+func (m *Model) GetOperationalPosition(idx int) *spatialmath.QuatTrans {
 	return m.Nodes[m.Leaves[idx]].i.t
 }
 
@@ -58,7 +58,7 @@ func (m *Model) Get6dPosition(idx int) *pb.ArmPosition {
 	pose6d.Z = cartQuat.Dual.Kmag
 
 	// Get R4 angle axis angles
-	poseOV := kinmath.QuatToOV(quat.Real)
+	poseOV := spatialmath.QuatToOV(quat.Real)
 	pose6d.Theta = utils.RadToDeg(poseOV.Theta)
 	pose6d.OX = poseOV.OX
 	pose6d.OY = poseOV.OY

@@ -11,22 +11,22 @@ import (
 
 	"gonum.org/v1/gonum/num/dualquat"
 
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 )
 
 // OffsetBy takes two offsets and computes the final position
 func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := kinmath.NewQuatTransFromArmPos(a)
-	q2 := kinmath.NewQuatTransFromArmPos(b)
+	q1 := spatialmath.NewQuatTransFromArmPos(a)
+	q2 := spatialmath.NewQuatTransFromArmPos(b)
 	q3 := q1.Transformation(q2.Quat)
 	final := &pb.ArmPosition{}
 	cartQuat := dualquat.Mul(q3, dualquat.Conj(q3))
 	final.X = cartQuat.Dual.Imag
 	final.Y = cartQuat.Dual.Jmag
 	final.Z = cartQuat.Dual.Kmag
-	poseOV := kinmath.QuatToOV(q3.Real)
+	poseOV := spatialmath.QuatToOV(q3.Real)
 	final.Theta = utils.RadToDeg(poseOV.Theta)
 	final.OX = poseOV.OX
 	final.OY = poseOV.OY
