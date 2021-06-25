@@ -96,7 +96,7 @@ func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB 
 		return nil, fmt.Errorf("ramp rate needs to be [0,1) but is %v", em.rampRate)
 	}
 	if em.rampRate == 0 {
-		em.rampRate = 0.3 // Use a conservative value by default.
+		em.rampRate = 0.2 // Use a conservative value by default.
 	}
 
 	return em, nil
@@ -471,7 +471,11 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 			var newPowerPct float32
 
 			if currentRPM == 0 {
-				newPowerPct = m.computeRamp(lastPowerPct, 1)
+				if lastPowerPct < .01 {
+					newPowerPct = .01
+				} else {
+					newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+				}
 			} else {
 				dOverC := desiredRPM / currentRPM
 				if dOverC > 2 {
