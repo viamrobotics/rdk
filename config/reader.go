@@ -144,15 +144,15 @@ func createCloudRequest(cloudCfg *Cloud) (*http.Request, error) {
 
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
-func getCacheFilePath() string {
-	return filepath.Join(viamDotDir, "cached_config.json")
+func getCloudCacheFilePath(id string) string {
+	return filepath.Join(viamDotDir, fmt.Sprintf("cached_cloud_config_%s.json", id))
 }
 
-func openFromCache() (io.ReadCloser, error) {
-	return os.Open(getCacheFilePath())
+func openFromCache(id string) (io.ReadCloser, error) {
+	return os.Open(getCloudCacheFilePath(id))
 }
 
-func storeToCache(cfg *Config) error {
+func storeToCache(id string, cfg *Config) error {
 	if err := os.MkdirAll(viamDotDir, 0640); err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func storeToCache(cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(getCacheFilePath(), md, 0640)
+	return ioutil.WriteFile(getCloudCacheFilePath(id), md, 0640)
 }
 
 // ReadFromCloud fetches a robot config from the cloud based
@@ -198,7 +198,7 @@ func ReadFromCloud(cloudCfg *Cloud, readFromCache bool) (*Config, error) {
 			return nil, err
 		}
 		var cacheErr error
-		configReader, cacheErr = openFromCache()
+		configReader, cacheErr = openFromCache(cloudCfg.ID)
 		if cacheErr != nil {
 			if os.IsNotExist(cacheErr) {
 				return nil, err
@@ -223,7 +223,7 @@ func ReadFromCloud(cloudCfg *Cloud, readFromCache bool) (*Config, error) {
 	cfg.Cloud.Self = self
 	cfg.Cloud.SignalingAddress = signalingAddress
 
-	if err := storeToCache(cfg); err != nil {
+	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
