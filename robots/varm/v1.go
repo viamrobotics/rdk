@@ -38,7 +38,7 @@ import (
  */
 const (
 	TestingForce = .5
-	TestingRPM   = 20.0
+	TestingRPM   = 10.0
 )
 
 //go:embed v1.json
@@ -202,7 +202,7 @@ func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (a
 		return nil, err
 	}
 
-	arm.j1.posMax = arm.j1.posMin + .72 // TODO(erh): this is super gross
+	arm.j1.posMax = arm.j1.posMin + 3.417 // TODO(erh): this is super gross
 
 	logger.Debugf("%#v", arm)
 
@@ -236,7 +236,7 @@ func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, 
 		return nil
 	}
 
-	return m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 30.0, delta)
+	return m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 10.0, delta)
 
 }
 
@@ -300,6 +300,8 @@ func (a *ArmV1) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, 
 	joints := &pb.JointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
 	joints.Degrees[1], e2 = jointToDegrees(ctx, a.j1Motor, a.j1)
+
+	joints.Degrees[1] = (joints.Degrees[1] - joints.Degrees[0])
 	return joints, multierr.Combine(e1, e2)
 }
 
