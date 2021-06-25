@@ -49,12 +49,21 @@
             }
          },
          {
-            "id": "gripper_mount",
+            "id": "gripper_mount_base",
             "parent": "wrist",
             "translation": {
                "x": 65,
                "y": 0,
                "z": 104
+            }
+         },
+         {
+            "id": "gripper_mount",
+            "parent": "gripper_rot",
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
             },
             "setorientation": true,
             "orientation": {
@@ -129,7 +138,7 @@
          {
             "id": "gripper_rot",
             "type": "revolute",
-            "parent": "gripper_mount",
+            "parent": "gripper_mount_base",
             "axis": {
                "x": 0,
                "y": 0,
