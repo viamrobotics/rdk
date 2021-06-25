@@ -1,5 +1,5 @@
-// Package kinmath defines mathematical operations useful in kinematics.
-package kinmath
+// Package spatialmath defines spatial mathematical operations
+package spatialmath
 
 import (
 	"math"
