@@ -12,7 +12,7 @@ import (
 )
 
 func TestCreateJacIKSolver(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateJacobianIKSolver(m)
 	m.SetPosition([]float64{1, 0, 0, 0, 0, 1})
