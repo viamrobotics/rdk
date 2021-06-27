@@ -137,6 +137,10 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return errors.New("arduino needs a and b hall encoders")
 	}
 
+	if cfg.TicksPerRotation <= 0 {
+		return errors.New("arduino motors TicksPerRotation to be set")
+	}
+	
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s e %s %s",
 		cfg.Name,
 		cfg.Pins["pwm"],
@@ -261,6 +265,12 @@ func (b *arduinoBoard) ModelAttributes() board.ModelAttributes{
 
 // Close shuts the board down, no methods should be called on the board after this
 func (b *arduinoBoard) Close() error {
+	for _, m := range b.motors {
+		err := m.Off(context.Background())
+		if err != nil {
+			return err
+		}
+	}
 	return b.port.Close()
 }
 
@@ -283,7 +293,18 @@ func (m *motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32
 // GoFor instructs the motor to go in a specific direction for a specific amount of
 // revolutions at a given speed in revolutions per minute.
 func (m *motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error{
-	panic(1)
+	ticks := int(revolutions * float64(m.cfg.TicksPerRotation))
+	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
+	if d == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+		// no-op
+	} else if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+		ticks *= -1;
+	} else {
+		return errors.New("unknown direction")
+	}
+
+	_, err := m.b.runCommand(fmt.Sprintf("motor-gofor %s %d %d", m.cfg.Name, ticks, ticksPerSecond))
+	return err
 }
 
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
@@ -311,11 +332,16 @@ func (m *motor) PositionSupported(ctx context.Context) (bool, error){
 
 // Off turns the motor off.
 func (m *motor) Off(ctx context.Context) error{
-	panic(1)
+	_, err := m.b.runCommand("motor-off " + m.cfg.Name)
+	return err
 }
 
 // IsOn returns whether or not the motor is currently on.
 func (m *motor) IsOn(ctx context.Context) (bool, error){
-	panic(1)
+	res, err := m.b.runCommand("motor-ison " + m.cfg.Name)
+	if err != nil {
+		return false, err
+	}
+	return res[0] == 't', nil
 }
 

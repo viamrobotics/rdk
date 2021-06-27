@@ -17,6 +17,15 @@ int findEmptyMotor() {
     return -1;
 }
 
+Motor* findMotor(const char* name) {
+    for (int i=0; i<MAX_MOTORS; i++) {
+        if (motors[i] && strcmp(name, motors[i]->name()) == 0) {
+            return motors[i];
+        }
+    }
+    return 0;
+}
+
 void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, int encA, int encB) {
     int motor = findEmptyMotor();
     if (motor < 0) {
@@ -47,8 +56,12 @@ void setup() {
 void hallA() {}
 void hallB() {}
 
-bool isCommand(const char* line, const char* cmd) {
-    return strncmp(line, cmd, strlen(cmd)) == 0;
+const char* isCommand(const char* line, const char* cmd) {
+    int len = strlen(cmd);
+    if (strncmp(line, cmd, len) == 0) {
+        return line + len + 1;
+    }
+    return 0;
 }
 
 void processBuffer(Buffer* b) {
@@ -87,7 +100,65 @@ void processBuffer(Buffer* b) {
         return;
     }
 
-    
+    if (const char* name = isCommand(line, "motor-position")) {
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        b->print("@");
+        b->print(m->encoderTicks());
+        b->println("");
+        return;
+    }
+
+    if (const char* name = isCommand(line, "motor-ison")) {
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        b->println(m->moving() ? "@t" : "@f");
+        return;
+    }
+
+    if (const char* name = isCommand(line, "motor-off")) {
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        m->stop();
+        b->println("@ok");
+        return;
+    }
+
+    if (const char* rest = isCommand(line, "motor-gofor")) {
+        char name[255];
+        int numTicks, ticksPerSecond;
+        int n = sscanf(rest, "%s %d %d", name, &numTicks, &ticksPerSecond);
+        if (n != 3) {
+            b->print(n);
+            b->println("");
+            b->println("#error parsing motor-gofor");
+            return;
+        }
+                
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+
+        m->forward(128, numTicks);
+        b->println("@ok");
+        return;
+    }
+
     b->println(line);
     b->println("#unknown command");
 }

@@ -19,6 +19,7 @@ class Buffer {
     void println(const char* buf) { _port->println(buf); }
 
     void print(int n) { _port->print(n); }
+    void print(const char* s) { _port->print(s); }
 
    private:
     HardwareSerial* _port;
