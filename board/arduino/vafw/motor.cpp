@@ -1,5 +1,5 @@
 
-#include "core.h"
+#include "motor.h"
 
 extern HardwareSerial* debugSerial;
 
@@ -55,25 +55,6 @@ void Motor::setTicksToGo(int ticks) {
     }
 }
 
-void Motor::doCommand(const char* buf) {
-    Command c = Command::parse(buf);
-
-    switch (c.direction) {
-        case 'f':
-            forward(c.speed, c.ticks);
-            break;
-        case 'b':
-            backward(c.speed, c.ticks);
-            break;
-        case 's':
-            stop();
-            break;
-        default:
-            debugSerial->println("unknown command");
-            debugSerial->println(buf[0], DEC);
-    }
-}
-
 bool Motor::checkEncoder() {
     if (_encoderTicksStop <= 0) {
         return false;
@@ -103,72 +84,6 @@ bool Motor::checkEncoder() {
 }
 
 // -----
-
-Command Command::parse(const char* buf) {
-    Command c;
-
-    if (!buf[0]) {
-        return c;
-    }
-
-    c.direction = buf[0];
-    buf++;
-
-    if (!buf[0]) {
-        return c;
-    }
-
-    c.speed = atoi(buf);
-    if (c.speed <= 0 || c.speed > 255) {
-        // bad data, do nothing
-        c.direction = 's';
-        c.speed = 0;
-        return c;
-    }
-
-    // move pase the number to see if we have more data
-
-    while (isdigit(buf[0])) {
-        buf++;
-    }
-
-    if (buf[0] != ',') {
-        return c;
-    }
-    buf++;  // move past the comma
-
-    c.ticks = atoi(buf);
-
-    return c;
-}
-
-void _testParseCommand(const char* buf, Command correct) {
-    Command c = Command::parse(buf);
-    if (c.direction == correct.direction && c.speed == correct.speed &&
-        c.ticks == correct.ticks) {
-        return;
-    }
-
-    Serial.println(buf);
-    Serial.println("BROKE");
-    exit(-1);
-}
-
-void testParseCommand() {
-    _testParseCommand("s", Command('s', 255, 0));
-
-    _testParseCommand("f", Command('f', 255, 0));
-    _testParseCommand("f9", Command('f', 9, 0));
-    _testParseCommand("f91", Command('f', 91, 0));
-    _testParseCommand("f191", Command('f', 191, 0));
-    _testParseCommand("f1000", Command('s', 0, 0));
-
-    _testParseCommand("b91", Command('b', 91, 0));
-
-    _testParseCommand("f100,100", Command('f', 100, 100));
-}
-
-// ------
 
 void setupInterrupt(int pin, void (*ISR)(), int what) {
     pinMode(pin, INPUT);

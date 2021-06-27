@@ -14,8 +14,6 @@ class Motor {
 
     void setTicksToGo(int ticks);
 
-    void doCommand(const char* buf);
-
     bool checkEncoder();
 
     uint64_t encoderTick() {
@@ -55,18 +53,5 @@ class Motor {
     bool _slowDown;
     int _power;
 };
-
-struct Command {
-    Command() : direction('s'), speed(255), ticks(0) {}
-    Command(char d, int s, int t) : direction(d), speed(s), ticks(t) {}
-
-    static Command parse(const char* buf);
-
-    char direction;  // f, b, s
-    int speed;       // [0, 255]
-    int ticks;       // 0 means ignored, >= 0 means stop after that many
-};
-
-void testParseCommand();
 
 void setupInterrupt(int pin, void (*ISR)(), int what);

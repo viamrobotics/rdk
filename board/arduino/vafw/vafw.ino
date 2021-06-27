@@ -1,6 +1,6 @@
 
 #include "buffer.h"
-#include "core.h"
+#include "motor.h"
 
 #define MAX_MOTORS 12
 Motor* motors[MAX_MOTORS];
