@@ -49,6 +49,9 @@ type Board interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
+
+	// Close shuts the board down, no methods should be called on the board after this
+	Close() error
 }
 
 // ModelAttributes provide info related to a board model.
