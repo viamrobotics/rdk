@@ -1,3 +1,4 @@
+// core.h
 
 #pragma once
 
@@ -5,7 +6,7 @@
 
 class Motor {
    public:
-    Motor(int in1, int in2, int pwm, bool trackSpeed = false);
+    Motor(const char* name, int in1, int in2, int pwm, bool trackSpeed = false);
 
     void stop();
     void forward(int val, int ticks = 0);
@@ -39,7 +40,10 @@ class Motor {
 
     void setSlowDown(bool b) { _slowDown = b; }
 
+    const char* name() const { return _name; }
+    
    private:
+    char _name[255];
     int _in1;
     int _in2;
     int _pwm;
@@ -61,27 +65,6 @@ struct Command {
     char direction;  // f, b, s
     int speed;       // [0, 255]
     int ticks;       // 0 means ignored, >= 0 means stop after that many
-};
-
-class Buffer {
-   public:
-    Buffer(HardwareSerial* s) : _port(s) {
-        _port->begin(9600);
-        _pos = 0;
-    }
-
-    // return true if got a new line
-    bool readTillNewLine();
-
-    const char* getLineAndReset();
-
-    void println(const char* buf) { _port->println(buf); }
-
-   private:
-    HardwareSerial* _port;
-
-    char _buf[256];
-    int _pos;
 };
 
 void testParseCommand();
