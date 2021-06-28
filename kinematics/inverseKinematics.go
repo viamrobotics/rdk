@@ -6,13 +6,13 @@ import (
 
 // Goal TODO
 type Goal struct {
-	GoalTransform *spatialmath.QuatTrans
+	GoalTransform *spatialmath.DualQuaternion
 	EffectorID    int
 }
 
 // InverseKinematics TODO
 type InverseKinematics interface {
-	AddGoal(*spatialmath.QuatTrans, int)
+	AddGoal(*spatialmath.DualQuaternion, int)
 	ClearGoals()
 	GetGoals() []Goal
 	Solve() bool

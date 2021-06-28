@@ -11,7 +11,7 @@ import (
 type Transform struct {
 	in         *Frame
 	out        *Frame
-	t          *spatialmath.QuatTrans
+	t          *spatialmath.DualQuaternion
 	descriptor graph.Edge
 	name       string
 	Rev        bool
@@ -20,7 +20,7 @@ type Transform struct {
 // NewTransform TODO
 func NewTransform() *Transform {
 	t := Transform{}
-	t.t = spatialmath.NewQuatTrans()
+	t.t = spatialmath.NewDualQuaternion()
 	return &t
 }
 

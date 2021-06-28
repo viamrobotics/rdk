@@ -48,7 +48,7 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 }
 
 // AddGoal TODO
-func (ik *CombinedIK) AddGoal(trans *spatialmath.QuatTrans, effectorID int) {
+func (ik *CombinedIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
 	for _, solver := range ik.solvers {
 		solver.AddGoal(trans, effectorID)
 	}

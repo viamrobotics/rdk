@@ -74,7 +74,7 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 // Uses ZYX Euler rotation order.
 // Takes degrees as input and converts to radians for kinematics use.
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := spatialmath.NewQuatTransFromArmPos(pos)
+	transform := spatialmath.NewDualQuaternionFromArmPos(pos)
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
 
 	k.ik.AddGoal(transform, k.effectorID)

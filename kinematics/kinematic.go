@@ -8,7 +8,6 @@ import (
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/mat"
@@ -31,7 +30,7 @@ func (m *Model) ForwardVelocity() {
 }
 
 // GetOperationalPosition will return the position of the given end effector ID (usually 0) and its euler angles
-func (m *Model) GetOperationalPosition(idx int) *spatialmath.QuatTrans {
+func (m *Model) GetOperationalPosition(idx int) *spatialmath.DualQuaternion {
 	return m.Nodes[m.Leaves[idx]].i.t
 }
 
@@ -47,23 +46,7 @@ func (m *Model) GetJacobianInverse() *mgl64.MatMxN {
 
 // Get6dPosition returns the 6d pose of the requested end effector as a pb.ArmPosition
 func (m *Model) Get6dPosition(idx int) *pb.ArmPosition {
-	pose6d := &pb.ArmPosition{}
-
-	endTransform := m.GetOperationalPosition(idx)
-	quat := endTransform.Quat
-	cartQuat := dualquat.Mul(quat, dualquat.Conj(quat))
-	// Get xyz position
-	pose6d.X = cartQuat.Dual.Imag
-	pose6d.Y = cartQuat.Dual.Jmag
-	pose6d.Z = cartQuat.Dual.Kmag
-
-	// Get R4 angle axis angles
-	poseOV := spatialmath.QuatToOV(quat.Real)
-	pose6d.Theta = utils.RadToDeg(poseOV.Theta)
-	pose6d.OX = poseOV.OX
-	pose6d.OY = poseOV.OY
-	pose6d.OZ = poseOV.OZ
-	return pose6d
+	return m.GetOperationalPosition(idx).ToArmPos()
 }
 
 // GetOperationalVelocity will return the velocity quaternion of the given end effector ID (usually 0)
