@@ -3,14 +3,25 @@
 #include "motor.h"
 
 #define MAX_MOTORS 12
-Motor* motors[MAX_MOTORS];
+
+struct motorInfo {
+    motorInfo() {
+        motor = 0;
+        encA = 0;
+        encB = 0;
+    }
+    Motor* motor;
+    int encA, encB;
+};
+
+motorInfo motors[MAX_MOTORS];
 
 Buffer* buf1;
 Buffer* buf2;
 
 int findEmptyMotor() {
     for (int i=0; i<MAX_MOTORS; i++) {
-        if (!motors[i]) {
+        if (!motors[i].motor) {
             return i;
         }
     }
@@ -19,8 +30,8 @@ int findEmptyMotor() {
 
 Motor* findMotor(const char* name) {
     for (int i=0; i<MAX_MOTORS; i++) {
-        if (motors[i] && strcmp(name, motors[i]->name()) == 0) {
-            return motors[i];
+        if (motors[i].motor && strcmp(name, motors[i].motor->name()) == 0) {
+            return motors[i].motor;
         }
     }
     return 0;
@@ -33,7 +44,14 @@ void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, 
         return;
     }
 
-    motors[motor] = new Motor(name, pinA, pinB, pwm, true);
+    if (!setupInterruptForMotor(encA) || !setupInterruptForMotor(encB)) {
+        b->println("#encoder setup fail");
+        return;
+    }
+    
+    motors[motor].motor = new Motor(name, pinA, pinB, pwm, true);
+    motors[motor].encA = encA;
+    motors[motor].encB = encB;
 }
 
 void setup() {
@@ -42,19 +60,9 @@ void setup() {
     buf1 = new Buffer(&Serial);
     buf2 = new Buffer(&Serial1);
 
-    for (int i=0; i<MAX_MOTORS; i++) {
-        motors[i] = 0;
-    }
-    
-    setupInterrupt(2, hallA, CHANGE);  
-    setupInterrupt(3, hallB, CHANGE);
-
     buf1->println("!");
     buf2->println("!");
 }
-
-void hallA() {}
-void hallB() {}
 
 const char* isCommand(const char* line, const char* cmd) {
     int len = strlen(cmd);
@@ -166,4 +174,72 @@ void processBuffer(Buffer* b) {
 void loop() {
     processBuffer(buf1);
     processBuffer(buf2);
+    for (int i=0; i<MAX_MOTORS; i++) {
+        if (motors[i].motor) {
+            motors[i].motor->checkEncoder();
+        }
+    }
+}
+
+void setupInterruptBasic(int pin, void (*ISR)(), int what) {
+    pinMode(pin, INPUT);
+    digitalWrite(pin, HIGH); // enable internal pullup resistor
+    attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
+}
+
+void motorEncoder(int pin, bool rising) {
+    for (int i=0; i<MAX_MOTORS; i++) {
+        if (motors[i].encA == pin) {
+            motors[i].motor->encoderTick(true, rising);
+            return;
+        }
+        if (motors[i].encB == pin) {
+            motors[i].motor->encoderTick(false, rising);
+            return;
+        }
+    }
+}
+
+void motorInt2Fall() {motorEncoder(2, false);}
+void motorInt2Rising() {motorEncoder(2, true);}
+void motorInt3Fall() {motorEncoder(3, false);}
+void motorInt3Rising() {motorEncoder(3, true);}
+void motorInt18Fall() {motorEncoder(18, false);}
+void motorInt18Rising() {motorEncoder(18, true);}
+void motorInt19Fall() {motorEncoder(19, false);}
+void motorInt19Rising() {motorEncoder(19, true);}
+void motorInt20Fall() {motorEncoder(20, false);}
+void motorInt20Rising() {motorEncoder(20, true);}
+void motorInt21Fall() {motorEncoder(21, false);}
+void motorInt21Rising() {motorEncoder(21, true);}
+
+bool setupInterruptForMotor(int pin){
+    switch(pin) {
+    case 2:
+        setupInterruptBasic(pin, motorInt2Fall, FALLING);
+        setupInterruptBasic(pin, motorInt2Rising, RISING);
+        return true;
+    case 3:
+        setupInterruptBasic(pin, motorInt3Fall, FALLING);
+        setupInterruptBasic(pin, motorInt3Rising, RISING);
+        return true;
+    case 18:
+        setupInterruptBasic(pin, motorInt18Fall, FALLING);
+        setupInterruptBasic(pin, motorInt18Rising, RISING);
+        return true;
+    case 19:
+        setupInterruptBasic(pin, motorInt19Fall, FALLING);
+        setupInterruptBasic(pin, motorInt19Rising, RISING);
+        return true;
+    case 20:
+        setupInterruptBasic(pin, motorInt20Fall, FALLING);
+        setupInterruptBasic(pin, motorInt20Rising, RISING);
+        return true;
+    case 21:
+        setupInterruptBasic(pin, motorInt21Fall, FALLING);
+        setupInterruptBasic(pin, motorInt21Rising, RISING);
+        return true;
+
+    }
+    return false;
 }

@@ -18,3 +18,8 @@ deploy: compile
 
 serial:
 	minicom -b 9600 -D ${PORT}
+
+build-go:
+	go build
+test: build-go deploy
+	sleep 1 && go test -v
