@@ -1,12 +1,13 @@
-// core.h
+// motor.h
 
 #pragma once
 
 #include <Arduino.h>
+#include "encoder.h"
 
 class Motor {
    public:
-    Motor(const char* name, int in1, int in2, int pwm, bool trackSpeed = false);
+    Motor(const char* name, int in1, int in2, int pwm);
 
     void stop();
     void forward(int val, int ticks = 0);
@@ -14,29 +15,12 @@ class Motor {
 
     void setTicksToGo(int ticks);
 
-    bool checkEncoder();
+    void checkEncoder();
 
-    uint64_t encoderTick(bool a, bool rising) {
-        if (_trackSpeed) {
-            _lastTick = millis();
-        }
-        return ++_encoderTicks;
-    }
+    HallEncoder* encoder() { return &_encoder; }
+    const HallEncoder* encoder() const { return &_encoder; }
 
-    uint64_t encoderTicks() const { return _encoderTicks; }
-    uint64_t encoderTicksStop() const { return _encoderTicksStop; }
-
-    bool moving() const { return _moving; }
-
-    unsigned long lastTick() const {
-        if (!_trackSpeed) {
-            Serial.println("lastTick called but trackSpeed off");
-            return 0;
-        }
-        return _lastTick;
-    }
-
-    void setSlowDown(bool b) { _slowDown = b; }
+    bool moving() const { return _moving != 0; }
 
     const char* name() const { return _name; }
     
@@ -45,12 +29,15 @@ class Motor {
     int _in1;
     int _in2;
     int _pwm;
-    uint64_t _encoderTicks;
-    uint64_t _encoderTicksStop;
-    bool _moving;
-    bool _trackSpeed;
-    unsigned long _lastTick;
-    bool _slowDown;
-    int _power;
+
+    int _moving; // 0: no, -1: backwards, 1: forwards
+    int _power; // 0 -> 255
+
+    HallEncoder _encoder;
+
+    bool _regulated;
+    EncoderCount _goal;    
+
 };
+
 
