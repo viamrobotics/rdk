@@ -129,8 +129,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 }
 
 // AddGoal adds a nlopt IK goal
-func (ik *NloptIK) AddGoal(trans *spatialmath.QuatTrans, effectorID int) {
-	newtrans := &spatialmath.QuatTrans{}
+func (ik *NloptIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
+	newtrans := &spatialmath.DualQuaternion{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 	ik.resetHalting()

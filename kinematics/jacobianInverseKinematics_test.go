@@ -21,7 +21,7 @@ func TestCreateJacIKSolver(t *testing.T) {
 	pos := pb.ArmPosition{X: 360, Y: 0, Z: 360, OX: 1, OY: 0, OZ: 0, Theta: 15}
 	pos.Theta *= math.Pi / 180
 
-	transform := spatialmath.NewQuatTransFromArmPos(&pos)
+	transform := spatialmath.NewDualQuaternionFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)
 	solved := ik.Solve()

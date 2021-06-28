@@ -24,7 +24,7 @@ func NewFrame() *Frame {
 	f := Frame{}
 	f.IsWorld = false
 	f.IsBody = false
-	f.i.t = spatialmath.NewQuatTrans()
+	f.i.t = spatialmath.NewDualQuaternion()
 	f.selfcollision = make(map[*Frame]bool)
 	f.v = dualquat.Number{quat.Number{Real: 1}, quat.Number{}}
 	return &f

@@ -33,8 +33,8 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 }
 
 // AddGoal TODO
-func (ik *JacobianIK) AddGoal(trans *spatialmath.QuatTrans, effectorID int) {
-	newtrans := &spatialmath.QuatTrans{}
+func (ik *JacobianIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
+	newtrans := &spatialmath.DualQuaternion{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 	ik.resetHalting()

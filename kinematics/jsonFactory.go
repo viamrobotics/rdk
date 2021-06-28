@@ -99,11 +99,11 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 		linkT.SetEdgeDescriptor(model.AddEdge(frameA, frameB))
 		model.Edges[linkT.GetEdgeDescriptor()] = linkT
-		linkT.t = spatialmath.NewQuatTrans()
+		linkT.t = spatialmath.NewDualQuaternion()
 
 		if link.SetOrientation {
 			newOV := &spatialmath.OrientationVec{link.Orientation.TH, link.Orientation.X, link.Orientation.Y, link.Orientation.Z}
-			linkT.t = spatialmath.NewQuatTransFromRotation(newOV)
+			linkT.t = spatialmath.NewDualQuaternionFromRotation(newOV)
 		}
 
 		linkT.t.SetTranslation(link.Translation.X, link.Translation.Y, link.Translation.Z)
