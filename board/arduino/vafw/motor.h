@@ -10,12 +10,10 @@ class Motor {
     Motor(const char* name, int in1, int in2, int pwm);
 
     void stop();
-    void forward(int val, int ticks = 0);
-    void backward(int val, int ticks = 0);
-
-    void setTicksToGo(int ticks);
-
-    void checkEncoder();
+    void goFor(long ticksPerSecond, long ticks);
+    void setPower(int power);
+    
+    void checkEncoder(long unsigned int now);
 
     HallEncoder* encoder() { return &_encoder; }
     const HallEncoder* encoder() const { return &_encoder; }
@@ -36,8 +34,11 @@ class Motor {
     HallEncoder _encoder;
 
     bool _regulated;
-    EncoderCount _goal;    
+    EncoderCount _goal;
+    long _ticksPerSecond;
 
+    unsigned long int _lastRPMCheck;
+    EncoderCount _lastRPMEncoderCount;
 };
 
 

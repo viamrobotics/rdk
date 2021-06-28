@@ -27,7 +27,7 @@ func TestArduino(t *testing.T) {
 				},
 				Encoder:          "3",
 				EncoderB:         "2",
-				TicksPerRotation: 1000,
+				TicksPerRotation: 4000,
 			},
 		},
 	}
