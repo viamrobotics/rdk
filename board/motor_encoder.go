@@ -511,6 +511,9 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 }
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
+	if newPower > 1.0 {
+		newPower = 1.0
+	}
 	delta := newPower - oldPower
 	if math.Abs(float64(delta)) <= 1.0/255.0 {
 		return newPower
