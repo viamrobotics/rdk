@@ -3590,6 +3590,32 @@
     }
   },
   "segmentation": {
+    "gripper": {
+      "full_chess.both.gz": {
+        "hash": "36486342e42c45bee1d5734f862af696",
+        "size": 426443
+      },
+      "full_game.both.gz": {
+        "hash": "9db95d2d7d366f2a09456395a042900f",
+        "size": 454815
+      },
+      "full_game2.both.gz": {
+        "hash": "96f087cec5be0eb7d7281dd6bd1e90aa",
+        "size": 450288
+      },
+      "gripper_chessgame2.both.gz": {
+        "hash": "044dc968a5a1872f1d5a289bef816dfe",
+        "size": 434788
+      },
+      "gripper_chessgame3.both.gz": {
+        "hash": "45943bf49b315882cea99ec74111566f",
+        "size": 416431
+      },
+      "gripper_chesspiece2.both.gz": {
+        "hash": "136968c341f204169e91bb1cf0b34d8a",
+        "size": 342709
+      }
+    },
     "planes": {
       "align-test-1615473489.both.gz": {
         "hash": "3796226d21137c904e3ee7933e3c915f",
@@ -3937,6 +3963,12 @@
     "aces.clf": {
       "hash": "b02adcaf4b596a3244c4d760fa7bace9",
       "size": 8162333
+    }
+  },
+  "transforms": {
+    "intrinsics_helper.csv": {
+      "hash": "43db58ae2f7be23438fa63e875a938d6",
+      "size": 32995
     }
   },
   "utils": {
