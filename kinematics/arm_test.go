@@ -17,7 +17,7 @@ const toSolve = 100
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	nCPU := runtime.NumCPU()
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), nCPU, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 	wxArm.SetJointPositions([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
 
@@ -48,7 +48,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 	nCPU := runtime.NumCPU()
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/eva.json"), nCPU, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/eva/eva_kinematics.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test we are able to solve random valid positions from other random valid positions
@@ -69,7 +69,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 
 func TestNloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
@@ -85,7 +85,6 @@ func TestNloptIKinematics(t *testing.T) {
 
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	//~ wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/ur5_testmodel.json"), 2, logger)
 	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/universalrobots/ur5.json"), 2, logger)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -103,7 +102,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 func BenchNloptIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("nloptBenchmark")
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/eva.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/eva/eva_kinematics.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(wxArm.Model, logger)
 	wxArm.ik = ik
@@ -126,7 +125,7 @@ func BenchNloptIKinematics(t *testing.B) {
 
 func TestJacobianIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
@@ -138,7 +137,7 @@ func TestJacobianIKinematics(t *testing.T) {
 
 func BenchJacobianIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("jacobianBenchmark")
-	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/wx250s.json"), 1, logger)
+	wxArm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), 1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateJacobianIKSolver(wxArm.Model)
 	wxArm.ik = ik
@@ -162,7 +161,7 @@ func BenchJacobianIKinematics(t *testing.B) {
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	nCPU := runtime.NumCPU()
-	v1Arm, err := NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/v1_notol_test.json"), nCPU, logger)
+	v1Arm, err := NewArmJSONFile(nil, utils.ResolveFile("robots/varm/v1_test.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 	v1Arm.SetJointPositions([]float64{5, 0})
 
@@ -180,7 +179,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	v1Arm, err = NewArmJSONFile(nil, utils.ResolveFile("kinematics/models/mdl/v1_tol_test.json"), nCPU, logger)
+	v1Arm, err = NewArmJSONFile(nil, utils.ResolveFile("robots/varm/v1.json"), nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
 	v1Arm.SetJointPositions([]float64{62, -130})
 	err = v1Arm.SetForwardPosition(pos)

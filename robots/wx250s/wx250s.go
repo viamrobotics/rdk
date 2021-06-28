@@ -3,6 +3,7 @@ package wx250s
 
 import (
 	"context"
+	_ "embed" // for embedding model file
 	"fmt"
 	"math"
 	"strconv"
@@ -27,6 +28,9 @@ import (
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 )
+
+//go:embed wx250s_kinematics.json
+var wx250smodeljson []byte
 
 func init() {
 	registry.RegisterArm("wx250s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
@@ -100,7 +104,7 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 		logger:   logger,
 	}
 
-	return kinematics.NewArmJSONFile(newArm, attributes.String("modelJSON"), 4, logger)
+	return kinematics.NewArm(newArm, wx250smodeljson, 4, logger)
 }
 
 // CurrentPosition TODO

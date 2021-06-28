@@ -15,7 +15,7 @@ import (
 
 func TestCreateNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := ParseJSONFile(utils.ResolveFile("kinematics/models/mdl/wx250s.json"))
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateNloptIKSolver(m, logger)
 

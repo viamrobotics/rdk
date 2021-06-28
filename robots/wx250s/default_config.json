@@ -1,7 +1,7 @@
 {
     "components": [
         {
-            "model": "vx300s",
+            "model": "wx250s",
             "name": "pieceArm",
             "type": "arm",
             "attributes" : {

@@ -66,13 +66,34 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 	return mapCloud, nonMapCloud, nil
 }
 
+// Plane defines a planar object in a point cloud
+type Plane struct {
+	pointcloud pc.PointCloud
+	equation   []float64
+}
+
+// PointCloud returns the underlying point cloud of the plane
+func (p *Plane) PointCloud() pc.PointCloud {
+	return p.pointcloud
+}
+
+// Equation returns the plane equation [0]x + [1]y + [2]z + [3] = 0. [4] is the 2-norm of the normal vector.
+func (p *Plane) Equation() []float64 {
+	return p.equation
+}
+
+// Distance calculates the distance from the plane to the input point
+func (p *Plane) Distance(point pc.Vec3) float64 {
+	return distance(p.equation, point)
+}
+
 // SegmentPlane segments the biggest plane in the 3D Pointcloud.
 // nIterations is the number of iteration for ransac
 // nIter to choose? nIter = log(1-p)/log(1-(1-e)^s), where p is prob of success, e is outlier ratio, s is subset size (3 for plane).
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it
-// This function returns 2 pointclouds, the pointcloud of the plane and one without the plane
+// This function returns a Plane struct, as well as the remaining points in a pointcloud
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
-func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.PointCloud, pc.PointCloud, []float64, error) {
+func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Plane, pc.PointCloud, error) {
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()
@@ -129,34 +150,34 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 
 	planeCloud, nonPlaneCloud, err := pointCloudSplit(cloud, bestInliersMap)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return planeCloud, nonPlaneCloud, bestEquation, nil
+	return &Plane{planeCloud, bestEquation}, nonPlaneCloud, nil
 }
 
-// GetPlanesInPointCloud takes in a point cloud and outputs an array of the plane pointclouds and a point cloud of
+// FindPlanesInPointCloud takes in a point cloud and outputs an array of the planes and a point cloud of
 // the leftover points.
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
-func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]pc.PointCloud, pc.PointCloud, error) {
-	planes := make([]pc.PointCloud, 0)
+func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]*Plane, pc.PointCloud, error) {
+	planes := make([]*Plane, 0)
 	var err error
-	planeCloud, nonPlaneCloud, _, err := SegmentPlane(cloud, 2000, threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(cloud, 2000, threshold)
 	if err != nil {
 		return nil, nil, err
 	}
-	if planeCloud.Size() <= minPoints {
+	if plane.PointCloud().Size() <= minPoints {
 		return planes, cloud, nil
 	}
-	planes = append(planes, planeCloud)
+	planes = append(planes, plane)
 	for {
-		planeCloud, nonPlaneCloud, _, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
+		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
 		if err != nil {
 			return nil, nil, err
 		}
-		if planeCloud.Size() <= minPoints {
+		if plane.PointCloud().Size() <= minPoints {
 			// add the failed planeCloud back into the nonPlaneCloud
-			planeCloud.Iterate(func(pt pc.Point) bool {
+			plane.PointCloud().Iterate(func(pt pc.Point) bool {
 				err = nonPlaneCloud.Set(pt)
 				return err == nil
 			})
@@ -165,9 +186,50 @@ func GetPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int
 			}
 			break
 		}
-		planes = append(planes, planeCloud)
+		planes = append(planes, plane)
 	}
 	return planes, nonPlaneCloud, nil
+}
+
+// SplitPointCloudByPlane divides the point cloud in two point clouds, given the equation of a plane.
+// one point cloud will have all the points above the plane and the other with all the points below the plane.
+// Points exactly on the plane are not included!
+func SplitPointCloudByPlane(cloud pc.PointCloud, plane *Plane) (pc.PointCloud, pc.PointCloud, error) {
+	aboveCloud, belowCloud := pc.New(), pc.New()
+	var err error
+	cloud.Iterate(func(pt pc.Point) bool {
+		dist := plane.Distance(pt.Position())
+		if plane.Equation()[2] > 0.0 {
+			dist = -dist
+		}
+		if dist > 0.0 {
+			err = aboveCloud.Set(pt)
+		} else if dist < 0.0 {
+			err = belowCloud.Set(pt)
+		}
+		return err == nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return aboveCloud, belowCloud, nil
+}
+
+// ThresholdPointCloudByPlane returns a pointcloud with the points less than or equal to a given distance from a given plane.
+func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane *Plane, threshold float64) (pc.PointCloud, error) {
+	thresholdCloud := pc.New()
+	var err error
+	cloud.Iterate(func(pt pc.Point) bool {
+		dist := plane.Distance(pt.Position())
+		if math.Abs(dist) <= threshold {
+			err = thresholdCloud.Set(pt)
+		}
+		return err == nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return thresholdCloud, nil
 }
 
 // PointCloudSegmentsToMask takes in an instrinsic camera matrix and a slice of pointclouds and projects
