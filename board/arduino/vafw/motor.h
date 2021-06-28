@@ -16,7 +16,7 @@ class Motor {
 
     bool checkEncoder();
 
-    uint64_t encoderTick() {
+    uint64_t encoderTick(bool a, bool rising) {
         if (_trackSpeed) {
             _lastTick = millis();
         }
@@ -54,4 +54,3 @@ class Motor {
     int _power;
 };
 
-void setupInterrupt(int pin, void (*ISR)(), int what);
