@@ -49,9 +49,12 @@ void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, 
         return;
     }
     
-    motors[motor].motor = new Motor(name, pinA, pinB, pwm, true);
+    motors[motor].motor = new Motor(name, pinA, pinB, pwm);
     motors[motor].encA = encA;
     motors[motor].encB = encB;
+
+    motors[motor].motor->encoder()->setA(digitalRead(encA));
+    motors[motor].motor->encoder()->setB(digitalRead(encB));
 }
 
 void setup() {
@@ -116,7 +119,7 @@ void processBuffer(Buffer* b) {
             return;
         }
         b->print("@");
-        b->print(m->encoderTicks());
+        b->print(m->encoder()->position());
         b->println("");
         return;
     }
@@ -187,57 +190,46 @@ void setupInterruptBasic(int pin, void (*ISR)(), int what) {
     attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
 }
 
-void motorEncoder(int pin, bool rising) {
+void motorEncoder(int pin) {
     for (int i=0; i<MAX_MOTORS; i++) {
         if (motors[i].encA == pin) {
-            motors[i].motor->encoderTick(true, rising);
+            motors[i].motor->encoder()->encoderTick(true);
             return;
         }
         if (motors[i].encB == pin) {
-            motors[i].motor->encoderTick(false, rising);
+            motors[i].motor->encoder()->encoderTick(false);
             return;
         }
     }
+    Serial.println("found no encoder");
 }
 
-void motorInt2Fall() {motorEncoder(2, false);}
-void motorInt2Rising() {motorEncoder(2, true);}
-void motorInt3Fall() {motorEncoder(3, false);}
-void motorInt3Rising() {motorEncoder(3, true);}
-void motorInt18Fall() {motorEncoder(18, false);}
-void motorInt18Rising() {motorEncoder(18, true);}
-void motorInt19Fall() {motorEncoder(19, false);}
-void motorInt19Rising() {motorEncoder(19, true);}
-void motorInt20Fall() {motorEncoder(20, false);}
-void motorInt20Rising() {motorEncoder(20, true);}
-void motorInt21Fall() {motorEncoder(21, false);}
-void motorInt21Rising() {motorEncoder(21, true);}
+void motorInt2() {motorEncoder(2);}
+void motorInt3() {motorEncoder(3);}
+void motorInt18() {motorEncoder(18);}
+void motorInt19() {motorEncoder(19);}
+void motorInt20() {motorEncoder(20);}
+void motorInt21() {motorEncoder(21);}
 
 bool setupInterruptForMotor(int pin){
     switch(pin) {
     case 2:
-        setupInterruptBasic(pin, motorInt2Fall, FALLING);
-        setupInterruptBasic(pin, motorInt2Rising, RISING);
+        setupInterruptBasic(pin, motorInt2, CHANGE);
         return true;
     case 3:
-        setupInterruptBasic(pin, motorInt3Fall, FALLING);
-        setupInterruptBasic(pin, motorInt3Rising, RISING);
+        setupInterruptBasic(pin, motorInt3, CHANGE);
         return true;
     case 18:
-        setupInterruptBasic(pin, motorInt18Fall, FALLING);
-        setupInterruptBasic(pin, motorInt18Rising, RISING);
+        setupInterruptBasic(pin, motorInt18, CHANGE);
         return true;
     case 19:
-        setupInterruptBasic(pin, motorInt19Fall, FALLING);
-        setupInterruptBasic(pin, motorInt19Rising, RISING);
+        setupInterruptBasic(pin, motorInt19, CHANGE);
         return true;
     case 20:
-        setupInterruptBasic(pin, motorInt20Fall, FALLING);
-        setupInterruptBasic(pin, motorInt20Rising, RISING);
+        setupInterruptBasic(pin, motorInt20, CHANGE);
         return true;
     case 21:
-        setupInterruptBasic(pin, motorInt21Fall, FALLING);
-        setupInterruptBasic(pin, motorInt21Rising, RISING);
+        setupInterruptBasic(pin, motorInt21, CHANGE);
         return true;
 
     }

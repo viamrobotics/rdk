@@ -19,7 +19,12 @@ deploy: compile
 serial:
 	minicom -b 9600 -D ${PORT}
 
+test-cpp:
+	g++ -o ./vafw_cpptest/encoder ./vafw_cpptest/encoder.cpp ./vafw/encoder.cpp
+	./vafw_cpptest/encoder
+
 build-go:
 	go build
-test: build-go deploy
+
+test: test-cpp build-go deploy
 	sleep 1 && go test -v
