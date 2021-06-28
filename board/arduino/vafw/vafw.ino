@@ -149,8 +149,8 @@ void processBuffer(Buffer* b) {
 
     if (const char* rest = isCommand(line, "motor-gofor")) {
         char name[255];
-        int numTicks, ticksPerSecond;
-        int n = sscanf(rest, "%s %d %d", name, &numTicks, &ticksPerSecond);
+        long numTicks, ticksPerSecond;
+        int n = sscanf(rest, "%s %ld %ld", name, &numTicks, &ticksPerSecond);
         if (n != 3) {
             b->print(n);
             b->println("");
@@ -164,8 +164,7 @@ void processBuffer(Buffer* b) {
             b->println("#couldn't find motor");
             return;
         }
-
-        m->forward(128, numTicks);
+        m->goFor(ticksPerSecond, numTicks);
         b->println("@ok");
         return;
     }
@@ -179,7 +178,7 @@ void loop() {
     processBuffer(buf2);
     for (int i=0; i<MAX_MOTORS; i++) {
         if (motors[i].motor) {
-            motors[i].motor->checkEncoder();
+            motors[i].motor->checkEncoder(millis());
         }
     }
 }
