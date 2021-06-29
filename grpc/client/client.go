@@ -686,6 +686,11 @@ func (bc *boardClient) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
 }
 
+// Close shuts the board down, no methods should be called on the board after this
+func (bc *boardClient) Close() error {
+	return nil
+}
+
 // motorClient satisfies a gRPC based board.Motor. Refer to the interface
 // for descriptions of its methods.
 type motorClient struct {
