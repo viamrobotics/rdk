@@ -115,17 +115,34 @@ func (x *xArm6) newCmd(reg byte) cmd {
 func (x *xArm6) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 
 	x.moveLock.Lock()
-	defer x.moveLock.Unlock()
 
 	b := c.bytes()
 	_, err := x.conn.Write(b)
 	if err != nil {
 		return cmd{}, err
 	}
-	return x.response(ctx, checkError)
+	
+	c2, err := x.response(ctx)
+	if err != nil {
+		return cmd{}, err
+	}
+	x.moveLock.Unlock()
+
+	if checkError {
+		state := c2.params[0]
+		if state&96 != 0 {
+			// Error (64) and/or warning (32) bit is set
+			e2 := multierr.Combine(
+				x.readError(ctx),
+				x.clearErrorAndWarning(ctx))
+			return c2, e2
+		}
+		// If bit 16 is set, that just means we have not yet activated motion- this happens at startup and shutdown
+	}
+	return c2, err
 }
 
-func (x *xArm6) response(ctx context.Context, checkError bool) (cmd, error) {
+func (x *xArm6) response(ctx context.Context) (cmd, error) {
 	// Read response header
 	buf, err := utils.ReadBytes(ctx, x.conn, 7)
 	if err != nil {
@@ -139,21 +156,6 @@ func (x *xArm6) response(ctx context.Context, checkError bool) (cmd, error) {
 	c.params, err = utils.ReadBytes(ctx, x.conn, int(length-1))
 	if err != nil {
 		return cmd{}, err
-	}
-	if checkError {
-		state := c.params[0]
-		if state&96 != 0 {
-			// Error (64) and/or warning (32) bit is set
-			return c, x.readError(ctx)
-		}
-		if state&16 != 0 {
-			// 'Could not perform motion' bit is set
-			// If this happens usually readError will be triggered above
-			// but if not we catch that here
-			return c, multierr.Combine(
-				errors.New("xArm Could not perform motion"),
-				x.clearErrorAndWarning(ctx))
-		}
 	}
 	return c, err
 }
@@ -188,7 +190,8 @@ func (x *xArm6) clearErrorAndWarning(ctx context.Context) error {
 	c2 := x.newCmd(regMap["ClearWarn"])
 	_, err1 := x.send(ctx, c1, false)
 	_, err2 := x.send(ctx, c2, false)
-	return multierr.Combine(err1, err2)
+	err3 := x.setMotionState(context.Background(), 0)
+	return multierr.Combine(err1, err2, err3)
 }
 
 func (x *xArm6) readError(ctx context.Context) error {
