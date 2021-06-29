@@ -15,7 +15,8 @@ bool Buffer::readTillNewLine() {
         }
 
         if (_pos > 200) {
-            Serial.println("bad bad");
+            // probably garbage data, just get rid of it
+            _pos = 0;
             return false;
         }
 

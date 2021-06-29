@@ -70,21 +70,25 @@ void Motor::checkEncoder(long unsigned int now) {
         return;
     }
 
-    long unsigned int millisBetween = 200;
+    long unsigned int millisBetween = 333;
     auto timeDiff = now - _lastRPMCheck;
     if (timeDiff > millisBetween) {
         // it's been more than time limit, so we do a check
         auto ticksPerSecond = long(abs(currentPosition - _lastRPMEncoderCount) * (1000/millisBetween));
 
-        if (ticksPerSecond > _ticksPerSecond) {
-            setPower(_power / 2);
+        if (ticksPerSecond == 0) {
+            if (_power < 16) {
+                setPower(16);
+            } else {
+                setPower(_power*2);
+            }
+        } else if (ticksPerSecond > _ticksPerSecond) {
+            setPower(_power / 1.1);
         } else if (ticksPerSecond < _ticksPerSecond) {
-            setPower(_power * 2);
+            setPower(_power * 1.1);
         }
 
-        Serial.print(currentPosition);
-        Serial.print(" ");
-        Serial.print(_lastRPMEncoderCount);
+        Serial.print(currentPosition-_lastRPMEncoderCount);
         Serial.print(" ");
         Serial.print(_ticksPerSecond);
         Serial.print(" ");
