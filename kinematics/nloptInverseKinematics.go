@@ -8,7 +8,7 @@ import (
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 )
 
 // NloptIK TODO
@@ -129,8 +129,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 }
 
 // AddGoal adds a nlopt IK goal
-func (ik *NloptIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
-	newtrans := &kinmath.QuatTrans{}
+func (ik *NloptIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
+	newtrans := &spatialmath.DualQuaternion{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 	ik.resetHalting()

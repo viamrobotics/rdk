@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"go.viam.com/test"
@@ -40,18 +39,4 @@ func TestArmPositionDiff(t *testing.T) {
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{OY: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{OZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 1)
 	test.That(t, PositionRotationDiff(&pb.ArmPosition{OX: 1, OY: 1, OZ: 1}, &pb.ArmPosition{}), test.ShouldAlmostEqual, 3)
-}
-
-func TestAAConversion(t *testing.T) {
-	r3 := kinmath.R3AA{1.5, 1.5, 1.5}
-	r4 := r3.ToR4()
-	test.That(t, r4.Theta, test.ShouldAlmostEqual, 2.598076211353316)
-	test.That(t, r4.RX, test.ShouldAlmostEqual, 0.5773502691896257)
-	test.That(t, r4.RY, test.ShouldAlmostEqual, 0.5773502691896257)
-	test.That(t, r4.RZ, test.ShouldAlmostEqual, 0.5773502691896257)
-	r3_2 := r4.ToR3()
-	test.That(t, r3_2.RX, test.ShouldAlmostEqual, 1.5)
-	test.That(t, r3_2.RY, test.ShouldAlmostEqual, 1.5)
-	test.That(t, r3_2.RZ, test.ShouldAlmostEqual, 1.5)
-
 }
