@@ -121,7 +121,7 @@ func (x *xArm6) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	if err != nil {
 		return cmd{}, err
 	}
-	
+
 	c2, err := x.response(ctx)
 	if err != nil {
 		return cmd{}, err
