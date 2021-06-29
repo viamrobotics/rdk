@@ -27,7 +27,7 @@ func TestArduino(t *testing.T) {
 				},
 				Encoder:          "3",
 				EncoderB:         "2",
-				TicksPerRotation: 4000,
+				TicksPerRotation: 15000,
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestArduino(t *testing.T) {
 	startPos, err := m.Position(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 10, 10)
+	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 8, 10)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(t testing.TB) {
