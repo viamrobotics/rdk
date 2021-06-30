@@ -41,7 +41,31 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
+}
 
+func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition, correctDegrees []float64) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	dummy := inject.Arm{}
+
+	a, err := kinematics.NewArm(&dummy, ur5modeljson, 4, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	var lastJoints *pb.JointPositions
+	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
+		lastJoints = joints
+		return nil
+	}
+
+	err = a.MoveToPosition(ctx, pos)
+	test.That(t, err, test.ShouldBeNil)
+
+	jointRadians := arm.JointPositionsToRadians(lastJoints)
+	fromDH := computeUR5ePosition(jointRadians)
+	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
+	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
+	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
 }
 
 func TestKin1(t *testing.T) {
@@ -93,6 +117,10 @@ func TestKin1(t *testing.T) {
 	testUR5eForwardKinements(t, []float64{math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2, 0}, &pb.ArmPosition{X: 193.91, Y: 5.39, Z: -654.63})
 	testUR5eForwardKinements(t, []float64{0, math.Pi / 4, math.Pi / 2, 0, math.Pi / 4, math.Pi / 2}, &pb.ArmPosition{X: 97.11, Y: -203.73, Z: -394.65})
 
+	testUR5eInverseKinements(t,
+		&pb.ArmPosition{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
+		[]float64{-55.52, -70.08, 98.29, -123.87, -51.25, 150.83},
+	)
 }
 
 type dhConstants struct {
