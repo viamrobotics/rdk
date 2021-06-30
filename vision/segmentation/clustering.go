@@ -6,6 +6,26 @@ import (
 	"github.com/golang/geo/r3"
 )
 
+// ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
+type ObjectSegmentation struct {
+	FullCloud pc.PointCloud
+	*Clusters // anonymous field
+}
+
+// CreateObjectSegmentation returns a segmentation of the objects in a point cloud as well as the full point cloud.
+func CreateObjectSegmentation(cloud pc.PointCloud, radius float64, nMin int) (*ObjectSegmentation, error) {
+	cloud, err := pc.NewRoundingPointCloudFromPC(cloud)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := SegmentPointCloudObjects(cloud, radius, nMin)
+	if err != nil {
+		return nil, err
+	}
+	clusters := NewClustersFromSlice(segments)
+	return &ObjectSegmentation{cloud, clusters}, nil
+}
+
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
 // segments that do not pass a certain threshold of points
 func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]pc.PointCloud, error) {
