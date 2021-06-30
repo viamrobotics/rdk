@@ -64,6 +64,11 @@ func (t *Transform) GetOut() *Frame {
 	return t.out
 }
 
+// Quaternion TODO
+func (t *Transform) Quaternion() *spatialmath.DualQuaternion {
+	return t.t
+}
+
 // ForwardPosition TODO
 func (t *Transform) ForwardPosition() {
 	if t.Rev {
@@ -80,5 +85,4 @@ func (t *Transform) ForwardVelocity() {
 	} else {
 		t.out.v = dualquat.Mul(t.in.v, t.t.Quat)
 	}
-
 }

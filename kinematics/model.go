@@ -3,6 +3,8 @@ package kinematics
 import (
 	"math/rand"
 
+	"go.viam.com/core/spatialmath"
+
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -52,8 +54,6 @@ type Model struct {
 	Joints       []*Joint
 	// Links are Fixeds and Joints
 	Links []Link
-	// Elements are Links and Frames and probably not needed
-	Elements []Element
 	// Leaves are the node IDs of end effectors
 	Leaves           []int64
 	GammaPosition    *mgl64.MatMxN
@@ -211,6 +211,23 @@ func (m *Model) Normalize(pos []float64) []float64 {
 	return normalized
 }
 
+// GetQuaternions returns the list of DualQuaternions which, when multiplied together in order, will yield the
+// dual quaternion representing the 6d cartesian position of the end effector.
+func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
+	var quats []*spatialmath.DualQuaternion
+	posIdx := 0
+	for _, link := range m.Links {
+		quat := link.Quaternion()
+		if joint, ok := link.(*Joint); ok {
+			quat = joint.AngleQuaternion(pos[posIdx])
+			posIdx++
+		}
+		quats = append(quats, quat)
+		
+	}
+	return quats
+}
+
 // IsValid checks whether the given array of joint positions violates any joint limits.
 func (m *Model) IsValid(pos []float64) bool {
 	i := 0
@@ -237,7 +254,6 @@ func (m *Model) Update() {
 func (m *Model) UpdateOnFrame(frameID int64) {
 	frame := m.Nodes[frameID]
 	m.Frames = append(m.Frames, frame)
-	m.Elements = append(m.Elements, frame)
 	if frame.IsBody {
 		m.Bodies = append(m.Bodies, frame)
 	}
@@ -251,7 +267,6 @@ func (m *Model) UpdateOnFrame(frameID int64) {
 		edge := m.tree.Edge(frameID, nodeID.ID())
 		link := m.Edges[edge]
 		m.Links = append(m.Links, link)
-		m.Elements = append(m.Elements, link)
 
 		link.SetIn(frame)
 		link.SetOut(outFrame)

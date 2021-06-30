@@ -22,9 +22,8 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
-	m.ForwardPosition()
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	actual := poseToSlice(m.Get6dPosition(0))
+	actual := poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
@@ -33,36 +32,19 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
-	m.ForwardPosition()
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	actual = poseToSlice(m.Get6dPosition(0))
-
+	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
-	newPos := []float64{0.7854, -0.7854, 0, 0, 0, 0}
-	m.SetPosition(newPos)
-	m.ForwardPosition()
-	actual = poseToSlice(m.Get6dPosition(0))
-
+	newPos := []float64{45, -45, 0, 0, 0, 0}
+	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-	newPos = []float64{-0.7854, 0, 0, 0, 0, 0.7854}
-	m.SetPosition(newPos)
-	m.ForwardPosition()
-	actual = poseToSlice(m.Get6dPosition(0))
-
+	
+	newPos = []float64{-45, 0, 0, 0, 0, 45}
+	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-
-	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5.json"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// Confirm end effector starts at 365, 0, 360.25
-	m.ForwardPosition()
-	newPos = []float64{0, 1.5708, 1.5708, 0, 0, 0}
-	m.SetPosition(newPos)
-	m.ForwardPosition()
 }
 
 func floatDelta(l1, l2 []float64) float64 {

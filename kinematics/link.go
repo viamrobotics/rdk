@@ -1,14 +1,10 @@
 package kinematics
 
 import (
+	"go.viam.com/core/spatialmath"
+
 	"gonum.org/v1/gonum/graph"
 )
-
-// Element TODO
-type Element interface {
-	ForwardPosition()
-	ForwardVelocity()
-}
 
 // Link TODO
 type Link interface {
@@ -22,4 +18,5 @@ type Link interface {
 	GetIn() *Frame
 	SetOut(*Frame)
 	GetOut() *Frame
+	Quaternion() *spatialmath.DualQuaternion
 }

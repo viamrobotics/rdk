@@ -8,6 +8,7 @@ import (
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/mat"
@@ -15,16 +16,31 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition{
+	radAngles := make([]float64, len(joints.Degrees))
+	for i, angle := range joints.Degrees {
+		radAngles[i] = utils.DegToRad(angle)
+	}
+	quats := model.GetQuaternions(radAngles)
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	startPos := spatialmath.NewDualQuaternion()
+	for _, quat := range(quats){
+		//~ fmt.Println(quat.Quat)
+		startPos.Quat = startPos.Transformation(quat.Quat)
+	}
+	return startPos.ToArmPos()
+}
+
 // ForwardPosition will update the model state to have the correct 6d position given its joint angles
 func (m *Model) ForwardPosition() {
-	for _, element := range m.Elements {
+	for _, element := range m.Links {
 		element.ForwardPosition()
 	}
 }
 
 // ForwardVelocity will update the model state to have the correct velocity state
 func (m *Model) ForwardVelocity() {
-	for _, element := range m.Elements {
+	for _, element := range m.Links {
 		element.ForwardVelocity()
 	}
 }
