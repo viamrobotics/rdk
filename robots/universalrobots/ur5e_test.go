@@ -14,6 +14,7 @@ import (
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/testutils/inject"
 )
 
@@ -36,12 +37,18 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, correct.Z, .01)
 
-	// TODO(erh): check orientation
-
 	fromDH := computeUR5ePosition(jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
+
+	test.That(t, pos.OX, test.ShouldAlmostEqual, fromDH.OX, .01)
+	test.That(t, pos.OY, test.ShouldAlmostEqual, fromDH.OY, .01)
+	test.That(t, pos.OZ, test.ShouldAlmostEqual, fromDH.OZ, .01)
+
+	// TODO(erh): make this test work
+	//test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDH.Theta, .01)
+
 }
 
 func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
@@ -86,6 +93,7 @@ func TestKin1(t *testing.T) {
 	testUR5eForwardKinements(t, []float64{math.Pi, 0, 0, 0, 0, 0}, &pb.ArmPosition{X: 817.2, Y: 232.90, Z: 62.80})
 
 	//    Joint 1
+	testUR5eForwardKinements(t, []float64{0, math.Pi / -2, 0, 0, 0, 0}, &pb.ArmPosition{X: -99.7, Y: -232.90, Z: 979.70})
 	testUR5eForwardKinements(t, []float64{0, math.Pi / 2, 0, 0, 0, 0}, &pb.ArmPosition{X: 99.7, Y: -232.90, Z: -654.70})
 	testUR5eForwardKinements(t, []float64{0, math.Pi, 0, 0, 0, 0}, &pb.ArmPosition{X: 817.2, Y: -232.90, Z: 262.2})
 
@@ -152,13 +160,15 @@ func (d dhConstants) matrix(theta float64) *mat.Dense {
 }
 
 var jointConstants = []dhConstants{
-	{0.0000, 0.1625, 1.570796327},
+	{0.0000, 0.1625, math.Pi / 2},
 	{-0.4250, 0.0000, 0},
 	{-0.3922, 0.0000, 0},
-	{0.0000, 0.1333, 1.570796327},
-	{0.0000, 0.0997, -1.570796327},
+	{0.0000, 0.1333, math.Pi / 2},
+	{0.0000, 0.0997, -1 * math.Pi / 2},
 	{0.0000, 0.0996, 0},
 }
+
+var orientationDH = dhConstants{0, 1, math.Pi / -2}
 
 func computeUR5ePosition(jointRadians []float64) *pb.ArmPosition {
 	res := jointConstants[0].matrix(jointRadians[0])
@@ -172,10 +182,25 @@ func computeUR5ePosition(jointRadians []float64) *pb.ArmPosition {
 		res = temp
 	}
 
+	var o mat.Dense
+	o.Mul(res, orientationDH.matrix(0))
+
+	ov := spatialmath.OrientationVec{
+		OX: o.At(0, 3) - res.At(0, 3),
+		OY: o.At(1, 3) - res.At(1, 3),
+		OZ: o.At(2, 3) - res.At(2, 3),
+		//Theta: utils.RadToDeg(math.Acos(o.At(0,0))), // TODO(erh): fix this
+	}
+	spatialmath.NormalizeOV(&ov)
+
 	return &pb.ArmPosition{
-		X: 1000 * res.At(0, 3),
-		Y: 1000 * res.At(1, 3),
-		Z: 1000 * res.At(2, 3),
+		X:  1000 * res.At(0, 3),
+		Y:  1000 * res.At(1, 3),
+		Z:  1000 * res.At(2, 3),
+		OX: ov.OX,
+		OY: ov.OY,
+		OZ: ov.OZ,
+		//Theta: ov.Theta,
 	}
 
 }
