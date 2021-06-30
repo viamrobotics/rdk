@@ -4,6 +4,8 @@ import (
 	"math"
 	"math/rand"
 
+	"go.viam.com/core/spatialmath"
+
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/graph"
@@ -59,12 +61,16 @@ func NewJoint(dPos, dVel int, dir string) *Joint {
 	j.positionDD = make([]float64, dVel)
 	j.transform = NewTransform()
 	j.Rev = false
-	if dir == "ccw" {
+	if dir == "cw" {
+		// A "normal" rotation rotates counter-clockwise around the axis of rotation
+		// Sometimes, arms have joints rotate clockwise while reporting a positive angle
+		// This accounts for that
+		// TODO(pl): consider instead simply setting the axis to be negative?
 		j.transform.Rev = true
 		j.Rev = true
 	} else {
 		// The caller should validate this, but double check we were passed a valid direction
-		if dir != "cw" && dir != "" {
+		if dir != "ccw" && dir != "" {
 			panic("Invalid joint direction")
 		}
 	}
@@ -105,13 +111,32 @@ func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 }
 
 // Distance returns the L2 normalized difference between two equal length arrays
-// TODO(pl): Maybe we want to enforce length requirements? Currently this is only used by things calling joints.getDofPosition()
+// TODO(pl): Maybe we want to enforce length requirements? Currently this is only used by things calling joints.GetDofPosition()
 func Distance(q1, q2 []float64) float64 {
 	for i := 0; i < len(q1); i++ {
 		q1[i] = q1[i] - q2[i]
 	}
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(q1, 2)
+}
+
+// Quaternion gets the quaternion representing this joint's rotation in space AT THE ZERO ANGLE.
+func (j *Joint) Quaternion() *spatialmath.DualQuaternion{
+	r1 := dualquat.Number{Real: j.rotationVector()}
+	return &spatialmath.DualQuaternion{r1}
+}
+
+// AngleQuaternion returns the quaternion representing this joint's rotation in space.
+// Important math: this is the specific location where a joint radian is converted to a quaternion.
+func (j *Joint) AngleQuaternion(angle float64) *spatialmath.DualQuaternion{
+	r1 := dualquat.Number{Real: j.rotationVector()}
+	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
+	r1.Real.Real += math.Cos(angle / 2)
+	if j.Rev{
+		// If our joint spins backwards, flip the quaternion
+		r1 = dualquat.Conj(r1)
+	}
+	return &spatialmath.DualQuaternion{r1}
 }
 
 // ForwardPosition TODO
@@ -126,7 +151,7 @@ func (j *Joint) ForwardVelocity() {
 
 	axis := -1
 	// Only one DOF should have nonzero velocity for standard revolute joints
-	// If this is not the joint for which we are calculating the Jacobial, all positionD will be 0
+	// If this is not the joint for which we are calculating the Jacobian, all positionD will be 0
 	for i, v := range j.positionD {
 		if v > 0 {
 			axis = int(j.axes[i])
@@ -214,10 +239,9 @@ func (j *Joint) GetOut() *Frame {
 	return j.transform.out
 }
 
-// GetRotationVector will return about which axes this joint will rotate and how much
+// rotationVector will return about which axes this joint will rotate and how much
 // Should be normalized to [0,1] for each axis
-// Note(erd): Get prefix should be removed
-func (j *Joint) GetRotationVector() quat.Number {
+func (j *Joint) rotationVector() quat.Number {
 	return quat.Number{Imag: j.SpatialMat.At(0, 0), Jmag: j.SpatialMat.At(1, 0), Kmag: j.SpatialMat.At(2, 0)}
 }
 
@@ -253,7 +277,7 @@ func (j *Joint) SetPosition(pos []float64) {
 	j.position = pos
 	angle := pos[0] + j.offset[0]
 
-	r1 := dualquat.Number{Real: j.GetRotationVector()}
+	r1 := dualquat.Number{Real: j.rotationVector()}
 	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
 	r1.Real.Real += math.Cos(angle / 2)
 
