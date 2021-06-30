@@ -76,7 +76,7 @@ func TestKin1(t *testing.T) {
 	// https://s3-eu-west-1.amazonaws.com/ur-support-site/45257/DH-Transformation.xlsx
 	// Note: we use millimeters, they use meters
 
-	// Section 1 - first we test each joint independantly
+	// Section 1 - first we test each joint independently
 
 	//    Home
 	testUR5eForwardKinements(t, []float64{0, 0, 0, 0, 0, 0}, &pb.ArmPosition{X: -817.2, Y: -232.90, Z: 62.80})
