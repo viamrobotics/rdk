@@ -9,11 +9,12 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 
+	"go.viam.com/test"
+
 	"go.viam.com/core/arm"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/testutils/inject"
-	"go.viam.com/test"
 )
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.ArmPosition) {
