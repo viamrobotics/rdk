@@ -43,7 +43,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
 }
 
-func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition, correctDegrees []float64) {
+func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -61,6 +61,7 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition, correctDegrees 
 	err = a.MoveToPosition(ctx, pos)
 	test.That(t, err, test.ShouldBeNil)
 
+	// we test that if we go forward from these joints, we end up in the same place
 	jointRadians := arm.JointPositionsToRadians(lastJoints)
 	fromDH := computeUR5ePosition(jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
@@ -119,7 +120,6 @@ func TestKin1(t *testing.T) {
 
 	testUR5eInverseKinements(t,
 		&pb.ArmPosition{X: -202.31, Y: -577.75, Z: 318.58, Theta: 51.84, OX: 0.47, OY: -.42, OZ: -.78},
-		[]float64{-55.52, -70.08, 98.29, -123.87, -51.25, 150.83},
 	)
 }
 
