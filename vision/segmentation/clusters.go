@@ -19,6 +19,18 @@ func NewClusters() *Clusters {
 	return &Clusters{pointclouds, indices}
 }
 
+// NewClustersFromSlice creates a Clusters struct from a slice of point clouds
+func NewClustersFromSlice(clouds []pc.PointCloud) *Clusters {
+	indices := make(map[pc.Vec3]int)
+	for i, cloud := range clouds {
+		cloud.Iterate(func(pt pc.Point) bool {
+			indices[pt.Position()] = i
+			return true
+		})
+	}
+	return &Clusters{clouds, indices}
+}
+
 // N gives the number of clusters in the partition of the point cloud.
 func (c *Clusters) N() int {
 	return len(c.PointClouds)
