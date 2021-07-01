@@ -1,9 +1,9 @@
 package kinematics
 
 import (
+	"fmt"
 	"math"
 	"testing"
-	"fmt"
 
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/utils"
@@ -41,13 +41,13 @@ func TestForwardKinematics(t *testing.T) {
 	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-	
+
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
 	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-	
-		// Test the 6dof arm we actually have
+
+	// Test the 6dof arm we actually have
 	m, err = ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -57,7 +57,7 @@ func TestForwardKinematics(t *testing.T) {
 	fmt.Println(joints)
 	fmt.Println(ComputePosition(m, joints))
 	//~ fmt.Println(JointRadToQuat(m, []float64{0, -math.Pi/2,0, 0, 0,0}))
-	
+
 	//~ test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 }
 

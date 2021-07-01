@@ -130,10 +130,9 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 // addGoal adds a nlopt IK goal
 func (ik *NloptIK) addGoal(goal *pb.ArmPosition, effectorID int) {
-	
+
 	goalQuat := spatialmath.NewDualQuaternionFromArmPos(goal)
 	ik.Goals = append(ik.Goals, Goal{goalQuat, effectorID})
-	ik.resetHalting()
 }
 
 // SetID sets the ID of this nloptIK object
@@ -154,7 +153,6 @@ func (ik *NloptIK) GetMdl() *Model {
 // clearGoals clears all goals for the Ik object
 func (ik *NloptIK) clearGoals() {
 	ik.Goals = []Goal{}
-	ik.resetHalting()
 }
 
 // GetGoals returns the list of all current goal positions
@@ -180,10 +178,9 @@ func (ik *NloptIK) Halt() {
 
 // Solve attempts to solve for all goals
 func (ik *NloptIK) Solve(goal *pb.ArmPosition, seedAngles *pb.JointPositions) (bool, *pb.JointPositions) {
-	
 	ik.addGoal(goal, 0)
 	defer ik.clearGoals()
-	
+
 	select {
 	case <-ik.haltedCh:
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
