@@ -302,7 +302,7 @@ func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmen
 	if err != nil {
 		return nil, err
 	}
-	object := segments.SelectSegmentFromPoint(req.X, req.Y, req.Z)
+	object := segments.SelectSegmentFromPoint(req.X, -req.Y, -req.Z)
 
 	var buf bytes.Buffer
 	err = object.ToPCD(&buf)
