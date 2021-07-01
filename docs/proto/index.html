@@ -459,6 +459,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.PointCloudSegmentRequest"><span class="badge">M</span>PointCloudSegmentRequest</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.SensorReadingsRequest"><span class="badge">M</span>SensorReadingsRequest</a>
                 </li>
               
@@ -2518,6 +2522,58 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.PointCloudSegmentRequest">PointCloudSegmentRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.SensorReadingsRequest">SensorReadingsRequest</h3>
         <p></p>
 
@@ -3137,6 +3193,14 @@ can be requested but may not necessarily be the same one returned.</p></td>
               </tr>
             
               <tr>
+                <td>PointCloudSegment</td>
+                <td><a href="#proto.api.v1.PointCloudSegmentRequest">PointCloudSegmentRequest</a></td>
+                <td><a href="#proto.api.v1.PointCloudResponse">PointCloudResponse</a></td>
+                <td><p>PointCloudSegment returns a point cloud segment from a camera of the underlying robot when you specify a point. 
+A specific MIME type can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
                 <td>LidarInfo</td>
                 <td><a href="#proto.api.v1.LidarInfoRequest">LidarInfoRequest</a></td>
                 <td><a href="#proto.api.v1.LidarInfoResponse">LidarInfoResponse</a></td>
@@ -3423,6 +3487,16 @@ the request.</p></td>
                 <td>PointCloud</td>
                 <td>GET</td>
                 <td>/api/v1/camera/{name}/pointcloud</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>PointCloudSegment</td>
+                <td>GET</td>
+                <td>/api/v1/camera/{name}/pointcloudsegment</td>
                 <td></td>
               </tr>
               

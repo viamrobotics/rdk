@@ -28,6 +28,7 @@ import (
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/vision/segmentation"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -275,6 +276,36 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 
 	var buf bytes.Buffer
 	err = pc.ToPCD(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.PointCloudResponse{
+		MimeType: grpc.MimeTypePCD,
+		Frame:    buf.Bytes(),
+	}, nil
+}
+
+// PointCloudSegment returns an object from the frame from a camera of the underlying robot. A specific MIME type
+// can be requested but may not necessarily be the same one returned.
+func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmentRequest) (*pb.PointCloudResponse, error) {
+	camera := s.r.CameraByName(req.Name)
+	if camera == nil {
+		return nil, errors.Errorf("no camera with name (%s)", req.Name)
+	}
+
+	pc, err := camera.NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := segmentation.CreateObjectSegmentation(pc, 10.0, 5)
+	if err != nil {
+		return nil, err
+	}
+	object := segments.SelectSegmentFromPoint(req.X, req.Y, req.Z)
+
+	var buf bytes.Buffer
+	err = object.ToPCD(&buf)
 	if err != nil {
 		return nil, err
 	}

@@ -1358,6 +1358,86 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.pointCloud =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.v1.PointCloudSegmentRequest,
+ *   !proto.proto.api.v1.PointCloudResponse>}
+ */
+const methodDescriptor_RobotService_PointCloudSegment = new grpc.web.MethodDescriptor(
+  '/proto.api.v1.RobotService/PointCloudSegment',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.v1.PointCloudSegmentRequest,
+  proto.proto.api.v1.PointCloudResponse,
+  /**
+   * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.PointCloudResponse.deserializeBinary
+);
+
+
+/**
+ * @const
+ * @type {!grpc.web.AbstractClientBase.MethodInfo<
+ *   !proto.proto.api.v1.PointCloudSegmentRequest,
+ *   !proto.proto.api.v1.PointCloudResponse>}
+ */
+const methodInfo_RobotService_PointCloudSegment = new grpc.web.AbstractClientBase.MethodInfo(
+  proto.proto.api.v1.PointCloudResponse,
+  /**
+   * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.v1.PointCloudResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.PointCloudResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.PointCloudResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.v1.RobotServiceClient.prototype.pointCloudSegment =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.v1.RobotService/PointCloudSegment',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_PointCloudSegment,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.v1.PointCloudResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.v1.RobotServicePromiseClient.prototype.pointCloudSegment =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.v1.RobotService/PointCloudSegment',
+      request,
+      metadata || {},
+      methodDescriptor_RobotService_PointCloudSegment);
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.LidarInfoRequest,
  *   !proto.proto.api.v1.LidarInfoResponse>}
  */

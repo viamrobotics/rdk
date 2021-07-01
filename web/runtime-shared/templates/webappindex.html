@@ -286,6 +286,21 @@
                       theData.pcdClick.y = r(p.point.y);
                       theData.pcdClick.z = r(p.point.z);
                       theData.pcdClick.path = path;
+
+                      req = new robotApi.PointCloudSegmentRequest();
+                      req.setName(cameraName);
+                      req.setX(r(p.point.x));
+                      req.setY(r(p.point.y));
+                      req.setZ(r(p.point.z));
+                      const mimeType = 'pointcloud/pcd';
+                      req.setMimeType(mimeType)
+                      robotService.pointCloudSegment(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          return;
+                        }
+                        pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
+                      });
                       
 
                   },
