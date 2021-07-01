@@ -8,6 +8,8 @@ import (
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
+	"go.viam.com/core/arm"
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
 
@@ -59,13 +61,12 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		ik.Mdl.SetPosition(x)
-		ik.Mdl.ForwardPosition()
+		eePos := JointRadToQuat(ik.Mdl, x)
 		dx := make([]float64, ik.Mdl.GetOperationalDof()*7)
 
 		// Update dx with the delta to the desired position
-		for _, goal := range ik.GetGoals() {
-			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+		for _, goal := range ik.getGoals() {
+			dxDelta := eePos.ToDelta(goal.GoalTransform)
 
 			dxIdx := goal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
@@ -82,11 +83,10 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				ik.Mdl.SetPosition(xBak)
-				ik.Mdl.ForwardPosition()
+				eePos := JointRadToQuat(ik.Mdl, xBak)
 				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
-				for _, goal := range ik.GetGoals() {
-					dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+				for _, goal := range ik.getGoals() {
+					dxDelta := eePos.ToDelta(goal.GoalTransform)
 					dxIdx := goal.EffectorID * len(dxDelta)
 					for i, delta := range dxDelta {
 						dx2[dxIdx+i] = delta
@@ -128,11 +128,11 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-// AddGoal adds a nlopt IK goal
-func (ik *NloptIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
-	newtrans := &spatialmath.DualQuaternion{}
-	*newtrans = *trans
-	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
+// addGoal adds a nlopt IK goal
+func (ik *NloptIK) addGoal(goal *pb.ArmPosition, effectorID int) {
+	
+	goalQuat := spatialmath.NewDualQuaternionFromArmPos(goal)
+	ik.Goals = append(ik.Goals, Goal{goalQuat, effectorID})
 	ik.resetHalting()
 }
 
@@ -151,14 +151,14 @@ func (ik *NloptIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
-// ClearGoals clears all goals for the Ik object
-func (ik *NloptIK) ClearGoals() {
+// clearGoals clears all goals for the Ik object
+func (ik *NloptIK) clearGoals() {
 	ik.Goals = []Goal{}
 	ik.resetHalting()
 }
 
 // GetGoals returns the list of all current goal positions
-func (ik *NloptIK) GetGoals() []Goal {
+func (ik *NloptIK) getGoals() []Goal {
 	return ik.Goals
 }
 
@@ -179,25 +179,29 @@ func (ik *NloptIK) Halt() {
 }
 
 // Solve attempts to solve for all goals
-func (ik *NloptIK) Solve() bool {
+func (ik *NloptIK) Solve(goal *pb.ArmPosition, seedAngles *pb.JointPositions) (bool, *pb.JointPositions) {
+	
+	ik.addGoal(goal, 0)
+	defer ik.clearGoals()
+	
 	select {
 	case <-ik.haltedCh:
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return false
+		return false, &pb.JointPositions{}
 	default:
 	}
 	defer close(ik.haltedCh)
 	ik.iterations = 0
-	origJointPos := ik.Mdl.GetPosition()
+	startingRadians := arm.JointPositionsToRadians(seedAngles)
 
 	for ik.iterations < ik.maxIterations {
 		select {
 		case <-ik.requestHaltCh:
-			return false
+			return false, &pb.JointPositions{}
 		default:
 		}
 		ik.iterations++
-		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
+		angles, result, err := ik.opt.Optimize(startingRadians)
 		if err != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
@@ -208,12 +212,9 @@ func (ik *NloptIK) Solve() bool {
 
 		if result < ik.epsilon*ik.epsilon {
 			angles = ik.Mdl.ZeroInlineRotation(angles)
-			ik.Mdl.SetPosition(angles)
-			ik.Mdl.ForwardPosition()
-			return true
+			return true, arm.JointPositionsFromRadians(angles)
 		}
-		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
+		startingRadians = ik.Mdl.RandomJointPositions()
 	}
-	ik.Mdl.SetPosition(origJointPos)
-	return false
+	return false, &pb.JointPositions{}
 }

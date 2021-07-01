@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
 
@@ -12,10 +13,7 @@ type Goal struct {
 
 // InverseKinematics TODO
 type InverseKinematics interface {
-	AddGoal(*spatialmath.DualQuaternion, int)
-	ClearGoals()
-	GetGoals() []Goal
-	Solve() bool
+	Solve(*pb.ArmPosition, *pb.JointPositions) (bool, *pb.JointPositions)
 	SetID(int)
 	GetID() int
 	GetMdl() *Model

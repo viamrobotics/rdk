@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -68,23 +67,6 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 	pos6d := k.Model.Get6dPosition(k.effectorID)
 
 	return pos6d
-}
-
-// SetForwardPosition sets a new goal position.
-// Uses ZYX Euler rotation order.
-// Takes degrees as input and converts to radians for kinematics use.
-func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := spatialmath.NewDualQuaternionFromArmPos(pos)
-	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
-
-	k.ik.AddGoal(transform, k.effectorID)
-	couldSolve := k.ik.Solve()
-	k.Model.ForwardPosition()
-	k.ik.ClearGoals()
-	if couldSolve {
-		return nil
-	}
-	return errors.Errorf("could not solve for position. Target: %v", pos)
 }
 
 // modelJointsPosition returns the arm's current joint angles in degrees
@@ -145,12 +127,13 @@ func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 
 // MoveToPosition instructs the arm to move to the current position.
 func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	err := k.SetForwardPosition(pos)
-	if err != nil {
+	seedJoints, err := k.CurrentJointPositions(ctx)
+	if err != nil{
 		return err
 	}
-
-	joints := &pb.JointPositions{Degrees: k.modelJointsPosition()}
-
-	return k.MoveToJointPositions(ctx, joints)
+	couldSolve, joints := k.ik.Solve(pos, seedJoints)
+	if couldSolve{
+		return k.MoveToJointPositions(ctx, joints)
+	}
+	return errors.Errorf("could not solve for position. Target: %v", pos)
 }
