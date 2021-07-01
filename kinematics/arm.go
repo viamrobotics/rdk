@@ -12,8 +12,6 @@ import (
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
 
-	//~ "go.viam.com/core/utils"
-
 	"github.com/edaniels/golog"
 )
 

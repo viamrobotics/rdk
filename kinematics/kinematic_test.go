@@ -1,7 +1,6 @@
 package kinematics
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -46,19 +45,6 @@ func TestForwardKinematics(t *testing.T) {
 	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
-
-	// Test the 6dof arm we actually have
-	m, err = ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// Confirm end effector starts at 365, 0, 360.25
-	//~ expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	joints := &pb.JointPositions{Degrees: []float64{0, 0, 0, 45, 45, 10}}
-	fmt.Println(joints)
-	fmt.Println(ComputePosition(m, joints))
-	//~ fmt.Println(JointRadToQuat(m, []float64{0, -math.Pi/2,0, 0, 0,0}))
-
-	//~ test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 }
 
 func floatDelta(l1, l2 []float64) float64 {
