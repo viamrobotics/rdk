@@ -49,8 +49,6 @@ type Model struct {
 	nextID       uint64
 	Nodes        map[int64]*Frame
 	Edges        map[graph.Edge]Link
-	Frames       []*Frame
-	Bodies       []*Frame
 	Joints       []*Joint
 	// Links are Fixeds and Joints
 	Links []Link
@@ -242,8 +240,6 @@ func (m *Model) IsValid(pos []float64) bool {
 
 // Update TODO.
 func (m *Model) Update() {
-	m.Frames = nil
-	m.Bodies = nil
 	m.Joints = nil
 	m.Links = nil
 
@@ -253,10 +249,6 @@ func (m *Model) Update() {
 // UpdateOnFrame TODO.
 func (m *Model) UpdateOnFrame(frameID int64) {
 	frame := m.Nodes[frameID]
-	m.Frames = append(m.Frames, frame)
-	if frame.IsBody {
-		m.Bodies = append(m.Bodies, frame)
-	}
 	outNodes := m.tree.From(frameID)
 	hadNode := false
 	// Iterate over all nodes connecting to the root

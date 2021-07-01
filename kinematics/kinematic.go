@@ -16,11 +16,20 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
+// ComputePosition takes a model and a protobuf JointPositions in degrees and returns the grid position of the
+// end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
 func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition{
 	radAngles := make([]float64, len(joints.Degrees))
 	for i, angle := range joints.Degrees {
 		radAngles[i] = utils.DegToRad(angle)
 	}
+
+	return JointRadToQuat(model, radAngles).ToArmPos()
+}
+
+// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// grid position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+func JointRadToQuat(model *Model, radAngles []float64) *spatialmath.DualQuaternion{
 	quats := model.GetQuaternions(radAngles)
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	startPos := spatialmath.NewDualQuaternion()
@@ -28,7 +37,7 @@ func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition{
 		//~ fmt.Println(quat.Quat)
 		startPos.Quat = startPos.Transformation(quat.Quat)
 	}
-	return startPos.ToArmPos()
+	return startPos
 }
 
 // ForwardPosition will update the model state to have the correct 6d position given its joint angles
@@ -203,26 +212,23 @@ func (m *Model) ZeroInlineRotation(angles []float64) []float64 {
 	copy(newAngles, angles)
 
 	for i, angle1 := range angles {
-		for j := i; j < len(angles); j++ {
+		for j := i + 1; j < len(angles); j++ {
 			angle2 := angles[j]
 			if mgl64.FloatEqualThreshold(angle1*-1, angle2, epsilon) {
+				tempAngles := make([]float64, len(angles))
+				copy(tempAngles, angles)
+				tempAngles[i] = 0
+				tempAngles[j] = 0
+				
 				// These angles are complementary
-				origAngles := m.GetPosition()
-				origAnglesBak := m.GetPosition()
-				origTransform := m.GetOperationalPosition(0).Clone()
-				origAngles[i] = 0
-				origAngles[j] = 0
-				m.SetPosition(origAngles)
-				m.ForwardPosition()
-				distance := SquaredNorm(m.GetOperationalPosition(0).ToDelta(origTransform))
+				pos1 := JointRadToQuat(m, angles)
+				pos2 := JointRadToQuat(m, tempAngles)
+				distance := SquaredNorm(pos1.ToDelta(pos2))
 
 				// Check we did not move the end effector too much
 				if distance < epsilon*epsilon {
 					newAngles[i] = 0
 					newAngles[j] = 0
-				} else {
-					m.SetPosition(origAnglesBak)
-					m.ForwardPosition()
 				}
 			}
 		}
