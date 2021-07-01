@@ -47,7 +47,7 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
         digitalWrite(_in1, HIGH);
         digitalWrite(_in2, LOW);
     } else {
-        _moving = 1;
+        _moving = -1;
         digitalWrite(_in1, LOW);
         digitalWrite(_in2, HIGH);
     }
