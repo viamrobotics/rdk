@@ -12,13 +12,31 @@ type ObjectSegmentation struct {
 	*Clusters // anonymous field
 }
 
-// CreateObjectSegmentation returns a segmentation of the objects in a point cloud as well as the full point cloud.
+// SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
+// returns the full point cloud if the point is not part of any object segment.
+func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) pc.PointCloud {
+	v := pc.Vec3{x, y, z}
+	if segIndex, ok := objectSeg.Indices[v]; ok {
+		return objectSeg.PointClouds[segIndex]
+	}
+	return objectSeg.FullCloud
+}
+
+// CreateObjectSegmentation removes the planes and returns a segmentation of the objects in a point cloud
 func CreateObjectSegmentation(cloud pc.PointCloud, radius float64, nMin int) (*ObjectSegmentation, error) {
-	cloud, err := pc.NewRoundingPointCloudFromPC(cloud)
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, 15000)
 	if err != nil {
 		return nil, err
 	}
-	segments, err := SegmentPointCloudObjects(cloud, radius, nMin)
+	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
+	if err != nil {
+		return nil, err
+	}
+	objCloud, err := pc.NewRoundingPointCloudFromPC(above)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := SegmentPointCloudObjects(objCloud, radius, nMin)
 	if err != nil {
 		return nil, err
 	}

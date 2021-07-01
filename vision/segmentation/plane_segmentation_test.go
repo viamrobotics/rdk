@@ -288,11 +288,18 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	test.That(t, err, test.ShouldBeNil)
 
 	// color the segmentation
-	segments, err := CreateObjectSegmentation(heightLimit, 10.0, 5)
+	segments, err := SegmentPointCloudObjects(heightLimit, 10.0, 5)
 	test.That(t, err, test.ShouldBeNil)
-	coloredSegments, err := pc.MergePointCloudsWithColor(segments.PointClouds)
+	coloredSegments, err := pc.MergePointCloudsWithColor(segments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
+
+	// compare to the full pipeline
+	segments2, err := CreateObjectSegmentation(cloud, 10.0, 5)
+	test.That(t, err, test.ShouldBeNil)
+	coloredSegments2, err := pc.MergePointCloudsWithColor(segments2.PointClouds)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugPointCloud(coloredSegments2, "gripper-segments-pointcloud-full")
 
 	return nil
 }
