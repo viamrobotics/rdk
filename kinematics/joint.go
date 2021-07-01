@@ -121,18 +121,18 @@ func Distance(q1, q2 []float64) float64 {
 }
 
 // Quaternion gets the quaternion representing this joint's rotation in space AT THE ZERO ANGLE.
-func (j *Joint) Quaternion() *spatialmath.DualQuaternion{
+func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
 	r1 := dualquat.Number{Real: j.rotationVector()}
 	return &spatialmath.DualQuaternion{r1}
 }
 
 // AngleQuaternion returns the quaternion representing this joint's rotation in space.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
-func (j *Joint) AngleQuaternion(angle float64) *spatialmath.DualQuaternion{
+func (j *Joint) AngleQuaternion(angle float64) *spatialmath.DualQuaternion {
 	r1 := dualquat.Number{Real: j.rotationVector()}
 	r1.Real = quat.Scale(math.Sin(angle/2)/quat.Abs(r1.Real), r1.Real)
 	r1.Real.Real += math.Cos(angle / 2)
-	if j.Rev{
+	if j.Rev {
 		// If our joint spins backwards, flip the quaternion
 		r1 = dualquat.Conj(r1)
 	}

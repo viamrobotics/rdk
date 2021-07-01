@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
 	"go.viam.com/core/arm"
 )
 
@@ -21,6 +22,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	seed := arm.JointPositionsFromRadians([]float64{1, 1, 1, 1, 1, 0})
 
 	solved, _ := ik.Solve(pos, seed)
+	ik.Halt()
 	test.That(t, solved, test.ShouldBeTrue)
 
 	pos = &pb.ArmPosition{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}

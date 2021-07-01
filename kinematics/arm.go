@@ -11,7 +11,8 @@ import (
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
+
+	//~ "go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 )
@@ -60,15 +61,6 @@ func (k *Arm) Close() error {
 	return goutils.TryClose(k.real) // TODO(erh): who owns this?
 }
 
-// GetForwardPosition returns the end effector's current Position
-func (k *Arm) GetForwardPosition() *pb.ArmPosition {
-	k.Model.ForwardPosition()
-
-	pos6d := k.Model.Get6dPosition(k.effectorID)
-
-	return pos6d
-}
-
 // modelJointsPosition returns the arm's current joint angles in degrees
 func (k *Arm) modelJointsPosition() []float64 {
 	angles := k.Model.GetPosition()
@@ -76,15 +68,6 @@ func (k *Arm) modelJointsPosition() []float64 {
 		angles[i] = angle * 180 / math.Pi
 	}
 	return angles
-}
-
-// SetJointPositions sets new joint angles. Takes degrees, passes radians to Model
-func (k *Arm) SetJointPositions(angles []float64) {
-	radAngles := make([]float64, len(angles))
-	for i, angle := range angles {
-		radAngles[i] = utils.DegToRad(angle)
-	}
-	k.Model.SetPosition(radAngles)
 }
 
 // CurrentJointPositions returns the arm's current joint positions based on what has been set.
@@ -104,8 +87,7 @@ func (k *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	if err != nil {
 		return &pb.ArmPosition{}, err
 	}
-	k.SetJointPositions(curPos.Degrees)
-	pos := k.GetForwardPosition()
+	pos := ComputePosition(k.Model, curPos)
 
 	return pos, nil
 
@@ -118,21 +100,17 @@ func (k *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64)
 
 // MoveToJointPositions instructs the arm to move to the given joint positions.
 func (k *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
-	err := k.real.MoveToJointPositions(ctx, jp)
-	if err == nil {
-		k.SetJointPositions(jp.Degrees)
-	}
-	return err
+	return k.real.MoveToJointPositions(ctx, jp)
 }
 
 // MoveToPosition instructs the arm to move to the current position.
 func (k *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	seedJoints, err := k.CurrentJointPositions(ctx)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	couldSolve, joints := k.ik.Solve(pos, seedJoints)
-	if couldSolve{
+	if couldSolve {
 		return k.MoveToJointPositions(ctx, joints)
 	}
 	return errors.Errorf("could not solve for position. Target: %v", pos)

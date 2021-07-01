@@ -48,7 +48,6 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 	return ik
 }
 
-
 // SetID TODO
 func (ik *CombinedIK) SetID(id int) {
 	ik.ID = id
@@ -64,14 +63,12 @@ func (ik *CombinedIK) GetMdl() *Model {
 	return ik.Mdl
 }
 
-
 // Halt TODO
 func (ik *CombinedIK) Halt() {
 	for _, solver := range ik.solvers {
 		solver.Halt()
 	}
 }
-
 
 // GetSolvers TODO
 func (ik *CombinedIK) GetSolvers() []InverseKinematics {
@@ -87,8 +84,8 @@ func runSolver(solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-ch
 }
 
 // Solve TODO
-func (ik *CombinedIK) Solve(pos *pb.ArmPosition, seed *pb.JointPositions) (bool, *pb.JointPositions){
-	ik.logger.Debugf("starting joint positions: %v", pos)
+func (ik *CombinedIK) Solve(pos *pb.ArmPosition, seed *pb.JointPositions) (bool, *pb.JointPositions) {
+	ik.logger.Debugf("starting joint positions: %v", seed)
 	ik.logger.Debugf("starting 6d position: %v", ComputePosition(ik.Mdl, seed))
 	c := make(chan ReturnTest)
 

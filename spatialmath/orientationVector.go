@@ -26,7 +26,7 @@ type OrientationVec struct {
 
 // OVToQuat converts an orientation vector to a quaternion.
 func OVToQuat(ov *OrientationVec) quat.Number {
-	
+
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
 	lat := -math.Pi/2 + math.Acos(ov.OZ)
 

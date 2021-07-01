@@ -221,7 +221,7 @@ func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 			posIdx++
 		}
 		quats = append(quats, quat)
-		
+
 	}
 	return quats
 }
