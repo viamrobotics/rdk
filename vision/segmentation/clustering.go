@@ -1,6 +1,8 @@
 package segmentation
 
 import (
+	"fmt"
+
 	pc "go.viam.com/core/pointcloud"
 
 	"github.com/golang/geo/r3"
@@ -14,12 +16,12 @@ type ObjectSegmentation struct {
 
 // SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
 // returns the full point cloud if the point is not part of any object segment.
-func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) pc.PointCloud {
+func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
 	v := pc.Vec3{x, y, z}
 	if segIndex, ok := objectSeg.Indices[v]; ok {
-		return objectSeg.PointClouds[segIndex]
+		return objectSeg.PointClouds[segIndex], nil
 	}
-	return objectSeg.FullCloud
+	return nil, fmt.Errorf("No segment found at point (%v, %v, %v)", x, y, z)
 }
 
 // CreateObjectSegmentation removes the planes and returns a segmentation of the objects in a point cloud

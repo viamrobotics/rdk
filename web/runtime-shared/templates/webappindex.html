@@ -297,6 +297,7 @@
                       robotService.pointCloudSegment(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
+                          console.log("no segment found at point")
                           return;
                         }
                         pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
