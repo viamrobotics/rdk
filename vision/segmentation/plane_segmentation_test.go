@@ -295,7 +295,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 
 	// compare to the full pipeline
-	segments2, err := CreateObjectSegmentation(cloud, 10.0, 5)
+	segments2, err := CreateObjectSegmentation(cloud, 15000, 5, 10.0)
 	test.That(t, err, test.ShouldBeNil)
 	coloredSegments2, err := pc.MergePointCloudsWithColor(segments2.PointClouds)
 	test.That(t, err, test.ShouldBeNil)

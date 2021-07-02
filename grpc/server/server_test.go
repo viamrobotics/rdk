@@ -3,6 +3,7 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"image"
 	"image/png"
 	"math"
@@ -964,6 +965,85 @@ func TestServer(t *testing.T) {
 			Name: "camera1",
 		})
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("PointCloudSegment", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		injectCamera := &inject.Camera{}
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+			return injectCamera
+		}
+		err1 := errors.New("whoops")
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return nil, err1
+		}
+		_, err := server.PointCloudSegment(context.Background(), &pb.PointCloudSegmentRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			X:                  5.,
+			Y:                  5.,
+			Z:                  5.,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		// request a point in a segment in the point cloud
+		pcA := pointcloud.New()
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -5))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -6))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -4))
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return pcA, nil
+		}
+		_, err = server.PointCloudSegment(context.Background(), &pb.PointCloudSegmentRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			X:                  5.,
+			Y:                  5.,
+			Z:                  5.,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// request a point that is not in the point cloud
+		err2 := fmt.Errorf("no segment found at point (%v, %v, %v)", 100., 100., 100.)
+		_, err = server.PointCloudSegment(context.Background(), &pb.PointCloudSegmentRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			X:                  100.,
+			Y:                  100.,
+			Z:                  100.,
+		})
+		test.That(t, err, test.ShouldResemble, err2)
+
+		//empty pointcloud
+		pcB := pointcloud.New()
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return pcB, nil
+		}
+		_, err = server.PointCloudSegment(context.Background(), &pb.PointCloudSegmentRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			X:                  100.,
+			Y:                  100.,
+			Z:                  100.,
+		})
+		test.That(t, err, test.ShouldResemble, err2)
 	})
 
 	t.Run("Lidar", func(t *testing.T) {
