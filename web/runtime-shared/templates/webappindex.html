@@ -296,7 +296,7 @@
                       req.setZ(-r(p.point.z));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      robotService.pointCloudSegment(req,  {}, (err, resp) => {
+                      robotService.pointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("no segment found at point")
