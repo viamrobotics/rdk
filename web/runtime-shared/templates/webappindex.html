@@ -288,10 +288,12 @@
                       theData.pcdClick.path = path;
 
                       req = new robotApi.PointCloudSegmentRequest();
-                      req.setName(cameraName);
+                      req.setName(pcdGlobal.cameraName);
+                      req.setMinPointsInPlane(15000);
+                      req.setMinPointsInSegment(8);
                       req.setX(r(p.point.x));
-                      req.setY(r(p.point.y));
-                      req.setZ(r(p.point.z));
+                      req.setY(-r(p.point.y));
+                      req.setZ(-r(p.point.z));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
                       robotService.pointCloudSegment(req,  {}, (err, resp) => {

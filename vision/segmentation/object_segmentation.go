@@ -21,24 +21,27 @@ func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc
 	if segIndex, ok := objectSeg.Indices[v]; ok {
 		return objectSeg.PointClouds[segIndex], nil
 	}
-	return nil, fmt.Errorf("No segment found at point (%v, %v, %v)", x, y, z)
+	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
 }
 
-// CreateObjectSegmentation removes the planes and returns a segmentation of the objects in a point cloud
-func CreateObjectSegmentation(cloud pc.PointCloud, radius float64, nMin int) (*ObjectSegmentation, error) {
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, 15000)
+// CreateObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
+func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegment int, clusteringRadius float64) (*ObjectSegmentation, error) {
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, minPtsInPlane)
 	if err != nil {
 		return nil, err
 	}
-	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
+	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
+	if len(planes) > 0 {
+		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+	objCloud, err := pc.NewRoundingPointCloudFromPC(nonPlane)
 	if err != nil {
 		return nil, err
 	}
-	objCloud, err := pc.NewRoundingPointCloudFromPC(above)
-	if err != nil {
-		return nil, err
-	}
-	segments, err := SegmentPointCloudObjects(objCloud, radius, nMin)
+	segments, err := SegmentPointCloudObjects(objCloud, clusteringRadius, minPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
