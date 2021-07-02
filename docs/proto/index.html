@@ -463,6 +463,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.PointCloudSegmentResponse"><span class="badge">M</span>PointCloudSegmentResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.SensorReadingsRequest"><span class="badge">M</span>SensorReadingsRequest</a>
                 </li>
               
@@ -2588,6 +2592,37 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.PointCloudSegmentResponse">PointCloudSegmentResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.SensorReadingsRequest">SensorReadingsRequest</h3>
         <p></p>
 
@@ -3209,7 +3244,7 @@ can be requested but may not necessarily be the same one returned.</p></td>
               <tr>
                 <td>PointCloudSegment</td>
                 <td><a href="#proto.api.v1.PointCloudSegmentRequest">PointCloudSegmentRequest</a></td>
-                <td><a href="#proto.api.v1.PointCloudResponse">PointCloudResponse</a></td>
+                <td><a href="#proto.api.v1.PointCloudSegmentResponse">PointCloudSegmentResponse</a></td>
                 <td><p>PointCloudSegment returns a point cloud segment from a camera of the underlying robot when you specify a point. 
 A specific MIME type can be requested but may not necessarily be the same one returned.</p></td>
               </tr>
