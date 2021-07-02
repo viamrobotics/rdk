@@ -247,6 +247,7 @@
                         if (err) {
                           return;
                         }
+                        console.log("loading pcd")
                         pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
                       });
 
@@ -303,6 +304,7 @@
                           console.log("no segment found at point")
                           return;
                         }
+                        console.log("loading pcd segment")
                         pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
                       });
                       
