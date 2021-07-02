@@ -2543,6 +2543,7 @@ export namespace proto.api.v1 {
             mime_type?: string;
             min_points_in_plane?: number;
             min_points_in_segment?: number;
+            clustering_radius?: number;
             x?: number;
             y?: number;
             z?: number;
@@ -2561,6 +2562,9 @@ export namespace proto.api.v1 {
                 }
                 if ("min_points_in_segment" in data && data.min_points_in_segment != undefined) {
                     this.min_points_in_segment = data.min_points_in_segment;
+                }
+                if ("clustering_radius" in data && data.clustering_radius != undefined) {
+                    this.clustering_radius = data.clustering_radius;
                 }
                 if ("x" in data && data.x != undefined) {
                     this.x = data.x;
@@ -2597,23 +2601,29 @@ export namespace proto.api.v1 {
         set min_points_in_segment(value: number) {
             pb_1.Message.setField(this, 4, value);
         }
-        get x() {
+        get clustering_radius() {
             return pb_1.Message.getField(this, 5) as number;
         }
-        set x(value: number) {
+        set clustering_radius(value: number) {
             pb_1.Message.setField(this, 5, value);
         }
-        get y() {
+        get x() {
             return pb_1.Message.getField(this, 6) as number;
         }
-        set y(value: number) {
+        set x(value: number) {
             pb_1.Message.setField(this, 6, value);
         }
-        get z() {
+        get y() {
             return pb_1.Message.getField(this, 7) as number;
         }
-        set z(value: number) {
+        set y(value: number) {
             pb_1.Message.setField(this, 7, value);
+        }
+        get z() {
+            return pb_1.Message.getField(this, 8) as number;
+        }
+        set z(value: number) {
+            pb_1.Message.setField(this, 8, value);
         }
         toObject() {
             const data: {
@@ -2621,6 +2631,7 @@ export namespace proto.api.v1 {
                 mime_type?: string;
                 min_points_in_plane?: number;
                 min_points_in_segment?: number;
+                clustering_radius?: number;
                 x?: number;
                 y?: number;
                 z?: number;
@@ -2636,6 +2647,9 @@ export namespace proto.api.v1 {
             }
             if (this.min_points_in_segment != null) {
                 data.min_points_in_segment = this.min_points_in_segment;
+            }
+            if (this.clustering_radius != null) {
+                data.clustering_radius = this.clustering_radius;
             }
             if (this.x != null) {
                 data.x = this.x;
@@ -2658,12 +2672,14 @@ export namespace proto.api.v1 {
                 writer.writeInt64(3, this.min_points_in_plane);
             if (this.min_points_in_segment !== undefined)
                 writer.writeInt64(4, this.min_points_in_segment);
+            if (this.clustering_radius !== undefined)
+                writer.writeDouble(5, this.clustering_radius);
             if (this.x !== undefined)
-                writer.writeDouble(5, this.x);
+                writer.writeDouble(6, this.x);
             if (this.y !== undefined)
-                writer.writeDouble(6, this.y);
+                writer.writeDouble(7, this.y);
             if (this.z !== undefined)
-                writer.writeDouble(7, this.z);
+                writer.writeDouble(8, this.z);
             if (!w)
                 return writer.getResultBuffer();
         }
@@ -2686,12 +2702,15 @@ export namespace proto.api.v1 {
                         message.min_points_in_segment = reader.readInt64();
                         break;
                     case 5:
-                        message.x = reader.readDouble();
+                        message.clustering_radius = reader.readDouble();
                         break;
                     case 6:
-                        message.y = reader.readDouble();
+                        message.x = reader.readDouble();
                         break;
                     case 7:
+                        message.y = reader.readDouble();
+                        break;
+                    case 8:
                         message.z = reader.readDouble();
                         break;
                     default: reader.skipField();

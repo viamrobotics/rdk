@@ -491,7 +491,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Save")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Save", runtime.WithHTTPPathPattern("/slam/v1/save"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -514,7 +514,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Stats")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Stats", runtime.WithHTTPPathPattern("/slam/v1/stats"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -537,7 +537,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Calibrate")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/Calibrate", runtime.WithHTTPPathPattern("/slam/v1/calibrate"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -560,7 +560,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobot")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobot", runtime.WithHTTPPathPattern("/slam/v1/move_robot"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -583,7 +583,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotForward")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotForward", runtime.WithHTTPPathPattern("/slam/v1/move_robot_forward"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -606,7 +606,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotBackward")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotBackward", runtime.WithHTTPPathPattern("/slam/v1/move_robot_forward"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -629,7 +629,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/TurnRobotTo")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/TurnRobotTo", runtime.WithHTTPPathPattern("/slam/v1/turn_robot_to"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -652,7 +652,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/UpdateRobotDeviceOffset")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/UpdateRobotDeviceOffset", runtime.WithHTTPPathPattern("/slam/v1/upate_robot_device_offset"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -675,7 +675,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/StartLidar")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/StartLidar", runtime.WithHTTPPathPattern("/slam/v1/start_lidar"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -698,7 +698,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/StopLidar")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/StopLidar", runtime.WithHTTPPathPattern("/slam/v1/stop_lidar"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -721,7 +721,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/GetLidarSeed")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/GetLidarSeed", runtime.WithHTTPPathPattern("/slam/v1/get_lidar_seed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -744,7 +744,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetLidarSeed")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetLidarSeed", runtime.WithHTTPPathPattern("/slam/v1/set_lidar_seed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -767,7 +767,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientZoom")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientZoom", runtime.WithHTTPPathPattern("/slam/v1/set_client_zoom"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -790,7 +790,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientLidarViewMode")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientLidarViewMode", runtime.WithHTTPPathPattern("/slam/v1/set_client_lidar_view_mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -813,7 +813,7 @@ func RegisterSlamServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientClickMode")
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientClickMode", runtime.WithHTTPPathPattern("/slam/v1/set_client_click_mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -875,7 +875,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Save")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Save", runtime.WithHTTPPathPattern("/slam/v1/save"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -895,7 +895,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Stats")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Stats", runtime.WithHTTPPathPattern("/slam/v1/stats"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -915,7 +915,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Calibrate")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/Calibrate", runtime.WithHTTPPathPattern("/slam/v1/calibrate"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -935,7 +935,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobot")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobot", runtime.WithHTTPPathPattern("/slam/v1/move_robot"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -955,7 +955,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotForward")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotForward", runtime.WithHTTPPathPattern("/slam/v1/move_robot_forward"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -975,7 +975,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotBackward")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/MoveRobotBackward", runtime.WithHTTPPathPattern("/slam/v1/move_robot_forward"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -995,7 +995,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/TurnRobotTo")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/TurnRobotTo", runtime.WithHTTPPathPattern("/slam/v1/turn_robot_to"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1015,7 +1015,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/UpdateRobotDeviceOffset")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/UpdateRobotDeviceOffset", runtime.WithHTTPPathPattern("/slam/v1/upate_robot_device_offset"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1035,7 +1035,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/StartLidar")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/StartLidar", runtime.WithHTTPPathPattern("/slam/v1/start_lidar"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1055,7 +1055,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/StopLidar")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/StopLidar", runtime.WithHTTPPathPattern("/slam/v1/stop_lidar"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1075,7 +1075,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/GetLidarSeed")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/GetLidarSeed", runtime.WithHTTPPathPattern("/slam/v1/get_lidar_seed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1095,7 +1095,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetLidarSeed")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetLidarSeed", runtime.WithHTTPPathPattern("/slam/v1/set_lidar_seed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1115,7 +1115,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientZoom")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientZoom", runtime.WithHTTPPathPattern("/slam/v1/set_client_zoom"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1135,7 +1135,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientLidarViewMode")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientLidarViewMode", runtime.WithHTTPPathPattern("/slam/v1/set_client_lidar_view_mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -1155,7 +1155,7 @@ func RegisterSlamServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientClickMode")
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.slam.v1.SlamService/SetClientClickMode", runtime.WithHTTPPathPattern("/slam/v1/set_client_click_mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return

@@ -44,7 +44,7 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 	return roundingPc, nil
 }
 
-// NewRoundPointCloudFromPC creates a rounding point cloud from any kind of input point cloud.
+// NewRoundingPointCloudFromPC creates a rounding point cloud from any kind of input point cloud.
 func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 	var err error
 	roundingPc := NewRoundingPointCloud()

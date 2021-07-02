@@ -7536,9 +7536,10 @@ proto.proto.api.v1.PointCloudSegmentRequest.toObject = function(includeInstance,
     mimeType: jspb.Message.getFieldWithDefault(msg, 2, ""),
     minPointsInPlane: jspb.Message.getFieldWithDefault(msg, 3, 0),
     minPointsInSegment: jspb.Message.getFieldWithDefault(msg, 4, 0),
-    x: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
-    y: jspb.Message.getFloatingPointFieldWithDefault(msg, 6, 0.0),
-    z: jspb.Message.getFloatingPointFieldWithDefault(msg, 7, 0.0)
+    clusteringRadius: jspb.Message.getFloatingPointFieldWithDefault(msg, 5, 0.0),
+    x: jspb.Message.getFloatingPointFieldWithDefault(msg, 6, 0.0),
+    y: jspb.Message.getFloatingPointFieldWithDefault(msg, 7, 0.0),
+    z: jspb.Message.getFloatingPointFieldWithDefault(msg, 8, 0.0)
   };
 
   if (includeInstance) {
@@ -7593,13 +7594,17 @@ proto.proto.api.v1.PointCloudSegmentRequest.deserializeBinaryFromReader = functi
       break;
     case 5:
       var value = /** @type {number} */ (reader.readDouble());
-      msg.setX(value);
+      msg.setClusteringRadius(value);
       break;
     case 6:
       var value = /** @type {number} */ (reader.readDouble());
-      msg.setY(value);
+      msg.setX(value);
       break;
     case 7:
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setY(value);
+      break;
+    case 8:
       var value = /** @type {number} */ (reader.readDouble());
       msg.setZ(value);
       break;
@@ -7660,24 +7665,31 @@ proto.proto.api.v1.PointCloudSegmentRequest.serializeBinaryToWriter = function(m
       f
     );
   }
-  f = message.getX();
+  f = message.getClusteringRadius();
   if (f !== 0.0) {
     writer.writeDouble(
       5,
       f
     );
   }
-  f = message.getY();
+  f = message.getX();
   if (f !== 0.0) {
     writer.writeDouble(
       6,
       f
     );
   }
-  f = message.getZ();
+  f = message.getY();
   if (f !== 0.0) {
     writer.writeDouble(
       7,
+      f
+    );
+  }
+  f = message.getZ();
+  if (f !== 0.0) {
+    writer.writeDouble(
+      8,
       f
     );
   }
@@ -7757,10 +7769,10 @@ proto.proto.api.v1.PointCloudSegmentRequest.prototype.setMinPointsInSegment = fu
 
 
 /**
- * optional double x = 5;
+ * optional double clustering_radius = 5;
  * @return {number}
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.getX = function() {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.getClusteringRadius = function() {
   return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 5, 0.0));
 };
 
@@ -7769,16 +7781,16 @@ proto.proto.api.v1.PointCloudSegmentRequest.prototype.getX = function() {
  * @param {number} value
  * @return {!proto.proto.api.v1.PointCloudSegmentRequest} returns this
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.setX = function(value) {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.setClusteringRadius = function(value) {
   return jspb.Message.setProto3FloatField(this, 5, value);
 };
 
 
 /**
- * optional double y = 6;
+ * optional double x = 6;
  * @return {number}
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.getY = function() {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.getX = function() {
   return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 6, 0.0));
 };
 
@@ -7787,16 +7799,16 @@ proto.proto.api.v1.PointCloudSegmentRequest.prototype.getY = function() {
  * @param {number} value
  * @return {!proto.proto.api.v1.PointCloudSegmentRequest} returns this
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.setY = function(value) {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.setX = function(value) {
   return jspb.Message.setProto3FloatField(this, 6, value);
 };
 
 
 /**
- * optional double z = 7;
+ * optional double y = 7;
  * @return {number}
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.getZ = function() {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.getY = function() {
   return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 7, 0.0));
 };
 
@@ -7805,8 +7817,26 @@ proto.proto.api.v1.PointCloudSegmentRequest.prototype.getZ = function() {
  * @param {number} value
  * @return {!proto.proto.api.v1.PointCloudSegmentRequest} returns this
  */
-proto.proto.api.v1.PointCloudSegmentRequest.prototype.setZ = function(value) {
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.setY = function(value) {
   return jspb.Message.setProto3FloatField(this, 7, value);
+};
+
+
+/**
+ * optional double z = 8;
+ * @return {number}
+ */
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.getZ = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 8, 0.0));
+};
+
+
+/**
+ * @param {number} value
+ * @return {!proto.proto.api.v1.PointCloudSegmentRequest} returns this
+ */
+proto.proto.api.v1.PointCloudSegmentRequest.prototype.setZ = function(value) {
+  return jspb.Message.setProto3FloatField(this, 8, value);
 };
 
 
