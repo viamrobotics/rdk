@@ -38,7 +38,7 @@ func (cs *ColorSegmentsSource) Close() error {
 
 // Next applies segmentation to the next image and gives each distinct object a unique color
 func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
-	i, closer, err := os.source.Next(ctx)
+	i, closer, err := cs.source.Next(ctx)
 	if err != nil {
 		return i, closer, err
 	}
@@ -76,8 +76,8 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	}
 	planeSize := config.Attributes.Int("plane_size", 10000)
 	segmentSize := config.Attributes.Int("segment_size", 5)
-	clusterRadius := config.Attributes.Float("cluster_radius", 5.0)
+	clusterRadius := config.Attributes.Float64("cluster_radius", 5.0)
 
-	return &camera.ImageSource{&ColorSegmentsSource{source, planeSize, SegmentSize, clusterRadius}}, nil
+	return &camera.ImageSource{&ColorSegmentsSource{source, planeSize, segmentSize, clusterRadius}}, nil
 
 }

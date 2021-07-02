@@ -72,7 +72,7 @@ type Plane struct {
 	equation   []float64
 }
 
-// Initializes an empty plane object
+// NewEmptyPlane initializes an empty plane object
 func NewEmptyPlane() *Plane {
 	return &Plane{pc.New(), []float64{0, 0, 0, 0, 0}}
 }
