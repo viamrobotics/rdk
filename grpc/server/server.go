@@ -298,7 +298,7 @@ func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmen
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentation.CreateObjectSegmentation(pc, int(req.MinPointsInPlane), int(req.MinPointsInSegment), 10.0)
+	segments, err := segmentation.CreateObjectSegmentation(pc, int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius)
 	if err != nil {
 		return nil, err
 	}

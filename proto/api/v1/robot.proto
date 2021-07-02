@@ -461,9 +461,10 @@ message PointCloudSegmentRequest {
 	string mime_type = 2;
     int64 min_points_in_plane = 3;
     int64 min_points_in_segment = 4;
-    double x = 5;
-    double y = 6;
-    double z = 7;
+    double clustering_radius = 5;
+    double x = 6;
+    double y = 7;
+    double z = 8;
 }
 
 // Lidar
