@@ -287,7 +287,7 @@
                       theData.pcdClick.z = r(p.point.z);
                       theData.pcdClick.path = path;
 
-                      var req = new robotApi.PointCloudSegmentRequest();
+                      req = new robotApi.PointCloudSegmentRequest();
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(15000);
                       req.setMinPointsInSegment(8);
