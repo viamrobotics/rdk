@@ -93,10 +93,10 @@
           "type" : "camera",
           "model" : "colorSegments",
           "attributes" : {
-              "source" : "front-preprocess",
-              "cluster_radius" : 5.0,
-              "segment_size" : 5,
-              "plane_size" : 15000
+              "source" : "front-composed",
+              "cluster_radius" : 10.0,
+              "segment_size" : 500,
+              "plane_size" : 50000
           }
         }
     ],
