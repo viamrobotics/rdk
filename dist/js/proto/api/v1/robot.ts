@@ -2706,80 +2706,6 @@ export namespace proto.api.v1 {
             return PointCloudSegmentRequest.deserialize(bytes);
         }
     }
-    export class PointCloudSegmentResponse extends pb_1.Message {
-        constructor(data?: any[] | {
-            mime_type?: string;
-            frame?: Uint8Array;
-        }) {
-            super();
-            pb_1.Message.initialize(this, Array.isArray(data) ? data : [], 0, -1, [], []);
-            if (!Array.isArray(data) && typeof data == "object") {
-                if ("mime_type" in data && data.mime_type != undefined) {
-                    this.mime_type = data.mime_type;
-                }
-                if ("frame" in data && data.frame != undefined) {
-                    this.frame = data.frame;
-                }
-            }
-        }
-        get mime_type() {
-            return pb_1.Message.getField(this, 1) as string;
-        }
-        set mime_type(value: string) {
-            pb_1.Message.setField(this, 1, value);
-        }
-        get frame() {
-            return pb_1.Message.getField(this, 2) as Uint8Array;
-        }
-        set frame(value: Uint8Array) {
-            pb_1.Message.setField(this, 2, value);
-        }
-        toObject() {
-            const data: {
-                mime_type?: string;
-                frame?: Uint8Array;
-            } = {};
-            if (this.mime_type != null) {
-                data.mime_type = this.mime_type;
-            }
-            if (this.frame != null) {
-                data.frame = this.frame;
-            }
-            return data;
-        }
-        serialize(w?: pb_1.BinaryWriter): Uint8Array | undefined {
-            const writer = w || new pb_1.BinaryWriter();
-            if (typeof this.mime_type === "string" && this.mime_type.length)
-                writer.writeString(1, this.mime_type);
-            if (this.frame !== undefined)
-                writer.writeBytes(2, this.frame);
-            if (!w)
-                return writer.getResultBuffer();
-        }
-        static deserialize(bytes: Uint8Array | pb_1.BinaryReader): PointCloudSegmentResponse {
-            const reader = bytes instanceof pb_1.BinaryReader ? bytes : new pb_1.BinaryReader(bytes), message = new PointCloudSegmentResponse();
-            while (reader.nextField()) {
-                if (reader.isEndGroup())
-                    break;
-                switch (reader.getFieldNumber()) {
-                    case 1:
-                        message.mime_type = reader.readString();
-                        break;
-                    case 2:
-                        message.frame = reader.readBytes();
-                        break;
-                    default: reader.skipField();
-                }
-            }
-            return message;
-        }
-        serializeBinary(): Uint8Array {
-            return this.serialize();
-        }
-        static deserializeBinary(bytes: Uint8Array): PointCloudSegmentResponse {
-            return PointCloudSegmentResponse.deserialize(bytes);
-        }
-    }
     export class LidarMeasurement extends pb_1.Message {
         constructor(data?: any[] | {
             angle?: number;
@@ -5213,7 +5139,7 @@ export namespace proto.api.v1 {
         CameraFrame: grpc_1.MethodDefinition<CameraFrameRequest, CameraFrameResponse>;
         CameraRenderFrame: grpc_1.MethodDefinition<CameraRenderFrameRequest, dependency_4.google.api.HttpBody>;
         PointCloud: grpc_1.MethodDefinition<PointCloudRequest, PointCloudResponse>;
-        PointCloudSegment: grpc_1.MethodDefinition<PointCloudSegmentRequest, PointCloudSegmentResponse>;
+        PointCloudSegment: grpc_1.MethodDefinition<PointCloudSegmentRequest, PointCloudResponse>;
         LidarInfo: grpc_1.MethodDefinition<LidarInfoRequest, LidarInfoResponse>;
         LidarStart: grpc_1.MethodDefinition<LidarStartRequest, LidarStartResponse>;
         LidarStop: grpc_1.MethodDefinition<LidarStopRequest, LidarStopResponse>;
@@ -5248,7 +5174,7 @@ export namespace proto.api.v1 {
         CameraFrame: grpc_1.handleUnaryCall<CameraFrameRequest, CameraFrameResponse>;
         CameraRenderFrame: grpc_1.handleUnaryCall<CameraRenderFrameRequest, dependency_4.google.api.HttpBody>;
         PointCloud: grpc_1.handleUnaryCall<PointCloudRequest, PointCloudResponse>;
-        PointCloudSegment: grpc_1.handleUnaryCall<PointCloudSegmentRequest, PointCloudSegmentResponse>;
+        PointCloudSegment: grpc_1.handleUnaryCall<PointCloudSegmentRequest, PointCloudResponse>;
         LidarInfo: grpc_1.handleUnaryCall<LidarInfoRequest, LidarInfoResponse>;
         LidarStart: grpc_1.handleUnaryCall<LidarStartRequest, LidarStartResponse>;
         LidarStop: grpc_1.handleUnaryCall<LidarStopRequest, LidarStopResponse>;
@@ -5417,8 +5343,8 @@ export namespace proto.api.v1 {
             responseStream: false,
             requestSerialize: (message: PointCloudSegmentRequest) => Buffer.from(message.serialize()),
             requestDeserialize: (bytes: Buffer) => PointCloudSegmentRequest.deserialize(new Uint8Array(bytes)),
-            responseSerialize: (message: PointCloudSegmentResponse) => Buffer.from(message.serialize()),
-            responseDeserialize: (bytes: Buffer) => PointCloudSegmentResponse.deserialize(new Uint8Array(bytes))
+            responseSerialize: (message: PointCloudResponse) => Buffer.from(message.serialize()),
+            responseDeserialize: (bytes: Buffer) => PointCloudResponse.deserialize(new Uint8Array(bytes))
         },
         LidarInfo: {
             path: "/proto.api.v1.RobotService/LidarInfo",
