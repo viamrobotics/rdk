@@ -37,6 +37,7 @@ func (cs *ColorSegmentsSource) Close() error {
 }
 
 // Next applies segmentation to the next image and gives each distinct object a unique color
+// TODO: Currently super slow!! CreateObjectSegmentation is the bottle-neck.
 func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := cs.source.Next(ctx)
 	if err != nil {
