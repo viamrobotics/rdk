@@ -49678,6 +49678,16 @@
     }
   },
   "segmentation": {
+    "aligned_intel": {
+      "desktop.both.gz": {
+        "hash": "a3724a090eec2bee6f4fb72c151267bf",
+        "size": 1815706
+      },
+      "desktop2.both.gz": {
+        "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
+        "size": 1830798
+      }
+    },
     "gripper": {
       "full_chess.both.gz": {
         "hash": "36486342e42c45bee1d5734f862af696",
