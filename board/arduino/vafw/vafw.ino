@@ -44,24 +44,25 @@ void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, 
         return;
     }
 
-    if (!setupInterruptForMotor(encA) || !setupInterruptForMotor(encB)) {
-        b->println("#encoder setup fail");
-        return;
-    }
-    
     motors[motor].motor = new Motor(name, pinA, pinB, pwm);
     motors[motor].encA = encA;
     motors[motor].encB = encB;
 
     motors[motor].motor->encoder()->setA(digitalRead(encA));
     motors[motor].motor->encoder()->setB(digitalRead(encB));
+
+    if (!setupInterruptForMotor(encA) || !setupInterruptForMotor(encB)) {
+        b->println("#encoder setup fail");
+        return;
+    }
+
 }
 
 void setup() {
     Serial.begin(9600);
     
     buf1 = new Buffer(&Serial);
-    buf2 = new Buffer(&Serial1);
+    buf2 = new Buffer(&Serial3);
 
     buf1->println("!");
     buf2->println("!");
@@ -184,8 +185,7 @@ void loop() {
 }
 
 void setupInterruptBasic(int pin, void (*ISR)(), int what) {
-    pinMode(pin, INPUT);
-    digitalWrite(pin, HIGH); // enable internal pullup resistor
+    pinMode(pin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
 }
 
