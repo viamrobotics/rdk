@@ -288,7 +288,7 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 
 // PointCloudSegment returns an object from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmentRequest) (*pb.PointCloudResponse, error) {
+func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmentRequest) (*pb.PointCloudSegmentResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
 		return nil, errors.Errorf("no camera with name (%s)", req.Name)
@@ -313,7 +313,7 @@ func (s *Server) PointCloudSegment(ctx context.Context, req *pb.PointCloudSegmen
 		return nil, err
 	}
 
-	return &pb.PointCloudResponse{
+	return &pb.PointCloudSegmentResponse{
 		MimeType: grpc.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil

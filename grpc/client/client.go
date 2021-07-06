@@ -880,6 +880,22 @@ func (cc *cameraClient) NextPointCloud(ctx context.Context) (pointcloud.PointClo
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
+func (cc *cameraClient) NextPointCloudSegment(ctx context.Context) (pointcloud.PointCloud, error) {
+	resp, err := cc.rc.client.PointCloudSegment(ctx, &pb.PointCloudSegmentRequest{
+		Name:     cc.name,
+		MimeType: grpc.MimeTypePCD,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.MimeType != grpc.MimeTypePCD {
+		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+	}
+
+	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
+}
+
 func (cc *cameraClient) Close() error {
 	return nil
 }
