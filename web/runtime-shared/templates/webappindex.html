@@ -296,16 +296,17 @@
                   doPCDSelect : function(){
                       console.log("select object at point X:"+theData.pcdClick.x+" Y:"+theData.pcdClick.y+" Z:"+theData.pcdClick.z);
                       req = new robotApi.PointCloudSegmentRequest();
-                      console.log("camera name "+pcdGlobal.cameraName)
+                      console.log("camera name: "+pcdGlobal.cameraName)
                       req.setName(pcdGlobal.cameraName);
-                      req.setMinPointsInPlane(15000);
-                      req.setMinPointsInSegment(8);
-                      req.setClusteringRadius(5);
+                      req.setMinPointsInPlane(50000);
+                      req.setMinPointsInSegment(500);
+                      req.setClusteringRadius(10);
                       req.setX(theData.pcdClick.x);
                       req.setY(-theData.pcdClick.y);
                       req.setZ(-theData.pcdClick.z);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
+                      console.log("finding object segment...")
                       robotService.pointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
