@@ -149,6 +149,15 @@ type RobotServicePointCloud = {
   readonly responseType: typeof proto_api_v1_robot_pb.PointCloudResponse;
 };
 
+type RobotServicePointCloudSegment = {
+  readonly methodName: string;
+  readonly service: typeof RobotService;
+  readonly requestStream: false;
+  readonly responseStream: false;
+  readonly requestType: typeof proto_api_v1_robot_pb.PointCloudSegmentRequest;
+  readonly responseType: typeof proto_api_v1_robot_pb.PointCloudSegmentResponse;
+};
+
 type RobotServiceLidarInfo = {
   readonly methodName: string;
   readonly service: typeof RobotService;
@@ -311,6 +320,7 @@ export class RobotService {
   static readonly CameraFrame: RobotServiceCameraFrame;
   static readonly CameraRenderFrame: RobotServiceCameraRenderFrame;
   static readonly PointCloud: RobotServicePointCloud;
+  static readonly PointCloudSegment: RobotServicePointCloudSegment;
   static readonly LidarInfo: RobotServiceLidarInfo;
   static readonly LidarStart: RobotServiceLidarStart;
   static readonly LidarStop: RobotServiceLidarStop;
@@ -496,6 +506,15 @@ export class RobotServiceClient {
   pointCloud(
     requestMessage: proto_api_v1_robot_pb.PointCloudRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.PointCloudResponse|null) => void
+  ): UnaryResponse;
+  pointCloudSegment(
+    requestMessage: proto_api_v1_robot_pb.PointCloudSegmentRequest,
+    metadata: grpc.Metadata,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.PointCloudSegmentResponse|null) => void
+  ): UnaryResponse;
+  pointCloudSegment(
+    requestMessage: proto_api_v1_robot_pb.PointCloudSegmentRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.PointCloudSegmentResponse|null) => void
   ): UnaryResponse;
   lidarInfo(
     requestMessage: proto_api_v1_robot_pb.LidarInfoRequest,

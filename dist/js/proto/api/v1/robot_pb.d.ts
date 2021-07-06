@@ -852,6 +852,80 @@ export namespace PointCloudResponse {
   }
 }
 
+export class PointCloudSegmentRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getMimeType(): string;
+  setMimeType(value: string): void;
+
+  getMinPointsInPlane(): number;
+  setMinPointsInPlane(value: number): void;
+
+  getMinPointsInSegment(): number;
+  setMinPointsInSegment(value: number): void;
+
+  getClusteringRadius(): number;
+  setClusteringRadius(value: number): void;
+
+  getX(): number;
+  setX(value: number): void;
+
+  getY(): number;
+  setY(value: number): void;
+
+  getZ(): number;
+  setZ(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PointCloudSegmentRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: PointCloudSegmentRequest): PointCloudSegmentRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: PointCloudSegmentRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PointCloudSegmentRequest;
+  static deserializeBinaryFromReader(message: PointCloudSegmentRequest, reader: jspb.BinaryReader): PointCloudSegmentRequest;
+}
+
+export namespace PointCloudSegmentRequest {
+  export type AsObject = {
+    name: string,
+    mimeType: string,
+    minPointsInPlane: number,
+    minPointsInSegment: number,
+    clusteringRadius: number,
+    x: number,
+    y: number,
+    z: number,
+  }
+}
+
+export class PointCloudSegmentResponse extends jspb.Message {
+  getMimeType(): string;
+  setMimeType(value: string): void;
+
+  getFrame(): Uint8Array | string;
+  getFrame_asU8(): Uint8Array;
+  getFrame_asB64(): string;
+  setFrame(value: Uint8Array | string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): PointCloudSegmentResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: PointCloudSegmentResponse): PointCloudSegmentResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: PointCloudSegmentResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): PointCloudSegmentResponse;
+  static deserializeBinaryFromReader(message: PointCloudSegmentResponse, reader: jspb.BinaryReader): PointCloudSegmentResponse;
+}
+
+export namespace PointCloudSegmentResponse {
+  export type AsObject = {
+    mimeType: string,
+    frame: Uint8Array | string,
+  }
+}
+
 export class LidarMeasurement extends jspb.Message {
   getAngle(): number;
   setAngle(value: number): void;
