@@ -49683,9 +49683,29 @@
         "hash": "a3724a090eec2bee6f4fb72c151267bf",
         "size": 1815706
       },
+      "desktop.both.gz.las": {
+        "hash": "6a1b7ca481893992bce5a59ff8fc11db",
+        "size": 20405581
+      },
       "desktop2.both.gz": {
         "hash": "be4c6b88b213fc6a6eb085edaaee5cbd",
         "size": 1830798
+      },
+      "desktop2.both.gz.las": {
+        "hash": "44688a30d468b19d97770c3232a55210",
+        "size": 20322381
+      },
+      "pieces.both.gz": {
+        "hash": "665b8a19180ddf9612a77c2ac10d5b49",
+        "size": 1541754
+      },
+      "pieces.both.gz.las": {
+        "hash": "dd7d7b511909fb4fca7335755d3ddad4",
+        "size": 21512401
+      },
+      "pointcloud-pieces.pcd": {
+        "hash": "c2da914018b887359d9f8576377c22d2",
+        "size": 30580199
       }
     },
     "gripper": {
