@@ -161,7 +161,7 @@ RobotService.PointCloudSegment = {
   requestStream: false,
   responseStream: false,
   requestType: proto_api_v1_robot_pb.PointCloudSegmentRequest,
-  responseType: proto_api_v1_robot_pb.PointCloudSegmentResponse
+  responseType: proto_api_v1_robot_pb.PointCloudResponse
 };
 
 RobotService.LidarInfo = {

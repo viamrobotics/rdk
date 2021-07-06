@@ -7,14 +7,15 @@
 package v1
 
 import (
+	reflect "reflect"
+	sync "sync"
+
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (
@@ -2080,61 +2081,6 @@ func (x *PointCloudSegmentRequest) GetZ() float64 {
 	return 0
 }
 
-type PointCloudSegmentResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	MimeType string `protobuf:"bytes,1,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
-	Frame    []byte `protobuf:"bytes,2,opt,name=frame,proto3" json:"frame,omitempty"`
-}
-
-func (x *PointCloudSegmentResponse) Reset() {
-	*x = PointCloudSegmentResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[37]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *PointCloudSegmentResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*PointCloudSegmentResponse) ProtoMessage() {}
-
-func (x *PointCloudSegmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[37]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use PointCloudSegmentResponse.ProtoReflect.Descriptor instead.
-func (*PointCloudSegmentResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{37}
-}
-
-func (x *PointCloudSegmentResponse) GetMimeType() string {
-	if x != nil {
-		return x.MimeType
-	}
-	return ""
-}
-
-func (x *PointCloudSegmentResponse) GetFrame() []byte {
-	if x != nil {
-		return x.Frame
-	}
-	return nil
-}
-
 type LidarMeasurement struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -2150,7 +2096,7 @@ type LidarMeasurement struct {
 func (x *LidarMeasurement) Reset() {
 	*x = LidarMeasurement{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[38]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[37]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2163,7 +2109,7 @@ func (x *LidarMeasurement) String() string {
 func (*LidarMeasurement) ProtoMessage() {}
 
 func (x *LidarMeasurement) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[38]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[37]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2176,7 +2122,7 @@ func (x *LidarMeasurement) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarMeasurement.ProtoReflect.Descriptor instead.
 func (*LidarMeasurement) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{38}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *LidarMeasurement) GetAngle() float64 {
@@ -2225,7 +2171,7 @@ type LidarInfoRequest struct {
 func (x *LidarInfoRequest) Reset() {
 	*x = LidarInfoRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[39]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[38]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2238,7 +2184,7 @@ func (x *LidarInfoRequest) String() string {
 func (*LidarInfoRequest) ProtoMessage() {}
 
 func (x *LidarInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[39]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[38]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2251,7 +2197,7 @@ func (x *LidarInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarInfoRequest.ProtoReflect.Descriptor instead.
 func (*LidarInfoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{39}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *LidarInfoRequest) GetName() string {
@@ -2272,7 +2218,7 @@ type LidarInfoResponse struct {
 func (x *LidarInfoResponse) Reset() {
 	*x = LidarInfoResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[40]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[39]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2285,7 +2231,7 @@ func (x *LidarInfoResponse) String() string {
 func (*LidarInfoResponse) ProtoMessage() {}
 
 func (x *LidarInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[40]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[39]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2298,7 +2244,7 @@ func (x *LidarInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarInfoResponse.ProtoReflect.Descriptor instead.
 func (*LidarInfoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{40}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *LidarInfoResponse) GetInfo() *structpb.Struct {
@@ -2319,7 +2265,7 @@ type LidarStartRequest struct {
 func (x *LidarStartRequest) Reset() {
 	*x = LidarStartRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[41]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[40]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2332,7 +2278,7 @@ func (x *LidarStartRequest) String() string {
 func (*LidarStartRequest) ProtoMessage() {}
 
 func (x *LidarStartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[41]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[40]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2345,7 +2291,7 @@ func (x *LidarStartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarStartRequest.ProtoReflect.Descriptor instead.
 func (*LidarStartRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{41}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *LidarStartRequest) GetName() string {
@@ -2364,7 +2310,7 @@ type LidarStartResponse struct {
 func (x *LidarStartResponse) Reset() {
 	*x = LidarStartResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[42]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[41]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2377,7 +2323,7 @@ func (x *LidarStartResponse) String() string {
 func (*LidarStartResponse) ProtoMessage() {}
 
 func (x *LidarStartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[42]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[41]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2390,7 +2336,7 @@ func (x *LidarStartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarStartResponse.ProtoReflect.Descriptor instead.
 func (*LidarStartResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{42}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{41}
 }
 
 type LidarStopRequest struct {
@@ -2404,7 +2350,7 @@ type LidarStopRequest struct {
 func (x *LidarStopRequest) Reset() {
 	*x = LidarStopRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[43]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[42]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2417,7 +2363,7 @@ func (x *LidarStopRequest) String() string {
 func (*LidarStopRequest) ProtoMessage() {}
 
 func (x *LidarStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[43]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[42]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2430,7 +2376,7 @@ func (x *LidarStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarStopRequest.ProtoReflect.Descriptor instead.
 func (*LidarStopRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{43}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *LidarStopRequest) GetName() string {
@@ -2449,7 +2395,7 @@ type LidarStopResponse struct {
 func (x *LidarStopResponse) Reset() {
 	*x = LidarStopResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[44]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[43]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2462,7 +2408,7 @@ func (x *LidarStopResponse) String() string {
 func (*LidarStopResponse) ProtoMessage() {}
 
 func (x *LidarStopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[44]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[43]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2475,7 +2421,7 @@ func (x *LidarStopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarStopResponse.ProtoReflect.Descriptor instead.
 func (*LidarStopResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{44}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{43}
 }
 
 type LidarScanRequest struct {
@@ -2491,7 +2437,7 @@ type LidarScanRequest struct {
 func (x *LidarScanRequest) Reset() {
 	*x = LidarScanRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[45]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[44]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2504,7 +2450,7 @@ func (x *LidarScanRequest) String() string {
 func (*LidarScanRequest) ProtoMessage() {}
 
 func (x *LidarScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[45]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[44]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2517,7 +2463,7 @@ func (x *LidarScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarScanRequest.ProtoReflect.Descriptor instead.
 func (*LidarScanRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{45}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *LidarScanRequest) GetName() string {
@@ -2552,7 +2498,7 @@ type LidarScanResponse struct {
 func (x *LidarScanResponse) Reset() {
 	*x = LidarScanResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[46]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[45]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2565,7 +2511,7 @@ func (x *LidarScanResponse) String() string {
 func (*LidarScanResponse) ProtoMessage() {}
 
 func (x *LidarScanResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[46]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[45]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2578,7 +2524,7 @@ func (x *LidarScanResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarScanResponse.ProtoReflect.Descriptor instead.
 func (*LidarScanResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{46}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *LidarScanResponse) GetMeasurements() []*LidarMeasurement {
@@ -2599,7 +2545,7 @@ type LidarRangeRequest struct {
 func (x *LidarRangeRequest) Reset() {
 	*x = LidarRangeRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[47]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[46]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2612,7 +2558,7 @@ func (x *LidarRangeRequest) String() string {
 func (*LidarRangeRequest) ProtoMessage() {}
 
 func (x *LidarRangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[47]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[46]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2625,7 +2571,7 @@ func (x *LidarRangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarRangeRequest.ProtoReflect.Descriptor instead.
 func (*LidarRangeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{47}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *LidarRangeRequest) GetName() string {
@@ -2646,7 +2592,7 @@ type LidarRangeResponse struct {
 func (x *LidarRangeResponse) Reset() {
 	*x = LidarRangeResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[48]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[47]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2659,7 +2605,7 @@ func (x *LidarRangeResponse) String() string {
 func (*LidarRangeResponse) ProtoMessage() {}
 
 func (x *LidarRangeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[48]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[47]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2672,7 +2618,7 @@ func (x *LidarRangeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarRangeResponse.ProtoReflect.Descriptor instead.
 func (*LidarRangeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{48}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *LidarRangeResponse) GetRange() int64 {
@@ -2693,7 +2639,7 @@ type LidarBoundsRequest struct {
 func (x *LidarBoundsRequest) Reset() {
 	*x = LidarBoundsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[49]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[48]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2706,7 +2652,7 @@ func (x *LidarBoundsRequest) String() string {
 func (*LidarBoundsRequest) ProtoMessage() {}
 
 func (x *LidarBoundsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[49]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[48]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2719,7 +2665,7 @@ func (x *LidarBoundsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarBoundsRequest.ProtoReflect.Descriptor instead.
 func (*LidarBoundsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{49}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *LidarBoundsRequest) GetName() string {
@@ -2741,7 +2687,7 @@ type LidarBoundsResponse struct {
 func (x *LidarBoundsResponse) Reset() {
 	*x = LidarBoundsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[50]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[49]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2754,7 +2700,7 @@ func (x *LidarBoundsResponse) String() string {
 func (*LidarBoundsResponse) ProtoMessage() {}
 
 func (x *LidarBoundsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[50]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[49]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2767,7 +2713,7 @@ func (x *LidarBoundsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarBoundsResponse.ProtoReflect.Descriptor instead.
 func (*LidarBoundsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{50}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *LidarBoundsResponse) GetX() int64 {
@@ -2795,7 +2741,7 @@ type LidarAngularResolutionRequest struct {
 func (x *LidarAngularResolutionRequest) Reset() {
 	*x = LidarAngularResolutionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[51]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[50]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2808,7 +2754,7 @@ func (x *LidarAngularResolutionRequest) String() string {
 func (*LidarAngularResolutionRequest) ProtoMessage() {}
 
 func (x *LidarAngularResolutionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[51]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[50]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2821,7 +2767,7 @@ func (x *LidarAngularResolutionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarAngularResolutionRequest.ProtoReflect.Descriptor instead.
 func (*LidarAngularResolutionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{51}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *LidarAngularResolutionRequest) GetName() string {
@@ -2842,7 +2788,7 @@ type LidarAngularResolutionResponse struct {
 func (x *LidarAngularResolutionResponse) Reset() {
 	*x = LidarAngularResolutionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[52]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[51]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2855,7 +2801,7 @@ func (x *LidarAngularResolutionResponse) String() string {
 func (*LidarAngularResolutionResponse) ProtoMessage() {}
 
 func (x *LidarAngularResolutionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[52]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[51]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2868,7 +2814,7 @@ func (x *LidarAngularResolutionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LidarAngularResolutionResponse.ProtoReflect.Descriptor instead.
 func (*LidarAngularResolutionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{52}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *LidarAngularResolutionResponse) GetAngularResolution() float64 {
@@ -2892,7 +2838,7 @@ type BoardStatus struct {
 func (x *BoardStatus) Reset() {
 	*x = BoardStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[53]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[52]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2905,7 +2851,7 @@ func (x *BoardStatus) String() string {
 func (*BoardStatus) ProtoMessage() {}
 
 func (x *BoardStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[53]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[52]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2918,7 +2864,7 @@ func (x *BoardStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardStatus.ProtoReflect.Descriptor instead.
 func (*BoardStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{53}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *BoardStatus) GetMotors() map[string]*MotorStatus {
@@ -2962,7 +2908,7 @@ type MotorStatus struct {
 func (x *MotorStatus) Reset() {
 	*x = MotorStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[54]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[53]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -2975,7 +2921,7 @@ func (x *MotorStatus) String() string {
 func (*MotorStatus) ProtoMessage() {}
 
 func (x *MotorStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[54]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[53]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2988,7 +2934,7 @@ func (x *MotorStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorStatus.ProtoReflect.Descriptor instead.
 func (*MotorStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{54}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *MotorStatus) GetOn() bool {
@@ -3023,7 +2969,7 @@ type ServoStatus struct {
 func (x *ServoStatus) Reset() {
 	*x = ServoStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[55]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[54]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3036,7 +2982,7 @@ func (x *ServoStatus) String() string {
 func (*ServoStatus) ProtoMessage() {}
 
 func (x *ServoStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[55]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[54]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3049,7 +2995,7 @@ func (x *ServoStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServoStatus.ProtoReflect.Descriptor instead.
 func (*ServoStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{55}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ServoStatus) GetAngle() uint32 {
@@ -3070,7 +3016,7 @@ type AnalogStatus struct {
 func (x *AnalogStatus) Reset() {
 	*x = AnalogStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[56]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[55]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3083,7 +3029,7 @@ func (x *AnalogStatus) String() string {
 func (*AnalogStatus) ProtoMessage() {}
 
 func (x *AnalogStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[56]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[55]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3096,7 +3042,7 @@ func (x *AnalogStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalogStatus.ProtoReflect.Descriptor instead.
 func (*AnalogStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{56}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *AnalogStatus) GetValue() int32 {
@@ -3117,7 +3063,7 @@ type DigitalInterruptStatus struct {
 func (x *DigitalInterruptStatus) Reset() {
 	*x = DigitalInterruptStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[57]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[56]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3130,7 +3076,7 @@ func (x *DigitalInterruptStatus) String() string {
 func (*DigitalInterruptStatus) ProtoMessage() {}
 
 func (x *DigitalInterruptStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[57]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[56]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3143,7 +3089,7 @@ func (x *DigitalInterruptStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DigitalInterruptStatus.ProtoReflect.Descriptor instead.
 func (*DigitalInterruptStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{57}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *DigitalInterruptStatus) GetValue() int64 {
@@ -3164,7 +3110,7 @@ type SensorStatus struct {
 func (x *SensorStatus) Reset() {
 	*x = SensorStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[58]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[57]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3177,7 +3123,7 @@ func (x *SensorStatus) String() string {
 func (*SensorStatus) ProtoMessage() {}
 
 func (x *SensorStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[58]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[57]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3190,7 +3136,7 @@ func (x *SensorStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SensorStatus.ProtoReflect.Descriptor instead.
 func (*SensorStatus) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{58}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SensorStatus) GetType() string {
@@ -3211,7 +3157,7 @@ type BoardStatusRequest struct {
 func (x *BoardStatusRequest) Reset() {
 	*x = BoardStatusRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[59]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[58]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3224,7 +3170,7 @@ func (x *BoardStatusRequest) String() string {
 func (*BoardStatusRequest) ProtoMessage() {}
 
 func (x *BoardStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[59]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[58]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3237,7 +3183,7 @@ func (x *BoardStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardStatusRequest.ProtoReflect.Descriptor instead.
 func (*BoardStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{59}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *BoardStatusRequest) GetName() string {
@@ -3258,7 +3204,7 @@ type BoardStatusResponse struct {
 func (x *BoardStatusResponse) Reset() {
 	*x = BoardStatusResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[60]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[59]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3271,7 +3217,7 @@ func (x *BoardStatusResponse) String() string {
 func (*BoardStatusResponse) ProtoMessage() {}
 
 func (x *BoardStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[60]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[59]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3284,7 +3230,7 @@ func (x *BoardStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardStatusResponse.ProtoReflect.Descriptor instead.
 func (*BoardStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{60}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *BoardStatusResponse) GetStatus() *BoardStatus {
@@ -3308,7 +3254,7 @@ type BoardMotorGoRequest struct {
 func (x *BoardMotorGoRequest) Reset() {
 	*x = BoardMotorGoRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[61]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[60]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3321,7 +3267,7 @@ func (x *BoardMotorGoRequest) String() string {
 func (*BoardMotorGoRequest) ProtoMessage() {}
 
 func (x *BoardMotorGoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[61]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[60]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3334,7 +3280,7 @@ func (x *BoardMotorGoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardMotorGoRequest.ProtoReflect.Descriptor instead.
 func (*BoardMotorGoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{61}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *BoardMotorGoRequest) GetBoardName() string {
@@ -3374,7 +3320,7 @@ type BoardMotorGoResponse struct {
 func (x *BoardMotorGoResponse) Reset() {
 	*x = BoardMotorGoResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[62]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[61]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3387,7 +3333,7 @@ func (x *BoardMotorGoResponse) String() string {
 func (*BoardMotorGoResponse) ProtoMessage() {}
 
 func (x *BoardMotorGoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[62]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[61]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3400,7 +3346,7 @@ func (x *BoardMotorGoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardMotorGoResponse.ProtoReflect.Descriptor instead.
 func (*BoardMotorGoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{62}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{61}
 }
 
 type BoardMotorGoForRequest struct {
@@ -3418,7 +3364,7 @@ type BoardMotorGoForRequest struct {
 func (x *BoardMotorGoForRequest) Reset() {
 	*x = BoardMotorGoForRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[63]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[62]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3431,7 +3377,7 @@ func (x *BoardMotorGoForRequest) String() string {
 func (*BoardMotorGoForRequest) ProtoMessage() {}
 
 func (x *BoardMotorGoForRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[63]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[62]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3444,7 +3390,7 @@ func (x *BoardMotorGoForRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardMotorGoForRequest.ProtoReflect.Descriptor instead.
 func (*BoardMotorGoForRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{63}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *BoardMotorGoForRequest) GetBoardName() string {
@@ -3491,7 +3437,7 @@ type BoardMotorGoForResponse struct {
 func (x *BoardMotorGoForResponse) Reset() {
 	*x = BoardMotorGoForResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[64]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[63]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3504,7 +3450,7 @@ func (x *BoardMotorGoForResponse) String() string {
 func (*BoardMotorGoForResponse) ProtoMessage() {}
 
 func (x *BoardMotorGoForResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[64]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[63]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3517,7 +3463,7 @@ func (x *BoardMotorGoForResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardMotorGoForResponse.ProtoReflect.Descriptor instead.
 func (*BoardMotorGoForResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{64}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{63}
 }
 
 type BoardServoMoveRequest struct {
@@ -3533,7 +3479,7 @@ type BoardServoMoveRequest struct {
 func (x *BoardServoMoveRequest) Reset() {
 	*x = BoardServoMoveRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[65]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[64]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3546,7 +3492,7 @@ func (x *BoardServoMoveRequest) String() string {
 func (*BoardServoMoveRequest) ProtoMessage() {}
 
 func (x *BoardServoMoveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[65]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[64]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3559,7 +3505,7 @@ func (x *BoardServoMoveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardServoMoveRequest.ProtoReflect.Descriptor instead.
 func (*BoardServoMoveRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{65}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *BoardServoMoveRequest) GetBoardName() string {
@@ -3592,7 +3538,7 @@ type BoardServoMoveResponse struct {
 func (x *BoardServoMoveResponse) Reset() {
 	*x = BoardServoMoveResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[66]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[65]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3605,7 +3551,7 @@ func (x *BoardServoMoveResponse) String() string {
 func (*BoardServoMoveResponse) ProtoMessage() {}
 
 func (x *BoardServoMoveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[66]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[65]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3618,7 +3564,7 @@ func (x *BoardServoMoveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BoardServoMoveResponse.ProtoReflect.Descriptor instead.
 func (*BoardServoMoveResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{66}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{65}
 }
 
 type SensorReadingsRequest struct {
@@ -3632,7 +3578,7 @@ type SensorReadingsRequest struct {
 func (x *SensorReadingsRequest) Reset() {
 	*x = SensorReadingsRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[67]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[66]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3645,7 +3591,7 @@ func (x *SensorReadingsRequest) String() string {
 func (*SensorReadingsRequest) ProtoMessage() {}
 
 func (x *SensorReadingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[67]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[66]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3658,7 +3604,7 @@ func (x *SensorReadingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SensorReadingsRequest.ProtoReflect.Descriptor instead.
 func (*SensorReadingsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{67}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *SensorReadingsRequest) GetName() string {
@@ -3679,7 +3625,7 @@ type SensorReadingsResponse struct {
 func (x *SensorReadingsResponse) Reset() {
 	*x = SensorReadingsResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[68]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[67]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3692,7 +3638,7 @@ func (x *SensorReadingsResponse) String() string {
 func (*SensorReadingsResponse) ProtoMessage() {}
 
 func (x *SensorReadingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[68]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[67]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3705,7 +3651,7 @@ func (x *SensorReadingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SensorReadingsResponse.ProtoReflect.Descriptor instead.
 func (*SensorReadingsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{68}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *SensorReadingsResponse) GetReadings() []*structpb.Value {
@@ -3726,7 +3672,7 @@ type CompassHeadingRequest struct {
 func (x *CompassHeadingRequest) Reset() {
 	*x = CompassHeadingRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[69]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[68]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3739,7 +3685,7 @@ func (x *CompassHeadingRequest) String() string {
 func (*CompassHeadingRequest) ProtoMessage() {}
 
 func (x *CompassHeadingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[69]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[68]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3752,7 +3698,7 @@ func (x *CompassHeadingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassHeadingRequest.ProtoReflect.Descriptor instead.
 func (*CompassHeadingRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{69}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *CompassHeadingRequest) GetName() string {
@@ -3773,7 +3719,7 @@ type CompassHeadingResponse struct {
 func (x *CompassHeadingResponse) Reset() {
 	*x = CompassHeadingResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[70]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[69]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3786,7 +3732,7 @@ func (x *CompassHeadingResponse) String() string {
 func (*CompassHeadingResponse) ProtoMessage() {}
 
 func (x *CompassHeadingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[70]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[69]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3799,7 +3745,7 @@ func (x *CompassHeadingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassHeadingResponse.ProtoReflect.Descriptor instead.
 func (*CompassHeadingResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{70}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CompassHeadingResponse) GetHeading() float64 {
@@ -3820,7 +3766,7 @@ type CompassStartCalibrationRequest struct {
 func (x *CompassStartCalibrationRequest) Reset() {
 	*x = CompassStartCalibrationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[71]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[70]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3833,7 +3779,7 @@ func (x *CompassStartCalibrationRequest) String() string {
 func (*CompassStartCalibrationRequest) ProtoMessage() {}
 
 func (x *CompassStartCalibrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[71]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[70]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3846,7 +3792,7 @@ func (x *CompassStartCalibrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassStartCalibrationRequest.ProtoReflect.Descriptor instead.
 func (*CompassStartCalibrationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{71}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *CompassStartCalibrationRequest) GetName() string {
@@ -3865,7 +3811,7 @@ type CompassStartCalibrationResponse struct {
 func (x *CompassStartCalibrationResponse) Reset() {
 	*x = CompassStartCalibrationResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[72]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[71]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3878,7 +3824,7 @@ func (x *CompassStartCalibrationResponse) String() string {
 func (*CompassStartCalibrationResponse) ProtoMessage() {}
 
 func (x *CompassStartCalibrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[72]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[71]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3891,7 +3837,7 @@ func (x *CompassStartCalibrationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassStartCalibrationResponse.ProtoReflect.Descriptor instead.
 func (*CompassStartCalibrationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{72}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{71}
 }
 
 type CompassStopCalibrationRequest struct {
@@ -3905,7 +3851,7 @@ type CompassStopCalibrationRequest struct {
 func (x *CompassStopCalibrationRequest) Reset() {
 	*x = CompassStopCalibrationRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[73]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[72]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3918,7 +3864,7 @@ func (x *CompassStopCalibrationRequest) String() string {
 func (*CompassStopCalibrationRequest) ProtoMessage() {}
 
 func (x *CompassStopCalibrationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[73]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[72]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3931,7 +3877,7 @@ func (x *CompassStopCalibrationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassStopCalibrationRequest.ProtoReflect.Descriptor instead.
 func (*CompassStopCalibrationRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{73}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *CompassStopCalibrationRequest) GetName() string {
@@ -3950,7 +3896,7 @@ type CompassStopCalibrationResponse struct {
 func (x *CompassStopCalibrationResponse) Reset() {
 	*x = CompassStopCalibrationResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[74]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[73]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -3963,7 +3909,7 @@ func (x *CompassStopCalibrationResponse) String() string {
 func (*CompassStopCalibrationResponse) ProtoMessage() {}
 
 func (x *CompassStopCalibrationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[74]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[73]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3976,7 +3922,7 @@ func (x *CompassStopCalibrationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassStopCalibrationResponse.ProtoReflect.Descriptor instead.
 func (*CompassStopCalibrationResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{74}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{73}
 }
 
 type CompassMarkRequest struct {
@@ -3990,7 +3936,7 @@ type CompassMarkRequest struct {
 func (x *CompassMarkRequest) Reset() {
 	*x = CompassMarkRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[75]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[74]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4003,7 +3949,7 @@ func (x *CompassMarkRequest) String() string {
 func (*CompassMarkRequest) ProtoMessage() {}
 
 func (x *CompassMarkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[75]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[74]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4016,7 +3962,7 @@ func (x *CompassMarkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassMarkRequest.ProtoReflect.Descriptor instead.
 func (*CompassMarkRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{75}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *CompassMarkRequest) GetName() string {
@@ -4035,7 +3981,7 @@ type CompassMarkResponse struct {
 func (x *CompassMarkResponse) Reset() {
 	*x = CompassMarkResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_v1_robot_proto_msgTypes[76]
+		mi := &file_proto_api_v1_robot_proto_msgTypes[75]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -4048,7 +3994,7 @@ func (x *CompassMarkResponse) String() string {
 func (*CompassMarkResponse) ProtoMessage() {}
 
 func (x *CompassMarkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_v1_robot_proto_msgTypes[76]
+	mi := &file_proto_api_v1_robot_proto_msgTypes[75]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4061,7 +4007,7 @@ func (x *CompassMarkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompassMarkResponse.ProtoReflect.Descriptor instead.
 func (*CompassMarkResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{76}
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{75}
 }
 
 var File_proto_api_v1_robot_proto protoreflect.FileDescriptor
@@ -4303,12 +4249,7 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x01, 0x52, 0x10, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x69, 0x6e, 0x67, 0x52, 0x61, 0x64,
 	0x69, 0x75, 0x73, 0x12, 0x0c, 0x0a, 0x01, 0x78, 0x18, 0x06, 0x20, 0x01, 0x28, 0x01, 0x52, 0x01,
 	0x78, 0x12, 0x0c, 0x0a, 0x01, 0x79, 0x18, 0x07, 0x20, 0x01, 0x28, 0x01, 0x52, 0x01, 0x79, 0x12,
-	0x0c, 0x0a, 0x01, 0x7a, 0x18, 0x08, 0x20, 0x01, 0x28, 0x01, 0x52, 0x01, 0x7a, 0x22, 0x4e, 0x0a,
-	0x19, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x53, 0x65, 0x67, 0x6d, 0x65,
-	0x6e, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x6d, 0x69,
-	0x6d, 0x65, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x6d,
-	0x69, 0x6d, 0x65, 0x54, 0x79, 0x70, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x22, 0x7d, 0x0a,
+	0x0c, 0x0a, 0x01, 0x7a, 0x18, 0x08, 0x20, 0x01, 0x28, 0x01, 0x52, 0x01, 0x7a, 0x22, 0x7d, 0x0a,
 	0x10, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x4d, 0x65, 0x61, 0x73, 0x75, 0x72, 0x65, 0x6d, 0x65, 0x6e,
 	0x74, 0x12, 0x14, 0x0a, 0x05, 0x61, 0x6e, 0x67, 0x6c, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x01,
 	0x52, 0x05, 0x61, 0x6e, 0x67, 0x6c, 0x65, 0x12, 0x1b, 0x0a, 0x09, 0x61, 0x6e, 0x67, 0x6c, 0x65,
@@ -4500,7 +4441,7 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x45, 0x4c, 0x41, 0x54, 0x49, 0x56, 0x45, 0x5f, 0x46, 0x4f, 0x52, 0x57, 0x41, 0x52, 0x44, 0x10,
 	0x01, 0x12, 0x1f, 0x0a, 0x1b, 0x44, 0x49, 0x52, 0x45, 0x43, 0x54, 0x49, 0x4f, 0x4e, 0x5f, 0x52,
 	0x45, 0x4c, 0x41, 0x54, 0x49, 0x56, 0x45, 0x5f, 0x42, 0x41, 0x43, 0x4b, 0x57, 0x41, 0x52, 0x44,
-	0x10, 0x02, 0x32, 0xb4, 0x22, 0x0a, 0x0c, 0x52, 0x6f, 0x62, 0x6f, 0x74, 0x53, 0x65, 0x72, 0x76,
+	0x10, 0x02, 0x32, 0xad, 0x22, 0x0a, 0x0c, 0x52, 0x6f, 0x62, 0x6f, 0x74, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x12, 0x5b, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1b, 0x2e,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x74, 0x61,
 	0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x70, 0x72, 0x6f,
@@ -4628,157 +4569,156 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x28, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12,
 	0x20, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x61, 0x6d, 0x65, 0x72, 0x61, 0x2f,
 	0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x63, 0x6c, 0x6f, 0x75,
-	0x64, 0x12, 0x95, 0x01, 0x0a, 0x11, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64,
+	0x64, 0x12, 0x8e, 0x01, 0x0a, 0x11, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64,
 	0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x26, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
 	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75,
 	0x64, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x27, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x50,
-	0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x53, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29,
-	0x12, 0x27, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x61, 0x6d, 0x65, 0x72, 0x61,
-	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x63, 0x6c, 0x6f,
-	0x75, 0x64, 0x73, 0x65, 0x67, 0x6d, 0x65, 0x6e, 0x74, 0x12, 0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64,
-	0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
-	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
-	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x21, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x12,
-	0x19, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b,
-	0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x69, 0x6e, 0x66, 0x6f, 0x12, 0x73, 0x0a, 0x0a, 0x4c, 0x69,
-	0x64, 0x61, 0x72, 0x53, 0x74, 0x61, 0x72, 0x74, 0x12, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x61,
-	0x72, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74,
-	0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4,
-	0x93, 0x02, 0x1c, 0x22, 0x1a, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64,
-	0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12,
-	0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x6f, 0x70, 0x12, 0x1e, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61,
-	0x72, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61,
-	0x72, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x21, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x22, 0x19, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c,
-	0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x6f, 0x70,
-	0x12, 0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x12, 0x1e, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64,
-	0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64,
-	0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x21,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x22, 0x19, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f,
-	0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x63, 0x61,
-	0x6e, 0x12, 0x73, 0x0a, 0x0a, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12,
+	0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x50,
+	0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x2f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29, 0x12, 0x27, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x76, 0x31, 0x2f, 0x63, 0x61, 0x6d, 0x65, 0x72, 0x61, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d,
+	0x2f, 0x70, 0x6f, 0x69, 0x6e, 0x74, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x73, 0x65, 0x67, 0x6d, 0x65,
+	0x6e, 0x74, 0x12, 0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x12,
+	0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c,
+	0x69, 0x64, 0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
 	0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c,
-	0x69, 0x64, 0x61, 0x72, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x4c, 0x69, 0x64, 0x61, 0x72, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x61, 0x70, 0x69,
-	0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d,
-	0x2f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x77, 0x0a, 0x0b, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x42,
-	0x6f, 0x75, 0x6e, 0x64, 0x73, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x42, 0x6f, 0x75, 0x6e, 0x64, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x42, 0x6f, 0x75, 0x6e,
-	0x64, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93,
-	0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61,
-	0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x73, 0x12,
-	0xa4, 0x01, 0x0a, 0x16, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72,
-	0x52, 0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2b, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x41,
-	0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x41, 0x6e, 0x67, 0x75,
-	0x6c, 0x61, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29, 0x12, 0x27, 0x2f,
-	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61,
-	0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x5f, 0x72, 0x65, 0x73, 0x6f,
-	0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x77, 0x0a, 0x0b, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53,
-	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74,
-	0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93,
-	0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72,
-	0x64, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
-	0x8f, 0x01, 0x0a, 0x0c, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f,
-	0x12, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
-	0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x38, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x32, 0x1a,
-	0x30, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b,
-	0x62, 0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x6f, 0x74, 0x6f,
-	0x72, 0x2f, 0x7b, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67,
-	0x6f, 0x12, 0x9c, 0x01, 0x0a, 0x0f, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72,
-	0x47, 0x6f, 0x46, 0x6f, 0x72, 0x12, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47,
-	0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64,
-	0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x3c, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x36, 0x1a, 0x34, 0x2f, 0x61, 0x70, 0x69,
-	0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x62, 0x6f, 0x61, 0x72, 0x64,
-	0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x2f, 0x7b, 0x6d, 0x6f,
-	0x74, 0x6f, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x6f, 0x5f, 0x66, 0x6f, 0x72,
-	0x12, 0x97, 0x01, 0x0a, 0x0e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x6f, 0x4d,
-	0x6f, 0x76, 0x65, 0x12, 0x23, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
-	0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x6f, 0x4d, 0x6f, 0x76,
-	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72,
-	0x76, 0x6f, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3a,
-	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x34, 0x1a, 0x32, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f,
-	0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d,
-	0x65, 0x7d, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x6f, 0x2f, 0x7b, 0x73, 0x65, 0x72, 0x76, 0x6f, 0x5f,
-	0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x6f, 0x76, 0x65, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x53,
-	0x65, 0x6e, 0x73, 0x6f, 0x72, 0x52, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x23, 0x2e,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x65, 0x6e,
-	0x73, 0x6f, 0x72, 0x52, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
-	0x31, 0x2e, 0x53, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x52, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x73,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28,
-	0x12, 0x26, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72,
-	0x73, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f,
-	0x72, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x43, 0x6f, 0x6d,
-	0x70, 0x61, 0x73, 0x73, 0x48, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x12, 0x23, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61,
-	0x73, 0x73, 0x48, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x48, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28, 0x12, 0x26,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f,
-	0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x68,
-	0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x12, 0xb0, 0x01, 0x0a, 0x17, 0x43, 0x6f, 0x6d, 0x70, 0x61,
-	0x73, 0x73, 0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69,
-	0x6f, 0x6e, 0x12, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
-	0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x61,
-	0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x2d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x61, 0x6c, 0x69,
-	0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x38, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x32, 0x22, 0x30, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
-	0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73,
-	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x63, 0x61,
-	0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0xac, 0x01, 0x0a, 0x16, 0x43, 0x6f,
-	0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x6f, 0x70, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61,
-	0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
-	0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x6f, 0x70, 0x43,
-	0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31,
-	0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x6f, 0x70, 0x43, 0x61, 0x6c, 0x69,
-	0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x37, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x31, 0x22, 0x2f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
-	0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73,
-	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x6f, 0x70, 0x5f, 0x63, 0x61, 0x6c,
-	0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x7f, 0x0a, 0x0b, 0x43, 0x6f, 0x6d, 0x70,
-	0x61, 0x73, 0x73, 0x4d, 0x61, 0x72, 0x6b, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x4d, 0x61,
-	0x72, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x69, 0x64, 0x61, 0x72, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x21, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x12, 0x19, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76,
+	0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x69,
+	0x6e, 0x66, 0x6f, 0x12, 0x73, 0x0a, 0x0a, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x61, 0x72,
+	0x74, 0x12, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31,
+	0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x61, 0x72, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
+	0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x61, 0x72, 0x74, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x22, 0x1a, 0x2f, 0x61,
+	0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d,
+	0x65, 0x7d, 0x2f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12, 0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64, 0x61,
+	0x72, 0x53, 0x74, 0x6f, 0x70, 0x12, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
+	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
+	0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x21, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x22, 0x19,
+	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e,
+	0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x74, 0x6f, 0x70, 0x12, 0x6f, 0x0a, 0x09, 0x4c, 0x69, 0x64,
+	0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x12, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
+	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
+	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x53, 0x63, 0x61, 0x6e, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x21, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1b, 0x22,
+	0x19, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b,
+	0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x63, 0x61, 0x6e, 0x12, 0x73, 0x0a, 0x0a, 0x4c, 0x69,
+	0x64, 0x61, 0x72, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x1f, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x52, 0x61, 0x6e,
+	0x67, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x52, 0x61,
+	0x6e, 0x67, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4,
+	0x93, 0x02, 0x1c, 0x12, 0x1a, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64,
+	0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x12,
+	0x77, 0x0a, 0x0b, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x42, 0x6f, 0x75, 0x6e, 0x64, 0x73, 0x12, 0x20,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x4c, 0x69,
+	0x64, 0x61, 0x72, 0x42, 0x6f, 0x75, 0x6e, 0x64, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x4c, 0x69, 0x64, 0x61, 0x72, 0x42, 0x6f, 0x75, 0x6e, 0x64, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65,
+	0x7d, 0x2f, 0x62, 0x6f, 0x75, 0x6e, 0x64, 0x73, 0x12, 0xa4, 0x01, 0x0a, 0x16, 0x4c, 0x69, 0x64,
+	0x61, 0x72, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x52, 0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74,
+	0x69, 0x6f, 0x6e, 0x12, 0x2b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e,
+	0x76, 0x31, 0x2e, 0x4c, 0x69, 0x64, 0x61, 0x72, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x52,
+	0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x2c, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x4c, 0x69, 0x64, 0x61, 0x72, 0x41, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x52, 0x65, 0x73, 0x6f,
+	0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2f,
+	0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29, 0x12, 0x27, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f,
+	0x6c, 0x69, 0x64, 0x61, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6e, 0x67,
+	0x75, 0x6c, 0x61, 0x72, 0x5f, 0x72, 0x65, 0x73, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x12,
+	0x77, 0x0a, 0x0b, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x20,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f,
+	0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x23, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1d, 0x12, 0x1b, 0x2f, 0x61, 0x70,
+	0x69, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65,
+	0x7d, 0x2f, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x8f, 0x01, 0x0a, 0x0c, 0x42, 0x6f, 0x61,
+	0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x12, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f,
+	0x74, 0x6f, 0x72, 0x47, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72,
+	0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x38, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x32, 0x1a, 0x30, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76,
+	0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e,
+	0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x2f, 0x7b, 0x6d, 0x6f, 0x74, 0x6f,
+	0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x6f, 0x12, 0x9c, 0x01, 0x0a, 0x0f, 0x42,
+	0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x12, 0x24,
+	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f,
+	0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x25, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x47, 0x6f,
+	0x46, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3c, 0x82, 0xd3, 0xe4,
+	0x93, 0x02, 0x36, 0x1a, 0x34, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61,
+	0x72, 0x64, 0x2f, 0x7b, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f,
+	0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x2f, 0x7b, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x5f, 0x6e, 0x61, 0x6d,
+	0x65, 0x7d, 0x2f, 0x67, 0x6f, 0x5f, 0x66, 0x6f, 0x72, 0x12, 0x97, 0x01, 0x0a, 0x0e, 0x42, 0x6f,
+	0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x6f, 0x4d, 0x6f, 0x76, 0x65, 0x12, 0x23, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72,
+	0x64, 0x53, 0x65, 0x72, 0x76, 0x6f, 0x4d, 0x6f, 0x76, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31,
+	0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x6f, 0x4d, 0x6f, 0x76, 0x65, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3a, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x34, 0x1a,
+	0x32, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b,
+	0x62, 0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x65, 0x72, 0x76,
+	0x6f, 0x2f, 0x7b, 0x73, 0x65, 0x72, 0x76, 0x6f, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d,
+	0x6f, 0x76, 0x65, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x53, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x52, 0x65,
+	0x61, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x23, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
+	0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x52, 0x65, 0x61, 0x64,
+	0x69, 0x6e, 0x67, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x53, 0x65, 0x6e, 0x73, 0x6f,
+	0x72, 0x52, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x22, 0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28, 0x12, 0x26, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f,
+	0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x72, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67,
+	0x73, 0x12, 0x8b, 0x01, 0x0a, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x48, 0x65, 0x61,
+	0x64, 0x69, 0x6e, 0x67, 0x12, 0x23, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x48, 0x65, 0x61, 0x64, 0x69,
+	0x6e, 0x67, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x24, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73,
-	0x4d, 0x61, 0x72, 0x6b, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3,
-	0xe4, 0x93, 0x02, 0x25, 0x22, 0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65,
-	0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x2f, 0x7b, 0x6e,
-	0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x61, 0x72, 0x6b, 0x42, 0x1f, 0x5a, 0x1d, 0x67, 0x6f, 0x2e,
-	0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x48, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
+	0x2e, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x28, 0x12, 0x26, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
+	0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73,
+	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x68, 0x65, 0x61, 0x64, 0x69, 0x6e, 0x67, 0x12,
+	0xb0, 0x01, 0x0a, 0x17, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x61, 0x72, 0x74,
+	0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2c, 0x2e, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61,
+	0x73, 0x73, 0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2d, 0x2e, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73,
+	0x53, 0x74, 0x61, 0x72, 0x74, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x38, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x32,
+	0x22, 0x30, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72,
+	0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d,
+	0x2f, 0x73, 0x74, 0x61, 0x72, 0x74, 0x5f, 0x63, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69,
+	0x6f, 0x6e, 0x12, 0xac, 0x01, 0x0a, 0x16, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x53, 0x74,
+	0x6f, 0x70, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2b, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d,
+	0x70, 0x61, 0x73, 0x73, 0x53, 0x74, 0x6f, 0x70, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74,
+	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2c, 0x2e, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73,
+	0x73, 0x53, 0x74, 0x6f, 0x70, 0x43, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x37, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x31,
+	0x22, 0x2f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72,
+	0x73, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d,
+	0x2f, 0x73, 0x74, 0x6f, 0x70, 0x5f, 0x63, 0x61, 0x6c, 0x69, 0x62, 0x72, 0x61, 0x74, 0x69, 0x6f,
+	0x6e, 0x12, 0x7f, 0x0a, 0x0b, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x4d, 0x61, 0x72, 0x6b,
+	0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
+	0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x4d, 0x61, 0x72, 0x6b, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
+	0x31, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x4d, 0x61, 0x72, 0x6b, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x22, 0x23, 0x2f,
+	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x63,
+	0x6f, 0x6d, 0x70, 0x61, 0x73, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x6d, 0x61,
+	0x72, 0x6b, 0x42, 0x1f, 0x5a, 0x1d, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69,
+	0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -4794,7 +4734,7 @@ func file_proto_api_v1_robot_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_api_v1_robot_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_api_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 88)
+var file_proto_api_v1_robot_proto_msgTypes = make([]protoimpl.MessageInfo, 87)
 var file_proto_api_v1_robot_proto_goTypes = []interface{}{
 	(DirectionRelative)(0),                   // 0: proto.api.v1.DirectionRelative
 	(*StatusRequest)(nil),                    // 1: proto.api.v1.StatusRequest
@@ -4834,73 +4774,72 @@ var file_proto_api_v1_robot_proto_goTypes = []interface{}{
 	(*PointCloudRequest)(nil),                // 35: proto.api.v1.PointCloudRequest
 	(*PointCloudResponse)(nil),               // 36: proto.api.v1.PointCloudResponse
 	(*PointCloudSegmentRequest)(nil),         // 37: proto.api.v1.PointCloudSegmentRequest
-	(*PointCloudSegmentResponse)(nil),        // 38: proto.api.v1.PointCloudSegmentResponse
-	(*LidarMeasurement)(nil),                 // 39: proto.api.v1.LidarMeasurement
-	(*LidarInfoRequest)(nil),                 // 40: proto.api.v1.LidarInfoRequest
-	(*LidarInfoResponse)(nil),                // 41: proto.api.v1.LidarInfoResponse
-	(*LidarStartRequest)(nil),                // 42: proto.api.v1.LidarStartRequest
-	(*LidarStartResponse)(nil),               // 43: proto.api.v1.LidarStartResponse
-	(*LidarStopRequest)(nil),                 // 44: proto.api.v1.LidarStopRequest
-	(*LidarStopResponse)(nil),                // 45: proto.api.v1.LidarStopResponse
-	(*LidarScanRequest)(nil),                 // 46: proto.api.v1.LidarScanRequest
-	(*LidarScanResponse)(nil),                // 47: proto.api.v1.LidarScanResponse
-	(*LidarRangeRequest)(nil),                // 48: proto.api.v1.LidarRangeRequest
-	(*LidarRangeResponse)(nil),               // 49: proto.api.v1.LidarRangeResponse
-	(*LidarBoundsRequest)(nil),               // 50: proto.api.v1.LidarBoundsRequest
-	(*LidarBoundsResponse)(nil),              // 51: proto.api.v1.LidarBoundsResponse
-	(*LidarAngularResolutionRequest)(nil),    // 52: proto.api.v1.LidarAngularResolutionRequest
-	(*LidarAngularResolutionResponse)(nil),   // 53: proto.api.v1.LidarAngularResolutionResponse
-	(*BoardStatus)(nil),                      // 54: proto.api.v1.BoardStatus
-	(*MotorStatus)(nil),                      // 55: proto.api.v1.MotorStatus
-	(*ServoStatus)(nil),                      // 56: proto.api.v1.ServoStatus
-	(*AnalogStatus)(nil),                     // 57: proto.api.v1.AnalogStatus
-	(*DigitalInterruptStatus)(nil),           // 58: proto.api.v1.DigitalInterruptStatus
-	(*SensorStatus)(nil),                     // 59: proto.api.v1.SensorStatus
-	(*BoardStatusRequest)(nil),               // 60: proto.api.v1.BoardStatusRequest
-	(*BoardStatusResponse)(nil),              // 61: proto.api.v1.BoardStatusResponse
-	(*BoardMotorGoRequest)(nil),              // 62: proto.api.v1.BoardMotorGoRequest
-	(*BoardMotorGoResponse)(nil),             // 63: proto.api.v1.BoardMotorGoResponse
-	(*BoardMotorGoForRequest)(nil),           // 64: proto.api.v1.BoardMotorGoForRequest
-	(*BoardMotorGoForResponse)(nil),          // 65: proto.api.v1.BoardMotorGoForResponse
-	(*BoardServoMoveRequest)(nil),            // 66: proto.api.v1.BoardServoMoveRequest
-	(*BoardServoMoveResponse)(nil),           // 67: proto.api.v1.BoardServoMoveResponse
-	(*SensorReadingsRequest)(nil),            // 68: proto.api.v1.SensorReadingsRequest
-	(*SensorReadingsResponse)(nil),           // 69: proto.api.v1.SensorReadingsResponse
-	(*CompassHeadingRequest)(nil),            // 70: proto.api.v1.CompassHeadingRequest
-	(*CompassHeadingResponse)(nil),           // 71: proto.api.v1.CompassHeadingResponse
-	(*CompassStartCalibrationRequest)(nil),   // 72: proto.api.v1.CompassStartCalibrationRequest
-	(*CompassStartCalibrationResponse)(nil),  // 73: proto.api.v1.CompassStartCalibrationResponse
-	(*CompassStopCalibrationRequest)(nil),    // 74: proto.api.v1.CompassStopCalibrationRequest
-	(*CompassStopCalibrationResponse)(nil),   // 75: proto.api.v1.CompassStopCalibrationResponse
-	(*CompassMarkRequest)(nil),               // 76: proto.api.v1.CompassMarkRequest
-	(*CompassMarkResponse)(nil),              // 77: proto.api.v1.CompassMarkResponse
-	nil,                                      // 78: proto.api.v1.Status.ArmsEntry
-	nil,                                      // 79: proto.api.v1.Status.BasesEntry
-	nil,                                      // 80: proto.api.v1.Status.GrippersEntry
-	nil,                                      // 81: proto.api.v1.Status.BoardsEntry
-	nil,                                      // 82: proto.api.v1.Status.CamerasEntry
-	nil,                                      // 83: proto.api.v1.Status.LidarsEntry
-	nil,                                      // 84: proto.api.v1.Status.SensorsEntry
-	nil,                                      // 85: proto.api.v1.BoardStatus.MotorsEntry
-	nil,                                      // 86: proto.api.v1.BoardStatus.ServosEntry
-	nil,                                      // 87: proto.api.v1.BoardStatus.AnalogsEntry
-	nil,                                      // 88: proto.api.v1.BoardStatus.DigitalInterruptsEntry
-	(*durationpb.Duration)(nil),              // 89: google.protobuf.Duration
-	(*structpb.Struct)(nil),                  // 90: google.protobuf.Struct
-	(*structpb.Value)(nil),                   // 91: google.protobuf.Value
-	(*httpbody.HttpBody)(nil),                // 92: google.api.HttpBody
+	(*LidarMeasurement)(nil),                 // 38: proto.api.v1.LidarMeasurement
+	(*LidarInfoRequest)(nil),                 // 39: proto.api.v1.LidarInfoRequest
+	(*LidarInfoResponse)(nil),                // 40: proto.api.v1.LidarInfoResponse
+	(*LidarStartRequest)(nil),                // 41: proto.api.v1.LidarStartRequest
+	(*LidarStartResponse)(nil),               // 42: proto.api.v1.LidarStartResponse
+	(*LidarStopRequest)(nil),                 // 43: proto.api.v1.LidarStopRequest
+	(*LidarStopResponse)(nil),                // 44: proto.api.v1.LidarStopResponse
+	(*LidarScanRequest)(nil),                 // 45: proto.api.v1.LidarScanRequest
+	(*LidarScanResponse)(nil),                // 46: proto.api.v1.LidarScanResponse
+	(*LidarRangeRequest)(nil),                // 47: proto.api.v1.LidarRangeRequest
+	(*LidarRangeResponse)(nil),               // 48: proto.api.v1.LidarRangeResponse
+	(*LidarBoundsRequest)(nil),               // 49: proto.api.v1.LidarBoundsRequest
+	(*LidarBoundsResponse)(nil),              // 50: proto.api.v1.LidarBoundsResponse
+	(*LidarAngularResolutionRequest)(nil),    // 51: proto.api.v1.LidarAngularResolutionRequest
+	(*LidarAngularResolutionResponse)(nil),   // 52: proto.api.v1.LidarAngularResolutionResponse
+	(*BoardStatus)(nil),                      // 53: proto.api.v1.BoardStatus
+	(*MotorStatus)(nil),                      // 54: proto.api.v1.MotorStatus
+	(*ServoStatus)(nil),                      // 55: proto.api.v1.ServoStatus
+	(*AnalogStatus)(nil),                     // 56: proto.api.v1.AnalogStatus
+	(*DigitalInterruptStatus)(nil),           // 57: proto.api.v1.DigitalInterruptStatus
+	(*SensorStatus)(nil),                     // 58: proto.api.v1.SensorStatus
+	(*BoardStatusRequest)(nil),               // 59: proto.api.v1.BoardStatusRequest
+	(*BoardStatusResponse)(nil),              // 60: proto.api.v1.BoardStatusResponse
+	(*BoardMotorGoRequest)(nil),              // 61: proto.api.v1.BoardMotorGoRequest
+	(*BoardMotorGoResponse)(nil),             // 62: proto.api.v1.BoardMotorGoResponse
+	(*BoardMotorGoForRequest)(nil),           // 63: proto.api.v1.BoardMotorGoForRequest
+	(*BoardMotorGoForResponse)(nil),          // 64: proto.api.v1.BoardMotorGoForResponse
+	(*BoardServoMoveRequest)(nil),            // 65: proto.api.v1.BoardServoMoveRequest
+	(*BoardServoMoveResponse)(nil),           // 66: proto.api.v1.BoardServoMoveResponse
+	(*SensorReadingsRequest)(nil),            // 67: proto.api.v1.SensorReadingsRequest
+	(*SensorReadingsResponse)(nil),           // 68: proto.api.v1.SensorReadingsResponse
+	(*CompassHeadingRequest)(nil),            // 69: proto.api.v1.CompassHeadingRequest
+	(*CompassHeadingResponse)(nil),           // 70: proto.api.v1.CompassHeadingResponse
+	(*CompassStartCalibrationRequest)(nil),   // 71: proto.api.v1.CompassStartCalibrationRequest
+	(*CompassStartCalibrationResponse)(nil),  // 72: proto.api.v1.CompassStartCalibrationResponse
+	(*CompassStopCalibrationRequest)(nil),    // 73: proto.api.v1.CompassStopCalibrationRequest
+	(*CompassStopCalibrationResponse)(nil),   // 74: proto.api.v1.CompassStopCalibrationResponse
+	(*CompassMarkRequest)(nil),               // 75: proto.api.v1.CompassMarkRequest
+	(*CompassMarkResponse)(nil),              // 76: proto.api.v1.CompassMarkResponse
+	nil,                                      // 77: proto.api.v1.Status.ArmsEntry
+	nil,                                      // 78: proto.api.v1.Status.BasesEntry
+	nil,                                      // 79: proto.api.v1.Status.GrippersEntry
+	nil,                                      // 80: proto.api.v1.Status.BoardsEntry
+	nil,                                      // 81: proto.api.v1.Status.CamerasEntry
+	nil,                                      // 82: proto.api.v1.Status.LidarsEntry
+	nil,                                      // 83: proto.api.v1.Status.SensorsEntry
+	nil,                                      // 84: proto.api.v1.BoardStatus.MotorsEntry
+	nil,                                      // 85: proto.api.v1.BoardStatus.ServosEntry
+	nil,                                      // 86: proto.api.v1.BoardStatus.AnalogsEntry
+	nil,                                      // 87: proto.api.v1.BoardStatus.DigitalInterruptsEntry
+	(*durationpb.Duration)(nil),              // 88: google.protobuf.Duration
+	(*structpb.Struct)(nil),                  // 89: google.protobuf.Struct
+	(*structpb.Value)(nil),                   // 90: google.protobuf.Value
+	(*httpbody.HttpBody)(nil),                // 91: google.api.HttpBody
 }
 var file_proto_api_v1_robot_proto_depIdxs = []int32{
-	89, // 0: proto.api.v1.StatusStreamRequest.every:type_name -> google.protobuf.Duration
+	88, // 0: proto.api.v1.StatusStreamRequest.every:type_name -> google.protobuf.Duration
 	5,  // 1: proto.api.v1.StatusResponse.status:type_name -> proto.api.v1.Status
 	5,  // 2: proto.api.v1.StatusStreamResponse.status:type_name -> proto.api.v1.Status
-	78, // 3: proto.api.v1.Status.arms:type_name -> proto.api.v1.Status.ArmsEntry
-	79, // 4: proto.api.v1.Status.bases:type_name -> proto.api.v1.Status.BasesEntry
-	80, // 5: proto.api.v1.Status.grippers:type_name -> proto.api.v1.Status.GrippersEntry
-	81, // 6: proto.api.v1.Status.boards:type_name -> proto.api.v1.Status.BoardsEntry
-	82, // 7: proto.api.v1.Status.cameras:type_name -> proto.api.v1.Status.CamerasEntry
-	83, // 8: proto.api.v1.Status.lidars:type_name -> proto.api.v1.Status.LidarsEntry
-	84, // 9: proto.api.v1.Status.sensors:type_name -> proto.api.v1.Status.SensorsEntry
+	77, // 3: proto.api.v1.Status.arms:type_name -> proto.api.v1.Status.ArmsEntry
+	78, // 4: proto.api.v1.Status.bases:type_name -> proto.api.v1.Status.BasesEntry
+	79, // 5: proto.api.v1.Status.grippers:type_name -> proto.api.v1.Status.GrippersEntry
+	80, // 6: proto.api.v1.Status.boards:type_name -> proto.api.v1.Status.BoardsEntry
+	81, // 7: proto.api.v1.Status.cameras:type_name -> proto.api.v1.Status.CamerasEntry
+	82, // 8: proto.api.v1.Status.lidars:type_name -> proto.api.v1.Status.LidarsEntry
+	83, // 9: proto.api.v1.Status.sensors:type_name -> proto.api.v1.Status.SensorsEntry
 	12, // 10: proto.api.v1.ComponentConfig.translation:type_name -> proto.api.v1.ArmPosition
 	6,  // 11: proto.api.v1.ConfigResponse.components:type_name -> proto.api.v1.ComponentConfig
 	12, // 12: proto.api.v1.ArmStatus.grid_position:type_name -> proto.api.v1.ArmPosition
@@ -4909,23 +4848,23 @@ var file_proto_api_v1_robot_proto_depIdxs = []int32{
 	13, // 15: proto.api.v1.ArmCurrentJointPositionsResponse.positions:type_name -> proto.api.v1.JointPositions
 	12, // 16: proto.api.v1.ArmMoveToPositionRequest.to:type_name -> proto.api.v1.ArmPosition
 	13, // 17: proto.api.v1.ArmMoveToJointPositionsRequest.to:type_name -> proto.api.v1.JointPositions
-	90, // 18: proto.api.v1.LidarInfoResponse.info:type_name -> google.protobuf.Struct
-	39, // 19: proto.api.v1.LidarScanResponse.measurements:type_name -> proto.api.v1.LidarMeasurement
-	85, // 20: proto.api.v1.BoardStatus.motors:type_name -> proto.api.v1.BoardStatus.MotorsEntry
-	86, // 21: proto.api.v1.BoardStatus.servos:type_name -> proto.api.v1.BoardStatus.ServosEntry
-	87, // 22: proto.api.v1.BoardStatus.analogs:type_name -> proto.api.v1.BoardStatus.AnalogsEntry
-	88, // 23: proto.api.v1.BoardStatus.digital_interrupts:type_name -> proto.api.v1.BoardStatus.DigitalInterruptsEntry
-	54, // 24: proto.api.v1.BoardStatusResponse.status:type_name -> proto.api.v1.BoardStatus
+	89, // 18: proto.api.v1.LidarInfoResponse.info:type_name -> google.protobuf.Struct
+	38, // 19: proto.api.v1.LidarScanResponse.measurements:type_name -> proto.api.v1.LidarMeasurement
+	84, // 20: proto.api.v1.BoardStatus.motors:type_name -> proto.api.v1.BoardStatus.MotorsEntry
+	85, // 21: proto.api.v1.BoardStatus.servos:type_name -> proto.api.v1.BoardStatus.ServosEntry
+	86, // 22: proto.api.v1.BoardStatus.analogs:type_name -> proto.api.v1.BoardStatus.AnalogsEntry
+	87, // 23: proto.api.v1.BoardStatus.digital_interrupts:type_name -> proto.api.v1.BoardStatus.DigitalInterruptsEntry
+	53, // 24: proto.api.v1.BoardStatusResponse.status:type_name -> proto.api.v1.BoardStatus
 	0,  // 25: proto.api.v1.BoardMotorGoRequest.direction:type_name -> proto.api.v1.DirectionRelative
 	0,  // 26: proto.api.v1.BoardMotorGoForRequest.direction:type_name -> proto.api.v1.DirectionRelative
-	91, // 27: proto.api.v1.SensorReadingsResponse.readings:type_name -> google.protobuf.Value
+	90, // 27: proto.api.v1.SensorReadingsResponse.readings:type_name -> google.protobuf.Value
 	11, // 28: proto.api.v1.Status.ArmsEntry.value:type_name -> proto.api.v1.ArmStatus
-	54, // 29: proto.api.v1.Status.BoardsEntry.value:type_name -> proto.api.v1.BoardStatus
-	59, // 30: proto.api.v1.Status.SensorsEntry.value:type_name -> proto.api.v1.SensorStatus
-	55, // 31: proto.api.v1.BoardStatus.MotorsEntry.value:type_name -> proto.api.v1.MotorStatus
-	56, // 32: proto.api.v1.BoardStatus.ServosEntry.value:type_name -> proto.api.v1.ServoStatus
-	57, // 33: proto.api.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.v1.AnalogStatus
-	58, // 34: proto.api.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.v1.DigitalInterruptStatus
+	53, // 29: proto.api.v1.Status.BoardsEntry.value:type_name -> proto.api.v1.BoardStatus
+	58, // 30: proto.api.v1.Status.SensorsEntry.value:type_name -> proto.api.v1.SensorStatus
+	54, // 31: proto.api.v1.BoardStatus.MotorsEntry.value:type_name -> proto.api.v1.MotorStatus
+	55, // 32: proto.api.v1.BoardStatus.ServosEntry.value:type_name -> proto.api.v1.ServoStatus
+	56, // 33: proto.api.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.v1.AnalogStatus
+	57, // 34: proto.api.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.v1.DigitalInterruptStatus
 	1,  // 35: proto.api.v1.RobotService.Status:input_type -> proto.api.v1.StatusRequest
 	2,  // 36: proto.api.v1.RobotService.StatusStream:input_type -> proto.api.v1.StatusStreamRequest
 	7,  // 37: proto.api.v1.RobotService.Config:input_type -> proto.api.v1.ConfigRequest
@@ -4943,22 +4882,22 @@ var file_proto_api_v1_robot_proto_depIdxs = []int32{
 	33, // 49: proto.api.v1.RobotService.CameraRenderFrame:input_type -> proto.api.v1.CameraRenderFrameRequest
 	35, // 50: proto.api.v1.RobotService.PointCloud:input_type -> proto.api.v1.PointCloudRequest
 	37, // 51: proto.api.v1.RobotService.PointCloudSegment:input_type -> proto.api.v1.PointCloudSegmentRequest
-	40, // 52: proto.api.v1.RobotService.LidarInfo:input_type -> proto.api.v1.LidarInfoRequest
-	42, // 53: proto.api.v1.RobotService.LidarStart:input_type -> proto.api.v1.LidarStartRequest
-	44, // 54: proto.api.v1.RobotService.LidarStop:input_type -> proto.api.v1.LidarStopRequest
-	46, // 55: proto.api.v1.RobotService.LidarScan:input_type -> proto.api.v1.LidarScanRequest
-	48, // 56: proto.api.v1.RobotService.LidarRange:input_type -> proto.api.v1.LidarRangeRequest
-	50, // 57: proto.api.v1.RobotService.LidarBounds:input_type -> proto.api.v1.LidarBoundsRequest
-	52, // 58: proto.api.v1.RobotService.LidarAngularResolution:input_type -> proto.api.v1.LidarAngularResolutionRequest
-	60, // 59: proto.api.v1.RobotService.BoardStatus:input_type -> proto.api.v1.BoardStatusRequest
-	62, // 60: proto.api.v1.RobotService.BoardMotorGo:input_type -> proto.api.v1.BoardMotorGoRequest
-	64, // 61: proto.api.v1.RobotService.BoardMotorGoFor:input_type -> proto.api.v1.BoardMotorGoForRequest
-	66, // 62: proto.api.v1.RobotService.BoardServoMove:input_type -> proto.api.v1.BoardServoMoveRequest
-	68, // 63: proto.api.v1.RobotService.SensorReadings:input_type -> proto.api.v1.SensorReadingsRequest
-	70, // 64: proto.api.v1.RobotService.CompassHeading:input_type -> proto.api.v1.CompassHeadingRequest
-	72, // 65: proto.api.v1.RobotService.CompassStartCalibration:input_type -> proto.api.v1.CompassStartCalibrationRequest
-	74, // 66: proto.api.v1.RobotService.CompassStopCalibration:input_type -> proto.api.v1.CompassStopCalibrationRequest
-	76, // 67: proto.api.v1.RobotService.CompassMark:input_type -> proto.api.v1.CompassMarkRequest
+	39, // 52: proto.api.v1.RobotService.LidarInfo:input_type -> proto.api.v1.LidarInfoRequest
+	41, // 53: proto.api.v1.RobotService.LidarStart:input_type -> proto.api.v1.LidarStartRequest
+	43, // 54: proto.api.v1.RobotService.LidarStop:input_type -> proto.api.v1.LidarStopRequest
+	45, // 55: proto.api.v1.RobotService.LidarScan:input_type -> proto.api.v1.LidarScanRequest
+	47, // 56: proto.api.v1.RobotService.LidarRange:input_type -> proto.api.v1.LidarRangeRequest
+	49, // 57: proto.api.v1.RobotService.LidarBounds:input_type -> proto.api.v1.LidarBoundsRequest
+	51, // 58: proto.api.v1.RobotService.LidarAngularResolution:input_type -> proto.api.v1.LidarAngularResolutionRequest
+	59, // 59: proto.api.v1.RobotService.BoardStatus:input_type -> proto.api.v1.BoardStatusRequest
+	61, // 60: proto.api.v1.RobotService.BoardMotorGo:input_type -> proto.api.v1.BoardMotorGoRequest
+	63, // 61: proto.api.v1.RobotService.BoardMotorGoFor:input_type -> proto.api.v1.BoardMotorGoForRequest
+	65, // 62: proto.api.v1.RobotService.BoardServoMove:input_type -> proto.api.v1.BoardServoMoveRequest
+	67, // 63: proto.api.v1.RobotService.SensorReadings:input_type -> proto.api.v1.SensorReadingsRequest
+	69, // 64: proto.api.v1.RobotService.CompassHeading:input_type -> proto.api.v1.CompassHeadingRequest
+	71, // 65: proto.api.v1.RobotService.CompassStartCalibration:input_type -> proto.api.v1.CompassStartCalibrationRequest
+	73, // 66: proto.api.v1.RobotService.CompassStopCalibration:input_type -> proto.api.v1.CompassStopCalibrationRequest
+	75, // 67: proto.api.v1.RobotService.CompassMark:input_type -> proto.api.v1.CompassMarkRequest
 	3,  // 68: proto.api.v1.RobotService.Status:output_type -> proto.api.v1.StatusResponse
 	4,  // 69: proto.api.v1.RobotService.StatusStream:output_type -> proto.api.v1.StatusStreamResponse
 	8,  // 70: proto.api.v1.RobotService.Config:output_type -> proto.api.v1.ConfigResponse
@@ -4973,25 +4912,25 @@ var file_proto_api_v1_robot_proto_depIdxs = []int32{
 	29, // 79: proto.api.v1.RobotService.GripperOpen:output_type -> proto.api.v1.GripperOpenResponse
 	31, // 80: proto.api.v1.RobotService.GripperGrab:output_type -> proto.api.v1.GripperGrabResponse
 	34, // 81: proto.api.v1.RobotService.CameraFrame:output_type -> proto.api.v1.CameraFrameResponse
-	92, // 82: proto.api.v1.RobotService.CameraRenderFrame:output_type -> google.api.HttpBody
+	91, // 82: proto.api.v1.RobotService.CameraRenderFrame:output_type -> google.api.HttpBody
 	36, // 83: proto.api.v1.RobotService.PointCloud:output_type -> proto.api.v1.PointCloudResponse
-	38, // 84: proto.api.v1.RobotService.PointCloudSegment:output_type -> proto.api.v1.PointCloudSegmentResponse
-	41, // 85: proto.api.v1.RobotService.LidarInfo:output_type -> proto.api.v1.LidarInfoResponse
-	43, // 86: proto.api.v1.RobotService.LidarStart:output_type -> proto.api.v1.LidarStartResponse
-	45, // 87: proto.api.v1.RobotService.LidarStop:output_type -> proto.api.v1.LidarStopResponse
-	47, // 88: proto.api.v1.RobotService.LidarScan:output_type -> proto.api.v1.LidarScanResponse
-	49, // 89: proto.api.v1.RobotService.LidarRange:output_type -> proto.api.v1.LidarRangeResponse
-	51, // 90: proto.api.v1.RobotService.LidarBounds:output_type -> proto.api.v1.LidarBoundsResponse
-	53, // 91: proto.api.v1.RobotService.LidarAngularResolution:output_type -> proto.api.v1.LidarAngularResolutionResponse
-	61, // 92: proto.api.v1.RobotService.BoardStatus:output_type -> proto.api.v1.BoardStatusResponse
-	63, // 93: proto.api.v1.RobotService.BoardMotorGo:output_type -> proto.api.v1.BoardMotorGoResponse
-	65, // 94: proto.api.v1.RobotService.BoardMotorGoFor:output_type -> proto.api.v1.BoardMotorGoForResponse
-	67, // 95: proto.api.v1.RobotService.BoardServoMove:output_type -> proto.api.v1.BoardServoMoveResponse
-	69, // 96: proto.api.v1.RobotService.SensorReadings:output_type -> proto.api.v1.SensorReadingsResponse
-	71, // 97: proto.api.v1.RobotService.CompassHeading:output_type -> proto.api.v1.CompassHeadingResponse
-	73, // 98: proto.api.v1.RobotService.CompassStartCalibration:output_type -> proto.api.v1.CompassStartCalibrationResponse
-	75, // 99: proto.api.v1.RobotService.CompassStopCalibration:output_type -> proto.api.v1.CompassStopCalibrationResponse
-	77, // 100: proto.api.v1.RobotService.CompassMark:output_type -> proto.api.v1.CompassMarkResponse
+	36, // 84: proto.api.v1.RobotService.PointCloudSegment:output_type -> proto.api.v1.PointCloudResponse
+	40, // 85: proto.api.v1.RobotService.LidarInfo:output_type -> proto.api.v1.LidarInfoResponse
+	42, // 86: proto.api.v1.RobotService.LidarStart:output_type -> proto.api.v1.LidarStartResponse
+	44, // 87: proto.api.v1.RobotService.LidarStop:output_type -> proto.api.v1.LidarStopResponse
+	46, // 88: proto.api.v1.RobotService.LidarScan:output_type -> proto.api.v1.LidarScanResponse
+	48, // 89: proto.api.v1.RobotService.LidarRange:output_type -> proto.api.v1.LidarRangeResponse
+	50, // 90: proto.api.v1.RobotService.LidarBounds:output_type -> proto.api.v1.LidarBoundsResponse
+	52, // 91: proto.api.v1.RobotService.LidarAngularResolution:output_type -> proto.api.v1.LidarAngularResolutionResponse
+	60, // 92: proto.api.v1.RobotService.BoardStatus:output_type -> proto.api.v1.BoardStatusResponse
+	62, // 93: proto.api.v1.RobotService.BoardMotorGo:output_type -> proto.api.v1.BoardMotorGoResponse
+	64, // 94: proto.api.v1.RobotService.BoardMotorGoFor:output_type -> proto.api.v1.BoardMotorGoForResponse
+	66, // 95: proto.api.v1.RobotService.BoardServoMove:output_type -> proto.api.v1.BoardServoMoveResponse
+	68, // 96: proto.api.v1.RobotService.SensorReadings:output_type -> proto.api.v1.SensorReadingsResponse
+	70, // 97: proto.api.v1.RobotService.CompassHeading:output_type -> proto.api.v1.CompassHeadingResponse
+	72, // 98: proto.api.v1.RobotService.CompassStartCalibration:output_type -> proto.api.v1.CompassStartCalibrationResponse
+	74, // 99: proto.api.v1.RobotService.CompassStopCalibration:output_type -> proto.api.v1.CompassStopCalibrationResponse
+	76, // 100: proto.api.v1.RobotService.CompassMark:output_type -> proto.api.v1.CompassMarkResponse
 	68, // [68:101] is the sub-list for method output_type
 	35, // [35:68] is the sub-list for method input_type
 	35, // [35:35] is the sub-list for extension type_name
@@ -5450,18 +5389,6 @@ func file_proto_api_v1_robot_proto_init() {
 			}
 		}
 		file_proto_api_v1_robot_proto_msgTypes[37].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PointCloudSegmentResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_proto_api_v1_robot_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarMeasurement); i {
 			case 0:
 				return &v.state
@@ -5473,7 +5400,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[38].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarInfoRequest); i {
 			case 0:
 				return &v.state
@@ -5485,7 +5412,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[39].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarInfoResponse); i {
 			case 0:
 				return &v.state
@@ -5497,7 +5424,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[40].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarStartRequest); i {
 			case 0:
 				return &v.state
@@ -5509,7 +5436,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[41].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarStartResponse); i {
 			case 0:
 				return &v.state
@@ -5521,7 +5448,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[42].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarStopRequest); i {
 			case 0:
 				return &v.state
@@ -5533,7 +5460,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[43].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarStopResponse); i {
 			case 0:
 				return &v.state
@@ -5545,7 +5472,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[44].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarScanRequest); i {
 			case 0:
 				return &v.state
@@ -5557,7 +5484,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[45].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarScanResponse); i {
 			case 0:
 				return &v.state
@@ -5569,7 +5496,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[46].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarRangeRequest); i {
 			case 0:
 				return &v.state
@@ -5581,7 +5508,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[47].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarRangeResponse); i {
 			case 0:
 				return &v.state
@@ -5593,7 +5520,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[49].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[48].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarBoundsRequest); i {
 			case 0:
 				return &v.state
@@ -5605,7 +5532,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[50].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[49].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarBoundsResponse); i {
 			case 0:
 				return &v.state
@@ -5617,7 +5544,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[51].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[50].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarAngularResolutionRequest); i {
 			case 0:
 				return &v.state
@@ -5629,7 +5556,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[51].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*LidarAngularResolutionResponse); i {
 			case 0:
 				return &v.state
@@ -5641,7 +5568,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[52].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardStatus); i {
 			case 0:
 				return &v.state
@@ -5653,7 +5580,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[54].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[53].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorStatus); i {
 			case 0:
 				return &v.state
@@ -5665,7 +5592,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[55].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[54].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ServoStatus); i {
 			case 0:
 				return &v.state
@@ -5677,7 +5604,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[56].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[55].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*AnalogStatus); i {
 			case 0:
 				return &v.state
@@ -5689,7 +5616,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[57].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[56].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*DigitalInterruptStatus); i {
 			case 0:
 				return &v.state
@@ -5701,7 +5628,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[58].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[57].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SensorStatus); i {
 			case 0:
 				return &v.state
@@ -5713,7 +5640,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[59].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[58].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardStatusRequest); i {
 			case 0:
 				return &v.state
@@ -5725,7 +5652,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[60].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[59].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardStatusResponse); i {
 			case 0:
 				return &v.state
@@ -5737,7 +5664,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[61].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[60].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardMotorGoRequest); i {
 			case 0:
 				return &v.state
@@ -5749,7 +5676,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[62].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[61].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardMotorGoResponse); i {
 			case 0:
 				return &v.state
@@ -5761,7 +5688,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[63].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[62].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardMotorGoForRequest); i {
 			case 0:
 				return &v.state
@@ -5773,7 +5700,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[64].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[63].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardMotorGoForResponse); i {
 			case 0:
 				return &v.state
@@ -5785,7 +5712,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[65].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[64].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardServoMoveRequest); i {
 			case 0:
 				return &v.state
@@ -5797,7 +5724,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[66].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[65].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*BoardServoMoveResponse); i {
 			case 0:
 				return &v.state
@@ -5809,7 +5736,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[67].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[66].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SensorReadingsRequest); i {
 			case 0:
 				return &v.state
@@ -5821,7 +5748,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[68].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[67].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SensorReadingsResponse); i {
 			case 0:
 				return &v.state
@@ -5833,7 +5760,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[69].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[68].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassHeadingRequest); i {
 			case 0:
 				return &v.state
@@ -5845,7 +5772,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[70].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[69].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassHeadingResponse); i {
 			case 0:
 				return &v.state
@@ -5857,7 +5784,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[71].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[70].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassStartCalibrationRequest); i {
 			case 0:
 				return &v.state
@@ -5869,7 +5796,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[72].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[71].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassStartCalibrationResponse); i {
 			case 0:
 				return &v.state
@@ -5881,7 +5808,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[73].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[72].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassStopCalibrationRequest); i {
 			case 0:
 				return &v.state
@@ -5893,7 +5820,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[74].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[73].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassStopCalibrationResponse); i {
 			case 0:
 				return &v.state
@@ -5905,7 +5832,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[75].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[74].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassMarkRequest); i {
 			case 0:
 				return &v.state
@@ -5917,7 +5844,7 @@ func file_proto_api_v1_robot_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_v1_robot_proto_msgTypes[76].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_v1_robot_proto_msgTypes[75].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompassMarkResponse); i {
 			case 0:
 				return &v.state
@@ -5936,7 +5863,7 @@ func file_proto_api_v1_robot_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_v1_robot_proto_rawDesc,
 			NumEnums:      1,
-			NumMessages:   88,
+			NumMessages:   87,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

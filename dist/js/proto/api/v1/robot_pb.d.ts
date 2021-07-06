@@ -900,32 +900,6 @@ export namespace PointCloudSegmentRequest {
   }
 }
 
-export class PointCloudSegmentResponse extends jspb.Message {
-  getMimeType(): string;
-  setMimeType(value: string): void;
-
-  getFrame(): Uint8Array | string;
-  getFrame_asU8(): Uint8Array;
-  getFrame_asB64(): string;
-  setFrame(value: Uint8Array | string): void;
-
-  serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): PointCloudSegmentResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: PointCloudSegmentResponse): PointCloudSegmentResponse.AsObject;
-  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: PointCloudSegmentResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): PointCloudSegmentResponse;
-  static deserializeBinaryFromReader(message: PointCloudSegmentResponse, reader: jspb.BinaryReader): PointCloudSegmentResponse;
-}
-
-export namespace PointCloudSegmentResponse {
-  export type AsObject = {
-    mimeType: string,
-    frame: Uint8Array | string,
-  }
-}
-
 export class LidarMeasurement extends jspb.Message {
   getAngle(): number;
   setAngle(value: number): void;
