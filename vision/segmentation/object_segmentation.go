@@ -19,7 +19,7 @@ type ObjectSegmentation struct {
 func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
 	v := pc.Vec3{x, y, z}
 	if segIndex, ok := objectSeg.Indices[v]; ok {
-		return objectSeg.PointClouds[segIndex], fmt.Errorf("segment found at point (%v, %v, %v)", x, y, z)
+		return objectSeg.PointClouds[segIndex], nil
 	}
 	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
 }

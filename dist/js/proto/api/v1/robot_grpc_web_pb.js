@@ -1359,13 +1359,13 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.pointCloud =
  * @const
  * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.PointCloudSegmentRequest,
- *   !proto.proto.api.v1.PointCloudResponse>}
+ *   !proto.proto.api.v1.PointCloudSegmentResponse>}
  */
 const methodDescriptor_RobotService_PointCloudSegment = new grpc.web.MethodDescriptor(
   '/proto.api.v1.RobotService/PointCloudSegment',
   grpc.web.MethodType.UNARY,
   proto.proto.api.v1.PointCloudSegmentRequest,
-  proto.proto.api.v1.PointCloudResponse,
+  proto.proto.api.v1.PointCloudSegmentResponse,
   /**
    * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request
    * @return {!Uint8Array}
@@ -1373,7 +1373,7 @@ const methodDescriptor_RobotService_PointCloudSegment = new grpc.web.MethodDescr
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.PointCloudResponse.deserializeBinary
+  proto.proto.api.v1.PointCloudSegmentResponse.deserializeBinary
 );
 
 
@@ -1381,10 +1381,10 @@ const methodDescriptor_RobotService_PointCloudSegment = new grpc.web.MethodDescr
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
  *   !proto.proto.api.v1.PointCloudSegmentRequest,
- *   !proto.proto.api.v1.PointCloudResponse>}
+ *   !proto.proto.api.v1.PointCloudSegmentResponse>}
  */
 const methodInfo_RobotService_PointCloudSegment = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.PointCloudResponse,
+  proto.proto.api.v1.PointCloudSegmentResponse,
   /**
    * @param {!proto.proto.api.v1.PointCloudSegmentRequest} request
    * @return {!Uint8Array}
@@ -1392,7 +1392,7 @@ const methodInfo_RobotService_PointCloudSegment = new grpc.web.AbstractClientBas
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.PointCloudResponse.deserializeBinary
+  proto.proto.api.v1.PointCloudSegmentResponse.deserializeBinary
 );
 
 
@@ -1401,9 +1401,9 @@ const methodInfo_RobotService_PointCloudSegment = new grpc.web.AbstractClientBas
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.PointCloudResponse)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.PointCloudSegmentResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.PointCloudResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.PointCloudSegmentResponse>|undefined}
  *     The XHR Node Readable Stream
  */
 proto.proto.api.v1.RobotServiceClient.prototype.pointCloudSegment =
@@ -1422,7 +1422,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.pointCloudSegment =
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.PointCloudResponse>}
+ * @return {!Promise<!proto.proto.api.v1.PointCloudSegmentResponse>}
  *     Promise that resolves to the response
  */
 proto.proto.api.v1.RobotServicePromiseClient.prototype.pointCloudSegment =
