@@ -288,14 +288,22 @@
                       theData.pcdClick.z = r(p.point.z);
                       theData.pcdClick.path = path;
 
+                  },
+                  doPCDGrab : function(){
+                      console.log(theData.pcdClick.path);
+                      fetch(theData.pcdClick.path).then(console.log);
+                  },
+                  doPCDSelect : function(){
+                      console.log("select object at point X:"+theData.pcdClick.x+" Y:"+theData.pcdClick.y+" Z:"+theData.pcdClick.z);
                       req = new robotApi.PointCloudSegmentRequest();
+                      console.log("camera name "+pcdGlobal.cameraName)
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(15000);
                       req.setMinPointsInSegment(8);
                       req.setClusteringRadius(5);
-                      req.setX(r(p.point.x));
-                      req.setY(-r(p.point.y));
-                      req.setZ(-r(p.point.z));
+                      req.setX(theData.pcdClick.x);
+                      req.setY(-theData.pcdClick.y);
+                      req.setZ(-theData.pcdClick.z);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
                       robotService.pointCloud(req,  {}, (err, resp) => {
@@ -307,12 +315,6 @@
                         console.log("loading pcd segment")
                         pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
                       });
-                      
-
-                  },
-                  doPCDGrab : function(){
-                      console.log(theData.pcdClick.path);
-                      fetch(theData.pcdClick.path).then(console.log);
                   }
               }
           })
@@ -667,6 +669,11 @@
                 <tr>
                   <td colspan=2>
                     <button v-on:click="doPCDGrab">Grab</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan=2>
+                    <button v-on:click="doPCDSelect">Select Object @ Point</button>
                   </td>
                 </tr>
               </table>
