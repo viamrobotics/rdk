@@ -153,6 +153,15 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
 	}
 
+	// setup SPI buses
+	piInstance.spis = map[string]board.SPI{}
+	for _, sc := range cfg.SPIs {
+		if sc.BusID > 1 {
+			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
+		}
+		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busID: sc.BusID}
+	}
+
 	// setup analogs
 	piInstance.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
@@ -161,16 +170,13 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		ar := &piPigpioAnalogReader{piInstance, channel}
-		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
-	}
-
-	piInstance.spis = map[string]board.SPI{}
-	for _, sc := range cfg.SPIs {
-		if sc.BusID > 1 {
-			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
+		bus := piInstance.SPI(ac.SPIBus)
+		if bus == nil {
+			return nil, errors.Errorf("AnalogReader can't find SPI bus named %s", ac.SPIBus)
 		}
-		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busID: sc.BusID}
+
+		ar := &piPigpioAnalogReader{piInstance, channel, bus, ac.ChipSelect}
+		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
 	}
 
 	// setup interrupts
@@ -286,31 +292,28 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 	return nil
 }
 
-// piPigpioAnalogReader implements a board.AnalogReader using pigpio.
+// piPigpioAnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
 type piPigpioAnalogReader struct {
 	pi      *piPigpio
 	channel int
+	bus     board.SPI
+	chip    uint
 }
 
 func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
-	bus := par.pi.SPI("main")
-	if bus == nil {
-		return 0, errors.Errorf("AnalogReader requires an SPI bus called main.")
-	}
-
 	tx := make([]byte, 3)
-	tx[0] = 1
-	tx[1] = byte((8 + par.channel) << 4)
-	tx[2] = 0
+	tx[0] = 1                            // start bit
+	tx[1] = byte((8 + par.channel) << 4) // single-ended
+	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
 
-	bus.Lock()
-	defer bus.Unlock()
+	par.bus.Lock()
+	defer par.bus.Unlock()
 
-	rx, err := bus.Xfer(1000000, 0, 0, tx)
+	rx, err := par.bus.Xfer(1000000, par.chip, 0, tx)
 	if err != nil {
 		return 0, err
 	}
-	val := int(rx[1])<<8 | int(rx[2])
+	val := int(rx[1])<<8 | int(rx[2]) // reassemble 10 bit value
 
 	return val, nil
 }
@@ -321,17 +324,17 @@ type piPigpioSPI struct {
 	busID uint
 }
 
-func (s *piPigpioSPI) Xfer(baud uint, channel uint, mode uint, tx []byte) (rx []byte, err error) {
+func (s *piPigpioSPI) Xfer(baud uint, chip uint, mode uint, tx []byte) (rx []byte, err error) {
 
 	var spiFlags uint
 
 	if s.busID == 1 {
 		spiFlags = spiFlags | 128 // Sets AUX SPI bus bit
-		if channel > 2 {
-			return nil, errors.Errorf("AUX SPI Bus only supports channels 0-2")
+		if chip > 2 {
+			return nil, errors.Errorf("AUX SPI Bus only supports chips/channels 0-2")
 		}
-	} else if channel > 1 {
-		return nil, errors.Errorf("Main SPI Bus only supports channels 0-1")
+	} else if chip > 1 {
+		return nil, errors.Errorf("Main SPI Bus only supports chips/channels 0-1")
 	}
 
 	// Bitfields for mode
@@ -349,7 +352,7 @@ func (s *piPigpioSPI) Xfer(baud uint, channel uint, mode uint, tx []byte) (rx []
 	txPtr := C.CBytes(tx)
 	defer C.free(txPtr)
 
-	handle := C.spiOpen((C.uint)(channel), (C.uint)(baud), (C.uint)(spiFlags))
+	handle := C.spiOpen((C.uint)(chip), (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
 		return nil, errors.Errorf("Error opening SPI Bus %d return code was %d", s.busID, handle)
