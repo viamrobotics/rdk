@@ -2,7 +2,7 @@ package kinematics
 
 import (
 	"testing"
-
+"fmt"
 	"go.viam.com/test"
 
 	"go.viam.com/core/utils"
@@ -15,10 +15,9 @@ import (
 func TestParseJSONFile(t *testing.T) {
 	model, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
+	fmt.Println(model.OrdTransforms)
 
-	test.That(t, len(model.Joints), test.ShouldEqual, 6)
 	model, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(model.Joints), test.ShouldEqual, 5)
 }

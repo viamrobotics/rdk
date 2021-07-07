@@ -48,7 +48,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(ik.Mdl.Dof()))
 	if err != nil {
 		panic(errors.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
@@ -62,7 +62,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos := JointRadToQuat(ik.Mdl, x)
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*7)
+		dx := make([]float64, ik.Mdl.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
 		for _, goal := range ik.getGoals() {
@@ -84,7 +84,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
 				eePos := JointRadToQuat(ik.Mdl, xBak)
-				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
+				dx2 := make([]float64, ik.Mdl.OperationalDof()*7)
 				for _, goal := range ik.getGoals() {
 					dxDelta := eePos.ToDelta(goal.GoalTransform)
 					dxIdx := goal.EffectorID * len(dxDelta)
@@ -208,7 +208,7 @@ func (ik *NloptIK) Solve(goal *pb.ArmPosition, seedAngles *pb.JointPositions) (b
 		}
 
 		if result < ik.epsilon*ik.epsilon {
-			angles = ik.Mdl.ZeroInlineRotation(angles)
+			angles = ZeroInlineRotation(ik.Mdl, angles)
 			return true, arm.JointPositionsFromRadians(angles)
 		}
 		startingRadians = ik.Mdl.RandomJointPositions()

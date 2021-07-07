@@ -33,8 +33,9 @@ func TestCombinedIKinematics(t *testing.T) {
 
 	logger := golog.NewTestLogger(t)
 	nCPU := runtime.NumCPU()
-	wxArm, err := NewArmJSONFile(&dummy, utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), nCPU, logger)
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
+	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	// Test ability to arrive at another position
 	pos := &pb.ArmPosition{
