@@ -11,6 +11,7 @@ type Config struct {
 	Name              string                   `json:"name"`
 	Model             string                   `json:"model"` // example: "pi"
 	Motors            []MotorConfig            `json:"motors"`
+	SPIs              []SPIConfig              `json:"spis"`
 	Servos            []ServoConfig            `json:"servos"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
@@ -28,6 +29,11 @@ func (config *Config) Validate(path string) error {
 	}
 	for idx, conf := range config.Servos {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
+			return err
+		}
+	}
+	for idx, conf := range config.SPIs {
+		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "spis", idx)); err != nil {
 			return err
 		}
 	}
@@ -62,6 +68,9 @@ func (config *Config) Merge(with *Config) (*Config, error) {
 	}
 	if len(config.Servos) != 0 || len(with.Servos) != 0 {
 		merged.Servos = append(append([]ServoConfig{}, config.Servos...), with.Servos...)
+	}
+	if len(config.SPIs) != 0 || len(with.SPIs) != 0 {
+		merged.SPIs = append(append([]SPIConfig{}, config.SPIs...), with.SPIs...)
 	}
 	if len(config.Analogs) != 0 || len(with.Analogs) != 0 {
 		merged.Analogs = append(append([]AnalogConfig{}, config.Analogs...), with.Analogs...)
@@ -107,6 +116,20 @@ func (config *MotorConfig) Validate(path string) error {
 	return nil
 }
 
+// SPIConfig enumerates a specific, shareable SPI bus.
+type SPIConfig struct {
+	Name  string `json:"name"`
+	BusID uint   `json:"busID"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *SPIConfig) Validate(path string) error {
+	if config.Name == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	return nil
+}
+
 // ServoConfig describes the configuration of a servo on a board.
 type ServoConfig struct {
 	Name string `json:"name"`
@@ -125,6 +148,8 @@ func (config *ServoConfig) Validate(path string) error {
 type AnalogConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`
+	SPIBus            string `json:"spiBus"`
+	ChipSelect        uint   `json:"chipSelect"`
 	AverageOverMillis int    `json:"averageOverMillis"`
 	SamplesPerSecond  int    `json:"samplesPerSecond"`
 }
