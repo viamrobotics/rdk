@@ -215,7 +215,7 @@ func TestMotorEncoderHall(t *testing.T) {
 
 		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 100, 1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, real.d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 
 		testutils.WaitForAssertion(t, func(t testing.TB) {
 			test.That(t, real.PowerPct(), test.ShouldEqual, 1.0)
@@ -229,7 +229,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		}
 
 		testutils.WaitForAssertion(t, func(t testing.TB) {
-			test.That(t, real.d, test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+			test.That(t, real.Direction(), test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 		})
 
 	})
