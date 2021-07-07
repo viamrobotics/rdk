@@ -230,7 +230,8 @@
                         if (err) {
                           return;
                         }
-                        window.open(`data:${mimeType};base64,${resp.getFrame_asB64()}`, '_blank').focus();
+                        let blob = new Blob([resp.getFrame_asU8()], { type: mimeType });
+                        window.open(URL.createObjectURL(blob), "_blank");
                       });
                   },
                   renderPCD : function(cameraName) {

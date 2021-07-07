@@ -28,7 +28,7 @@ import (
 	goutils "go.viam.com/utils"
 )
 
-//go:embed ur5.json
+//go:embed ur5e.json
 var ur5modeljson []byte
 
 func init() {

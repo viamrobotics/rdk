@@ -9,30 +9,17 @@ import (
 	"errors"
 	"fmt"
 
-	"gonum.org/v1/gonum/num/dualquat"
-
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/utils"
+	"go.viam.com/core/spatialmath"
 )
 
 // OffsetBy takes two offsets and computes the final position
 func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := kinmath.NewQuatTransFromArmPos(a)
-	q2 := kinmath.NewQuatTransFromArmPos(b)
-	q3 := q1.Transformation(q2.Quat)
-	final := &pb.ArmPosition{}
-	cartQuat := dualquat.Mul(q3, dualquat.Conj(q3))
-	final.X = cartQuat.Dual.Imag
-	final.Y = cartQuat.Dual.Jmag
-	final.Z = cartQuat.Dual.Kmag
-	poseOV := kinmath.QuatToOV(q3.Real)
-	final.Theta = utils.RadToDeg(poseOV.Theta)
-	final.OX = poseOV.OX
-	final.OY = poseOV.OY
-	final.OZ = poseOV.OZ
+	q1 := spatialmath.NewDualQuaternionFromArmPos(a)
+	q2 := spatialmath.NewDualQuaternionFromArmPos(b)
+	q3 := &spatialmath.DualQuaternion{q1.Transformation(q2.Quat)}
 
-	return final
+	return q3.ToArmPos()
 }
 
 // Frame represents a single reference frame, e.g. an arm

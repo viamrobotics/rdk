@@ -10,8 +10,8 @@ import (
 	goutils "go.viam.com/utils"
 
 	"go.viam.com/core/arm"
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -74,7 +74,7 @@ func (k *Arm) GetForwardPosition() *pb.ArmPosition {
 // Uses ZYX Euler rotation order.
 // Takes degrees as input and converts to radians for kinematics use.
 func (k *Arm) SetForwardPosition(pos *pb.ArmPosition) error {
-	transform := kinmath.NewQuatTransFromArmPos(pos)
+	transform := spatialmath.NewDualQuaternionFromArmPos(pos)
 	// See: https://en.wikipedia.org/wiki/Dual_quaternion#More_on_spatial_displacements
 
 	k.ik.AddGoal(transform, k.effectorID)
