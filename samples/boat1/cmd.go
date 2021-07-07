@@ -218,13 +218,7 @@ func storeAll(docs []SavedDepth) error {
 var currentLocation nmea.GLL
 
 func trackGPS(ctx context.Context) {
-	options := serial.Options{
-		BaudRate:        115200,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-	dev, err := serial.Open("/dev/ttyAMA1", options)
+	dev, err := serial.Open("/dev/ttyAMA1")
 	if err != nil {
 		rlog.Logger.Fatalf("canot open gps serial %s", err)
 	}

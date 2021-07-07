@@ -11,7 +11,6 @@ import "C"
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"strconv"
 	"sync"
@@ -25,7 +24,6 @@ import (
 
 	"go.viam.com/core/board"
 	"go.viam.com/core/rlog"
-	"go.viam.com/core/serial"
 
 	pb "go.viam.com/core/proto/api/v1"
 )
@@ -97,7 +95,6 @@ type piPigpio struct {
 	analogSpi     C.int
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
-	serials       map[string]board.Serial
 	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
@@ -135,14 +132,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		}
 		initOnce = true
 	}
-
-	initGood := false
-	defer func() {
-		if !initGood {
-			C.gpioTerminate()
-			logger.Debug("Pi GPIO terminated due to failed init.")
-		}
-	}()
 	instanceMu.Unlock()
 
 	// setup servos
@@ -166,23 +155,6 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 
 		ar := &piPigpioAnalogReader{piInstance, channel}
 		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
-	}
-
-	piInstance.serials = map[string]board.Serial{}
-	for _, sc := range cfg.Serials {
-		options := serial.Options{
-			BaudRate:              sc.BaudRate,
-			DataBits:              sc.DataBits,
-			StopBits:              sc.StopBits,
-			MinimumReadSize:       sc.MinimumReadSize,
-			InterCharacterTimeout: sc.InterCharacterTimeout,
-		}
-
-		port, err := serial.Open(sc.DevPath, options)
-		if err != nil {
-			return nil, errors.Errorf("error opening serial port: %w", err)
-		}
-		piInstance.serials[sc.Name] = &piPigpioSerial{pi: piInstance, port: port}
 	}
 
 	// setup interrupts
@@ -230,7 +202,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	instanceMu.Lock()
 	instances[piInstance] = struct{}{}
 	instanceMu.Unlock()
-	initGood = true
+
 	return piInstance, nil
 }
 
@@ -314,47 +286,10 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	return par.pi.AnalogRead(par.channel)
 }
 
-type piPigpioSerial struct {
-	pi   *piPigpio
-	mu   sync.Mutex
-	port io.ReadWriteCloser
-}
-
-func (s *piPigpioSerial) Read(p []byte) (n int, err error) {
-	return s.port.Read(p)
-}
-
-func (s *piPigpioSerial) Write(p []byte) (n int, err error) {
-	return s.port.Write(p)
-}
-
-func (s *piPigpioSerial) Close() error {
-	return s.port.Close()
-}
-
-func (s *piPigpioSerial) Lock() {
-	s.mu.Lock()
-	return
-}
-
-func (s *piPigpioSerial) Unlock() {
-	s.mu.Unlock()
-	return
-}
-
 // MotorNames returns the name of all known motors.
 func (pi *piPigpio) MotorNames() []string {
 	names := []string{}
 	for k := range pi.motors {
-		names = append(names, k)
-	}
-	return names
-}
-
-// SerialNames returns the name of all known serials.
-func (pi *piPigpio) SerialNames() []string {
-	names := []string{}
-	for k := range pi.serials {
 		names = append(names, k)
 	}
 	return names
@@ -429,10 +364,6 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
-func (pi *piPigpio) Serial(name string) board.Serial {
-	return pi.serials[name]
-}
-
 func (pi *piPigpio) Servo(name string) board.Servo {
 	return pi.servos[name]
 }
@@ -472,10 +403,6 @@ func (pi *piPigpio) Close() error {
 
 	for _, servo := range pi.servos {
 		err = multierr.Combine(err, utils.TryClose(servo))
-	}
-
-	for _, serial := range pi.serials {
-		err = multierr.Combine(err, utils.TryClose(serial))
 	}
 
 	for _, analog := range pi.analogs {
