@@ -21,13 +21,15 @@ func TestMotorEncoder1(t *testing.T) {
 
 	cfg := MotorConfig{TicksPerRotation: 100}
 	real := &FakeMotor{mu: &sync.Mutex{}}
-	encoder := &BasicDigitalInterrupt{}
+	interrupt := &BasicDigitalInterrupt{}
+	encoder := &singleEncoder{i: interrupt}
 
 	motor, err := newEncodedMotor(cfg, real, encoder)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
 	}()
+	encoder.m = motor
 
 	// test some basic defaults
 	isOn, err := motor.IsOn(context.Background())
@@ -62,9 +64,9 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, real.PowerPct(), test.ShouldEqual, float32(1))
 	})
 
-	encoder.ticks(99, nowNanosTest())
+	interrupt.ticks(99, nowNanosTest())
 	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
-	encoder.Tick(true, nowNanosTest())
+	interrupt.Tick(true, nowNanosTest())
 
 	testutils.WaitForAssertion(t, func(t testing.TB) {
 		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
@@ -80,14 +82,14 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	// we didn't hit the set point
-	encoder.ticks(99, nowNanosTest())
+	interrupt.ticks(99, nowNanosTest())
 	test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 
 	// go to non controlled
 	motor.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, .25)
 
 	// go far!
-	encoder.ticks(1000, nowNanosTest())
+	interrupt.ticks(1000, nowNanosTest())
 
 	// we should still be moving at the previous force
 	testutils.WaitForAssertion(t, func(t testing.TB) {
@@ -113,11 +115,11 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, real.PowerPct(), test.ShouldEqual, float32(1))
 	})
 
-	encoder.ticks(99, nowNanosTest())
+	interrupt.ticks(99, nowNanosTest())
 	testutils.WaitForAssertion(t, func(t testing.TB) {
 		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 	})
-	encoder.Tick(true, nowNanosTest())
+	interrupt.Tick(true, nowNanosTest())
 	testutils.WaitForAssertion(t, func(t testing.TB) {
 		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
 	})
@@ -131,8 +133,9 @@ func TestMotorEncoderHall(t *testing.T) {
 	real := &FakeMotor{mu: &sync.Mutex{}}
 	encoderA := &BasicDigitalInterrupt{}
 	encoderB := &BasicDigitalInterrupt{}
+	encoder := NewHallEncoder(encoderA, encoderB)
 
-	motor, err := newEncodedMotorTwoEncoders(cfg, real, encoderA, encoderB)
+	motor, err := newEncodedMotor(cfg, real, encoder)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
@@ -140,69 +143,95 @@ func TestMotorEncoderHall(t *testing.T) {
 
 	motor.rpmMonitorStart()
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
 	encoderA.Tick(true, nowNanosTest()) // this should do nothing because it's the initial state
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
 
 	encoderB.Tick(false, nowNanosTest()) // we go from state 3 -> 4
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 1)
 	})
 
 	encoderB.Tick(false, nowNanosTest()) // bounce, we should do nothing
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 1)
 	})
 
 	encoderA.Tick(false, nowNanosTest()) // 4 -> 1
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
 
 	encoderB.Tick(true, nowNanosTest()) // 1 -> 2
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 3)
 	})
 
 	encoderA.Tick(true, nowNanosTest()) // 2- -> 3
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 4)
 	})
 
 	// start going backwards
 	encoderA.Tick(false, nowNanosTest()) // 3 -> 2
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 3)
 	})
 
 	encoderB.Tick(false, nowNanosTest()) // 2 -> 1
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
 
 	encoderA.Tick(true, nowNanosTest()) // 1 -> 4
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 1)
 	})
 
 	encoderB.Tick(true, nowNanosTest()) // 4 -> 1
 	testutils.WaitForAssertion(t, func(t testing.TB) {
-		pos := motor.rawPosition()
+		pos := encoder.rawPosition()
 		test.That(t, pos, test.ShouldEqual, 0)
+	})
+
+	// do a GoFor and make sure we stop
+	t.Run("GoFor", func(t *testing.T) {
+		undo := setRPMSleepDebug(1, false)
+		defer undo()
+
+		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 100, 1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			test.That(t, real.PowerPct(), test.ShouldEqual, 1.0)
+		})
+
+		for x := 0; x < 100; x++ {
+			encoderB.Tick(true, nowNanosTest())
+			encoderA.Tick(true, nowNanosTest())
+			encoderB.Tick(false, nowNanosTest())
+			encoderA.Tick(false, nowNanosTest())
+		}
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			test.That(t, real.Direction(), test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		})
+
 	})
 
 }
