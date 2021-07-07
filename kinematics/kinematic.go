@@ -14,7 +14,7 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// ComputePosition takes a model and a protobuf JointPositions in degrees and returns the grid position of the
+// ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
 func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition {
 	radAngles := make([]float64, len(joints.Degrees))
@@ -26,7 +26,7 @@ func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition {
 }
 
 // JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// grid position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func JointRadToQuat(model *Model, radAngles []float64) *spatialmath.DualQuaternion {
 	quats := model.GetQuaternions(radAngles)
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
