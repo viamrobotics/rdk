@@ -30,7 +30,7 @@ func SquaredNorm(vec []float64) float64 {
 	for _, v := range vec {
 		norm += v * v
 	}
-	return norm
+	return norm - 1
 }
 
 // WeightedSquaredNorm TODO

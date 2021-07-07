@@ -111,3 +111,13 @@ func TestDeriv(t *testing.T) {
 	match = areDerivsEqual(qDeriv, deriv(q))
 	test.That(t, match, test.ShouldBeTrue)
 }
+
+func TestInline(t *testing.T) {
+	// Test the 6dof arm we actually have
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
+	test.That(t, err, test.ShouldBeNil)
+	
+	// The wx250s has the 4th and 6th joints inline
+	zeroed := ZeroInlineRotation(m, []float64{0,0,0,-1,0,1})
+	test.That(t, zeroed, test.ShouldResemble, []float64{0,0,0,0,0,0})
+}
