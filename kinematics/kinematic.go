@@ -32,7 +32,6 @@ func JointRadToQuat(model *Model, radAngles []float64) *spatialmath.DualQuaterni
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	startPos := spatialmath.NewDualQuaternion()
 	for _, quat := range quats {
-		//~ fmt.Println(quat.Quat)
 		startPos.Quat = startPos.Transformation(quat.Quat)
 	}
 	return startPos
