@@ -278,7 +278,10 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 		pos, err := m.encoder.Position(m.cancelCtx)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
-			time.Sleep(100 * time.Millisecond)
+			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
+				m.logger.Info("error sleeping, giving up %w", m.cancelCtx.Err())
+				return
+			}
 			continue
 		}
 		now := time.Now().UnixNano()
