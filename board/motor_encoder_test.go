@@ -218,7 +218,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		test.That(t, real.d, test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
 
 		testutils.WaitForAssertion(t, func(t testing.TB) {
-			test.That(t, real.powerPct, test.ShouldEqual, 1.0)
+			test.That(t, real.PowerPct(), test.ShouldEqual, 1.0)
 		})
 
 		for x := 0; x < 100; x++ {
