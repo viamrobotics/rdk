@@ -55,36 +55,40 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
 	}
 
-	var encoderB DigitalInterrupt
-	if mc.EncoderB != "" {
-		encoderB = b.DigitalInterrupt(mc.EncoderB)
-		if encoderB == nil {
+	var mm *encodedMotor
+	var err error
+
+	if mc.EncoderB == "" {
+		encoder := &singleEncoder{i: i}
+		mm, err = newEncodedMotor(mc, m, encoder)
+		if err != nil {
+			return nil, err
+		}
+		encoder.m = mm
+	} else {
+		b := b.DigitalInterrupt(mc.EncoderB)
+		if b == nil {
 			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
+		}
+		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b))
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	mm2, err := newEncodedMotorTwoEncoders(mc, m, i, encoderB)
-	if err != nil {
-		return nil, err
-	}
-	mm2.logger = logger
-	mm2.rpmMonitorStart()
+	mm.logger = logger
+	mm.rpmMonitorStart()
 
-	return mm2, nil
+	return mm, nil
 }
 
-func newEncodedMotor(cfg MotorConfig, real Motor, encoder DigitalInterrupt) (*encodedMotor, error) {
-	return newEncodedMotorTwoEncoders(cfg, real, encoder, nil)
-}
-
-func newEncodedMotorTwoEncoders(cfg MotorConfig, real Motor, encoderA, encoderB DigitalInterrupt) (*encodedMotor, error) {
+func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder) (*encodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &encodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		cfg:                     cfg,
 		real:                    real,
-		encoder:                 encoderA,
-		encoderB:                encoderB,
+		encoder:                 encoder,
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
 		stateMu:                 &sync.RWMutex{},
@@ -106,8 +110,7 @@ type encodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     MotorConfig
 	real                    Motor
-	encoder                 DigitalInterrupt
-	encoderB                DigitalInterrupt
+	encoder                 Encoder
 
 	stateMu *sync.RWMutex
 	state   encodedMotorState
@@ -129,25 +132,25 @@ type encodedMotor struct {
 // encodedMotorState is the core, non-statistical state for the motor.
 // Multiple values should be updated atomically at the same time.
 type encodedMotorState struct {
-	regulated       bool
-	desiredRPM      float64 // <= 0 means worker should do nothing
-	lastPowerPct    float32
-	curDirection    pb.DirectionRelative
-	setPoint        int64
-	curPosition     int64
-	timeLeftSeconds float64
+	regulated    bool
+	desiredRPM   float64 // <= 0 means worker should do nothing
+	lastPowerPct float32
+	curDirection pb.DirectionRelative
+	setPoint     int64
 }
 
 func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
-	return float64(m.state.curPosition) / float64(m.cfg.TicksPerRotation), nil
+	ticks, err := m.encoder.Position(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-func (m *encodedMotor) rawPosition() int64 {
+func (m *encodedMotor) rawDirection() pb.DirectionRelative {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
-	return m.state.curPosition
+	return m.state.curDirection
 }
 
 func (m *encodedMotor) PositionSupported(ctx context.Context) (bool, error) {
@@ -233,177 +236,6 @@ func (m *encodedMotor) rpmMonitorStart() {
 	<-started
 }
 
-func (m *encodedMotor) startRegulatorWorker(onStart func()) {
-	if m.encoderB == nil {
-		m.startSingleEncoderWorker(onStart)
-	} else {
-		m.startRotaryEncoderWorker(onStart)
-	}
-}
-
-func (m *encodedMotor) startSingleEncoderWorker(onStart func()) {
-	encoderChannel := make(chan bool)
-	m.encoder.AddCallback(encoderChannel)
-	m.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		onStart()
-		_, rpmDebug := getRPMSleepDebug()
-		for {
-			stop := false
-			select {
-			case <-m.cancelCtx.Done():
-				return
-			default:
-			}
-
-			select {
-			case <-m.cancelCtx.Done():
-				return
-			case <-encoderChannel:
-			}
-
-			m.stateMu.Lock()
-			if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-				m.state.curPosition++
-				stop = m.state.regulated && m.state.curPosition >= m.state.setPoint
-			} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-				m.state.curPosition--
-				stop = m.state.regulated && m.state.curPosition <= m.state.setPoint
-			} else if rpmDebug {
-				m.logger.Warn("got encoder tick but motor should be off")
-			}
-
-			if stop {
-				err := m.off(m.cancelCtx)
-				if err != nil {
-					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
-				}
-			}
-			m.stateMu.Unlock()
-		}
-	}, m.activeBackgroundWorkers.Done)
-}
-
-/*
-   picture from https://github.com/joan2937/pigpio/blob/master/EXAMPLES/C/ROTARY_ENCODER/rotary_encoder.c
-     1   2     3    4    1    2    3    4     1
-
-             +---------+         +---------+      0
-             |         |         |         |
-   A         |         |         |         |
-             |         |         |         |
-   +---------+         +---------+         +----- 1
-
-       +---------+         +---------+            0
-       |         |         |         |
-   B   |         |         |         |
-       |         |         |         |
-   ----+         +---------+         +---------+  1
-
-*/
-func (m *encodedMotor) startRotaryEncoderWorker(onStart func()) {
-	chanA := make(chan bool)
-	chanB := make(chan bool)
-
-	m.encoder.AddCallback(chanA)
-	m.encoderB.AddCallback(chanB)
-
-	m.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		onStart()
-		aLevel := true
-		bLevel := true
-
-		lastWasA := true
-		lastLevel := true
-
-		for {
-
-			select {
-			case <-m.cancelCtx.Done():
-				return
-			default:
-			}
-
-			var level bool
-			var isA bool
-
-			select {
-			case <-m.cancelCtx.Done():
-				return
-			case level = <-chanA:
-				isA = true
-				aLevel = level
-			case level = <-chanB:
-				isA = false
-				bLevel = level
-			}
-
-			if isA == lastWasA && level == lastLevel {
-				// this means we got the exact same message multiple times
-				// this is probably some sort of hardware issue, so we ignore
-				continue
-			}
-			lastWasA = isA
-			lastLevel = level
-
-			m.stateMu.Lock()
-
-			if !aLevel && !bLevel { // state 1
-				if lastWasA {
-					m.state.curPosition++
-				} else {
-					m.state.curPosition--
-				}
-			} else if !aLevel && bLevel { // state 2
-				if lastWasA {
-					m.state.curPosition--
-				} else {
-					m.state.curPosition++
-				}
-			} else if aLevel && bLevel { // state 3
-				if lastWasA {
-					m.state.curPosition++
-				} else {
-					m.state.curPosition--
-				}
-			} else if aLevel && !bLevel { // state 4
-				if lastWasA {
-					m.state.curPosition--
-				} else {
-					m.state.curPosition++
-				}
-			}
-
-			if m.state.regulated {
-				var ticksLeft int64
-
-				if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-					ticksLeft = m.state.setPoint - m.state.curPosition
-				} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-					ticksLeft = m.state.curPosition - m.state.setPoint
-				}
-				rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
-
-				stop := rotationsLeft <= 0.0
-
-				if stop {
-					m.state.timeLeftSeconds = 0
-					err := m.off(m.cancelCtx)
-					if err != nil {
-						m.logger.Warnf("error turning motor off from after hit set point: %v", err)
-					}
-				} else {
-					m.state.timeLeftSeconds = 60.0 * rotationsLeft / m.state.desiredRPM
-				}
-
-			}
-			m.stateMu.Unlock()
-
-		}
-	}, m.activeBackgroundWorkers.Done)
-}
-
 func (m *encodedMotor) rpmMonitor(onStart func()) {
 	if m.encoder == nil {
 		panic("started rpmMonitor but have no encoder")
@@ -418,9 +250,12 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 	m.startedRPMMonitorMu.Unlock()
 
 	// just a convenient place to start the encoder listener
-	m.startRegulatorWorker(onStart)
+	m.encoder.Start(m.cancelCtx, m.activeBackgroundWorkers, onStart)
 
-	lastCount := m.encoder.Value()
+	lastPos, err := m.encoder.Position(m.cancelCtx)
+	if err != nil {
+		panic(err)
+	}
 	lastTime := time.Now().UnixNano()
 
 	rpmSleep, rpmDebug := getRPMSleepDebug()
@@ -440,7 +275,15 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 		case <-timer.C:
 		}
 
-		count := m.encoder.Value()
+		pos, err := m.encoder.Position(m.cancelCtx)
+		if err != nil {
+			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
+			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
+				m.logger.Info("error sleeping, giving up %w", m.cancelCtx.Err())
+				return
+			}
+			continue
+		}
 		now := time.Now().UnixNano()
 		if now == lastTime {
 			// this really only happens in testing, b/c we decrease sleep, but nice defense anyway
@@ -449,63 +292,82 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 
 		m.stateMu.Lock()
-		desiredRPM := m.state.desiredRPM
-		if m.state.timeLeftSeconds > 0 {
-			if m.state.timeLeftSeconds < .5 {
-				desiredRPM = desiredRPM / 2
-			}
-			if m.state.timeLeftSeconds < .1 {
-				desiredRPM = desiredRPM / 2
-			}
-		}
-		lastPowerPct := m.state.lastPowerPct
+		var ticksLeft int64
 
-		if desiredRPM > 0 {
-			rotations := float64(count-lastCount) / float64(m.cfg.TicksPerRotation)
-			minutes := float64(now-lastTime) / (1e9 * 60)
-			currentRPM := rotations / minutes
-			if minutes == 0 {
-				currentRPM = 0
+		if m.state.regulated {
+			if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+				ticksLeft = m.state.setPoint - pos
+			} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+				ticksLeft = pos - m.state.setPoint
 			}
 
-			var newPowerPct float32
+			rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
 
-			if currentRPM == 0 {
-				if lastPowerPct < .01 {
-					newPowerPct = .01
-				} else {
-					newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+			if rotationsLeft <= 0 {
+				err := m.off(m.cancelCtx)
+				if err != nil {
+					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
 				}
 			} else {
-				dOverC := desiredRPM / currentRPM
-				if dOverC > 2 {
-					dOverC = 2
-				}
-				neededPowerPct := float64(lastPowerPct) * dOverC
+				desiredRPM := m.state.desiredRPM
+				timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
 
-				if neededPowerPct < .01 {
-					neededPowerPct = .01
-				} else if neededPowerPct > 1 {
-					neededPowerPct = 1
+				if timeLeftSeconds > 0 {
+					if timeLeftSeconds < .5 {
+						desiredRPM = desiredRPM / 2
+					}
+					if timeLeftSeconds < .1 {
+						desiredRPM = desiredRPM / 2
+					}
+				}
+				lastPowerPct := m.state.lastPowerPct
+
+				rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+				minutes := float64(now-lastTime) / (1e9 * 60)
+				currentRPM := rotations / minutes
+				if minutes == 0 {
+					currentRPM = 0
 				}
 
-				newPowerPct = m.computeRamp(lastPowerPct, float32(neededPowerPct))
-			}
+				var newPowerPct float32
 
-			if newPowerPct != lastPowerPct {
-				if rpmDebug {
-					m.logger.Debugf("current rpm: %0.1f powerPct: %v newPowerPct: %v desiredRPM: %0.1f",
-						currentRPM, lastPowerPct*100, newPowerPct*100, desiredRPM)
+				if currentRPM == 0 {
+					if lastPowerPct < .01 {
+						newPowerPct = .01
+					} else {
+						newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+					}
+				} else {
+					dOverC := desiredRPM / currentRPM
+					if dOverC > 2 {
+						dOverC = 2
+					}
+					neededPowerPct := float64(lastPowerPct) * dOverC
+
+					if neededPowerPct < .01 {
+						neededPowerPct = .01
+					} else if neededPowerPct > 1 {
+						neededPowerPct = 1
+					}
+
+					newPowerPct = m.computeRamp(lastPowerPct, float32(neededPowerPct))
 				}
-				err := m.setPower(m.cancelCtx, newPowerPct, true)
-				if err != nil {
-					m.logger.Warnf("rpm regulator cannot set power %s", err)
+
+				if newPowerPct != lastPowerPct {
+					if rpmDebug {
+						m.logger.Debugf("current rpm: %0.1f powerPct: %v newPowerPct: %v desiredRPM: %0.1f",
+							currentRPM, lastPowerPct*100, newPowerPct*100, desiredRPM)
+					}
+					err := m.setPower(m.cancelCtx, newPowerPct, true)
+					if err != nil {
+						m.logger.Warnf("rpm regulator cannot set power %s", err)
+					}
 				}
 			}
 		}
 		m.stateMu.Unlock()
 
-		lastCount = count
+		lastPos = pos
 		lastTime = now
 	}
 }
@@ -549,11 +411,15 @@ func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
+	pos, err := m.encoder.Position(ctx)
+	if err != nil {
+		return err
+	}
 	m.stateMu.Lock()
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-		m.state.setPoint = m.state.curPosition + numTicks
+		m.state.setPoint = pos + numTicks
 	} else if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-		m.state.setPoint = m.state.curPosition - numTicks
+		m.state.setPoint = pos - numTicks
 	} else {
 		m.stateMu.Unlock()
 		panic("impossible")
