@@ -3,6 +3,7 @@
 // Package pi implements a Board and its related interfaces for a Raspberry Pi.
 package pi
 
+// #include <stdlib.h>
 // #include <pigpio.h>
 // #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
@@ -91,10 +92,9 @@ func init() {
 // accessed via pigpio.
 type piPigpio struct {
 	cfg           board.Config
-	analogEnabled bool
-	analogSpi     C.int
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
+	spis          map[string]board.SPI
 	servos        map[string]board.Servo
 	interrupts    map[string]board.DigitalInterrupt
 	interruptsHW  map[uint]board.DigitalInterrupt
@@ -132,6 +132,14 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		}
 		initOnce = true
 	}
+
+	initGood := false
+	defer func() {
+		if !initGood {
+			C.gpioTerminate()
+			logger.Debug("Pi GPIO terminated due to failed init.")
+		}
+	}()
 	instanceMu.Unlock()
 
 	// setup servos
@@ -145,6 +153,15 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		piInstance.servos[c.Name] = &piPigpioServo{piInstance, C.uint(bcom)}
 	}
 
+	// setup SPI buses
+	piInstance.spis = map[string]board.SPI{}
+	for _, sc := range cfg.SPIs {
+		if sc.BusID > 1 {
+			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
+		}
+		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busID: sc.BusID}
+	}
+
 	// setup analogs
 	piInstance.analogs = map[string]board.AnalogReader{}
 	for _, ac := range cfg.Analogs {
@@ -153,7 +170,12 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		ar := &piPigpioAnalogReader{piInstance, channel}
+		bus := piInstance.SPI(ac.SPIBus)
+		if bus == nil {
+			return nil, errors.Errorf("AnalogReader can't find SPI bus named %s", ac.SPIBus)
+		}
+
+		ar := &piPigpioAnalogReader{piInstance, channel, bus, ac.ChipSelect}
 		piInstance.analogs[ac.Name] = board.SmoothAnalogReader(ar, ac, logger)
 	}
 
@@ -202,7 +224,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	instanceMu.Lock()
 	instances[piInstance] = struct{}{}
 	instanceMu.Unlock()
-
+	initGood = true
 	return piInstance, nil
 }
 
@@ -276,20 +298,106 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 	return nil
 }
 
-// piPigpioAnalogReader implements a board.AnalogReader using pigpio.
+// piPigpioAnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
 type piPigpioAnalogReader struct {
 	pi      *piPigpio
 	channel int
+	bus     board.SPI
+	chip    uint
 }
 
 func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
-	return par.pi.AnalogRead(par.channel)
+	tx := make([]byte, 3)
+	tx[0] = 1                            // start bit
+	tx[1] = byte((8 + par.channel) << 4) // single-ended
+	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
+
+	par.bus.Lock()
+	defer par.bus.Unlock()
+
+	rx, err := par.bus.Xfer(1000000, par.chip, 0, tx)
+	if err != nil {
+		return 0, err
+	}
+	val := int(rx[1])<<8 | int(rx[2]) // reassemble 10 bit value
+
+	return val, nil
+}
+
+type piPigpioSPI struct {
+	pi    *piPigpio
+	mu    sync.Mutex
+	busID uint
+}
+
+func (s *piPigpioSPI) Xfer(baud uint, chip uint, mode uint, tx []byte) (rx []byte, err error) {
+
+	var spiFlags uint
+
+	if s.busID == 1 {
+		spiFlags = spiFlags | 128 // Sets AUX SPI bus bit
+		if chip > 2 {
+			return nil, errors.Errorf("AUX SPI Bus only supports chips/channels 0-2")
+		}
+	} else if chip > 1 {
+		return nil, errors.Errorf("Main SPI Bus only supports chips/channels 0-1")
+	}
+
+	// Bitfields for mode
+	// Mode POL PHA
+	// 0    0   0
+	// 1    0   1
+	// 2    1   0
+	// 3    1   1
+	spiFlags = spiFlags | mode
+
+	count := len(tx)
+	rx = make([]byte, count)
+	rxPtr := C.CBytes(rx)
+	defer C.free(rxPtr)
+	txPtr := C.CBytes(tx)
+	defer C.free(txPtr)
+
+	handle := C.spiOpen((C.uint)(chip), (C.uint)(baud), (C.uint)(spiFlags))
+
+	if handle < 0 {
+		return nil, errors.Errorf("Error opening SPI Bus %d return code was %d", s.busID, handle)
+	}
+	defer C.spiClose((C.uint)(handle))
+
+	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
+	if int(ret) != int(count) {
+		return nil, errors.Errorf("Error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
+	}
+
+	rx = C.GoBytes(rxPtr, (C.int)(count))
+
+	return rx, nil
+}
+
+func (s *piPigpioSPI) Lock() {
+	s.mu.Lock()
+	return
+}
+
+func (s *piPigpioSPI) Unlock() {
+	s.mu.Unlock()
+	return
 }
 
 // MotorNames returns the name of all known motors.
 func (pi *piPigpio) MotorNames() []string {
 	names := []string{}
 	for k := range pi.motors {
+		names = append(names, k)
+	}
+	return names
+}
+
+// SPINames returns the name of all known SPI buses.
+func (pi *piPigpio) SPINames() []string {
+	names := []string{}
+	for k := range pi.spis {
 		names = append(names, k)
 	}
 	return names
@@ -326,20 +434,6 @@ func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
 	return pi.analogs[name]
 }
 
-// AnalogRead read a value on a given channel.
-func (pi *piPigpio) AnalogRead(channel int) (int, error) {
-	if !pi.analogEnabled {
-		pi.analogSpi = C.spiOpen(0, 1000000, 0)
-		if pi.analogSpi < 0 {
-			return -1, errors.Errorf("spiOpen failed %d", pi.analogSpi)
-		}
-		pi.analogEnabled = true
-	}
-
-	val := int(C.doAnalogRead(pi.analogSpi, C.int(channel)))
-	return val, nil
-}
-
 // piPigpioServo implements a board.Servo using pigpio.
 type piPigpioServo struct {
 	pi  *piPigpio
@@ -364,6 +458,10 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
+func (pi *piPigpio) SPI(name string) board.SPI {
+	return pi.spis[name]
+}
+
 func (pi *piPigpio) Servo(name string) board.Servo {
 	return pi.servos[name]
 }
@@ -382,11 +480,6 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close() error {
-	if pi.analogEnabled {
-		C.spiClose(C.uint(pi.analogSpi))
-		pi.analogSpi = 0
-		pi.analogEnabled = false
-	}
 
 	instanceMu.Lock()
 	if len(instances) == 1 {
@@ -403,6 +496,10 @@ func (pi *piPigpio) Close() error {
 
 	for _, servo := range pi.servos {
 		err = multierr.Combine(err, utils.TryClose(servo))
+	}
+
+	for _, spi := range pi.spis {
+		err = multierr.Combine(err, utils.TryClose(spi))
 	}
 
 	for _, analog := range pi.analogs {
