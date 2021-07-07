@@ -28,13 +28,13 @@ type ReturnTest struct {
 // CreateCombinedIKSolver creates a combined parallel IK solver with the number of models given
 // Must pass at least two models. Two will produce one jacobian IK solver, and all additional
 // models will create nlopt solvers with different random seeds
-func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
+func CreateCombinedIKSolver(model *Model, logger golog.Logger, nCPU int) *CombinedIK {
 	ik := &CombinedIK{}
 	if len(models) < 2 {
 		// Anything calling this should check core counts
 		return nil
 	}
-	ik.Mdl = models[0]
+	ik.Mdl = model
 	models[1].SetSeed(1)
 	ik.solvers = append(ik.solvers, CreateNloptIKSolver(models[1], logger))
 	for i := 2; i < len(models); i++ {
