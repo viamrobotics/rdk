@@ -11,7 +11,6 @@ type Config struct {
 	Name              string                   `json:"name"`
 	Model             string                   `json:"model"` // example: "pi"
 	Motors            []MotorConfig            `json:"motors"`
-	Serials           []SerialConfig           `json:"serials"`
 	Servos            []ServoConfig            `json:"servos"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
@@ -29,11 +28,6 @@ func (config *Config) Validate(path string) error {
 	}
 	for idx, conf := range config.Servos {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "servos", idx)); err != nil {
-			return err
-		}
-	}
-	for idx, conf := range config.Serials {
-		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "serials", idx)); err != nil {
 			return err
 		}
 	}
@@ -68,9 +62,6 @@ func (config *Config) Merge(with *Config) (*Config, error) {
 	}
 	if len(config.Servos) != 0 || len(with.Servos) != 0 {
 		merged.Servos = append(append([]ServoConfig{}, config.Servos...), with.Servos...)
-	}
-	if len(config.Serials) != 0 || len(with.Serials) != 0 {
-		merged.Serials = append(append([]SerialConfig{}, config.Serials...), with.Serials...)
 	}
 	if len(config.Analogs) != 0 || len(with.Analogs) != 0 {
 		merged.Analogs = append(append([]AnalogConfig{}, config.Analogs...), with.Analogs...)
@@ -112,28 +103,6 @@ type MotorConfig struct {
 func (config *MotorConfig) Validate(path string) error {
 	if config.Name == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	return nil
-}
-
-// SerialConfig describes the configuration of a serial port on a board.
-type SerialConfig struct {
-	Name                  string `json:"name"`
-	DevPath               string `json:"devPath"`
-	BaudRate              uint   `json:"baudRate"`
-	DataBits              uint   `json:"dataBits"`
-	StopBits              uint   `json:"stopBits"`
-	MinimumReadSize       uint   `json:"minimumReadSize"`
-	InterCharacterTimeout uint   `json:"interCharacterTimeout"`
-}
-
-// Validate ensures all parts of the config are valid.
-func (config *SerialConfig) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
-	}
-	if config.DevPath == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "devPath")
 	}
 	return nil
 }
