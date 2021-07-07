@@ -1,22 +1,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strconv"
-
-	"github.com/edaniels/golog"
-	"go.viam.com/core/robot"
 )
-
-const (
-	NUM_FACIAL_LANDMARKS = 68
-)
-
-var logger = golog.NewDevelopmentLogger("armplay-caricature")
 
 type CaricaturePoint struct {
 	Location int     `json:"loc"`
@@ -33,15 +22,23 @@ type Face struct {
 	Features []CaricatureFeature `json:"facial_features"`
 }
 
-func parseJSON(path string) error {
+const (
+	JSON_PATH string = "../json/selfie.json"
+)
+
+func parseJSON(path string) (Face, error) {
 	var face Face
 	byteSequence, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		return face, err
 	}
 	json.Unmarshal(byteSequence, &face)
+	return face, nil
+}
+
+func printFace(face Face) {
 	for i := 0; i < len(face.Features); i++ {
-		fmt.Println("Facial Feature: " + face.Features[i].Name)
+		fmt.Println("\nFacial Feature: " + face.Features[i].Name)
 		num_points := len(face.Features[i].Points)
 		for j := 0; j < num_points; j++ {
 			fmt.Println("Location: " + strconv.Itoa(face.Features[i].Points[j].Location))
@@ -49,31 +46,19 @@ func parseJSON(path string) error {
 			fmt.Println("YCoord: " + strconv.FormatFloat(face.Features[i].Points[j].YCoord, 'f', 6, 64))
 		}
 	}
-	return nil
 }
 
-func drawPoint(ctx context.Context, r robot.Robot) error {
-	if len(r.ArmNames()) != 1 {
-		return errors.New("need 1 arm name")
+func facialFeaturePointsFromFace(face Face, feature_by_int int) ([]float64, []float64) {
+	var xdata []float64
+	var ydata []float64
+	for fcp := 0; fcp < len(face.Features[feature_by_int].Points); fcp++ {
+		xdata = append(xdata, face.Features[feature_by_int].Points[fcp].XCoord)
+		ydata = append(ydata, face.Features[feature_by_int].Points[fcp].YCoord)
 	}
-	arm := r.ArmByName(r.ArmNames()[0])
-
-	for i := 0; i < NUM_FACIAL_LANDMARKS; i++ {
-		pos, err := arm.CurrentPosition(ctx)
-		if err != nil {
-			return err
-		}
-		arm.MoveToPosition(ctx, pos)
-	}
-	return nil
+	return xdata, ydata
 }
 
-func main() {
-	// action.RegisterAction("drawPoint", func(ctx context.Context, r robot.Robot) {
-	// 	err := drawPoint(ctx, r)
-	// 	if err != nil {
-	// 		logger.Errorf("error: %s", err)
-	// 	}
-	// })
-	parseJSON("selfie.json")
+func createPlotsAndRegressions() error {
+	err := polyPlotAllCurves()
+	return err
 }
