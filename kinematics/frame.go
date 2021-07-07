@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -24,7 +24,7 @@ func NewFrame() *Frame {
 	f := Frame{}
 	f.IsWorld = false
 	f.IsBody = false
-	f.i.t = kinmath.NewQuatTrans()
+	f.i.t = spatialmath.NewDualQuaternion()
 	f.selfcollision = make(map[*Frame]bool)
 	f.v = dualquat.Number{quat.Number{Real: 1}, quat.Number{}}
 	return &f

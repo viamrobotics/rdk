@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 )
 
 func TestCreateNloptIKSolver(t *testing.T) {
@@ -20,7 +20,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	ik := CreateNloptIKSolver(m, logger)
 
 	pos := pb.ArmPosition{X: 360, Z: 362}
-	transform := kinmath.NewQuatTransFromArmPos(&pos)
+	transform := spatialmath.NewDualQuaternionFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)
 
@@ -31,7 +31,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	test.That(t, solved, test.ShouldBeTrue)
 
 	pos = pb.ArmPosition{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
-	transform = kinmath.NewQuatTransFromArmPos(&pos)
+	transform = spatialmath.NewDualQuaternionFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)
 

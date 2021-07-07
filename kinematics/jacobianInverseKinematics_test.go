@@ -4,8 +4,8 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/core/kinematics/kinmath"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
@@ -21,7 +21,7 @@ func TestCreateJacIKSolver(t *testing.T) {
 	pos := pb.ArmPosition{X: 360, Y: 0, Z: 360, OX: 1, OY: 0, OZ: 0, Theta: 15}
 	pos.Theta *= math.Pi / 180
 
-	transform := kinmath.NewQuatTransFromArmPos(&pos)
+	transform := spatialmath.NewDualQuaternionFromArmPos(&pos)
 
 	ik.AddGoal(transform, 0)
 	solved := ik.Solve()
@@ -33,7 +33,7 @@ func TestCreateJacIKSolver(t *testing.T) {
 	// pos.Ry *= math.Pi/180
 	// pos.Rz *= math.Pi/180
 
-	// transform = kinmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
+	// transform = spatialmath.NewQuatTransFromRotation(pos.Rx, pos.Ry, pos.Rz)
 	// transform.SetQuat(dualquat.Number{quat.Number{0.23488388003361693,0.5520144509489663,-0.7833317466881079,0.16279122665065213}, quat.Number{}})
 	// transform.SetX(pos.X/2)
 	// transform.SetY(pos.Y/2)

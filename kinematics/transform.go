@@ -1,7 +1,7 @@
 package kinematics
 
 import (
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -11,7 +11,7 @@ import (
 type Transform struct {
 	in         *Frame
 	out        *Frame
-	t          *kinmath.QuatTrans
+	t          *spatialmath.DualQuaternion
 	descriptor graph.Edge
 	name       string
 	Rev        bool
@@ -20,7 +20,7 @@ type Transform struct {
 // NewTransform TODO
 func NewTransform() *Transform {
 	t := Transform{}
-	t.t = kinmath.NewQuatTrans()
+	t.t = spatialmath.NewDualQuaternion()
 	return &t
 }
 

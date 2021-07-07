@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 )
@@ -48,7 +48,7 @@ func CreateCombinedIKSolver(models []*Model, logger golog.Logger) *CombinedIK {
 }
 
 // AddGoal TODO
-func (ik *CombinedIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
+func (ik *CombinedIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
 	for _, solver := range ik.solvers {
 		solver.AddGoal(trans, effectorID)
 	}

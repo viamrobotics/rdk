@@ -1,10 +1,11 @@
-// Package kinmath defines mathematical operations useful in kinematics.
-package kinmath
+// Package spatialmath defines spatial mathematical operations
+package spatialmath
 
 import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -18,111 +19,112 @@ const degToRad = math.Pi / 180
 // math around the poles of orientation.
 const angleEpsilon = 0.01 // radians
 
-// QuatTrans defines functions to perform rigid QuatTransformations in 3D.
-type QuatTrans struct {
+// DualQuaternion defines functions to perform rigid DualQuaternionformations in 3D.
+type DualQuaternion struct {
 	Quat dualquat.Number
 }
 
-// OrientationVec containing ox, oy, oz, theta represents an orientation vector
-// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
-// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
-// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
-// from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
-// theta will perform an in-line rotation of the end effector.
-// Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
-// point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
-// zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
-type OrientationVec struct {
-	Theta float64
-	OX    float64
-	OY    float64
-	OZ    float64
-}
-
-// NewQuatTrans returns a pointer to a new QuatTrans object whose Quaternion is an identity Quaternion.
-func NewQuatTrans() *QuatTrans {
-	return &QuatTrans{dualquat.Number{
+// NewDualQuaternion returns a pointer to a new DualQuaternion object whose Quaternion is an identity Quaternion.
+// Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
+// instead of &DualQuaternion{}.
+func NewDualQuaternion() *DualQuaternion {
+	return &DualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	}}
 }
 
-// NewQuatTransFromRotation returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
+// NewDualQuaternionFromRotation returns a pointer to a new DualQuaternion object whose rotation quaternion is set from a provided
 // orientation vector.
-func NewQuatTransFromRotation(ov *OrientationVec) *QuatTrans {
+func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OX = 1
 	}
 	NormalizeOV(ov)
-	return &QuatTrans{dualquat.Number{
+	return &DualQuaternion{dualquat.Number{
 		Real: OVToQuat(ov),
 		Dual: quat.Number{},
 	}}
 }
 
-// NewQuatTransFromArmPos returns a pointer to a new QuatTrans object whose rotation quaternion is set from a provided
+// NewDualQuaternionFromArmPos returns a pointer to a new DualQuaternion object whose rotation quaternion is set from a provided
 // arm position.
-func NewQuatTransFromArmPos(pos *pb.ArmPosition) *QuatTrans {
-	q := NewQuatTransFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
+func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
+	q := NewDualQuaternionFromRotation(&OrientationVec{pos.Theta * degToRad, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(pos.X, pos.Y, pos.Z)
 	return q
 }
 
-// Clone returns a QuatTrans object identical to this one.
-func (m *QuatTrans) Clone() *QuatTrans {
-	t := &QuatTrans{}
+// ToArmPos converts a DualQuaternion to
+func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
+	final := &pb.ArmPosition{}
+	cartQuat := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
+	final.X = cartQuat.Dual.Imag
+	final.Y = cartQuat.Dual.Jmag
+	final.Z = cartQuat.Dual.Kmag
+	poseOV := QuatToOV(q.Quat.Real)
+	final.Theta = utils.RadToDeg(poseOV.Theta)
+	final.OX = poseOV.OX
+	final.OY = poseOV.OY
+	final.OZ = poseOV.OZ
+	return final
+}
+
+// Clone returns a DualQuaternion object identical to this one.
+func (q *DualQuaternion) Clone() *DualQuaternion {
+	t := &DualQuaternion{}
 	// No need for deep copies here, dualquats are primitives all the way down
-	t.Quat = m.Quat
+	t.Quat = q.Quat
 	return t
 }
 
 // Rotation returns the rotation quaternion.
-func (m *QuatTrans) Rotation() quat.Number {
-	return m.Quat.Real
+func (q *DualQuaternion) Rotation() quat.Number {
+	return q.Quat.Real
 }
 
 // Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
 // and the dual is representative of 0.5 * real world millimeters.
-func (m *QuatTrans) Translation() dualquat.Number {
-	return dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+func (q *DualQuaternion) Translation() dualquat.Number {
+	return dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
-func (m *QuatTrans) SetTranslation(x, y, z float64) {
-	m.Quat.Dual = quat.Number{0, x / 2, y / 2, z / 2}
-	m.Rotate()
+func (q *DualQuaternion) SetTranslation(x, y, z float64) {
+	q.Quat.Dual = quat.Number{0, x / 2, y / 2, z / 2}
+	q.Rotate()
 }
 
 // SetX sets the x translation.
-func (m *QuatTrans) SetX(x float64) {
-	m.Quat.Dual.Imag = x
+func (q *DualQuaternion) SetX(x float64) {
+	q.Quat.Dual.Imag = x
 }
 
 // SetY sets the y translation.
-func (m *QuatTrans) SetY(y float64) {
-	m.Quat.Dual.Jmag = y
+func (q *DualQuaternion) SetY(y float64) {
+	q.Quat.Dual.Jmag = y
 }
 
 // SetZ sets the z translation.
-func (m *QuatTrans) SetZ(z float64) {
-	m.Quat.Dual.Kmag = z
+func (q *DualQuaternion) SetZ(z float64) {
+	q.Quat.Dual.Kmag = z
 }
 
 // Rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
-func (m *QuatTrans) Rotate() {
-	m.Quat.Dual = quat.Mul(m.Quat.Dual, m.Quat.Real)
+func (q *DualQuaternion) Rotate() {
+	q.Quat.Dual = quat.Mul(q.Quat.Dual, q.Quat.Real)
 }
 
-// ToDelta returns the difference between two QuatTrans'.
+// ToDelta returns the difference between two DualQuaternion'.
 // We use quaternion/angle axis for this because distances are well-defined.
-func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
+func (q *DualQuaternion) ToDelta(other *DualQuaternion) []float64 {
 	ret := make([]float64, 7)
 
-	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
+	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(q.Quat.Real))
 
 	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
-	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	mTrans := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
 	aa := QuatToR4AA(quatBetween)
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
@@ -134,15 +136,15 @@ func (m *QuatTrans) ToDelta(other *QuatTrans) []float64 {
 	return ret
 }
 
-// ToDeltaR3 returns the difference between two QuatTrans' using R3 angle axis.
+// ToDeltaR3 returns the difference between two DualQuaternion' using R3 angle axis.
 // We use quaternion/angle axis for this because distances are well-defined.
-func (m *QuatTrans) ToDeltaR3(other *QuatTrans) []float64 {
+func (q *DualQuaternion) ToDeltaR3(other *DualQuaternion) []float64 {
 	ret := make([]float64, 6)
 
-	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(m.Quat.Real))
+	quatBetween := quat.Mul(other.Quat.Real, quat.Conj(q.Quat.Real))
 
 	otherTrans := dualquat.Mul(other.Quat, dualquat.Conj(other.Quat))
-	mTrans := dualquat.Mul(m.Quat, dualquat.Conj(m.Quat))
+	mTrans := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))
 	aa := QuatToR3AA(quatBetween)
 	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
 	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
@@ -153,14 +155,14 @@ func (m *QuatTrans) ToDeltaR3(other *QuatTrans) []float64 {
 	return ret
 }
 
-// Transformation multiplies the dual quat contained in this QuatTrans by another dual quat.
-func (m *QuatTrans) Transformation(by dualquat.Number) dualquat.Number {
+// Transformation multiplies the dual quat contained in this DualQuaternion by another dual quat.
+func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
 	if vecLen := quat.Abs(by.Real); vecLen != 1 {
 		by.Real = quat.Scale(1/vecLen, by.Real)
 	}
 
-	return dualquat.Mul(m.Quat, by)
+	return dualquat.Mul(q.Quat, by)
 }
 
 // QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
@@ -279,43 +281,6 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	}
 
 	return ov
-}
-
-// OVToQuat converts an orientation vector to a quaternion.
-func OVToQuat(ov *OrientationVec) quat.Number {
-	q := quat.Number{}
-	// acos(rz) ranges from 0 (north pole) to pi (south pole)
-	lat := -math.Pi/2 + math.Acos(ov.OZ)
-
-	// If we're pointing at the Z axis then lon can be 0
-	lon := 0.0
-	theta := ov.Theta
-
-	// The contents of ov.OX are not in radians but we use angleEpsilon anyway to check how close we are to the pole
-	if 1+ov.OX < angleEpsilon {
-		lon = math.Pi
-	} else if 1-math.Abs(ov.OZ) > angleEpsilon {
-		// atan x/y removes some sign information so we use atan2 to do it properly
-		lon = math.Atan2(ov.OY, ov.OX)
-	} else {
-		// We are pointed at a pole (Z = 1 or -1) so theta is reversed
-		theta *= -1
-	}
-
-	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYX)
-	q.Real = q1.W
-	q.Imag = q1.X()
-	q.Jmag = q1.Y()
-	q.Kmag = q1.Z()
-	return q
-}
-
-// NormalizeOV scales the x, y, and z components of an Orientation Vector to be on the unit sphere
-func NormalizeOV(ov *OrientationVec) {
-	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
-	ov.OX /= norm
-	ov.OY /= norm
-	ov.OZ /= norm
 }
 
 // MatToEuler Converts a 4x4 matrix to Euler angles.

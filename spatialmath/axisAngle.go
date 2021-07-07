@@ -1,4 +1,4 @@
-package kinmath
+package spatialmath
 
 import (
 	"math"

@@ -1,18 +1,18 @@
 package kinematics
 
 import (
-	"go.viam.com/core/kinematics/kinmath"
+	"go.viam.com/core/spatialmath"
 )
 
 // Goal TODO
 type Goal struct {
-	GoalTransform *kinmath.QuatTrans
+	GoalTransform *spatialmath.DualQuaternion
 	EffectorID    int
 }
 
 // InverseKinematics TODO
 type InverseKinematics interface {
-	AddGoal(*kinmath.QuatTrans, int)
+	AddGoal(*spatialmath.DualQuaternion, int)
 	ClearGoals()
 	GetGoals() []Goal
 	Solve() bool

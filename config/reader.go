@@ -153,7 +153,7 @@ func openFromCache(id string) (io.ReadCloser, error) {
 }
 
 func storeToCache(id string, cfg *Config) error {
-	if err := os.MkdirAll(viamDotDir, 0640); err != nil {
+	if err := os.MkdirAll(viamDotDir, 0700); err != nil {
 		return err
 	}
 	md, err := json.MarshalIndent(cfg, "", "  ")

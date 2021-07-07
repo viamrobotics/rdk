@@ -1,8 +1,8 @@
 package kinematics
 
 import (
-	"go.viam.com/core/kinematics/kinmath"
 	"go.viam.com/core/rlog"
+	"go.viam.com/core/spatialmath"
 
 	"github.com/edaniels/golog"
 	"github.com/go-gl/mathgl/mgl64"
@@ -33,8 +33,8 @@ func CreateJacobianIKSolver(mdl *Model) *JacobianIK {
 }
 
 // AddGoal TODO
-func (ik *JacobianIK) AddGoal(trans *kinmath.QuatTrans, effectorID int) {
-	newtrans := &kinmath.QuatTrans{}
+func (ik *JacobianIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
+	newtrans := &spatialmath.DualQuaternion{}
 	*newtrans = *trans
 	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
 	ik.resetHalting()
