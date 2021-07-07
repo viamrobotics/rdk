@@ -2,12 +2,12 @@ package kinematics
 
 import (
 	"context"
+	"math/rand"
 	"runtime"
 	"testing"
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/testutils/inject"
 	"go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
@@ -16,23 +16,14 @@ import (
 
 const toSolve = 100
 
+var home = arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0})
+var ctx = context.Background()
+var nCPU = runtime.NumCPU()
+var seed = rand.New(rand.NewSource(1))
+
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
-	ctx := context.Background()
-	dummy := inject.Arm{}
-
-	jPos := arm.JointPositionsFromRadians([]float64{69.35309996071989, 28.752097952708045, -101.57720046840646, 0.9393597585332618, -73.96221972947882, 0.03845332136188379})
-
-	dummy.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return jPos, nil
-	}
-	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
-		jPos = joints
-		return nil
-	}
-
 	logger := golog.NewTestLogger(t)
-	nCPU := runtime.NumCPU()
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik := CreateCombinedIKSolver(m, logger, nCPU)
@@ -46,8 +37,8 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -1.32,
 		OZ: -1.11,
 	}
-	err = wxArm.MoveToPosition(ctx, pos)
-	test.That(t, err, test.ShouldBeNil)
+	solved, solution := ik.Solve(ctx, pos, home)
+	test.That(t, solved, test.ShouldBeTrue)
 
 	// Test moving forward 20 in X direction from previous position
 	pos = &pb.ArmPosition{
@@ -58,81 +49,50 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -33.160094626838045,
 		OZ: -111.02282693533935,
 	}
-	err = wxArm.MoveToPosition(ctx, pos)
-	test.That(t, err, test.ShouldBeNil)
+	solved, _ = ik.Solve(ctx, pos, solution)
+	test.That(t, solved, test.ShouldBeTrue)
 }
 
 func BenchCombinedIKinematics(t *testing.B) {
-	ctx := context.Background()
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
-	nCPU := runtime.NumCPU()
 
-	dummy := inject.Arm{}
-	jPos := arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0})
-	dummy.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return jPos, nil
-	}
-	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
-		jPos = joints
-		return nil
-	}
-
-	eva, err := NewArmJSONFile(&dummy, utils.ResolveFile("robots/eva/eva_kinematics.json"), nCPU, logger)
+	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
+	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	// Test we are able to solve random valid positions from other random valid positions
 	// Used for benchmarking solve rate
-	solved := 0
+	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
-		randJointPos := arm.JointPositionsFromRadians(eva.Model.RandomJointPositions())
-		randPos := ComputePosition(eva.Model, randJointPos)
-		dummy.MoveToJointPositions(ctx, arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0}))
-		err = eva.MoveToPosition(ctx, randPos)
-		if err == nil {
-			solved++
+		randJointPos := arm.JointPositionsFromRadians(m.RandomJointPositions(seed))
+		randPos := ComputePosition(m, randJointPos)
+		solved, _ := ik.Solve(ctx, randPos, home)
+		if solved {
+			solvedCnt++
 		}
 	}
-	logger.Debug("combined solved: ", solved)
+	logger.Debug("combined solved: ", solvedCnt)
 }
 
 func TestUR5NloptIKinematics(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	dummy := inject.Arm{}
-	jPos := arm.JointPositionsFromRadians([]float64{0.01, -2.0, 1.98, -1.771, -1.754, -0.4})
-	dummy.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return jPos, nil
-	}
-	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
-		jPos = joints
-		return nil
-	}
-	ur5e, err := NewArmJSONFile(&dummy, utils.ResolveFile("robots/universalrobots/ur5e.json"), 2, logger)
+
+	m, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
+	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
-	goal := ComputePosition(ur5e.Model, goalJP)
-	err = ur5e.MoveToPosition(ctx, goal)
-	test.That(t, err, test.ShouldBeNil)
+	goal := ComputePosition(m, goalJP)
+	solved, _ := ik.Solve(ctx, goal, home)
+	test.That(t, solved, test.ShouldBeTrue)
 }
 
 func TestIKTolerances(t *testing.T) {
-	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	nCPU := runtime.NumCPU()
 
-	dummy := inject.Arm{}
-	jPos := arm.JointPositionsFromRadians([]float64{0, 5})
-	dummy.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return jPos, nil
-	}
-	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
-		jPos = joints
-		return nil
-	}
-
-	v1Arm, err := NewArmJSONFile(&dummy, utils.ResolveFile("robots/varm/v1_test.json"), nCPU, logger)
+	m, err := ParseJSONFile(utils.ResolveFile("robots/varm/v1_test.json"))
 	test.That(t, err, test.ShouldBeNil)
+	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	// Test inability to arrive at another position due to orientation
 	pos := &pb.ArmPosition{
@@ -143,14 +103,14 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	err = v1Arm.MoveToPosition(ctx, pos)
-
-	test.That(t, err, test.ShouldNotBeNil)
+	solved, _ := ik.Solve(ctx, pos, home)
+	test.That(t, solved, test.ShouldBeFalse)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	v1Arm, err = NewArmJSONFile(&dummy, utils.ResolveFile("robots/varm/v1.json"), nCPU, logger)
+	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"))
 	test.That(t, err, test.ShouldBeNil)
-	err = v1Arm.MoveToPosition(ctx, pos)
+	ik = CreateCombinedIKSolver(m, logger, nCPU)
 
-	test.That(t, err, test.ShouldBeNil)
+	solved, _ = ik.Solve(ctx, pos, home)
+	test.That(t, solved, test.ShouldBeTrue)
 }

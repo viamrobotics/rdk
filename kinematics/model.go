@@ -38,36 +38,28 @@ type DistanceConfig struct {
 // And a Fixed will attach a Frame to a Body
 // Exceptions are the head of the tree where we are just starting the robot from World
 type Model struct {
-	manufacturer  string
-	name          string // the name of the arm
+	manufacturer string
+	name         string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Transform
-	RandSeed      *rand.Rand
 	DistCfg       DistanceConfig
 }
 
 // NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
-	m.RandSeed = rand.New(rand.NewSource(1))
 	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 
-// SetSeed sets the starting random seed for this model.
-func (m *Model) SetSeed(seed int64) {
-	m.RandSeed = rand.New(rand.NewSource(seed))
-}
-
 // RandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func (m *Model) RandomJointPositions() []float64 {
+func (m *Model) RandomJointPositions(randSeed *rand.Rand) []float64 {
 	var jointPos []float64
 	for _, joint := range m.Joints() {
-		jointPos = append(jointPos, joint.RandomJointPositions(m.RandSeed)...)
+		jointPos = append(jointPos, joint.RandomJointPositions(randSeed)...)
 	}
 	return jointPos
 }
-
 
 // Joints returns an array of all joints.
 func (m *Model) Joints() []*Joint {
@@ -120,8 +112,8 @@ func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 		quat := transform.Quaternion()
 		if joint, ok := transform.(*Joint); ok {
 			qDof := joint.Dof()
-			quat = joint.AngleQuaternion(pos[posIdx:posIdx+qDof])
-			posIdx+= qDof
+			quat = joint.AngleQuaternion(pos[posIdx : posIdx+qDof])
+			posIdx += qDof
 		}
 		quats = append(quats, quat)
 
@@ -149,7 +141,7 @@ func (m *Model) OperationalDof() int {
 // Dof returns the number of degrees of freedom within an arm.
 func (m *Model) Dof() int {
 	numDof := 0
-	for _, joint := range m.Joints(){
+	for _, joint := range m.Joints() {
 		numDof += joint.Dof()
 	}
 	return numDof

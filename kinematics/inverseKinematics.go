@@ -1,6 +1,8 @@
 package kinematics
 
 import (
+	"context"
+
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
@@ -13,11 +15,8 @@ type Goal struct {
 
 // InverseKinematics TODO
 type InverseKinematics interface {
-	Solve(*pb.ArmPosition, *pb.JointPositions) (bool, *pb.JointPositions)
-	SetID(int)
-	GetID() int
-	GetMdl() *Model
-	Halt()
+	Solve(context.Context, *pb.ArmPosition, *pb.JointPositions) (bool, *pb.JointPositions)
+	Mdl() *Model
 }
 
 // toArray returns the DistanceConfig as a slice with the components in the same order as the array returned from ToDelta

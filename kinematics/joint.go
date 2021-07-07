@@ -17,20 +17,20 @@ import (
 // TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
 
 var axesOfRotation = []quat.Number{
-	quat.Number{0,1,0,0},
-	quat.Number{0,0,1,0},
-	quat.Number{0,0,0,1},
+	{0, 1, 0, 0},
+	{0, 0, 1, 0},
+	{0, 0, 0, 1},
 }
 
 // Joint TODO
 type Joint struct {
-	parent      string
-	rotVectors  []quat.Number
-	dof         int
-	max         []float64
-	min         []float64
-	wraparound  []bool
-	Rev         bool
+	parent     string
+	rotVectors []quat.Number
+	dof        int
+	max        []float64
+	min        []float64
+	wraparound []bool
+	Rev        bool
 }
 
 // NewJoint creates a new Joint struct with the specified number of degrees of freedom.
@@ -39,8 +39,8 @@ func NewJoint(axes []int, dir, parent string) *Joint {
 	j := Joint{}
 	j.Rev = false
 	j.parent = parent
-	for i, axis := range(axes){
-		if axis > 0{
+	for i, axis := range axes {
+		if axis > 0 {
 			j.rotVectors = append(j.rotVectors, axesOfRotation[i])
 		}
 	}
@@ -82,7 +82,7 @@ func (j *Joint) Clamp(q []float64) {
 	}
 }
 
-// RandomJointPositions returns a list of random, guaranteed valid, positions for 
+// RandomJointPositions returns a list of random, guaranteed valid, positions for
 func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
 	var positions []float64
 	for i := 0; i < j.Dof(); i++ {
@@ -113,7 +113,7 @@ func (j *Joint) AngleQuaternion(angle []float64) *spatialmath.DualQuaternion {
 	for i := 0; i < j.Dof(); i++ {
 		r1 := dualquat.Number{Real: j.rotVectors[i]}
 		r1.Real = quat.Scale(math.Sin(angle[i]/2)/quat.Abs(r1.Real), r1.Real)
-		r1.Real.Real += math.Cos(angle [i]/ 2)
+		r1.Real.Real += math.Cos(angle[i] / 2)
 		if j.Rev {
 			// If our joint spins backwards, flip the quaternion
 			r1 = dualquat.Conj(r1)
@@ -167,6 +167,7 @@ func (j *Joint) IsValid(posvec []float64) bool {
 	return true
 }
 
+// Parent will return the name of the next transform up the kinematics chain from this joint.
 func (j *Joint) Parent() string {
 	return j.parent
 }
