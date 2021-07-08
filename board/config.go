@@ -14,6 +14,7 @@ type Config struct {
 	Servos            []ServoConfig            `json:"servos"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
+	Attributes        map[string]string        `json:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
