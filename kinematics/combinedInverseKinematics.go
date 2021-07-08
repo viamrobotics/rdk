@@ -11,22 +11,22 @@ import (
 	"github.com/edaniels/golog"
 )
 
-// CombinedIK TODO
+// CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
 	model   *Model
 	logger  golog.Logger
 }
 
-// ReturnTest TODO
+// ReturnTest is the struct used to communicate over a channel with the child parallel solvers.
 type ReturnTest struct {
 	Success bool
 	Result  *pb.JointPositions
 }
 
-// CreateCombinedIKSolver creates a combined parallel IK solver with the number of models given
-// Must pass at least two models. Two will produce one jacobian IK solver, and all additional
-// models will create nlopt solvers with different random seeds
+// CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
+// passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
+// and the first valid found solution will be returned.
 func CreateCombinedIKSolver(model *Model, logger golog.Logger, nCPU int) *CombinedIK {
 	ik := &CombinedIK{}
 	ik.model = model
