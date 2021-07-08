@@ -5,11 +5,11 @@ bool Buffer::readTillNewLine() {
     while (_port->available()) {
         int x = _port->read();
 
-        if (x == '\n') {
+        if (x == '\r') {
             continue;
         }
 
-        if (x == '\r') {
+        if (x == '\n') {
             _buf[_pos] = 0;
             return true;
         }
