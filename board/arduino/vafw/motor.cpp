@@ -4,11 +4,7 @@
 extern HardwareSerial* debugSerial;
 
 Motor::Motor(const char* name, int in1, int in2, int pwm)
-    : _in1(in1),
-      _in2(in2),
-      _pwm(pwm),
-      _moving(0),
-      _regulated(false){
+    : _in1(in1), _in2(in2), _pwm(pwm), _moving(0), _regulated(false) {
     strcpy(_name, name);
     pinMode(_in1, OUTPUT);
     pinMode(_in2, OUTPUT);
@@ -50,7 +46,6 @@ void Motor::go(bool forward, int power) {
 }
 
 void Motor::goFor(long ticksPerSecond, long ticks) {
-
     auto currentPosition = _encoder.position();
     _lastRPMCheck = millis();
     _lastRPMEncoderCount = currentPosition;
@@ -73,14 +68,14 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
 }
 
 void Motor::checkEncoder(long unsigned int now) {
-    if ( !_regulated) {
+    if (!_regulated) {
         return;
     }
 
     auto currentPosition = _encoder.position();
-    
-    if ( (_moving > 0 && currentPosition >= _goal) ||
-         (_moving < 0 && currentPosition <= _goal) ) {
+
+    if ((_moving > 0 && currentPosition >= _goal) ||
+        (_moving < 0 && currentPosition <= _goal)) {
         stop();
         return;
     }
@@ -89,13 +84,14 @@ void Motor::checkEncoder(long unsigned int now) {
     auto timeDiff = now - _lastRPMCheck;
     if (timeDiff > millisBetween) {
         // it's been more than time limit, so we do a check
-        auto ticksPerSecond = long(abs(currentPosition - _lastRPMEncoderCount) * (1000/millisBetween));
+        auto ticksPerSecond = long(abs(currentPosition - _lastRPMEncoderCount) *
+                                   (1000 / millisBetween));
 
         if (ticksPerSecond == 0) {
             if (_power < 16) {
                 setPower(16);
             } else {
-                setPower(_power*2);
+                setPower(_power * 2);
             }
         } else if (ticksPerSecond > _ticksPerSecond) {
             setPower(_power / 1.1);
@@ -108,7 +104,7 @@ void Motor::checkEncoder(long unsigned int now) {
         Serial.print(_lastRPMEncoderCount);
         Serial.print(" ");
         */
-        Serial.print(currentPosition-_lastRPMEncoderCount);
+        Serial.print(currentPosition - _lastRPMEncoderCount);
         Serial.print(" ");
         Serial.print(_ticksPerSecond);
         Serial.print(" ");
@@ -120,7 +116,4 @@ void Motor::checkEncoder(long unsigned int now) {
         _lastRPMCheck = now;
         _lastRPMEncoderCount = currentPosition;
     }
-
 }
-
-

@@ -27,5 +27,3 @@ class Buffer {
     char _buf[256];
     int _pos;
 };
-
-

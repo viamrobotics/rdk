@@ -28,3 +28,8 @@ build-go:
 
 test: test-cpp build-go deploy
 	sleep 1 && go test -v
+
+
+format:
+	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find * -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
+

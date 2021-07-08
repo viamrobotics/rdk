@@ -20,7 +20,7 @@ Buffer* buf1;
 Buffer* buf2;
 
 int findEmptyMotor() {
-    for (int i=0; i<MAX_MOTORS; i++) {
+    for (int i = 0; i < MAX_MOTORS; i++) {
         if (!motors[i].motor) {
             return i;
         }
@@ -29,7 +29,7 @@ int findEmptyMotor() {
 }
 
 Motor* findMotor(const char* name) {
-    for (int i=0; i<MAX_MOTORS; i++) {
+    for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].motor && strcmp(name, motors[i].motor->name()) == 0) {
             return motors[i].motor;
         }
@@ -37,7 +37,8 @@ Motor* findMotor(const char* name) {
     return 0;
 }
 
-void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, int encA, int encB) {
+void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB,
+                      int encA, int encB) {
     int motor = findEmptyMotor();
     if (motor < 0) {
         b->println("#not enough motor slots");
@@ -55,12 +56,11 @@ void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB, 
         b->println("#encoder setup fail");
         return;
     }
-
 }
 
 void setup() {
     Serial.begin(9600);
-    
+
     buf1 = new Buffer(&Serial);
     buf2 = new Buffer(&Serial3);
 
@@ -80,7 +80,7 @@ void processBuffer(Buffer* b) {
     if (!b->readTillNewLine()) {
         return;
     }
-    
+
     const char* line = b->getLineAndReset();
     if (line[0] == '!') {
         b->println("!");
@@ -89,7 +89,7 @@ void processBuffer(Buffer* b) {
 
     if (isCommand(line, "echo")) {
         char res[255];
-        sprintf(res, "@%s", line+5);
+        sprintf(res, "@%s", line + 5);
         b->println(res);
         return;
     }
@@ -97,7 +97,8 @@ void processBuffer(Buffer* b) {
     if (isCommand(line, "config-motor-dc")) {
         char name[255];
         int pwm, pinA, pinB, encA, encB;
-        int n = sscanf(line, "config-motor-dc %s %d %d %d e %d %d", name, &pwm, &pinA, &pinB, &encA, &encB);
+        int n = sscanf(line, "config-motor-dc %s %d %d %d e %d %d", name, &pwm,
+                       &pinA, &pinB, &encA, &encB);
         if (n != 6) {
             b->println("");
             b->print(n);
@@ -107,7 +108,7 @@ void processBuffer(Buffer* b) {
         }
 
         configureMotorDC(b, name, pwm, pinA, pinB, encA, encB);
-        
+
         b->println("@ok");
         return;
     }
@@ -158,7 +159,7 @@ void processBuffer(Buffer* b) {
             b->println("#error parsing motor-gofor");
             return;
         }
-                
+
         Motor* m = findMotor(name);
         if (!m) {
             b->println(name);
@@ -181,7 +182,7 @@ void processBuffer(Buffer* b) {
             b->println("#error parsing motor-gofor");
             return;
         }
-                
+
         Motor* m = findMotor(name);
         if (!m) {
             b->println(name);
@@ -203,7 +204,7 @@ void processBuffer(Buffer* b) {
             b->println("#error parsing motor-gofor");
             return;
         }
-                
+
         Motor* m = findMotor(name);
         if (!m) {
             b->println(name);
@@ -222,7 +223,7 @@ void processBuffer(Buffer* b) {
 void loop() {
     processBuffer(buf1);
     processBuffer(buf2);
-    for (int i=0; i<MAX_MOTORS; i++) {
+    for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].motor) {
             motors[i].motor->checkEncoder(millis());
         }
@@ -235,7 +236,7 @@ void setupInterruptBasic(int pin, void (*ISR)(), int what) {
 }
 
 void motorEncoder(int pin) {
-    for (int i=0; i<MAX_MOTORS; i++) {
+    for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].encA == pin) {
             motors[i].motor->encoder()->encoderTick(true);
             return;
@@ -248,34 +249,33 @@ void motorEncoder(int pin) {
     Serial.println("found no encoder");
 }
 
-void motorInt2() {motorEncoder(2);}
-void motorInt3() {motorEncoder(3);}
-void motorInt18() {motorEncoder(18);}
-void motorInt19() {motorEncoder(19);}
-void motorInt20() {motorEncoder(20);}
-void motorInt21() {motorEncoder(21);}
+void motorInt2() { motorEncoder(2); }
+void motorInt3() { motorEncoder(3); }
+void motorInt18() { motorEncoder(18); }
+void motorInt19() { motorEncoder(19); }
+void motorInt20() { motorEncoder(20); }
+void motorInt21() { motorEncoder(21); }
 
-bool setupInterruptForMotor(int pin){
-    switch(pin) {
-    case 2:
-        setupInterruptBasic(pin, motorInt2, CHANGE);
-        return true;
-    case 3:
-        setupInterruptBasic(pin, motorInt3, CHANGE);
-        return true;
-    case 18:
-        setupInterruptBasic(pin, motorInt18, CHANGE);
-        return true;
-    case 19:
-        setupInterruptBasic(pin, motorInt19, CHANGE);
-        return true;
-    case 20:
-        setupInterruptBasic(pin, motorInt20, CHANGE);
-        return true;
-    case 21:
-        setupInterruptBasic(pin, motorInt21, CHANGE);
-        return true;
-
+bool setupInterruptForMotor(int pin) {
+    switch (pin) {
+        case 2:
+            setupInterruptBasic(pin, motorInt2, CHANGE);
+            return true;
+        case 3:
+            setupInterruptBasic(pin, motorInt3, CHANGE);
+            return true;
+        case 18:
+            setupInterruptBasic(pin, motorInt18, CHANGE);
+            return true;
+        case 19:
+            setupInterruptBasic(pin, motorInt19, CHANGE);
+            return true;
+        case 20:
+            setupInterruptBasic(pin, motorInt20, CHANGE);
+            return true;
+        case 21:
+            setupInterruptBasic(pin, motorInt21, CHANGE);
+            return true;
     }
     return false;
 }

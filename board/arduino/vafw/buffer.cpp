@@ -31,4 +31,3 @@ const char* Buffer::getLineAndReset() {
     _pos = 0;
     return _buf;
 }
-
