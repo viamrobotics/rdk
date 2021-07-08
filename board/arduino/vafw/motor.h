@@ -10,7 +10,11 @@ class Motor {
     Motor(const char* name, int in1, int in2, int pwm);
 
     void stop();
+
+    // power 0 -> 255
+    void go(bool forward, int power);
     void goFor(long ticksPerSecond, long ticks);
+    // power 0 -> 255
     void setPower(int power);
     
     void checkEncoder(long unsigned int now);
