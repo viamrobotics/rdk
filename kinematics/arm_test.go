@@ -64,7 +64,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 	// Used for benchmarking solve rate
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
-		randJointPos := arm.JointPositionsFromRadians(m.RandomJointPositions(seed))
+		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
 		randPos := ComputePosition(m, randJointPos)
 		solved, _ := ik.Solve(ctx, randPos, home)
 		if solved {

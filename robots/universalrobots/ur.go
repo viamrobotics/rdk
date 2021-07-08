@@ -189,10 +189,10 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error 
 		return err
 	}
 	solved, solution := ua.ik.Solve(ctx, pos, joints)
-	if solved {
-		return ua.MoveToJointPositions(ctx, solution)
+	if !solved {
+		return errors.New("could not solve for position")
 	}
-	return errors.New("could not solve for position")
+	return ua.MoveToJointPositions(ctx, solution)
 }
 
 // JointMoveDelta TODO

@@ -82,8 +82,8 @@ func (j *Joint) Clamp(q []float64) {
 	}
 }
 
-// RandomJointPositions returns a list of random, guaranteed valid, positions for
-func (j *Joint) RandomJointPositions(rnd *rand.Rand) []float64 {
+// GenerateRandomJointPositions returns a list of random, guaranteed valid, positions for the joint.
+func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 	var positions []float64
 	for i := 0; i < j.Dof(); i++ {
 		jRange := math.Abs(j.max[i] - j.min[i])
@@ -129,15 +129,13 @@ func (j *Joint) Dof() int {
 	return j.dof
 }
 
-// GetMinimum TODO
-// Note(erd): Get prefix should be removed
-func (j *Joint) GetMinimum() []float64 {
+// MinimumJointLimits returns the minimum allowable values for this joint.
+func (j *Joint) MinimumJointLimits() []float64 {
 	return j.min
 }
 
-// GetMaximum TODO
-// Note(erd): Get prefix should be removed
-func (j *Joint) GetMaximum() []float64 {
+// MaximumJointLimits returns the maximum allowable values for this joint.
+func (j *Joint) MaximumJointLimits() []float64 {
 	return j.max
 }
 
@@ -157,8 +155,8 @@ func (j *Joint) Normalize(posvec []float64) []float64 {
 	return remain
 }
 
-// IsValid checks whether the provided joint position is within the min/max for the joint
-func (j *Joint) IsValid(posvec []float64) bool {
+// AreJointPositionsValid checks whether the provided joint position is within the min/max for the joint
+func (j *Joint) AreJointPositionsValid(posvec []float64) bool {
 	for i := range posvec {
 		if posvec[i] < j.min[i] || posvec[i] > j.max[i] {
 			return false

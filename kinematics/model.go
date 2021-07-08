@@ -21,14 +21,14 @@ type XYZTHWeights struct {
 	TH float64 `json:"th"`
 }
 
-// DistanceConfig values are used to augment the distance check for a given IK solution.
+// SolverDistanceWeights values are used to augment the distance check for a given IK solution.
 // For each component of a 6d pose, the distance from current position to goal is
 // squared and then multiplied by the corresponding weight in this struct. The results
 // are summed and that sum must be below a certain threshold.
 // So values > 1 forces the IK algorithm to get that value closer to perfect than it
 // otherwise would have, and values < 1 cause it to be more lax. A value of 0.0 will cause
 // that dimension to not be considered at all.
-type DistanceConfig struct {
+type SolverDistanceWeights struct {
 	Trans  XYZWeights   `json:"translation"`
 	Orient XYZTHWeights `json:"orientation"`
 }
@@ -42,28 +42,29 @@ type Model struct {
 	name         string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Transform
-	DistCfg       DistanceConfig
+	SolveWeights  SolverDistanceWeights
 }
 
 // NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
-	m.DistCfg = DistanceConfig{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
+	m.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
 
-// RandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func (m *Model) RandomJointPositions(randSeed *rand.Rand) []float64 {
+// GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
+func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 	var jointPos []float64
 	for _, joint := range m.Joints() {
-		jointPos = append(jointPos, joint.RandomJointPositions(randSeed)...)
+		jointPos = append(jointPos, joint.GenerateRandomJointPositions(randSeed)...)
 	}
 	return jointPos
 }
 
-// Joints returns an array of all joints.
+// Joints returns an array of all joints, from the base outwards.
 func (m *Model) Joints() []*Joint {
 	var joints []*Joint
+	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
 		if joint, ok := transform.(*Joint); ok {
@@ -73,20 +74,20 @@ func (m *Model) Joints() []*Joint {
 	return joints
 }
 
-// GetMinimum returns the array of GetPosition from all joints.
-func (m *Model) GetMinimum() []float64 {
+// MinimumJointLimits returns an array of the minimum allowable position for each joint.
+func (m *Model) MinimumJointLimits() []float64 {
 	var jointMin []float64
 	for _, joint := range m.Joints() {
-		jointMin = append(jointMin, joint.GetMinimum()...)
+		jointMin = append(jointMin, joint.MinimumJointLimits()...)
 	}
 	return jointMin
 }
 
-// GetMaximum returns the array of GetPosition from all joints.
-func (m *Model) GetMaximum() []float64 {
+// MaximumJointLimits returns an array of the maximum allowable position for each joint.
+func (m *Model) MaximumJointLimits() []float64 {
 	var jointMax []float64
 	for _, joint := range m.Joints() {
-		jointMax = append(jointMax, joint.GetMaximum()...)
+		jointMax = append(jointMax, joint.MaximumJointLimits()...)
 	}
 	return jointMax
 }
@@ -107,6 +108,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 	var quats []*spatialmath.DualQuaternion
 	posIdx := 0
+	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
 		quat := transform.Quaternion()
@@ -121,11 +123,11 @@ func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 	return quats
 }
 
-// IsValid checks whether the given array of joint positions violates any joint limits.
-func (m *Model) IsValid(pos []float64) bool {
+// AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
+func (m *Model) AreJointPositionsValid(pos []float64) bool {
 	i := 0
 	for _, joint := range m.Joints() {
-		if !(joint.IsValid(pos[i : i+joint.Dof()])) {
+		if !(joint.AreJointPositionsValid(pos[i : i+joint.Dof()])) {
 			return false
 		}
 		i += joint.Dof()
