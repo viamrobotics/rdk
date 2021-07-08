@@ -236,6 +236,31 @@ func TestMotorEncoderHall(t *testing.T) {
 
 	})
 
+	t.Run("GoFor-backwards", func(t *testing.T) {
+		//undo := setRPMSleepDebug(1, false)
+		//defer undo()
+
+		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 100, 1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			test.That(t, real.PowerPct(), test.ShouldEqual, 1.0)
+		})
+
+		for x := 0; x < 100; x++ {
+			encoderA.Tick(false, nowNanosTest())
+			encoderB.Tick(false, nowNanosTest())
+			encoderA.Tick(true, nowNanosTest())
+			encoderB.Tick(true, nowNanosTest())
+		}
+
+		testutils.WaitForAssertion(t, func(t testing.TB) {
+			test.That(t, real.Direction(), test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+		})
+
+	})
+
 }
 
 func TestWrapMotorWithEncoder(t *testing.T) {

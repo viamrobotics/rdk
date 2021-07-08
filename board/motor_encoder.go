@@ -329,7 +329,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 				rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
 				minutes := float64(now-lastTime) / (1e9 * 60)
-				currentRPM := rotations / minutes
+				currentRPM := math.Abs(rotations / minutes)
 				if minutes == 0 {
 					currentRPM = 0
 				}
