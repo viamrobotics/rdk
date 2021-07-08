@@ -228,6 +228,21 @@ func (b *arduinoBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
 	return nil
 }
 
+// GPIOSet sets the given pin to either low or high.
+func (b *arduinoBoard) GPIOSet(pin string, high bool) error {
+	return nil
+}
+
+// PWMSet sets the given pin to the given duty cycle.
+func (b *arduinoBoard) PWMSet(pin string, dutyCycle byte) error {
+	return nil
+}
+
+// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *arduinoBoard) PWMSetFreq(pin string, freq uint) error {
+	return nil
+}
+
 // MotorNames returns the name of all known motors.
 func (b *arduinoBoard) MotorNames() []string {
 	names := []string{}
