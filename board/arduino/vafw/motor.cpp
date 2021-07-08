@@ -34,6 +34,21 @@ void Motor::setPower(int power) {
     analogWrite(_pwm, power);
 }
 
+void Motor::go(bool forward, int power) {
+    _regulated = false;
+    setPower(power);
+
+    if (forward) {
+        _moving = 1;
+        digitalWrite(_in1, HIGH);
+        digitalWrite(_in2, LOW);
+    } else {
+        _moving = -1;
+        digitalWrite(_in1, LOW);
+        digitalWrite(_in2, HIGH);
+    }
+}
+
 void Motor::goFor(long ticksPerSecond, long ticks) {
 
     auto currentPosition = _encoder.position();
@@ -87,7 +102,12 @@ void Motor::checkEncoder(long unsigned int now) {
         } else if (ticksPerSecond < _ticksPerSecond) {
             setPower(_power * 1.1);
         }
-
+        /*
+        Serial.print(currentPosition);
+        Serial.print(" ");
+        Serial.print(_lastRPMEncoderCount);
+        Serial.print(" ");
+        */
         Serial.print(currentPosition-_lastRPMEncoderCount);
         Serial.print(" ");
         Serial.print(_ticksPerSecond);

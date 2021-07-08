@@ -170,6 +170,51 @@ void processBuffer(Buffer* b) {
         return;
     }
 
+    if (const char* rest = isCommand(line, "motor-go")) {
+        char name[255];
+        char dir;
+        int power;
+        int n = sscanf(rest, "%s %c %d", name, &dir, &power);
+        if (n != 3) {
+            b->print(n);
+            b->println("");
+            b->println("#error parsing motor-gofor");
+            return;
+        }
+                
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        m->go(dir == 'f', power);
+        b->println("@ok");
+        return;
+    }
+
+    if (const char* rest = isCommand(line, "motor-power")) {
+        char name[255];
+        int power;
+        int n = sscanf(rest, "%s %d", name, &power);
+        if (n != 2) {
+            b->print(n);
+            b->println("");
+            b->println("#error parsing motor-gofor");
+            return;
+        }
+                
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        m->setPower(power);
+        b->println("@ok");
+        return;
+    }
+
     b->println(line);
     b->println("#unknown command");
 }

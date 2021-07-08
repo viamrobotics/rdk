@@ -7,10 +7,11 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/board"
-	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
+
+	"go.viam.com/core/board"
+	pb "go.viam.com/core/proto/api/v1"
 )
 
 func TestArduino(t *testing.T) {
@@ -18,7 +19,7 @@ func TestArduino(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cfg := board.Config{
 		Motors: []board.MotorConfig{
-			board.MotorConfig{
+			{
 				Name: "m1",
 				Pins: map[string]string{
 					"pwm": "28",
@@ -27,7 +28,7 @@ func TestArduino(t *testing.T) {
 				},
 				Encoder:          "3",
 				EncoderB:         "2",
-				TicksPerRotation: 15000,
+				TicksPerRotation: 7500,
 			},
 		},
 	}
@@ -47,7 +48,7 @@ func TestArduino(t *testing.T) {
 	startPos, err := m.Position(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 8, 10)
+	err = m.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 20, 1.5)
 	test.That(t, err, test.ShouldBeNil)
 
 	testutils.WaitForAssertion(t, func(t testing.TB) {
@@ -57,7 +58,7 @@ func TestArduino(t *testing.T) {
 
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos-startPos, test.ShouldBeGreaterThan, 5)
+		test.That(t, pos-startPos, test.ShouldBeGreaterThan, 1)
 	})
 
 }

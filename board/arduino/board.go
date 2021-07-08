@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 
 	slib "github.com/jacobsa/go-serial/serial"
+	"go.uber.org/multierr"
 
 	"go.viam.com/core/board"
 	pb "go.viam.com/core/proto/api/v1"
@@ -68,8 +69,7 @@ func newArduino(ctx context.Context, cfg board.Config, logger golog.Logger) (boa
 
 	err = b.configure(cfg)
 	if err != nil {
-		b.Close()
-		return nil, err
+		return nil, multierr.Combine(err, b.Close())
 	}
 	return b, nil
 }
@@ -81,7 +81,7 @@ type arduinoBoard struct {
 	logger     golog.Logger
 	cmdLock    sync.Mutex
 
-	motors map[string]*motor
+	motors map[string]board.Motor
 }
 
 func (b *arduinoBoard) runCommand(cmd string) (string, error) {
@@ -157,8 +157,11 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return fmt.Errorf("got unknown response when configureMotor %s", res)
 	}
 
-	b.motors[cfg.Name] = &motor{b, cfg}
-
+	m, err := board.NewEncodedMotor(cfg, &motor{b, cfg}, &encoder{b, cfg}, b.logger)
+	if err != nil {
+		return err
+	}
+	b.motors[cfg.Name] = m
 	return nil
 }
 
@@ -180,7 +183,7 @@ func (b *arduinoBoard) configure(cfg board.Config) error {
 		return fmt.Errorf("echo didn't get expected result, got [%s]", check)
 	}
 
-	b.motors = map[string]*motor{}
+	b.motors = map[string]board.Motor{}
 	for _, c := range cfg.Motors {
 		err = b.configureMotor(c)
 		if err != nil {
@@ -228,7 +231,7 @@ func (b *arduinoBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
 // MotorNames returns the name of all known motors.
 func (b *arduinoBoard) MotorNames() []string {
 	names := []string{}
-	for n, _ := range b.motors {
+	for n := range b.motors {
 		names = append(names, n)
 	}
 	return names
@@ -253,7 +256,7 @@ func (b *arduinoBoard) DigitalInterruptNames() []string {
 // should use the CreateStatus helper instead of directly calling
 // this.
 func (b *arduinoBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	return nil, fmt.Errorf("finish me")
+	return nil, errors.New("finish me")
 }
 
 // ModelAttributes returns attributes related to the model of this board.
@@ -275,6 +278,32 @@ func (b *arduinoBoard) Close() error {
 	return b.port.Close()
 }
 
+type encoder struct {
+	b   *arduinoBoard
+	cfg board.MotorConfig
+}
+
+// Position returns the current position in terms of ticks
+func (e *encoder) Position(ctx context.Context) (int64, error) {
+	res, err := e.b.runCommand("motor-position " + e.cfg.Name)
+	if err != nil {
+		return 0, err
+	}
+
+	ticks, err := strconv.ParseInt(res, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("couldn't parse # ticks (%s) : %w", res, err)
+	}
+
+	return ticks, nil
+}
+
+// Start starts a background thread to run the encoder, if there is none needed this is a no-op
+func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func()) {
+	// no-op for arduino
+	onStart()
+}
+
 type motor struct {
 	b   *arduinoBoard
 	cfg board.MotorConfig
@@ -283,19 +312,32 @@ type motor struct {
 // Power sets the percentage of power the motor should employ between 0-1.
 func (m *motor) Power(ctx context.Context, powerPct float32) error {
 	if powerPct <= .001 {
-		return m.Off(ctx);
+		return m.Off(ctx)
 	}
-	panic(1)
+
+	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.cfg.Name, int(255.0*powerPct)))
+	return err
 }
 
 // Go instructs the motor to go in a specific direction at a percentage
 // of power between 0-1.
 func (m *motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	if powerPct <= 0 {
-		return m.Off(ctx);
+		return m.Off(ctx)
 	}
 
-	panic(1)
+	var dir string
+	switch d {
+	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
+		dir = "f"
+	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
+		dir = "n"
+	default:
+		return m.Off(ctx)
+	}
+
+	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.cfg.Name, dir, int(255.0*powerPct)))
+	return err
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of

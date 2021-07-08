@@ -16,6 +16,7 @@ import (
 )
 
 func TestMotorEncoder1(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	undo := setRPMSleepDebug(1, false)
 	defer undo()
 
@@ -24,7 +25,7 @@ func TestMotorEncoder1(t *testing.T) {
 	interrupt := &BasicDigitalInterrupt{}
 	encoder := &singleEncoder{i: interrupt}
 
-	motor, err := newEncodedMotor(cfg, real, encoder)
+	motor, err := newEncodedMotor(cfg, real, encoder, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
@@ -126,6 +127,7 @@ func TestMotorEncoder1(t *testing.T) {
 }
 
 func TestMotorEncoderHall(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	undo := setRPMSleepDebug(1, false)
 	defer undo()
 
@@ -135,7 +137,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	encoderB := &BasicDigitalInterrupt{}
 	encoder := NewHallEncoder(encoderA, encoderB)
 
-	motor, err := newEncodedMotor(cfg, real, encoder)
+	motor, err := newEncodedMotor(cfg, real, encoder, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, motor.Close(), test.ShouldBeNil)
