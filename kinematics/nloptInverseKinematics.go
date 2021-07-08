@@ -41,8 +41,8 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 50000
 	ik.iterations = 0
-	ik.lowerBound = mdl.GetMinimum()
-	ik.upperBound = mdl.GetMaximum()
+	ik.lowerBound = mdl.MinimumJointLimits()
+	ik.upperBound = mdl.MaximumJointLimits()
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
@@ -74,7 +74,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 			}
 		}
 
-		dist := WeightedSquaredNorm(dx, ik.model.DistCfg)
+		dist := WeightedSquaredNorm(dx, ik.model.SolveWeights)
 
 		if len(gradient) > 0 {
 			maxGrad := 0.0
@@ -92,7 +92,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 						dx2[dxIdx+i] = delta
 					}
 				}
-				dist2 := WeightedSquaredNorm(dx2, ik.model.DistCfg)
+				dist2 := WeightedSquaredNorm(dx2, ik.model.SolveWeights)
 
 				gradient[i] = (dist2 - dist) / (20000 * ik.jump)
 				if math.Abs(gradient[i]) > maxGrad {
@@ -175,11 +175,11 @@ func (ik *NloptIK) Solve(ctx context.Context, goal *pb.ArmPosition, seedAngles *
 			}
 		}
 
-		if result < ik.epsilon*ik.epsilon {
+		if result < ik.epsilon*ik.epsilon && ik.model.AreJointPositionsValid(angles) {
 			angles = ZeroInlineRotation(ik.model, angles)
 			return true, arm.JointPositionsFromRadians(angles)
 		}
-		startingRadians = ik.model.RandomJointPositions(ik.randSeed)
+		startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 	}
 	return false, &pb.JointPositions{}
 }
