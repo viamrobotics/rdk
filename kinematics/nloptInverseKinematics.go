@@ -23,7 +23,7 @@ type NloptIK struct {
 	iterations    int
 	maxIterations int
 	epsilon       float64
-	goals         []Goal
+	goals         []goal
 	opt           *nlopt.NLopt
 	logger        golog.Logger
 	jump          float64
@@ -65,10 +65,10 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		dx := make([]float64, ik.model.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
-		for _, goal := range ik.getGoals() {
-			dxDelta := eePos.ToDelta(goal.GoalTransform)
+		for _, nextGoal := range ik.getGoals() {
+			dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
 
-			dxIdx := goal.EffectorID * len(dxDelta)
+			dxIdx := nextGoal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
@@ -85,9 +85,9 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				xBak[i] += ik.jump
 				eePos := JointRadToQuat(ik.model, xBak)
 				dx2 := make([]float64, ik.model.OperationalDof()*7)
-				for _, goal := range ik.getGoals() {
-					dxDelta := eePos.ToDelta(goal.GoalTransform)
-					dxIdx := goal.EffectorID * len(dxDelta)
+				for _, nextGoal := range ik.getGoals() {
+					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+					dxIdx := nextGoal.EffectorID * len(dxDelta)
 					for i, delta := range dxDelta {
 						dx2[dxIdx+i] = delta
 					}
@@ -129,25 +129,25 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 }
 
 // addGoal adds a nlopt IK goal
-func (ik *NloptIK) addGoal(goal *pb.ArmPosition, effectorID int) {
+func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
 
-	goalQuat := spatialmath.NewDualQuaternionFromArmPos(goal)
-	ik.goals = append(ik.goals, Goal{goalQuat, effectorID})
+	goalQuat := spatialmath.NewDualQuaternionFromArmPos(newGoal)
+	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 
 // clearGoals clears all goals for the Ik object
 func (ik *NloptIK) clearGoals() {
-	ik.goals = []Goal{}
+	ik.goals = []goal{}
 }
 
 // GetGoals returns the list of all current goal positions
-func (ik *NloptIK) getGoals() []Goal {
+func (ik *NloptIK) getGoals() []goal {
 	return ik.goals
 }
 
 // Solve attempts to solve for all goals
-func (ik *NloptIK) Solve(ctx context.Context, goal *pb.ArmPosition, seedAngles *pb.JointPositions) (bool, *pb.JointPositions) {
-	ik.addGoal(goal, 0)
+func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (bool, *pb.JointPositions) {
+	ik.addGoal(newGoal, 0)
 	defer ik.clearGoals()
 
 	select {

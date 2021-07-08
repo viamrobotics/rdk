@@ -26,7 +26,9 @@ func TestModelLoading(t *testing.T) {
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
+	orig[4] -= math.Pi * 4
 	normalized := m.Normalize(orig)
+	test.That(t, normalized[4], test.ShouldAlmostEqual, 0.1)
 	test.That(t, normalized[5], test.ShouldAlmostEqual, 0.1)
 
 	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
