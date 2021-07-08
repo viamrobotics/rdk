@@ -16,8 +16,8 @@ struct motorInfo {
 
 motorInfo motors[MAX_MOTORS];
 
-Buffer* buf1;
-Buffer* buf2;
+Buffer* buf1 = 0;
+Buffer* buf2 = 0;
 
 int findEmptyMotor() {
     for (int i = 0; i < MAX_MOTORS; i++) {
@@ -59,13 +59,13 @@ void configureMotorDC(Buffer* b, const char* name, int pwm, int pinA, int pinB,
 }
 
 void setup() {
-    Serial.begin(9600);
-
     buf1 = new Buffer(&Serial);
-    buf2 = new Buffer(&Serial3);
-
     buf1->println("!");
+
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    buf2 = new Buffer(&Serial3);
     buf2->println("!");
+#endif
 }
 
 const char* isCommand(const char* line, const char* cmd) {
@@ -222,7 +222,10 @@ void processBuffer(Buffer* b) {
 
 void loop() {
     processBuffer(buf1);
-    processBuffer(buf2);
+    if (buf2) {
+        processBuffer(buf2);
+    }
+
     for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].motor) {
             motors[i].motor->checkEncoder(millis());
