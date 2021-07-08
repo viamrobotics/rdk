@@ -89,7 +89,7 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 	defer b.cmdLock.Unlock()
 
 	cmd = strings.TrimSpace(cmd)
-	_, err := b.port.Write([]byte(cmd + "\r"))
+	_, err := b.port.Write([]byte(cmd + "\n"))
 	if err != nil {
 		return "", fmt.Errorf("error sending command to arduino: %w", err)
 	}
