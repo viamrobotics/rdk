@@ -7,9 +7,9 @@ import (
 	"go.viam.com/core/spatialmath"
 )
 
-// Goal contains a dual quaternion representing a location and orientation to try to reach, and the ID of the end
+// goal contains a dual quaternion representing a location and orientation to try to reach, and the ID of the end
 // effector which should be trying to reach it.
-type Goal struct {
+type goal struct {
 	GoalTransform *spatialmath.DualQuaternion
 	EffectorID    int
 }
