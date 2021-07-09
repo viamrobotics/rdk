@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -109,6 +110,9 @@ func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
 // If this is a joint with more than 1 DOF, it will return the quaternion representing the total rotation.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
 func (j *Joint) AngleQuaternion(angle []float64) *spatialmath.DualQuaternion {
+	if len(angle) != j.Dof() {
+		panic(fmt.Errorf("number of angles passed in doesn't match dof %d != %d", len(angle), j.Dof()))
+	}
 	jQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
 		r1 := dualquat.Number{Real: j.rotVectors[i]}

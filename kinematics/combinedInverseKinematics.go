@@ -52,7 +52,7 @@ func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest,
 // positions. If unable to solve, the returned error will be non-nil
 func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.JointPositions) (*pb.JointPositions, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
-	ik.logger.Debugf("starting 6d position: %v", ComputePosition(ik.model, seed))
+	ik.logger.Debugf("starting 6d position: %v", ik.model.ComputePosition(seed))
 	c := make(chan ReturnTest)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 
@@ -76,7 +76,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 		returned++
 		if myRT.Err == nil {
 			ik.logger.Debugf("solved joint positions: %v", myRT.Result)
-			ik.logger.Debugf("solved 6d position: %v", ComputePosition(ik.model, myRT.Result))
+			ik.logger.Debugf("solved 6d position: %v", ik.model.ComputePosition(myRT.Result))
 		}
 	}
 	cancel()

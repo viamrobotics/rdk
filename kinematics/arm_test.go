@@ -66,7 +66,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
 		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
-		randPos := ComputePosition(m, randJointPos)
+		randPos := m.ComputePosition(randJointPos)
 		_, err := ik.Solve(context.Background(), randPos, home)
 		if err == nil {
 			solvedCnt++
@@ -83,7 +83,7 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
-	goal := ComputePosition(m, goalJP)
+	goal := m.ComputePosition(goalJP)
 	_, err = ik.Solve(context.Background(), goal, home)
 	test.That(t, err, test.ShouldBeNil)
 }
