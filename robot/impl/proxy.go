@@ -467,6 +467,12 @@ func (p *proxyBoard) GPIOSet(pin string, high bool) error {
 	return p.actual.GPIOSet(pin, high)
 }
 
+func (p *proxyBoard) GPIOGet(pin string) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GPIOGet(pin)
+}
+
 func (p *proxyBoard) PWMSet(pin string, dutyCycle byte) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

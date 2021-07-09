@@ -209,6 +209,32 @@ func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 	return pi.GPIOSetBcom(int(bcom), high)
 }
 
+// GPIOGet reads the high/low state of the given pin.
+func (pi *piPigpio) GPIOGet(pin string) (int, error) {
+	bcom, have := piHWPinToBroadcom[pin]
+	if !have {
+		return errors.Errorf("no hw pin for (%s)", pin)
+	}
+	return pi.GPIOGetBcom(int(bcom))
+}
+
+// GPIOGetBcom gets the lovel of the given broadcom pin
+func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
+	if !pi.gpioConfigSet[bcom] {
+		if pi.gpioConfigSet == nil {
+			pi.gpioConfigSet = map[int]bool{}
+		}
+		res := C.gpioSetMode(C.uint(bcom), C.PI_INPUT)
+		if res != 0 {
+			return false, errors.Errorf("failed to set mode %d", res)
+		}
+		pi.gpioConfigSet[bcom] = true
+	}
+
+	// gpioRead retrns an int 1 or 0, we convert to a bool
+	return C.gpioRead(C.uint(bcom)) != 0, nil
+}
+
 // PWMSet sets the given pin to the given PWM duty cycle.
 func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
 	bcom, have := piHWPinToBroadcom[pin]
