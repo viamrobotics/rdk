@@ -10,9 +10,24 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+/* In this file are functions to create a Voxel, a Voxel Grid from a point cloud
+A Voxel is a a voxel represents a value on a regular grid in
+three-dimensional space. As with pixels in a 2D bitmap, voxels themselves do
+not typically have their position (i.e. coordinates) explicitly encoded with
+their values.
+More information and comparisons with pixels here:
+- https://en.wikipedia.org/wiki/Voxel
+- https://medium.com/retronator-magazine/pixels-and-voxels-the-long-answer-5889ecc18190
+*/
+
 // VoxelCoords stores Voxel coordinates in VoxelGrid axes
 type VoxelCoords struct {
 	I, J, K int64
+}
+
+// IsEqual tests if two VoxelCoords are the same
+func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
+	return c.I == c2.I && c.J == c2.J && c.K == c2.K
 }
 
 // Voxel is the structure to store data relevant to Voxel operations in point clouds
@@ -67,9 +82,39 @@ func (v1 *Voxel) SetLabel(label int) {
 	v1.Label = label
 }
 
-// IsEqual tests if two VoxelCoords are the same
-func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
-	return c.I == c2.I && c.J == c2.J && c.K == c2.K
+// IsSmooth returns true if two voxels respect the smoothness constraint, false otherwise
+// angleTh is expressed in degrees
+func (v1 *Voxel) IsSmooth(v2 *Voxel, angleTh float64) bool {
+	angle := math.Abs(v1.Normal.Dot(v2.Normal))
+	angle = math.Abs(math.Acos(angle))
+	angle = angle * 180 / math.Pi
+
+	return angle < angleTh
+}
+
+// IsContinuous returns true if two voxels respect the continuity constraint, false otherwise
+// cosTh is in [0,1]
+func (v1 *Voxel) IsContinuous(v2 *Voxel, cosTh float64) bool {
+	v := v2.Center.Sub(v1.Center).Normalize()
+	phi := math.Abs(v.Dot(v1.Normal))
+	return phi < cosTh
+}
+
+// CanMerge returns true if two voxels can be added to the same connected component
+func (v1 *Voxel) CanMerge(v2 *Voxel, angleTh, cosTh float64) bool {
+	return v1.IsSmooth(v2, angleTh) && v1.IsContinuous(v2, cosTh)
+}
+
+// ComputeCenter computer barycenter of points in voxel
+func (v1 *Voxel) ComputeCenter() {
+	center := r3.Vector{}
+	for _, pt := range v1.Points {
+		center.Add(pt)
+	}
+	center = center.Mul(1. / float64(len(v1.Points)))
+	v1.Center.X = center.X
+	v1.Center.Y = center.Y
+	v1.Center.Z = center.Z
 }
 
 // VoxelSlice is a slice that contains Voxels
@@ -99,8 +144,10 @@ func NewVoxelGrid() *VoxelGrid {
 	}
 }
 
-// EstimateNormal estimates the normal vector of the plane formed by the points in the []r3.Vector
-func EstimateNormal(points []r3.Vector) r3.Vector {
+// helpers for Voxel attributes computation
+
+// EstimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector
+func EstimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	// Put points in mat
 	nPoints := len(points)
 	mPt := mat.NewDense(nPoints, 3, nil)
@@ -153,9 +200,9 @@ func GetOffset(center, normal r3.Vector) float64 {
 }
 
 // DistToPlane computes the distance between a point a plane with given normal vector and offset
-func DistToPlane(pt, normal r3.Vector, offset float64) float64 {
-	num := math.Abs(pt.Dot(normal) + offset)
-	denom := normal.Norm()
+func DistToPlane(pt, planeNormal r3.Vector, offset float64) float64 {
+	num := math.Abs(pt.Dot(planeNormal) + offset)
+	denom := planeNormal.Norm()
 	d := 0.
 	if denom > 0.0001 {
 		d = num / denom
@@ -182,18 +229,6 @@ func GetVoxelCoordinates(pt, ptMin r3.Vector, voxelSize float64) VoxelCoords {
 	coords.J = int64(math.Floor(ptVoxel.Y / voxelSize))
 	coords.K = int64(math.Floor(ptVoxel.Z / voxelSize))
 	return coords
-}
-
-// ComputeCenter computer barycenter of points in voxel
-func (v1 *Voxel) ComputeCenter() {
-	center := r3.Vector{}
-	for _, pt := range v1.Points {
-		center.Add(pt)
-	}
-	center = center.Mul(1. / float64(len(v1.Points)))
-	v1.Center.X = center.X
-	v1.Center.Y = center.Y
-	v1.Center.Z = center.Z
 }
 
 // GetWeight computes weights for Region Growing segmentation
@@ -226,29 +261,6 @@ func ReverseVoxelSlice(s VoxelSlice) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
 	}
-}
-
-// IsSmooth returns true if two voxels respect the smoothness constraint, false otherwise
-// angleTh is expressed in degrees
-func (v1 *Voxel) IsSmooth(v2 *Voxel, angleTh float64) bool {
-	angle := math.Abs(v1.Normal.Dot(v2.Normal))
-	angle = math.Abs(math.Acos(angle))
-	angle = angle * 180 / math.Pi
-
-	return angle < angleTh
-}
-
-// IsContinuous returns true if two voxels respect the continuity constraint, false otherwise
-// cosTh is in [0,1]
-func (v1 *Voxel) IsContinuous(v2 *Voxel, cosTh float64) bool {
-	v := v2.Center.Sub(v1.Center).Normalize()
-	phi := math.Abs(v.Dot(v1.Normal))
-	return phi < cosTh
-}
-
-// CanMerge returns true if two voxels can be added to the same connected component
-func (v1 *Voxel) CanMerge(v2 *Voxel, angleTh, cosTh float64) bool {
-	return v1.IsSmooth(v2, angleTh) && v1.IsContinuous(v2, cosTh)
 }
 
 // GetVoxelFromKey returns a pointer to a voxel from a VoxelCoords key
@@ -308,7 +320,7 @@ func (vg *VoxelGrid) LabelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiT
 		// interface to VoxelCoords type
 		coords := e.Value.(VoxelCoords)
 		// Set label of Voxel
-		vg.Voxels[coords].Label = label
+		vg.Voxels[coords].SetLabel(label)
 		// Add current key to visited set
 		// Get adjacent voxels
 		neighbors := vg.GetAdjacentVoxels(vg.Voxels[coords])
@@ -371,7 +383,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
 
 	for label, pts := range pointsByLabel {
 		if label > 0 {
-			normalVector := EstimateNormal(pts)
+			normalVector := EstimatePlaneNormalFromPoints(pts)
 			center := GetVoxelCenter(pts)
 			offset := GetOffset(center, normalVector)
 			currentPlane := Plane{
@@ -515,7 +527,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 		// below 5 points, normal and center estimation are not relevant
 		if len(vox.Points) > 5 {
-			vox.Normal = EstimateNormal(vox.Points)
+			vox.Normal = EstimatePlaneNormalFromPoints(vox.Points)
 			vox.Offset = GetOffset(vox.Center, vox.Normal)
 			vox.Residual = GetResidual(vox.Points, vox.Normal, vox.Offset)
 			vox.Weight = GetWeight(vox.Points, lam, vox.Residual)

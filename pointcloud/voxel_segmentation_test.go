@@ -5,9 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 )
 
 // RandomCubeSide choose a random integer between 0 and 5 that correspond to one facet of a cube
@@ -17,6 +16,7 @@ func RandomCubeSide() int {
 	return rand.Intn(max-min) + min
 }
 
+// GeneratePointsOnPlaneZ0 generates points on the z=0 plane
 func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) PointCloud {
 	pc := New()
 	for i := 0; i < nPoints; i++ {
