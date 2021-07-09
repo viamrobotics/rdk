@@ -19,7 +19,7 @@ type InverseKinematics interface {
 	// Solve receives a context, the goal arm position, and current joint angles.
 	// It will return a boolean which will be true if it solved successfully, and the joint positions which
 	// will yield that goal position.
-	Solve(context.Context, *pb.ArmPosition, *pb.JointPositions) (bool, *pb.JointPositions)
+	Solve(context.Context, *pb.ArmPosition, *pb.JointPositions) (*pb.JointPositions, error)
 	Mdl() *Model
 }
 

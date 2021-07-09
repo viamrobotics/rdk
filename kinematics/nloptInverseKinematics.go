@@ -146,14 +146,15 @@ func (ik *NloptIK) getGoals() []goal {
 }
 
 // Solve attempts to solve for all goals
-func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (bool, *pb.JointPositions) {
+func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
+	var err error
 	ik.addGoal(newGoal, 0)
 	defer ik.clearGoals()
 
 	select {
 	case <-ctx.Done():
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return false, &pb.JointPositions{}
+		return &pb.JointPositions{}, err
 	default:
 	}
 	ik.iterations = 0
@@ -162,26 +163,24 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 	for ik.iterations < ik.maxIterations {
 		select {
 		case <-ctx.Done():
-			return false, &pb.JointPositions{}
+			return &pb.JointPositions{}, err
 		default:
 		}
 		ik.iterations++
-		angles, result, err := ik.opt.Optimize(startingRadians)
-		if err != nil {
+		angles, result, nloptErr := ik.opt.Optimize(startingRadians)
+		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
-			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP" {
-				ik.logger.Info("nlopt optimization error: ", err)
-			}
+			err = multierr.Combine(err, nloptErr)
 		}
 
 		if result < ik.epsilon*ik.epsilon && ik.model.AreJointPositionsValid(angles) {
 			angles = ZeroInlineRotation(ik.model, angles)
-			return true, arm.JointPositionsFromRadians(angles)
+			return arm.JointPositionsFromRadians(angles), nil
 		}
 		startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 	}
-	return false, &pb.JointPositions{}
+	return &pb.JointPositions{}, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
 
 // SetSeed sets the random seed of this solver

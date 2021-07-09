@@ -45,7 +45,7 @@ func OVToQuat(ov *OrientationVec) quat.Number {
 		theta *= -1
 	}
 
-	q := quat.Number{}
+	var q quat.Number
 	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYX)
 	q.Real = q1.W
 	q.Imag = q1.X()

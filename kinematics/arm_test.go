@@ -16,10 +16,11 @@ import (
 
 const toSolve = 100
 
-var home = arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0})
-var ctx = context.Background()
-var nCPU = runtime.NumCPU()
-var seed = rand.New(rand.NewSource(1))
+var (
+	home = arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0})
+	nCPU = runtime.NumCPU()
+	seed = rand.New(rand.NewSource(1))
+)
 
 // This should test all of the kinematics functions
 func TestCombinedIKinematics(t *testing.T) {
@@ -37,8 +38,8 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -1.32,
 		OZ: -1.11,
 	}
-	solved, solution := ik.Solve(ctx, pos, home)
-	test.That(t, solved, test.ShouldBeTrue)
+	solution, err := ik.Solve(context.Background(), pos, home)
+	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
 	pos = &pb.ArmPosition{
@@ -49,8 +50,8 @@ func TestCombinedIKinematics(t *testing.T) {
 		OY: -33.160094626838045,
 		OZ: -111.02282693533935,
 	}
-	solved, _ = ik.Solve(ctx, pos, solution)
-	test.That(t, solved, test.ShouldBeTrue)
+	_, err = ik.Solve(context.Background(), pos, solution)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func BenchCombinedIKinematics(t *testing.B) {
@@ -66,8 +67,8 @@ func BenchCombinedIKinematics(t *testing.B) {
 	for i := 0; i < toSolve; i++ {
 		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
 		randPos := ComputePosition(m, randJointPos)
-		solved, _ := ik.Solve(ctx, randPos, home)
-		if solved {
+		_, err := ik.Solve(context.Background(), randPos, home)
+		if err == nil {
 			solvedCnt++
 		}
 	}
@@ -83,8 +84,8 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal := ComputePosition(m, goalJP)
-	solved, _ := ik.Solve(ctx, goal, home)
-	test.That(t, solved, test.ShouldBeTrue)
+	_, err = ik.Solve(context.Background(), goal, home)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestIKTolerances(t *testing.T) {
@@ -103,14 +104,14 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	solved, _ := ik.Solve(ctx, pos, home)
-	test.That(t, solved, test.ShouldBeFalse)
+	_, err = ik.Solve(context.Background(), pos, home)
+	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	m, err = ParseJSONFile(utils.ResolveFile("robots/varm/v1.json"))
 	test.That(t, err, test.ShouldBeNil)
 	ik = CreateCombinedIKSolver(m, logger, nCPU)
 
-	solved, _ = ik.Solve(ctx, pos, home)
-	test.That(t, solved, test.ShouldBeTrue)
+	_, err = ik.Solve(context.Background(), pos, home)
+	test.That(t, err, test.ShouldBeNil)
 }

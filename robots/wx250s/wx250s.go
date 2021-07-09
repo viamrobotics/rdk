@@ -127,11 +127,11 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solved, solution := a.ik.Solve(ctx, pos, joints)
-	if solved {
-		return a.MoveToJointPositions(ctx, solution)
+	solution, err := a.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
 	}
-	return errors.New("could not solve for position")
+	return a.MoveToJointPositions(ctx, solution)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position

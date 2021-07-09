@@ -96,11 +96,11 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solved, solution := e.ik.Solve(ctx, pos, joints)
-	if solved {
-		return e.MoveToJointPositions(ctx, solution)
+	solution, err := e.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
 	}
-	return errors.New("could not solve for position")
+	return e.MoveToJointPositions(ctx, solution)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {

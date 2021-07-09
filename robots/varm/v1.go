@@ -234,11 +234,11 @@ func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solved, solution := a.ik.Solve(ctx, pos, joints)
-	if solved {
-		return a.MoveToJointPositions(ctx, solution)
+	solution, err := a.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
 	}
-	return errors.New("could not solve for position")
+	return a.MoveToJointPositions(ctx, solution)
 }
 
 func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, curDegrees, gotoDegrees float64) error {
