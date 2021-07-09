@@ -24,8 +24,8 @@ type OrientationVec struct {
 	OZ    float64
 }
 
-// OVToQuat converts an orientation vector to a quaternion.
-func OVToQuat(ov *OrientationVec) quat.Number {
+// ToQuat converts an orientation vector to a quaternion.
+func (ov *OrientationVec) ToQuat() quat.Number {
 
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
 	lat := -math.Pi/2 + math.Acos(ov.OZ)
@@ -54,8 +54,8 @@ func OVToQuat(ov *OrientationVec) quat.Number {
 	return q
 }
 
-// NormalizeOV scales the x, y, and z components of an Orientation Vector to be on the unit sphere
-func NormalizeOV(ov *OrientationVec) {
+// Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere
+func (ov *OrientationVec) Normalize() {
 	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
 	ov.OX /= norm
 	ov.OY /= norm

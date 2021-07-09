@@ -41,9 +41,9 @@ func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OX = 1
 	}
-	NormalizeOV(ov)
+	ov.Normalize()
 	return &DualQuaternion{dualquat.Number{
-		Real: OVToQuat(ov),
+		Real: ov.ToQuat(),
 		Dual: quat.Number{},
 	}}
 }
