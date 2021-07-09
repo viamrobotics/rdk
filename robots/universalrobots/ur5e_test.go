@@ -174,7 +174,7 @@ func computeUR5ePosition(jointRadians []float64) *pb.ArmPosition {
 		OZ: o.At(2, 3) - res.At(2, 3),
 		//Theta: utils.RadToDeg(math.Acos(o.At(0,0))), // TODO(erh): fix this
 	}
-	spatialmath.NormalizeOV(&ov)
+	ov.Normalize()
 
 	return &pb.ArmPosition{
 		X:  1000 * res.At(0, 3),
