@@ -42,6 +42,18 @@ type Board interface {
 	// DigitalInterruptNames returns the name of all known digital interrupts.
 	DigitalInterruptNames() []string
 
+	// GPIOSet sets the given pin to either low or high.
+	GPIOSet(pin string, high bool) error
+
+	// GPIOGet gets the high/low state of the given pin.
+	GPIOGet(pin string) (bool, error)
+
+	// PWMSet sets the given pin to the given duty cycle.
+	PWMSet(pin string, dutyCycle byte) error
+
+	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+	PWMSetFreq(pin string, freq uint) error
+
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
