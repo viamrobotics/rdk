@@ -210,10 +210,10 @@ func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 }
 
 // GPIOGet reads the high/low state of the given pin.
-func (pi *piPigpio) GPIOGet(pin string) (int, error) {
+func (pi *piPigpio) GPIOGet(pin string) (bool, error) {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
-		return errors.Errorf("no hw pin for (%s)", pin)
+		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
 	return pi.GPIOGetBcom(int(bcom))
 }
