@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"go.viam.com/utils"
@@ -20,8 +21,8 @@ type CombinedIK struct {
 
 // ReturnTest is the struct used to communicate over a channel with the child parallel solvers.
 type ReturnTest struct {
-	Success bool
-	Result  *pb.JointPositions
+	Err    error
+	Result *pb.JointPositions
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
@@ -40,16 +41,16 @@ func CreateCombinedIKSolver(model *Model, logger golog.Logger, nCPU int) *Combin
 }
 
 func runSolver(ctx context.Context, solver InverseKinematics, c chan ReturnTest, noMoreSolutions <-chan struct{}, pos *pb.ArmPosition, seed *pb.JointPositions) {
-	solved, result := solver.Solve(ctx, pos, seed)
+	result, err := solver.Solve(ctx, pos, seed)
 	select {
-	case c <- ReturnTest{solved, result}:
+	case c <- ReturnTest{err, result}:
 	case <-noMoreSolutions:
 	}
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
-// positions.
-func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.JointPositions) (bool, *pb.JointPositions) {
+// positions. If unable to solve, the returned error will be non-nil
+func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.JointPositions) (*pb.JointPositions, error) {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	ik.logger.Debugf("starting 6d position: %v", ComputePosition(ik.model, seed))
 	c := make(chan ReturnTest)
@@ -67,13 +68,13 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	}
 
 	returned := 0
-	myRT := ReturnTest{false, &pb.JointPositions{}}
+	myRT := ReturnTest{errors.New("could not solve for position"), &pb.JointPositions{}}
 
 	// Wait until either 1) we have a success or 2) all solvers have returned false
-	for !myRT.Success && returned < len(ik.solvers) {
+	for myRT.Err != nil && returned < len(ik.solvers) {
 		myRT = <-c
 		returned++
-		if myRT.Success {
+		if myRT.Err == nil {
 			ik.logger.Debugf("solved joint positions: %v", myRT.Result)
 			ik.logger.Debugf("solved 6d position: %v", ComputePosition(ik.model, myRT.Result))
 		}
@@ -81,7 +82,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	cancel()
 	close(noMoreSolutions)
 	activeSolvers.Wait()
-	return myRT.Success, myRT.Result
+	return myRT.Result, myRT.Err
 }
 
 // Mdl returns the model associated with this IK.

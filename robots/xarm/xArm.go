@@ -363,11 +363,11 @@ func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
 	if err != nil {
 		return err
 	}
-	solved, solution := x.ik.Solve(ctx, pos, joints)
-	if solved {
-		return x.MoveToJointPositions(ctx, solution)
+	solution, err := x.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
 	}
-	return errors.New("could not solve for position")
+	return x.MoveToJointPositions(ctx, solution)
 }
 
 // CurrentJointPositions returns the current positions of all joints.

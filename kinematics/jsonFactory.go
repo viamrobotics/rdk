@@ -126,6 +126,9 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	if len(parents) > 1 {
 		return nil, errors.New("more than one end effector not supported")
 	}
+	if len(parents) < 1 {
+		return nil, errors.New("need at least one end effector")
+	}
 	var eename string
 	// TODO(pl): is there a better way to do all this? Annoying to iterate over a map three times. Maybe if we
 	// implement Child() as well as Parent()?

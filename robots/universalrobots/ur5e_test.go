@@ -49,8 +49,8 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 	test.That(t, err, test.ShouldBeNil)
 	ik := kinematics.CreateCombinedIKSolver(m, logger, 4)
 
-	solved, solution := ik.Solve(ctx, pos, arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0}))
-	test.That(t, solved, test.ShouldBeTrue)
+	solution, err := ik.Solve(ctx, pos, arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0}))
+	test.That(t, err, test.ShouldBeNil)
 
 	// we test that if we go forward from these joints, we end up in the same place
 	jointRadians := arm.JointPositionsToRadians(solution)

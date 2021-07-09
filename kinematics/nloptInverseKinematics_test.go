@@ -22,13 +22,13 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	pos := &pb.ArmPosition{X: 360, Z: 362}
 	seed := arm.JointPositionsFromRadians([]float64{1, 1, 1, 1, 1, 0})
 
-	solved, _ := ik.Solve(context.Background(), pos, seed)
-	test.That(t, solved, test.ShouldBeTrue)
+	_, err = ik.Solve(context.Background(), pos, seed)
+	test.That(t, err, test.ShouldBeNil)
 
 	pos = &pb.ArmPosition{X: -46, Y: -23, Z: 372, Theta: utils.RadToDeg(3.92), OX: -0.46, OY: 0.84, OZ: 0.28}
 
 	seed = &pb.JointPositions{Degrees: []float64{49, 28, -101, 0, -73, 0}}
 
-	solved, _ = ik.Solve(context.Background(), pos, seed)
-	test.That(t, solved, test.ShouldBeTrue)
+	_, err = ik.Solve(context.Background(), pos, seed)
+	test.That(t, err, test.ShouldBeNil)
 }
