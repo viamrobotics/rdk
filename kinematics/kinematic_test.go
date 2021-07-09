@@ -23,7 +23,7 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 300, 0, 360.25
 	expect := []float64{300, 0, 360.25, 0, 1, 0, 0}
-	actual := poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
+	actual := poseToSlice(m.ComputePosition(&pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
 
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
@@ -33,16 +33,16 @@ func TestForwardKinematics(t *testing.T) {
 
 	// Confirm end effector starts at 365, 0, 360.25
 	expect = []float64{365, 0, 360.25, 0, 1, 0, 0}
-	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
+	actual = poseToSlice(m.ComputePosition(&pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}}))
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	newPos := []float64{45, -45, 0, 0, 0, 0}
-	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
+	actual = poseToSlice(m.ComputePosition(&pb.JointPositions{Degrees: newPos}))
 	expect = []float64{57.5, 57.5, 545.1208197765168, 0, 0.5, 0.5, 0.707}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 
 	newPos = []float64{-45, 0, 0, 0, 0, 45}
-	actual = poseToSlice(ComputePosition(m, &pb.JointPositions{Degrees: newPos}))
+	actual = poseToSlice(m.ComputePosition(&pb.JointPositions{Degrees: newPos}))
 	expect = []float64{258.0935, -258.0935, 360.25, utils.RadToDeg(0.7854), 0.707, -0.707, 0}
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.01)
 }
@@ -118,6 +118,6 @@ func TestInline(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// The wx250s has the 4th and 6th joints inline
-	zeroed := ZeroInlineRotation(m, []float64{0, 0, 0, -1, 0, 1})
+	zeroed := m.ZeroInlineRotation([]float64{0, 0, 0, -1, 0, 1})
 	test.That(t, zeroed, test.ShouldResemble, []float64{0, 0, 0, 0, 0, 0})
 }
