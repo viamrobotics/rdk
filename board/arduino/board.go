@@ -233,7 +233,7 @@ func (b *arduinoBoard) GPIOSet(pin string, high bool) error {
 	return errors.New("GPIO not supported on arduino yet")
 }
 
-// GPIOGet whether the given pin is either low or high.
+// GPIOGet returns whether the given pin is either low or high.
 func (b *arduinoBoard) GPIOGet(pin string) (bool, error) {
 	return false, errors.New("GPIO not supported on arduino yet")
 }
