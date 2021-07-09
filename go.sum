@@ -239,6 +239,8 @@ github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThq
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20210615160527-f72cf56079ac h1:KzpEdFeBDKQR6mIWK6bAJyyMOvIQAFTECL4RzT19FpQ=
 github.com/edaniels/gostream v0.0.0-20210615160527-f72cf56079ac/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
+github.com/edaniels/gostream v0.0.0-20210709190700-47b04f3f3cf9 h1:xkJW493Dr6p/WGkhyp93c9KPIJXe5A4vUpajo55v2Yo=
+github.com/edaniels/gostream v0.0.0-20210709190700-47b04f3f3cf9/go.mod h1:si4vbQcafm/uxOd+tIJiL73pqqvyrV+/+GYBaAV/3Dw=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de/go.mod h1:PUN/9/bIMWq8Ej+fmb+QVoPdIYF/j68ziImrVKxnOw0=
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
