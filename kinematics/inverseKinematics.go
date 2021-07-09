@@ -1,29 +1,30 @@
 package kinematics
 
 import (
+	"context"
+
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
 
-// Goal TODO
-type Goal struct {
+// goal contains a dual quaternion representing a location and orientation to try to reach, and the ID of the end
+// effector which should be trying to reach it.
+type goal struct {
 	GoalTransform *spatialmath.DualQuaternion
 	EffectorID    int
 }
 
 // InverseKinematics TODO
 type InverseKinematics interface {
-	AddGoal(*spatialmath.DualQuaternion, int)
-	ClearGoals()
-	GetGoals() []Goal
-	Solve() bool
-	SetID(int)
-	GetID() int
-	GetMdl() *Model
-	Halt()
+	// Solve receives a context, the goal arm position, and current joint angles.
+	// It will return a boolean which will be true if it solved successfully, and the joint positions which
+	// will yield that goal position.
+	Solve(context.Context, *pb.ArmPosition, *pb.JointPositions) (*pb.JointPositions, error)
+	Mdl() *Model
 }
 
-// toArray returns the DistanceConfig as a slice with the components in the same order as the array returned from ToDelta
-func (dc *DistanceConfig) toArray() []float64 {
+// toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from ToDelta
+func (dc *SolverDistanceWeights) toArray() []float64 {
 	return []float64{dc.Trans.X, dc.Trans.Y, dc.Trans.Z, dc.Orient.TH, dc.Orient.X, dc.Orient.Y, dc.Orient.Z}
 }
 
@@ -33,11 +34,11 @@ func SquaredNorm(vec []float64) float64 {
 	for _, v := range vec {
 		norm += v * v
 	}
-	return norm
+	return norm - 1
 }
 
 // WeightedSquaredNorm TODO
-func WeightedSquaredNorm(vec []float64, config DistanceConfig) float64 {
+func WeightedSquaredNorm(vec []float64, config SolverDistanceWeights) float64 {
 	configArr := config.toArray()
 	norm := 0.0
 	for i, v := range vec {

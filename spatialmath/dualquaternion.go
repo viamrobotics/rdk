@@ -56,7 +56,7 @@ func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
 	return q
 }
 
-// ToArmPos converts a DualQuaternion to
+// ToArmPos converts a DualQuaternion to an arm position
 func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
 	final := &pb.ArmPosition{}
 	cartQuat := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))

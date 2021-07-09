@@ -15,23 +15,13 @@ import (
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/testutils/inject"
 )
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.ArmPosition) {
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-
-	dummy := inject.Arm{}
-
-	a, err := kinematics.NewArm(&dummy, ur5modeljson, 4, logger)
+	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
 
-	dummy.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
-		return arm.JointPositionsFromRadians(jointRadians), nil
-	}
-
-	pos, err := a.CurrentPosition(ctx)
+	pos := kinematics.ComputePosition(m, arm.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.X, test.ShouldAlmostEqual, correct.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
@@ -55,22 +45,15 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	dummy := inject.Arm{}
-
-	a, err := kinematics.NewArm(&dummy, ur5modeljson, 4, logger)
+	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
+	ik := kinematics.CreateCombinedIKSolver(m, logger, 4)
 
-	var lastJoints *pb.JointPositions
-	dummy.MoveToJointPositionsFunc = func(ctx context.Context, joints *pb.JointPositions) error {
-		lastJoints = joints
-		return nil
-	}
-
-	err = a.MoveToPosition(ctx, pos)
+	solution, err := ik.Solve(ctx, pos, arm.JointPositionsFromRadians([]float64{0, 0, 0, 0, 0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 
 	// we test that if we go forward from these joints, we end up in the same place
-	jointRadians := arm.JointPositionsToRadians(lastJoints)
+	jointRadians := arm.JointPositionsToRadians(solution)
 	fromDH := computeUR5ePosition(jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)

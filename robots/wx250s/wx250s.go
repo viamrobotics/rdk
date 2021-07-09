@@ -67,6 +67,7 @@ type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	ik       kinematics.InverseKinematics
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
@@ -87,6 +88,12 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 		return nil, err
 	}
 
+	model, err := kinematics.ParseJSON(wx250smodeljson)
+	if err != nil {
+		return nil, err
+	}
+	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+
 	if mutex == nil {
 		mutex = &sync.Mutex{}
 	}
@@ -102,19 +109,29 @@ func NewArm(attributes config.AttributeMap, mutex *sync.Mutex, logger golog.Logg
 		},
 		moveLock: mutex,
 		logger:   logger,
+		ik:       ik,
 	}
 
-	return kinematics.NewArm(newArm, wx250smodeljson, 4, logger)
+	return newArm, nil
 }
 
-// CurrentPosition TODO
+// CurrentPosition computes and returns the current cartesian position.
 func (a *Arm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errors.New("wx250s dosn't support kinematics")
+	joints, err := a.CurrentJointPositions(ctx)
+	return kinematics.ComputePosition(a.ik.Mdl(), joints), err
 }
 
-// MoveToPosition TODO
-func (a *Arm) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	return errors.New("wx250s dosn't support kinematics")
+// MoveToPosition moves the arm to the specified cartesian position.
+func (a *Arm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+	joints, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solution, err := a.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
+	}
+	return a.MoveToJointPositions(ctx, solution)
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
