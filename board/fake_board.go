@@ -97,6 +97,14 @@ func (b *FakeBoard) GPIOSet(pin string, high bool) error {
 	return nil
 }
 
+// GPIOGet whether the given pin is either low or high.
+func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
+	if b.gpio == nil {
+		b.gpio = map[string]bool{}
+	}
+	return b.gpio[pin], nil
+}
+
 // PWMSet sets the given pin to the given duty cycle.
 func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
 	if b.pwm == nil {

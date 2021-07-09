@@ -651,6 +651,10 @@ func (bc *boardClient) GPIOSet(pin string, high bool) error {
 	return errUnimplemented
 }
 
+func (bc *boardClient) GPIOGet(pin string) (bool, error) {
+	return false, errUnimplemented
+}
+
 func (bc *boardClient) PWMSet(pin string, dutyCycle byte) error {
 	return errUnimplemented
 }

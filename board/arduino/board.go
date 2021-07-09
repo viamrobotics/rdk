@@ -230,17 +230,22 @@ func (b *arduinoBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
 
 // GPIOSet sets the given pin to either low or high.
 func (b *arduinoBoard) GPIOSet(pin string, high bool) error {
-	return nil
+	return errors.New("GPIO not supported on arduino yet")
+}
+
+// GPIOGet whether the given pin is either low or high.
+func (b *arduinoBoard) GPIOGet(pin string) (bool, error) {
+	return false, errors.New("GPIO not supported on arduino yet")
 }
 
 // PWMSet sets the given pin to the given duty cycle.
 func (b *arduinoBoard) PWMSet(pin string, dutyCycle byte) error {
-	return nil
+	return errors.New("GPIO not supported on arduino yet")
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 func (b *arduinoBoard) PWMSetFreq(pin string, freq uint) error {
-	return nil
+	return errors.New("GPIO not supported on arduino yet")
 }
 
 // MotorNames returns the name of all known motors.
