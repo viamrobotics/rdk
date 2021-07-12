@@ -4,7 +4,6 @@ package v1
 
 import (
 	context "context"
-
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
@@ -57,9 +56,9 @@ type RobotServiceClient interface {
 	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	PointCloud(ctx context.Context, in *PointCloudRequest, opts ...grpc.CallOption) (*PointCloudResponse, error)
-	// PointCloudSegment returns a point cloud segment from a camera of the underlying robot when you specify a point.
+	// PointCloudSegments returns all the point cloud segments from a camera of the underlying robot.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	PointCloudSegment(ctx context.Context, in *PointCloudSegmentRequest, opts ...grpc.CallOption) (*PointCloudResponse, error)
+	PointCloudSegments(ctx context.Context, in *PointCloudSegmentsRequest, opts ...grpc.CallOption) (*PointCloudSegmentsResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(ctx context.Context, in *LidarInfoRequest, opts ...grpc.CallOption) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -270,9 +269,9 @@ func (c *robotServiceClient) PointCloud(ctx context.Context, in *PointCloudReque
 	return out, nil
 }
 
-func (c *robotServiceClient) PointCloudSegment(ctx context.Context, in *PointCloudSegmentRequest, opts ...grpc.CallOption) (*PointCloudResponse, error) {
-	out := new(PointCloudResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/PointCloudSegment", in, out, opts...)
+func (c *robotServiceClient) PointCloudSegments(ctx context.Context, in *PointCloudSegmentsRequest, opts ...grpc.CallOption) (*PointCloudSegmentsResponse, error) {
+	out := new(PointCloudSegmentsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/PointCloudSegments", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -464,9 +463,9 @@ type RobotServiceServer interface {
 	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error)
-	// PointCloudSegment returns a point cloud segment from a camera of the underlying robot when you specify a point.
+	// PointCloudSegments returns all the point cloud segments from a camera of the underlying robot.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	PointCloudSegment(context.Context, *PointCloudSegmentRequest) (*PointCloudResponse, error)
+	PointCloudSegments(context.Context, *PointCloudSegmentsRequest) (*PointCloudSegmentsResponse, error)
 	// LidarInfo returns the info of a lidar of the underlying robot.
 	LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error)
 	// LidarStart starts a lidar of the underlying robot.
@@ -555,8 +554,8 @@ func (UnimplementedRobotServiceServer) CameraRenderFrame(context.Context, *Camer
 func (UnimplementedRobotServiceServer) PointCloud(context.Context, *PointCloudRequest) (*PointCloudResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PointCloud not implemented")
 }
-func (UnimplementedRobotServiceServer) PointCloudSegment(context.Context, *PointCloudSegmentRequest) (*PointCloudResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PointCloudSegment not implemented")
+func (UnimplementedRobotServiceServer) PointCloudSegments(context.Context, *PointCloudSegmentsRequest) (*PointCloudSegmentsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PointCloudSegments not implemented")
 }
 func (UnimplementedRobotServiceServer) LidarInfo(context.Context, *LidarInfoRequest) (*LidarInfoResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LidarInfo not implemented")
@@ -910,20 +909,20 @@ func _RobotService_PointCloud_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_PointCloudSegment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PointCloudSegmentRequest)
+func _RobotService_PointCloudSegments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PointCloudSegmentsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).PointCloudSegment(ctx, in)
+		return srv.(RobotServiceServer).PointCloudSegments(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/PointCloudSegment",
+		FullMethod: "/proto.api.v1.RobotService/PointCloudSegments",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).PointCloudSegment(ctx, req.(*PointCloudSegmentRequest))
+		return srv.(RobotServiceServer).PointCloudSegments(ctx, req.(*PointCloudSegmentsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1284,8 +1283,8 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_PointCloud_Handler,
 		},
 		{
-			MethodName: "PointCloudSegment",
-			Handler:    _RobotService_PointCloudSegment_Handler,
+			MethodName: "PointCloudSegments",
+			Handler:    _RobotService_PointCloudSegments_Handler,
 		},
 		{
 			MethodName: "LidarInfo",

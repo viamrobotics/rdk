@@ -136,9 +136,9 @@ service RobotService {
 		};
 	}
 
-	// PointCloudSegment returns a point cloud segment from a camera of the underlying robot when you specify a point. 
+	// PointCloudSegments returns all the point cloud segments from a camera of the underlying robot. 
     // A specific MIME type can be requested but may not necessarily be the same one returned.
-	rpc PointCloudSegment(PointCloudSegmentRequest) returns (PointCloudResponse) {
+	rpc PointCloudSegments(PointCloudSegmentsRequest) returns (PointCloudSegmentsResponse) {
 		option (google.api.http) = {
 			get: "/api/v1/camera/{name}/pointcloudsegment"
 		};
@@ -456,15 +456,17 @@ message PointCloudResponse {
 	bytes frame = 2;
 }
 
-message PointCloudSegmentRequest {
+message PointCloudSegmentsRequest {
 	string name = 1;
 	string mime_type = 2;
     int64 min_points_in_plane = 3;
     int64 min_points_in_segment = 4;
     double clustering_radius = 5;
-    double x = 6;
-    double y = 7;
-    double z = 8;
+}
+
+message PointCloudSegmentsResponse {
+	string mime_type = 1;
+	repeated bytes frames = 2;
 }
 
 // Lidar
