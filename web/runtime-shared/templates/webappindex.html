@@ -297,17 +297,13 @@
                       console.log(theData.pcdClick.path);
                       fetch(theData.pcdClick.path).then(console.log);
                   },
-                  doPCDSelect : function(){
-                      console.log("select object at point X:"+theData.pcdClick.x+" Y:"+theData.pcdClick.y+" Z:"+theData.pcdClick.z);
-                      req = new robotApi.PointCloudSegmentRequest();
+                  doFindSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                      req = new robotApi.PointCloudSegmentsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName)
                       req.setName(pcdGlobal.cameraName);
-                      req.setMinPointsInPlane(50000);
-                      req.setMinPointsInSegment(500);
-                      req.setClusteringRadius(10);
-                      req.setX(theData.pcdClick.x);
-                      req.setY(-theData.pcdClick.y);
-                      req.setZ(-theData.pcdClick.z);
+                      req.setMinPointsInPlane(minPointsPlane);
+                      req.setMinPointsInSegment(minPointsSegment);
+                      req.setClusteringRadius(clusteringRadius);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
                       console.log("finding object segment...")
@@ -701,8 +697,13 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    <button v-on:click="doPCDSelect">Select Object @ Point</button>
+                    Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000" :key="cluster.plane">
+                    Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500" :key="cluster.segs">
+                    Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10" :key="cluster.radius">
                   </td>
+                </tr>
+                <tr>
+                  <td><button v-on:click="doFindSegments(cluster.plane, cluster.segs, cluster.radius)">Find Segments</button></td>
                 </tr>
               </table>
             </td>

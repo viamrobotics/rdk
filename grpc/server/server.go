@@ -286,7 +286,7 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 	}, nil
 }
 
-// PointCloudSegment returns an object from the frame from a camera of the underlying robot. A specific MIME type
+// PointCloudSegments returns an object from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegmentsRequest) (*pb.PointCloudSegmentsResponse, error) {
 	camera := s.r.CameraByName(req.Name)
