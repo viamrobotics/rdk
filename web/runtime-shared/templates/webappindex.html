@@ -94,6 +94,7 @@
               rawStatus : null,
               status : {},
               pcdClick : {},
+              segments : null,
           };
           theApp = new Vue({
               el: '#app',
@@ -306,15 +307,16 @@
                       req.setClusteringRadius(clusteringRadius);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      console.log("finding object segment...")
-                      robotService.pointCloudSegment(req,  {}, (err, resp) => {
+                      console.log("finding object segments...")
+                      robotService.pointCloudSegments(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
-                          console.log("no segment found at point")
+                          console.log("error getting segments")
                           return;
                         }
-                        console.log("loading pcd segment")
-                        pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
+                        console.log("got pcd segments");
+                        theData.pcdClick.foundSegments = true;
+                        theData.segments = ${resp.getFramesList_asB64()};
                       });
                   }
               }
@@ -626,7 +628,7 @@
           
         </table>
       </div> <!-- end boards -->
-
+      <!-- cameras -->
       <table border="1" v-if="nonEmpty(status.camerasMap)">
         <tr>
           <th colspan="3">
@@ -695,21 +697,36 @@
                     <button v-on:click="doPCDGrab">Grab</button>
                   </td>
                 </tr>
-                <tr>
-                  <td colspan=2>
-                    Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000">
-                    Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500">
-                    Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10">
-                  </td>
-                </tr>
-                <tr>
-                    <td><button v-on:click="doFindSegments(document.getElementById('minPtsPlane').value, document.getElementById('minPtsSegment').value, document.getElementById('clusterRad').value)">Find Segments</button></td>
-                </tr>
               </table>
             </td>
           </tr>
         </table>
-      </div>
+      </div> <!-- end pcd wrapper -->
+      <!-- get segments -->
+      <table>
+        <tr>
+          <td>
+              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000"><br>
+              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500"><br>
+              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10"><br>
+          </td>
+        </tr>
+        <tr>
+            <td>
+                <button v-on:click="doFindSegments(document.getElementById('minPtsPlane').value, document.getElementById('minPtsSegment').value, document.getElementById('clusterRad').value)">Find Segments</button>
+            </td>
+        </tr>
+      </table>
+      <table v-if="pcdClick.foundSegments">
+        <tr>
+          <th>Object</th>
+          <th>PCD</th>
+        </tr>
+        <tr v-for="(seg, i) in segments">
+            <td>Object {{i}}</td>
+            <td><button v-on:click="pcdLoad(`data:pointcloud/pcd;base64,${seg}`)">GO</button></td>
+        </tr>
+      </table>
     </div> <!-- end vue app -->
     
   </body>
