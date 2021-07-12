@@ -14,6 +14,11 @@ type ObjectSegmentation struct {
 	*Clusters // anonymous field
 }
 
+// N gives the number of found segments.
+func (objectSeg *ObjectSegmentation) N() int {
+	return len(objectSeg.PointClouds)
+}
+
 // SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
 // returns the full point cloud if the point is not part of any object segment.
 func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
