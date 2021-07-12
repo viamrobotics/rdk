@@ -697,13 +697,13 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000" :key="cluster.plane">
-                    Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500" :key="cluster.segs">
-                    Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10" :key="cluster.radius">
+                    Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000">
+                    Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500">
+                    Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10">
                   </td>
                 </tr>
                 <tr>
-                  <td><button v-on:click="doFindSegments(cluster.plane, cluster.segs, cluster.radius)">Find Segments</button></td>
+                    <td><button v-on:click="doFindSegments(document.getElementById('minPtsPlane').value, document.getElementById('minPtsSegment').value, document.getElementById('clusterRad').value)">Find Segments</button></td>
                 </tr>
               </table>
             </td>
