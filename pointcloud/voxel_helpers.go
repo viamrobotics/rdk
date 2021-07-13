@@ -8,8 +8,10 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-// EstimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector
-func EstimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
+// helpers for Voxel attributes computation
+
+// estimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector
+func estimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	// Put points in mat
 	nPoints := len(points)
 	mPt := mat.NewDense(nPoints, 3, nil)
@@ -62,9 +64,9 @@ func GetOffset(center, normal r3.Vector) float64 {
 }
 
 // DistToPlane computes the distance between a point a plane with given normal vector and offset
-func DistToPlane(pt, planeNormal r3.Vector, offset float64) float64 {
-	num := math.Abs(pt.Dot(planeNormal) + offset)
-	denom := planeNormal.Norm()
+func DistToPlane(pt r3.Vector, plane Plane) float64 {
+	num := math.Abs(pt.Dot(plane.Normal) + plane.Offset)
+	denom := plane.Normal.Norm()
 	d := 0.
 	if denom > 0.0001 {
 		d = num / denom
@@ -73,10 +75,10 @@ func DistToPlane(pt, planeNormal r3.Vector, offset float64) float64 {
 }
 
 // GetResidual computes the mean fitting error of points to a given plane
-func GetResidual(points []r3.Vector, normal r3.Vector, offset float64) float64 {
+func GetResidual(points []r3.Vector, plane Plane) float64 {
 	dist := 0.
 	for _, pt := range points {
-		d := DistToPlane(pt, normal, offset)
+		d := DistToPlane(pt, plane)
 		dist = dist + d*d
 	}
 	dist = dist / float64(len(points))
@@ -100,4 +102,3 @@ func GetWeight(points []r3.Vector, lam, residual float64) float64 {
 	w := math.Exp(-dR*dR/(2*lam*lam)) * math.Exp(-residual*residual/(2*lam*lam))
 	return w
 }
-

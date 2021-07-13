@@ -21,6 +21,26 @@ type VoxelCoords struct {
 	I, J, K int64
 }
 
+// Plane structure to store normal vector and offset of plane equation
+// Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane
+type Plane struct {
+	Normal    r3.Vector
+	Center    r3.Vector
+	Offset    float64
+	Points    []r3.Vector
+	VoxelKeys []VoxelCoords
+}
+
+// GetEquation return the coefficients of the plane equation as a 4-slice of floats
+func (p *Plane) GetEquation() []float64 {
+	equation := make([]float64, 4)
+	equation[0] = p.Normal.X
+	equation[1] = p.Normal.Y
+	equation[2] = p.Normal.Z
+	equation[3] = p.Offset
+	return equation
+}
+
 // IsEqual tests if two VoxelCoords are the same
 func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
 	return c.I == c2.I && c.J == c2.J && c.K == c2.K
@@ -113,10 +133,18 @@ func (v1 *Voxel) ComputeCenter() {
 	v1.Center.Z = center.Z
 }
 
+// GetPlane returns the plane struct with the voxel data
+func (v1 *Voxel) GetPlane() Plane {
+	// create key slice for plane struct
+	keys := make([]VoxelCoords, len(v1.Points))
+	for i := range keys {
+		keys[i] = v1.Key
+	}
+	return Plane{v1.Normal, v1.Center, v1.Offset, v1.Points, keys}
+}
+
 // VoxelSlice is a slice that contains Voxels
 type VoxelSlice []*Voxel
-
-
 
 // VoxelGrid contains the sparse grid of Voxels of a point cloud
 type VoxelGrid struct {
@@ -134,16 +162,11 @@ func NewVoxelGrid() *VoxelGrid {
 	}
 	voxelMap[coords] = NewVoxel(coords)
 
-	visitedMap := make(map[VoxelCoords]bool)
-	visitedMap[coords] = false
 	return &VoxelGrid{
 		Voxels:   voxelMap,
 		maxLabel: 0,
 	}
 }
-
-// helpers for Voxel attributes computation
-
 
 // Sort interface for voxels
 
@@ -227,7 +250,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 	defaultResidual := 1.0
 
 	pc.Iterate(func(p Point) bool {
-		pt := r3.Vector{p.Position().X, p.Position().Y, p.Position().Z}
+		pt := r3.Vector(p.Position())
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]
 		// if voxel key does not exist yet, create voxel at this key with current point, voxel coordinates and maximum
@@ -264,9 +287,9 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 		// below 5 points, normal and center estimation are not relevant
 		if len(vox.Points) > 5 {
-			vox.Normal = EstimatePlaneNormalFromPoints(vox.Points)
+			vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
 			vox.Offset = GetOffset(vox.Center, vox.Normal)
-			vox.Residual = GetResidual(vox.Points, vox.Normal, vox.Offset)
+			vox.Residual = GetResidual(vox.Points, vox.GetPlane())
 			vox.Weight = GetWeight(vox.Points, lam, vox.Residual)
 		}
 

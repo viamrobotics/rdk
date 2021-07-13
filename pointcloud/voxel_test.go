@@ -52,7 +52,7 @@ func TestVoxelGridCreation(t *testing.T) {
 	test.ShouldEqual(vg.maxLabel, 0)
 }
 
-func TestEstimatePlaneNormalFromPoints(t *testing.T){
+func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 	nPoints := 1000
 	points := make([]r3.Vector, nPoints)
 	for i := 0; i < nPoints; i++ {
@@ -60,13 +60,13 @@ func TestEstimatePlaneNormalFromPoints(t *testing.T){
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
 		points = append(points, p)
 	}
-	normalPlane := EstimatePlaneNormalFromPoints(points)
+	normalPlane := estimatePlaneNormalFromPoints(points)
 	test.ShouldAlmostEqual(normalPlane.X, 0.)
 	test.ShouldAlmostEqual(normalPlane.Y, 0.)
 	test.ShouldAlmostEqual(normalPlane.Z, 1.)
 }
 
-func TestGetVoxelCenterWeightResidual(t *testing.T){
+func TestGetVoxelCenterWeightResidual(t *testing.T) {
 	nPoints := 10000
 	points := make([]r3.Vector, nPoints)
 	for i := 0; i < nPoints; i++ {
@@ -81,15 +81,21 @@ func TestGetVoxelCenterWeightResidual(t *testing.T){
 
 	w := GetWeight(points, 1., 0.)
 	test.ShouldAlmostEqual(w, 1.0)
-
-	res := GetResidual(points, r3.Vector{0,0,1},0.)
+	plane := Plane{
+		Normal:    r3.Vector{0, 0, 1},
+		Center:    r3.Vector{},
+		Offset:    0,
+		Points:    nil,
+		VoxelKeys: nil,
+	}
+	res := GetResidual(points, plane)
 	test.ShouldAlmostEqual(res, 0.0)
 }
 
-func TestGetVoxelCoordinates(t *testing.T){
+func TestGetVoxelCoordinates(t *testing.T) {
 	// Get point in [0,1]x[0,1]x0
 	p := r3.Vector{rand.Float64(), rand.Float64(), 0}
-	ptMin:= r3.Vector{}
+	ptMin := r3.Vector{}
 	// if voxel of size 1, voxel coordinates should be (0,0,0)
 	coords := GetVoxelCoordinates(p, ptMin, 1.0)
 	test.ShouldAlmostEqual(coords.I, 0.)
