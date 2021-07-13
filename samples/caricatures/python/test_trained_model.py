@@ -296,6 +296,7 @@ def testTrainedModelSingleImage(personToDraw, filePathToPretrainedFacialLandmark
     # and create image objects both for facial landmark
     # prediction and for display purposes
     image = cv2.imread("../images/selfie_"+personToDraw+".jpg")
+
     grayscaleImage = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     displayImage = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 

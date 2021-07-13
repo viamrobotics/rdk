@@ -195,15 +195,15 @@ func numSamples(name string) int {
 }
 
 // returns degree of polynomial graphing a certain facial feature
-func degreesOfFreedom(len_ps int, name string) int {
+func degreesOfFreedom(lenPs int, name string) int {
 	if name == "down_nose" {
 		return 4
-	} else if len_ps == numOuterMouthPoints || len_ps == numInnerMouthPoints {
-		return len_ps / 2
-	} else if len_ps == numCurvaturePoints {
+	} else if lenPs == numOuterMouthPoints || lenPs == numInnerMouthPoints {
+		return lenPs / 2
+	} else if lenPs == numCurvaturePoints {
 		return 3
 	} else {
-		return len_ps
+		return lenPs
 	}
 }
 
