@@ -65,16 +65,6 @@ func (vg *VoxelGrid) GetUnlabeledVoxels() []VoxelCoords {
 	return unlabeled
 }
 
-// Plane structure to store normal vector and offset of plane equation
-// Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane
-type Plane struct {
-	Normal    r3.Vector
-	Center    r3.Vector
-	Offset    float64
-	Points    []r3.Vector
-	VoxelKeys []VoxelCoords
-}
-
 // GetPlanesFromLabels returns a slice containing all the planes in the point cloud
 func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
 	planes := make([]Plane, vg.maxLabel+1)
@@ -100,7 +90,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
 
 	for label, pts := range pointsByLabel {
 		if label > 0 {
-			normalVector := EstimatePlaneNormalFromPoints(pts)
+			normalVector := estimatePlaneNormalFromPoints(pts)
 			center := GetVoxelCenter(pts)
 			offset := GetOffset(center, normalVector)
 			currentPlane := Plane{
@@ -124,14 +114,14 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 		vox := vg.Voxels[k]
 		vox.PointLabels = make([]int, len(vox.Points))
 		nbVoxels := vg.GetAdjacentVoxels(vox)
+		plane := vox.GetPlane()
 		for i, pt := range vox.Points {
 			dMin := 100000.0
 			outLabel := 0
 			for _, kNb := range nbVoxels {
 				voxNb := vg.Voxels[kNb]
 				if voxNb.Label > 0 {
-
-					d := DistToPlane(pt, voxNb.Normal, voxNb.Offset)
+					d := DistToPlane(pt, plane)
 					if d < dMin {
 						dMin = d
 						outLabel = voxNb.Label
@@ -175,4 +165,3 @@ func (vg *VoxelGrid) SegmentPlanesRegionGrowing(wTh, thetaTh, phiTh, dTh float64
 	unlabeledVoxels := vg.GetUnlabeledVoxels()
 	vg.LabelNonPlanarVoxels(unlabeledVoxels, dTh)
 }
-
