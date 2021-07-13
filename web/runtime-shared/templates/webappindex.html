@@ -94,6 +94,7 @@
               rawStatus : null,
               status : {},
               pcdClick : {},
+              fullcloud: null,
               segments : null,
               minPtsPlane : 50000,
               minPtsSegment: 500,
@@ -239,6 +240,7 @@
                       });
                   },
                   renderPCD : function(cameraName) {
+                      theData.pcdClick.pcdloaded = false;
                       theData.pcdClick.foundSegments = false;
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
@@ -252,8 +254,9 @@
                         if (err) {
                           return;
                         }
-                        console.log("loading pcd")
-                        pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
+                        console.log("loading pcd");
+                        theData.fullcloud = resp.getFrame_asB64();
+                        pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                       });
 
                   },
@@ -302,7 +305,8 @@
                       console.log(theData.pcdClick.path);
                       fetch(theData.pcdClick.path).then(console.log);
                   },
-                  doFindSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                  findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                      theData.pcdClick.calculatingSegments = true;
                       req = new robotApi.PointCloudSegmentsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName)
                       req.setName(pcdGlobal.cameraName);
@@ -316,12 +320,18 @@
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments")
+                          theData.pcdClick.calculatingSegments = false;
                           return;
                         }
                         console.log("got pcd segments");
                         theData.pcdClick.foundSegments = true;
                         theData.segments = resp.getFramesList_asB64();
+                        theData.pcdClick.calculatingSegments = false;
                       });
+                  },
+                  doPCDLoad : function(data){
+                        const mimeType = 'pointcloud/pcd';
+                        pcdLoad(`data:${mimeType};base64,${data}`);
                   }
               }
           })
@@ -710,7 +720,7 @@
       <!-- get segments -->
       <table v-if="pcdClick.pcdloaded">
         <tr>
-          <td>
+          <td colspan=2>
               Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
               Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
               Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
@@ -718,8 +728,9 @@
         </tr>
         <tr>
             <td>
-                <button v-on:click="doFindSegments(${minPtsPlane}, ${minPtsSegment}, ${clusterRad})">Find Segments</button>
+                <button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</button>
             </td>
+            <td v-if="pcdClick.calculatingSegments">Finding...</td>
         </tr>
       </table>
       <table v-if="pcdClick.foundSegments">
@@ -727,9 +738,13 @@
           <th>Object</th>
           <th>PCD</th>
         </tr>
+        <tr>
+          <td>Full Image</td>
+          <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
+        </tr>
         <tr v-for="(seg, i) in segments">
-            <td>Object</td>
-            <td><button v-on:click="pcdLoad(`data:pointcloud/pcd;base64,${seg}`)">GO</button></td>
+            <td>Object ${i}</td>
+            <td><button v-on:click="doPCDLoad(seg)">GO</button></td>
         </tr>
       </table>
     </div> <!-- end vue app -->
