@@ -29,9 +29,9 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	segments, err := CreateObjectSegmentation(cloud, 50000, 500, 10.0)
 	test.That(t, err, test.ShouldBeNil)
 	// get center points
-	for i, s := range segments.PointClouds {
-		mean := pc.CalculateMeanOfPointCloud(s)
-		mean = roundVector(mean)
-		t.Logf("center of object %d is: %v", i, mean)
+	for i := 0; i < segments.N(); i++ {
+		mean := pc.CalculateMeanOfPointCloud(segments.PointClouds[i])
+		expMean := segments.Centers[i]
+		test.That(t, mean, test.ShouldResemble, expMean)
 	}
 }
