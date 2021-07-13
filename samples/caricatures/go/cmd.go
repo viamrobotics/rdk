@@ -19,6 +19,7 @@ import (
 // constants
 const (
 	numFacialLandmarks = 68
+	personToDraw       = "person"
 )
 
 // initialize logger for caricatures
@@ -58,30 +59,35 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 
 // main method
 func main() {
-
-	// IF FALSE MAKES SURE BELOW CODE PASSES LINTER BECAUSE IT IS UNUSED
-	if false {
-		utils.ContextualMain(mainWithArgs, logger)
-	}
-	// create caricature curves and plot those curves to create a visual
-	// representation of a face
-	createPlots()
-
+	utils.ContextualMain(mainWithArgs, logger)
 }
 
 // mainWithArgs method used to initialize the robot
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-	flag.Parse()
-	cfg, err := config.Read(flag.Arg(0))
-	if err != nil {
+
+	// use built-in camera to find a face and create its caricature
+	if err := findFace(personToDraw); err != nil {
 		return err
 	}
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	if err != nil {
+	if err := createPlots(personToDraw); err != nil {
 		return err
 	}
-	defer myRobot.Close()
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
-	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+
+	if false {
+		flag.Parse()
+		cfg, err := config.Read(flag.Arg(0))
+		if err != nil {
+			return err
+		}
+		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		if err != nil {
+			return err
+		}
+		defer myRobot.Close()
+		webOpts := web.NewOptions()
+		webOpts.Insecure = true
+		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	}
+
+	return nil
 }
