@@ -17,8 +17,8 @@ type TMCConfig struct {
 	SPIBus      string  `json:"spiBus"`      // SPI Bus name
 	ChipSelect  uint    `json:"chipSelect"`  // Motor address on serial bus
 	Index       uint    `json:"index"`       // 0th or 1st motor on driver
-	MaxVelocity float64 `json:"maxVelocity"` // Steps per second
-	MaxAccel    float64 `json:"maxAccel"`    // Steps per second per second
+	MaxVelocity float64 `json:"maxVelocity"` // RPM
+	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
 	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
 }
 
@@ -190,20 +190,24 @@ func (m *TMCStepperMotor) initRegisters() error {
 		return err
 	}
 
+	// Compute steps per taConst
+	taConst :=  math.Pow(2, 41) / math.Pow(m.fClk, 2)
+	rawMaxAcc := int32(math.Sqrt(m.maxAcc * 60 / taConst))
+
 	// Max accelerations
-	err = m.WriteReg(A1, int32(float32(m.maxAcc)*1.1))
+	err = m.WriteReg(A1, rawMaxAcc)
 	if err != nil {
 		return err
 	}
-	err = m.WriteReg(AMAX, int32(m.maxAcc))
+	err = m.WriteReg(AMAX, rawMaxAcc)
 	if err != nil {
 		return err
 	}
-	err = m.WriteReg(D1, int32(float32(m.maxAcc)*1.1))
+	err = m.WriteReg(D1, rawMaxAcc)
 	if err != nil {
 		return err
 	}
-	err = m.WriteReg(DMAX, int32(m.maxAcc))
+	err = m.WriteReg(DMAX, rawMaxAcc)
 	if err != nil {
 		return err
 	}
@@ -218,20 +222,20 @@ func (m *TMCStepperMotor) initRegisters() error {
 	if err != nil {
 		return err
 	}
-	// Transition ramp at 25% speed
+	// Transition ramp at 25% speed (if D1 and A1 are set different)
 	err = m.WriteReg(V1, int32(float32(m.maxVel)/4))
 	if err != nil {
 		return err
 	}
 
 	// Set minimium speed for stall detection and coolstep
-	err = m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/10))
+	err = m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20))
 	if err != nil {
 		return err
 	}
 
 	// Max velocity to zero, we don't want to move
-	err = m.WriteReg(VMAX, int32(0))
+	err = m.WriteReg(VMAX, m.rpmToV(0))
 	if err != nil {
 		return err
 	}
@@ -249,6 +253,10 @@ func (m *TMCStepperMotor) initRegisters() error {
 	}
 
 	return nil
+}
+
+func (m *TMCStepperMotor) GetRaw(ctx context.Context) Motor {
+	return m
 }
 
 // Position gives the current motor position
@@ -283,7 +291,8 @@ func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerP
 		return err
 	}
 
-	err = m.WriteReg(VMAX, int32(powerPct*float32(m.maxVel)))
+	speed := m.rpmToV(float64(powerPct) * m.maxVel)
+	err = m.WriteReg(VMAX, speed)
 	if err != nil {
 		return err
 	}
@@ -302,25 +311,27 @@ func (m *TMCStepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm
 		rotations *= -1
 	}
 	target := curPos + rotations
-
 	return m.GoTo(ctx, rpm, target)
+}
+
+func (m *TMCStepperMotor) rpmToV(rpm float64) int32 {
+	if rpm > m.maxVel {
+		rpm = m.maxVel
+	}
+	tConst := m.fClk / math.Pow(2, 24) // Time constant for velocities in TMC5072
+	speed := (rpm / 60) * float64(m.stepsPerRev) / tConst
+	return int32(speed)
 }
 
 // GoTo moves to the specified position in terms of rotations.
 func (m *TMCStepperMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	position *= float64(m.stepsPerRev)
-	tConst := m.fClk / math.Pow(2, 24) // Time constant for velocities in TMC5072
-	speed := (rpm / 60) * float64(m.stepsPerRev) / tConst
-	if speed > m.maxVel {
-		speed = m.maxVel
-	}
-
 	err := m.WriteReg(RAMPMODE, MODE_POSITION)
 	if err != nil {
 		return err
 	}
 
-	err = m.WriteReg(VMAX, int32(speed))
+	err = m.WriteReg(VMAX, m.rpmToV(rpm))
 	if err != nil {
 		return err
 	}
@@ -346,7 +357,7 @@ func (m *TMCStepperMotor) Off(ctx context.Context) error {
 }
 
 func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	err := m.GoFor(ctx, d, rpm, 100000)
+	err := m.GoFor(ctx, d, rpm, 1000)
 	if err != nil {
 		return err
 	}
@@ -372,19 +383,24 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		}
 
 		if fails >= 50 {
-			return errors.Errorf("Timed out during homing")
+			_ = m.Off(ctx)
+			return errors.Errorf("Timed out during homing accel")
 		}
 	}
 
 	// Now enabled stallguard
 	m.WriteReg(SW_MODE, 0x400)
+	// Disable stallguard and turn off if we fail homing
+	defer func() {
+		_ = m.WriteReg(SW_MODE, 0x000)
+		_ = m.Off(ctx)
+	}()
 
 	// Wait for motion to stop at endstop
 	fails = 0
 	for {
 		select {
 		case <-ctx.Done():
-			_ = m.Off(ctx) // Ignore errors as we're already stopping
 			return errors.Errorf("Context cancelled during homing")
 		case <-time.After(100 * time.Millisecond):
 			fails++
@@ -395,11 +411,11 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 			return err
 		}
 		// Look for vzero flag
-		if stat&0x400 == 0x400 {
+		if stat & 0x400 == 0x400 {
 			break
 		}
 
-		if fails >= 50 {
+		if fails >= 100 {
 			return errors.Errorf("Timed out during homing")
 		}
 	}
@@ -411,11 +427,6 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 	}
 	// Zero position
 	err = m.Zero(ctx)
-	if err != nil {
-		return err
-	}
-	// Disable stallguard
-	err = m.WriteReg(SW_MODE, 0x000)
 	if err != nil {
 		return err
 	}
