@@ -95,6 +95,9 @@
               status : {},
               pcdClick : {},
               segments : null,
+              minPtsPlane : 50000,
+              minPtsSegment: 500,
+              clusterRad: 10,
           };
           theApp = new Vue({
               el: '#app',
@@ -236,6 +239,7 @@
                       });
                   },
                   renderPCD : function(cameraName) {
+                      theData.pcdClick.foundSegments = false;
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
@@ -316,7 +320,7 @@
                         }
                         console.log("got pcd segments");
                         theData.pcdClick.foundSegments = true;
-                        theData.segments = ${resp.getFramesList_asB64()};
+                        theData.segments = resp.getFramesList_asB64();
                       });
                   }
               }
@@ -445,6 +449,7 @@
               console.log(error);
             }
           );
+          theData.pcdClick.pcdloaded = true;
       }
 
       async function waitForClientAndStart() {
@@ -703,17 +708,17 @@
         </table>
       </div> <!-- end pcd wrapper -->
       <!-- get segments -->
-      <table>
+      <table v-if="pcdClick.pcdloaded">
         <tr>
           <td>
-              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0" value="50000"><br>
-              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" value="500"><br>
-              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" value="10"><br>
+              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
+              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
+              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
           </td>
         </tr>
         <tr>
             <td>
-                <button v-on:click="doFindSegments(document.getElementById('minPtsPlane').value, document.getElementById('minPtsSegment').value, document.getElementById('clusterRad').value)">Find Segments</button>
+                <button v-on:click="doFindSegments(${minPtsPlane}, ${minPtsSegment}, ${clusterRad})">Find Segments</button>
             </td>
         </tr>
       </table>
@@ -723,7 +728,7 @@
           <th>PCD</th>
         </tr>
         <tr v-for="(seg, i) in segments">
-            <td>Object {{i}}</td>
+            <td>Object</td>
             <td><button v-on:click="pcdLoad(`data:pointcloud/pcd;base64,${seg}`)">GO</button></td>
         </tr>
       </table>
