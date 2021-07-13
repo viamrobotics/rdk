@@ -139,6 +139,10 @@ type encodedMotorState struct {
 	setPoint     int64
 }
 
+func (m *encodedMotor) GetRaw(ctx context.Context) Motor {
+	return m.real
+}
+
 func (m *encodedMotor) Position(ctx context.Context) (float64, error) {
 	ticks, err := m.encoder.Position(ctx)
 	if err != nil {

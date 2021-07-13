@@ -718,6 +718,10 @@ type proxyBoardMotor struct {
 	actual board.Motor
 }
 
+func (p *proxyBoardMotor) GetRaw(ctx context.Context) board.Motor {
+	return p.actual
+}
+
 func (p *proxyBoardMotor) replace(newMotor board.Motor) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
