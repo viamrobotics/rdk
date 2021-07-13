@@ -86,15 +86,7 @@ func resPolyFit(name string, csl int, xdata, ydata []float64) *plotter.Function 
 	// len(ps) facial landmark coordinates are provided for each facial feature
 	poly := func(x float64, ps []float64) float64 {
 		sum := 0.0
-		degree := len(ps)
-		if name == "down_nose" {
-			degree = 4
-		}
-		if degree == numOuterMouthPoints {
-			degree = degree / 2
-		} else if degree == numCurvaturePoints {
-			degree = 3
-		}
+		degree := degreesOfFreedom(len(ps), name)
 		for i := 0; i < degree; i++ {
 			sum += ps[i] * math.Pow(x, float64(i))
 		}
@@ -127,27 +119,41 @@ func resPolyFit(name string, csl int, xdata, ydata []float64) *plotter.Function 
 	f := plotter.NewFunction(func(x float64) float64 {
 		return poly(x, res.X)
 	})
+
+	f.Color = facialFeatureColor(csl)
+
+	f.XMin, f.XMax = xMinXMax(xdata, name)
+
+	f.Samples = numSamples(name)
+
+	return f
+}
+
+// returns color of facial feature to be displayed in caricature
+func facialFeatureColor(csl int) color.RGBA {
 	if csl == 4 {
-		f.Color = red
+		return red
 	} else if csl == 5 {
-		f.Color = violet
+		return violet
 	} else if csl == 7 {
-		f.Color = highlighterGreen
+		return highlighterGreen
 	} else if csl == 9 {
-		f.Color = darkGreen
+		return darkGreen
 	} else {
-		f.Color = blue
+		return blue
 	}
-	f.Samples = 10
+}
+
+// returns the XMin & XMax of each facial feature, providing bounds
+// in the plot for polynomial representations of each feature
+func xMinXMax(xdata []float64, name string) (float64, float64) {
+	sorted := sort.Float64Slice(xdata)
 	if name == "bottom_left_eye" || name == "bottom_right_eye" {
-		f.XMin = sort.Float64Slice(xdata)[len(xdata)-3]
-		f.XMax = sort.Float64Slice(xdata)[0]
+		return sorted[len(xdata)-3], sorted[0]
 	} else if name == "bottom_outer_lips" {
-		f.XMin = sort.Float64Slice(xdata)[len(xdata)-8]
-		f.XMax = sort.Float64Slice(xdata)[0]
+		return sorted[len(xdata)-8], sorted[0]
 	} else if name == "bottom_inner_lips" {
-		f.XMin = sort.Float64Slice(xdata)[len(xdata)-6]
-		f.XMax = sort.Float64Slice(xdata)[0]
+		return sorted[len(xdata)-6], sorted[0]
 	} else if name == "down_nose" {
 		max := 0.0
 		min := 1000.0
@@ -159,15 +165,46 @@ func resPolyFit(name string, csl int, xdata, ydata []float64) *plotter.Function 
 				min = xdata[i]
 			}
 		}
-		f.XMax = max
-		f.XMin = min
+		return max, min
 
 	} else {
-		f.XMax = xdata[0]
-		f.XMin = xdata[len(xdata)-1]
+		return xdata[0], xdata[len(xdata)-1]
 	}
+}
 
-	return f
+// returns the number of points to be estimated between two
+// x-coordinates as part of function interpolation
+func numSamples(name string) int {
+	if name == "face_curvature" {
+		return 250
+	} else if name == "left_brow" || name == "right_brow" {
+		return 250
+	} else if name == "down_nose" {
+		return 10
+	} else if name == "across_nostrils" {
+		return 250
+	} else if name == "top_left_eye" || name == "top_right_eye" ||
+		name == "bottom_left_eye" || name == "bottom_right_eye" {
+		return 250
+	} else if name == "top_outer_lips" || name == "bottom_outer_lips" {
+		return 250
+	} else if name == "top_inner_lips" || name == "bottom_inner_lips" {
+		return 10
+	}
+	return 0
+}
+
+// returns degree of polynomial graphing a certain facial feature
+func degreesOfFreedom(len_ps int, name string) int {
+	if name == "down_nose" {
+		return 4
+	} else if len_ps == numOuterMouthPoints || len_ps == numInnerMouthPoints {
+		return len_ps / 2
+	} else if len_ps == numCurvaturePoints {
+		return 3
+	} else {
+		return len_ps
+	}
 }
 
 // plots polynomial curves, and if error arises, return that error
