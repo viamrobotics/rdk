@@ -694,6 +694,10 @@ type motorClient struct {
 	motorName string
 }
 
+func (m *motorClient) GetRaw(ctx context.Context) board.Motor {
+	return m
+}
+
 // Power needs to be implemented.
 func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
 	debug.PrintStack()

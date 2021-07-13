@@ -55,6 +55,10 @@ type GPIOMotor struct {
 	pwmFreq   uint
 }
 
+func (m *GPIOMotor) GetRaw(ctx context.Context) Motor {
+	return m
+}
+
 // Position always returns 0.
 func (m *GPIOMotor) Position(ctx context.Context) (float64, error) {
 	return 0, nil

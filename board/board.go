@@ -86,6 +86,9 @@ type Motor interface {
 
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
+
+	// Returns raw motor for proxied motors (for dev/debugging)
+	GetRaw(ctx context.Context) Motor
 }
 
 // A Servo represents a physical servo connected to a board.
