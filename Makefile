@@ -92,3 +92,5 @@ deb-install: deb-server
 boat: samples/boat1/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
 
+resetbox: samples/resetbox/cmd.go
+	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go

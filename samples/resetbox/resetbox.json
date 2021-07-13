@@ -1,0 +1,43 @@
+{
+  "boards": [
+    {
+      "analogs": [
+        {
+          "name": "ch0",
+          "pin": "0",
+          "spiBus": "main",
+          "chipSelect": 1
+        },
+        {
+          "name": "ch1",
+          "pin": "1",
+          "spiBus": "main",
+          "chipSelect": 1
+        }
+      ],
+      "spis": [
+        {
+          "name": "main",
+          "busID": 0
+        }
+      ],
+      "motors": [
+        {
+          "name": "gateL",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "chipSelect": 0,
+            "index": 0,
+            "maxVelocity": 300,
+            "maxAccel": 30,
+            "calFactor": 1.058333
+          }
+        }
+      ],
+      "name": "resetboard",
+      "model": "pi"
+    }
+  ]
+}
