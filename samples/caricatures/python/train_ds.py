@@ -97,3 +97,4 @@ def trainDs(trainLoader, validLoader, images, landmarks, numEpochs):
         
     print('Training Complete')
     print("Total Elapsed Time : {} s".format(time.time()-startTime))
+    

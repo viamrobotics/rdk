@@ -8,3 +8,4 @@ def printOverwrite(step, totalStep, loss, operation):
         sys.stdout.write("Valid Steps: %d/%d  Loss: %.4f " % (step, totalStep, loss))
         
     sys.stdout.flush()
+    

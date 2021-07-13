@@ -16,31 +16,25 @@ import (
 	webserver "go.viam.com/core/web/server"
 )
 
-// constants
 const (
 	numFacialLandmarks = 68
 	personToDraw       = "person"
 )
 
-// initialize logger for caricatures
 var logger = golog.NewDevelopmentLogger("caricatures")
 
-// init initializes the robot and provides test actions to complete
 func init() {
-	// IF FALSE MAKES SURE BELOW CODE PASSES LINTER BECAUSE IT IS UNUSED
+	// TODO(mh): actually register action
 	if false {
-		action.RegisterAction("drawPoint", func(ctx context.Context,
-			r robot.Robot) {
-			err := drawPoint(ctx, r)
-			if err != nil {
-				logger.Errorf("Error running drawPoint: %s", err)
+		action.RegisterAction("drawPoint", func(ctx context.Context, r robot.Robot) {
+			if err := drawPoint(ctx, r); err != nil {
+				logger.Errorw("Error running drawPoint:", "error", err)
 			}
 		})
 	}
 }
 
-// drawPoint instructs a robot to draw by moving its arm
-// into specific positions sequentially
+// drawPoint instructs a robot to draw by moving its arm into specific positions sequentially
 func drawPoint(ctx context.Context, r robot.Robot) error {
 	if len(r.ArmNames()) != 1 {
 		return errors.New("need 1 arm name")
@@ -57,12 +51,10 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 	return nil
 }
 
-// main method
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-// mainWithArgs method used to initialize the robot
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 
 	// use built-in camera to find a face and create its caricature

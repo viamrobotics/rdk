@@ -12,11 +12,14 @@ import (
 	"go.viam.com/core/rlog"
 )
 
+var (
+	shouldPrintFace bool
+)
+
 // CaricaturePoint is a type representing a point on a caricature picture.
 // This point has a location int index which gives useful information
 // about the facial landmark that it is part of. This point also has both
-// an XCoord and YCoord (which describe absolute X,Y location of point in
-// the picture frame)
+// an XCoord and YCoord which are absolutes.
 type CaricaturePoint struct {
 	Location int     `json:"loc"`
 	XCoord   float64 `json:"x"`
@@ -25,8 +28,7 @@ type CaricaturePoint struct {
 
 // CaricatureFeature is a type representing a facial feature in a
 // caricature picture. It contains a Name (to reference facial feature)
-// and a list of CaricaturePoint types (which provide useful information)
-// about the facial feature itself.
+// and a list of CaricaturePoint types about the facial feature itself.
 type CaricatureFeature struct {
 	Name   string            `json:"name"`
 	Points []CaricaturePoint `json:"points"`
@@ -67,12 +69,10 @@ func printFace(face Face) {
 	}
 }
 
-// facialFeaturePointsFromFace returns a tuple of slices, xdata & ydata,
-// which represent
+// facialFeaturePointsFromFace returns a tuple of slices, xdata & ydata, which hold absolute coordinates of facial landmarks
 func facialFeaturePointsFromFace(face Face, featureByInt int) ([]float64,
 	[]float64) {
-	// IF FALSE MAKES SURE BELOW CODE PASSES LINTER BECAUSE IT IS UNUSED
-	if false {
+	if shouldPrintFace {
 		printFace(face)
 	}
 	var xdata []float64

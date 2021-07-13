@@ -63,3 +63,4 @@ class Transforms():
         image = TF.to_tensor(image)
         image = TF.normalize(image, [0.5], [0.5])
         return image, landmarks
+        

@@ -82,3 +82,4 @@ if testMultipleNotGetSinglePrediction:
     test_trained_model.testTrainedModelValidDs(validDataset, validLoader, batchSizeValidDs)
 else:
     test_trained_model.testTrainedModelSingleImage(personToDraw, filePathToPretrainedFacialLandmarkNeuralNet, frontalFaceHaarCascadePath)
+    
