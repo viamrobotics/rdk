@@ -57,3 +57,6 @@ bin/
 # artifact
 .artifact/cache
 .artifact/data
+
+# pycache
+*.pyc

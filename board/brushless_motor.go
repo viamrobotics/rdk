@@ -24,7 +24,7 @@ var (
 
 // NewBrushlessMotor returns a brushless motor on board with the given configuration. When done using it,
 // please call Close.
-func NewBrushlessMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*BrushlessMotor, error) {
+func NewBrushlessMotor(b Board, pins map[string]string, mc MotorConfig, logger golog.Logger) (*BrushlessMotor, error) {
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
@@ -83,7 +83,7 @@ type brushlessMotorCmd struct {
 // A BrushlessMotor represents a brushless motor connected to a board via GPIO.
 type BrushlessMotor struct {
 	cfg                     MotorConfig
-	Board                   GPIOBoard
+	Board                   Board
 	PWMs                    []string
 	A, B, C, D              string
 	steps                   int64

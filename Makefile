@@ -13,9 +13,6 @@ goformat:
 	gofmt -s -w .
 	goimports -w -local=go.viam.com/core `go list -f '{{.Dir}}' ./... | grep -Ev "proto"`
 
-format: goformat
-	clang-format -i --style="{BasedOnStyle: Google, IndentWidth: 4}" `find samples utils -iname "*.cpp" -or -iname "*.h" -or -iname "*.ino"`
-
 setup:
 	bash etc/setup.sh
 

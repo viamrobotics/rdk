@@ -50,12 +50,17 @@ func init() {
 		if b == nil {
 			return nil, errors.New("viam arm requires a board called local")
 		}
-		raw, err := NewArmV1(ctx, b, logger)
+		model, err := kinematics.ParseJSON(v1modeljson)
+		if err != nil {
+			return nil, err
+		}
+		ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+		raw, err := NewArmV1(ctx, b, logger, ik)
 		if err != nil {
 			return nil, err
 		}
 
-		return kinematics.NewArm(raw, v1modeljson, 4, logger)
+		return raw, nil
 	})
 }
 
@@ -162,7 +167,7 @@ func testJointLimit(ctx context.Context, m board.Motor, dir pb.DirectionRelative
 }
 
 // NewArmV1 TODO
-func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger) (arm.Arm, error) {
+func NewArmV1(ctx context.Context, theBoard board.Board, logger golog.Logger, ik kinematics.InverseKinematics) (arm.Arm, error) {
 	var err error
 	arm := &ArmV1{}
 
@@ -214,16 +219,26 @@ type ArmV1 struct {
 	j0Motor, j1Motor board.Motor
 
 	j0, j1 joint
+	ik     kinematics.InverseKinematics
 }
 
-// CurrentPosition TODO
+// CurrentPosition computes and returns the current cartesian position.
 func (a *ArmV1) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errors.New("no CurrentPosition support")
+	joints, err := a.CurrentJointPositions(ctx)
+	return kinematics.ComputePosition(a.ik.Mdl(), joints), err
 }
 
-// MoveToPosition TODO
-func (a *ArmV1) MoveToPosition(ctx context.Context, c *pb.ArmPosition) error {
-	return errors.New("no MoveToPosition support")
+// MoveToPosition moves the arm to the specified cartesian position.
+func (a *ArmV1) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+	joints, err := a.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solution, err := a.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
+	}
+	return a.MoveToJointPositions(ctx, solution)
 }
 
 func (a *ArmV1) moveJointToDegrees(ctx context.Context, m board.Motor, j joint, curDegrees, gotoDegrees float64) error {

@@ -10,39 +10,9 @@ import (
 	"go.viam.com/test"
 )
 
-type testGPIOBoard struct {
-	gpio    map[string]bool
-	pwm     map[string]byte
-	pwmFreq map[string]uint
-}
-
-func (b *testGPIOBoard) GPIOSet(pin string, high bool) error {
-	if b.gpio == nil {
-		b.gpio = map[string]bool{}
-	}
-	b.gpio[pin] = high
-	return nil
-}
-
-func (b *testGPIOBoard) PWMSet(pin string, dutyCycle byte) error {
-	if b.pwm == nil {
-		b.pwm = map[string]byte{}
-	}
-	b.pwm[pin] = dutyCycle
-	return nil
-}
-
-func (b *testGPIOBoard) PWMSetFreq(pin string, freq uint) error {
-	if b.pwmFreq == nil {
-		b.pwmFreq = map[string]uint{}
-	}
-	b.pwmFreq[pin] = freq
-	return nil
-}
-
 func TestMotor1(t *testing.T) {
 	ctx := context.Background()
-	b := &testGPIOBoard{}
+	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)
 
 	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "pwm": "3"}, PWMFreq: 4000}, logger)

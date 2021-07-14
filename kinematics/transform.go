@@ -2,83 +2,32 @@ package kinematics
 
 import (
 	"go.viam.com/core/spatialmath"
-
-	"gonum.org/v1/gonum/graph"
-	"gonum.org/v1/gonum/num/dualquat"
 )
 
-// Transform TODO
-type Transform struct {
-	in         *Frame
-	out        *Frame
-	t          *spatialmath.DualQuaternion
-	descriptor graph.Edge
-	name       string
-	Rev        bool
+// A Transform can be a link or a joint.
+type Transform interface {
+	Parent() string
+	Quaternion() *spatialmath.DualQuaternion
 }
 
-// NewTransform TODO
-func NewTransform() *Transform {
-	t := Transform{}
-	t.t = spatialmath.NewDualQuaternion()
-	return &t
+// Link defines a fixed link
+type Link struct {
+	quat   *spatialmath.DualQuaternion
+	parent string
 }
 
-// SetEdgeDescriptor TODO
-func (t *Transform) SetEdgeDescriptor(edge graph.Edge) {
-	t.descriptor = edge
+// NewLink creates a new link with the specified parent
+func NewLink(parent string) *Link {
+	l := Link{quat: spatialmath.NewDualQuaternion(), parent: parent}
+	return &l
 }
 
-// GetEdgeDescriptor TODO
-func (t *Transform) GetEdgeDescriptor() graph.Edge {
-	return t.descriptor
+// Quaternion returns the quaternion associated with the link
+func (l *Link) Quaternion() *spatialmath.DualQuaternion {
+	return l.quat
 }
 
-// SetName TODO
-func (t *Transform) SetName(name string) {
-	t.name = name
-}
-
-// GetName TODO
-func (t *Transform) GetName() string {
-	return t.name
-}
-
-// SetIn TODO
-func (t *Transform) SetIn(in *Frame) {
-	t.in = in
-}
-
-// GetIn TODO
-func (t *Transform) GetIn() *Frame {
-	return t.in
-}
-
-// SetOut TODO
-func (t *Transform) SetOut(out *Frame) {
-	t.out = out
-}
-
-// GetOut TODO
-func (t *Transform) GetOut() *Frame {
-	return t.out
-}
-
-// ForwardPosition TODO
-func (t *Transform) ForwardPosition() {
-	if t.Rev {
-		t.out.i.t.Quat = t.in.i.t.Transformation(dualquat.Conj(t.t.Quat))
-	} else {
-		t.out.i.t.Quat = t.in.i.t.Transformation(t.t.Quat)
-	}
-}
-
-// ForwardVelocity TODO
-func (t *Transform) ForwardVelocity() {
-	if t.Rev {
-		t.out.v = dualquat.Mul(t.in.v, dualquat.Conj(t.t.Quat))
-	} else {
-		t.out.v = dualquat.Mul(t.in.v, t.t.Quat)
-	}
-
+// Parent will return the name of the next transform up the kinematics chain from this link.
+func (l *Link) Parent() string {
+	return l.parent
 }

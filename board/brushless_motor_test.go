@@ -15,7 +15,7 @@ import (
 
 func TestBrushlessMotor(t *testing.T) {
 	ctx := context.Background()
-	b := &testGPIOBoard{}
+	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)
 
 	m, err := NewGPIOMotor(b, MotorConfig{Pins: map[string]string{"a": "1", "b": "2", "c": "3", "d": "4", "pwm": "5"}, TicksPerRotation: 200}, logger)
