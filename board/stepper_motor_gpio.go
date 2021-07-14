@@ -24,7 +24,7 @@ var (
 
 // NewGPIOStepperMotor returns a brushless motor on board with the given configuration. When done using it,
 // please call Close.
-func NewGPIOStepperMotor(b GPIOBoard, pins map[string]string, mc MotorConfig, logger golog.Logger) (*GPIOStepperMotor, error) {
+func NewGPIOStepperMotor(b Board, pins map[string]string, mc MotorConfig, logger golog.Logger) (*GPIOStepperMotor, error) {
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
 
@@ -83,7 +83,7 @@ type gpioStepperMotorCmd struct {
 // A GPIOStepperMotor represents a brushless motor connected to a board via GPIO.
 type GPIOStepperMotor struct {
 	cfg                     MotorConfig
-	Board                   GPIOBoard
+	Board                   Board
 	PWMs                    []string
 	A, B, C, D              string
 	steps                   int64
