@@ -49,6 +49,7 @@ type URArm struct {
 	logger                  golog.Logger
 	cancel                  func()
 	activeBackgroundWorkers *sync.WaitGroup
+	ik                      kinematics.InverseKinematics
 }
 
 const waitBackgroundWorkersDur = 5 * time.Second
@@ -87,6 +88,12 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
+	model, err := kinematics.ParseJSON(ur5modeljson)
+	if err != nil {
+		return nil, err
+	}
+	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
@@ -103,6 +110,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		haveData:                false,
 		logger:                  logger,
 		cancel:                  cancel,
+		ik:                      ik,
 	}
 
 	onData := make(chan struct{})
@@ -127,7 +135,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 	case <-timer.C:
 		return nil, multierr.Combine(errors.Errorf("arm failed to respond in time (%s)", respondTimeout), arm.Close())
 	case <-onData:
-		return kinematics.NewArm(arm, ur5modeljson, 4, logger)
+		return arm, nil
 	}
 }
 
@@ -168,9 +176,23 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 	return arm.JointPositionsFromRadians(radians), nil
 }
 
-// CurrentPosition TODO
+// CurrentPosition computes and returns the current cartesian position.
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errors.New("ur5 low level kinematics should not be used")
+	joints, err := ua.CurrentJointPositions(ctx)
+	return kinematics.ComputePosition(ua.ik.Mdl(), joints), err
+}
+
+// MoveToPosition moves the arm to the specified cartesian position.
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
+	joints, err := ua.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solution, err := ua.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
+	}
+	return ua.MoveToJointPositions(ctx, solution)
 }
 
 // JointMoveDelta TODO
@@ -264,11 +286,6 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 		slept += 10
 	}
 
-}
-
-// MoveToPosition TODO
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	return errors.New("ur5 low level kinematics should not be used")
 }
 
 // AddToLog TODO

@@ -12,21 +12,9 @@ import (
 	"go.uber.org/multierr"
 )
 
-// A GPIOBoard is a board that allows for setting attributes on specific pins.
-type GPIOBoard interface {
-	// GPIOSet sets the given pin to either low or high.
-	GPIOSet(pin string, high bool) error
-
-	// PWMSet sets the given pin to the given duty cycle.
-	PWMSet(pin string, dutyCycle byte) error
-
-	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFreq(pin string, freq uint) error
-}
-
 // NewGPIOMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewGPIOMotor(b GPIOBoard, mc MotorConfig, logger golog.Logger) (Motor, error) {
+func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 	var m Motor
 	pins := mc.Pins
 
@@ -49,7 +37,7 @@ var _ = Motor(&GPIOMotor{})
 
 // A GPIOMotor is a GPIO based Motor that resides on a GPIO Board.
 type GPIOMotor struct {
-	Board     GPIOBoard
+	Board     Board
 	A, B, PWM string
 	on        bool
 	pwmFreq   uint

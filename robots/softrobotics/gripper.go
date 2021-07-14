@@ -25,11 +25,7 @@ func init() {
 		if b == nil {
 			return nil, errors.New("softrobotics gripper requires a board called local")
 		}
-		g, ok := b.(board.GPIOBoard)
-		if !ok {
-			return nil, errors.New("softrobotics gripper requires a baord that is a GPIOBoard")
-		}
-		return NewGripper(ctx, b, g, config, logger)
+		return NewGripper(ctx, b, config, logger)
 	})
 }
 
@@ -38,8 +34,7 @@ func init() {
 // open is 5
 // close is 6
 type Gripper struct {
-	theBoard  board.Board
-	gpioBoard board.GPIOBoard
+	theBoard board.Board
 
 	psi board.AnalogReader
 
@@ -49,15 +44,14 @@ type Gripper struct {
 }
 
 // NewGripper TODO
-func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config config.Component, logger golog.Logger) (*Gripper, error) {
+func NewGripper(ctx context.Context, b board.Board, config config.Component, logger golog.Logger) (*Gripper, error) {
 	theGripper := &Gripper{
-		theBoard:  b,
-		gpioBoard: g,
-		psi:       b.AnalogReader("psi"),
-		pinOpen:   config.Attributes.String("open"),
-		pinClose:  config.Attributes.String("close"),
-		pinPower:  config.Attributes.String("power"),
-		logger:    logger,
+		theBoard: b,
+		psi:      b.AnalogReader("psi"),
+		pinOpen:  config.Attributes.String("open"),
+		pinClose: config.Attributes.String("close"),
+		pinPower: config.Attributes.String("power"),
+		logger:   logger,
 	}
 
 	if theGripper.psi == nil {
@@ -74,17 +68,17 @@ func NewGripper(ctx context.Context, b board.Board, g board.GPIOBoard, config co
 // Stop TODO
 func (g *Gripper) Stop() error {
 	return multierr.Combine(
-		g.gpioBoard.GPIOSet(g.pinOpen, false),
-		g.gpioBoard.GPIOSet(g.pinClose, false),
-		g.gpioBoard.GPIOSet(g.pinPower, false),
+		g.theBoard.GPIOSet(g.pinOpen, false),
+		g.theBoard.GPIOSet(g.pinClose, false),
+		g.theBoard.GPIOSet(g.pinPower, false),
 	)
 }
 
 // Open TODO
 func (g *Gripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
-		g.gpioBoard.GPIOSet(g.pinOpen, true),
-		g.gpioBoard.GPIOSet(g.pinPower, true),
+		g.theBoard.GPIOSet(g.pinOpen, true),
+		g.theBoard.GPIOSet(g.pinPower, true),
 	)
 	if err != nil {
 		return err
@@ -115,8 +109,8 @@ func (g *Gripper) Open(ctx context.Context) error {
 // Grab TODO
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
-		g.gpioBoard.GPIOSet(g.pinClose, true),
-		g.gpioBoard.GPIOSet(g.pinPower, true),
+		g.theBoard.GPIOSet(g.pinClose, true),
+		g.theBoard.GPIOSet(g.pinPower, true),
 	)
 	if err != nil {
 		return false, err

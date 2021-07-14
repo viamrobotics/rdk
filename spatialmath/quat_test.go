@@ -54,7 +54,7 @@ func TestOVConversion(t *testing.T) {
 	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation
 	q1 := quat.Number{0.96, -0.28, 0, 0}
 	ov1 := QuatToOV(q1)
-	q2 := OVToQuat(ov1)
+	q2 := ov1.ToQuat()
 	ov2 := QuatToOV(q2)
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
@@ -68,7 +68,7 @@ func TestOVConversion(t *testing.T) {
 	// Test the complementary angle
 	q1 = quat.Number{0.96, 0.28, 0, 0}
 	ov1 = QuatToOV(q1)
-	q2 = OVToQuat(ov1)
+	q2 = ov1.ToQuat()
 	ov2 = QuatToOV(q2)
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
@@ -82,7 +82,7 @@ func TestOVConversion(t *testing.T) {
 	// Another odd angle
 	q1 = quat.Number{0.5, -0.5, -0.5, -0.5}
 	ov1 = QuatToOV(q1)
-	q2 = OVToQuat(ov1)
+	q2 = ov1.ToQuat()
 	ov2 = QuatToOV(q2)
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
@@ -98,9 +98,9 @@ func TestOVConversionPoles(t *testing.T) {
 	// Ensure a robust, lossless quaternion/ov/quaternion/ov transformation near the poles
 	// North pole
 	ov1 := &OrientationVec{Theta: 2.47208, OX: 0, OY: 0, OZ: 1}
-	q1 := OVToQuat(ov1)
+	q1 := ov1.ToQuat()
 	ov2 := QuatToOV(q1)
-	q2 := OVToQuat(ov2)
+	q2 := ov2.ToQuat()
 
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
@@ -113,9 +113,9 @@ func TestOVConversionPoles(t *testing.T) {
 
 	// South pole
 	ov1 = &OrientationVec{Theta: 2.47208, OX: 0, OY: 0, OZ: -1}
-	q1 = OVToQuat(ov1)
+	q1 = ov1.ToQuat()
 	ov2 = QuatToOV(q1)
-	q2 = OVToQuat(ov2)
+	q2 = ov2.ToQuat()
 
 	test.That(t, math.Abs(ov1.Theta-ov2.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(ov1.OX-ov2.OX), test.ShouldBeLessThan, 0.001)
@@ -140,13 +140,13 @@ func TestR4Normalize(t *testing.T) {
 func TestOVNormalize(t *testing.T) {
 	// Test that Normalize() will produce a unit vector
 	ov1 := &OrientationVec{Theta: 0, OX: 999, OY: 0, OZ: 0}
-	NormalizeOV(ov1)
+	ov1.Normalize()
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
 	test.That(t, ov1.OX, test.ShouldEqual, 1)
 	test.That(t, ov1.OY, test.ShouldEqual, 0)
 	test.That(t, ov1.OZ, test.ShouldEqual, 0)
 	ov1 = &OrientationVec{Theta: 0, OX: 0.5, OY: 0, OZ: 0}
-	NormalizeOV(ov1)
+	ov1.Normalize()
 	test.That(t, ov1.Theta, test.ShouldEqual, 0)
 	test.That(t, ov1.OX, test.ShouldEqual, 1)
 	test.That(t, ov1.OY, test.ShouldEqual, 0)

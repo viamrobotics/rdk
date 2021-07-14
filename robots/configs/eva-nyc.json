@@ -5,7 +5,7 @@
           "model": "eva",
           "host" : "10.237.115.3",
           "attributes" : {
-              "token" : "${eva_token}",
+              "token" : "${eva_token}"
           }
         }
     ]
