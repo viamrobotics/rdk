@@ -10,6 +10,8 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
+
+	"go.uber.org/multierr"
 )
 
 // TMCConfig extends the MotorConfig for this specific series of drivers
@@ -95,7 +97,30 @@ func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*T
 		logger:      logger,
 	}
 
-	m.initRegisters()
+	rawMaxAcc := m.rpmsToA(m.maxAcc)
+
+	errors := multierr.Combine(
+		m.WriteReg(CHOPCONF, 0x000100C3),   // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
+		m.WriteReg(IHOLD_IRUN, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
+
+		// Set max acceleration and decceleration
+		m.WriteReg(A1, rawMaxAcc),
+		m.WriteReg(AMAX, rawMaxAcc),
+		m.WriteReg(D1, rawMaxAcc),
+		m.WriteReg(DMAX, rawMaxAcc),
+
+		m.WriteReg(VSTART, 1),                              // Always start at min speed
+		m.WriteReg(VSTOP, 10),                              // Always count a stop as LOW speed, but where VSTOP > VSTART
+		m.WriteReg(V1, int32(float32(m.maxVel)/4)),         // Transition ramp at 25% speed (if D1 and A1 are set different)
+		m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20)), // Set minimium speed for stall detection and coolstep
+		m.WriteReg(VMAX, m.rpmToV(0)),                      // Max velocity to zero, we don't want to move
+		m.WriteReg(RAMPMODE, MODE_VELPOS),                  // Lastly, set velocity mode to force a stop in case chip was left in moving state
+		m.WriteReg(XACTUAL, 0),                             // Zero the position
+	)
+
+	if errors != nil {
+		return nil, errors
+	}
 
 	return m, nil
 }
@@ -177,84 +202,6 @@ func (m *TMCStepperMotor) ReadReg(addr uint8) (int32, error) {
 
 }
 
-func (m *TMCStepperMotor) initRegisters() error {
-	// TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
-	err := m.WriteReg(CHOPCONF, 0x000100C3)
-	if err != nil {
-		return err
-	}
-
-	// IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
-	err = m.WriteReg(IHOLD_IRUN, 0x00080F0A)
-	if err != nil {
-		return err
-	}
-
-	// Compute steps per taConst
-	taConst :=  math.Pow(2, 41) / math.Pow(m.fClk, 2)
-	rawMaxAcc := int32(math.Sqrt(m.maxAcc * 60 / taConst))
-
-	// Max accelerations
-	err = m.WriteReg(A1, rawMaxAcc)
-	if err != nil {
-		return err
-	}
-	err = m.WriteReg(AMAX, rawMaxAcc)
-	if err != nil {
-		return err
-	}
-	err = m.WriteReg(D1, rawMaxAcc)
-	if err != nil {
-		return err
-	}
-	err = m.WriteReg(DMAX, rawMaxAcc)
-	if err != nil {
-		return err
-	}
-
-	// Always start at min speed
-	err = m.WriteReg(VSTART, 1)
-	if err != nil {
-		return err
-	}
-	// Always count a stop as LOW speed, but where VSTOP > VSTART
-	err = m.WriteReg(VSTOP, 10)
-	if err != nil {
-		return err
-	}
-	// Transition ramp at 25% speed (if D1 and A1 are set different)
-	err = m.WriteReg(V1, int32(float32(m.maxVel)/4))
-	if err != nil {
-		return err
-	}
-
-	// Set minimium speed for stall detection and coolstep
-	err = m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20))
-	if err != nil {
-		return err
-	}
-
-	// Max velocity to zero, we don't want to move
-	err = m.WriteReg(VMAX, m.rpmToV(0))
-	if err != nil {
-		return err
-	}
-
-	// Lastly, set velocity mode to force a stop in case chip was left in moving state
-	err = m.WriteReg(RAMPMODE, MODE_VELPOS)
-	if err != nil {
-		return err
-	}
-
-	// Zero the position
-	err = m.WriteReg(XACTUAL, 0)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (m *TMCStepperMotor) GetRaw(ctx context.Context) Motor {
 	return m
 }
@@ -278,26 +225,18 @@ func (m *TMCStepperMotor) Power(ctx context.Context, powerPct float32) error {
 	return errors.New("power not supported for stepper motors")
 }
 
-// Go TODO
 // Set a velocity as a percentage of maximum
 func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
 	mode := MODE_VELPOS
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 		mode = MODE_VELNEG
 	}
-
-	err := m.WriteReg(RAMPMODE, mode)
-	if err != nil {
-		return err
-	}
-
 	speed := m.rpmToV(float64(powerPct) * m.maxVel)
-	err = m.WriteReg(VMAX, speed)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return multierr.Combine(
+		m.WriteReg(RAMPMODE, mode),
+		m.WriteReg(VMAX, speed),
+	)
 }
 
 // GoFor turns in the given direction the given number of times at the given speed. Does not block.
@@ -314,29 +253,33 @@ func (m *TMCStepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm
 	return m.GoTo(ctx, rpm, target)
 }
 
+// Convert rpm to TMC5072 steps/s
 func (m *TMCStepperMotor) rpmToV(rpm float64) int32 {
 	if rpm > m.maxVel {
 		rpm = m.maxVel
 	}
-	tConst := m.fClk / math.Pow(2, 24) // Time constant for velocities in TMC5072
-	speed := (rpm / 60) * float64(m.stepsPerRev) / tConst
+	// Time constant for velocities in TMC5072
+	tConst := m.fClk / math.Pow(2, 24)
+	speed := rpm / 60 * float64(m.stepsPerRev) / tConst
 	return int32(speed)
+}
+
+// Convert rpm/s to TMC5072 steps/taConst^2
+func (m *TMCStepperMotor) rpmsToA(acc float64) int32 {
+	// Time constant for accelerations in TMC5072
+	taConst := math.Pow(2, 41) / math.Pow(m.fClk, 2)
+	rawMaxAcc := acc / 60 * float64(m.stepsPerRev) * taConst
+	return int32(rawMaxAcc)
 }
 
 // GoTo moves to the specified position in terms of rotations.
 func (m *TMCStepperMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	position *= float64(m.stepsPerRev)
-	err := m.WriteReg(RAMPMODE, MODE_POSITION)
-	if err != nil {
-		return err
-	}
-
-	err = m.WriteReg(VMAX, m.rpmToV(rpm))
-	if err != nil {
-		return err
-	}
-
-	return m.WriteReg(XTARGET, int32(position))
+	return multierr.Combine(
+		m.WriteReg(RAMPMODE, MODE_POSITION),
+		m.WriteReg(VMAX, m.rpmToV(rpm)),
+		m.WriteReg(XTARGET, int32(position)),
+	)
 }
 
 // IsOn returns true if the motor is currently moving.
@@ -368,7 +311,7 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		select {
 		case <-ctx.Done():
 			_ = m.Off(ctx) // Ignore errors as we're already stopping
-			return errors.Errorf("Context cancelled during homing")
+			return errors.New("Context cancelled during homing")
 		case <-time.After(100 * time.Millisecond):
 			fails++
 		}
@@ -384,7 +327,7 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 
 		if fails >= 50 {
 			_ = m.Off(ctx)
-			return errors.Errorf("Timed out during homing accel")
+			return errors.New("Timed out during homing accel")
 		}
 	}
 
@@ -401,7 +344,7 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.Errorf("Context cancelled during homing")
+			return errors.New("Context cancelled during homing")
 		case <-time.After(100 * time.Millisecond):
 			fails++
 		}
@@ -411,12 +354,12 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 			return err
 		}
 		// Look for vzero flag
-		if stat & 0x400 == 0x400 {
+		if stat&0x400 == 0x400 {
 			break
 		}
 
 		if fails >= 100 {
-			return errors.Errorf("Timed out during homing")
+			return errors.New("Timed out during homing")
 		}
 	}
 
