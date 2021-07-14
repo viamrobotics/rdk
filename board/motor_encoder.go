@@ -60,7 +60,7 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 
 	if mc.EncoderB == "" {
 		encoder := &singleEncoder{i: i}
-		mm, err = newEncodedMotor(mc, m, encoder)
+		mm, err = newEncodedMotor(mc, m, encoder, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -70,19 +70,23 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		if b == nil {
 			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
 		}
-		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b))
+		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b), logger)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	mm.logger = logger
 	mm.rpmMonitorStart()
 
 	return mm, nil
 }
 
-func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder) (*encodedMotor, error) {
+// NewEncodedMotor creates a new motor that supports an arbitrary source of encoder information
+func NewEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.Logger) (Motor, error) {
+	return newEncodedMotor(cfg, real, encoder, logger)
+}
+
+func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.Logger) (*encodedMotor, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	em := &encodedMotor{
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -94,6 +98,7 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder) (*encodedMoto
 		stateMu:                 &sync.RWMutex{},
 		startedRPMMonitorMu:     &sync.Mutex{},
 		rampRate:                cfg.RampRate,
+		logger:                  logger,
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
@@ -324,7 +329,7 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 				rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
 				minutes := float64(now-lastTime) / (1e9 * 60)
-				currentRPM := rotations / minutes
+				currentRPM := math.Abs(rotations / minutes)
 				if minutes == 0 {
 					currentRPM = 0
 				}
@@ -355,8 +360,8 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 
 				if newPowerPct != lastPowerPct {
 					if rpmDebug {
-						m.logger.Debugf("current rpm: %0.1f powerPct: %v newPowerPct: %v desiredRPM: %0.1f",
-							currentRPM, lastPowerPct*100, newPowerPct*100, desiredRPM)
+						m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+							currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
 					}
 					err := m.setPower(m.cancelCtx, newPowerPct, true)
 					if err != nil {
