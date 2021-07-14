@@ -308,7 +308,7 @@ func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegme
 	centers := make([]pointcloud.Vec3, segments.N())
 	for i, seg := range segments.PointClouds {
 		var buf bytes.Buffer
-		err = seg.ToPCD(&buf)
+		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}

@@ -11,7 +11,7 @@ import (
 // ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
 type ObjectSegmentation struct {
 	FullCloud pc.PointCloud
-	*Clusters // anonymous field
+	*Clusters
 }
 
 // N gives the number of found segments.
