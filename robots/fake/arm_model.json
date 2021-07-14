@@ -1,7 +1,7 @@
 {
    "model": {
-      "manufacturer": "Universal Robotics",
-      "name": "UR5",
+      "manufacturer": "Fake Robotics",
+      "name": "fakee",
       "links": [
          {
             "id": "base_link",
@@ -9,7 +9,7 @@
             "translation": {
                "x": 0,
                "y": 0,
-               "z": 69
+               "z": 162.5
             }
          },
          {
@@ -18,7 +18,7 @@
             "translation": {
                "x": 0,
                "y": 0,
-               "z": 89.2
+               "z": 0
             }
          },
          {
@@ -34,8 +34,8 @@
             "id": "forearm_link",
             "parent": "elbow_joint",
             "translation": {
-               "x": -392,
-               "y": -109.3,
+               "x": -392.2,
+               "y": 0,
                "z": 0
             }
          },
@@ -44,8 +44,8 @@
             "parent": "wrist_1_joint",
             "translation": {
                "x": 0,
-               "y": 0,
-               "z": -94.75
+               "y": -133.3,
+               "z": 0
             }
          },
          {
@@ -53,8 +53,8 @@
             "parent": "wrist_2_joint",
             "translation": {
                "x": 0,
-               "y": -81.5,
-               "z": 0
+               "y": 0,
+               "z": -99.7
             }
          },
          {
@@ -62,7 +62,7 @@
             "parent": "wrist_3_joint",
             "translation": {
                "x": 0,
-               "y": 0,
+               "y": -99.6,
                "z": 0
             },
             "setorientation": true,
@@ -70,7 +70,7 @@
                "x": 0,
                "y": -1,
                "z": 0,
-               "th": 0
+               "th": -90
             }
          }
       ],
@@ -85,8 +85,7 @@
                "z": 1
             },
             "max": 360,
-            "min": -360,
-            "direction": "ccw"
+            "min": -360
          },
          {
             "id": "shoulder_lift_joint",
@@ -99,7 +98,7 @@
             },
             "max": 360,
             "min": -360,
-            "direction": "ccw"
+            "direction": "cw"
          },
          {
             "id": "elbow_joint",
@@ -112,7 +111,7 @@
             },
             "max": 180,
             "min": -180,
-            "direction": "ccw"
+            "direction": "cw"
          },
          {
             "id": "wrist_1_joint",
@@ -125,7 +124,7 @@
             },
             "max": 360,
             "min": -360,
-            "direction": "ccw"
+            "direction": "cw"
          },
          {
             "id": "wrist_2_joint",
@@ -138,7 +137,7 @@
             },
             "max": 360,
             "min": -360,
-            "direction": "ccw"
+            "direction": "cw"
          },
          {
             "id": "wrist_3_joint",
@@ -151,7 +150,7 @@
             },
             "max": 360,
             "min": -360,
-            "direction": "ccw"
+            "direction": "cw"
          }
       ]
    }

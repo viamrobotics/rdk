@@ -1,10 +1,10 @@
 package board
 
-// SPIGPIOBoard is a merger of SPIBoard and GPIOBoard
+// SPIGPIOBoard is a merger of SPIBoard and Board
 type SPIGPIOBoard interface {
 	SPINames() []string
 	SPI(name string) SPI
-	GPIOBoard
+	Board
 }
 
 // SPIBoard is a board that supports one or more shareable serial devices.
