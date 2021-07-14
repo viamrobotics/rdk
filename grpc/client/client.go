@@ -647,6 +647,22 @@ func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
 	}
 }
 
+func (bc *boardClient) GPIOSet(pin string, high bool) error {
+	return errUnimplemented
+}
+
+func (bc *boardClient) GPIOGet(pin string) (bool, error) {
+	return false, errUnimplemented
+}
+
+func (bc *boardClient) PWMSet(pin string, dutyCycle byte) error {
+	return errUnimplemented
+}
+
+func (bc *boardClient) PWMSetFreq(pin string, freq uint) error {
+	return errUnimplemented
+}
+
 func (bc *boardClient) MotorNames() []string {
 	return copyStringSlice(bc.info.motorNames)
 }
@@ -684,6 +700,11 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (bc *boardClient) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
+}
+
+// Close shuts the board down, no methods should be called on the board after this
+func (bc *boardClient) Close() error {
+	return nil
 }
 
 // motorClient satisfies a gRPC based board.Motor. Refer to the interface
