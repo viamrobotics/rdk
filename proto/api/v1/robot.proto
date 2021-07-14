@@ -137,7 +137,7 @@ service RobotService {
 	}
 
 	// PointCloudSegments returns all the point cloud segments from a camera of the underlying robot. 
-    // A specific MIME type can be requested but may not necessarily be the same one returned.
+        // A specific MIME type can be requested but may not necessarily be the same one returned.
 	rpc PointCloudSegments(PointCloudSegmentsRequest) returns (PointCloudSegmentsResponse) {
 		option (google.api.http) = {
 			get: "/api/v1/camera/{name}/pointcloudsegment"
