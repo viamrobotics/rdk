@@ -888,6 +888,34 @@ export namespace PointCloudSegmentsRequest {
   }
 }
 
+export class Vector3 extends jspb.Message {
+  getX(): number;
+  setX(value: number): void;
+
+  getY(): number;
+  setY(value: number): void;
+
+  getZ(): number;
+  setZ(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Vector3.AsObject;
+  static toObject(includeInstance: boolean, msg: Vector3): Vector3.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Vector3, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Vector3;
+  static deserializeBinaryFromReader(message: Vector3, reader: jspb.BinaryReader): Vector3;
+}
+
+export namespace Vector3 {
+  export type AsObject = {
+    x: number,
+    y: number,
+    z: number,
+  }
+}
+
 export class PointCloudSegmentsResponse extends jspb.Message {
   getMimeType(): string;
   setMimeType(value: string): void;
@@ -898,6 +926,11 @@ export class PointCloudSegmentsResponse extends jspb.Message {
   getFramesList_asB64(): Array<string>;
   setFramesList(value: Array<Uint8Array | string>): void;
   addFrames(value: Uint8Array | string, index?: number): Uint8Array | string;
+
+  clearCentersList(): void;
+  getCentersList(): Array<Vector3>;
+  setCentersList(value: Array<Vector3>): void;
+  addCenters(value?: Vector3, index?: number): Vector3;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): PointCloudSegmentsResponse.AsObject;
@@ -913,6 +946,7 @@ export namespace PointCloudSegmentsResponse {
   export type AsObject = {
     mimeType: string,
     framesList: Array<Uint8Array | string>,
+    centersList: Array<Vector3.AsObject>,
   }
 }
 

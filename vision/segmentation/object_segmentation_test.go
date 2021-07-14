@@ -3,20 +3,13 @@ package segmentation
 import (
 	"bytes"
 	"io/ioutil"
-	"math"
 	"testing"
 
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/core/pointcloud"
-
-	"github.com/golang/geo/r3"
 )
-
-func roundVector(v r3.Vector) r3.Vector {
-	return r3.Vector{math.Round(v.X), math.Round(v.Y), math.Round(v.Z)}
-}
 
 // get a segmentation of a pointcloud and calculate each object's center
 func TestCalculateSegmentMeans(t *testing.T) {

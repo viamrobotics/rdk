@@ -994,11 +994,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
 		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -5))
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
 		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -6))
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
 		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, -4))
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
 		test.That(t, err, test.ShouldBeNil)
 
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -1012,6 +1012,8 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
+		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
+		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
 
 		//empty pointcloud
 		pcB := pointcloud.New()

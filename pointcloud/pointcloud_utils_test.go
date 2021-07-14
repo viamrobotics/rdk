@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
-	"github.com/golang/geo/r3"
 )
 
 func makeClouds(t *testing.T) []PointCloud {
