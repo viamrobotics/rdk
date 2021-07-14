@@ -30,8 +30,21 @@
             "spiBus": "main",
             "chipSelect": 0,
             "index": 0,
-            "maxVelocity": 300,
-            "maxAccel": 30,
+            "maxVelocity": 450,
+            "maxAccel": 150,
+            "calFactor": 1.058333
+          }
+        },
+        {
+          "name": "gateR",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "chipSelect": 0,
+            "index": 1,
+            "maxVelocity": 450,
+            "maxAccel": 150,
             "calFactor": 1.058333
           }
         }
