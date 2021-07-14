@@ -272,17 +272,6 @@
                       }
                       return false;
                   },
-                  setPoint : function(point) {
-                      var path = "/grab_at_camera_position/"
-                          + pcdGlobal.cameraName + "/"
-                          + r(point.x) + "/" + r(point.y) + "/" + r(point.z);
-
-                      theData.pcdClick.x = r(point.x);
-                      theData.pcdClick.y = r(point.y);
-                      theData.pcdClick.z = r(point.z);
-                      theData.pcdClick.path = path;
-                      pcdGlobal.sphere.position.copy(point);
-                  },
                   grabClick : function(e) {
                       var mouse = new THREE.Vector2();
                       mouse.x = ((e.offsetX / e.srcElement.offsetWidth) * 2) - 1
@@ -293,10 +282,6 @@
 	                  var intersects = pcdGlobal.raycaster.intersectObjects( pcdGlobal.scene.children );
                       var p = ( intersects.length ) > 0 ? intersects[ 0 ] : null;
 
-                      var r = function(n) {
-                          return Math.round(n*1000);
-                      }
-                      
                       if ( p !== null ) {
                         console.log(p.point);
                         setPoint(p.point);
@@ -312,18 +297,18 @@
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
                       req = new robotApi.PointCloudSegmentsRequest();
-                      console.log("camera name: "+pcdGlobal.cameraName)
+                      console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
                       req.setMinPointsInSegment(minPointsSegment);
                       req.setClusteringRadius(clusteringRadius);
                       const mimeType = 'pointcloud/pcd';
-                      req.setMimeType(mimeType)
-                      console.log("finding object segments...")
+                      req.setMimeType(mimeType);
+                      console.log("finding object segments...");
                       robotService.pointCloudSegments(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
-                          console.log("error getting segments")
+                          console.log("error getting segments");
                           theData.pcdClick.calculatingSegments = false;
                           return;
                         }
@@ -336,9 +321,9 @@
                   },
                   doSegmentLoad : function(data, i){
                         var center = theData.segCenters[i];
-                        center.Y = -center.Y;
-                        center.Z = -center.Z;
-                        setPoint(center);
+                        var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                        console.log(p);
+                        setPoint(p);
                         const mimeType = 'pointcloud/pcd';
                         pcdLoad(`data:${mimeType};base64,${data}`);
                   },
@@ -406,7 +391,7 @@
           theData.pcdClick.enable = true;
           console.log("initing pcd");
           
-          const sphereGeometry = new THREE.SphereGeometry( .003, 32, 32 );
+          const sphereGeometry = new THREE.SphereGeometry( .012, 32, 32 );
           const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
 
           pcdGlobal = {
@@ -473,6 +458,22 @@
             }
           );
           theData.pcdClick.pcdloaded = true;
+      }
+
+      function r(n) {
+          return Math.round(n*1000);
+      }
+
+      function setPoint(point) {
+          var path = "/grab_at_camera_position/"
+              + pcdGlobal.cameraName + "/"
+              + r(point.x) + "/" + r(point.y) + "/" + r(point.z);
+
+          theData.pcdClick.x = r(point.x);
+          theData.pcdClick.y = r(point.y);
+          theData.pcdClick.z = r(point.z);
+          theData.pcdClick.path = path;
+          pcdGlobal.sphere.position.copy(point);
       }
 
       async function waitForClientAndStart() {
