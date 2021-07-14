@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
@@ -304,6 +305,7 @@ func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegme
 	}
 
 	frames := make([][]byte, segments.N())
+	centers := make([]pointcloud.Vec3, segments.N())
 	for i, seg := range segments.PointClouds {
 		var buf bytes.Buffer
 		err = seg.ToPCD(&buf)
@@ -311,11 +313,13 @@ func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegme
 			return nil, err
 		}
 		frames[i] = buf.Bytes()
+		centers[i] = segments.Centers[i]
 	}
 
 	return &pb.PointCloudSegmentsResponse{
 		MimeType: grpc.MimeTypePCD,
 		Frames:   frames,
+		Centers:  pointsToProto(centers),
 	}, nil
 }
 
@@ -531,6 +535,22 @@ func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 		pms = append(pms, measurementToProto(m))
 	}
 	return pms
+}
+
+func pointToProto(p pointcloud.Vec3) *pb.Vector3 {
+	return &pb.Vector3{
+		X: p.X,
+		Y: p.Y,
+		Z: p.Z,
+	}
+}
+
+func pointsToProto(vs []pointcloud.Vec3) []*pb.Vector3 {
+	pvs := make([]*pb.Vector3, 0, len(vs))
+	for _, v := range vs {
+		pvs = append(pvs, pointToProto(v))
+	}
+	return pvs
 }
 
 // BoardStatus returns the status of a board of the underlying robot.
