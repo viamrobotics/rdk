@@ -225,9 +225,15 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 	// fill output point cloud with labels
 	pc := New()
 	for _, vox := range vg.Voxels {
-		for _, pt := range vox.Points {
-			// create point with value
-			ptValue := NewValuePoint(pt.X, pt.Y, pt.Z, vox.Label)
+		for i, pt := range vox.Points {
+			label := 0
+			if vox.PointLabels == nil {
+				// create point with value
+				label = vox.Label
+			} else {
+				label = vox.PointLabels[i]
+			}
+			ptValue := NewValuePoint(pt.X, pt.Y, pt.Z, label)
 			// add it to the point cloud
 			err := pc.Set(ptValue)
 			if err != nil {
