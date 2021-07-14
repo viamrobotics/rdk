@@ -1,52 +1,54 @@
 package kinematics
 
 import (
+	"context"
 	"math"
+	"math/rand"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
 	"github.com/go-nlopt/nlopt"
 	"go.uber.org/multierr"
 
+	"go.viam.com/core/arm"
+	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
 
 // NloptIK TODO
 type NloptIK struct {
-	Mdl           *Model
+	model         *Model
 	lowerBound    []float64
 	upperBound    []float64
 	iterations    int
 	maxIterations int
 	epsilon       float64
-	Goals         []Goal
+	goals         []goal
 	opt           *nlopt.NLopt
-	ID            int
-	requestHaltCh chan struct{}
-	haltedCh      chan struct{}
 	logger        golog.Logger
 	jump          float64
+	randSeed      *rand.Rand
 }
 
 // CreateNloptIKSolver TODO
 func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik := &NloptIK{logger: logger}
-	ik.resetHalting()
-	ik.Mdl = mdl
+	ik.randSeed = rand.New(rand.NewSource(1))
+	ik.model = mdl
 	// How close we want to get to the goal
 	ik.epsilon = 0.01
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 50000
 	ik.iterations = 0
-	ik.lowerBound = mdl.GetMinimum()
-	ik.upperBound = mdl.GetMaximum()
+	ik.lowerBound = mdl.MinimumJointLimits()
+	ik.upperBound = mdl.MaximumJointLimits()
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(mdl.GetDofPosition()))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(ik.model.Dof()))
 	if err != nil {
 		panic(errors.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
@@ -59,21 +61,20 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		ik.Mdl.SetPosition(x)
-		ik.Mdl.ForwardPosition()
-		dx := make([]float64, ik.Mdl.GetOperationalDof()*7)
+		eePos := JointRadToQuat(ik.model, x)
+		dx := make([]float64, ik.model.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
-		for _, goal := range ik.GetGoals() {
-			dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
+		for _, nextGoal := range ik.getGoals() {
+			dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
 
-			dxIdx := goal.EffectorID * len(dxDelta)
+			dxIdx := nextGoal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
 				dx[dxIdx+i] = delta
 			}
 		}
 
-		dist := WeightedSquaredNorm(dx, ik.Mdl.DistCfg)
+		dist := WeightedSquaredNorm(dx, ik.model.SolveWeights)
 
 		if len(gradient) > 0 {
 			maxGrad := 0.0
@@ -82,17 +83,16 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				ik.Mdl.SetPosition(xBak)
-				ik.Mdl.ForwardPosition()
-				dx2 := make([]float64, ik.Mdl.GetOperationalDof()*7)
-				for _, goal := range ik.GetGoals() {
-					dxDelta := ik.Mdl.GetOperationalPosition(goal.EffectorID).ToDelta(goal.GoalTransform)
-					dxIdx := goal.EffectorID * len(dxDelta)
+				eePos := JointRadToQuat(ik.model, xBak)
+				dx2 := make([]float64, ik.model.OperationalDof()*7)
+				for _, nextGoal := range ik.getGoals() {
+					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+					dxIdx := nextGoal.EffectorID * len(dxDelta)
 					for i, delta := range dxDelta {
 						dx2[dxIdx+i] = delta
 					}
 				}
-				dist2 := WeightedSquaredNorm(dx2, ik.Mdl.DistCfg)
+				dist2 := WeightedSquaredNorm(dx2, ik.model.SolveWeights)
 
 				gradient[i] = (dist2 - dist) / (20000 * ik.jump)
 				if math.Abs(gradient[i]) > maxGrad {
@@ -128,92 +128,67 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	return ik
 }
 
-// AddGoal adds a nlopt IK goal
-func (ik *NloptIK) AddGoal(trans *spatialmath.DualQuaternion, effectorID int) {
-	newtrans := &spatialmath.DualQuaternion{}
-	*newtrans = *trans
-	ik.Goals = append(ik.Goals, Goal{newtrans, effectorID})
-	ik.resetHalting()
+// addGoal adds a nlopt IK goal
+func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
+
+	goalQuat := spatialmath.NewDualQuaternionFromArmPos(newGoal)
+	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 
-// SetID sets the ID of this nloptIK object
-func (ik *NloptIK) SetID(id int) {
-	ik.ID = id
-}
-
-// GetID returns the ID of this nloptIK object. Note that the linter won't let this be just "ID()"
-func (ik *NloptIK) GetID() int {
-	return ik.ID
-}
-
-// GetMdl returns the underlying kinematics model
-func (ik *NloptIK) GetMdl() *Model {
-	return ik.Mdl
-}
-
-// ClearGoals clears all goals for the Ik object
-func (ik *NloptIK) ClearGoals() {
-	ik.Goals = []Goal{}
-	ik.resetHalting()
+// clearGoals clears all goals for the Ik object
+func (ik *NloptIK) clearGoals() {
+	ik.goals = []goal{}
 }
 
 // GetGoals returns the list of all current goal positions
-func (ik *NloptIK) GetGoals() []Goal {
-	return ik.Goals
-}
-
-func (ik *NloptIK) resetHalting() {
-	ik.requestHaltCh = make(chan struct{})
-	ik.haltedCh = make(chan struct{})
-}
-
-// Halt causes this nlopt IK to immediately cease all processing and return with no solution
-func (ik *NloptIK) Halt() {
-	close(ik.requestHaltCh)
-	err := ik.opt.ForceStop()
-	if err != nil {
-		ik.logger.Info("nlopt halt error: ", err)
-	}
-	<-ik.haltedCh
-	ik.resetHalting()
+func (ik *NloptIK) getGoals() []goal {
+	return ik.goals
 }
 
 // Solve attempts to solve for all goals
-func (ik *NloptIK) Solve() bool {
+func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
+	var err error
+	ik.addGoal(newGoal, 0)
+	defer ik.clearGoals()
+
 	select {
-	case <-ik.haltedCh:
+	case <-ctx.Done():
 		ik.logger.Info("solver halted before solving start; possibly solving twice in a row?")
-		return false
+		return &pb.JointPositions{}, err
 	default:
 	}
-	defer close(ik.haltedCh)
 	ik.iterations = 0
-	origJointPos := ik.Mdl.GetPosition()
+	startingRadians := arm.JointPositionsToRadians(seedAngles)
 
 	for ik.iterations < ik.maxIterations {
 		select {
-		case <-ik.requestHaltCh:
-			return false
+		case <-ctx.Done():
+			return &pb.JointPositions{}, err
 		default:
 		}
 		ik.iterations++
-		angles, result, err := ik.opt.Optimize(ik.Mdl.GetPosition())
-		if err != nil {
+		angles, result, nloptErr := ik.opt.Optimize(startingRadians)
+		if nloptErr != nil {
 			// This just *happens* sometimes due to weirdnesses in nonlinear randomized problems.
 			// Ignore it, something else will find a solution
-			if ik.opt.LastStatus() != "FAILURE" && ik.opt.LastStatus() != "FORCED_STOP" {
-				ik.logger.Info("nlopt optimization error: ", err)
-			}
+			err = multierr.Combine(err, nloptErr)
 		}
 
-		if result < ik.epsilon*ik.epsilon {
-			angles = ik.Mdl.ZeroInlineRotation(angles)
-			ik.Mdl.SetPosition(angles)
-			ik.Mdl.ForwardPosition()
-			return true
+		if result < ik.epsilon*ik.epsilon && ik.model.AreJointPositionsValid(angles) {
+			angles = ZeroInlineRotation(ik.model, angles)
+			return arm.JointPositionsFromRadians(angles), nil
 		}
-		ik.Mdl.SetPosition(ik.Mdl.RandomJointPositions())
+		startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 	}
-	ik.Mdl.SetPosition(origJointPos)
-	return false
+	return &pb.JointPositions{}, multierr.Combine(errors.New("kinematics could not solve for position"), err)
+}
+
+// SetSeed sets the random seed of this solver
+func (ik *NloptIK) SetSeed(seed int64) {
+	ik.randSeed = rand.New(rand.NewSource(seed))
+}
+
+// Mdl returns the model associated with this IK.
+func (ik *NloptIK) Mdl() *Model {
+	return ik.model
 }

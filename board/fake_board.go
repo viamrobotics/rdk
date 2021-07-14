@@ -57,6 +57,10 @@ type FakeBoard struct {
 	analogs  map[string]*FakeAnalog
 	digitals map[string]DigitalInterrupt
 
+	gpio    map[string]bool
+	pwm     map[string]byte
+	pwmFreq map[string]uint
+
 	CloseCount int
 }
 
@@ -82,6 +86,41 @@ func (b *FakeBoard) AnalogReader(name string) AnalogReader {
 // DigitalInterrupt returns the interrupt by the given name if it exists.
 func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
 	return b.digitals[name]
+}
+
+// GPIOSet sets the given pin to either low or high.
+func (b *FakeBoard) GPIOSet(pin string, high bool) error {
+	if b.gpio == nil {
+		b.gpio = map[string]bool{}
+	}
+	b.gpio[pin] = high
+	return nil
+}
+
+// GPIOGet returns whether the given pin is either low or high.
+func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
+	if b.gpio == nil {
+		b.gpio = map[string]bool{}
+	}
+	return b.gpio[pin], nil
+}
+
+// PWMSet sets the given pin to the given duty cycle.
+func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
+	if b.pwm == nil {
+		b.pwm = map[string]byte{}
+	}
+	b.pwm[pin] = dutyCycle
+	return nil
+}
+
+// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *FakeBoard) PWMSetFreq(pin string, freq uint) error {
+	if b.pwmFreq == nil {
+		b.pwmFreq = map[string]uint{}
+	}
+	b.pwmFreq[pin] = freq
+	return nil
 }
 
 // MotorNames returns the name of all known motors.

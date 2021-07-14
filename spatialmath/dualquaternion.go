@@ -41,9 +41,9 @@ func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
 		ov.OX = 1
 	}
-	NormalizeOV(ov)
+	ov.Normalize()
 	return &DualQuaternion{dualquat.Number{
-		Real: OVToQuat(ov),
+		Real: ov.ToQuat(),
 		Dual: quat.Number{},
 	}}
 }
@@ -56,7 +56,7 @@ func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
 	return q
 }
 
-// ToArmPos converts a DualQuaternion to
+// ToArmPos converts a DualQuaternion to an arm position
 func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
 	final := &pb.ArmPosition{}
 	cartQuat := dualquat.Mul(q.Quat, dualquat.Conj(q.Quat))

@@ -25,7 +25,9 @@ func TestSearch(t *testing.T) {
 		},
 		{SearchFilter{Type: TypeJetson}, out1, nil},
 		{SearchFilter{}, out2, nil},
-		{SearchFilter{}, out3, nil},
+		{SearchFilter{}, out3, []Description{
+			{Type: TypeArduino, Path: "/dev/tty.usbserial-0001"}},
+		},
 		{SearchFilter{}, out4, nil},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {

@@ -461,6 +461,30 @@ func (p *proxyBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
 	return p.digitals[name]
 }
 
+func (p *proxyBoard) GPIOSet(pin string, high bool) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GPIOSet(pin, high)
+}
+
+func (p *proxyBoard) GPIOGet(pin string) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GPIOGet(pin)
+}
+
+func (p *proxyBoard) PWMSet(pin string, dutyCycle byte) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.PWMSet(pin, dutyCycle)
+}
+
+func (p *proxyBoard) PWMSetFreq(pin string, freq uint) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.PWMSetFreq(pin, freq)
+}
+
 func (p *proxyBoard) MotorNames() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

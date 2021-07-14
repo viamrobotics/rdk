@@ -57,6 +57,7 @@ type xArm6 struct {
 	speed    float32 //speed=20*π/180rad/s
 	accel    float32 //acceleration=500*π/180rad/s^2
 	moveLock *sync.Mutex
+	ik       kinematics.InverseKinematics
 }
 
 //go:embed xArm6_kinematics.json
@@ -94,17 +95,23 @@ func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, e
 	if err != nil {
 		return &xArm6{}, err
 	}
+	model, err := kinematics.ParseJSON(xArm6modeljson)
+	if err != nil {
+		return &xArm6{}, err
+	}
+	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+
 	mutex := &sync.Mutex{}
 	// Start with default speed/acceleration parameters
 	// TODO(pl): add settable speed
-	xArm := xArm6{0, conn, 0.35, 8.7, mutex}
+	xArm := xArm6{0, conn, 0.35, 8.7, mutex, ik}
 
 	err = xArm.start()
 	if err != nil {
 		return &xArm6{}, err
 	}
 
-	return kinematics.NewArm(&xArm, xArm6modeljson, 4, logger)
+	return &xArm, nil
 }
 
 func (x *xArm6) newCmd(reg byte) cmd {
@@ -344,14 +351,23 @@ func (x *xArm6) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	return errors.New("not done yet")
 }
 
-// CurrentPosition not supported
+// CurrentPosition computes and returns the current cartesian position.
 func (x *xArm6) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errors.New("xArm6 low level doesn't support kinematics")
+	joints, err := x.CurrentJointPositions(ctx)
+	return kinematics.ComputePosition(x.ik.Mdl(), joints), err
 }
 
-// MoveToPosition not supported
+// MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm6) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	return errors.New("xArm6 low level doesn't support kinematics")
+	joints, err := x.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solution, err := x.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
+	}
+	return x.MoveToJointPositions(ctx, solution)
 }
 
 // CurrentJointPositions returns the current positions of all joints.

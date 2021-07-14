@@ -73,6 +73,7 @@ type eva struct {
 
 	moveLock *sync.Mutex
 	logger   golog.Logger
+	ik       kinematics.InverseKinematics
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -83,12 +84,23 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 	return arm.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
+// CurrentPosition computes and returns the current cartesian position.
 func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
-	return nil, errors.New("eva low level doesn't support kinematics")
+	joints, err := e.CurrentJointPositions(ctx)
+	return kinematics.ComputePosition(e.ik.Mdl(), joints), err
 }
 
+// MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos *pb.ArmPosition) error {
-	return errors.New("eva low level doesn't support kinematics")
+	joints, err := e.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	solution, err := e.ik.Solve(ctx, pos, joints)
+	if err != nil {
+		return err
+	}
+	return e.MoveToJointPositions(ctx, solution)
 }
 
 func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
@@ -295,12 +307,20 @@ func (e *eva) apiUnlock(ctx context.Context) {
 
 // NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+
+	model, err := kinematics.ParseJSON(evamodeljson)
+	if err != nil {
+		return nil, err
+	}
+	ik := kinematics.CreateCombinedIKSolver(model, logger, 4)
+
 	e := &eva{
 		host:     host,
 		version:  "v1",
 		token:    attrs.String("token"),
 		logger:   logger,
 		moveLock: &sync.Mutex{},
+		ik:       ik,
 	}
 
 	name, err := e.apiName(ctx)
@@ -310,5 +330,5 @@ func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger 
 
 	e.logger.Debugf("connected to eva: %v", name)
 
-	return kinematics.NewArm(e, evamodeljson, 4, logger)
+	return e, nil
 }
