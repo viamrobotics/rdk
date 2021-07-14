@@ -305,12 +305,17 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		return err
 	}
 
+	// Disable stallguard and turn off if we fail homing
+	defer func() {
+		_ = m.WriteReg(SW_MODE, 0x000)
+		_ = m.Off(ctx)
+	}()
+
 	// Get up to speed
 	var fails int
 	for {
 		select {
 		case <-ctx.Done():
-			_ = m.Off(ctx) // Ignore errors as we're already stopping
 			return errors.New("Context cancelled during homing")
 		case <-time.After(100 * time.Millisecond):
 			fails++
@@ -326,18 +331,15 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		}
 
 		if fails >= 50 {
-			_ = m.Off(ctx)
 			return errors.New("Timed out during homing accel")
 		}
 	}
 
 	// Now enabled stallguard
-	m.WriteReg(SW_MODE, 0x400)
-	// Disable stallguard and turn off if we fail homing
-	defer func() {
-		_ = m.WriteReg(SW_MODE, 0x000)
-		_ = m.Off(ctx)
-	}()
+	err = m.WriteReg(SW_MODE, 0x400)
+	if err != nil {
+		return err
+	}
 
 	// Wait for motion to stop at endstop
 	fails = 0
