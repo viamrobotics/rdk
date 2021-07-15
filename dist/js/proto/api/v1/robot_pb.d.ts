@@ -852,7 +852,7 @@ export namespace PointCloudResponse {
   }
 }
 
-export class PointCloudSegmentsRequest extends jspb.Message {
+export class ObjectPointCloudsRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -869,16 +869,16 @@ export class PointCloudSegmentsRequest extends jspb.Message {
   setClusteringRadius(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): PointCloudSegmentsRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: PointCloudSegmentsRequest): PointCloudSegmentsRequest.AsObject;
+  toObject(includeInstance?: boolean): ObjectPointCloudsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectPointCloudsRequest): ObjectPointCloudsRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: PointCloudSegmentsRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): PointCloudSegmentsRequest;
-  static deserializeBinaryFromReader(message: PointCloudSegmentsRequest, reader: jspb.BinaryReader): PointCloudSegmentsRequest;
+  static serializeBinaryToWriter(message: ObjectPointCloudsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectPointCloudsRequest;
+  static deserializeBinaryFromReader(message: ObjectPointCloudsRequest, reader: jspb.BinaryReader): ObjectPointCloudsRequest;
 }
 
-export namespace PointCloudSegmentsRequest {
+export namespace ObjectPointCloudsRequest {
   export type AsObject = {
     name: string,
     mimeType: string,
@@ -916,7 +916,7 @@ export namespace Vector3 {
   }
 }
 
-export class PointCloudSegmentsResponse extends jspb.Message {
+export class ObjectPointCloudsResponse extends jspb.Message {
   getMimeType(): string;
   setMimeType(value: string): void;
 
@@ -933,16 +933,16 @@ export class PointCloudSegmentsResponse extends jspb.Message {
   addCenters(value?: Vector3, index?: number): Vector3;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): PointCloudSegmentsResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: PointCloudSegmentsResponse): PointCloudSegmentsResponse.AsObject;
+  toObject(includeInstance?: boolean): ObjectPointCloudsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectPointCloudsResponse): ObjectPointCloudsResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: PointCloudSegmentsResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): PointCloudSegmentsResponse;
-  static deserializeBinaryFromReader(message: PointCloudSegmentsResponse, reader: jspb.BinaryReader): PointCloudSegmentsResponse;
+  static serializeBinaryToWriter(message: ObjectPointCloudsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectPointCloudsResponse;
+  static deserializeBinaryFromReader(message: ObjectPointCloudsResponse, reader: jspb.BinaryReader): ObjectPointCloudsResponse;
 }
 
-export namespace PointCloudSegmentsResponse {
+export namespace ObjectPointCloudsResponse {
   export type AsObject = {
     mimeType: string,
     framesList: Array<Uint8Array | string>,

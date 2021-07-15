@@ -155,13 +155,13 @@ RobotService.PointCloud = {
   responseType: proto_api_v1_robot_pb.PointCloudResponse
 };
 
-RobotService.PointCloudSegments = {
-  methodName: "PointCloudSegments",
+RobotService.ObjectPointClouds = {
+  methodName: "ObjectPointClouds",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.PointCloudSegmentsRequest,
-  responseType: proto_api_v1_robot_pb.PointCloudSegmentsResponse
+  requestType: proto_api_v1_robot_pb.ObjectPointCloudsRequest,
+  responseType: proto_api_v1_robot_pb.ObjectPointCloudsResponse
 };
 
 RobotService.LidarInfo = {
@@ -819,11 +819,11 @@ RobotServiceClient.prototype.pointCloud = function pointCloud(requestMessage, me
   };
 };
 
-RobotServiceClient.prototype.pointCloudSegments = function pointCloudSegments(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.objectPointClouds = function objectPointClouds(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.PointCloudSegments, {
+  var client = grpc.unary(RobotService.ObjectPointClouds, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

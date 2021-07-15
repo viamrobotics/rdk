@@ -966,7 +966,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("PointCloudSegments", func(t *testing.T) {
+	t.Run("ObjectPointClouds", func(t *testing.T) {
 		server, injectRobot := newServer()
 
 		injectCamera := &inject.Camera{}
@@ -978,7 +978,7 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return nil, err1
 		}
-		_, err := server.PointCloudSegments(context.Background(), &pb.PointCloudSegmentsRequest{
+		_, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
 			Name:               "camera1",
 			MinPointsInPlane:   100,
 			MinPointsInSegment: 3,
@@ -1004,7 +1004,7 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pcA, nil
 		}
-		segs, err := server.PointCloudSegments(context.Background(), &pb.PointCloudSegmentsRequest{
+		segs, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
 			Name:               "camera1",
 			MinPointsInPlane:   100,
 			MinPointsInSegment: 3,
@@ -1021,7 +1021,7 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pcB, nil
 		}
-		segs, err = server.PointCloudSegments(context.Background(), &pb.PointCloudSegmentsRequest{
+		segs, err = server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
 			Name:               "camera1",
 			MinPointsInPlane:   100,
 			MinPointsInSegment: 3,
