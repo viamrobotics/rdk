@@ -287,9 +287,9 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 	}, nil
 }
 
-// PointCloudSegments returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
+// ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a 3Vector array of the center points of each object.
-func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegmentsRequest) (*pb.PointCloudSegmentsResponse, error) {
+func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloudsRequest) (*pb.ObjectPointCloudsResponse, error) {
 	camera := s.r.CameraByName(req.Name)
 	if camera == nil {
 		return nil, errors.Errorf("no camera with name (%s)", req.Name)
@@ -316,7 +316,7 @@ func (s *Server) PointCloudSegments(ctx context.Context, req *pb.PointCloudSegme
 		centers[i] = segments.Centers[i]
 	}
 
-	return &pb.PointCloudSegmentsResponse{
+	return &pb.ObjectPointCloudsResponse{
 		MimeType: grpc.MimeTypePCD,
 		Frames:   frames,
 		Centers:  pointsToProto(centers),

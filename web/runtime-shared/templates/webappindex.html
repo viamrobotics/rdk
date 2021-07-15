@@ -305,7 +305,7 @@
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      robotService.pointCloudSegments(req,  {}, (err, resp) => {
+                      robotService.objectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
