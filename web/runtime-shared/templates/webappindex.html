@@ -94,6 +94,12 @@
               rawStatus : null,
               status : {},
               pcdClick : {},
+              fullcloud: null,
+              segments : null,
+              segCenters : null,
+              minPtsPlane : 50000,
+              minPtsSegment: 500,
+              clusterRad: 10,
           };
           theApp = new Vue({
               el: '#app',
@@ -235,6 +241,8 @@
                       });
                   },
                   renderPCD : function(cameraName) {
+                      theData.pcdClick.pcdloaded = false;
+                      theData.pcdClick.foundSegments = false;
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
@@ -247,7 +255,9 @@
                         if (err) {
                           return;
                         }
-                        pcdLoad(`data:${mimeType};base64,${resp.getFrame_asB64()}`);
+                        console.log("loading pcd");
+                        theData.fullcloud = resp.getFrame_asB64();
+                        pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                       });
 
                   },
@@ -270,28 +280,56 @@
 	                  pcdGlobal.raycaster.setFromCamera( mouse, pcdGlobal.camera );
                       
 	                  var intersects = pcdGlobal.raycaster.intersectObjects( pcdGlobal.scene.children );
-                      var p = intersects[0];
-                      //console.log(p);
-                      console.log(p.point);
+                      var p = ( intersects.length ) > 0 ? intersects[ 0 ] : null;
 
-                      var r = function(n) {
-                          return Math.round(n*1000);
+                      if ( p !== null ) {
+                        console.log(p.point);
+                        setPoint(p.point);
+                      } else {
+                        console.log("no point intersected");
                       }
-                      
-                      var path = "/grab_at_camera_position/"
-                          + pcdGlobal.cameraName + "/"
-                          + r(p.point.x) + "/" + r(p.point.y) + "/" + r(p.point.z);
-
-                      theData.pcdClick.x = r(p.point.x);
-                      theData.pcdClick.y = r(p.point.y);
-                      theData.pcdClick.z = r(p.point.z);
-                      theData.pcdClick.path = path;
-                      
 
                   },
                   doPCDGrab : function(){
                       console.log(theData.pcdClick.path);
                       fetch(theData.pcdClick.path).then(console.log);
+                  },
+                  findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                      theData.pcdClick.calculatingSegments = true;
+                      req = new robotApi.ObjectPointCloudsRequest();
+                      console.log("camera name: "+pcdGlobal.cameraName);
+                      req.setName(pcdGlobal.cameraName);
+                      req.setMinPointsInPlane(minPointsPlane);
+                      req.setMinPointsInSegment(minPointsSegment);
+                      req.setClusteringRadius(clusteringRadius);
+                      const mimeType = 'pointcloud/pcd';
+                      req.setMimeType(mimeType);
+                      console.log("finding object segments...");
+                      robotService.objectPointClouds(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          console.log("error getting segments");
+                          theData.pcdClick.calculatingSegments = false;
+                          return;
+                        }
+                        console.log("got pcd segments");
+                        theData.pcdClick.foundSegments = true;
+                        theData.segments = resp.getFramesList_asB64();
+                        theData.segCenters = resp.getCentersList();
+                        theData.pcdClick.calculatingSegments = false;
+                      });
+                  },
+                  doSegmentLoad : function(data, i){
+                        var center = theData.segCenters[i];
+                        var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                        console.log(p);
+                        setPoint(p);
+                        const mimeType = 'pointcloud/pcd';
+                        pcdLoad(`data:${mimeType};base64,${data}`);
+                  },
+                  doPCDLoad : function(data){
+                        const mimeType = 'pointcloud/pcd';
+                        pcdLoad(`data:${mimeType};base64,${data}`);
                   }
               }
           })
@@ -353,24 +391,46 @@
           theData.pcdClick.enable = true;
           console.log("initing pcd");
           
+          const sphereGeometry = new THREE.SphereGeometry( .012, 32, 32 );
+          const sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+
           pcdGlobal = {
               scene : new THREE.Scene(),
               camera : new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, .1, 2000 ),
               renderer : new THREE.WebGLRenderer(),
               raycaster : new THREE.Raycaster(),
+              sphere: new THREE.Mesh( sphereGeometry, sphereMaterial ),
           };
 
           pcdGlobal.renderer.setSize( window.innerWidth / 2, window.innerHeight / 2 );
           document.getElementById("pcd").appendChild(pcdGlobal.renderer.domElement);
           
           pcdGlobal.controls = new orbitLib.OrbitControls( pcdGlobal.camera, pcdGlobal.renderer.domElement );
-          pcdGlobal.camera.position.set( 0, 0, 1 );
+          pcdGlobal.camera.position.set( 0, 0, 0 );
+          pcdGlobal.controls.target.set(0,0,-1);
           pcdGlobal.controls.update();
+          pcdGlobal.camera.updateMatrix();
 
           console.log("pcd init done");
       }
 
+      function resizeRendererToDisplaySize(renderer) {
+          const canvas = renderer.domElement;
+          const width = canvas.clientWidth;
+          const height = canvas.clientHeight;
+          const needResize = canvas.width !== width || canvas.height !== height;
+          if (needResize) {
+                    renderer.setSize(width, height, false);
+                  }
+          return needResize;
+        }
+
       function pcdAnimate() {
+          if (resizeRendererToDisplaySize(pcdGlobal.renderer)) {
+                    const canvas = pcdGlobal.renderer.domElement;
+                    pcdGlobal.camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                    pcdGlobal.camera.updateProjectionMatrix();
+          }
 	      pcdGlobal.renderer.render( pcdGlobal.scene, pcdGlobal.camera );
           pcdGlobal.controls.update();
           requestAnimationFrame( pcdAnimate );
@@ -385,6 +445,7 @@
             function ( mesh ) {
               pcdGlobal.scene.clear();
               pcdGlobal.scene.add( mesh );
+              pcdGlobal.scene.add( pcdGlobal.sphere);
               pcdAnimate();
             },
             // called when loading is in progresses
@@ -396,6 +457,23 @@
               console.log(error);
             }
           );
+          theData.pcdClick.pcdloaded = true;
+      }
+
+      function r(n) {
+          return Math.round(n*1000);
+      }
+
+      function setPoint(point) {
+          var path = "/grab_at_camera_position/"
+              + pcdGlobal.cameraName + "/"
+              + r(point.x) + "/" + r(point.y) + "/" + r(point.z);
+
+          theData.pcdClick.x = r(point.x);
+          theData.pcdClick.y = r(point.y);
+          theData.pcdClick.z = r(point.z);
+          theData.pcdClick.path = path;
+          pcdGlobal.sphere.position.copy(point);
       }
 
       async function waitForClientAndStart() {
@@ -579,7 +657,7 @@
           
         </table>
       </div> <!-- end boards -->
-
+      <!-- cameras -->
       <table border="1" v-if="nonEmpty(status.camerasMap)">
         <tr>
           <th colspan="3">
@@ -652,7 +730,37 @@
             </td>
           </tr>
         </table>
-      </div>
+      </div> <!-- end pcd wrapper -->
+      <!-- get segments -->
+      <table v-if="pcdClick.pcdloaded">
+        <tr>
+          <td colspan=2>
+              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
+              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
+              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
+          </td>
+        </tr>
+        <tr>
+            <td>
+                <button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</button>
+            </td>
+            <td v-if="pcdClick.calculatingSegments">Finding...</td>
+        </tr>
+      </table>
+      <table v-if="pcdClick.foundSegments">
+        <tr>
+          <th>Object</th>
+          <th>PCD</th>
+        </tr>
+        <tr>
+          <td>Full Image</td>
+          <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
+        </tr>
+        <tr v-for="(seg, i) in segments">
+            <td>Object ${i}</td>
+            <td><button v-on:click="doSegmentLoad(seg, i)">GO</button></td>
+        </tr>
+      </table>
     </div> <!-- end vue app -->
     
   </body>
