@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
+	"github.com/go-errors/errors"
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/num/quat"
@@ -16,13 +17,18 @@ import (
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
-func ComputePosition(model *Model, joints *pb.JointPositions) *pb.ArmPosition {
+func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, error) {
+
+	if len(joints.Degrees) != model.Dof() {
+		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", model.Dof(), len(joints.Degrees))
+	}
+
 	radAngles := make([]float64, len(joints.Degrees))
 	for i, angle := range joints.Degrees {
 		radAngles[i] = utils.DegToRad(angle)
 	}
 
-	return JointRadToQuat(model, radAngles).ToArmPos()
+	return JointRadToQuat(model, radAngles).ToArmPos(), nil
 }
 
 // JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the

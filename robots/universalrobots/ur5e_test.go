@@ -21,7 +21,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	m, err := kinematics.ParseJSON(ur5modeljson)
 	test.That(t, err, test.ShouldBeNil)
 
-	pos := kinematics.ComputePosition(m, arm.JointPositionsFromRadians(jointRadians))
+	pos, err := kinematics.ComputePosition(m, arm.JointPositionsFromRadians(jointRadians))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.X, test.ShouldAlmostEqual, correct.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
