@@ -296,7 +296,7 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new robotApi.PointCloudSegmentsRequest();
+                      req = new robotApi.ObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
