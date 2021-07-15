@@ -24,10 +24,12 @@ import (
 	"go.viam.com/core/action"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/pointcloud"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/vision/segmentation"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -285,6 +287,42 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 	}, nil
 }
 
+// ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
+// can be requested but may not necessarily be the same one returned. Also returns a 3Vector array of the center points of each object.
+func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloudsRequest) (*pb.ObjectPointCloudsResponse, error) {
+	camera := s.r.CameraByName(req.Name)
+	if camera == nil {
+		return nil, errors.Errorf("no camera with name (%s)", req.Name)
+	}
+
+	pc, err := camera.NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := segmentation.CreateObjectSegmentation(pc, int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius)
+	if err != nil {
+		return nil, err
+	}
+
+	frames := make([][]byte, segments.N())
+	centers := make([]pointcloud.Vec3, segments.N())
+	for i, seg := range segments.PointClouds {
+		var buf bytes.Buffer
+		err := seg.ToPCD(&buf)
+		if err != nil {
+			return nil, err
+		}
+		frames[i] = buf.Bytes()
+		centers[i] = segments.Centers[i]
+	}
+
+	return &pb.ObjectPointCloudsResponse{
+		MimeType: grpc.MimeTypePCD,
+		Frames:   frames,
+		Centers:  pointsToProto(centers),
+	}, nil
+}
+
 // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
@@ -497,6 +535,22 @@ func measurementsToProto(ms lidar.Measurements) []*pb.LidarMeasurement {
 		pms = append(pms, measurementToProto(m))
 	}
 	return pms
+}
+
+func pointToProto(p pointcloud.Vec3) *pb.Vector3 {
+	return &pb.Vector3{
+		X: p.X,
+		Y: p.Y,
+		Z: p.Z,
+	}
+}
+
+func pointsToProto(vs []pointcloud.Vec3) []*pb.Vector3 {
+	pvs := make([]*pb.Vector3, 0, len(vs))
+	for _, v := range vs {
+		pvs = append(pvs, pointToProto(v))
+	}
+	return pvs
 }
 
 // BoardStatus returns the status of a board of the underlying robot.

@@ -279,7 +279,7 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// find the planes, and only keep points above the biggest found plane
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 15, 15000)
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, 15000)
 	test.That(t, err, test.ShouldBeNil)
 	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
@@ -293,6 +293,13 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	coloredSegments, err := pc.MergePointCloudsWithColor(segments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
+
+	// compare to the full pipeline
+	segments2, err := CreateObjectSegmentation(cloud, 15000, 5, 10.0)
+	test.That(t, err, test.ShouldBeNil)
+	coloredSegments2, err := pc.MergePointCloudsWithColor(segments2.PointClouds)
+	test.That(t, err, test.ShouldBeNil)
+	pCtx.GotDebugPointCloud(coloredSegments2, "gripper-segments-pointcloud-full")
 
 	return nil
 }

@@ -966,6 +966,71 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("ObjectPointClouds", func(t *testing.T) {
+		server, injectRobot := newServer()
+
+		injectCamera := &inject.Camera{}
+		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+			return injectCamera
+		}
+		err1 := errors.New("whoops")
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return nil, err1
+		}
+		_, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			ClusteringRadius:   5.,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+
+		// request the two segments in the point cloud
+		pcA := pointcloud.New()
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
+		test.That(t, err, test.ShouldBeNil)
+		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
+		test.That(t, err, test.ShouldBeNil)
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return pcA, nil
+		}
+		segs, err := server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			ClusteringRadius:   5.,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
+		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
+		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
+
+		//empty pointcloud
+		pcB := pointcloud.New()
+
+		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			return pcB, nil
+		}
+		segs, err = server.ObjectPointClouds(context.Background(), &pb.ObjectPointCloudsRequest{
+			Name:               "camera1",
+			MinPointsInPlane:   100,
+			MinPointsInSegment: 3,
+			ClusteringRadius:   5.,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(segs.Frames), test.ShouldEqual, 0)
+	})
+
 	t.Run("Lidar", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
