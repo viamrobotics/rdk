@@ -17,7 +17,7 @@ On your computer:
 4. Open `index.html` in your browser (e.g. doubleclick it, or if on a mac, from terminal type `open index.html`)
 
 Back on the RPI:
-1. Run the compiled file `./cmd`
+1. Run the compiled file `sudo ./cmd`
 
 On your computer:
 * Refreshing the page will reset the view & connect to the RPI to retrieve data
