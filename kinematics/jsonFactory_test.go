@@ -22,7 +22,16 @@ func TestParseJSONFile(t *testing.T) {
 	_, err = ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = ParseJSONFile(utils.ResolveFile("kinematics/kinematicsloop.json"))
+	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/kinematicsloop.json"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldjoint.json"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldlink.json"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ParseJSONFile(utils.ResolveFile("kinematics/testjson/worldDH.json"))
 	test.That(t, err, test.ShouldNotBeNil)
 
 }
