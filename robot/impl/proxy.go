@@ -440,7 +440,10 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 func (p *proxyBoard) Motor(name string) board.Motor {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.motors[name]
+	if motor, ok := p.motors[name]; ok {
+		return motor
+	}
+	return nil
 }
 
 func (p *proxyBoard) Servo(name string) board.Servo {
