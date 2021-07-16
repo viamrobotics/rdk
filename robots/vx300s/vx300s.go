@@ -157,7 +157,17 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) e
 
 // CurrentJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
 func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
-	return &pb.JointPositions{}, nil
+	angleMap, err := a.GetAllAngles()
+	if err != nil {
+		return &pb.JointPositions{}, err
+	}
+
+	positions := make([]float64, 0, len(a.JointOrder()))
+	for i, jointName := range a.JointOrder() {
+		positions[i] = servoPosToDegrees(angleMap[jointName])
+	}
+
+	return &pb.JointPositions{Degrees: positions}, nil
 }
 
 // JointMoveDelta TODO

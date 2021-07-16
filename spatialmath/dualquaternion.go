@@ -39,13 +39,31 @@ func NewDualQuaternion() *DualQuaternion {
 func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
-		ov.OX = 1
+		ov.OZ = 1
 	}
 	ov.Normalize()
 	return &DualQuaternion{dualquat.Number{
 		Real: ov.ToQuat(),
 		Dual: quat.Number{},
 	}}
+}
+
+// NewDualQuaternionFromDH returns a pointer to a new DualQuaternion object created from a DH parameter
+func NewDualQuaternionFromDH(a, d, alpha float64) *DualQuaternion {
+	m := mgl64.Ident4()
+
+	m.Set(1, 1, math.Cos(alpha))
+	m.Set(1, 2, -1*math.Sin(alpha))
+
+	m.Set(2, 0, 0)
+	m.Set(2, 1, math.Sin(alpha))
+	m.Set(2, 2, math.Cos(alpha))
+
+	qRot := mgl64.Mat4ToQuat(m)
+	q := NewDualQuaternion()
+	q.Quat.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
+	q.SetTranslation(a, 0, d)
+	return q
 }
 
 // NewDualQuaternionFromArmPos returns a pointer to a new DualQuaternion object whose rotation quaternion is set from a provided
@@ -222,34 +240,37 @@ func QuatToEuler(q quat.Number) []float64 {
 
 // QuatToOV converts a quaternion to an orientation vector
 func QuatToOV(q quat.Number) *OrientationVec {
-	xAxis := quat.Number{0, 1, 0, 0}
+	xAxis := quat.Number{0, -1, 0, 0}
 	zAxis := quat.Number{0, 0, 0, 1}
 	ov := &OrientationVec{}
-	// Get the xyz point of our axis on the unit sphere
-	xyz := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
+	// Get the transform of our +X and +Z points
+	newX := quat.Mul(quat.Mul(q, xAxis), quat.Conj(q))
 	newZ := quat.Mul(quat.Mul(q, zAxis), quat.Conj(q))
-	ov.OX = xyz.Imag
-	ov.OY = xyz.Jmag
-	ov.OZ = xyz.Kmag
+	ov.OX = newZ.Imag
+	ov.OY = newZ.Jmag
+	ov.OZ = newZ.Kmag
 
-	// The contents of ov.xyz.Kmag are not in radians but we use angleEpsilon anyway to check how close we are to the pole
-	if 1-math.Abs(xyz.Kmag) < angleEpsilon {
+	// The contents of ov.newX.Kmag are not in radians but we can use angleEpsilon anyway to check how close we are to
+	// the pole because it's a convenient small number
+	if 1-math.Abs(newZ.Kmag) < angleEpsilon {
 		// Special case for when we point directly along the Z axis
 		// Get the vector normal to the local-x, global-z, origin plane
-		ov.Theta = math.Atan2(newZ.Jmag, newZ.Imag)
-		if xyz.Kmag > 0 {
-			ov.Theta = math.Atan2(newZ.Jmag, -newZ.Imag)
+		ov.Theta = -math.Atan2(newX.Jmag, -newX.Imag)
+		if newZ.Kmag < 0 {
+			ov.Theta = -math.Atan2(newX.Jmag, newX.Imag)
 		}
 
 	} else {
-		v1 := mgl64.Vec3{xyz.Imag, xyz.Jmag, xyz.Kmag}
-		v2 := mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag}
-		norm1 := v1.Cross(v2)
+		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
+		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
 
 		// Get the vector normal to the local-x, local-z, origin plane
-		norm2 := v1.Cross(mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag})
+		norm1 := v1.Cross(v2)
 
-		// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
+		// Get the vector normal to the global-z, local-z, origin plane
+		norm2 := v1.Cross(mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag})
+
+		// For theta, we find the angle between the planes defined by local-x, global-z, origin and local-x, local-z, origin
 		cosTheta := norm1.Dot(norm2) / (norm1.Len() * norm2.Len())
 		// Account for floating point error
 		if cosTheta > 1 {
@@ -262,18 +283,18 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		theta := math.Acos(cosTheta)
 		if theta > angleEpsilon {
 			// Acos will always produce a positive number, we need to determine directionality of the angle
-			// We rotate newZ by -theta around the xyz axis and see if we wind up coplanar with local-x, global-z, origin
-			// If so theta is positive, otherwise negative
+			// We rotate newZ by -theta around the newX axis and see if we wind up coplanar with local-x, global-z, origin
+			// If so theta is negative, otherwise positive
 			// An R4AA is a convenient way to rotate a point by an amount around an arbitrary axis
-			aa := R4AA{-theta, xyz.Imag, xyz.Jmag, xyz.Kmag}
+			aa := R4AA{-theta, ov.OX, ov.OY, ov.OZ}
 			q2 := aa.ToQuat()
-			testZ := quat.Mul(quat.Mul(q2, newZ), quat.Conj(q2))
+			testZ := quat.Mul(quat.Mul(q2, zAxis), quat.Conj(q2))
 			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
 			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
-			if 1-cosTest < angleEpsilon {
-				ov.Theta = theta
-			} else {
+			if 1-cosTest < angleEpsilon*angleEpsilon {
 				ov.Theta = -theta
+			} else {
+				ov.Theta = theta
 			}
 		} else {
 			ov.Theta = 0
