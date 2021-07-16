@@ -72,6 +72,9 @@ func TestQuatConversion(t *testing.T) {
 	ovConvert(t, &OrientationVec{Theta: 2.47208, OX: 0, OY: 1, OZ: 0})
 	ovConvert(t, &OrientationVec{Theta: 2.47208, OX: 0, OY: -1, OZ: 0})
 
+	// Test a small angle that was hitting angleEpsilon erroneously
+	ovConvert(t, &OrientationVec{Theta: 0.02, OX: 0.5048437942940054, OY: 0.5889844266763397, OZ: 0.631054742867507})
+
 	// An OV that initially gave problems in testing
 	ovConvert(t, &OrientationVec{Theta: 0, OX: -0.32439089809469324, OY: -0.9441256803955101, OZ: -0.05828588895294498})
 	ovConvert(t, &OrientationVec{Theta: -0.5732162806942777, OX: -0.32439089809469324, OY: -0.9441256803955101, OZ: -0.05828588895294498})
