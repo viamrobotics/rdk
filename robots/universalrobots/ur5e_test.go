@@ -8,8 +8,8 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"gonum.org/v1/gonum/mat"
 	"github.com/go-gl/mathgl/mgl64"
+	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/test"
@@ -67,7 +67,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.OX, test.ShouldAlmostEqual, fromDH.OX, .01)
 	test.That(t, pos.OY, test.ShouldAlmostEqual, fromDH.OY, .01)
 	test.That(t, pos.OZ, test.ShouldAlmostEqual, fromDH.OZ, .01)
-	
+
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDHtheta.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDHtheta.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDHtheta.Z, .01)
@@ -219,8 +219,8 @@ func computeUR5ePosition(jointRadians []float64) (*pb.ArmPosition, *pb.ArmPositi
 
 	resMgl := mgl64.Ident4()
 	// Copy to a mgl64 4x4 to convert to quaternion
-	for r := 0; r < 4; r++{
-		for c := 0; c < 4; c++{
+	for r := 0; r < 4; r++ {
+		for c := 0; c < 4; c++ {
 			resMgl.Set(r, c, res.At(r, c))
 		}
 	}
@@ -228,21 +228,21 @@ func computeUR5ePosition(jointRadians []float64) (*pb.ArmPosition, *pb.ArmPositi
 	poseOV := spatialmath.QuatToOV(quat.Number{q.W, q.X(), q.Y(), q.Z()})
 
 	return &pb.ArmPosition{
-		X:  1000 * res.At(0, 3),
-		Y:  1000 * res.At(1, 3),
-		Z:  1000 * res.At(2, 3),
-		OX: ov.OX,
-		OY: ov.OY,
-		OZ: ov.OZ,
-		//Theta: ov.Theta,
-	}, &pb.ArmPosition{
-		X:  1000 * res.At(0, 3),
-		Y:  1000 * res.At(1, 3),
-		Z:  1000 * res.At(2, 3),
-		OX: poseOV.OX,
-		OY: poseOV.OY,
-		OZ: poseOV.OZ,
-		Theta: utils.RadToDeg(poseOV.Theta),
-	}
+			X:  1000 * res.At(0, 3),
+			Y:  1000 * res.At(1, 3),
+			Z:  1000 * res.At(2, 3),
+			OX: ov.OX,
+			OY: ov.OY,
+			OZ: ov.OZ,
+			//Theta: ov.Theta,
+		}, &pb.ArmPosition{
+			X:     1000 * res.At(0, 3),
+			Y:     1000 * res.At(1, 3),
+			Z:     1000 * res.At(2, 3),
+			OX:    poseOV.OX,
+			OY:    poseOV.OY,
+			OZ:    poseOV.OZ,
+			Theta: utils.RadToDeg(poseOV.Theta),
+		}
 
 }
