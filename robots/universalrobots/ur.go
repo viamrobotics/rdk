@@ -31,6 +31,9 @@ import (
 //go:embed ur5e.json
 var ur5modeljson []byte
 
+//go:embed ur5e_DH.json
+var ur5DHmodeljson []byte
+
 func init() {
 	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)

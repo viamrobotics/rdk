@@ -31,6 +31,7 @@ type Joint struct {
 	min        []float64
 	wraparound []bool
 	Rev        bool
+	jQuat      *spatialmath.DualQuaternion
 }
 
 // NewJoint creates a new Joint struct with the specified number of degrees of freedom.
@@ -58,6 +59,7 @@ func NewJoint(axes []int, dir, parent string) *Joint {
 			panic("Invalid joint direction")
 		}
 	}
+	j.jQuat = spatialmath.NewDualQuaternion()
 
 	return &j
 }
@@ -97,12 +99,12 @@ func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 
 // Quaternion gets the quaternion representing this joint's rotation in space AT THE ZERO ANGLE.
 func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
-	jQuat := spatialmath.NewDualQuaternion()
+	rQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
 		r1 := dualquat.Number{Real: j.rotVectors[i]}
-		jQuat.Quat = jQuat.Transformation(r1)
+		rQuat.Quat = j.jQuat.Transformation(r1)
 	}
-	return jQuat
+	return rQuat
 }
 
 // AngleQuaternion returns the quaternion representing this joint's rotation in space.
@@ -121,6 +123,11 @@ func (j *Joint) AngleQuaternion(angle []float64) *spatialmath.DualQuaternion {
 		jQuat.Quat = jQuat.Transformation(r1)
 	}
 	return jQuat
+}
+
+// SetQuat rsets the starting quaternion of this joint to a given quaternion
+func (j *Joint) SetQuat(q *spatialmath.DualQuaternion) {
+	j.jQuat = q
 }
 
 // Dof returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint, 3 for

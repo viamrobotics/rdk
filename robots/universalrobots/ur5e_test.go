@@ -3,6 +3,7 @@ package universalrobots
 import (
 	"context"
 	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -16,6 +17,34 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
+
+func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
+	numTests := 10000
+
+	mSVA, err := kinematics.ParseJSON(ur5modeljson)
+	test.That(t, err, test.ShouldBeNil)
+	mDH, err := kinematics.ParseJSON(ur5DHmodeljson)
+	test.That(t, err, test.ShouldBeNil)
+
+	seed := rand.New(rand.NewSource(23))
+	for i := 0; i < numTests; i++ {
+		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+
+		posSVA, err := kinematics.ComputePosition(mSVA, joints)
+		test.That(t, err, test.ShouldBeNil)
+		posDH, err := kinematics.ComputePosition(mDH, joints)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
+		test.That(t, posSVA.Y, test.ShouldAlmostEqual, posDH.Y, .01)
+		test.That(t, posSVA.Z, test.ShouldAlmostEqual, posDH.Z, .01)
+
+		test.That(t, posSVA.OX, test.ShouldAlmostEqual, posDH.OX, .01)
+		test.That(t, posSVA.OY, test.ShouldAlmostEqual, posDH.OY, .01)
+		test.That(t, posSVA.OZ, test.ShouldAlmostEqual, posDH.OZ, .01)
+		test.That(t, posSVA.Theta, test.ShouldAlmostEqual, posDH.Theta, .01)
+	}
+}
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.ArmPosition) {
 	m, err := kinematics.ParseJSON(ur5modeljson)

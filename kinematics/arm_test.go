@@ -46,9 +46,9 @@ func TestCombinedIKinematics(t *testing.T) {
 		X:  -66,
 		Y:  -133,
 		Z:  372,
-		OX: -178.88747811107424,
-		OY: -33.160094626838045,
-		OZ: -111.02282693533935,
+		OX: 1.78,
+		OY: -3.3,
+		OZ: -1.11,
 	}
 	_, err = ik.Solve(context.Background(), pos, solution)
 	test.That(t, err, test.ShouldBeNil)
