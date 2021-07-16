@@ -1,24 +1,14 @@
 {
   "boards": [
     {
-      "analogs": [
-        {
-          "name": "ch0",
-          "pin": "0",
-          "spiBus": "main",
-          "chipSelect": 1
-        },
-        {
-          "name": "ch1",
-          "pin": "1",
-          "spiBus": "main",
-          "chipSelect": 1
-        }
-      ],
       "spis": [
         {
           "name": "main",
           "busID": 0
+        },
+        {
+          "name": "aux",
+          "busID": 1
         }
       ],
       "motors": [
@@ -28,10 +18,11 @@
           "ticksPerRotation": 200,
           "TMCConfig": {
             "spiBus": "main",
-            "chipSelect": 0,
+            "csPin": "36",
             "index": 0,
             "maxVelocity": 450,
             "maxAccel": 150,
+            "sgThresh": 10,
             "calFactor": 1.058333
           }
         },
@@ -41,10 +32,67 @@
           "ticksPerRotation": 200,
           "TMCConfig": {
             "spiBus": "main",
-            "chipSelect": 0,
+            "csPin": "36",
             "index": 1,
             "maxVelocity": 450,
             "maxAccel": 150,
+            "sgThresh": 10,
+            "calFactor": 1.058333
+          }
+        },
+        {
+          "name": "squeezeL",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "csPin": "38",
+            "index": 0,
+            "maxVelocity": 450,
+            "maxAccel": 150,
+            "sgThresh": 10,
+            "calFactor": 1.058333
+          }
+        },
+        {
+          "name": "squeezeR",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "csPin": "38",
+            "index": 1,
+            "maxVelocity": 450,
+            "maxAccel": 150,
+            "sgThresh": 10,
+            "calFactor": 1.058333
+          }
+        },
+        {
+          "name": "elevator",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "csPin": "40",
+            "index": 0,
+            "maxVelocity": 450,
+            "maxAccel": 150,
+            "sgThresh": 5,
+            "calFactor": 1.058333
+          }
+        },
+        {
+          "name": "hammer",
+          "model": "TMC5072",
+          "ticksPerRotation": 200,
+          "TMCConfig": {
+            "spiBus": "main",
+            "csPin": "40",
+            "index": 1,
+            "maxVelocity": 450,
+            "maxAccel": 150,
+            "sgThresh": 5,
             "calFactor": 1.058333
           }
         }

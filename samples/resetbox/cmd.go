@@ -11,9 +11,9 @@ import (
 	//"math"
 	//"net/http"
 	"sync"
-	//"time"
+	"time"
 	// "fmt"
-	// "reflect"
+	//"reflect"
 
 	"github.com/go-errors/errors"
 
@@ -78,6 +78,9 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 	var homeWorkers sync.WaitGroup
 	var errors error
 	for _, m := range a.m {
+		if m == nil {
+			continue
+		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
 	 	homeWorkers.Add(1)
 	 	utils.ManagedGo(func() {
@@ -91,10 +94,27 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 func (a *LinearAxis) Off(ctx context.Context) error {
 	var errors error
 	for _, m := range a.m {
+		if m == nil {
+			continue
+		}
 		multierr.AppendInto(&errors, m.Off(ctx))
 	}
 	return errors
 }
+
+func (a *LinearAxis) PositionReached(ctx context.Context) bool {
+	for _, m := range a.m {
+		if m == nil {
+			continue
+		}
+		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
+		if !raw.PositionReached(ctx) {
+			return false
+		}
+	}
+	return true
+}
+
 
 
 type ResetBox struct {
@@ -102,12 +122,15 @@ type ResetBox struct {
 	board      board.Board
 	gate, squeeze LinearAxis
 	elevator      LinearAxis
-	hammer        board.Motor
+	hammer        *board.TMCStepperMotor
 
 	activeBackgroundWorkers *sync.WaitGroup
 
 	cancel    func()
 	cancelCtx context.Context
+
+	vibeState bool
+	tableUp bool
 }
 
 func NewResetBox(r robot.Robot, logger golog.Logger) (*ResetBox, error) {
@@ -127,9 +150,12 @@ func NewResetBox(r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	b.squeeze.mmPerRev = 8.0
 
 	b.elevator.m = append(b.elevator.m, b.board.Motor("elevator"))
-	b.elevator.mmPerRev = 8.0
+	b.elevator.mmPerRev = 60.0
 
-	b.hammer = b.board.Motor("hammer")
+	baseHammer := b.board.Motor("hammer")
+	if baseHammer != nil {
+		b.hammer = baseHammer.GetRaw(cancelCtx).(*board.TMCStepperMotor)
+	}
 
 	// TODO Check for missing motors
 
@@ -188,7 +214,13 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer cancel()
 
 	action.RegisterAction("Home", box.home)
-	action.RegisterAction("Go Fast", box.goFast)
+	action.RegisterAction("Vibrate", box.vibrateToggle)
+	action.RegisterAction("TipUp", box.tipTableUp)
+	action.RegisterAction("TipDown", box.tipTableDown)
+
+	action.RegisterAction("FullReset", box.doReset)
+
+
 
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
@@ -205,19 +237,181 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	errors := multierr.Combine(
-		b.gate.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 10),
-		//b.squeeze.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 10),
-		//b.elevator.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 10),
-		//b.hammer.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 10),
+		b.gate.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
+		b.squeeze.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
+		b.elevator.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 100),
+		//b.hammer.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
 	)
 
 	if errors != nil {
 		b.logger.Error(errors)
 	}
+
+	// Raise the hammer
+	//b.hammer.GoTo(ctx, hammerSpeed, hammerOffset * hammerRatio)
+
 }
 
-func (b *ResetBox) goFast(ctx context.Context, r robot.Robot) {
-	b.gate.GoFor(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 500, 1000)
+const (
+	forward = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	backward = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+
+	tipPinA = "29"
+	tipPinB = "31"
+	vibePin = "33"
+
+	vibeLevel = 90
+
+	gateOffset = 35
+	gateSpeed = 25
+
+	squeezeMaxWidth = 115
+
+	elevatorBottom = 58
+	elevatorTop = 800
+	elevatorSpeed = 300
+
+	hammerSpeed = 100
+	hammerOffset = 0.8
+	hammerRatio = 10.0
+)
+
+func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
+	if level < 32 {
+		b.board.PWMSet(vibePin, 0)
+		b.vibeState = false
+	}else{
+		b.board.PWMSet(vibePin, level)
+		b.vibeState = true
+	}
+}
+
+func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
+	if b.vibeState {
+		b.vibrate(ctx, 0)
+	}else{
+		b.vibrate(ctx, vibeLevel)
+	}
 }
 
 
+func (b *ResetBox) setSqueeze(ctx context.Context, width float64) {
+	target := (squeezeMaxWidth - width) / 2
+	if target < 0 {
+		target = 0
+	}
+	b.squeeze.GoTo(ctx, gateSpeed, target)
+}
+
+
+func (b *ResetBox) sleep(ctx context.Context, millis time.Duration) {
+	select{
+		case <-ctx.Done():
+		case <-time.After(millis * time.Millisecond):
+	}
+}
+
+func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) bool) error {
+	for {
+		select{
+			case <-ctx.Done():
+				return errors.New("Context cancelled while waiting")
+			case <-time.After(100 * time.Millisecond):
+		}
+		if f(ctx) {
+			return nil
+		}
+	}
+}
+
+
+func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
+	b.board.GPIOSet(tipPinA, true)
+	b.board.GPIOSet(tipPinB, false)
+	b.sleep(ctx, 10000)
+
+	//All off
+	b.board.GPIOSet(tipPinA, true)
+	b.board.GPIOSet(tipPinB, true)
+
+	b.tableUp = true
+}
+
+func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
+	b.board.GPIOSet(tipPinA, false)
+	b.board.GPIOSet(tipPinB, true)
+	b.sleep(ctx, 10000);
+
+	//All Off
+	b.board.GPIOSet(tipPinA, true)
+	b.board.GPIOSet(tipPinB, true)
+
+	b.tableUp = false
+}
+
+func (b *ResetBox) isTableDown(ctx context.Context) bool {
+	return !b.tableUp
+}
+
+func (b *ResetBox) isTableUp(ctx context.Context) bool {
+	return b.tableUp
+}
+
+
+func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
+	b.gate.GoTo(ctx, gateSpeed, 46)
+	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+
+	// Wait for elevator down
+	b.waitFor(ctx, b.elevator.PositionReached)
+	b.setSqueeze(ctx, 50)
+
+
+	// WAIT ROBOT for tip command
+	b.vibrate(ctx, vibeLevel)
+	b.tipTableUp(ctx, r)
+	b.waitFor(ctx, b.isTableUp)
+	b.tipTableDown(ctx, r)
+
+	// As we go in one direction indefinitely, this is an easy fix for register overflow
+	b.hammer.GetRaw(ctx).(*board.TMCStepperMotor).Zero(ctx)
+
+	// Three whacks for cubes-behinds-ducks
+	b.hammer.GoFor(ctx, forward, hammerSpeed, 3.0 * hammerRatio)
+	b.waitFor(ctx, b.hammer.PositionReached)
+
+	// Wait for hammer + 4 seconds
+	b.sleep(ctx, 4000)
+
+	// Cubes in, going up
+	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+
+	// DuckWhack
+	b.hammer.GoFor(ctx, forward, hammerSpeed, 15.0 * hammerRatio)
+
+	// Cubes at top
+	b.waitFor(ctx, b.elevator.PositionReached)   
+	b.waitFor(ctx, b.isTableDown)
+	// WAIT ROBOT
+
+	// Back down for duck
+	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	b.waitFor(ctx, b.elevator.PositionReached)
+	b.waitFor(ctx, b.hammer.PositionReached)
+
+	// Open to load duck
+	b.gate.GoTo(ctx, gateSpeed, 80)
+	b.setSqueeze(ctx, 80)
+	b.sleep(ctx, 4000)
+
+	// Duck in, silence and up
+	b.vibrate(ctx, 0)
+	b.setSqueeze(ctx, 30)
+	b.waitFor(ctx, b.squeeze.PositionReached)
+	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+	b.waitFor(ctx, b.elevator.PositionReached)
+
+	// WAIT ROBOT
+
+
+}
