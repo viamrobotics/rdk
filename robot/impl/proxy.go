@@ -22,6 +22,7 @@ import (
 	"go.viam.com/core/rlog"
 	"go.viam.com/core/sensor"
 	"go.viam.com/core/sensor/compass"
+	"go.viam.com/core/sensor/forcematrix"
 	"go.viam.com/core/sensor/gps"
 	"go.viam.com/core/sensor/imu"
 	"go.viam.com/core/servo"
@@ -451,6 +452,35 @@ func (p *proxyIMU) Orientation(ctx context.Context) (spatialmath.Orientation, er
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual.Orientation(ctx)
+}
+
+type proxyForcematrix struct {
+	*proxySensor
+	mu     sync.RWMutex
+	actual forcematrix.Forcematrix
+}
+
+func newProxyForcematrix(actual forcematrix.Forcematrix) *proxyForcematrix {
+	return &proxyForcematrix{proxySensor: &proxySensor{actual: actual}, actual: actual}
+}
+
+func (p *proxyForcematrix) Matrix(ctx context.Context) ([][]int, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Matrix(ctx)
+}
+
+func (p *proxyForcematrix) replace(newSensor sensor.Sensor) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newSensor.(*proxyForcematrix)
+	if !ok {
+		panic(fmt.Errorf("expected new forcematrix to be %T but got %T", actual, newSensor))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
 }
 
 type proxyBoard struct {
