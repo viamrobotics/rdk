@@ -263,12 +263,14 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	} else {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
+		
+		// Get the vector normal to the local-x, local-z, origin plane
 		norm1 := v1.Cross(v2)
 
-		// Get the vector normal to the local-x, local-z, origin plane
+		// Get the vector normal to the global-z, local-z, origin plane
 		norm2 := v1.Cross(mgl64.Vec3{zAxis.Imag, zAxis.Jmag, zAxis.Kmag})
 
-		// For theta, we find the angle between the plane defined by local-x, global-z, origin and local-x, local-z, origin
+		// For theta, we find the angle between the planes defined by local-x, global-z, origin and local-x, local-z, origin
 		cosTheta := norm1.Dot(norm2) / (norm1.Len() * norm2.Len())
 		// Account for floating point error
 		if cosTheta > 1 {
@@ -282,7 +284,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 		if theta > angleEpsilon {
 			// Acos will always produce a positive number, we need to determine directionality of the angle
 			// We rotate newZ by -theta around the newX axis and see if we wind up coplanar with local-x, global-z, origin
-			// If so theta is positive, otherwise negative
+			// If so theta is negative, otherwise positive
 			// An R4AA is a convenient way to rotate a point by an amount around an arbitrary axis
 			aa := R4AA{-theta, ov.OX, ov.OY, ov.OZ}
 			q2 := aa.ToQuat()

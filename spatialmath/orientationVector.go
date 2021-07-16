@@ -36,11 +36,6 @@ func (ov *OrientationVec) ToQuat() quat.Number {
 	lon := 0.0
 	theta := ov.Theta
 
-	// Atan2 behaves slightly weird for (0,-1) so we go out of our way to define that point as longitude = pi
-	// The contents of ov.OX are not in radians but we use angleEpsilon anyway to check how close we are to -X
-	//~ if 1+ov.OX < angleEpsilon {
-	//~ lon = math.Pi
-	//~ } else if 1-math.Abs(ov.OZ) > angleEpsilon {
 	if 1-math.Abs(ov.OZ) > angleEpsilon {
 		// If we are not at a pole, we need the longitude
 		// atan x/y removes some sign information so we use atan2 to do it properly
@@ -48,6 +43,7 @@ func (ov *OrientationVec) ToQuat() quat.Number {
 	}
 
 	var q quat.Number
+	// Since the "default" orientation is pointed at the Z axis, we use ZYZ rotation order to properly represent the OV
 	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYZ)
 	q.Real = q1.W
 	q.Imag = q1.X()
