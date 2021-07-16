@@ -124,6 +124,16 @@ func TestMotorEncoder1(t *testing.T) {
 	testutils.WaitForAssertion(t, func(t testing.TB) {
 		test.That(t, real.Direction(), test.ShouldEqual, pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED)
 	})
+
+	// test go for without a rotation limit
+	test.That(t, motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1000, 0), test.ShouldBeNil)
+	atStart := motor.RPMMonitorCalls()
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		test.That(t, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
+		test.That(t, real.PowerPct(), test.ShouldBeGreaterThan, float32(.5))
+	})
+	test.That(t, motor.Off(context.Background()), test.ShouldBeNil)
+
 }
 
 func TestMotorEncoderHall(t *testing.T) {
