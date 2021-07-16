@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/core/board"
+	_ "go.viam.com/core/board/detector"
 	"go.viam.com/utils"
 )
 
@@ -28,13 +29,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	b, err := board.NewBoard(ctx, cfg, logger)
-	fmt.Println(b, err)
+
 	if err != nil {
 		return err
 	}
 	defer b.Close()
 
 	fmt.Println(cfg)
+	fmt.Println(b)
 
 	return nil
 }
