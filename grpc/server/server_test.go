@@ -236,9 +236,9 @@ func TestServer(t *testing.T) {
 	t.Run("Base", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.BaseByNameFunc = func(name string) base.Base {
+		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.BaseMoveStraight(context.Background(), &pb.BaseMoveStraightRequest{
@@ -263,8 +263,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "base1")
 
 		injectBase := &inject.Base{}
-		injectRobot.BaseByNameFunc = func(name string) base.Base {
-			return injectBase
+		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
+			return injectBase, true
 		}
 		var capCtx context.Context
 		err1 := errors.New("whoops")
@@ -349,9 +349,9 @@ func TestServer(t *testing.T) {
 	t.Run("ArmCurrentPosition", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.ArmCurrentPosition(context.Background(), &pb.ArmCurrentPositionRequest{
@@ -362,8 +362,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "arm1")
 
 		injectArm := &inject.Arm{}
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
-			return injectArm
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			return injectArm, true
 		}
 
 		err1 := errors.New("whoops")
@@ -390,9 +390,9 @@ func TestServer(t *testing.T) {
 	t.Run("ArmCurrentJointPositions", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.ArmCurrentJointPositions(context.Background(), &pb.ArmCurrentJointPositionsRequest{
@@ -403,8 +403,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "arm1")
 
 		injectArm := &inject.Arm{}
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
-			return injectArm
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			return injectArm, true
 		}
 
 		err1 := errors.New("whoops")
@@ -431,9 +431,9 @@ func TestServer(t *testing.T) {
 	t.Run("ArmMoveToPosition", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.ArmMoveToPosition(context.Background(), &pb.ArmMoveToPositionRequest{
@@ -444,8 +444,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "arm1")
 
 		injectArm := &inject.Arm{}
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
-			return injectArm
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			return injectArm, true
 		}
 
 		err1 := errors.New("whoops")
@@ -476,9 +476,9 @@ func TestServer(t *testing.T) {
 	t.Run("ArmMoveToJointPositions", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.ArmMoveToJointPositions(context.Background(), &pb.ArmMoveToJointPositionsRequest{
@@ -489,8 +489,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "arm1")
 
 		injectArm := &inject.Arm{}
-		injectRobot.ArmByNameFunc = func(name string) arm.Arm {
-			return injectArm
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			return injectArm, true
 		}
 
 		err1 := errors.New("whoops")
@@ -521,9 +521,9 @@ func TestServer(t *testing.T) {
 	t.Run("Gripper", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.GripperByNameFunc = func(name string) gripper.Gripper {
+		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.GripperOpen(context.Background(), &pb.GripperOpenRequest{
@@ -541,8 +541,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "gripper1")
 
 		injectGripper := &inject.Gripper{}
-		injectRobot.GripperByNameFunc = func(name string) gripper.Gripper {
-			return injectGripper
+		injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
+			return injectGripper, true
 		}
 
 		err1 := errors.New("whoops")
@@ -591,9 +591,9 @@ func TestServer(t *testing.T) {
 	t.Run("BoardStatus", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
@@ -604,8 +604,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "board1")
 
 		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
-			return injectBoard
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
 		}
 
 		err1 := errors.New("whoops")
@@ -644,9 +644,9 @@ func TestServer(t *testing.T) {
 	t.Run("BoardMotor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
@@ -664,12 +664,12 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "board1")
 
 		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
-			return injectBoard
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
 		}
-		injectBoard.MotorFunc = func(name string) board.Motor {
+		injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err = server.BoardMotorGo(context.Background(), &pb.BoardMotorGoRequest{
@@ -681,8 +681,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "motor1")
 
 		injectMotor := &inject.Motor{}
-		injectBoard.MotorFunc = func(name string) board.Motor {
-			return injectMotor
+		injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
+			return injectMotor, true
 		}
 
 		var capArgs []interface{}
@@ -746,9 +746,9 @@ func TestServer(t *testing.T) {
 	t.Run("BoardServoMove", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
@@ -759,12 +759,12 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "board1")
 
 		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) board.Board {
-			return injectBoard
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
 		}
-		injectBoard.ServoFunc = func(name string) board.Servo {
+		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err = server.BoardServoMove(context.Background(), &pb.BoardServoMoveRequest{
@@ -776,8 +776,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "servo1")
 
 		injectServo := &inject.Servo{}
-		injectBoard.ServoFunc = func(name string) board.Servo {
-			return injectServo
+		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
+			return injectServo, true
 		}
 
 		var capAngle uint8
@@ -810,9 +810,9 @@ func TestServer(t *testing.T) {
 	t.Run("CameraFrame", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.CameraFrame(context.Background(), &pb.CameraFrameRequest{
@@ -823,8 +823,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "camera1")
 
 		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
-			return injectCamera
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
+			return injectCamera, true
 		}
 		err1 := errors.New("whoops")
 		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -875,9 +875,9 @@ func TestServer(t *testing.T) {
 	t.Run("CameraRenderFrame", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.CameraRenderFrame(context.Background(), &pb.CameraRenderFrameRequest{
@@ -888,8 +888,8 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "camera1")
 
 		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
-			return injectCamera
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
+			return injectCamera, true
 		}
 		err1 := errors.New("whoops")
 		injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
@@ -941,8 +941,8 @@ func TestServer(t *testing.T) {
 		server, injectRobot := newServer()
 
 		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
-			return injectCamera
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
+			return injectCamera, true
 		}
 		err1 := errors.New("whoops")
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -970,8 +970,8 @@ func TestServer(t *testing.T) {
 		server, injectRobot := newServer()
 
 		injectCamera := &inject.Camera{}
-		injectRobot.CameraByNameFunc = func(name string) camera.Camera {
-			return injectCamera
+		injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
+			return injectCamera, true
 		}
 		err1 := errors.New("whoops")
 
@@ -1034,9 +1034,9 @@ func TestServer(t *testing.T) {
 	t.Run("Lidar", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {
+		injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.LidarInfo(context.Background(), &pb.LidarInfoRequest{
@@ -1049,8 +1049,8 @@ func TestServer(t *testing.T) {
 		err1 := errors.New("whoops")
 
 		device := &inject.Lidar{}
-		injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {
-			return device
+		injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
+			return device, true
 		}
 
 		device.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
@@ -1172,9 +1172,9 @@ func TestServer(t *testing.T) {
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
@@ -1187,8 +1187,8 @@ func TestServer(t *testing.T) {
 		err1 := errors.New("whoops")
 
 		device := &inject.Compass{}
-		injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
-			return device
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return device, true
 		}
 
 		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
@@ -1215,9 +1215,9 @@ func TestServer(t *testing.T) {
 	t.Run("Compass", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 			capName = name
-			return nil
+			return nil, false
 		}
 
 		_, err := server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
@@ -1230,8 +1230,8 @@ func TestServer(t *testing.T) {
 		err1 := errors.New("whoops")
 
 		device := &inject.Compass{}
-		injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
-			return device
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return device, true
 		}
 
 		device.HeadingFunc = func(ctx context.Context) (float64, error) {
@@ -1287,8 +1287,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not relative")
 
 		relDevice := &inject.RelativeCompass{}
-		injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
-			return relDevice
+		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+			return relDevice, true
 		}
 
 		relDevice.HeadingFunc = func(ctx context.Context) (float64, error) {

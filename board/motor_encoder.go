@@ -50,8 +50,8 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", mc.Name)
 	}
 
-	i := b.DigitalInterrupt(mc.Encoder)
-	if i == nil {
+	i, ok := b.DigitalInterruptByName(mc.Encoder)
+	if !ok {
 		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, mc.Name)
 	}
 
@@ -66,8 +66,8 @@ func WrapMotorWithEncoder(ctx context.Context, b Board, mc MotorConfig, m Motor,
 		}
 		encoder.m = mm
 	} else {
-		b := b.DigitalInterrupt(mc.EncoderB)
-		if b == nil {
+		b, ok := b.DigitalInterruptByName(mc.EncoderB)
+		if !ok {
 			return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderB, mc.Name)
 		}
 		mm, err = newEncodedMotor(mc, m, NewHallEncoder(i, b), logger)

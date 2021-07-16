@@ -144,8 +144,8 @@ func (s *Server) DoAction(ctx context.Context, req *pb.DoActionRequest) (*pb.DoA
 
 // ArmCurrentPosition gets the current position of an arm of the underlying robot.
 func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPositionRequest) (*pb.ArmCurrentPositionResponse, error) {
-	arm := s.r.ArmByName(req.Name)
-	if arm == nil {
+	arm, ok := s.r.ArmByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 	pos, err := arm.CurrentPosition(ctx)
@@ -158,8 +158,8 @@ func (s *Server) ArmCurrentPosition(ctx context.Context, req *pb.ArmCurrentPosit
 
 // ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
 func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurrentJointPositionsRequest) (*pb.ArmCurrentJointPositionsResponse, error) {
-	arm := s.r.ArmByName(req.Name)
-	if arm == nil {
+	arm, ok := s.r.ArmByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 	pos, err := arm.CurrentJointPositions(ctx)
@@ -172,8 +172,8 @@ func (s *Server) ArmCurrentJointPositions(ctx context.Context, req *pb.ArmCurren
 
 // ArmMoveToPosition moves an arm of the underlying robot to the requested position.
 func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositionRequest) (*pb.ArmMoveToPositionResponse, error) {
-	arm := s.r.ArmByName(req.Name)
-	if arm == nil {
+	arm, ok := s.r.ArmByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 
@@ -182,8 +182,8 @@ func (s *Server) ArmMoveToPosition(ctx context.Context, req *pb.ArmMoveToPositio
 
 // ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
 func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJointPositionsRequest) (*pb.ArmMoveToJointPositionsResponse, error) {
-	arm := s.r.ArmByName(req.Name)
-	if arm == nil {
+	arm, ok := s.r.ArmByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no arm with name (%s)", req.Name)
 	}
 
@@ -192,8 +192,8 @@ func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJ
 
 // BaseMoveStraight moves a base of the underlying robot straight.
 func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
-	base := s.r.BaseByName(req.Name)
-	if base == nil {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
@@ -212,8 +212,8 @@ func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightR
 
 // BaseSpin spins a base of the underlying robot.
 func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.BaseSpinResponse, error) {
-	base := s.r.BaseByName(req.Name)
-	if base == nil {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	degsPerSec := 64.0
@@ -233,8 +233,8 @@ func (s *Server) BaseSpin(ctx context.Context, req *pb.BaseSpinRequest) (*pb.Bas
 
 // BaseStop stops a base of the underlying robot.
 func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.BaseStopResponse, error) {
-	base := s.r.BaseByName(req.Name)
-	if base == nil {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	return &pb.BaseStopResponse{}, base.Stop(ctx)
@@ -242,8 +242,8 @@ func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.Bas
 
 // GripperOpen opens a gripper of the underlying robot.
 func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*pb.GripperOpenResponse, error) {
-	gripper := s.r.GripperByName(req.Name)
-	if gripper == nil {
+	gripper, ok := s.r.GripperByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no gripper with that name %s", req.Name)
 	}
 	return &pb.GripperOpenResponse{}, gripper.Open(ctx)
@@ -251,8 +251,8 @@ func (s *Server) GripperOpen(ctx context.Context, req *pb.GripperOpenRequest) (*
 
 // GripperGrab requests a gripper of the underlying robot to grab.
 func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*pb.GripperGrabResponse, error) {
-	gripper := s.r.GripperByName(req.Name)
-	if gripper == nil {
+	gripper, ok := s.r.GripperByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no gripper with that name %s", req.Name)
 	}
 	grabbed, err := gripper.Grab(ctx)
@@ -265,8 +265,8 @@ func (s *Server) GripperGrab(ctx context.Context, req *pb.GripperGrabRequest) (*
 // PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb.PointCloudResponse, error) {
-	camera := s.r.CameraByName(req.Name)
-	if camera == nil {
+	camera, ok := s.r.CameraByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no camera with name (%s)", req.Name)
 	}
 
@@ -290,8 +290,8 @@ func (s *Server) PointCloud(ctx context.Context, req *pb.PointCloudRequest) (*pb
 // ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a 3Vector array of the center points of each object.
 func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloudsRequest) (*pb.ObjectPointCloudsResponse, error) {
-	camera := s.r.CameraByName(req.Name)
-	if camera == nil {
+	camera, ok := s.r.CameraByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no camera with name (%s)", req.Name)
 	}
 
@@ -326,8 +326,8 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
 func (s *Server) CameraFrame(ctx context.Context, req *pb.CameraFrameRequest) (*pb.CameraFrameResponse, error) {
-	camera := s.r.CameraByName(req.Name)
-	if camera == nil {
+	camera, ok := s.r.CameraByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no camera with name (%s)", req.Name)
 	}
 
@@ -417,8 +417,8 @@ func (s *Server) CameraRenderFrame(ctx context.Context, req *pb.CameraRenderFram
 
 // LidarInfo returns the info of a lidar of the underlying robot.
 func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.LidarInfoResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	info, err := lidar.Info(ctx)
@@ -434,8 +434,8 @@ func (s *Server) LidarInfo(ctx context.Context, req *pb.LidarInfoRequest) (*pb.L
 
 // LidarStart starts a lidar of the underlying robot.
 func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb.LidarStartResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	err := lidar.Start(ctx)
@@ -447,8 +447,8 @@ func (s *Server) LidarStart(ctx context.Context, req *pb.LidarStartRequest) (*pb
 
 // LidarStop stops a lidar of the underlying robot.
 func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.LidarStopResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	err := lidar.Stop(ctx)
@@ -460,8 +460,8 @@ func (s *Server) LidarStop(ctx context.Context, req *pb.LidarStopRequest) (*pb.L
 
 // LidarScan returns a scan from a lidar of the underlying robot.
 func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.LidarScanResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	opts := scanOptionsFromProto(req)
@@ -474,8 +474,8 @@ func (s *Server) LidarScan(ctx context.Context, req *pb.LidarScanRequest) (*pb.L
 
 // LidarRange returns the range of a lidar of the underlying robot.
 func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb.LidarRangeResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	r, err := lidar.Range(ctx)
@@ -487,8 +487,8 @@ func (s *Server) LidarRange(ctx context.Context, req *pb.LidarRangeRequest) (*pb
 
 // LidarBounds returns the scan bounds of a lidar of the underlying robot.
 func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*pb.LidarBoundsResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	bounds, err := lidar.Bounds(ctx)
@@ -500,8 +500,8 @@ func (s *Server) LidarBounds(ctx context.Context, req *pb.LidarBoundsRequest) (*
 
 // LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
 func (s *Server) LidarAngularResolution(ctx context.Context, req *pb.LidarAngularResolutionRequest) (*pb.LidarAngularResolutionResponse, error) {
-	lidar := s.r.LidarByName(req.Name)
-	if lidar == nil {
+	lidar, ok := s.r.LidarByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no lidar with name (%s)", req.Name)
 	}
 	angRes, err := lidar.AngularResolution(ctx)
@@ -555,8 +555,8 @@ func pointsToProto(vs []pointcloud.Vec3) []*pb.Vector3 {
 
 // BoardStatus returns the status of a board of the underlying robot.
 func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*pb.BoardStatusResponse, error) {
-	b := s.r.BoardByName(req.Name)
-	if b == nil {
+	b, ok := s.r.BoardByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.Name)
 	}
 
@@ -570,13 +570,13 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 
 // BoardMotorGo requests the motor of a board of the underlying robot to go.
 func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
-	b := s.r.BoardByName(req.BoardName)
-	if b == nil {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
-	theMotor := b.Motor(req.MotorName)
-	if theMotor == nil {
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
 		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
 	}
 
@@ -586,13 +586,13 @@ func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) 
 // BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
 // the request.
 func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForRequest) (*pb.BoardMotorGoForResponse, error) {
-	b := s.r.BoardByName(req.BoardName)
-	if b == nil {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
-	theMotor := b.Motor(req.MotorName)
-	if theMotor == nil {
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
 		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
 	}
 
@@ -608,13 +608,13 @@ func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForReq
 
 // BoardServoMove requests the servo of a board of the underlying robot to move.
 func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
-	b := s.r.BoardByName(req.BoardName)
-	if b == nil {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
 	}
 
-	theServo := b.Servo(req.ServoName)
-	if theServo == nil {
+	theServo, ok := b.ServoByName(req.ServoName)
+	if !ok {
 		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
 	}
 
@@ -623,8 +623,8 @@ func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveReque
 
 // SensorReadings returns the readings of a sensor of the underlying robot.
 func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsRequest) (*pb.SensorReadingsResponse, error) {
-	sensorDevice := s.r.SensorByName(req.Name)
-	if sensorDevice == nil {
+	sensorDevice, ok := s.r.SensorByName(req.Name)
+	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
 	}
 	readings, err := sensorDevice.Readings(ctx)
@@ -643,8 +643,8 @@ func (s *Server) SensorReadings(ctx context.Context, req *pb.SensorReadingsReque
 }
 
 func (s *Server) compassByName(name string) (compass.Compass, error) {
-	sensorDevice := s.r.SensorByName(name)
-	if sensorDevice == nil {
+	sensorDevice, ok := s.r.SensorByName(name)
+	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", name)
 	}
 	return sensorDevice.(compass.Compass), nil

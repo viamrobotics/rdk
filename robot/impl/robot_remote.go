@@ -115,8 +115,8 @@ func (rr *remoteRobot) AddProvider(p robot.Provider, c config.Component) {
 }
 
 // ProviderByName should not be used or needed for a remote robot
-func (rr *remoteRobot) ProviderByName(name string) robot.Provider {
-	return nil
+func (rr *remoteRobot) ProviderByName(name string) (robot.Provider, bool) {
+	return nil, false
 }
 
 func (rr *remoteRobot) RemoteNames() []string {
@@ -165,48 +165,48 @@ func (rr *remoteRobot) SensorNames() []string {
 	return rr.prefixNames(rr.parts.SensorNames())
 }
 
-func (rr *remoteRobot) RemoteByName(name string) robot.Robot {
+func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
-func (rr *remoteRobot) ArmByName(name string) arm.Arm {
+func (rr *remoteRobot) ArmByName(name string) (arm.Arm, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.ArmByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) BaseByName(name string) base.Base {
+func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.BaseByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) GripperByName(name string) gripper.Gripper {
+func (rr *remoteRobot) GripperByName(name string) (gripper.Gripper, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.GripperByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) CameraByName(name string) camera.Camera {
+func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.CameraByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) LidarByName(name string) lidar.Lidar {
+func (rr *remoteRobot) LidarByName(name string) (lidar.Lidar, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.LidarByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) BoardByName(name string) board.Board {
+func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.BoardByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) SensorByName(name string) sensor.Sensor {
+func (rr *remoteRobot) SensorByName(name string) (sensor.Sensor, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.SensorByName(rr.unprefixName(name))
@@ -309,25 +309,53 @@ func (rr *remoteRobot) Close() error {
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	parts := newRobotParts(robot.Logger().Named("parts"))
 	for _, name := range robot.ArmNames() {
-		parts.AddArm(robot.ArmByName(name), config.Component{Name: name})
+		part, ok := robot.ArmByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddArm(part, config.Component{Name: name})
 	}
 	for _, name := range robot.BaseNames() {
-		parts.AddBase(robot.BaseByName(name), config.Component{Name: name})
+		part, ok := robot.BaseByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddBase(part, config.Component{Name: name})
 	}
 	for _, name := range robot.BoardNames() {
-		parts.AddBoard(robot.BoardByName(name), board.Config{Name: name})
+		part, ok := robot.BoardByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddBoard(part, board.Config{Name: name})
 	}
 	for _, name := range robot.CameraNames() {
-		parts.AddCamera(robot.CameraByName(name), config.Component{Name: name})
+		part, ok := robot.CameraByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddCamera(part, config.Component{Name: name})
 	}
 	for _, name := range robot.GripperNames() {
-		parts.AddGripper(robot.GripperByName(name), config.Component{Name: name})
+		part, ok := robot.GripperByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddGripper(part, config.Component{Name: name})
 	}
 	for _, name := range robot.LidarNames() {
-		parts.AddLidar(robot.LidarByName(name), config.Component{Name: name})
+		part, ok := robot.LidarByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddLidar(part, config.Component{Name: name})
 	}
 	for _, name := range robot.SensorNames() {
-		parts.AddSensor(robot.SensorByName(name), config.Component{Name: name})
+		part, ok := robot.SensorByName(name)
+		if !ok {
+			continue
+		}
+		parts.AddSensor(part, config.Component{Name: name})
 	}
 	return parts
 }

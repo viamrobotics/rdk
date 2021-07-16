@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -166,15 +167,22 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	lidarNames := r.LidarNames()
 	lidars := make([]lidar.Lidar, 0, len(lidarNames))
 	for _, name := range lidarNames {
-		lidars = append(lidars, r.LidarByName(name))
+		lidar, ok := r.LidarByName(name)
+		if !ok {
+			continue
+		}
+		lidars = append(lidars, lidar)
 	}
-	var compassSensor compass.Compass
+	var compassensor compass.Compass
 	if args.Compass.Type != "" {
 		var ok bool
-		sensorDevice := r.SensorByName(r.SensorNames()[0])
-		compassSensor, ok = sensorDevice.(compass.Compass)
+		sensorDevice, ok := r.SensorByName(r.SensorNames()[0])
 		if !ok {
-			return errors.Errorf("expected to get a compasss but got a %T", sensorDevice)
+			return fmt.Errorf("failed to find sensor %q", r.SensorNames()[0])
+		}
+		compassensor, ok = sensorDevice.(compass.Compass)
+		if !ok {
+			return errors.Errorf("expected to get a compass but got a %T", sensorDevice)
 		}
 	}
 
@@ -193,19 +201,19 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		}()
 	}
 
-	if compassSensor == nil {
+	if compassensor == nil {
 		bestRes, bestResDevice, bestResDeviceNum, err := lidar.BestAngularResolution(ctx, lidars)
 		if err != nil {
 			return err
 		}
 		bestResComp := args.Lidars[bestResDeviceNum]
 		logger.Debugf("using lidar %q as a relative compass with angular resolution %f", bestResComp, bestRes)
-		compassSensor = compasslidar.From(bestResDevice)
+		compassensor = compasslidar.From(bestResDevice)
 	}
 
-	if compassSensor != nil {
+	if compassensor != nil {
 		if _, isFake := baseDevice.(*fake.Base); !isFake {
-			baseDevice = base.AugmentWithCompass(baseDevice, compassSensor, logger)
+			baseDevice = base.AugmentWithCompass(baseDevice, compassensor, logger)
 		}
 	}
 
@@ -215,7 +223,7 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 		area,
 		lidars,
 		args.LidarOffsets,
-		compassSensor,
+		compassensor,
 		logger,
 	)
 	if err != nil {

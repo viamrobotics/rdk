@@ -46,8 +46,8 @@ var v1modeljson []byte
 
 func init() {
 	registry.RegisterArm("varm1", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		b := r.BoardByName("local")
-		if b == nil {
+		b, ok := r.BoardByName("local")
+		if !ok {
 			return nil, errors.New("viam arm requires a board called local")
 		}
 		model, err := kinematics.ParseJSON(v1modeljson)
@@ -95,8 +95,8 @@ func (j joint) validate() error {
 }
 
 func getMotor(ctx context.Context, theBoard board.Board, name string) (board.Motor, error) {
-	m := theBoard.Motor(name)
-	if m == nil {
+	m, ok := theBoard.MotorByName(name)
+	if !ok {
 		return nil, errors.Errorf("no motor with name: %s", name)
 	}
 

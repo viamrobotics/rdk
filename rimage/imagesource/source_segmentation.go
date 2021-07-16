@@ -70,8 +70,8 @@ func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 }
 
 func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source := r.CameraByName(config.Attributes.String("source"))
-	if source == nil {
+	source, ok := r.CameraByName(config.Attributes.String("source"))
+	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	planeSize := config.Attributes.Int("plane_size", 10000)

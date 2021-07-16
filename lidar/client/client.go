@@ -42,7 +42,10 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (lidar.
 	if len(names) == 0 {
 		return nil, multierr.Combine(errors.New("no lidars found"), robotClient.Close())
 	}
-	lidar := robotClient.LidarByName(names[0])
+	lidar, ok := robotClient.LidarByName(names[0])
+	if !ok {
+		return nil, fmt.Errorf("failed to find lidar %q", names[0])
+	}
 	return &wrappedLidar{lidar, robotClient}, nil
 }
 
