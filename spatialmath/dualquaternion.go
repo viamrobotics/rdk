@@ -39,7 +39,7 @@ func NewDualQuaternion() *DualQuaternion {
 func NewDualQuaternionFromRotation(ov *OrientationVec) *DualQuaternion {
 	// Handle the zero case
 	if ov.OX == 0 && ov.OY == 0 && ov.OZ == 0 {
-		ov.OX = 1
+		ov.OZ = 1
 	}
 	ov.Normalize()
 	return &DualQuaternion{dualquat.Number{
@@ -263,7 +263,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 	} else {
 		v1 := mgl64.Vec3{newZ.Imag, newZ.Jmag, newZ.Kmag}
 		v2 := mgl64.Vec3{newX.Imag, newX.Jmag, newX.Kmag}
-		
+
 		// Get the vector normal to the local-x, local-z, origin plane
 		norm1 := v1.Cross(v2)
 
@@ -291,7 +291,7 @@ func QuatToOV(q quat.Number) *OrientationVec {
 			testZ := quat.Mul(quat.Mul(q2, zAxis), quat.Conj(q2))
 			norm3 := v1.Cross(mgl64.Vec3{testZ.Imag, testZ.Jmag, testZ.Kmag})
 			cosTest := norm1.Dot(norm3) / (norm1.Len() * norm3.Len())
-			if 1-cosTest < angleEpsilon {
+			if 1-cosTest < angleEpsilon*angleEpsilon {
 				ov.Theta = -theta
 			} else {
 				ov.Theta = theta
