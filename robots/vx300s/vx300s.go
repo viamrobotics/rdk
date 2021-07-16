@@ -162,9 +162,9 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 		return &pb.JointPositions{}, err
 	}
 
-	var positions []float64
-	for _, jointName := range a.JointOrder() {
-		positions = append(positions, servoPosToDegrees(angleMap[jointName]))
+	positions := make([]float64, 0, len(a.JointOrder()))
+	for i, jointName := range a.JointOrder() {
+		positions[i] = servoPosToDegrees(angleMap[jointName])
 	}
 
 	return &pb.JointPositions{Degrees: positions}, nil

@@ -2,7 +2,7 @@
    "model": {
       "manufacturer": "Universal Robotics",
       "name": "UR5e",
-      "param": "SVA",
+      "kinematic_param_type": "SVA",
       "links": [
          {
             "id": "base_link",
