@@ -18,8 +18,8 @@ func (p *Provider) Ready(r robot.Robot) error {
 }
 
 func getProviderOrCreate(r robot.MutableRobot) *Provider {
-	p := r.ProviderByName("vx300s")
-	if p == nil {
+	p, ok := r.ProviderByName("vx300s")
+	if !ok {
 		p = &Provider{&sync.Mutex{}}
 		r.AddProvider(p, config.Component{})
 	}

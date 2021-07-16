@@ -342,8 +342,9 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
-func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
-	return pi.analogs[name]
+func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	a, ok := pi.analogs[name]
+	return a, ok
 }
 
 // AnalogRead read a value on a given channel.
@@ -384,16 +385,19 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
-func (pi *piPigpio) Servo(name string) board.Servo {
-	return pi.servos[name]
+func (pi *piPigpio) ServoByName(name string) (board.Servo, bool) {
+	s, ok := pi.servos[name]
+	return s, ok
 }
 
-func (pi *piPigpio) DigitalInterrupt(name string) board.DigitalInterrupt {
-	return pi.interrupts[name]
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	d, ok := pi.interrupts[name]
+	return d, ok
 }
 
-func (pi *piPigpio) Motor(name string) board.Motor {
-	return pi.motors[name]
+func (pi *piPigpio) MotorByName(name string) (board.Motor, bool) {
+	m, ok := pi.motors[name]
+	return m, ok
 }
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {

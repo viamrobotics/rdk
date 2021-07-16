@@ -46,7 +46,10 @@ func New(ctx context.Context, address string, logger golog.Logger) (compass.Comp
 	}
 	var compassDevice compass.Compass
 	for _, name := range names {
-		sensorDevice := robotClient.SensorByName(name)
+		sensorDevice, ok := robotClient.SensorByName(name)
+		if !ok {
+			continue
+		}
 		if c, ok := sensorDevice.(compass.Compass); ok {
 			compassDevice = c
 			break
