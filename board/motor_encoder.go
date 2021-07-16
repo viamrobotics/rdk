@@ -296,84 +296,99 @@ func (m *encodedMotor) rpmMonitor(onStart func()) {
 		}
 		atomic.AddInt64(&m.rpmMonitorCalls, 1)
 
-		m.stateMu.Lock()
-		var ticksLeft int64
-
-		if m.state.regulated {
-			if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-				ticksLeft = m.state.setPoint - pos
-			} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-				ticksLeft = pos - m.state.setPoint
-			}
-
-			rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
-
-			if rotationsLeft <= 0 {
-				err := m.off(m.cancelCtx)
-				if err != nil {
-					m.logger.Warnf("error turning motor off from after hit set point: %v", err)
-				}
-			} else {
-				desiredRPM := m.state.desiredRPM
-				timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
-
-				if timeLeftSeconds > 0 {
-					if timeLeftSeconds < .5 {
-						desiredRPM = desiredRPM / 2
-					}
-					if timeLeftSeconds < .1 {
-						desiredRPM = desiredRPM / 2
-					}
-				}
-				lastPowerPct := m.state.lastPowerPct
-
-				rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
-				minutes := float64(now-lastTime) / (1e9 * 60)
-				currentRPM := math.Abs(rotations / minutes)
-				if minutes == 0 {
-					currentRPM = 0
-				}
-
-				var newPowerPct float32
-
-				if currentRPM == 0 {
-					if lastPowerPct < .01 {
-						newPowerPct = .01
-					} else {
-						newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
-					}
-				} else {
-					dOverC := desiredRPM / currentRPM
-					if dOverC > 2 {
-						dOverC = 2
-					}
-					neededPowerPct := float64(lastPowerPct) * dOverC
-
-					if neededPowerPct < .01 {
-						neededPowerPct = .01
-					} else if neededPowerPct > 1 {
-						neededPowerPct = 1
-					}
-
-					newPowerPct = m.computeRamp(lastPowerPct, float32(neededPowerPct))
-				}
-
-				if newPowerPct != lastPowerPct {
-					if rpmDebug {
-						m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
-							currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
-					}
-					err := m.setPower(m.cancelCtx, newPowerPct, true)
-					if err != nil {
-						m.logger.Warnf("rpm regulator cannot set power %s", err)
-					}
-				}
-			}
-		}
-		m.stateMu.Unlock()
+		m.rpmMonitorPass(pos, lastPos, now, lastTime, rpmDebug)
 
 		lastPos = pos
 		lastTime = now
+	}
+}
+
+func (m *encodedMotor) rpmMonitorPass(pos, lastPos, now, lastTime int64, rpmDebug bool) {
+	m.stateMu.Lock()
+	defer m.stateMu.Unlock()
+
+	var ticksLeft int64
+
+	if !m.state.regulated && m.state.desiredRPM > 0 {
+		m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, m.state.desiredRPM, -1, rpmDebug)
+		return
+	}
+
+	if m.state.regulated {
+		if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+			ticksLeft = m.state.setPoint - pos
+		} else if m.state.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+			ticksLeft = pos - m.state.setPoint
+		}
+
+		rotationsLeft := float64(ticksLeft) / float64(m.cfg.TicksPerRotation)
+
+		if rotationsLeft <= 0 {
+			err := m.off(m.cancelCtx)
+			if err != nil {
+				m.logger.Warnf("error turning motor off from after hit set point: %v", err)
+			}
+		} else {
+			desiredRPM := m.state.desiredRPM
+			timeLeftSeconds := 60.0 * rotationsLeft / desiredRPM
+
+			if timeLeftSeconds > 0 {
+				if timeLeftSeconds < .5 {
+					desiredRPM = desiredRPM / 2
+				}
+				if timeLeftSeconds < .1 {
+					desiredRPM = desiredRPM / 2
+				}
+			}
+			m.rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime, desiredRPM, rotationsLeft, rpmDebug)
+		}
+	}
+
+}
+
+func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime int64, desiredRPM, rotationsLeft float64, rpmDebug bool) {
+	lastPowerPct := m.state.lastPowerPct
+
+	rotations := float64(pos-lastPos) / float64(m.cfg.TicksPerRotation)
+	minutes := float64(now-lastTime) / (1e9 * 60)
+	currentRPM := math.Abs(rotations / minutes)
+	if minutes == 0 {
+		currentRPM = 0
+	}
+
+	var newPowerPct float32
+
+	if currentRPM == 0 {
+		if lastPowerPct < .01 {
+			newPowerPct = .01
+		} else {
+			newPowerPct = m.computeRamp(lastPowerPct, lastPowerPct*2)
+		}
+	} else {
+		dOverC := desiredRPM / currentRPM
+		if dOverC > 2 {
+			dOverC = 2
+		}
+		neededPowerPct := float64(lastPowerPct) * dOverC
+
+		if neededPowerPct < .01 {
+			neededPowerPct = .01
+		} else if neededPowerPct > 1 {
+			neededPowerPct = 1
+		}
+
+		newPowerPct = m.computeRamp(lastPowerPct, float32(neededPowerPct))
+	}
+
+	if newPowerPct != lastPowerPct {
+		if rpmDebug {
+			m.logger.Debugf("current rpm: %0.1f desiredRPM: %0.1f power: %0.1f -> %0.1f rot2go: %0.1f",
+				currentRPM, desiredRPM, lastPowerPct*100, newPowerPct*100, rotationsLeft)
+		}
+		err := m.setPower(m.cancelCtx, newPowerPct, true)
+		if err != nil {
+			m.logger.Warnf("rpm regulator cannot set power %s", err)
+		}
 	}
 }
 
