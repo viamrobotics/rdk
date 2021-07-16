@@ -17,10 +17,11 @@ import (
 // TMCConfig extends the MotorConfig for this specific series of drivers
 type TMCConfig struct {
 	SPIBus      string  `json:"spiBus"`      // SPI Bus name
-	ChipSelect  uint    `json:"chipSelect"`  // Motor address on serial bus
+	CSPin       string  `json:"csPin"`  // Motor address on serial bus
 	Index       uint    `json:"index"`       // 0th or 1st motor on driver
 	MaxVelocity float64 `json:"maxVelocity"` // RPM
 	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
+	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshhold for homing. 0-128 (64 default) -64 - +63
 	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
 }
 
@@ -28,7 +29,7 @@ type TMCConfig struct {
 type TMCStepperMotor struct {
 	board       SPIGPIOBoard
 	bus         SPI
-	chip        uint
+	csPin       string
 	index       uint
 	enPin       string
 	stepsPerRev int
@@ -49,6 +50,7 @@ const (
 const (
 	// add 0x10 for motor 2
 	CHOPCONF = 0x6C
+	COOLCONF = 0X6D
 
 	// add 0x20 for motor 2
 	RAMPMODE   = 0x20
@@ -87,7 +89,7 @@ func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*T
 	m := &TMCStepperMotor{
 		board:       b,
 		bus:         bus,
-		chip:        mc.TMCConfig.ChipSelect,
+		csPin:       mc.TMCConfig.CSPin,
 		index:       mc.TMCConfig.Index,
 		stepsPerRev: mc.TicksPerRotation * uSteps,
 		enPin:       mc.Pins["en"],
@@ -99,9 +101,17 @@ func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*T
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 
+
+	if mc.TMCConfig.SGThresh >= 128 {
+		mc.TMCConfig.SGThresh = 127
+	}
+	var coolConfig int32
+	coolConfig = mc.TMCConfig.SGThresh << 16
+
 	errors := multierr.Combine(
 		m.WriteReg(CHOPCONF, 0x000100C3),   // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.WriteReg(IHOLD_IRUN, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
+		m.WriteReg(COOLCONF, coolConfig),   // Sets just the SGThreshold (for now)
 
 		// Set max acceleration and decceleration
 		m.WriteReg(A1, rawMaxAcc),
@@ -114,6 +124,7 @@ func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*T
 		m.WriteReg(V1, int32(float32(m.maxVel)/4)),         // Transition ramp at 25% speed (if D1 and A1 are set different)
 		m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20)), // Set minimium speed for stall detection and coolstep
 		m.WriteReg(VMAX, m.rpmToV(0)),                      // Max velocity to zero, we don't want to move
+
 		m.WriteReg(RAMPMODE, MODE_VELPOS),                  // Lastly, set velocity mode to force a stop in case chip was left in moving state
 		m.WriteReg(XACTUAL, 0),                             // Zero the position
 	)
@@ -155,7 +166,7 @@ func (m *TMCStepperMotor) WriteReg(addr uint8, value int32) error {
 
 	//m.logger.Debug("Write: ", buf)
 
-	_, err := m.bus.Xfer(1000000, m.chip, 3, buf) // SPI Mode 3, 1mhz
+	_, err := m.bus.Xfer(1000000, m.csPin, 3, buf) // SPI Mode 3, 1mhz
 	if err != nil {
 		return err
 	}
@@ -176,12 +187,12 @@ func (m *TMCStepperMotor) ReadReg(addr uint8) (int32, error) {
 	//m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
-	_, err := m.bus.Xfer(1000000, m.chip, 3, tbuf) // SPI Mode 3, 1mhz
+	_, err := m.bus.Xfer(1000000, m.csPin, 3, tbuf) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
 	}
 
-	rbuf, err := m.bus.Xfer(1000000, m.chip, 3, tbuf)
+	rbuf, err := m.bus.Xfer(1000000, m.csPin, 3, tbuf)
 	if err != nil {
 		return 0, err
 	}
@@ -382,4 +393,16 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 // Zero resets the current position to zero.
 func (m *TMCStepperMotor) Zero(ctx context.Context) error {
 	return m.WriteReg(XACTUAL, 0)
+}
+
+func (m *TMCStepperMotor) PositionReached(ctx context.Context) bool {
+		stat, err := m.ReadReg(RAMP_STAT)
+		if err != nil {
+			return false
+		}
+		// Look for position_reached flag
+		if stat&0x200 == 0x200 {
+			return true
+		}
+		return false
 }
