@@ -150,7 +150,7 @@ type AnalogConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`
 	SPIBus            string `json:"spiBus"`
-	ChipSelect        uint   `json:"chipSelect"`
+	ChipSelect        string `json:"chipSelect"`
 	AverageOverMillis int    `json:"averageOverMillis"`
 	SamplesPerSecond  int    `json:"samplesPerSecond"`
 }
