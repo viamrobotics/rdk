@@ -151,15 +151,14 @@ service RobotService {
     };
   }
 
-    // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-    // as well as the 3-vector center of each of the found objects.
-    // A specific MIME type can be requested but may not necessarily be the same one returned.
+  // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+  // as well as the 3-vector center of each of the found objects.
+  // A specific MIME type can be requested but may not necessarily be the same one returned.
   rpc ObjectPointClouds(ObjectPointCloudsRequest) returns (ObjectPointCloudsResponse) {
     option (google.api.http) = {
       get: "/api/v1/camera/{name}/objectpointclouds"
     };
   }
-
 
   // Lidar
 
@@ -319,6 +318,15 @@ service RobotService {
   rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
     option (google.api.http) = {
       post: "/api/v1/sensors/compass/{name}/mark"
+    };
+  }
+
+  // Force Sensor Matrix
+
+  // ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
+  rpc ForceMatrixMatrix(ForceMatrixMatrixRequest) returns (ForceMatrixMatrixResponse) {
+    option (google.api.http) = {
+      get : "/api/v1/sensors/forcematrix/{name}/matrix"
     };
   }
 
@@ -1163,4 +1171,20 @@ message IMUOrientationRequest {
 
 message IMUOrientationResponse {
   EulerAngles orientation = 1;
+}
+
+// Matrix
+message Matrix {
+	uint32 rows = 1;
+	uint32 cols = 2;
+	repeated uint32 data = 3;
+}
+
+// ForceMatrix
+message ForceMatrixMatrixRequest {
+	string name = 1;
+}
+
+message ForceMatrixMatrixResponse {
+	Matrix matrix = 1;
 }

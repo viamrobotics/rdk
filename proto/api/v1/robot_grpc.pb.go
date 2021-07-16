@@ -107,6 +107,8 @@ type RobotServiceClient interface {
 	CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
+	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
+	ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
@@ -542,6 +544,15 @@ func (c *robotServiceClient) CompassMark(ctx context.Context, in *CompassMarkReq
 	return out, nil
 }
 
+func (c *robotServiceClient) ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error) {
+	out := new(ForceMatrixMatrixResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ForceMatrixMatrix", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error) {
 	out := new(ExecuteFunctionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteFunction", in, out, opts...)
@@ -840,6 +851,8 @@ type RobotServiceServer interface {
 	CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
+	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
+	ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error)
 	// TODO(erd): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
@@ -1008,6 +1021,9 @@ func (UnimplementedRobotServiceServer) CompassStopCalibration(context.Context, *
 }
 func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompassMark not implemented")
+}
+func (UnimplementedRobotServiceServer) ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ForceMatrixMatrix not implemented")
 }
 func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
@@ -1814,6 +1830,24 @@ func _RobotService_CompassMark_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_ForceMatrixMatrix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForceMatrixMatrixRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ForceMatrixMatrix(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ForceMatrixMatrix",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ForceMatrixMatrix(ctx, req.(*ForceMatrixMatrixRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_ExecuteFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExecuteFunctionRequest)
 	if err := dec(in); err != nil {
@@ -2390,6 +2424,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompassMark",
 			Handler:    _RobotService_CompassMark_Handler,
+		},
+		{
+			MethodName: "ForceMatrixMatrix",
+			Handler:    _RobotService_ForceMatrixMatrix_Handler,
 		},
 		{
 			MethodName: "ExecuteFunction",
