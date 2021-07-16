@@ -18,5 +18,5 @@ type SPIBoard interface {
 type SPI interface {
 	Lock()
 	Unlock()
-	Xfer(baud uint, channel uint, mode uint, tx []byte) (rx []byte, err error)
+	Xfer(baud uint, csPin string, mode uint, tx []byte) (rx []byte, err error)
 }

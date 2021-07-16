@@ -323,7 +323,7 @@ type piPigpioAnalogReader struct {
 	pi      *piPigpio
 	channel int
 	bus     board.SPI
-	chip    uint
+	chip    string
 }
 
 func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
@@ -350,17 +350,17 @@ type piPigpioSPI struct {
 	busID uint
 }
 
-func (s *piPigpioSPI) Xfer(baud uint, chip uint, mode uint, tx []byte) (rx []byte, err error) {
+func (s *piPigpioSPI) Xfer(baud uint, chipPin string, mode uint, tx []byte) (rx []byte, err error) {
 
 	var spiFlags uint
 
 	if s.busID == 1 {
-		spiFlags = spiFlags | 128 // Sets AUX SPI bus bit
-		if chip > 2 {
-			return nil, errors.Errorf("AUX SPI Bus only supports chips/channels 0-2")
+		spiFlags = spiFlags | 0x100 // Sets AUX SPI bus bit
+		if mode == 1 || mode == 3 {
+			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
-	} else if chip > 1 {
-		return nil, errors.Errorf("Main SPI Bus only supports chips/channels 0-1")
+	} else if chipPin == "24" || chipPin == "26"{
+		return nil, errors.New("Due to underlying issues, use of hardware ChipSelect pins (24 and 26) is not allowed.")
 	}
 
 	// Bitfields for mode
@@ -378,14 +378,25 @@ func (s *piPigpioSPI) Xfer(baud uint, chip uint, mode uint, tx []byte) (rx []byt
 	txPtr := C.CBytes(tx)
 	defer C.free(txPtr)
 
-	handle := C.spiOpen((C.uint)(chip), (C.uint)(baud), (C.uint)(spiFlags))
+	handle := C.spiOpen((C.uint)(0), (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("Error opening SPI Bus %d return code was %d", s.busID, handle)
+		return nil, errors.Errorf("Error opening SPI Bus %d return code was %d, flags were %X", s.busID, handle, spiFlags)
 	}
 	defer C.spiClose((C.uint)(handle))
 
+	// We're going to directly control chip select (not using CE0/CE1 from SPI controller.)
+	// This allows us to use a large number of chips on a single bus.
+	// Manually set CS LOW
+	err = s.pi.GPIOSet(chipPin, false)
+	if err != nil {
+		return nil, err
+	}
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
+	err = s.pi.GPIOSet(chipPin, true)
+	if err != nil {
+		return nil, err
+	}
 	if int(ret) != int(count) {
 		return nil, errors.Errorf("Error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
 	}
