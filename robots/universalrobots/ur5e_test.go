@@ -59,7 +59,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.Y, test.ShouldAlmostEqual, correct.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, correct.Z, .01)
 
-	fromDH, fromDHtheta := computeUR5ePosition(jointRadians)
+	fromDH := computeUR5ePosition(t, jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
@@ -67,18 +67,7 @@ func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *pb.
 	test.That(t, pos.OX, test.ShouldAlmostEqual, fromDH.OX, .01)
 	test.That(t, pos.OY, test.ShouldAlmostEqual, fromDH.OY, .01)
 	test.That(t, pos.OZ, test.ShouldAlmostEqual, fromDH.OZ, .01)
-
-	test.That(t, pos.X, test.ShouldAlmostEqual, fromDHtheta.X, .01)
-	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDHtheta.Y, .01)
-	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDHtheta.Z, .01)
-
-	test.That(t, pos.OX, test.ShouldAlmostEqual, fromDHtheta.OX, .01)
-	test.That(t, pos.OY, test.ShouldAlmostEqual, fromDHtheta.OY, .01)
-	test.That(t, pos.OZ, test.ShouldAlmostEqual, fromDHtheta.OZ, .01)
-	test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDHtheta.Theta, .01)
-
-	// TODO(erh): make this test work
-	//test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDH.Theta, .01)
+	test.That(t, pos.Theta, test.ShouldAlmostEqual, fromDH.Theta, .01)
 
 }
 
@@ -95,7 +84,7 @@ func testUR5eInverseKinements(t *testing.T, pos *pb.ArmPosition) {
 
 	// we test that if we go forward from these joints, we end up in the same place
 	jointRadians := arm.JointPositionsToRadians(solution)
-	fromDH, _ := computeUR5ePosition(jointRadians)
+	fromDH := computeUR5ePosition(t, jointRadians)
 	test.That(t, pos.X, test.ShouldAlmostEqual, fromDH.X, .01)
 	test.That(t, pos.Y, test.ShouldAlmostEqual, fromDH.Y, .01)
 	test.That(t, pos.Z, test.ShouldAlmostEqual, fromDH.Z, .01)
@@ -194,7 +183,7 @@ var jointConstants = []dhConstants{
 
 var orientationDH = dhConstants{0, 1, math.Pi / -2}
 
-func computeUR5ePosition(jointRadians []float64) (*pb.ArmPosition, *pb.ArmPosition) {
+func computeUR5ePosition(t *testing.T, jointRadians []float64) *pb.ArmPosition {
 	res := jointConstants[0].matrix(jointRadians[0])
 	for x, theta := range jointRadians {
 		if x == 0 {
@@ -227,22 +216,19 @@ func computeUR5ePosition(jointRadians []float64) (*pb.ArmPosition, *pb.ArmPositi
 	q := mgl64.Mat4ToQuat(resMgl)
 	poseOV := spatialmath.QuatToOV(quat.Number{q.W, q.X(), q.Y(), q.Z()})
 
+	// Confirm that our matrix -> quaternion -> OV conversion yields the same result as the OV calculated from the DH param
+	test.That(t, poseOV.OX, test.ShouldAlmostEqual, ov.OX, .01)
+	test.That(t, poseOV.OY, test.ShouldAlmostEqual, ov.OY, .01)
+	test.That(t, poseOV.OZ, test.ShouldAlmostEqual, ov.OZ, .01)
+
 	return &pb.ArmPosition{
-			X:  1000 * res.At(0, 3),
-			Y:  1000 * res.At(1, 3),
-			Z:  1000 * res.At(2, 3),
-			OX: ov.OX,
-			OY: ov.OY,
-			OZ: ov.OZ,
-			//Theta: ov.Theta,
-		}, &pb.ArmPosition{
-			X:     1000 * res.At(0, 3),
-			Y:     1000 * res.At(1, 3),
-			Z:     1000 * res.At(2, 3),
-			OX:    poseOV.OX,
-			OY:    poseOV.OY,
-			OZ:    poseOV.OZ,
-			Theta: utils.RadToDeg(poseOV.Theta),
-		}
+		X:     1000 * res.At(0, 3),
+		Y:     1000 * res.At(1, 3),
+		Z:     1000 * res.At(2, 3),
+		OX:    poseOV.OX,
+		OY:    poseOV.OY,
+		OZ:    poseOV.OZ,
+		Theta: utils.RadToDeg(poseOV.Theta),
+	}
 
 }
