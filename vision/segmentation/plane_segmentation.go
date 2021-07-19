@@ -203,8 +203,8 @@ func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud,
 	voxelCoords := vgps.GetUnlabeledVoxels()
 	// make list of voxels
 	voxels := make(VoxelSlice, 0)
-	for _, coord := range voxelCoords {
-		voxels = append(voxels, vgps.GetVoxelFromKey(coord))
+	for _, key := range voxelCoords {
+		voxels = append(voxels, vgps.GetVoxelFromKey(key))
 	}
 	// turn list of voxels in a pointcloud with color
 	nonPlaneCloud, err := voxels.ToPointCloud()
