@@ -137,14 +137,23 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 	return pc.NewPlane(planeCloud, bestEquation), nonPlaneCloud, nil
 }
 
-// FindPlanesInPointCloud takes in a point cloud and outputs an array of the planes and a point cloud of
-// the leftover points.
+type PlaneSegmentation interface {
+	FindPlanes() ([]pc.Plane, pc.PointCloud, error)
+}
+
+type pointCloudPlaneSegmentation struct {
+	cloud     pc.PointCloud
+	threshold float64
+	minPoints int
+}
+
+// FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
 // threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
 // minPoints is the minimum number of points necessary to be considered a plane.
-func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints int) ([]pc.Plane, pc.PointCloud, error) {
+func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(cloud, 2000, threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(pcps.cloud, 2000, pcps.threshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -152,12 +161,12 @@ func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints in
 	if err != nil {
 		return nil, nil, err
 	}
-	if planeCloud.Size() <= minPoints {
+	if planeCloud.Size() <= pcps.minPoints {
 		return planes, cloud, nil
 	}
 	planes = append(planes, plane)
 	for {
-		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, 2000, threshold)
+		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, 2000, pcps.threshold)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -165,7 +174,7 @@ func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints in
 		if err != nil {
 			return nil, nil, err
 		}
-		if planeCloud.Size() <= minPoints {
+		if planeCloud.Size() <= pcps.minPoints {
 			// add the failed planeCloud back into the nonPlaneCloud
 			planeCloud.Iterate(func(pt pc.Point) bool {
 				err = nonPlaneCloud.Set(pt)
@@ -177,6 +186,30 @@ func FindPlanesInPointCloud(cloud pc.PointCloud, threshold float64, minPoints in
 			break
 		}
 		planes = append(planes, plane)
+	}
+	return planes, nonPlaneCloud, nil
+}
+
+type voxelGridPlaneSegmentation struct {
+	pc.VoxelGrid
+}
+
+func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
+	vgps.LabelVoxels()
+	planes, err := vgps.GetPlanesFromLabels()
+	if err != nil {
+		return nil, nil, err
+	}
+	voxelCoords := vgps.GetUnlabeledVoxels()
+	// make list of voxels
+	voxels := make(VoxelSlice, 0)
+	for _, coord := range voxelCoords {
+		voxels = append(voxels, vgps.GetVoxelFromKey(coord))
+	}
+	// turn list of voxels in a pointcloud with color
+	nonPlaneCloud, err := voxels.ToPointCloud()
+	if err != nil {
+		return nil, nil, err
 	}
 	return planes, nonPlaneCloud, nil
 }
