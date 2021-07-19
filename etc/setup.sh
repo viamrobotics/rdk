@@ -5,30 +5,66 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
 
-GO_PATH=$(which go)
-if [ ! -f $GO_PATH ]; then
-	echo "You need to install golang"
+if which go; then
+  echo "golang installed"
+else
+	echo "go not found in PATH; you need to install golang"
   exit 1
 fi
 
 if [ "$(uname)" = "Linux" ]; then
-	sudo apt install python2.7-dev libvpx-dev libx264-dev pkg-config
-  PREFIX="/usr/local" && \
-  VERSION="0.40.0" && \
-    curl -sSL \
-      "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
-      sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
-  curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-linux-x86_64 --output protoc-gen-grpc-web
-  chmod +x protoc-gen-grpc-web
-  sudo mv protoc-gen-grpc-web /usr/local/bin/
-  TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'protoctmp')
-  cd $TEMP_DIR
-  curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
-  unzip protoc-3.15.6-linux-x86_64.zip
-  sudo cp bin/* /usr/local/bin
-  sudo cp -R include/* /usr/local/include
-  sudo chmod 755 /usr/local/bin/protoc
-  cd $DIR
+  DISTRO=`awk -F= '/^NAME/{print $2}' /etc/os-release | tr -d '"\n'`
+  case $DISTRO in
+    "Debian"|"Ubuntu")
+      sudo apt -y install python2.7-dev libvpx-dev libx264-dev pkg-config
+      ;;
+
+    "Amazon Linux")
+      sudo yum -y install python-devel libvpx-devel git gcc cmake nasm gcc-c++
+      if which npm; then
+        echo "node installed"
+      else
+        curl -sL https://rpm.nodesource.com/setup_14.x | sudo bash -
+        sudo yum -y install nodejs
+      fi
+      if pkg-config --cflags x264; then
+        echo "x264 already setup"
+      else
+        TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'x264tmp')
+        cd $TEMP_DIR
+        git clone --depth=1 https://code.videolan.org/videolan/x264.git
+        cd x264
+        echo "building x264"
+        ./configure --prefix=/usr/local --enable-pic --enable-shared && make && sudo make install
+        cd $DIR
+      fi
+      ;;
+    *)
+      echo unknown distro $DISTRO
+      exit 1;
+      ;;
+  esac
+
+  if which buf; then
+        echo "buf installed"
+  else
+    PREFIX="/usr/local" && \
+    VERSION="0.40.0" && \
+      curl -sSL \
+        "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
+        sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
+    curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-linux-x86_64 --output protoc-gen-grpc-web
+    chmod +x protoc-gen-grpc-web
+    sudo mv protoc-gen-grpc-web /usr/local/bin/
+    TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'protoctmp')
+    cd $TEMP_DIR
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
+    unzip protoc-3.15.6-linux-x86_64.zip
+    sudo cp bin/* /usr/local/bin
+    sudo cp -R include/* /usr/local/include
+    sudo chmod 755 /usr/local/bin/protoc
+    cd $DIR
+  fi
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
@@ -65,12 +101,13 @@ if [ $NLOPT_OK -eq 0 ] ; then
   cd $nlopttmp
   curl -O https://codeload.github.com/stevengj/nlopt/tar.gz/v2.7.0 && tar xzvf v2.7.0 && cd nlopt-2.7.0
   rm -rf v2.7.0
-  cmake . && make -j$(sysctl -n hw.ncpu) && sudo make install
+  cmake . && make -j$(getconf _NPROCESSORS_ONLN) && sudo make install
   cd $ROOT_DIR
   rm -rf $nlopttmp
 fi
 
-GIT_SSH_REWRITE_OK=$(git config --get url.ssh://git@github.com/.insteadOf)
+git init
+GIT_SSH_REWRITE_OK=$(git config --get url.ssh://git@github.com/.insteadOf) || true
 if [ "$GIT_SSH_REWRITE_OK" != "https://github.com/" ]; then
   git config url.ssh://git@github.com/.insteadOf https://github.com/
 fi
@@ -78,6 +115,7 @@ fi
 ENV_OK=1
 if [ "$(uname)" = "Linux" ]; then
   echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
+  echo $PKG_CONFIG_PATH | grep -q /usr/local/lib64/pkgconfig || ENV_OK=0
   echo $PKG_CONFIG_PATH | grep -q /usr/lib/pkgconfig || ENV_OK=0
 fi
 echo $GOPRIVATE | grep -Fq "github.com/viamrobotics/*,go.viam.com/*" || ENV_OK=0
@@ -90,7 +128,7 @@ case $(basename $SHELL) in
   bash)
     echo "You need some exports in your .bashrc"
     if [ "$(uname)" = "Linux" ]; then
-      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
+      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
     fi
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.bashrc'
     ;;
@@ -98,7 +136,7 @@ case $(basename $SHELL) in
   zsh)
     echo "You need some exports in your .zshrc"
     if [ "$(uname)" = "Linux" ]; then
-      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
+      echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
     fi
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.zshrc'
     ;;
