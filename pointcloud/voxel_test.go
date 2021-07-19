@@ -81,12 +81,12 @@ func TestGetVoxelCenterWeightResidual(t *testing.T) {
 
 	w := GetWeight(points, 1., 0.)
 	test.ShouldAlmostEqual(w, 1.0)
-	plane := Plane{
-		Normal:    r3.Vector{0, 0, 1},
-		Center:    r3.Vector{},
-		Offset:    0,
-		Points:    nil,
-		VoxelKeys: nil,
+	plane := &voxelPlane{
+		normal:    r3.Vector{0, 0, 1},
+		center:    r3.Vector{},
+		offset:    0,
+		points:    nil,
+		voxelKeys: nil,
 	}
 	res := GetResidual(points, plane)
 	test.ShouldAlmostEqual(res, 0.0)

@@ -230,7 +230,9 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	segments := make([]pc.PointCloud, 0, len(planes)+1)
 	segments = append(segments, nonPlane)
 	for _, plane := range planes {
-		segments = append(segments, plane.PointCloud())
+		planeCloud, err := plane.PointCloud()
+		test.That(t, err, test.ShouldBeNil)
+		segments = append(segments, planeCloud)
 	}
 	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, segments)
 	test.That(t, err, test.ShouldBeNil)
