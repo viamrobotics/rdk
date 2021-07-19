@@ -21,36 +21,68 @@ type VoxelCoords struct {
 	I, J, K int64
 }
 
-// Plane structure to store normal vector and offset of plane equation
+// IsEqual tests if two VoxelCoords are the same
+func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
+	return c.I == c2.I && c.J == c2.J && c.K == c2.K
+}
+
+// voxelPlane structure to store normal vector and offset of plane equation
 // Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane
 type voxelPlane struct {
-	Normal    r3.Vector
-	Center    r3.Vector
-	Offset    float64
-	Points    []r3.Vector
-	VoxelKeys []VoxelCoords
+	normal    r3.Vector
+	center    r3.Vector
+	offset    float64
+	points    []r3.Vector
+	voxelKeys []VoxelCoords
 }
 
 func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []r3.Vector, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
-func (p *voxelPlane) PointCloud() PountCloud {
+func (p *voxelPlane) Normal() Vec3 {
+	return Vec3(p.normal)
+}
+
+func (p *voxelPlane) Center() Vec3 {
+	return Vec3(p.center)
+}
+
+func (p *voxelPlane) Offset() float64 {
+	return p.offset
+}
+
+func (p *voxelPlane) PointCloud() (PointCloud, error) {
+	pc := New()
+	for _, pt := range p.points {
+		ptValue := NewBasicPoint(pt.X, pt.Y, pt.Z)
+		err := pc.Set(ptValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pc, nil
 }
 
 // Equation return the coefficients of the plane equation as a 4-slice of floats
 func (p *voxelPlane) Equation() []float64 {
 	equation := make([]float64, 4)
-	equation[0] = p.Normal.X
-	equation[1] = p.Normal.Y
-	equation[2] = p.Normal.Z
-	equation[3] = p.Offset
+	equation[0] = p.normal.X
+	equation[1] = p.normal.Y
+	equation[2] = p.normal.Z
+	equation[3] = p.offset
 	return equation
 }
 
-// IsEqual tests if two VoxelCoords are the same
-func (c VoxelCoords) IsEqual(c2 VoxelCoords) bool {
-	return c.I == c2.I && c.J == c2.J && c.K == c2.K
+// DistToPlane computes the distance between a point a plane with given normal vector and offset
+func (p *voxelPlane) Distance(pt Vec3) float64 {
+	num := math.Abs(r3.Vector(pt).Dot(p.normal) + p.offset)
+	denom := p.normal.Norm()
+	d := 0.
+	if denom > 0.0001 {
+		d = num / denom
+	}
+	return d
 }
 
 // Voxel is the structure to store data relevant to Voxel operations in point clouds

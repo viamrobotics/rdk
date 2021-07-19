@@ -93,12 +93,12 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
 			normalVector := estimatePlaneNormalFromPoints(pts)
 			center := GetVoxelCenter(pts)
 			offset := GetOffset(center, normalVector)
-			currentPlane := Plane{
-				Normal:    normalVector,
-				Center:    center,
-				Offset:    offset,
-				Points:    pts,
-				VoxelKeys: keysByLabel[label],
+			currentPlane := &voxelPlane{
+				normal:    normalVector,
+				center:    center,
+				offset:    offset,
+				points:    pts,
+				voxelKeys: keysByLabel[label],
 			}
 			planes = append(planes, currentPlane)
 		}
@@ -121,7 +121,7 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 			for _, kNb := range nbVoxels {
 				voxNb := vg.Voxels[kNb]
 				if voxNb.Label > 0 {
-					d := DistToPlane(pt, plane)
+					d := plane.Distance(Vec3(pt))
 					if d < dMin {
 						dMin = d
 						outLabel = voxNb.Label
