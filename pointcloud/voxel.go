@@ -23,7 +23,7 @@ type VoxelCoords struct {
 
 // Plane structure to store normal vector and offset of plane equation
 // Additionally, it can store points composing the plane and the keys of the voxels entirely included in the plane
-type Plane struct {
+type voxelPlane struct {
 	Normal    r3.Vector
 	Center    r3.Vector
 	Offset    float64
@@ -31,8 +31,15 @@ type Plane struct {
 	VoxelKeys []VoxelCoords
 }
 
-// GetEquation return the coefficients of the plane equation as a 4-slice of floats
-func (p *Plane) GetEquation() []float64 {
+func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []r3.Vector, voxelKeys []VoxelCoords) Plane {
+	return &voxelPlane{normal, center, offset, points, voxelKeys}
+}
+
+func (p *voxelPlane) PointCloud() PountCloud {
+}
+
+// Equation return the coefficients of the plane equation as a 4-slice of floats
+func (p *voxelPlane) Equation() []float64 {
 	equation := make([]float64, 4)
 	equation[0] = p.Normal.X
 	equation[1] = p.Normal.Y
@@ -140,7 +147,7 @@ func (v1 *Voxel) GetPlane() Plane {
 	for i := range keys {
 		keys[i] = v1.Key
 	}
-	return Plane{v1.Normal, v1.Center, v1.Offset, v1.Points, keys}
+	return NewPlaneFromVoxel(v1.Normal, v1.Center, v1.Offset, v1.Points, keys)
 }
 
 // VoxelSlice is a slice that contains Voxels
