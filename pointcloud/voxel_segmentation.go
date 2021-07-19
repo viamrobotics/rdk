@@ -19,7 +19,7 @@ func (vg *VoxelGrid) LabelVoxels(sortedKeys []VoxelCoords, wTh, thetaTh, phiTh f
 		// and has not been visited yet
 		if vg.Voxels[k].Weight > wTh && !visited[k] && vg.Voxels[k].Label == 0 {
 			// BFS traversal
-			vg.LabelComponentBFS(vg.Voxels[k], currentLabel, wTh, thetaTh, phiTh, visited)
+			vg.labelComponentBFS(vg.Voxels[k], currentLabel, wTh, thetaTh, phiTh, visited)
 			vg.maxLabel = currentLabel
 			currentLabel = currentLabel + 1
 		}
@@ -27,8 +27,8 @@ func (vg *VoxelGrid) LabelVoxels(sortedKeys []VoxelCoords, wTh, thetaTh, phiTh f
 	}
 }
 
-// LabelComponentBFS is a helper function to perform BFS per connected component
-func (vg *VoxelGrid) LabelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiTh float64, visited map[VoxelCoords]bool) {
+// labelComponentBFS is a helper function to perform BFS per connected component
+func (vg *VoxelGrid) labelComponentBFS(vox *Voxel, label int, wTh, thetaTh, phiTh float64, visited map[VoxelCoords]bool) {
 	queue := list.New()
 	queue.PushBack(vox.Key)
 	visited[vox.Key] = true

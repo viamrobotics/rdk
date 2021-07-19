@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"color"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -97,6 +98,7 @@ type Voxel struct {
 	Weight          float64
 	SortedWeightIdx int
 	PointLabels     []int
+	PointColors     []color.Color
 }
 
 // NewVoxel creates a pointer to a Voxel struct
@@ -112,6 +114,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 		Weight:          0,
 		SortedWeightIdx: 0,
 		PointLabels:     nil,
+		PointColors:     nil,
 	}
 }
 
@@ -129,6 +132,7 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 		Weight:          0,
 		SortedWeightIdx: 0,
 		PointLabels:     nil,
+		PointColors:     nil,
 	}
 }
 
@@ -185,26 +189,34 @@ func (v1 *Voxel) GetPlane() Plane {
 // VoxelSlice is a slice that contains Voxels
 type VoxelSlice []*Voxel
 
-// VoxelGrid contains the sparse grid of Voxels of a point cloud
-type VoxelGrid struct {
-	Voxels   map[VoxelCoords]*Voxel
-	maxLabel int
-}
-
-// NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
-func NewVoxelGrid() *VoxelGrid {
-	voxelMap := make(map[VoxelCoords]*Voxel)
-	coords := VoxelCoords{
-		I: 0,
-		J: 0,
-		K: 0,
+func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
+	cloud := New()
+	for _, vox := range d {
+		if vox.PointColors == nil { // Fill pointcloud with basic points
+			for _, pt := range vox.Points {
+				ptValue := NewBasicPoint(pt.X, pt.Y, pt.Z)
+				err := cloud.Set(ptValue)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else { // fill with color points if available
+			for i, pt := range vox.Points {
+				var ptValue Point
+				if vox.PointColors[i] == nil {
+					ptValue = NewBasicPoint(pt.X, pt.Y, pt.Z)
+				} else {
+					r, g, b, a := vox.PointColors[i].RGBA()
+					ptValue = NewColoredPoint(pt.X, pt.Y, pt.Z, color.NRGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+				}
+				err := cloud.Set(ptValue)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
 	}
-	voxelMap[coords] = NewVoxel(coords)
-
-	return &VoxelGrid{
-		Voxels:   voxelMap,
-		maxLabel: 0,
-	}
+	return cloud, nil
 }
 
 // Sort interface for voxels
@@ -228,6 +240,28 @@ func (d VoxelSlice) Less(i, j int) bool {
 func ReverseVoxelSlice(s VoxelSlice) {
 	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
 		s[i], s[j] = s[j], s[i]
+	}
+}
+
+// VoxelGrid contains the sparse grid of Voxels of a point cloud
+type VoxelGrid struct {
+	Voxels   map[VoxelCoords]*Voxel
+	maxLabel int
+}
+
+// NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
+func NewVoxelGrid() *VoxelGrid {
+	voxelMap := make(map[VoxelCoords]*Voxel)
+	coords := VoxelCoords{
+		I: 0,
+		J: 0,
+		K: 0,
+	}
+	voxelMap[coords] = NewVoxel(coords)
+
+	return &VoxelGrid{
+		Voxels:   voxelMap,
+		maxLabel: 0,
 	}
 }
 
@@ -296,6 +330,10 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 	pc.Iterate(func(p Point) bool {
 		pt := r3.Vector(p.Position())
+		var c color.Color
+		if p.HasColor {
+			c = p.Color()
+		}
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]
 		// if voxel key does not exist yet, create voxel at this key with current point, voxel coordinates and maximum
@@ -312,10 +350,12 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 				Weight:          0,
 				SortedWeightIdx: 0,
 				PointLabels:     nil,
+				PointColors:     []color.Color{c},
 			}
 		} else {
 			// if voxel coordinates is in the keys of voxelMap, add point to slice
 			vox.Points = append(vox.Points, pt)
+			vox.PointColors = append(vox.PointColors, c)
 		}
 		return true
 	})
