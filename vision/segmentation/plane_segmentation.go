@@ -142,9 +142,14 @@ type PlaneSegmentation interface {
 }
 
 type pointCloudPlaneSegmentation struct {
-	cloud     pc.PointCloud
-	threshold float64
-	minPoints int
+	cloud       pc.PointCloud
+	threshold   float64
+	minPoints   int
+	nIterations int
+}
+
+func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minPoints int) PlaneSegmentation {
+	return &pointCloudPlaneSegmentation{cloud, threshold, minPoints, 2000}
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
@@ -153,7 +158,7 @@ type pointCloudPlaneSegmentation struct {
 func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
-	plane, nonPlaneCloud, err := SegmentPlane(pcps.cloud, 2000, pcps.threshold)
+	plane, nonPlaneCloud, err := SegmentPlane(pcps.cloud, pcps.nIterations, pcps.threshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,11 +167,11 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 		return nil, nil, err
 	}
 	if planeCloud.Size() <= pcps.minPoints {
-		return planes, cloud, nil
+		return planes, pcps.cloud, nil
 	}
 	planes = append(planes, plane)
 	for {
-		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, 2000, pcps.threshold)
+		plane, nonPlaneCloud, err = SegmentPlane(nonPlaneCloud, pcps.nIterations, pcps.threshold)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -191,23 +196,31 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 }
 
 type voxelGridPlaneSegmentation struct {
-	pc.VoxelGrid
+	*pc.VoxelGrid
+	weightThresh float64
+	thetaThresh  float64 // in degrees
+	phiThresh    float64
+	dThresh      float64
+}
+
+func NewVoxelGridPlaneSegmentation(cloud pc.PointCloud, voxelSize, lam float64) PlaneSegmentation {
+	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
+	return &voxelGridPlaneSegmentation{vg, 0.7, 25, 0.1, 1.0} // parameters chosen from
 }
 
 func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
-	vgps.LabelVoxels()
-	planes, err := vgps.GetPlanesFromLabels()
+	vgps.SegmentPlanesRegionGrowing(vgps.weightThresh, vgps.thetaThresh, vgps.phiThresh, vgps.dThresh)
+	planes, err := vgps.GetPlanesFromLabels() // get the planes
 	if err != nil {
 		return nil, nil, err
 	}
-	voxelCoords := vgps.GetUnlabeledVoxels()
+	voxelCoords := vgps.GetUnlabeledVoxels() // get the non-plane voxels
 	// make list of voxels
-	voxels := make(VoxelSlice, 0)
+	voxels := make(pc.VoxelSlice, 0)
 	for _, key := range voxelCoords {
 		voxels = append(voxels, vgps.GetVoxelFromKey(key))
 	}
-	// turn list of voxels in a pointcloud with color
-	nonPlaneCloud, err := voxels.ToPointCloud()
+	nonPlaneCloud, err := voxels.ToPointCloud() // turn non-plane voxels into a pointcloud
 	if err != nil {
 		return nil, nil, err
 	}
