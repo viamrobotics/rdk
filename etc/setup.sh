@@ -6,16 +6,20 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
 PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
+if [ "$ARCH" = "x86_64" ]; then
+  ARCH=amd64
+fi
 
+ENV_OK=1
 if which go; then
   echo "golang installed"
 else
+  ENV_OK=0
   PREFIX="/usr/local" && \
   VERSION="1.16.6" && \
     curl -sSL \
       "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
       sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
-  echo "add /usr/local/go/bin to your PATH"
   export PATH=$PATH:/usr/local/go/bin
 fi
 
@@ -126,7 +130,6 @@ if [ "$GIT_SSH_REWRITE_OK" != "https://github.com/" ]; then
   git config url.ssh://git@github.com/.insteadOf https://github.com/
 fi
 
-ENV_OK=1
 if [ "$(uname)" = "Linux" ]; then
   echo $PKG_CONFIG_PATH | grep -q /usr/local/lib/pkgconfig || ENV_OK=0
   echo $PKG_CONFIG_PATH | grep -q /usr/local/lib64/pkgconfig || ENV_OK=0
@@ -144,6 +147,7 @@ case $(basename $SHELL) in
     if [ "$(uname)" = "Linux" ]; then
       echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
     fi
+    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.bashrc'
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.bashrc'
     ;;
 
@@ -152,6 +156,7 @@ case $(basename $SHELL) in
     if [ "$(uname)" = "Linux" ]; then
       echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
     fi
+    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.zshrc'
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.zshrc'
     ;;
   *)
