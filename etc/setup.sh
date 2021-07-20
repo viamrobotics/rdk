@@ -16,7 +16,14 @@ if [ "$(uname)" = "Linux" ]; then
   DISTRO=`awk -F= '/^NAME/{print $2}' /etc/os-release | tr -d '"\n'`
   case $DISTRO in
     "Debian"|"Ubuntu")
-      sudo apt -y install python2.7-dev libvpx-dev libx264-dev pkg-config
+      sudo apt update
+      sudo apt -y install python2.7-dev libvpx-dev libx264-dev pkg-config python3-pip
+      if which npm; then
+        echo "node installed"
+      else
+        curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+      fi
       ;;
 
     "Amazon Linux")

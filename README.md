@@ -30,6 +30,7 @@
 
 ## Dependencies
 
+* make
 * [go1.16](https://golang.org/dl/)
 * Run `make setup`
 
