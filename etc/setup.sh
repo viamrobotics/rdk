@@ -4,12 +4,19 @@ set -e
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 ROOT_DIR="$DIR/../"
+PLATFORM=$(uname -s | tr '[:upper:]' '[:lower:]')
+ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
 
 if which go; then
   echo "golang installed"
 else
-	echo "go not found in PATH; you need to install golang"
-  exit 1
+  PREFIX="/usr/local" && \
+  VERSION="1.16.6" && \
+    curl -sSL \
+      "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
+      sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
+  echo "add /usr/local/go/bin to your PATH"
+  export PATH=$PATH:/usr/local/go/bin
 fi
 
 if [ "$(uname)" = "Linux" ]; then
