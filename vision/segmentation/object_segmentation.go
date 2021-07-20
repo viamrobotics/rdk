@@ -31,7 +31,8 @@ func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc
 
 // CreateObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
 func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegment int, clusteringRadius float64) (*ObjectSegmentation, error) {
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, minPtsInPlane)
+	ps := NewPointCloudPlaneSegmentation(cloud, 10, minPtsInPlane)
+	planes, nonPlane, err := ps.FindPlanes()
 	if err != nil {
 		return nil, err
 	}

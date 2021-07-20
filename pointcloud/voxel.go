@@ -1,7 +1,7 @@
 package pointcloud
 
 import (
-	"color"
+	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -331,7 +331,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 	pc.Iterate(func(p Point) bool {
 		pt := r3.Vector(p.Position())
 		var c color.Color
-		if p.HasColor {
+		if p.HasColor() {
 			c = p.Color()
 		}
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)

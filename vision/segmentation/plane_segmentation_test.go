@@ -225,8 +225,10 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	cloud, err := fixed.ToPointCloud()
 	test.That(t, err, test.ShouldBeNil)
 
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 50, 150000)
+	planeSeg := NewPointCloudPlaneSegmentation(cloud, 50, 150000)
+	planes, nonPlane, err := planeSeg.FindPlanes()
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
 	segments := make([]pc.PointCloud, 0, len(planes)+1)
 	segments = append(segments, nonPlane)
 	for _, plane := range planes {
@@ -281,8 +283,10 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// find the planes, and only keep points above the biggest found plane
-	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, 15000)
+	planeSeg := NewPointCloudPlaneSegmentation(cloud, 10, 15000)
+	planes, nonPlane, err := planeSeg.FindPlanes()
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
 	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(above, "gripper-above-pointcloud")
