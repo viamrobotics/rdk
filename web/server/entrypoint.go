@@ -257,6 +257,7 @@ type Arguments struct {
 	WebRTC     bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
 }
 
+// RunServer is an entry point to starting the web server that can be called by main in a code sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {

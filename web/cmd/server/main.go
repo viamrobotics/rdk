@@ -5,8 +5,9 @@ package main
 import (
 	"go.viam.com/utils"
 
-	"go.viam.com/core/web/server"
 	"github.com/edaniels/golog"
+
+	"go.viam.com/core/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("robot_server")
