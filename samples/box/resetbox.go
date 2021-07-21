@@ -38,6 +38,9 @@ var(
 
 func init() {
 	action.RegisterAction("ResetBox", ResetBox)
+	action.RegisterAction("toggle", toggleTrigger)
+	action.RegisterAction("resetCube", resetCube)
+	action.RegisterAction("resetDuck", resetDuck)
 }
 
 // ResetBox will dump the playing field, 
