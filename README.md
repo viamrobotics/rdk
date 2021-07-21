@@ -65,6 +65,12 @@ Some guidelines on using these:
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
 1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
 
+#### gRPC Language Samples
+
+* [Go](./grpc) - See `client` and `server`.
+* [Python](./grpc/python)
+* [Java](./grpc/java)
+
 ### Testing with big data
 
 Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull down with git and is typically not needed except for certain tests. In order to add large data test artifacts, you need to do the following:
