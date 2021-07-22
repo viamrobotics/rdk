@@ -28,29 +28,28 @@ type OrientationVec struct {
 func (ov *OrientationVec) ToQuat() quat.Number {
 
 	// acos(rz) ranges from 0 (north pole) to pi (south pole)
-	lat := -math.Pi/2 + math.Acos(ov.OZ)
+	lat := math.Acos(ov.OZ)
 
-	// If we're pointing at the Z axis then lon can be 0
+	// If we're pointing at the Z axis then lon is 0, theta is the OV theta
+	// Euler angles are gimbal locked here but OV allows us to have smooth(er) movement
+	// Since euler angles are used to represent a single orientation, but not to move between different ones, this is OK
 	lon := 0.0
 	theta := ov.Theta
 
-	// The contents of ov.OX are not in radians but we use angleEpsilon anyway to check how close we are to the pole
-	if 1+ov.OX < angleEpsilon {
-		lon = math.Pi
-	} else if 1-math.Abs(ov.OZ) > angleEpsilon {
+	if 1-math.Abs(ov.OZ) > angleEpsilon {
+		// If we are not at a pole, we need the longitude
 		// atan x/y removes some sign information so we use atan2 to do it properly
 		lon = math.Atan2(ov.OY, ov.OX)
-	} else {
-		// We are pointed at a pole (Z = 1 or -1) so theta is reversed
-		theta *= -1
 	}
 
 	var q quat.Number
-	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYX)
+	// Since the "default" orientation is pointed at the Z axis, we use ZYZ rotation order to properly represent the OV
+	q1 := mgl64.AnglesToQuat(lon, lat, theta, mgl64.ZYZ)
 	q.Real = q1.W
 	q.Imag = q1.X()
 	q.Jmag = q1.Y()
 	q.Kmag = q1.Z()
+
 	return q
 }
 

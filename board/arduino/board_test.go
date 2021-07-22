@@ -42,7 +42,8 @@ func TestArduino(t *testing.T) {
 	test.That(t, b, test.ShouldNotBeNil)
 	defer b.Close()
 
-	m := b.Motor(cfg.Motors[0].Name)
+	m, ok := b.MotorByName(cfg.Motors[0].Name)
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, m, test.ShouldNotBeNil)
 
 	startPos, err := m.Position(ctx)
