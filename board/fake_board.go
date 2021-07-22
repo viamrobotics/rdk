@@ -33,6 +33,27 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }
 
+// A fakeSPI allows opening an SPIHandle.
+type fakeSPI struct {
+}
+
+func (s *fakeSPI) Open() (SPIHandle, error) {
+	return &fakeSPIHandle{}, nil
+}
+
+// A fakeSPIHandle allows Xfer and Close.
+type fakeSPIHandle struct {
+}
+
+func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
+	return make([]byte, len(tx)), nil
+}
+
+func(h *fakeSPIHandle) Close() error {
+	return nil
+}
+
+
 // A FakeAnalog reads back the same set value.
 type FakeAnalog struct {
 	Value      int
@@ -54,6 +75,7 @@ type FakeBoard struct {
 	Name     string
 	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
+	spis     map[string]*fakeSPI	
 	analogs  map[string]*FakeAnalog
 	digitals map[string]DigitalInterrupt
 
@@ -73,6 +95,12 @@ func (b *FakeBoard) MotorByName(name string) (Motor, bool) {
 // ServoByName returns the servo by the given name if it exists.
 func (b *FakeBoard) ServoByName(name string) (Servo, bool) {
 	s, ok := b.servos[name]
+	return s, ok
+}
+
+// SPIByName returns the servo by the given name if it exists.
+func (b *FakeBoard) SPIByName(name string) (SPI, bool) {
+	s, ok := b.spis[name]
 	return s, ok
 }
 
@@ -136,6 +164,15 @@ func (b *FakeBoard) MotorNames() []string {
 func (b *FakeBoard) ServoNames() []string {
 	names := []string{}
 	for k := range b.servos {
+		names = append(names, k)
+	}
+	return names
+}
+
+// SPINames returns the name of all known SPIs.
+func (b *FakeBoard) SPINames() []string {
+	names := []string{}
+	for k := range b.spis {
 		names = append(names, k)
 	}
 	return names

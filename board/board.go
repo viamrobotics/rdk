@@ -20,6 +20,9 @@ type Board interface {
 	// ServoByName returns a servo by name.
 	ServoByName(name string) (Servo, bool)
 
+	// SPIByName returns an SPI bus by name.
+	SPIByName(name string) (SPI, bool)
+
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
@@ -31,6 +34,9 @@ type Board interface {
 
 	// ServoNames returns the name of all known servos.
 	ServoNames() []string
+
+	// SPINames returns the name of all known SPI busses.
+	SPINames() []string
 
 	// AnalogReaderNames returns the name of all known analog readers.
 	AnalogReaderNames() []string
@@ -107,6 +113,18 @@ type Servo interface {
 
 	// Current returns the current set angle (degrees) of the servo.
 	Current(ctx context.Context) (uint8, error)
+}
+
+// SPI represents a shareable SPI bus on the board
+// Open() locks the shared bus and returns a handle interface that MUST be closed when done.
+type SPI interface {
+	Open() (SPIHandle, error)
+}
+
+// SPIHandle is similar to an io handle. It MUST be closed.
+type SPIHandle interface {
+	Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error)
+	Close() error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.
