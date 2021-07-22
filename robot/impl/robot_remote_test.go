@@ -58,45 +58,45 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return logger
 	}
 
-	injectRobot.RemoteByNameFunc = func(name string) robot.Robot {
+	injectRobot.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.RemoteNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &remoteRobot{conf: config.Remote{Name: name}}
+		return &remoteRobot{conf: config.Remote{Name: name}}, true
 	}
-	injectRobot.ArmByNameFunc = func(name string) arm.Arm {
+	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ArmNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &fake.Arm{Name: name}
+		return &fake.Arm{Name: name}, true
 	}
-	injectRobot.BaseByNameFunc = func(name string) base.Base {
+	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BaseNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &fake.Base{Name: name}
+		return &fake.Base{Name: name}, true
 	}
-	injectRobot.GripperByNameFunc = func(name string) gripper.Gripper {
+	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.GripperNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &fake.Gripper{Name: name}
+		return &fake.Gripper{Name: name}, true
 	}
-	injectRobot.CameraByNameFunc = func(name string) camera.Camera {
+	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &fake.Camera{Name: name}
+		return &fake.Camera{Name: name}, true
 	}
-	injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {
+	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.LidarNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return fake.NewLidar(name)
+		return fake.NewLidar(name), true
 	}
-	injectRobot.BoardByNameFunc = func(name string) board.Board {
+	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
 		fakeBoard, err := board.NewFakeBoard(context.Background(), board.Config{
 			Name: name,
@@ -120,13 +120,13 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if err != nil {
 			panic(err)
 		}
-		return fakeBoard
+		return fakeBoard, true
 	}
-	injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
+	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {
-			return nil
+			return nil, false
 		}
-		return &fake.Compass{Name: name}
+		return &fake.Compass{Name: name}, true
 	}
 
 	return injectRobot
@@ -302,60 +302,81 @@ func TestRemoteRobot(t *testing.T) {
 	})
 
 	robot.conf.Prefix = false
-	arm1 := robot.ArmByName("arm1")
+	arm1, ok := robot.ArmByName("arm1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
 	robot.conf.Prefix = true
-	arm1 = robot.ArmByName("one.arm1")
+	arm1, ok = robot.ArmByName("one.arm1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).Name, test.ShouldEqual, "arm1")
-	test.That(t, robot.ArmByName("arm1_what"), test.ShouldBeNil)
+	_, ok = robot.ArmByName("arm1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	base1 := robot.BaseByName("base1")
+	base1, ok := robot.BaseByName("base1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	robot.conf.Prefix = true
-	base1 = robot.BaseByName("one.base1")
+	base1, ok = robot.BaseByName("one.base1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
-	test.That(t, robot.BaseByName("base1_what"), test.ShouldBeNil)
+	_, ok = robot.BaseByName("base1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	gripper1 := robot.GripperByName("gripper1")
+	gripper1, ok := robot.GripperByName("gripper1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, gripper1.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
 	robot.conf.Prefix = true
-	gripper1 = robot.GripperByName("one.gripper1")
+	gripper1, ok = robot.GripperByName("one.gripper1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, gripper1.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "gripper1")
-	test.That(t, robot.GripperByName("gripper1_what"), test.ShouldBeNil)
+	_, ok = robot.GripperByName("gripper1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	camera1 := robot.CameraByName("camera1")
+	camera1, ok := robot.CameraByName("camera1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
 	robot.conf.Prefix = true
-	camera1 = robot.CameraByName("one.camera1")
+	camera1, ok = robot.CameraByName("one.camera1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, camera1.(*proxyCamera).actual.(*fake.Camera).Name, test.ShouldEqual, "camera1")
-	test.That(t, robot.CameraByName("camera1_what"), test.ShouldBeNil)
+	_, ok = robot.CameraByName("camera1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	lidar1 := robot.LidarByName("lidar1")
+	lidar1, ok := robot.LidarByName("lidar1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
 	robot.conf.Prefix = true
-	lidar1 = robot.LidarByName("one.lidar1")
+	lidar1, ok = robot.LidarByName("one.lidar1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, lidar1.(*proxyLidar).actual.(*fake.Lidar).Name, test.ShouldEqual, "lidar1")
-	test.That(t, robot.LidarByName("lidar1_what"), test.ShouldBeNil)
+	_, ok = robot.LidarByName("lidar1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	board1 := robot.BoardByName("board1")
+	board1, ok := robot.BoardByName("board1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
 	robot.conf.Prefix = true
-	board1 = robot.BoardByName("one.board1")
+	board1, ok = robot.BoardByName("one.board1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).Name, test.ShouldEqual, "board1")
-	test.That(t, robot.BoardByName("board1_what"), test.ShouldBeNil)
+	_, ok = robot.BoardByName("board1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	sensor1 := robot.SensorByName("sensor1")
+	sensor1, ok := robot.SensorByName("sensor1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	robot.conf.Prefix = true
-	sensor1 = robot.SensorByName("one.sensor1")
+	sensor1, ok = robot.SensorByName("one.sensor1")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	test.That(t, robot.SensorByName("sensor1_what"), test.ShouldBeNil)
+	_, ok = robot.SensorByName("sensor1_what")
+	test.That(t, ok, test.ShouldBeFalse)
 
 	wrapped.errRefresh = true
 	err = robot.Refresh(context.Background())
@@ -372,14 +393,18 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldResemble, utils.NewStringSet("one.pieceGripper", "one.pieceGripper2"))
 
 	robot.conf.Prefix = false
-	pieceGripper := robot.GripperByName("pieceGripper")
+	pieceGripper, ok := robot.GripperByName("pieceGripper")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, pieceGripper.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
 	robot.conf.Prefix = true
-	pieceGripper = robot.GripperByName("one.pieceGripper")
+	pieceGripper, ok = robot.GripperByName("one.pieceGripper")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, pieceGripper.(*proxyGripper).actual.(*fake.Gripper).Name, test.ShouldEqual, "pieceGripper")
 
-	test.That(t, robot.SensorByName("sensor1"), test.ShouldBeNil)
-	test.That(t, robot.SensorByName("one.sensor1"), test.ShouldBeNil)
+	_, ok = robot.SensorByName("sensor1")
+	test.That(t, ok, test.ShouldBeFalse)
+	_, ok = robot.SensorByName("one.sensor1")
+	test.That(t, ok, test.ShouldBeFalse)
 }
 
 type dummyRemoteRobotWrapper struct {

@@ -206,26 +206,24 @@ func (b *arduinoBoard) configure(cfg board.Config) error {
 	return nil
 }
 
-func (b *arduinoBoard) Motor(name string) board.Motor {
-	return b.motors[name]
+func (b *arduinoBoard) MotorByName(name string) (board.Motor, bool) {
+	m, ok := b.motors[name]
+	return m, ok
 }
 
-// Servo returns a servo by name. If it does not exist
-// nil is returned.
-func (b *arduinoBoard) Servo(name string) board.Servo {
-	return nil
+// ServoByName returns a servo by name.
+func (b *arduinoBoard) ServoByName(name string) (board.Servo, bool) {
+	return nil, false
 }
 
-// AnalogReader returns an analog reader by name. If it does not exist
-// nil is returned.
-func (b *arduinoBoard) AnalogReader(name string) board.AnalogReader {
-	return nil
+// AnalogReaderByName returns an analog reader by name.
+func (b *arduinoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	return nil, false
 }
 
-// DigitalInterrupt returns a digital interrupt by name. If it does not exist
-// nil is returned.
-func (b *arduinoBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
-	return nil
+// DigitalInterruptByName returns a digital interrupt by name.
+func (b *arduinoBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	return nil, false
 }
 
 // GPIOSet sets the given pin to either low or high.

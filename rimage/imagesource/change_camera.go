@@ -66,8 +66,8 @@ func newChangeCameraSystem(r robot.Robot, config config.Component) (camera.Camer
 	var err error
 
 	attrs := config.Attributes
-	source := r.CameraByName(attrs.String("source"))
-	if source == nil {
+	source, ok := r.CameraByName(attrs.String("source"))
+	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", source)
 	}
 	if attrs.Has("matrices") {

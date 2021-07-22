@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
@@ -39,7 +40,10 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 	if len(r.ArmNames()) != 1 {
 		return errors.New("need 1 arm name")
 	}
-	arm := r.ArmByName(r.ArmNames()[0])
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
 
 	for i := 0; i < numFacialLandmarks; i++ {
 		pos, err := arm.CurrentPosition(ctx)

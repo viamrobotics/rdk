@@ -422,43 +422,63 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 	}
 
 	for _, name := range actual.MotorNames() {
-		p.motors[name] = &proxyBoardMotor{actual: actual.Motor(name)}
+		actualPart, ok := actual.MotorByName(name)
+		if !ok {
+			continue
+		}
+		p.motors[name] = &proxyBoardMotor{actual: actualPart}
 	}
 	for _, name := range actual.ServoNames() {
-		p.servos[name] = &proxyBoardServo{actual: actual.Servo(name)}
+		actualPart, ok := actual.ServoByName(name)
+		if !ok {
+			continue
+		}
+		p.servos[name] = &proxyBoardServo{actual: actualPart}
 	}
 	for _, name := range actual.AnalogReaderNames() {
-		p.analogs[name] = &proxyBoardAnalogReader{actual: actual.AnalogReader(name)}
+		actualPart, ok := actual.AnalogReaderByName(name)
+		if !ok {
+			continue
+		}
+		p.analogs[name] = &proxyBoardAnalogReader{actual: actualPart}
 	}
 	for _, name := range actual.DigitalInterruptNames() {
-		p.digitals[name] = &proxyBoardDigitalInterrupt{actual: actual.DigitalInterrupt(name)}
+		actualPart, ok := actual.DigitalInterruptByName(name)
+		if !ok {
+			continue
+		}
+		p.digitals[name] = &proxyBoardDigitalInterrupt{actual: actualPart}
 	}
 
 	return p
 }
 
-func (p *proxyBoard) Motor(name string) board.Motor {
+func (p *proxyBoard) MotorByName(name string) (board.Motor, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.motors[name]
+	m, ok := p.motors[name]
+	return m, ok
 }
 
-func (p *proxyBoard) Servo(name string) board.Servo {
+func (p *proxyBoard) ServoByName(name string) (board.Servo, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.servos[name]
+	s, ok := p.servos[name]
+	return s, ok
 }
 
-func (p *proxyBoard) AnalogReader(name string) board.AnalogReader {
+func (p *proxyBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.analogs[name]
+	a, ok := p.analogs[name]
+	return a, ok
 }
 
-func (p *proxyBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
+func (p *proxyBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.digitals[name]
+	d, ok := p.digitals[name]
+	return d, ok
 }
 
 func (p *proxyBoard) GPIOSet(pin string, high bool) error {

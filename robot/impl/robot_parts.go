@@ -534,146 +534,146 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 
 // RemoteByName returns the given remote robot by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) RemoteByName(name string) robot.Robot {
+func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 	part, ok := parts.remotes[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.RemoteByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.RemoteByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // BoardByName returns the given board by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) BoardByName(name string) board.Board {
+func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 	part, ok := parts.boards[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.BoardByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.BoardByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // ArmByName returns the given arm by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ArmByName(name string) arm.Arm {
+func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 	part, ok := parts.arms[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.ArmByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.ArmByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // BaseByName returns the given base by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) BaseByName(name string) base.Base {
+func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	part, ok := parts.bases[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.BaseByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.BaseByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // GripperByName returns the given gripper by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) GripperByName(name string) gripper.Gripper {
+func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
 	part, ok := parts.grippers[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.GripperByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.GripperByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // CameraByName returns the given camera by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) CameraByName(name string) camera.Camera {
+func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 	part, ok := parts.cameras[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.CameraByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.CameraByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // LidarByName returns the given lidar by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) LidarByName(name string) lidar.Lidar {
+func (parts *robotParts) LidarByName(name string) (lidar.Lidar, bool) {
 	part, ok := parts.lidars[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.LidarByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.LidarByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // SensorByName returns the given sensor by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) SensorByName(name string) sensor.Sensor {
+func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 	part, ok := parts.sensors[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.SensorByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.SensorByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // ProviderByName returns the given provider by name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ProviderByName(name string) robot.Provider {
+func (parts *robotParts) ProviderByName(name string) (robot.Provider, bool) {
 	part, ok := parts.providers[name]
 	if ok {
-		return part
+		return part, true
 	}
 	for _, remote := range parts.remotes {
-		part := remote.ProviderByName(name)
-		if part != nil {
-			return part
+		part, ok := remote.ProviderByName(name)
+		if ok {
+			return part, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // PartsMergeResult is the result of merging in parts together.
@@ -988,16 +988,16 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 	}
 
 	for _, conf := range conf.Remotes {
-		part := parts.remotes[conf.Name]
-		if part == nil {
+		part, ok := parts.remotes[conf.Name]
+		if !ok {
 			continue
 		}
 		filtered.addRemote(part, conf)
 	}
 
 	for _, conf := range conf.Boards {
-		part := parts.BoardByName(conf.Name)
-		if part == nil {
+		part, ok := parts.BoardByName(conf.Name)
+		if !ok {
 			continue
 		}
 		filtered.AddBoard(part, conf)
@@ -1006,44 +1006,44 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 	for _, compConf := range conf.Components {
 		switch compConf.Type {
 		case config.ComponentTypeProvider:
-			part := parts.ProviderByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.ProviderByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddProvider(part, compConf)
 		case config.ComponentTypeBase:
-			part := parts.BaseByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.BaseByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddBase(part, compConf)
 		case config.ComponentTypeArm:
-			part := parts.ArmByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.ArmByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddArm(part, compConf)
 		case config.ComponentTypeGripper:
-			part := parts.GripperByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.GripperByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddGripper(part, compConf)
 		case config.ComponentTypeCamera:
-			part := parts.CameraByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.CameraByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddCamera(part, compConf)
 		case config.ComponentTypeLidar:
-			part := parts.LidarByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.LidarByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddLidar(part, compConf)
 		case config.ComponentTypeSensor:
-			part := parts.SensorByName(compConf.Name)
-			if part == nil {
+			part, ok := parts.SensorByName(compConf.Name)
+			if !ok {
 				continue
 			}
 			filtered.AddSensor(part, compConf)

@@ -1,0 +1,58 @@
+{
+   "model": {
+      "manufacturer": "Trossen Robotics",
+      "name": "wx250s",
+      "links": [
+         {
+            "id": "base",
+            "parent": "world",
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            }
+         },
+         {
+            "id": "base_top",
+            "parent": "waist",
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 110.25
+            }
+         },
+         {
+            "id": "upper_arm",
+            "parent": "base_top",
+            "translation": {
+               "x": 50,
+               "y": 0,
+               "z": 250
+            }
+         },
+         {
+            "id": "elbow",
+            "parent": "upper_arm",
+            "translation": {
+               "x": 250,
+               "y": 0,
+               "z": 0
+            }
+         }
+      ],
+      "joints": [
+         {
+            "id": "world",
+            "type": "revolute",
+            "parent": "base",
+            "axis": {
+               "x": 0,
+               "y": 0,
+               "z": 1
+            },
+            "max": 179,
+            "min": -179
+         }
+      ]
+   }
+}

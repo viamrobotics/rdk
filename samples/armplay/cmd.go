@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -60,7 +61,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
 
 	return multierr.Combine(
 		arm.MoveToPosition(ctx, &pb.ArmPosition{X: -600, Z: 480}),
@@ -75,7 +79,10 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
 
 	for i := 0; i < 1000; i++ {
 		logger.Debugf("upAndDown loop %d", i)
@@ -105,7 +112,10 @@ func play(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
+		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+	}
 
 	start, err := arm.CurrentJointPositions(ctx)
 	if err != nil {

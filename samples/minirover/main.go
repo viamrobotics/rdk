@@ -55,18 +55,18 @@ func init() {
 func dock(ctx context.Context, r robot.Robot) error {
 	logger.Info("docking started")
 
-	cam := r.CameraByName("back")
-	if cam == nil {
+	cam, ok := r.CameraByName("back")
+	if !ok {
 		return errors.New("no back camera")
 	}
 
-	base := r.BaseByName("pierre")
-	if base == nil {
+	base, ok := r.BaseByName("pierre")
+	if !ok {
 		return errors.New("no pierre")
 	}
 
-	theLidar := r.LidarByName("lidarOnBase")
-	if theLidar == nil {
+	theLidar, ok := r.LidarByName("lidarOnBase")
+	if !ok {
 		return errors.New("no lidar lidarOnBase")
 	}
 
@@ -214,8 +214,8 @@ func (r *Rover) neckPosition(ctx context.Context, pan, tilt uint8) error {
 // Ready TODO
 func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	logger.Debug("minirover2 Ready called")
-	cam := theRobot.CameraByName("front")
-	if cam == nil {
+	cam, ok := theRobot.CameraByName("front")
+	if !ok {
 		return errors.New("no camera named front")
 	}
 
@@ -258,8 +258,15 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 // NewRover TODO
 func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover, error) {
 	rover := &Rover{theBoard: theBoard}
-	rover.pan = theBoard.Servo("pan")
-	rover.tilt = theBoard.Servo("tilt")
+	var ok bool
+	rover.pan, ok = theBoard.ServoByName("pan")
+	if !ok {
+		return nil, errors.New("failed to find pan servo")
+	}
+	rover.tilt, ok = theBoard.ServoByName("tilt")
+	if !ok {
+		return nil, errors.New("failed to find tilt servo")
+	}
 
 	if false {
 		utils.PanicCapturingGo(func() {
@@ -299,8 +306,8 @@ func NewRover(ctx context.Context, r robot.Robot, theBoard board.Board) (*Rover,
 		}
 	}
 
-	theLidar := r.LidarByName("lidarBase")
-	if false && theLidar != nil {
+	theLidar, ok := r.LidarByName("lidarBase")
+	if false && ok {
 		utils.PanicCapturingGo(func() {
 			for {
 				if !utils.SelectContextOrWait(ctx, time.Second) {
@@ -345,7 +352,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close()
 
-	rover, err := NewRover(ctx, myRobot, myRobot.BoardByName("local"))
+	localBoard, ok := myRobot.BoardByName("local")
+	if !ok {
+		return errors.New("failed to find local board")
+	}
+	rover, err := NewRover(ctx, myRobot, localBoard)
 	if err != nil {
 		return err
 	}

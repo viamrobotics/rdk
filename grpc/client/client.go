@@ -230,66 +230,66 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
 // other end. Right now this method is unimplemented.
-func (rc *RobotClient) RemoteByName(name string) robot.Robot {
+func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
 }
 
 // ArmByName returns a arm by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) ArmByName(name string) arm.Arm {
-	return &armClient{rc, name}
+func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
+	return &armClient{rc, name}, true
 }
 
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) BaseByName(name string) base.Base {
-	return &baseClient{rc, name}
+func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
+	return &baseClient{rc, name}, true
 }
 
 // GripperByName returns a gripper by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) GripperByName(name string) gripper.Gripper {
-	return &gripperClient{rc, name}
+func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
+	return &gripperClient{rc, name}, true
 }
 
 // CameraByName returns a camera by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) CameraByName(name string) camera.Camera {
-	return &cameraClient{rc, name}
+func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
+	return &cameraClient{rc, name}, true
 }
 
 // LidarByName returns a lidar by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) LidarByName(name string) lidar.Lidar {
-	return &lidarClient{rc, name}
+func (rc *RobotClient) LidarByName(name string) (lidar.Lidar, bool) {
+	return &lidarClient{rc, name}, true
 }
 
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
-func (rc *RobotClient) BoardByName(name string) board.Board {
+func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 	for _, info := range rc.boardNames {
 		if info.name == name {
-			return &boardClient{rc, info}
+			return &boardClient{rc, info}, true
 		}
 	}
-	return nil
+	return nil, false
 }
 
 // SensorByName returns a sensor by name. It is assumed to exist on the
 // other end. Based on the known sensor names and types, a type specific
 // sensor is attempted to be returned; otherwise it's a general purpose
 // sensor.
-func (rc *RobotClient) SensorByName(name string) sensor.Sensor {
+func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 	sensorType := rc.sensorTypes[name]
 	sc := &sensorClient{rc, name, sensorType}
 	switch sensorType {
 	case compass.Type:
-		return &compassClient{sc}
+		return &compassClient{sc}, true
 	case compass.RelativeType:
-		return &relativeCompassClient{&compassClient{sc}}
+		return &relativeCompassClient{&compassClient{sc}}, true
 	default:
-		return sc
+		return sc, true
 	}
 }
 
@@ -466,8 +466,8 @@ func (rc *RobotClient) FrameLookup(ctx context.Context) (referenceframe.FrameLoo
 
 // ProviderByName is not yet implemented and probably will not be due to it not
 // making much sense in a remote context.
-func (rc *RobotClient) ProviderByName(name string) robot.Provider {
-	return nil
+func (rc *RobotClient) ProviderByName(name string) (robot.Provider, bool) {
+	return nil, false
 }
 
 // AddProvider is not yet implemented and probably will not be due to it not
@@ -613,38 +613,38 @@ type boardClient struct {
 	info boardInfo
 }
 
-func (bc *boardClient) Motor(name string) board.Motor {
+func (bc *boardClient) MotorByName(name string) (board.Motor, bool) {
 	return &motorClient{
 		rc:        bc.rc,
 		boardName: bc.info.name,
 		motorName: name,
-	}
+	}, true
 }
 
-func (bc *boardClient) Servo(name string) board.Servo {
+func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
 	return &servoClient{
 		rc:        bc.rc,
 		boardName: bc.info.name,
 		servoName: name,
-	}
+	}, true
 }
 
-// AnalogReader needs to be implemented.
-func (bc *boardClient) AnalogReader(name string) board.AnalogReader {
+// AnalogReaderByName needs to be implemented.
+func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
 		rc:               bc.rc,
 		boardName:        bc.info.name,
 		analogReaderName: name,
-	}
+	}, true
 }
 
-// DigitalInterrupt needs to be implemented.
-func (bc *boardClient) DigitalInterrupt(name string) board.DigitalInterrupt {
+// DigitalInterruptByName needs to be implemented.
+func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		rc:                   bc.rc,
 		boardName:            bc.info.name,
 		digitalInterruptName: name,
-	}
+	}, true
 }
 
 func (bc *boardClient) GPIOSet(pin string, high bool) error {

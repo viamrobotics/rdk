@@ -97,12 +97,12 @@ func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 
 // Quaternion gets the quaternion representing this joint's rotation in space AT THE ZERO ANGLE.
 func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
-	jQuat := spatialmath.NewDualQuaternion()
+	jointQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
 		r1 := dualquat.Number{Real: j.rotVectors[i]}
-		jQuat.Quat = jQuat.Transformation(r1)
+		jointQuat.Quat = jointQuat.Transformation(r1)
 	}
-	return jQuat
+	return jointQuat
 }
 
 // AngleQuaternion returns the quaternion representing this joint's rotation in space.

@@ -23,8 +23,8 @@ import (
 
 func init() {
 	registry.RegisterGripper("viam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		b := r.BoardByName("local")
-		if b == nil {
+		b, ok := r.BoardByName("local")
+		if !ok {
 			return nil, errors.New("viam gripper requires a board called local")
 		}
 		return NewGripperV1(ctx, b, config.Attributes.Int("pressureLimit", 800), logger)
@@ -61,10 +61,23 @@ type GripperV1 struct {
 // NewGripperV1 TODO
 func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
 
+	motor, ok := theBoard.MotorByName("g")
+	if !ok {
+		return nil, errors.New("failed to find motor 'g'")
+	}
+	current, ok := theBoard.AnalogReaderByName("current")
+	if !ok {
+		return nil, errors.New("failed to find analog reader 'current'")
+	}
+	pressure, ok := theBoard.AnalogReaderByName("pressure")
+	if !ok {
+		return nil, errors.New("failed to find analog reader 'pressure'")
+	}
+
 	vg := &GripperV1{
-		motor:           theBoard.Motor("g"),
-		current:         theBoard.AnalogReader("current"),
-		pressure:        theBoard.AnalogReader("pressure"),
+		motor:           motor,
+		current:         current,
+		pressure:        pressure,
 		defaultPowerPct: .7,
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,

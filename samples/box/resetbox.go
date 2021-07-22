@@ -28,8 +28,8 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) {
 
 // ResetBoxSteps TODO
 func ResetBoxSteps(ctx context.Context, theRobot robot.Robot, shakes int) error {
-	resetBoard := theRobot.BoardByName("resetDriveBoard")
-	if resetBoard == nil {
+	resetBoard, ok := theRobot.BoardByName("resetDriveBoard")
+	if !ok {
 		return errors.New("robot does not have a resetDriveBoard")
 	}
 	// Dump object into the resetter
@@ -84,7 +84,10 @@ func ResetBoxSteps(ctx context.Context, theRobot robot.Robot, shakes int) error 
 
 // OpenBox TODO
 func OpenBox(ctx context.Context, b board.Board, gentle bool) error {
-	lSwitch := b.DigitalInterrupt("open")
+	lSwitch, ok := b.DigitalInterruptByName("open")
+	if !ok {
+		return errors.New("open not found")
+	}
 	currentValue := lSwitch.Value()
 	startValue := lSwitch.Value()
 
@@ -96,7 +99,10 @@ func OpenBox(ctx context.Context, b board.Board, gentle bool) error {
 		servoSpeed = 70
 	}
 
-	shakeServo := b.Servo("shake")
+	shakeServo, ok := b.ServoByName("shake")
+	if !ok {
+		return errors.New("shake not found")
+	}
 
 	// Back off in case we're already at the limit switch
 	if gentle {
@@ -126,11 +132,17 @@ func OpenBox(ctx context.Context, b board.Board, gentle bool) error {
 
 // CloseBox TODO
 func CloseBox(ctx context.Context, b board.Board) error {
-	lSwitch := b.DigitalInterrupt("closed")
+	lSwitch, ok := b.DigitalInterruptByName("closed")
+	if !ok {
+		return errors.New("closed not found")
+	}
 	currentValue := lSwitch.Value()
 	startValue := lSwitch.Value()
 
-	shakeServo := b.Servo("shake")
+	shakeServo, ok := b.ServoByName("shake")
+	if !ok {
+		return errors.New("shake not found")
+	}
 	err := shakeServo.Move(ctx, 110)
 	if err != nil {
 		return err
@@ -150,20 +162,32 @@ func CloseBox(ctx context.Context, b board.Board) error {
 
 // TiltField TODO
 func TiltField(ctx context.Context, b board.Board) error {
-	tiltServo := b.Servo("tilt")
+	tiltServo, ok := b.ServoByName("tilt")
+	if !ok {
+		return errors.New("til not found")
+	}
 	return tiltServo.Move(ctx, 70)
 }
 
 // FlatField TODO
 func FlatField(ctx context.Context, b board.Board) error {
-	tiltServo := b.Servo("tilt")
+	tiltServo, ok := b.ServoByName("tilt")
+	if !ok {
+		return errors.New("closed not found")
+	}
 	return tiltServo.Move(ctx, 32)
 }
 
 // ReplaceObject TODO
 func ReplaceObject(ctx context.Context, theRobot robot.Robot) error {
-	myArm := theRobot.ArmByName("pieceArm")
-	myGripper := theRobot.GripperByName("pieceGripper")
+	myArm, ok := theRobot.ArmByName("pieceArm")
+	if !ok {
+		return errors.New("pieceArm not found")
+	}
+	myGripper, ok := theRobot.GripperByName("pieceGripper")
+	if !ok {
+		return errors.New("pieceGripper not found")
+	}
 	err := myGripper.Open(ctx)
 	if err != nil {
 		return err

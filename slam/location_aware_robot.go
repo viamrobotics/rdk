@@ -49,7 +49,7 @@ type LocationAwareRobot struct {
 	rootArea        *SquareArea
 	presentViewArea *SquareArea
 
-	compassSensor compass.Compass
+	compassensor compass.Compass
 
 	clientZoom          float64
 	clientClickMode     pb.ClickMode
@@ -74,7 +74,7 @@ func NewLocationAwareRobot(
 	area *SquareArea,
 	devices []lidar.Lidar,
 	deviceOffsets []DeviceOffset,
-	compassSensor compass.Compass,
+	compassensor compass.Compass,
 	logger golog.Logger,
 ) (*LocationAwareRobot, error) {
 	baseDeviceWidth, err := baseDevice.WidthMillis(ctx)
@@ -115,7 +115,7 @@ func NewLocationAwareRobot(
 		rootArea:        area,
 		presentViewArea: presentViewArea,
 
-		compassSensor: compassSensor,
+		compassensor: compassensor,
 
 		clientZoom:          1,
 		clientClickMode:     pb.ClickMode_CLICK_MODE_INFO,

@@ -31,6 +31,9 @@ import (
 //go:embed ur5e.json
 var ur5modeljson []byte
 
+//go:embed ur5e_DH.json
+var ur5DHmodeljson []byte
+
 func init() {
 	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
@@ -179,7 +182,10 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions,
 // CurrentPosition computes and returns the current cartesian position.
 func (ua *URArm) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := ua.CurrentJointPositions(ctx)
-	return kinematics.ComputePosition(ua.ik.Mdl(), joints), err
+	if err != nil {
+		return nil, err
+	}
+	return kinematics.ComputePosition(ua.ik.Mdl(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

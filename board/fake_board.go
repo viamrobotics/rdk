@@ -64,28 +64,28 @@ type FakeBoard struct {
 	CloseCount int
 }
 
-// Motor returns the motor by the given name if it exists.
-func (b *FakeBoard) Motor(name string) Motor {
+// MotorByName returns the motor by the given name if it exists.
+func (b *FakeBoard) MotorByName(name string) (Motor, bool) {
 	m, ok := b.motors[name]
-	if ok {
-		return m
-	}
-	return nil
+	return m, ok
 }
 
-// Servo returns the servo by the given name if it exists.
-func (b *FakeBoard) Servo(name string) Servo {
-	return b.servos[name]
+// ServoByName returns the servo by the given name if it exists.
+func (b *FakeBoard) ServoByName(name string) (Servo, bool) {
+	s, ok := b.servos[name]
+	return s, ok
 }
 
-// AnalogReader returns the analog reader by the given name if it exists.
-func (b *FakeBoard) AnalogReader(name string) AnalogReader {
-	return b.analogs[name]
+// AnalogReaderByName returns the analog reader by the given name if it exists.
+func (b *FakeBoard) AnalogReaderByName(name string) (AnalogReader, bool) {
+	a, ok := b.analogs[name]
+	return a, ok
 }
 
-// DigitalInterrupt returns the interrupt by the given name if it exists.
-func (b *FakeBoard) DigitalInterrupt(name string) DigitalInterrupt {
-	return b.digitals[name]
+// DigitalInterruptByName returns the interrupt by the given name if it exists.
+func (b *FakeBoard) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
+	d, ok := b.digitals[name]
+	return d, ok
 }
 
 // GPIOSet sets the given pin to either low or high.

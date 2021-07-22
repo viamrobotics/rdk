@@ -14,21 +14,17 @@ import (
 // A Board represents a physical general purpose board that contains various
 // components such as motors, servos, analog readers, and digital interrupts.
 type Board interface {
-	// Motor returns a motor by name. If it does not exist
-	// nil is returned.
-	Motor(name string) Motor
+	// MotorByName returns a motor by name.
+	MotorByName(name string) (Motor, bool)
 
-	// Servo returns a servo by name. If it does not exist
-	// nil is returned.
-	Servo(name string) Servo
+	// ServoByName returns a servo by name.
+	ServoByName(name string) (Servo, bool)
 
-	// AnalogReader returns an analog reader by name. If it does not exist
-	// nil is returned.
-	AnalogReader(name string) AnalogReader
+	// AnalogReaderByName returns an analog reader by name.
+	AnalogReaderByName(name string) (AnalogReader, bool)
 
-	// DigitalInterrupt returns a digital interrupt by name. If it does not exist
-	// nil is returned.
-	DigitalInterrupt(name string) DigitalInterrupt
+	// DigitalInterruptByName returns a digital interrupt by name.
+	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
