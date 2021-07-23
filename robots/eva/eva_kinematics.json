@@ -16,7 +16,7 @@
             "id": "base_top",
             "parent": "waist",
             "translation": {
-               "x": -56,
+               "x": 56,
                "y": 0,
                "z": 283
             }
@@ -34,7 +34,7 @@
             "id": "upper_forearm",
             "parent": "elbow",
             "translation": {
-               "x": 56,
+               "x": -56,
                "y": 0,
                "z": 124
             }
@@ -52,7 +52,7 @@
             "id": "gripper_mount_base",
             "parent": "wrist",
             "translation": {
-               "x": 65,
+               "x": -65,
                "y": 0,
                "z": 104
             }
@@ -70,7 +70,7 @@
                "x": 0,
                "y": 0,
                "z": 1,
-               "th": 0
+               "th": 90
             }
          }
       ],
@@ -97,7 +97,8 @@
                "z": 0
             },
             "max": 70,
-            "min": -155
+            "min": -155,
+            "direction":"cw"
          },
          {
             "id": "elbow",
@@ -109,7 +110,8 @@
                "z": 0
             },
             "max": 45,
-            "min": -160
+            "min": -160,
+            "direction":"cw"
          },
          {
             "id": "forearm_rot",
@@ -133,7 +135,8 @@
                "z": 0
             },
             "max": 10,
-            "min": -155
+            "min": -155,
+            "direction":"cw"
          },
          {
             "id": "gripper_rot",
