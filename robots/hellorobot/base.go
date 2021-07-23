@@ -20,8 +20,8 @@ import (
 
 func init() {
 	registry.RegisterBase(ModelName, func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		t := r.ProviderByName(ModelName)
-		if t == nil {
+		t, ok := r.ProviderByName(ModelName)
+		if !ok {
 			return nil, errors.New("no provider created for hellorobot")
 		}
 		return t.(*Robot).Base()

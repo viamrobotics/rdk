@@ -20,8 +20,8 @@ import (
 func init() {
 	registry.RegisterCamera("rotate", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
-		source := r.CameraByName(sourceName)
-		if source == nil {
+		source, ok := r.CameraByName(sourceName)
+		if !ok {
 			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 		}
 
@@ -30,8 +30,8 @@ func init() {
 
 	registry.RegisterCamera("resize", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
-		source := r.CameraByName(sourceName)
-		if source == nil {
+		source, ok := r.CameraByName(sourceName)
+		if !ok {
 			return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
 		}
 

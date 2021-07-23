@@ -162,7 +162,10 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	}
 
 	for _, name := range theRobot.CameraNames() {
-		cam := theRobot.CameraByName(name)
+		cam, ok := theRobot.CameraByName(name)
+		if !ok {
+			continue
+		}
 		cmp := conf.FindComponent(name)
 		if cmp != nil && cmp.Attributes.Bool("hide", false) {
 			continue
@@ -173,7 +176,10 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	}
 
 	for _, name := range theRobot.LidarNames() {
-		device := theRobot.LidarByName(name)
+		device, ok := theRobot.LidarByName(name)
+		if !ok {
+			continue
+		}
 		cmp := conf.FindComponent(name)
 		if cmp != nil && cmp.Attributes.Bool("hide", false) {
 			continue
@@ -202,7 +208,10 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName str
 	}
 
 	armName := h.app.theRobot.ArmNames()[0]
-	arm := h.app.theRobot.ArmByName(armName)
+	arm, ok := h.app.theRobot.ArmByName(armName)
+	if !ok {
+		return fmt.Errorf("failed tor find arm %q", armName)
+	}
 
 	frameLookup, err := h.app.theRobot.FrameLookup(ctx)
 	if err != nil {
@@ -227,8 +236,8 @@ func (h *grabAtCameraPositionHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 	ctx := context.Background()
 
 	cameraName := pat.Param(r, "camera")
-	camera := h.app.theRobot.CameraByName(cameraName)
-	if camera == nil {
+	camera, ok := h.app.theRobot.CameraByName(cameraName)
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}

@@ -6,7 +6,18 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/adrianmo/go-nmea v1.3.0
+	github.com/awalterschulze/gographviz v0.0.0-20180131143711-c45f112108a6 // indirect
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
+	github.com/cnkei/gospline v0.0.0-20191204072713-842a72f86331
+	github.com/cznic/b v0.0.0-20180115125044-35e9bbe41f07 // indirect
+	github.com/cznic/fileutil v0.0.0-20180108211300-6a051e75936f // indirect
+	github.com/cznic/internal v0.0.0-20170905175358-4747030f7cf2 // indirect
+	github.com/cznic/lldb v1.1.0 // indirect
+	github.com/cznic/mathutil v0.0.0-20180504122225-ca4c9f2c1369 // indirect
+	github.com/cznic/ql v1.1.0 // indirect
+	github.com/cznic/sortutil v0.0.0-20150617083342-4c7342852e65 // indirect
+	github.com/cznic/strutil v0.0.0-20171016134553-529a34b1c186 // indirect
+	github.com/cznic/zappy v0.0.0-20160723133515-2533cb5b45cc // indirect
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
@@ -34,6 +45,7 @@ require (
 	github.com/jblindsay/lidario v0.0.0-20170420150243-bb03e55f9757
 	github.com/jhump/protoreflect v1.8.1 // indirect
 	github.com/klauspost/compress v1.11.7 // indirect
+	github.com/llgcode/draw2d v0.0.0-20180124133339-274031cf2abe // indirect
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/mitchellh/mapstructure v1.4.1
@@ -49,8 +61,10 @@ require (
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
+	github.com/tfriedel6/canvas v0.12.1 // indirect
 	github.com/tidwall/pretty v1.0.2 // indirect
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
+	go-hep.org/x/hep v0.28.5 // indirect
 	go.mongodb.org/mongo-driver v1.5.3
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.6.0
@@ -64,6 +78,7 @@ require (
 	golang.org/x/tools v0.1.3
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/netlib v0.0.0-20201012070519-2390d26c3658 // indirect
+	gonum.org/v1/plot v0.8.1 // indirect
 	google.golang.org/genproto v0.0.0-20210617175327-b9e0b3197ced
 	google.golang.org/grpc v1.38.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0

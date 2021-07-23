@@ -21,8 +21,8 @@ import (
 
 func init() {
 	registry.RegisterGripper("softrobotics", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
-		b := r.BoardByName("local")
-		if b == nil {
+		b, ok := r.BoardByName("local")
+		if !ok {
 			return nil, errors.New("softrobotics gripper requires a board called local")
 		}
 		return NewGripper(ctx, b, config, logger)
@@ -45,9 +45,13 @@ type Gripper struct {
 
 // NewGripper TODO
 func NewGripper(ctx context.Context, b board.Board, config config.Component, logger golog.Logger) (*Gripper, error) {
+	psi, ok := b.AnalogReaderByName("psi")
+	if !ok {
+		return nil, errors.New("failed to find analog reader 'psi'")
+	}
 	theGripper := &Gripper{
 		theBoard: b,
-		psi:      b.AnalogReader("psi"),
+		psi:      psi,
 		pinOpen:  config.Attributes.String("open"),
 		pinClose: config.Attributes.String("close"),
 		pinPower: config.Attributes.String("power"),

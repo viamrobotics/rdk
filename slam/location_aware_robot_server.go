@@ -50,14 +50,14 @@ func (s *LocationAwareRobotServer) Stats(ctx context.Context, _ *pb.StatsRequest
 func (s *LocationAwareRobotServer) Calibrate(ctx context.Context, _ *pb.CalibrateRequest) (resp *pb.CalibrateResponse, err error) {
 	s.lar.serverMu.Lock()
 	defer s.lar.serverMu.Unlock()
-	if s.lar.compassSensor == nil {
+	if s.lar.compassensor == nil {
 		return &pb.CalibrateResponse{}, nil
 	}
-	if err := s.lar.compassSensor.StartCalibration(ctx); err != nil {
+	if err := s.lar.compassensor.StartCalibration(ctx); err != nil {
 		return nil, err
 	}
 	defer func() {
-		if stopErr := s.lar.compassSensor.StopCalibration(ctx); stopErr != nil {
+		if stopErr := s.lar.compassensor.StopCalibration(ctx); stopErr != nil {
 			err = multierr.Combine(err, stopErr)
 		}
 	}()
