@@ -307,27 +307,50 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 func NewBoat(r robot.Robot) (*Boat, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
-	b.theBoard = r.BoardByName("local")
-	if b.theBoard == nil {
+	var ok bool
+	b.theBoard, ok = r.BoardByName("local")
+	if !ok {
 		return nil, errors.New("cannot find board")
 	}
 
-	b.starboard = b.theBoard.Motor("starboard")
-	b.port = b.theBoard.Motor("port")
-
-	if b.starboard == nil || b.port == nil {
-		return nil, errors.New("need a starboard and port motor")
+	b.starboard, ok = b.theBoard.MotorByName("starboard")
+	if !ok {
+		return nil, errors.New("need a starboard motor")
 	}
 
-	b.throttle = b.theBoard.DigitalInterrupt("throttle")
-	b.direction = b.theBoard.DigitalInterrupt("direction")
-	b.mode = b.theBoard.DigitalInterrupt("mode")
-	b.aSwitch = b.theBoard.DigitalInterrupt("a")
-	b.rightHorizontal = b.theBoard.DigitalInterrupt("right-horizontal")
-	b.rightVertical = b.theBoard.DigitalInterrupt("right-vertical")
+	b.port, ok = b.theBoard.MotorByName("port")
+	if !ok {
+		return nil, errors.New("need a port motor")
+	}
 
-	if b.throttle == nil || b.direction == nil || b.mode == nil {
-		return nil, errors.New("need a throttle and direction and mode")
+	b.throttle, ok = b.theBoard.DigitalInterruptByName("throttle")
+	if !ok {
+		return nil, errors.New("need a throttle digital interrupt")
+	}
+
+	b.direction, ok = b.theBoard.DigitalInterruptByName("direction")
+	if !ok {
+		return nil, errors.New("need a direction digital interrupt")
+	}
+
+	b.mode, ok = b.theBoard.DigitalInterruptByName("mode")
+	if !ok {
+		return nil, errors.New("need a mode digital interrupt")
+	}
+
+	b.aSwitch, ok = b.theBoard.DigitalInterruptByName("a")
+	if !ok {
+		return nil, errors.New("need a a digital interrupt")
+	}
+
+	b.rightHorizontal, ok = b.theBoard.DigitalInterruptByName("right-horizontal")
+	if !ok {
+		return nil, errors.New("need a horizontal digital interrupt")
+	}
+
+	b.rightVertical, ok = b.theBoard.DigitalInterruptByName("right-vertical")
+	if !ok {
+		return nil, errors.New("need a vertical digital interrupt")
 	}
 
 	return b, nil
@@ -360,6 +383,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	myRobot.AddBase(boat, config.Component{Name: "boatbot"})
 
+	depth1, ok := myRobot.SensorByName("depth1")
+	if !ok {
+		return errors.New("failed to find depth1 sensor")
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -370,7 +398,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		trackGPS(ctx)
 	}, activeBackgroundWorkers.Done)
 	utils.ManagedGo(func() {
-		recordDepthWorker(ctx, myRobot.SensorByName("depth1"))
+		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
 	if err := webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger); err != nil && !errors.Is(err, context.Canceled) {

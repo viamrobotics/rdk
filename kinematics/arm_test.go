@@ -46,9 +46,9 @@ func TestCombinedIKinematics(t *testing.T) {
 		X:  -66,
 		Y:  -133,
 		Z:  372,
-		OX: -178.88747811107424,
-		OY: -33.160094626838045,
-		OZ: -111.02282693533935,
+		OX: 1.78,
+		OY: -3.3,
+		OZ: -1.11,
 	}
 	_, err = ik.Solve(context.Background(), pos, solution)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,8 +66,9 @@ func BenchCombinedIKinematics(t *testing.B) {
 	solvedCnt := 0
 	for i := 0; i < toSolve; i++ {
 		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
-		randPos := ComputePosition(m, randJointPos)
-		_, err := ik.Solve(context.Background(), randPos, home)
+		randPos, err := ComputePosition(m, randJointPos)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = ik.Solve(context.Background(), randPos, home)
 		if err == nil {
 			solvedCnt++
 		}
@@ -83,7 +84,8 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	ik := CreateCombinedIKSolver(m, logger, nCPU)
 
 	goalJP := arm.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
-	goal := ComputePosition(m, goalJP)
+	goal, err := ComputePosition(m, goalJP)
+	test.That(t, err, test.ShouldBeNil)
 	_, err = ik.Solve(context.Background(), goal, home)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -114,4 +116,32 @@ func TestIKTolerances(t *testing.T) {
 
 	_, err = ik.Solve(context.Background(), pos, home)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestSVAvsDH(t *testing.T) {
+	mSVA, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
+	test.That(t, err, test.ShouldBeNil)
+	mDH, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	numTests := 10000
+
+	seed := rand.New(rand.NewSource(23))
+	for i := 0; i < numTests; i++ {
+		joints := arm.JointPositionsFromRadians(mSVA.GenerateRandomJointPositions(seed))
+
+		posSVA, err := ComputePosition(mSVA, joints)
+		test.That(t, err, test.ShouldBeNil)
+		posDH, err := ComputePosition(mDH, joints)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, posSVA.X, test.ShouldAlmostEqual, posDH.X, .01)
+		test.That(t, posSVA.Y, test.ShouldAlmostEqual, posDH.Y, .01)
+		test.That(t, posSVA.Z, test.ShouldAlmostEqual, posDH.Z, .01)
+
+		test.That(t, posSVA.OX, test.ShouldAlmostEqual, posDH.OX, .01)
+		test.That(t, posSVA.OY, test.ShouldAlmostEqual, posDH.OY, .01)
+		test.That(t, posSVA.OZ, test.ShouldAlmostEqual, posDH.OZ, .01)
+		test.That(t, posSVA.Theta, test.ShouldAlmostEqual, posDH.Theta, .01)
+	}
 }

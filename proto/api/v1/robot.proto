@@ -1,5 +1,6 @@
 syntax = "proto3";
 option go_package = "go.viam.com/core/proto/api/v1";
+option java_package = "com.viam.core.proto.api.v1";
 
 package proto.api.v1;
 
@@ -133,6 +134,15 @@ service RobotService {
 	rpc PointCloud(PointCloudRequest) returns (PointCloudResponse) {
 		option (google.api.http) = {
 			get: "/api/v1/camera/{name}/pointcloud"
+		};
+	}
+
+    // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+    // as well as the 3-vector center of each of the found objects.
+    // A specific MIME type can be requested but may not necessarily be the same one returned.
+	rpc ObjectPointClouds(ObjectPointCloudsRequest) returns (ObjectPointCloudsResponse) {
+		option (google.api.http) = {
+			get: "/api/v1/camera/{name}/objectpointclouds"
 		};
 	}
 
@@ -446,6 +456,26 @@ message PointCloudRequest {
 message PointCloudResponse {
 	string mime_type = 1;
 	bytes frame = 2;
+}
+
+message ObjectPointCloudsRequest {
+	string name = 1;
+	string mime_type = 2;
+   	int64 min_points_in_plane = 3;
+    	int64 min_points_in_segment = 4;
+    	double clustering_radius = 5;
+}
+
+message Vector3 {
+	double x = 1;
+	double y = 2;
+	double z = 3;
+}
+
+message ObjectPointCloudsResponse {
+	string mime_type = 1;
+	repeated bytes frames = 2;
+	repeated Vector3 centers = 3;
 }
 
 // Lidar

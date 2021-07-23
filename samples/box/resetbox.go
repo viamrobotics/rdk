@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.viam.com/utils"
@@ -34,23 +35,54 @@ var (
 	duckplaceFW  = &pb.JointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
 	duckgrabREV  = &pb.JointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
 	duckplaceREV = &pb.JointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
+
+	armName     = "xArm6"
+	gripperName = "vg1"
+	boardName   = "resetDriveBoard"
+	readyPin    = "ready"
 )
 
 func init() {
-	action.RegisterAction("ResetBox", ResetBox)
-	action.RegisterAction("toggle", toggleTrigger)
-	action.RegisterAction("resetCube", resetCube)
-	action.RegisterAction("resetDuck", resetDuck)
+	action.RegisterAction("ResetBox", func(ctx context.Context, r robot.Robot) {
+		err := ResetBox(ctx, r)
+		if err != nil {
+			logger.Errorf("error ResetBox: %s", err)
+		}
+	})
+	action.RegisterAction("toggle", func(ctx context.Context, r robot.Robot) {
+		err := toggleTrigger(ctx, r)
+		if err != nil {
+			logger.Errorf("error toggleTrigger: %s", err)
+		}
+	})
+	action.RegisterAction("resetCube", func(ctx context.Context, r robot.Robot) {
+		err := resetCube(ctx, r)
+		if err != nil {
+			logger.Errorf("error resetCube: %s", err)
+		}
+	})
+	action.RegisterAction("resetDuck", func(ctx context.Context, r robot.Robot) {
+		err := resetDuck(ctx, r)
+		if err != nil {
+			logger.Errorf("error resetDuck: %s", err)
+		}
+	})
 }
 
 // ResetBox will dump the playing field,
-func ResetBox(ctx context.Context, theRobot robot.Robot) {
+func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 
 	waitForResetReady(ctx, theRobot)
 
-	rArm := theRobot.ArmByName("xArm6")
+	rArm, ok := theRobot.ArmByName(armName)
+	if !ok {
+		return fmt.Errorf("failed to find arm %s", armName)
+	}
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
-	gripper := theRobot.GripperByName("vg1")
+	gripper, ok := theRobot.GripperByName(gripperName)
+	if !ok {
+		return fmt.Errorf("failed to find gripper %s", gripperName)
+	}
 	gripper.Open(ctx)
 
 	// Dump the platform,
@@ -67,39 +99,47 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) {
 	resetDuck(ctx, theRobot)
 	toggleTrigger(ctx, theRobot)
 	rArm.MoveToJointPositions(ctx, startPos)
+	return nil
 }
 
 // toggleTrigger will set the pin on which the arduino listens to high for 100ms, then back to low, to signal that the
 // arduino should proceed with whatever the next step
-func toggleTrigger(ctx context.Context, theRobot robot.Robot) {
-	resetBoard := theRobot.BoardByName("resetDriveBoard")
+func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
+	resetBoard, ok := theRobot.BoardByName(boardName)
+	if !ok {
+		return fmt.Errorf("failed to find board %s", boardName)
+	}
 	resetBoard.GPIOSet("37", true)
 	select {
 	case <-ctx.Done():
 	case <-time.After(100 * time.Millisecond):
 	}
 	resetBoard.GPIOSet("37", false)
+	return nil
 }
 
 // waitForReady waits for the arduino controlling the reset box to signal it is an item is available (first cubes,
 // then duck).
 // This function will block until the "ready" pin is high.
-func waitForReady(ctx context.Context, theRobot robot.Robot) {
+func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 	select {
 	case <-ctx.Done():
-		return
+		return nil
 	case <-time.After(1500 * time.Millisecond):
 	}
-	resetBoard := theRobot.BoardByName("resetDriveBoard")
+	resetBoard, ok := theRobot.BoardByName(boardName)
+	if !ok {
+		return fmt.Errorf("failed to find board %s", boardName)
+	}
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
 		case <-time.After(100 * time.Millisecond):
 		}
 		ready, _ := resetBoard.GPIOGet("35")
 		if ready {
-			return
+			return nil
 		}
 	}
 }
@@ -107,9 +147,15 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) {
 // waitForResetReady waits for the arduino controlling the reset box to signal it is ready for a new reset cycle.
 // Strobing means it is ready for a new reset cycle to begin.
 // This function will block until the "ready" pin has strobed 30 times.
-func waitForResetReady(ctx context.Context, theRobot robot.Robot) {
-	resetBoard := theRobot.BoardByName("resetDriveBoard")
-	interrupt := resetBoard.DigitalInterrupt("ready")
+func waitForResetReady(ctx context.Context, theRobot robot.Robot) error {
+	resetBoard, ok := theRobot.BoardByName(boardName)
+	if !ok {
+		return fmt.Errorf("failed to find board %s", boardName)
+	}
+	interrupt, ok := resetBoard.DigitalInterruptByName("ready")
+	if !ok {
+		return fmt.Errorf("failed to find interrupt %s", readyPin)
+	}
 	ticks := interrupt.Value()
 	for interrupt.Value() < ticks+30 {
 		select {
@@ -117,11 +163,18 @@ func waitForResetReady(ctx context.Context, theRobot robot.Robot) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+	return nil
 }
 
-func resetCube(ctx context.Context, theRobot robot.Robot) {
-	rArm := theRobot.ArmByName("xArm6")
-	gripper := theRobot.GripperByName("vg1")
+func resetCube(ctx context.Context, theRobot robot.Robot) error {
+	rArm, ok := theRobot.ArmByName(armName)
+	if !ok {
+		return fmt.Errorf("failed to find arm %s", armName)
+	}
+	gripper, ok := theRobot.GripperByName(gripperName)
+	if !ok {
+		return fmt.Errorf("failed to find gripper %s", gripperName)
+	}
 
 	// Grab cube 1 and reset it on the field
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
@@ -139,12 +192,18 @@ func resetCube(ctx context.Context, theRobot robot.Robot) {
 	gripper.Grab(ctx)
 	rArm.MoveToJointPositions(ctx, grabReadyPos)
 	rArm.MoveToJointPositions(ctx, cube2place)
-	gripper.Open(ctx)
+	return gripper.Open(ctx)
 }
 
-func resetDuck(ctx context.Context, theRobot robot.Robot) {
-	rArm := theRobot.ArmByName("xArm6")
-	gripper := theRobot.GripperByName("vg1")
+func resetDuck(ctx context.Context, theRobot robot.Robot) error {
+	rArm, ok := theRobot.ArmByName(armName)
+	if !ok {
+		return fmt.Errorf("failed to find arm %s", armName)
+	}
+	gripper, ok := theRobot.GripperByName(gripperName)
+	if !ok {
+		return fmt.Errorf("failed to find gripper %s", gripperName)
+	}
 
 	// We move into position while the box is resetting the duck to save time
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
@@ -169,6 +228,7 @@ func resetDuck(ctx context.Context, theRobot robot.Robot) {
 		rArm.MoveToJointPositions(ctx, duckplaceREV)
 		gripper.Open(ctx)
 	}
+	return nil
 }
 
 func main() {

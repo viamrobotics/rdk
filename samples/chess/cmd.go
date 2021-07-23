@@ -361,8 +361,8 @@ func lookForBoardAdjust(ctx context.Context, myArm arm.Arm, wristCam gostream.Im
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
 	debugNumber := 0
 
-	wristCam := myRobot.CameraByName("wristCam")
-	if wristCam == nil {
+	wristCam, ok := myRobot.CameraByName("wristCam")
+	if !ok {
 		return errors.New("can't find wristCam")
 	}
 
@@ -413,12 +413,15 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return ctx.Err()
 	}
 
-	cam := robot.CameraByName("gripperCam")
-	if cam == nil {
+	cam, ok := robot.CameraByName("gripperCam")
+	if !ok {
 		return errors.New("can't find gripperCam")
 	}
 
-	arm := robot.ArmByName("pieceArm")
+	arm, ok := robot.ArmByName("pieceArm")
+	if !ok {
+		return errors.New("can't find pieceArm")
+	}
 
 	for {
 		where, err := arm.CurrentPosition(ctx)
@@ -512,18 +515,18 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(myRobot.Close())
 	}()
 
-	myArm := myRobot.ArmByName("pieceArm")
-	if myArm == nil {
+	myArm, ok := myRobot.ArmByName("pieceArm")
+	if !ok {
 		return errors.New("need an arm called pieceArm")
 	}
 
-	myGripper := myRobot.GripperByName("grippie")
-	if myGripper == nil {
+	myGripper, ok := myRobot.GripperByName("grippie")
+	if !ok {
 		return errors.New("need a gripper called gripped")
 	}
 
-	webcam := myRobot.CameraByName("cameraOver")
-	if webcam == nil {
+	webcam, ok := myRobot.CameraByName("cameraOver")
+	if !ok {
 		return errors.New("can't find cameraOver camera")
 	}
 

@@ -24,15 +24,15 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.Robot
-	RemoteByNameFunc   func(name string) robot.Robot
-	ArmByNameFunc      func(name string) arm.Arm
-	BaseByNameFunc     func(name string) base.Base
-	GripperByNameFunc  func(name string) gripper.Gripper
-	CameraByNameFunc   func(name string) camera.Camera
-	LidarByNameFunc    func(name string) lidar.Lidar
-	BoardByNameFunc    func(name string) board.Board
-	SensorByNameFunc   func(name string) sensor.Sensor
-	ProviderByNameFunc func(name string) robot.Provider
+	RemoteByNameFunc   func(name string) (robot.Robot, bool)
+	ArmByNameFunc      func(name string) (arm.Arm, bool)
+	BaseByNameFunc     func(name string) (base.Base, bool)
+	GripperByNameFunc  func(name string) (gripper.Gripper, bool)
+	CameraByNameFunc   func(name string) (camera.Camera, bool)
+	LidarByNameFunc    func(name string) (lidar.Lidar, bool)
+	BoardByNameFunc    func(name string) (board.Board, bool)
+	SensorByNameFunc   func(name string) (sensor.Sensor, bool)
+	ProviderByNameFunc func(name string) (robot.Provider, bool)
 	RemoteNamesFunc    func() []string
 	ArmNamesFunc       func() []string
 	GripperNamesFunc   func() []string
@@ -50,7 +50,7 @@ type Robot struct {
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
-func (r *Robot) RemoteByName(name string) robot.Robot {
+func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 	if r.RemoteByNameFunc == nil {
 		return r.Robot.RemoteByName(name)
 	}
@@ -58,7 +58,7 @@ func (r *Robot) RemoteByName(name string) robot.Robot {
 }
 
 // ArmByName calls the injected ArmByName or the real version.
-func (r *Robot) ArmByName(name string) arm.Arm {
+func (r *Robot) ArmByName(name string) (arm.Arm, bool) {
 	if r.ArmByNameFunc == nil {
 		return r.Robot.ArmByName(name)
 	}
@@ -66,7 +66,7 @@ func (r *Robot) ArmByName(name string) arm.Arm {
 }
 
 // BaseByName calls the injected BaseByName or the real version.
-func (r *Robot) BaseByName(name string) base.Base {
+func (r *Robot) BaseByName(name string) (base.Base, bool) {
 	if r.BaseByNameFunc == nil {
 		return r.Robot.BaseByName(name)
 	}
@@ -74,7 +74,7 @@ func (r *Robot) BaseByName(name string) base.Base {
 }
 
 // GripperByName calls the injected GripperByName or the real version.
-func (r *Robot) GripperByName(name string) gripper.Gripper {
+func (r *Robot) GripperByName(name string) (gripper.Gripper, bool) {
 	if r.GripperByNameFunc == nil {
 		return r.Robot.GripperByName(name)
 	}
@@ -82,7 +82,7 @@ func (r *Robot) GripperByName(name string) gripper.Gripper {
 }
 
 // CameraByName calls the injected CameraByName or the real version.
-func (r *Robot) CameraByName(name string) camera.Camera {
+func (r *Robot) CameraByName(name string) (camera.Camera, bool) {
 	if r.CameraByNameFunc == nil {
 		return r.Robot.CameraByName(name)
 	}
@@ -90,7 +90,7 @@ func (r *Robot) CameraByName(name string) camera.Camera {
 }
 
 // LidarByName calls the injected LidarByName or the real version.
-func (r *Robot) LidarByName(name string) lidar.Lidar {
+func (r *Robot) LidarByName(name string) (lidar.Lidar, bool) {
 	if r.LidarByNameFunc == nil {
 		return r.Robot.LidarByName(name)
 	}
@@ -98,7 +98,7 @@ func (r *Robot) LidarByName(name string) lidar.Lidar {
 }
 
 // BoardByName calls the injected BoardByName or the real version.
-func (r *Robot) BoardByName(name string) board.Board {
+func (r *Robot) BoardByName(name string) (board.Board, bool) {
 	if r.BoardByNameFunc == nil {
 		return r.Robot.BoardByName(name)
 	}
@@ -106,7 +106,7 @@ func (r *Robot) BoardByName(name string) board.Board {
 }
 
 // SensorByName calls the injected SensorByName or the real version.
-func (r *Robot) SensorByName(name string) sensor.Sensor {
+func (r *Robot) SensorByName(name string) (sensor.Sensor, bool) {
 	if r.SensorByNameFunc == nil {
 		return r.Robot.SensorByName(name)
 	}
@@ -114,7 +114,7 @@ func (r *Robot) SensorByName(name string) sensor.Sensor {
 }
 
 // ProviderByName calls the injected ProviderByName or the real version.
-func (r *Robot) ProviderByName(name string) robot.Provider {
+func (r *Robot) ProviderByName(name string) (robot.Provider, bool) {
 	if r.ProviderByNameFunc == nil {
 		return r.Robot.ProviderByName(name)
 	}

@@ -451,6 +451,14 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.ObjectPointCloudsRequest"><span class="badge">M</span>ObjectPointCloudsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.ObjectPointCloudsResponse"><span class="badge">M</span>ObjectPointCloudsResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.PointCloudRequest"><span class="badge">M</span>PointCloudRequest</a>
                 </li>
               
@@ -520,6 +528,10 @@
               
                 <li>
                   <a href="#proto.api.v1.StatusStreamResponse"><span class="badge">M</span>StatusStreamResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.Vector3"><span class="badge">M</span>Vector3</a>
                 </li>
               
               
@@ -2456,6 +2468,96 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>min_points_in_plane</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>min_points_in_segment</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>clustering_radius</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.ObjectPointCloudsResponse">ObjectPointCloudsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mime_type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frames</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>centers</td>
+                  <td><a href="#proto.api.v1.Vector3">Vector3</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.v1.PointCloudRequest">PointCloudRequest</h3>
         <p></p>
 
@@ -2976,6 +3078,44 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
 
         
       
+        <h3 id="proto.api.v1.Vector3">Vector3</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>x</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>y</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>z</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
 
       
         <h3 id="proto.api.v1.DirectionRelative">DirectionRelative</h3>
@@ -3134,6 +3274,15 @@ can be requested but may not necessarily be the same one returned.</p></td>
                 <td><a href="#proto.api.v1.PointCloudResponse">PointCloudResponse</a></td>
                 <td><p>PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 can be requested but may not necessarily be the same one returned.</p></td>
+              </tr>
+            
+              <tr>
+                <td>ObjectPointClouds</td>
+                <td><a href="#proto.api.v1.ObjectPointCloudsRequest">ObjectPointCloudsRequest</a></td>
+                <td><a href="#proto.api.v1.ObjectPointCloudsResponse">ObjectPointCloudsResponse</a></td>
+                <td><p>ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+as well as the 3-vector center of each of the found objects.
+A specific MIME type can be requested but may not necessarily be the same one returned.</p></td>
               </tr>
             
               <tr>
@@ -3423,6 +3572,16 @@ the request.</p></td>
                 <td>PointCloud</td>
                 <td>GET</td>
                 <td>/api/v1/camera/{name}/pointcloud</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>ObjectPointClouds</td>
+                <td>GET</td>
+                <td>/api/v1/camera/{name}/objectpointclouds</td>
                 <td></td>
               </tr>
               

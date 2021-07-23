@@ -1,5 +1,6 @@
 syntax = "proto3";
 option go_package = "go.viam.com/core/proto/slam/v1";
+option java_package = "com.viam.core.proto.slam.v1";
 
 package proto.slam.v1;
 

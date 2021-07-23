@@ -852,6 +852,104 @@ export namespace PointCloudResponse {
   }
 }
 
+export class ObjectPointCloudsRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  getMimeType(): string;
+  setMimeType(value: string): void;
+
+  getMinPointsInPlane(): number;
+  setMinPointsInPlane(value: number): void;
+
+  getMinPointsInSegment(): number;
+  setMinPointsInSegment(value: number): void;
+
+  getClusteringRadius(): number;
+  setClusteringRadius(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ObjectPointCloudsRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectPointCloudsRequest): ObjectPointCloudsRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ObjectPointCloudsRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectPointCloudsRequest;
+  static deserializeBinaryFromReader(message: ObjectPointCloudsRequest, reader: jspb.BinaryReader): ObjectPointCloudsRequest;
+}
+
+export namespace ObjectPointCloudsRequest {
+  export type AsObject = {
+    name: string,
+    mimeType: string,
+    minPointsInPlane: number,
+    minPointsInSegment: number,
+    clusteringRadius: number,
+  }
+}
+
+export class Vector3 extends jspb.Message {
+  getX(): number;
+  setX(value: number): void;
+
+  getY(): number;
+  setY(value: number): void;
+
+  getZ(): number;
+  setZ(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): Vector3.AsObject;
+  static toObject(includeInstance: boolean, msg: Vector3): Vector3.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: Vector3, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): Vector3;
+  static deserializeBinaryFromReader(message: Vector3, reader: jspb.BinaryReader): Vector3;
+}
+
+export namespace Vector3 {
+  export type AsObject = {
+    x: number,
+    y: number,
+    z: number,
+  }
+}
+
+export class ObjectPointCloudsResponse extends jspb.Message {
+  getMimeType(): string;
+  setMimeType(value: string): void;
+
+  clearFramesList(): void;
+  getFramesList(): Array<Uint8Array | string>;
+  getFramesList_asU8(): Array<Uint8Array>;
+  getFramesList_asB64(): Array<string>;
+  setFramesList(value: Array<Uint8Array | string>): void;
+  addFrames(value: Uint8Array | string, index?: number): Uint8Array | string;
+
+  clearCentersList(): void;
+  getCentersList(): Array<Vector3>;
+  setCentersList(value: Array<Vector3>): void;
+  addCenters(value?: Vector3, index?: number): Vector3;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): ObjectPointCloudsResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: ObjectPointCloudsResponse): ObjectPointCloudsResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: ObjectPointCloudsResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): ObjectPointCloudsResponse;
+  static deserializeBinaryFromReader(message: ObjectPointCloudsResponse, reader: jspb.BinaryReader): ObjectPointCloudsResponse;
+}
+
+export namespace ObjectPointCloudsResponse {
+  export type AsObject = {
+    mimeType: string,
+    framesList: Array<Uint8Array | string>,
+    centersList: Array<Vector3.AsObject>,
+  }
+}
+
 export class LidarMeasurement extends jspb.Message {
   getAngle(): number;
   setAngle(value: number): void;

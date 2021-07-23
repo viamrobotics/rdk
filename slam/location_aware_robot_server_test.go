@@ -52,7 +52,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		theCompass := &inject.Compass{}
-		th.bot.compassSensor = theCompass
+		th.bot.compassensor = theCompass
 
 		startCount := 0
 		theCompass.StartCalibrationFunc = func(ctx context.Context) error {

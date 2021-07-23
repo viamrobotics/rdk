@@ -58,8 +58,8 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
-	if arm == nil {
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
@@ -76,8 +76,8 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
-	if arm == nil {
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
@@ -109,8 +109,8 @@ func play(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	arm := r.ArmByName(r.ArmNames()[0])
-	if arm == nil {
+	arm, ok := r.ArmByName(r.ArmNames()[0])
+	if !ok {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
