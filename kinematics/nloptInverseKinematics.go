@@ -28,8 +28,6 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
-	tries         int
-	rangeStep     float64
 }
 
 // CreateNloptIKSolver TODO
@@ -47,7 +45,6 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.upperBound = mdl.MaximumJointLimits()
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
-	ik.rangeStep = 0.05
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -168,8 +165,8 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 	startingRadians := arm.JointPositionsToRadians(seedAngles)
 
 	// Set initial restrictions on joints for more intuitive movement
-	ik.tries = 1
-	err = ik.updateBounds(startingRadians)
+	tries := 1
+	err = ik.updateBounds(startingRadians, tries)
 	if err != nil {
 		return &pb.JointPositions{}, err
 	}
@@ -192,9 +189,9 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 			angles = ZeroInlineRotation(ik.model, angles)
 			return arm.JointPositionsFromRadians(angles), err
 		}
-		ik.tries++
-		if float64(ik.tries)*ik.rangeStep < 1 {
-			err = ik.updateBounds(arm.JointPositionsToRadians(seedAngles))
+		tries++
+		if tries < 30 {
+			err = ik.updateBounds(arm.JointPositionsToRadians(seedAngles), tries)
 			if err != nil {
 				return &pb.JointPositions{}, err
 			}
@@ -222,14 +219,15 @@ func (ik *NloptIK) Mdl() *Model {
 	return ik.model
 }
 
-func (ik *NloptIK) updateBounds(seed []float64) error {
+func (ik *NloptIK) updateBounds(seed []float64, tries int) error {
 
+	rangeStep := 0.1
 	newLower := make([]float64, len(ik.lowerBound))
 	newUpper := make([]float64, len(ik.upperBound))
 
 	for i, pos := range seed {
-		newLower[i] = math.Max(ik.lowerBound[i], pos-(ik.rangeStep*float64(ik.tries*(i+1))))
-		newUpper[i] = math.Min(ik.upperBound[i], pos+(ik.rangeStep*float64(ik.tries*(i+1))))
+		newLower[i] = math.Max(ik.lowerBound[i], pos-(rangeStep*float64(tries*(i+1))))
+		newUpper[i] = math.Min(ik.upperBound[i], pos+(rangeStep*float64(tries*(i+1))))
 
 		// Allow full freedom of movement for the two most distal joints
 		if i > len(seed)-2 {
