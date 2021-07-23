@@ -106,7 +106,7 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = ik.Solve(context.Background(), pos, home)
+	_, err = ik.Solve(context.Background(), pos, arm.JointPositionsFromRadians([]float64{0, 0}))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
@@ -114,7 +114,7 @@ func TestIKTolerances(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	ik = CreateCombinedIKSolver(m, logger, nCPU)
 
-	_, err = ik.Solve(context.Background(), pos, home)
+	_, err = ik.Solve(context.Background(), pos, arm.JointPositionsFromRadians([]float64{0, 0}))
 	test.That(t, err, test.ShouldBeNil)
 }
 
