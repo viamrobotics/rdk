@@ -28,6 +28,8 @@ type NloptIK struct {
 	logger        golog.Logger
 	jump          float64
 	randSeed      *rand.Rand
+	tries         int
+	rangeStep     float64
 }
 
 // CreateNloptIKSolver TODO
@@ -45,6 +47,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.upperBound = mdl.MaximumJointLimits()
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
+	ik.rangeStep = 0.05
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
@@ -148,6 +151,10 @@ func (ik *NloptIK) getGoals() []goal {
 // Solve attempts to solve for all goals
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
 	var err error
+
+	if len(seedAngles.Degrees) > len(ik.lowerBound) {
+		return &pb.JointPositions{}, errors.New("passed in too many joint positions")
+	}
 	ik.addGoal(newGoal, 0)
 	defer ik.clearGoals()
 
@@ -159,6 +166,13 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 	}
 	ik.iterations = 0
 	startingRadians := arm.JointPositionsToRadians(seedAngles)
+
+	// Set initial restrictions on joints for more intuitive movement
+	ik.tries = 1
+	err = ik.updateBounds(startingRadians)
+	if err != nil {
+		return &pb.JointPositions{}, err
+	}
 
 	for ik.iterations < ik.maxIterations {
 		select {
@@ -176,9 +190,24 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 
 		if result < ik.epsilon*ik.epsilon && ik.model.AreJointPositionsValid(angles) {
 			angles = ZeroInlineRotation(ik.model, angles)
-			return arm.JointPositionsFromRadians(angles), nil
+			return arm.JointPositionsFromRadians(angles), err
 		}
-		startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
+		ik.tries++
+		if float64(ik.tries)*ik.rangeStep < 1 {
+			err = ik.updateBounds(arm.JointPositionsToRadians(seedAngles))
+			if err != nil {
+				return &pb.JointPositions{}, err
+			}
+		} else {
+			err = multierr.Combine(
+				ik.opt.SetLowerBounds(ik.lowerBound),
+				ik.opt.SetUpperBounds(ik.upperBound),
+			)
+			if err != nil {
+				return &pb.JointPositions{}, err
+			}
+			startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
+		}
 	}
 	return &pb.JointPositions{}, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
@@ -191,4 +220,25 @@ func (ik *NloptIK) SetSeed(seed int64) {
 // Mdl returns the model associated with this IK.
 func (ik *NloptIK) Mdl() *Model {
 	return ik.model
+}
+
+func (ik *NloptIK) updateBounds(seed []float64) error {
+
+	newLower := make([]float64, len(ik.lowerBound))
+	newUpper := make([]float64, len(ik.upperBound))
+
+	for i, pos := range seed {
+		newLower[i] = math.Max(ik.lowerBound[i], pos-(ik.rangeStep*float64(ik.tries*(i+1))))
+		newUpper[i] = math.Min(ik.upperBound[i], pos+(ik.rangeStep*float64(ik.tries*(i+1))))
+
+		// Allow full freedom of movement for the two most distal joints
+		if i > len(seed)-2 {
+			newLower[i] = ik.lowerBound[i]
+			newUpper[i] = ik.upperBound[i]
+		}
+	}
+	return multierr.Combine(
+		ik.opt.SetLowerBounds(newLower),
+		ik.opt.SetUpperBounds(newUpper),
+	)
 }
