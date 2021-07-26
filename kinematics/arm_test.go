@@ -165,37 +165,37 @@ func BenchNloptSwing(t *testing.B) {
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.Y += 10
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.Z += 10
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.OX += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.OY += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.OZ += 0.1
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
 			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		}
-		
+
 		randPos.Theta += 45
 		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
 		if err == nil {
@@ -204,10 +204,10 @@ func BenchNloptSwing(t *testing.B) {
 	}
 }
 
-func checkGoodJointDelta(orig, solution []float64) bool{
+func checkGoodJointDelta(orig, solution []float64) bool {
 	for i, angle := range solution {
 		if i < len(solution)-3 {
-			if math.Abs(angle - orig[i]) > 2.8 {
+			if math.Abs(angle-orig[i]) > 2.8 {
 				return false
 			}
 		}
