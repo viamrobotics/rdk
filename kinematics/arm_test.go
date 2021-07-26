@@ -2,6 +2,7 @@ package kinematics
 
 import (
 	"context"
+	"math"
 	"math/rand"
 	"runtime"
 	"testing"
@@ -68,7 +69,8 @@ func BenchCombinedIKinematics(t *testing.B) {
 		randJointPos := arm.JointPositionsFromRadians(m.GenerateRandomJointPositions(seed))
 		randPos, err := ComputePosition(m, randJointPos)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = ik.Solve(context.Background(), randPos, home)
+		solution, err := ik.Solve(context.Background(), randPos, home)
+		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		if err == nil {
 			solvedCnt++
 		}
@@ -144,4 +146,71 @@ func TestSVAvsDH(t *testing.T) {
 		test.That(t, posSVA.OZ, test.ShouldAlmostEqual, posDH.OZ, .01)
 		test.That(t, posSVA.Theta, test.ShouldAlmostEqual, posDH.Theta, .01)
 	}
+}
+
+func BenchNloptSwing(t *testing.B) {
+	logger := golog.NewDevelopmentLogger("testSwing")
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
+	test.That(t, err, test.ShouldBeNil)
+	ik := CreateCombinedIKSolver(m, logger, nCPU)
+
+	// Test we are able to solve incremental changes without large joint swings
+	for i := 0; i < toSolve; i++ {
+		origRadians := m.GenerateRandomJointPositions(seed)
+		randJointPos := arm.JointPositionsFromRadians(origRadians)
+		randPos, err := ComputePosition(m, randJointPos)
+		test.That(t, err, test.ShouldBeNil)
+		randPos.X += 10
+		solution, err := ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.Y += 10
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.Z += 10
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.OX += 0.1
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.OY += 0.1
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.OZ += 0.1
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+		
+		randPos.Theta += 45
+		solution, err = ik.Solve(context.Background(), randPos, randJointPos)
+		if err == nil {
+			test.That(t, checkGoodJointDelta(origRadians, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
+		}
+	}
+}
+
+func checkGoodJointDelta(orig, solution []float64) bool{
+	for i, angle := range solution {
+		if i < len(solution)-3 {
+			if math.Abs(angle - orig[i]) > 2.8 {
+				return false
+			}
+		}
+	}
+	return true
 }
