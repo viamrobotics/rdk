@@ -54,6 +54,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ComputePosition(ik.model, seed)
 	ik.logger.Debugf("starting 6d position: %v %v", startPos, err)
+	ik.logger.Debugf("goal 6d position: %v", pos)
 	c := make(chan ReturnTest)
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 
