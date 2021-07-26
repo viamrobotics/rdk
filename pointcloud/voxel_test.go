@@ -52,6 +52,16 @@ func TestVoxelGridCreation(t *testing.T) {
 	test.ShouldEqual(vg.maxLabel, 0)
 }
 
+func TestVoxelGridCubeSegmentation(t *testing.T) {
+	nPoints := 1000000
+	pc := GenerateCubeTestData(nPoints)
+	vg := NewVoxelGridFromPointCloud(pc, 0.1, 0.01)
+	vg.SegmentPlanesRegionGrowing(0.7, 25, 0.1, 1.0)
+	test.ShouldEqual(vg.maxLabel, 6)
+	_, err := vg.ConvertToPointCloudWithValue()
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 	nPoints := 1000
 	points := make([]r3.Vector, nPoints)
