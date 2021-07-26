@@ -21,3 +21,6 @@ setup:
 
 run_client:
 	./gradlew runClient --args="localhost:8080"
+
+run_server:
+	./gradlew runServer --args="8080"

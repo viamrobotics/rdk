@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"time"
 
@@ -12,11 +11,8 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
-	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"         // load boards
@@ -24,6 +20,7 @@ import (
 	_ "go.viam.com/core/robots/universalrobots" // load arm
 	_ "go.viam.com/core/robots/varm"            // load arm
 	_ "go.viam.com/core/robots/vx300s"          // load arm
+	_ "go.viam.com/core/robots/wx250s"          // load arm
 	_ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"
@@ -138,24 +135,5 @@ func play(ctx context.Context, r robot.Robot) error {
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logger)
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
-	flag.Parse()
-
-	cfg, err := config.Read(flag.Arg(0))
-	if err != nil {
-		return err
-	}
-
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
-	if err != nil {
-		return err
-	}
-	defer myRobot.Close()
-
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
-	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	utils.ContextualMain(webserver.RunServer, logger)
 }
