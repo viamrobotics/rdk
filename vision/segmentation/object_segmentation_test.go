@@ -23,8 +23,8 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// get center points
 	for i := 0; i < segments.N(); i++ {
-		mean := pc.CalculateMeanOfPointCloud(segments.PointClouds[i])
-		expMean := segments.Centers[i]
+		mean := pc.CalculateMeanOfPointCloud(segments.Clusters[i].PointCloud)
+		expMean := segments.Clusters[i].Center
 		test.That(t, mean, test.ShouldResemble, expMean)
 	}
 }

@@ -195,32 +195,26 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 	return planes, nonPlaneCloud, nil
 }
 
-type voxelGridPlaneSegmentation struct {
-	*pc.VoxelGrid
-	weightThresh float64
-	thetaThresh  float64 // in degrees
-	phiThresh    float64
-	dThresh      float64
+type VoxelGridConfiguration struct {
+	weightThresh   float64
+	angleThresh    float64 // in degrees
+	cosineThresh   float64
+	distanceThresh float64
 }
 
-func NewVoxelGridPlaneSegmentation(cloud pc.PointCloud, voxelSize, lam float64) PlaneSegmentation {
+type voxelGridPlaneSegmentation struct {
+	*pc.VoxelGrid
+	config VoxelGridConfiguration
+}
+
+func NewVoxelGridPlaneSegmentation(cloud pc.PointCloud, voxelSize, lam float64, config VoxelGridConfiguration) PlaneSegmentation {
 	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
-	return &voxelGridPlaneSegmentation{vg, 0.7, 25, 0.1, 1.0} // parameters chosen from
+	return &voxelGridPlaneSegmentation{vg, config} // parameters chosen by magic
 }
 
 func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
-	vgps.SegmentPlanesRegionGrowing(vgps.weightThresh, vgps.thetaThresh, vgps.phiThresh, vgps.dThresh)
-	planes, err := vgps.GetPlanesFromLabels() // get the planes
-	if err != nil {
-		return nil, nil, err
-	}
-	voxelCoords := vgps.GetUnlabeledVoxels() // get the non-plane voxels
-	// make list of voxels
-	voxels := make(pc.VoxelSlice, 0)
-	for _, key := range voxelCoords {
-		voxels = append(voxels, vgps.GetVoxelFromKey(key))
-	}
-	nonPlaneCloud, err := voxels.ToPointCloud() // turn non-plane voxels into a pointcloud
+	vgps.SegmentPlanesRegionGrowing(vgps.config.weightThresh, vgps.config.angleThresh, vgps.config.cosineThresh, vgps.config.distanceThresh)
+	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
 	if err != nil {
 		return nil, nil, err
 	}

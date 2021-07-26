@@ -2,6 +2,8 @@ package pointcloud
 
 import (
 	"container/list"
+	"fmt"
+	"image/color"
 	"sort"
 
 	"github.com/golang/geo/r3"
@@ -66,30 +68,61 @@ func (vg *VoxelGrid) GetUnlabeledVoxels() []VoxelCoords {
 }
 
 // GetPlanesFromLabels returns a slice containing all the planes in the point cloud
-func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
-	planes := make([]Plane, vg.maxLabel+1)
+func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 	pointsByLabel := make(map[int][]r3.Vector)
+	pointColorsByLabel := make(map[int][]color.Color)
 	keysByLabel := make(map[int][]VoxelCoords)
+	seen := make(map[r3.Vector]bool)
 	for _, vox := range vg.Voxels {
-		currentVoxelLabel := vox.Label
 		// if voxel is entirely included in a plane, add all the points
 		if vox.Label > 0 {
-			pointsByLabel[currentVoxelLabel] = append(pointsByLabel[currentVoxelLabel], vox.Points...)
-			keysByLabel[currentVoxelLabel] = append(keysByLabel[currentVoxelLabel], vox.Key)
+			keysByLabel[vox.Label] = append(keysByLabel[vox.Label], vox.Key)
+			for ptIdx, pt := range vox.Points {
+				if _, ok := seen[pt]; !ok {
+					seen[pt] = true
+				} else {
+					return nil, nil, fmt.Errorf("point (%v,%v,%v) has already been seen", pt.X, pt.Y, pt.Z)
+				}
+				pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
+				pointColorsByLabel[vox.Label] = append(pointColorsByLabel[vox.Label], vox.PointColors[ptIdx])
+			}
 		} else {
 			// voxel has points for either no plane or at least two planes
 			// add point by point
 			if len(vox.Points) == len(vox.PointLabels) {
 				for ptIdx, pt := range vox.Points {
+					if _, ok := seen[pt]; !ok {
+						seen[pt] = true
+					} else {
+						return nil, nil, fmt.Errorf("point (%v,%v,%v) has already been seen", pt.X, pt.Y, pt.Z)
+					}
 					ptLabel := vox.PointLabels[ptIdx]
 					pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
+					pointColorsByLabel[ptLabel] = append(pointColorsByLabel[ptLabel], vox.PointColors[ptIdx])
 				}
 			}
 		}
 	}
 
+	planes := make([]Plane, 0)
+	nonPlane := New()
 	for label, pts := range pointsByLabel {
-		if label > 0 {
+		if label == 0 { // create a point cloud of non-planar points
+			colorSlice := pointColorsByLabel[label]
+			for i, pt := range pts {
+				var cloudPt Point
+				if colorSlice[i] == nil {
+					cloudPt = NewBasicPoint(pt.X, pt.Y, pt.Z)
+				} else {
+					r, g, b, a := colorSlice[i].RGBA()
+					cloudPt = NewColoredPoint(pt.X, pt.Y, pt.Z, color.NRGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+				}
+				err := nonPlane.Set(cloudPt)
+				if err != nil {
+					return nil, nil, err
+				}
+			}
+		} else { // create an array of planes
 			normalVector := estimatePlaneNormalFromPoints(pts)
 			center := GetVoxelCenter(pts)
 			offset := GetOffset(center, normalVector)
@@ -103,7 +136,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, error) {
 			planes = append(planes, currentPlane)
 		}
 	}
-	return planes, nil
+	return planes, nonPlane, nil
 }
 
 // LabelNonPlanarVoxels labels potential planar parts in Voxels that are containing more than one plane

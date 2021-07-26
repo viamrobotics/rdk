@@ -11,12 +11,12 @@ import (
 // ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
 type ObjectSegmentation struct {
 	FullCloud pc.PointCloud
-	*Clusters
+	*Segments
 }
 
 // N gives the number of found segments.
 func (objectSeg *ObjectSegmentation) N() int {
-	return len(objectSeg.PointClouds)
+	return objectSeg.Segments.N()
 }
 
 // SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
@@ -24,7 +24,7 @@ func (objectSeg *ObjectSegmentation) N() int {
 func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
 	v := pc.Vec3{x, y, z}
 	if segIndex, ok := objectSeg.Indices[v]; ok {
-		return objectSeg.PointClouds[segIndex], nil
+		return objectSeg.Clusters[segIndex], nil
 	}
 	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
 }
@@ -51,7 +51,7 @@ func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegmen
 	if err != nil {
 		return nil, err
 	}
-	clusters := NewClustersFromSlice(segments)
+	clusters := NewSegmentsFromSlice(segments)
 	return &ObjectSegmentation{cloud, clusters}, nil
 }
 
@@ -70,7 +70,7 @@ func SegmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 // Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008
 func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
 	var err error
-	clusters := NewClusters()
+	clusters := NewSegments()
 	c := 0
 	cloud.Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
@@ -116,7 +116,7 @@ func RadiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	if err != nil {
 		return nil, err
 	}
-	return clusters.PointClouds, nil
+	return clusters.PointClouds(), nil
 }
 
 // this is pretty inefficient since it has to loop through all the points in the pointcloud to find only the nearest points.

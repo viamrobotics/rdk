@@ -1,10 +1,17 @@
 package pointcloud
 
 import (
+	"bytes"
+	"errors"
+	"fmt"
+	"image"
 	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
+	"go-hep.org/x/hep/hbook"
+	"go-hep.org/x/hep/hplot"
+	vecg "gonum.org/v1/plot/vg"
 )
 
 /* In this file are functions to create a Voxel, a Voxel Grid from a point cloud
@@ -55,6 +62,9 @@ func (p *voxelPlane) Offset() float64 {
 
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	pc := New()
+	if p.points == nil {
+		return nil, errors.New("No points in plane to turn into point cloud")
+	}
 	for _, pt := range p.points {
 		ptValue := NewBasicPoint(pt.X, pt.Y, pt.Z)
 		err := pc.Set(ptValue)
@@ -247,10 +257,11 @@ func ReverseVoxelSlice(s VoxelSlice) {
 type VoxelGrid struct {
 	Voxels   map[VoxelCoords]*Voxel
 	maxLabel int
+	lam      float64
 }
 
 // NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
-func NewVoxelGrid() *VoxelGrid {
+func NewVoxelGrid(lam float64) *VoxelGrid {
 	voxelMap := make(map[VoxelCoords]*Voxel)
 	coords := VoxelCoords{
 		I: 0,
@@ -262,7 +273,80 @@ func NewVoxelGrid() *VoxelGrid {
 	return &VoxelGrid{
 		Voxels:   voxelMap,
 		maxLabel: 0,
+		lam:      lam,
 	}
+}
+
+func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) {
+	var hist *hbook.H1D
+	p := hplot.New()
+	if name == "points" {
+		p.Title.Text = "Points in Voxel"
+		p.X.Label.Text = "Pts in Voxel"
+		p.Y.Label.Text = "N Voxels"
+		hist = hbook.NewH1D(25, 0, +25)
+		for _, vox := range vg.Voxels {
+			variable := float64(len(vox.Points))
+			hist.Fill(variable, 1)
+		}
+	} else if name == "weights" {
+		hist = hbook.NewH1D(40, 0, +1)
+		p.Title.Text = "Weights of Voxel"
+		p.X.Label.Text = "Voxel Weight"
+		p.Y.Label.Text = "N Voxels"
+		for _, vox := range vg.Voxels {
+			variable := -9.0
+			if len(vox.Points) > 5 {
+				vox.Center = GetVoxelCenter(vox.Points)
+				vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
+				vox.Offset = GetOffset(vox.Center, vox.Normal)
+				vox.Residual = GetResidual(vox.Points, vox.GetPlane())
+				variable = GetWeight(vox.Points, vg.lam, vox.Residual)
+			}
+			hist.Fill(variable, 1)
+		}
+	} else if name == "residuals" {
+		hist = hbook.NewH1D(65, 0, +6.5)
+		p.Title.Text = "Residual of Voxel"
+		p.X.Label.Text = "Voxel Residuals"
+		p.Y.Label.Text = "N Voxels"
+		for _, vox := range vg.Voxels {
+			variable := -999.
+			if len(vox.Points) > 5 {
+				vox.Center = GetVoxelCenter(vox.Points)
+				vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
+				vox.Offset = GetOffset(vox.Center, vox.Normal)
+				vox.Residual = GetResidual(vox.Points, vox.GetPlane())
+				variable = vox.Residual
+			}
+			hist.Fill(variable, 1)
+		}
+	} else {
+		return nil, fmt.Errorf("%s not a plottable variable", name)
+	}
+
+	// Create a histogram of our values
+	hp := hplot.NewH1D(hist)
+	hp.Infos.Style = hplot.HInfoSummary
+	p.Add(hp)
+
+	width, err := vecg.ParseLength(fmt.Sprintf("%dpt", w))
+	if err != nil {
+		return nil, err
+	}
+	height, err := vecg.ParseLength(fmt.Sprintf("%dpt", h))
+	if err != nil {
+		return nil, err
+	}
+	imgByte, err := hplot.Show(p, width, height, "png")
+	if err != nil {
+		return nil, err
+	}
+	img, _, err := image.Decode(bytes.NewReader(imgByte))
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
 
 // GetVoxelFromKey returns a pointer to a voxel from a VoxelCoords key
@@ -319,7 +403,7 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 
 // NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud
 func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGrid {
-	voxelMap := NewVoxelGrid()
+	voxelMap := NewVoxelGrid(lam)
 	ptMin := r3.Vector{
 		X: pc.MinX(),
 		Y: pc.MinY(),
