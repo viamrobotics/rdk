@@ -39,7 +39,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	ik.epsilon = 0.01
 	// The absolute smallest value able to be represented by a float64
 	floatEpsilon := math.Nextafter(1, 2) - 1
-	ik.maxIterations = 50000
+	ik.maxIterations = 10000
 	ik.iterations = 0
 	ik.lowerBound = mdl.MinimumJointLimits()
 	ik.upperBound = mdl.MaximumJointLimits()
@@ -219,7 +219,6 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 			if err != nil {
 				return &pb.JointPositions{}, err
 			}
-			ik.logger.Info("RANDOMIZING")
 			startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 		}
 	}
