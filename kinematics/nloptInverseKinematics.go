@@ -149,6 +149,9 @@ func (ik *NloptIK) getGoals() []goal {
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
 	var err error
 
+	// Allow ~160 degrees of swing at most
+	allowableSwing := 2.8
+
 	if len(seedAngles.Degrees) > len(ik.lowerBound) {
 		return &pb.JointPositions{}, errors.New("passed in too many joint positions")
 	}
@@ -172,6 +175,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 	}
 
 	for ik.iterations < ik.maxIterations {
+		retrySeed := false
 		select {
 		case <-ctx.Done():
 			return &pb.JointPositions{}, err
@@ -186,8 +190,20 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 		}
 
 		if result < ik.epsilon*ik.epsilon && ik.model.AreJointPositionsValid(angles) {
-			angles = ZeroInlineRotation(ik.model, angles)
-			return arm.JointPositionsFromRadians(angles), err
+
+			// Check whether we have a large arm swing, and if so, reduce the swing amount and seed the solver off of
+			// those joint angles with the swing removed.
+			// NOTE: This will prevent *any* movement sufficiently far from the starting position. If attempting a
+			// large movement, waypoints are required.
+			swing, newAngles := checkExcessiveSwing(arm.JointPositionsToRadians(seedAngles), angles, allowableSwing)
+
+			if swing {
+				retrySeed = true
+				startingRadians = newAngles
+			} else {
+				angles = ZeroInlineRotation(ik.model, angles)
+				return arm.JointPositionsFromRadians(angles), err
+			}
 		}
 		tries++
 		if tries < 30 {
@@ -195,7 +211,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 			if err != nil {
 				return &pb.JointPositions{}, err
 			}
-		} else {
+		} else if !retrySeed {
 			err = multierr.Combine(
 				ik.opt.SetLowerBounds(ik.lowerBound),
 				ik.opt.SetUpperBounds(ik.upperBound),
@@ -203,6 +219,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 			if err != nil {
 				return &pb.JointPositions{}, err
 			}
+			ik.logger.Info("RANDOMIZING")
 			startingRadians = ik.model.GenerateRandomJointPositions(ik.randSeed)
 		}
 	}
@@ -219,8 +236,9 @@ func (ik *NloptIK) Mdl() *Model {
 	return ik.model
 }
 
+// updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
+// have been tried.
 func (ik *NloptIK) updateBounds(seed []float64, tries int) error {
-
 	rangeStep := 0.1
 	newLower := make([]float64, len(ik.lowerBound))
 	newUpper := make([]float64, len(ik.upperBound))
@@ -239,4 +257,27 @@ func (ik *NloptIK) updateBounds(seed []float64, tries int) error {
 		ik.opt.SetLowerBounds(newLower),
 		ik.opt.SetUpperBounds(newUpper),
 	)
+}
+
+// checkExcessiveSwing takes two lists of radians and ensures there are no huge swings from one to the other.
+func checkExcessiveSwing(orig, solution []float64, allowableSwing float64) (bool, []float64) {
+	swing := false
+	newSolution := make([]float64, len(solution))
+	for i, angle := range solution {
+		newSolution[i] = angle
+		//Allow swings in the 3 most distal joints
+		if i < len(solution)-3 {
+			// Check if swing greater than ~160 degrees.
+			for newSolution[i]-orig[i] > allowableSwing {
+				newSolution[i] -= math.Pi
+				swing = true
+			}
+			for newSolution[i]-orig[i] < -allowableSwing {
+				newSolution[i] += math.Pi
+				swing = true
+			}
+		}
+	}
+
+	return swing, newSolution
 }
