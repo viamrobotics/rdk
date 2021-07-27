@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>Force Sensor Visualization</title>
+  </head>
+  <body>
+    <h2>May the force be with you</h2>
+    <canvas id="canvas" width="500" height="500"></canvas>
+
+    <script>
+        let IP_address = "10.237.115.192"
+        let socket = new WebSocket("ws://" + IP_address + ":8081");
+        console.log("Attempting Connection...");
+
+        socket.onopen = () => {
+            console.log("Successfully Connected");
+            socket.send("Hi From the Client!")
+        };
+        
+        socket.onclose = event => {
+            console.log("Socket Closed Connection: ", event);
+            socket.send("Client Closed!")
+        };
+
+        socket.onerror = error => {
+            console.log("Socket Error: ", error);
+        };
+
+        var canvas = document.getElementById("canvas");
+        var ctx = canvas.getContext('2d');
+
+        var squareWidth = 50;
+
+        var maxValue = 0;
+
+        socket.onmessage = function(event) {
+            var msg = JSON.parse(event.data);
+            console.log(msg, msg.len)
+
+            for (let i = 0; i < msg.length; i++) {
+                for (let j = 0; j < msg[i].length; j++) {
+                    if (msg[i][j] > maxValue) {
+                        maxValue = msg[i][j]
+                    }
+                    ctx.fillStyle = 'rgb(0, ' + 255./maxValue * msg[i][j] + ', 0)';
+                    ctx.fillRect(i * squareWidth, j * squareWidth, squareWidth, squareWidth);
+                }
+            }
+        }
+
+    </script>
+  </body>
+</html>
