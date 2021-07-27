@@ -32,7 +32,7 @@ var upgrader = websocket.Upgrader{
 func wsEndpoint(ctx context.Context, w http.ResponseWriter, r *http.Request,
 				b board.Board, readers []board.AnalogReader) error {
 	// Define which GPIO pins are used to activate the force sensor columns
-	cols := []string{"io4", "io17", "io27", "io22", "io5"}
+	cols := []string{"io4", "io17", "io27", "io22", "io6"}
 	numberCols := len(cols)
 
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
@@ -100,10 +100,6 @@ func createBoard(ctx context.Context, numberAnalogs int, logger golog.Logger) (b
 			Pin:  fmt.Sprintf("%d", i),
 		})
 	}
-
-	// TODO: Debug with Brittany
-	cfg.Analogs[3].Pin = "4"
-	cfg.Analogs[4].Pin = "3"
 
 	b, err := board.NewBoard(ctx, cfg, logger)
 	if err != nil {
