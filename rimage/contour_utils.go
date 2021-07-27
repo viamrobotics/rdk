@@ -371,7 +371,6 @@ func SimplifyContours(contours [][]image.Point) [][]r2.Point {
 	simplifiedContours := make([][]r2.Point, len(contours))
 
 	for i, c := range contours {
-		cf := ConvertSliceImagePointToSliceVec(c)
 		sc := ApproxContourDP(cf, 0.03*float64(len(c)))
 		simplifiedContours[i] = sc
 	}
