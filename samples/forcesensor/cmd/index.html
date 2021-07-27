@@ -90,13 +90,13 @@
 
                     // Draw heatmap - use either the Turbo or Jet colormap
                     // let rgb_values = interpolateTurbo(turbo_colormap_data, msg[i][j]/maxValue);
-                    let rgb = interpolateJet(jet_colormap_data, msg[i][j]/maxValue).map(x => x * 255);
-                    let rgb_string = 'rgb(' + rgb[0] + ', ' + rgb[1] + ', ' + rgb[2] + ')';
-                    ctx.fillStyle = rgb_string;
-                    // ctx.fillStyle = 'rgb(0, ' + 255./maxValue * msg[i][j] + ', 0)'; // old version with just green color
+                    // let rgb = interpolateJet(jet_colormap_data, msg[i][j]/maxValue).map(x => x * 255);
+                    // let rgb_string = 'rgb(' + rgb[0] + ', ' + rgb[1] + ', ' + rgb[2] + ')';
+                    // ctx.fillStyle = rgb_string;
+
+                    ctx.fillStyle = 'rgb(0, ' + 255./maxValue * msg[i][j] + ', 0)'; // old version with just green color
                     ctx.fillRect(i * squareWidth, j * squareWidth, squareWidth, squareWidth);
 
-                    console.log(rgb)
                     // Write out raw values
                     ctx.fillStyle = 'white'
                     ctx.font = '20px sans-serif';
@@ -110,6 +110,13 @@
                     ctx.font = '20px sans-serif';
                     ctx.strokeRect(i * squareWidth + 300, j * squareWidth, squareWidth, squareWidth);
                     ctx.fillText(msg[i][j], i * squareWidth + 300, (j+0.6) * squareWidth);
+
+
+                    ctx.fillStyle = 'white'
+                    ctx.fillRect(95, 350, 800, 200);
+                    ctx.fillStyle = 'black'
+                    ctx.font = '50px sans-serif';
+                    ctx.fillText("Max Value seen so far: " + maxValue, 100, 400);
                 }
             }
         }
