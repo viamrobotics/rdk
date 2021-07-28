@@ -77,7 +77,8 @@ func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
 	jointQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
-		jointQuat.Quat = jointQuat.Transformation(dualquat.Number{Real: j.rotAxis.ToQuat()})
+		rotation := j.rotAxis
+		jointQuat.Quat = jointQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
 	}
 	return jointQuat
 }
