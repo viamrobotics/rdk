@@ -7,7 +7,6 @@ import (
 	"go.viam.com/core/spatialmath"
 
 	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 )
 
 // TODO(pl): initial implementations of Joint methods are for Revolute joints. We will need to update once we have robots
@@ -16,48 +15,27 @@ import (
 // TODO(pl): Maybe we want to make this an interface which different joint types implement
 // TODO(pl): Give all these variables better names once I know what they all do. Or at least a detailed description
 
-var axesOfRotation = []quat.Number{
-	{0, 1, 0, 0},
-	{0, 0, 1, 0},
-	{0, 0, 0, 1},
-}
-
 // Joint TODO
 type Joint struct {
 	parent     string
-	rotVectors []quat.Number
+	rotAxis    spatialmath.R4AA
 	dof        int
 	max        []float64
 	min        []float64
 	wraparound []bool
-	Rev        bool
 }
 
 // NewJoint creates a new Joint struct with the specified number of degrees of freedom.
 // A standard revolute joint will have 1 DOF, a spherical joint will have 3.
-func NewJoint(axes []int, dir, parent string) *Joint {
+func NewJoint(axis spatialmath.R4AA, parent string) *Joint {
 	j := Joint{}
-	j.Rev = false
 	j.parent = parent
-	for i, axis := range axes {
-		if axis > 0 {
-			j.rotVectors = append(j.rotVectors, axesOfRotation[i])
-		}
-	}
-	j.dof = len(j.rotVectors)
+	j.rotAxis = axis
+	j.rotAxis.Normalize()
+
+	// Currently we only support 1dof joints
+	j.dof = 1
 	j.wraparound = make([]bool, j.dof)
-	if dir == "cw" {
-		// A "normal" rotation rotates counter-clockwise around the axis of rotation
-		// Sometimes, arms have joints rotate clockwise while reporting a positive angle
-		// This accounts for that
-		// TODO(pl): consider instead simply setting the axis to be negative?
-		j.Rev = true
-	} else {
-		// The caller should validate this, but double check we were passed a valid direction
-		if dir != "ccw" && dir != "" {
-			panic("Invalid joint direction")
-		}
-	}
 
 	return &j
 }
@@ -99,8 +77,8 @@ func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
 	jointQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
-		r1 := dualquat.Number{Real: j.rotVectors[i]}
-		jointQuat.Quat = jointQuat.Transformation(r1)
+		rotation := j.rotAxis
+		jointQuat.Quat = jointQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
 	}
 	return jointQuat
 }
@@ -111,14 +89,9 @@ func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
 func (j *Joint) AngleQuaternion(angle []float64) *spatialmath.DualQuaternion {
 	jQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
-		r1 := dualquat.Number{Real: j.rotVectors[i]}
-		r1.Real = quat.Scale(math.Sin(angle[i]/2)/quat.Abs(r1.Real), r1.Real)
-		r1.Real.Real += math.Cos(angle[i] / 2)
-		if j.Rev {
-			// If our joint spins backwards, flip the quaternion
-			r1 = dualquat.Conj(r1)
-		}
-		jQuat.Quat = jQuat.Transformation(r1)
+		rotation := j.rotAxis
+		rotation.Theta = angle[i]
+		jQuat.Quat = jQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
 	}
 	return jQuat
 }
