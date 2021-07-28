@@ -93,12 +93,11 @@
             "parent": "base_top",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 70,
-            "min": -155,
-            "direction":"cw"
+            "min": -155
          },
          {
             "id": "elbow",
@@ -106,12 +105,11 @@
             "parent": "upper_arm",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 45,
-            "min": -160,
-            "direction":"cw"
+            "min": -160
          },
          {
             "id": "forearm_rot",
@@ -131,12 +129,11 @@
             "parent": "lower_forearm",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 10,
-            "min": -155,
-            "direction":"cw"
+            "min": -155
          },
          {
             "id": "gripper_rot",
