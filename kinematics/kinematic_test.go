@@ -135,3 +135,14 @@ func TestInline(t *testing.T) {
 	zeroed := ZeroInlineRotation(m, []float64{0, 0, 0, -1, 0, 1})
 	test.That(t, zeroed, test.ShouldResemble, []float64{0, 0, 0, 0, 0, 0})
 }
+
+func TestInterpolate(t *testing.T) {
+	q1 := []float64{0,0,0}
+	q2 := []float64{1,1,1}
+	q3 := Interpolate(q1, q2, 0.5)
+	test.That(t, q3, test.ShouldResemble, []float64{0.5,0.5,0.5})
+	
+	q2 = []float64{-1,-1,-1}
+	q3 = Interpolate(q1, q2, 0.3)
+	test.That(t, q3, test.ShouldResemble, []float64{-0.3,-0.3,-0.3})
+}

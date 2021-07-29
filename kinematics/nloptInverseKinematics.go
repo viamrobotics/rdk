@@ -1,6 +1,7 @@
 package kinematics
 
 import (
+	"fmt"
 	"context"
 	"math"
 	"math/rand"
@@ -149,9 +150,6 @@ func (ik *NloptIK) getGoals() []goal {
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
 	var err error
 
-	// Allow ~160 degrees of swing at most
-	allowableSwing := 2.8
-
 	if len(seedAngles.Degrees) > len(ik.lowerBound) {
 		return &pb.JointPositions{}, errors.New("passed in too many joint positions")
 	}
@@ -195,7 +193,7 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 			// those joint angles with the swing removed.
 			// NOTE: This will prevent *any* movement sufficiently far from the starting position. If attempting a
 			// large movement, waypoints are required.
-			swing, newAngles := checkExcessiveSwing(arm.JointPositionsToRadians(seedAngles), angles, allowableSwing)
+			swing, newAngles := ik.checkExcessiveSwing(arm.JointPositionsToRadians(seedAngles), angles)
 
 			if swing {
 				retrySeed = true
@@ -259,24 +257,43 @@ func (ik *NloptIK) updateBounds(seed []float64, tries int) error {
 }
 
 // checkExcessiveSwing takes two lists of radians and ensures there are no huge swings from one to the other.
-func checkExcessiveSwing(orig, solution []float64, allowableSwing float64) (bool, []float64) {
+func (ik *NloptIK) checkExcessiveSwing(orig, solution []float64) (bool, []float64) {
+	
+	halfwayJoints := Interpolate(orig, solution, 0.5)
+	startPos := JointRadToQuat(ik.model, orig)
+	halfwayPos := JointRadToQuat(ik.model, halfwayJoints)
+	
+	halfwayDelta := startPos.ToDelta(halfwayPos)
+	
 	swing := false
+	
+	// How many mm from the starting position is considered an acceptable amount of unexpected swing?
+	allowableSwing := 150.0
+	
+	// The first three values in the delta refer to x, y, and z displacements
+	if halfwayDelta[0] > allowableSwing || halfwayDelta[1] > allowableSwing || halfwayDelta[2] > allowableSwing {
+		swing = true
+	}
+	
+	if 
+	// If the swing is too large, set the highest diff joint to 0 to re-seed the solver
 	newSolution := make([]float64, len(solution))
+	diff := make([]float64, len(solution))
 	for i, angle := range solution {
 		newSolution[i] = angle
-		//Allow swings in the 3 most distal joints
-		if i < len(solution)-3 {
-			// Check if swing greater than ~160 degrees.
-			for newSolution[i]-orig[i] > allowableSwing {
-				newSolution[i] -= math.Pi
-				swing = true
-			}
-			for newSolution[i]-orig[i] < -allowableSwing {
-				newSolution[i] += math.Pi
-				swing = true
-			}
+		diff[i] = newSolution[i]-orig[i]
+		for newSolution[i]-orig[i] > allowableSwing {
+			newSolution[i] -= math.Pi
+		}
+		for newSolution[i]-orig[i] < -allowableSwing {
+			newSolution[i] += math.Pi
 		}
 	}
+	
+	fmt.Println("delta", halfwayDelta)
+	fmt.Println("diff", diff)
+	//~ fmt.Println("half", halfwayPos)
+	//~ fmt.Println(swing, dist2)
 
 	return swing, newSolution
 }

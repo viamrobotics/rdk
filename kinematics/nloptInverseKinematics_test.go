@@ -35,17 +35,22 @@ func TestCreateNloptIKSolver(t *testing.T) {
 }
 
 func TestNloptSwingReduction(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
+	test.That(t, err, test.ShouldBeNil)
+	ik := CreateNloptIKSolver(m, logger)
+	
 	startRadians := []float64{0, 0, 0, 0, 0, 0}
 	endRadians := []float64{5, 0.5, 0.3, -0.2, 1.1, 2.3}
 	expectRadians := []float64{5 - math.Pi, 0.5, 0.3, -0.2, 1.1, 2.3}
 
-	swing, newRadians := checkExcessiveSwing(startRadians, endRadians, 2.8)
+	swing, newRadians := ik.checkExcessiveSwing(startRadians, endRadians)
 	test.That(t, swing, test.ShouldBeTrue)
 	for i, val := range newRadians {
 		test.That(t, val, test.ShouldAlmostEqual, expectRadians[i])
 	}
 
-	swing, newRadians = checkExcessiveSwing(startRadians, expectRadians, 2.8)
+	swing, newRadians = ik.checkExcessiveSwing(startRadians, expectRadians)
 	test.That(t, swing, test.ShouldBeFalse)
 	test.That(t, newRadians, test.ShouldResemble, expectRadians)
 }

@@ -122,3 +122,13 @@ func L2Distance(q1, q2 []float64) float64 {
 	// 2 is the L value returning a standard L2 Normalization
 	return floats.Norm(q1, 2)
 }
+
+// Interpolate will take two sets of joint angles and return a new set that is some amount between the two.
+// If by == 0, then "from" will be returned. If by==1, then "to" will be returned.
+func Interpolate(from, to []float64, by float64) []float64 {
+	interpolation := make([]float64, len(from))
+	for i, val := range(from){
+		interpolation[i] = (to[i] + val) * by
+	}
+	return interpolation
+}
