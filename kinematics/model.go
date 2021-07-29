@@ -41,6 +41,7 @@ type SolverDistanceWeights struct {
 type Model struct {
 	manufacturer string
 	name         string // the name of the arm
+	parent       string // the name of the parent of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []referenceframe.Frame
 	SolveWeights  SolverDistanceWeights
@@ -49,6 +50,7 @@ type Model struct {
 // NewModel constructs a new model.
 func NewModel() *Model {
 	m := Model{}
+	m.parent = "world"
 	m.SolveWeights = SolverDistanceWeights{XYZWeights{1.0, 1.0, 1.0}, XYZTHWeights{1.0, 1.0, 1.0, 1.0}}
 	return &m
 }
@@ -102,6 +104,28 @@ func (m *Model) Normalize(pos []float64) []float64 {
 		i += joint.Dof()
 	}
 	return normalized
+}
+
+// Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+func (m *Model) Transform(inputs []referenceframe.Input) *spatialmath.DualQuaternion {
+	var pos []float64
+	for _, input := range(inputs){
+		pos = append(pos, input.Value)
+	}
+	return m.JointRadToQuat(pos)
+}
+
+// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+func (m *Model) JointRadToQuat(radAngles []float64) *spatialmath.DualQuaternion {
+	quats := m.GetQuaternions(radAngles)
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	startPos := spatialmath.NewDualQuaternion()
+	for _, quat := range quats {
+		startPos.Quat = startPos.Transformation(quat.Quat)
+	}
+	return startPos
 }
 
 // GetQuaternions returns the list of DualQuaternions which, when multiplied together in order, will yield the
