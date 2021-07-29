@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"go.viam.com/core/spatialmath"
+	"go.viam.com/core/referenceframe"
 )
 
 // XYZWeights Defines a struct into which XYZ values can be parsed from JSON
@@ -41,7 +42,7 @@ type Model struct {
 	manufacturer string
 	name         string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
-	OrdTransforms []Transform
+	OrdTransforms []referenceframe.Frame
 	SolveWeights  SolverDistanceWeights
 }
 
@@ -111,12 +112,15 @@ func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
-		quat := transform.Quaternion()
-		if joint, ok := transform.(*Joint); ok {
-			qDof := joint.Dof()
-			quat = joint.AngleQuaternion(pos[posIdx : posIdx+qDof])
-			posIdx += qDof
+		
+		var input []referenceframe.Input
+		dof := transform.Dof()
+		for j := 0; j < dof; j++{
+			input = append(input, referenceframe.Input{pos[posIdx]})
+			posIdx++
 		}
+		
+		quat := transform.Transform(input)
 		quats = append(quats, quat)
 
 	}

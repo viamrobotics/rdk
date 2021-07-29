@@ -5,10 +5,6 @@
 package referenceframe
 
 import (
-	"context"
-	"errors"
-	"fmt"
-
 	pb "go.viam.com/core/proto/api/v1"
 	"go.viam.com/core/spatialmath"
 )
@@ -26,5 +22,11 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 type Frame interface {
 	Parent() string // TODO: make this not a string
 	Transform([]Input) *spatialmath.DualQuaternion
-	DOF() int
+	Dof() int
+}
+
+// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+// TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
+type Input struct {
+	Value float64
 }
