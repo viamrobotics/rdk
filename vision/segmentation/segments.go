@@ -5,34 +5,36 @@ import (
 	"go.viam.com/core/utils"
 )
 
-// Cluster is a point cloud with respective meta-data, like center coordinate
-type Cluster struct {
+// PointCloudWithMeta extends PointCloud with respective meta-data, like center coordinate
+// Can potentially add category or pose information to this struct.
+type PointCloudWithMeta struct {
 	pc.PointCloud
 	Center pc.Vec3
 }
 
-// NewCluster creates a new cluster
-func NewCluster(cloud pc.PointCloud, center pc.Vec3) *Cluster {
-	return &Cluster{cloud, center}
+// NewPointCloudWithMeta calculates the metadata for an input pointcloud
+func NewPointCloudWithMeta(cloud pc.PointCloud) *PointCloudWithMeta {
+	center := pc.CalculateMeanOfPointCloud(cloud)
+	return &PointCloudWithMeta{cloud, center}
 }
 
-// NewEmptyCluster creates a new empty cluster
-func NewEmptyCluster() *Cluster {
+// NewEmptyPointCloudWithMeta creates a new empty point cloud with metadata
+func NewEmptyPointCloudWithMeta() *PointCloudWithMeta {
 	cloud := pc.New()
 	center := pc.Vec3{}
-	return &Cluster{cloud, center}
+	return &PointCloudWithMeta{cloud, center}
 }
 
-// Segments is a struct for keeping track of the individual segments of a point cloud as they are being built.
-// Clusters is a slice of all the segments, and Indices is a map that assigns each point to the segment index it is a part of.
+// Segments is a struct for keeping track of the individual objects of a point cloud as they are being built.
+// Objects is a slice of all the objects, and Indices is a map that assigns each point to the object index it is a part of.
 type Segments struct {
-	Clusters []*Cluster
-	Indices  map[pc.Vec3]int
+	Objects []*PointCloudWithMeta
+	Indices map[pc.Vec3]int
 }
 
 // NewSegments creates an empty new Segments struct
 func NewSegments() *Segments {
-	segments := make([]*Cluster, 0)
+	segments := make([]*PointCloudWithMeta, 0)
 	indices := make(map[pc.Vec3]int)
 	return &Segments{segments, indices}
 }
@@ -41,9 +43,8 @@ func NewSegments() *Segments {
 func NewSegmentsFromSlice(clouds []pc.PointCloud) *Segments {
 	segments := NewSegments()
 	for i, cloud := range clouds {
-		center := pc.CalculateMeanOfPointCloud(cloud)
-		seg := &Cluster{cloud, center}
-		segments.Clusters = append(segments.Clusters, seg)
+		seg := NewPointCloudWithMeta(cloud)
+		segments.Objects = append(segments.Objects, seg)
 		cloud.Iterate(func(pt pc.Point) bool {
 			segments.Indices[pt.Position()] = i
 			return true
@@ -52,36 +53,36 @@ func NewSegmentsFromSlice(clouds []pc.PointCloud) *Segments {
 	return segments
 }
 
-// N gives the number of clusters in the partition of the point cloud.
+// N gives the number of objects in the partition of the point cloud.
 func (c *Segments) N() int {
-	return len(c.Clusters)
+	return len(c.Objects)
 }
 
 // PointsClouds returns the underlying array of pointclouds
 func (c *Segments) PointClouds() []pc.PointCloud {
 	clouds := make([]pc.PointCloud, c.N())
 	for i := 0; i < c.N(); i++ {
-		clouds[i] = c.Clusters[i].PointCloud
+		clouds[i] = c.Objects[i]
 	}
 	return clouds
 }
 
 // AssignCluster assigns the given point to the cluster with the given index
 func (c *Segments) AssignCluster(point pc.Point, index int) error {
-	for index >= len(c.Clusters) {
-		c.Clusters = append(c.Clusters, NewEmptyCluster())
+	for index >= len(c.Objects) {
+		c.Objects = append(c.Objects, NewEmptyPointCloudWithMeta())
 	}
-	n := float64(c.Clusters[index].Size())
+	n := float64(c.Objects[index].Size())
 	c.Indices[point.Position()] = index
-	err := c.Clusters[index].Set(point)
+	err := c.Objects[index].Set(point)
 	if err != nil {
 		return err
 	}
 	// update center point
 	pos := point.Position()
-	c.Clusters[index].Center.X = (c.Clusters[index].Center.X*n + pos.X) / (n + 1)
-	c.Clusters[index].Center.Y = (c.Clusters[index].Center.Y*n + pos.Y) / (n + 1)
-	c.Clusters[index].Center.Z = (c.Clusters[index].Center.Z*n + pos.Z) / (n + 1)
+	c.Objects[index].Center.X = (c.Objects[index].Center.X*n + pos.X) / (n + 1)
+	c.Objects[index].Center.Y = (c.Objects[index].Center.Y*n + pos.Y) / (n + 1)
+	c.Objects[index].Center.Z = (c.Objects[index].Center.Z*n + pos.Z) / (n + 1)
 	return nil
 }
 
@@ -89,24 +90,24 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 func (c *Segments) MergeClusters(from, to int) error {
 	var err error
 	index := utils.MaxInt(from, to)
-	for index >= len(c.Clusters) {
-		c.Clusters = append(c.Clusters, NewEmptyCluster())
+	for index >= len(c.Objects) {
+		c.Objects = append(c.Objects, NewEmptyPointCloudWithMeta())
 	}
-	c.Clusters[from].Iterate(func(pt pc.Point) bool {
+	c.Objects[from].Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
-		n := float64(c.Clusters[to].Size())
+		n := float64(c.Objects[to].Size())
 		c.Indices[v] = to
-		err = c.Clusters[to].Set(pt)
+		err = c.Objects[to].Set(pt)
 		// update center point
-		c.Clusters[to].Center.X = (c.Clusters[to].Center.X*n + v.X) / (n + 1)
-		c.Clusters[to].Center.Y = (c.Clusters[to].Center.Y*n + v.Y) / (n + 1)
-		c.Clusters[to].Center.Z = (c.Clusters[to].Center.Z*n + v.Z) / (n + 1)
-		c.Clusters[from].Unset(v.X, v.Y, v.Z)
+		c.Objects[to].Center.X = (c.Objects[to].Center.X*n + v.X) / (n + 1)
+		c.Objects[to].Center.Y = (c.Objects[to].Center.Y*n + v.Y) / (n + 1)
+		c.Objects[to].Center.Z = (c.Objects[to].Center.Z*n + v.Z) / (n + 1)
+		c.Objects[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
 	if err != nil {
 		return err
 	}
-	c.Clusters[from].Center = pc.Vec3{}
+	c.Objects[from].Center = pc.Vec3{}
 	return nil
 }

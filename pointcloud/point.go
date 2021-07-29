@@ -133,3 +133,12 @@ func (bp *basicPoint) HasValue() bool {
 func (bp *basicPoint) Value() int {
 	return bp.value
 }
+
+// GetPositions gets the positions of the slice of points
+func GetPositions(pts []Point) []r3.Vector {
+	positions := make([]r3.Vector, len(pts))
+	for i, pt := range pts {
+		positions[i] = r3.Vector(pt.Position())
+	}
+	return positions
+}
