@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -40,11 +39,11 @@ type voxelPlane struct {
 	normal    r3.Vector
 	center    r3.Vector
 	offset    float64
-	points    []r3.Vector
+	points    []Point
 	voxelKeys []VoxelCoords
 }
 
-func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []r3.Vector, voxelKeys []VoxelCoords) Plane {
+func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
@@ -66,8 +65,7 @@ func (p *voxelPlane) PointCloud() (PointCloud, error) {
 		return nil, errors.New("No points in plane to turn into point cloud")
 	}
 	for _, pt := range p.points {
-		ptValue := NewBasicPoint(pt.X, pt.Y, pt.Z)
-		err := pc.Set(ptValue)
+		err := pc.Set(pt)
 		if err != nil {
 			return nil, err
 		}
@@ -100,7 +98,7 @@ func (p *voxelPlane) Distance(pt Vec3) float64 {
 type Voxel struct {
 	Key             VoxelCoords
 	Label           int
-	Points          []r3.Vector
+	Points          []Point
 	Center          r3.Vector
 	Normal          r3.Vector
 	Offset          float64
@@ -108,7 +106,6 @@ type Voxel struct {
 	Weight          float64
 	SortedWeightIdx int
 	PointLabels     []int
-	PointColors     []color.Color
 }
 
 // NewVoxel creates a pointer to a Voxel struct
@@ -116,7 +113,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          make([]r3.Vector, 0),
+		Points:          make([]Point, 0),
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -124,17 +121,17 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 		Weight:          0,
 		SortedWeightIdx: 0,
 		PointLabels:     nil,
-		PointColors:     nil,
 	}
 }
 
 // NewVoxelFromPoint creates a new voxel from a point
 func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
+	p := NewBasicPoint(pt.X, pt.Y, pt.Z)
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          []r3.Vector{pt},
+		Points:          []Point{p},
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -142,8 +139,16 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 		Weight:          0,
 		SortedWeightIdx: 0,
 		PointLabels:     nil,
-		PointColors:     nil,
 	}
+}
+
+// Positions gets the positions of the points inside the voxel
+func (v1 *Voxel) Positions() []r3.Vector {
+	positions := make([]r3.Vector, len(v1.Points))
+	for i, pt := range v1.Points {
+		positions[i] = r3.Vector(pt.Position())
+	}
+	return positions
 }
 
 // SetLabel sets a voxel
@@ -177,7 +182,7 @@ func (v1 *Voxel) CanMerge(v2 *Voxel, angleTh, cosTh float64) bool {
 // ComputeCenter computer barycenter of points in voxel
 func (v1 *Voxel) ComputeCenter() {
 	center := r3.Vector{}
-	for _, pt := range v1.Points {
+	for _, pt := range v1.Positions() {
 		center.Add(pt)
 	}
 	center = center.Mul(1. / float64(len(v1.Points)))
@@ -202,27 +207,10 @@ type VoxelSlice []*Voxel
 func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
-		if vox.PointColors == nil { // Fill pointcloud with basic points
-			for _, pt := range vox.Points {
-				ptValue := NewBasicPoint(pt.X, pt.Y, pt.Z)
-				err := cloud.Set(ptValue)
-				if err != nil {
-					return nil, err
-				}
-			}
-		} else { // fill with color points if available
-			for i, pt := range vox.Points {
-				var ptValue Point
-				if vox.PointColors[i] == nil {
-					ptValue = NewBasicPoint(pt.X, pt.Y, pt.Z)
-				} else {
-					r, g, b, a := vox.PointColors[i].RGBA()
-					ptValue = NewColoredPoint(pt.X, pt.Y, pt.Z, color.NRGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
-				}
-				err := cloud.Set(ptValue)
-				if err != nil {
-					return nil, err
-				}
+		for _, pt := range vox.Points {
+			err := cloud.Set(pt)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -297,11 +285,11 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 		for _, vox := range vg.Voxels {
 			variable := -9.0
 			if len(vox.Points) > 5 {
-				vox.Center = GetVoxelCenter(vox.Points)
-				vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
+				vox.Center = GetVoxelCenter(vox.Positions())
+				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Points, vox.GetPlane())
-				variable = GetWeight(vox.Points, vg.lam, vox.Residual)
+				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
+				variable = GetWeight(vox.Positions(), vg.lam, vox.Residual)
 			}
 			hist.Fill(variable, 1)
 		}
@@ -313,10 +301,10 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 		for _, vox := range vg.Voxels {
 			variable := -999.
 			if len(vox.Points) > 5 {
-				vox.Center = GetVoxelCenter(vox.Points)
-				vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
+				vox.Center = GetVoxelCenter(vox.Positions())
+				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Points, vox.GetPlane())
+				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
 				variable = vox.Residual
 			}
 			hist.Fill(variable, 1)
@@ -390,7 +378,7 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 			} else {
 				label = vox.PointLabels[i]
 			}
-			ptValue := NewValuePoint(pt.X, pt.Y, pt.Z, label)
+			ptValue := pt.SetValue(label)
 			// add it to the point cloud
 			err := pc.Set(ptValue)
 			if err != nil {
@@ -414,10 +402,6 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 	pc.Iterate(func(p Point) bool {
 		pt := r3.Vector(p.Position())
-		var c color.Color
-		if p.HasColor() {
-			c = p.Color()
-		}
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]
 		// if voxel key does not exist yet, create voxel at this key with current point, voxel coordinates and maximum
@@ -426,7 +410,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			voxelMap.Voxels[coords] = &Voxel{
 				Key:             coords,
 				Label:           0,
-				Points:          []r3.Vector{pt},
+				Points:          []Point{p},
 				Center:          r3.Vector{},
 				Normal:          r3.Vector{},
 				Offset:          0,
@@ -434,12 +418,10 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 				Weight:          0,
 				SortedWeightIdx: 0,
 				PointLabels:     nil,
-				PointColors:     []color.Color{c},
 			}
 		} else {
 			// if voxel coordinates is in the keys of voxelMap, add point to slice
-			vox.Points = append(vox.Points, pt)
-			vox.PointColors = append(vox.PointColors, c)
+			vox.Points = append(vox.Points, p)
 		}
 		return true
 	})
@@ -449,17 +431,17 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 	for k, vox := range voxelMap.Voxels {
 		// Voxel must have enough point to make relevant computations
 		vox.Key = k
-		center := GetVoxelCenter(vox.Points)
+		center := GetVoxelCenter(vox.Positions())
 		vox.Center.X = center.X
 		vox.Center.Y = center.Y
 		vox.Center.Z = center.Z
 
 		// below 5 points, normal and center estimation are not relevant
 		if len(vox.Points) > 5 {
-			vox.Normal = estimatePlaneNormalFromPoints(vox.Points)
+			vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
 			vox.Offset = GetOffset(vox.Center, vox.Normal)
-			vox.Residual = GetResidual(vox.Points, vox.GetPlane())
-			vox.Weight = GetWeight(vox.Points, lam, vox.Residual)
+			vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
+			vox.Weight = GetWeight(vox.Positions(), lam, vox.Residual)
 		}
 
 	}

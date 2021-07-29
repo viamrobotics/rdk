@@ -20,11 +20,11 @@ func (objectSeg *ObjectSegmentation) N() int {
 }
 
 // SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
-// returns the full point cloud if the point is not part of any object segment.
+// returns an error if the point is not part of any object segment.
 func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
 	v := pc.Vec3{x, y, z}
 	if segIndex, ok := objectSeg.Indices[v]; ok {
-		return objectSeg.Clusters[segIndex], nil
+		return objectSeg.Objects[segIndex], nil
 	}
 	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
 }
@@ -51,8 +51,8 @@ func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegmen
 	if err != nil {
 		return nil, err
 	}
-	clusters := NewSegmentsFromSlice(segments)
-	return &ObjectSegmentation{cloud, clusters}, nil
+	objects := NewSegmentsFromSlice(segments)
+	return &ObjectSegmentation{cloud, objects}, nil
 }
 
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
@@ -134,5 +134,76 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 		}
 		return true
 	})
+	return neighbors
+}
+
+func VoxelBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
+	// turn cloud into voxel grid
+	voxelSize := 20.0
+	lam := 8.0
+	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
+	// do the segment assignment
+	var err error
+	clusters := NewSegments()
+	c := 0
+	for coord, vox := range vg.Voxels {
+		v := pc.Vec3{float64(coord.I), float64(coord.J), float64(coord.K)}
+		// skip if point already is assigned cluster
+		if _, ok := clusters.Indices[v]; ok {
+			continue
+		}
+		// if not assigned, see if any of its neighbors are assigned a cluster
+		nn := findVoxelNeighborsInRadius(vg, coord, radius)
+		for nv, neighborVox := range nn {
+			ptIndex, ptOk := clusters.Indices[v]
+			neighborIndex, neighborOk := clusters.Indices[nv]
+			if ptOk && neighborOk {
+				if ptIndex != neighborIndex {
+					err = clusters.MergeClusters(ptIndex, neighborIndex)
+				}
+			} else if !ptOk && neighborOk {
+				clusters.Indices[v] = neighborIndex // label the voxel coordinate
+				for _, p := range vox.Points {
+					err = clusters.AssignCluster(p, neighborIndex) // label all points in the voxel
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else if ptOk && !neighborOk {
+				clusters.Indices[nv] = ptIndex
+				for _, p := range neighborVox.Points {
+					err = clusters.AssignCluster(p, ptIndex)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
+		if _, ok := clusters.Indices[v]; !ok {
+			clusters.Indices[v] = c
+			for _, p := range vox.Points {
+				err = clusters.AssignCluster(p, c)
+				if err != nil {
+					return nil, err
+				}
+			}
+			for nv, neighborVox := range nn {
+				clusters.Indices[nv] = c
+				for _, p := range neighborVox.Points {
+					err = clusters.AssignCluster(p, c)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+			c++
+		}
+	}
+	return clusters.PointClouds(), nil
+}
+
+func findVoxelNeighborsInRadius(vg *pc.VoxelGrid, coord pc.VoxelCoords, radius float64) map[pc.Vec3]pc.Voxel {
+	neighbors := make(map[pc.Vec3]pc.Voxel)
 	return neighbors
 }

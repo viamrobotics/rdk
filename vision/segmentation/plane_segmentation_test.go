@@ -260,8 +260,8 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	// voxel grid plane segmentation
 	voxelConfig := VoxelGridConfiguration{
 		weightThresh:   0.9,
-		angleThresh:    75,
-		cosineThresh:   0.25,
+		angleThresh:    80,
+		cosineThresh:   0.30,
 		distanceThresh: voxelSize * 0.5,
 	}
 	planeSegVoxel := NewVoxelGridPlaneSegmentation(cloud, voxelSize, lam, voxelConfig)
