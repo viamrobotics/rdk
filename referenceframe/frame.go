@@ -13,7 +13,7 @@ import (
 	"go.viam.com/core/spatialmath"
 )
 
-// OffsetBy takes two offsets and computes the final position
+// OffsetBy takes two offsets and computes the final position.
 func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 	q1 := spatialmath.NewDualQuaternionFromArmPos(a)
 	q2 := spatialmath.NewDualQuaternionFromArmPos(b)
@@ -22,9 +22,9 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 	return q3.ToArmPos()
 }
 
-// Frame represents a single reference frame, e.g. an arm, a joint, etc
+// Frame represents a single reference frame, e.g. an arm, a joint, etc.
 type Frame interface {
 	Parent() string // TODO: make this not a string
-	Transform([]Input) *spatialmath.DualQuaternion{}
+	Transform([]Input) *spatialmath.DualQuaternion
 	DOF() int
 }
