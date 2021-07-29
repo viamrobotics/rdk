@@ -61,7 +61,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		eePos := JointRadToQuat(ik.model, x)
+		eePos := ik.model.JointRadToQuat(x)
 		dx := make([]float64, ik.model.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
@@ -83,7 +83,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				eePos := JointRadToQuat(ik.model, xBak)
+				eePos := ik.model.JointRadToQuat(xBak)
 				dx2 := make([]float64, ik.model.OperationalDof()*7)
 				for _, nextGoal := range ik.getGoals() {
 					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)

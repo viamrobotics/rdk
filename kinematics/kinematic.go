@@ -6,7 +6,6 @@ import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/go-errors/errors"
@@ -28,19 +27,7 @@ func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, 
 		radAngles[i] = utils.DegToRad(angle)
 	}
 
-	return JointRadToQuat(model, radAngles).ToArmPos(), nil
-}
-
-// JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func JointRadToQuat(model *Model, radAngles []float64) *spatialmath.DualQuaternion {
-	quats := model.GetQuaternions(radAngles)
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	startPos := spatialmath.NewDualQuaternion()
-	for _, quat := range quats {
-		startPos.Quat = startPos.Transformation(quat.Quat)
-	}
-	return startPos
+	return model.JointRadToQuat(radAngles).ToArmPos(), nil
 }
 
 // ZeroInlineRotation will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
@@ -62,8 +49,8 @@ func ZeroInlineRotation(m *Model, angles []float64) []float64 {
 				tempAngles[j] = 0
 
 				// These angles are complementary
-				pos1 := JointRadToQuat(m, angles)
-				pos2 := JointRadToQuat(m, tempAngles)
+				pos1 := m.JointRadToQuat(angles)
+				pos2 := m.JointRadToQuat(tempAngles)
 				distance := SquaredNorm(pos1.ToDelta(pos2))
 
 				// Check we did not move the end effector too much
