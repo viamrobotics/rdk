@@ -15,6 +15,12 @@
     {{ end }}
 
     <script>
+
+      function roundTo2Decimals(num) {
+          num = Math.round(num * 100);
+          return num / 100;
+      }
+      
       function grpcCallback(err, resp, stringify) {
         if (err) {
           theData.error = JSON.stringify(err);
@@ -100,6 +106,7 @@
               minPtsPlane : 10000,
               minPtsSegment: 100,
               clusterRad: 5,
+              armToggle : {},
           };
           theApp = new Vue({
               el: '#app',
@@ -147,6 +154,65 @@
                       req.setTo(newPosition);
                       robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
+                  armModifyAll : function(name, arm) {
+                      var n = { name : name, pieces : [] };
+
+                      for ( var i=0; i < arm.pieces.length; i++) {
+                          n.pieces.push( {
+                              grid : arm.pieces[i].grid,
+                              gridValue : roundTo2Decimals(arm.pieces[i].gridValue),
+                              joint : arm.pieces[i].joint,
+                              jointValue : roundTo2Decimals(arm.pieces[i].jointValue),
+                          });
+                              
+                      }
+                      
+                      theData.armToggle[name] = n;
+                  },
+                  armModifyAllCancel : function(name, arm) {
+                      delete theData.armToggle[name];
+                  },
+                  armModifyAllDoGrid : function(name) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      var old = arm.getGridPosition();
+                      
+                      var newPosition = Object.assign(Object.create(robotApi.ArmPosition.prototype), old);
+                      var newPieces = theData.armToggle[name].pieces;
+                      
+                      for (var i=0; i < newPieces.length; i++) {
+                          var getterSetter = newPieces[i].grid[1];
+                          const getter = `get${getterSetter}`;
+                          const setter = `set${getterSetter}`;
+                          newPosition[setter](newPieces[i].gridValue);
+                      }
+
+                      const req = new robotApi.ArmMoveToPositionRequest();
+                      req.setName(name);
+                      req.setTo(newPosition);
+                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      delete theData.armToggle[name];
+                  },
+                  armModifyAllDoJoint : function(name) {
+                      const arm = theData.rawStatus.getArmsMap().get(name);
+                      var old = arm.getJointPositions();
+                      
+                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newList = newPosition.getDegreesList();
+
+                      var newPieces = theData.armToggle[name].pieces;
+                      for (var i=0; i < newPieces.length && i < newList.length; i++) {
+                          newList[newPieces[i].joint] = newPieces[i].jointValue;
+                      }
+                      
+                      newPosition.setDegreesList(newList);
+
+                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      req.setName(name);
+                      req.setTo(newPosition);
+                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      delete theData.armToggle[name];
+                  },
+                  
                   gripperAction : function(name, action) {
                       let req;
                       switch (action) {
@@ -518,10 +584,30 @@
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in status.armsMap" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
-        <table border="1">
+        <table v-if="armToggle[arm.name]" border="1">
           <tr>
-            <th colspan="4"><h5>GRID (mms)</h5></th>
-            <th colspan="4"><h5>JOINTS (degrees)</h5></th>
+            <th colspan="2"><h5>GRID (mms)</h5></th>
+            <th colspan="2"><h5>JOINTS (degrees)</h5></th>
+          </tr>
+          <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
+            <th>${aa.grid[0]}</th>
+            <td><input v-model="aa.gridValue"></td>
+
+            <th>Joint ${aa.joint}</th>
+            <td><input v-model="aa.jointValue"></td>
+          </tr>
+          <tr>
+            <th colspan="6">
+              <button v-on:click="armModifyAllDoGrid(arm.name, arm)">Go To Grid</button>
+              <button v-on:click="armModifyAllDoJoint(arm.name, arm)">Go To Joints</button>
+              <button v-on:click="armModifyAllCancel(arm.name, arm)">Cancel</button>
+            </th>
+          </tr>
+        </table>
+        <table border="1" v-else>
+          <tr>
+            <th colspan="3"><h5>GRID (mms)</h5></th>
+            <th colspan="3"><h5>JOINTS (degrees)</h5></th>
           </tr>
           <tr v-for="aa in arm.pieces" :key="aa.joint">
             <th>${aa.grid[0]}</th>
@@ -533,8 +619,6 @@
             </td>
             <td>${aa.gridValue.toFixed(2)}</td>
 
-            <td></td>
-            
             <th>Joint ${aa.joint}</th>
             <td>
               <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
@@ -547,10 +631,10 @@
           <tr>
             <th colspan="8"> 
               <button v-on:click="armHome( arm.name)">Home</button>
+              <button v-on:click="armModifyAll(arm.name, arm)">Modify All</button>
             </th>
           </tr>
-
-        </table>
+        </table> <!-- end main table -->
       </div> 
       
       <!-- ******* GRIPPER *******  -->
@@ -771,7 +855,6 @@
         </tr>
       </table>
     </div> <!-- end vue app -->
-    
   </body>
 </html>
 
