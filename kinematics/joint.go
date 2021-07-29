@@ -5,6 +5,7 @@ import (
 	"math/rand"
 
 	"go.viam.com/core/spatialmath"
+	"go.viam.com/core/referenceframe"
 
 	"gonum.org/v1/gonum/num/dualquat"
 )
@@ -73,24 +74,14 @@ func (j *Joint) GenerateRandomJointPositions(rnd *rand.Rand) []float64 {
 	return positions
 }
 
-// Quaternion gets the quaternion representing this joint's rotation in space AT THE ZERO ANGLE.
-func (j *Joint) Quaternion() *spatialmath.DualQuaternion {
-	jointQuat := spatialmath.NewDualQuaternion()
-	for i := 0; i < j.Dof(); i++ {
-		rotation := j.rotAxis
-		jointQuat.Quat = jointQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
-	}
-	return jointQuat
-}
-
-// AngleQuaternion returns the quaternion representing this joint's rotation in space.
+// Transform returns the quaternion representing this joint's rotation in space.
 // If this is a joint with more than 1 DOF, it will return the quaternion representing the total rotation.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
-func (j *Joint) AngleQuaternion(angle []float64) *spatialmath.DualQuaternion {
+func (j *Joint) Transform(input []referenceframe.Input) *spatialmath.DualQuaternion {
 	jQuat := spatialmath.NewDualQuaternion()
 	for i := 0; i < j.Dof(); i++ {
 		rotation := j.rotAxis
-		rotation.Theta = angle[i]
+		rotation.Theta = input[i].Value
 		jQuat.Quat = jQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
 	}
 	return jQuat

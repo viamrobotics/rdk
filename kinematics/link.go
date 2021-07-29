@@ -2,13 +2,8 @@ package kinematics
 
 import (
 	"go.viam.com/core/spatialmath"
+	"go.viam.com/core/referenceframe"
 )
-
-// A Transform can be a link or a joint.
-type Transform interface {
-	Parent() string
-	Quaternion() *spatialmath.DualQuaternion
-}
 
 // Link defines a fixed link
 type Link struct {
@@ -22,12 +17,17 @@ func NewLink(parent string) *Link {
 	return &l
 }
 
-// Quaternion returns the quaternion associated with the link
-func (l *Link) Quaternion() *spatialmath.DualQuaternion {
+// Transform returns the quaternion associated with the link
+func (l *Link) Transform(input []referenceframe.Input) *spatialmath.DualQuaternion {
 	return l.quat
 }
 
 // Parent will return the name of the next transform up the kinematics chain from this link.
 func (l *Link) Parent() string {
 	return l.parent
+}
+
+// Dof is zero for a link
+func (l *Link) Dof() int {
+	return 0
 }

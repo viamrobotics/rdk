@@ -8,6 +8,7 @@ import (
 	"github.com/go-errors/errors"
 
 	"go.viam.com/core/config"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 )
@@ -73,7 +74,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 	model.manufacturer = m.Model.Manufacturer
 	model.name = m.Model.Name
-	transforms := make(map[string]Transform)
+	transforms := make(map[string]referenceframe.Frame)
 
 	if m.Model.KinParamType == "SVA" || m.Model.KinParamType == "" {
 		for _, link := range m.Model.Links {
@@ -138,7 +139,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	}
 
 	// Determine which transforms have no children
-	parents := make(map[string]Transform)
+	parents := make(map[string]referenceframe.Frame)
 	// First create a copy of the map
 	for id, trans := range transforms {
 		parents[id] = trans
@@ -163,7 +164,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	// Create an ordered list of transforms
 	seen := map[string]bool{}
 	nextTransform := transforms[eename]
-	orderedTransforms := []Transform{nextTransform}
+	orderedTransforms := []referenceframe.Frame{nextTransform}
 	seen[eename] = true
 	for {
 		parent := nextTransform.Parent()
