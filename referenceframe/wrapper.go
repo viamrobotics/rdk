@@ -6,7 +6,7 @@ import (
 
 // A FrameWrapper will wrap a Frame, allowing a new Parent to be set
 type FrameWrapper struct{
-	real   Frame
+	Frame
 	offset *spatialmath.DualQuaternion
 	parent string
 }
@@ -16,7 +16,7 @@ type FrameWrapper struct{
 // dual quaternion is used ((1,0,0,0),(0,0,0,0)) rather than someone passing in a spatialmath.DualQuaternion{}
 func WrapFrame(frame Frame, parent string) *FrameWrapper{
 	return &FrameWrapper{
-		real: frame,
+		Frame: frame,
 		offset: spatialmath.NewDualQuaternion(),
 		parent: parent,
 	}
@@ -24,17 +24,12 @@ func WrapFrame(frame Frame, parent string) *FrameWrapper{
 
 // Transform returns the quaternion associated with the wrapped frame, transformed by the 
 func (f *FrameWrapper) Transform(input []Input) *spatialmath.DualQuaternion {
-	return &spatialmath.DualQuaternion{f.offset.Transformation(f.real.Transform(input).Quat)}
+	return &spatialmath.DualQuaternion{f.offset.Transformation(f.Frame.Transform(input).Quat)}
 }
 
 // Parent will return the name of the next transform up the kinematics chain from this frame
 func (f *FrameWrapper) Parent() string {
 	return f.parent
-}
-
-// Dof returns the dof of the wrapped frame
-func (f *FrameWrapper) Dof() int {
-	return f.real.Dof()
 }
 
 // Dof returns the dof of the wrapped frame
