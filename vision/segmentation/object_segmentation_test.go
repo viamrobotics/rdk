@@ -6,12 +6,13 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
 	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/core/rimage"
 	"go.viam.com/core/rimage/transform"
 	"go.viam.com/core/utils"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 
 	"github.com/edaniels/golog"
 )
@@ -24,10 +25,10 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	cloud, err := pc.ReadPCD(bytes.NewReader(pcd))
 	test.That(t, err, test.ShouldBeNil)
 	// do segmentation
-	objConfig := SegmentationConfig{
-		minPtsInPlane:    50000,
-		minPtsInSegment:  500,
-		clusteringRadius: 10.0,
+	objConfig := ObjectConfig{
+		MinPtsInPlane:    50000,
+		MinPtsInSegment:  500,
+		ClusteringRadius: 10.0,
 	}
 	segments, err := NewObjectSegmentation(cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
@@ -60,10 +61,10 @@ func (h *segmentObjectTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorCo
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
-	objConfig := SegmentationConfig{
-		minPtsInPlane:    50000,
-		minPtsInSegment:  500,
-		clusteringRadius: 10.0,
+	objConfig := ObjectConfig{
+		MinPtsInPlane:    50000,
+		MinPtsInSegment:  500,
+		ClusteringRadius: 10.0,
 	}
 
 	// Do object segmentation with point clouds
@@ -142,10 +143,10 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
 
 	// Do object segmentation with point clouds
-	objConfig := SegmentationConfig{
-		minPtsInPlane:    15000,
-		minPtsInSegment:  100,
-		clusteringRadius: 10.0,
+	objConfig := ObjectConfig{
+		MinPtsInPlane:    15000,
+		MinPtsInSegment:  100,
+		ClusteringRadius: 10.0,
 	}
 
 	segments, err := NewObjectSegmentation(cloud, objConfig)

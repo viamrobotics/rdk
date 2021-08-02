@@ -26,9 +26,8 @@ func init() {
 
 // ColorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth
 type ColorSegmentsSource struct {
-	source                         gostream.ImageSource
-	minPtsInPlane, minPtsInSegment int
-	clusteringRadius               float64
+	source gostream.ImageSource
+	config segmentation.ObjectConfig
 }
 
 // Close closes the source
@@ -54,11 +53,11 @@ func (cs *ColorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segments, err := segmentation.CreateObjectSegmentation(cloud, cs.minPtsInPlane, cs.minPtsInSegment, cs.clusteringRadius)
+	segments, err := segmentation.NewObjectSegmentation(cloud, cs.config)
 	if err != nil {
 		return nil, nil, err
 	}
-	colorCloud, err := pointcloud.MergePointCloudsWithColor(segments.PointClouds)
+	colorCloud, err := pointcloud.MergePointCloudsWithColor(segments.PointClouds())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +76,7 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	planeSize := config.Attributes.Int("plane_size", 10000)
 	segmentSize := config.Attributes.Int("segment_size", 5)
 	clusterRadius := config.Attributes.Float64("cluster_radius", 5.0)
-
-	return &camera.ImageSource{&ColorSegmentsSource{source, planeSize, segmentSize, clusterRadius}}, nil
+	cfg := segmentation.ObjectConfig{planeSize, segmentSize, clusterRadius}
+	return &camera.ImageSource{&ColorSegmentsSource{source, cfg}}, nil
 
 }

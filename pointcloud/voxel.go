@@ -43,26 +43,31 @@ type voxelPlane struct {
 	voxelKeys []VoxelCoords
 }
 
+// NewPlaneFromVoxel creats a Plane object from a set of voxel properties
 func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
+// Normal is the normal vector of the plane
 func (p *voxelPlane) Normal() Vec3 {
 	return Vec3(p.normal)
 }
 
+// Center is the vector that points to the center of the plane
 func (p *voxelPlane) Center() Vec3 {
 	return Vec3(p.center)
 }
 
+// Offset is the vector offset of the plane from the origin
 func (p *voxelPlane) Offset() float64 {
 	return p.offset
 }
 
+// PointCloud returns the PointCloud of the underlying points of the plane
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
 	pc := New()
 	if p.points == nil {
-		return nil, errors.New("No points in plane to turn into point cloud")
+		return nil, errors.New("no points in plane to turn into point cloud")
 	}
 	for _, pt := range p.points {
 		err := pc.Set(pt)
@@ -204,6 +209,7 @@ func (v1 *Voxel) GetPlane() Plane {
 // VoxelSlice is a slice that contains Voxels
 type VoxelSlice []*Voxel
 
+// ToPointCloud uses the points in the slice of voxels to create a point cloud
 func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
@@ -285,7 +291,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 	if name == "points" {
 		p.Title.Text = "Points in Voxel"
 		p.X.Label.Text = "Pts in Voxel"
-		p.Y.Label.Text = "N Voxels"
+		p.Y.Label.Text = "NVoxels"
 		hist = hbook.NewH1D(25, 0, +25)
 		for _, vox := range vg.Voxels {
 			variable := float64(len(vox.Points))
@@ -295,7 +301,7 @@ func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) 
 		hist = hbook.NewH1D(40, 0, +1)
 		p.Title.Text = "Weights of Voxel"
 		p.X.Label.Text = "Voxel Weight"
-		p.Y.Label.Text = "N Voxels"
+		p.Y.Label.Text = "N Vox"
 		for _, vox := range vg.Voxels {
 			variable := -9.0
 			if len(vox.Points) > 5 {

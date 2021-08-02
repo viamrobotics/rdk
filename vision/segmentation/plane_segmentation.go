@@ -137,6 +137,7 @@ func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (pc.P
 	return pc.NewPlane(planeCloud, bestEquation), nonPlaneCloud, nil
 }
 
+// PlaneSegmentation is an interface used to find geometric planes in a 3D space
 type PlaneSegmentation interface {
 	FindPlanes() ([]pc.Plane, pc.PointCloud, error)
 }
@@ -148,13 +149,14 @@ type pointCloudPlaneSegmentation struct {
 	nIterations int
 }
 
+// NewPointCloudPlaneSegmentation initializes the plane segmentation with the necessary parameters to find the planes
+// threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
+// minPoints is the minimum number of points necessary to be considered a plane.
 func NewPointCloudPlaneSegmentation(cloud pc.PointCloud, threshold float64, minPoints int) PlaneSegmentation {
 	return &pointCloudPlaneSegmentation{cloud, threshold, minPoints, 2000}
 }
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
-// threshold is the float64 value for the maximum allowed distance to the found plane for a point to belong to it.
-// minPoints is the minimum number of points necessary to be considered a plane.
 func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
 	planes := make([]pc.Plane, 0)
 	var err error
@@ -195,6 +197,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 	return planes, nonPlaneCloud, nil
 }
 
+// VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid
 type VoxelGridPlaneConfig struct {
 	weightThresh   float64
 	angleThresh    float64 // in degrees
@@ -207,10 +210,12 @@ type voxelGridPlaneSegmentation struct {
 	config VoxelGridPlaneConfig
 }
 
+// NewVoxelGridPlaneSegmentation initializes the necessary parameters needed to do plane segmentation on a voxel grid.
 func NewVoxelGridPlaneSegmentation(vg *pc.VoxelGrid, config VoxelGridPlaneConfig) PlaneSegmentation {
 	return &voxelGridPlaneSegmentation{vg, config}
 }
 
+// FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
 func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
 	vgps.SegmentPlanesRegionGrowing(vgps.config.weightThresh, vgps.config.angleThresh, vgps.config.cosineThresh, vgps.config.distanceThresh)
 	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
