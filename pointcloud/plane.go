@@ -4,7 +4,7 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// Plane defines a planar object in a point cloud
+// Plane defines a planar object in a 3D space.
 type Plane interface {
 	Normal() Vec3
 	Center() Vec3
