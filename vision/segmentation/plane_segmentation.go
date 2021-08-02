@@ -195,7 +195,7 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud
 	return planes, nonPlaneCloud, nil
 }
 
-type VoxelGridConfiguration struct {
+type VoxelGridPlaneConfig struct {
 	weightThresh   float64
 	angleThresh    float64 // in degrees
 	cosineThresh   float64
@@ -204,12 +204,11 @@ type VoxelGridConfiguration struct {
 
 type voxelGridPlaneSegmentation struct {
 	*pc.VoxelGrid
-	config VoxelGridConfiguration
+	config VoxelGridPlaneConfig
 }
 
-func NewVoxelGridPlaneSegmentation(cloud pc.PointCloud, voxelSize, lam float64, config VoxelGridConfiguration) PlaneSegmentation {
-	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
-	return &voxelGridPlaneSegmentation{vg, config} // parameters chosen by magic
+func NewVoxelGridPlaneSegmentation(vg *pc.VoxelGrid, config VoxelGridPlaneConfig) PlaneSegmentation {
+	return &voxelGridPlaneSegmentation{vg, config}
 }
 
 func (vgps *voxelGridPlaneSegmentation) FindPlanes() ([]pc.Plane, pc.PointCloud, error) {
