@@ -25,6 +25,7 @@ func NewEmptyPlane() Plane {
 	return &pointcloudPlane{New(), []float64{0, 0, 0, 0}, nil}
 }
 
+// NewPlane creates a new plane object from a point cloud
 func NewPlane(cloud PointCloud, equation []float64) Plane {
 	return &pointcloudPlane{cloud, equation, nil}
 }
@@ -34,10 +35,12 @@ func (p *pointcloudPlane) PointCloud() (PointCloud, error) {
 	return p.pointcloud, nil
 }
 
+// Normal return the normal vector perpendicular to the plane
 func (p *pointcloudPlane) Normal() Vec3 {
 	return Vec3{p.equation[0], p.equation[1], p.equation[2]}
 }
 
+// Center returns the vector pointing to the center of the points that make up the plane
 func (p *pointcloudPlane) Center() Vec3 {
 	if p.center != nil {
 		return *p.center
@@ -53,6 +56,7 @@ func (p *pointcloudPlane) Center() Vec3 {
 	return *p.center
 }
 
+// Offset returns the vector offset of the plane from the origin
 func (p *pointcloudPlane) Offset() float64 {
 	return p.equation[3]
 }

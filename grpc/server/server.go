@@ -328,21 +328,22 @@ func (s *Server) ObjectPointClouds(ctx context.Context, req *pb.ObjectPointCloud
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentation.CreateObjectSegmentation(pc, int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius)
+	config := segmentation.ObjectConfig{int(req.MinPointsInPlane), int(req.MinPointsInSegment), req.ClusteringRadius}
+	segments, err := segmentation.NewObjectSegmentation(pc, config)
 	if err != nil {
 		return nil, err
 	}
 
 	frames := make([][]byte, segments.N())
 	centers := make([]pointcloud.Vec3, segments.N())
-	for i, seg := range segments.PointClouds {
+	for i, seg := range segments.Objects {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}
 		frames[i] = buf.Bytes()
-		centers[i] = segments.Centers[i]
+		centers[i] = seg.Center
 	}
 
 	return &pb.ObjectPointCloudsResponse{

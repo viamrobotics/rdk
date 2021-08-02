@@ -60,7 +60,7 @@ func (c *Segments) N() int {
 	return len(c.Objects)
 }
 
-// PointsClouds returns the underlying array of pointclouds
+// PointClouds returns the underlying array of pointclouds
 func (c *Segments) PointClouds() []pc.PointCloud {
 	clouds := make([]pc.PointCloud, c.N())
 	for i := 0; i < c.N(); i++ {
