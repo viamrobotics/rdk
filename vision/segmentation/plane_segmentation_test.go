@@ -258,29 +258,30 @@ func (h *segmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext,
 	pCtx.GotDebugImage(histRes, "residual-histograms")
 
 	// voxel grid plane segmentation
-	voxelConfig := VoxelGridConfiguration{
+	voxelConfig := VoxelGridPlaneConfig{
 		weightThresh:   0.9,
 		angleThresh:    80,
 		cosineThresh:   0.30,
 		distanceThresh: voxelSize * 0.5,
 	}
-	planeSegVoxel := NewVoxelGridPlaneSegmentation(cloud, voxelSize, lam, voxelConfig)
+	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
 	planesVox, nonPlaneVox, err := planeSegVoxel.FindPlanes()
 	test.That(t, err, test.ShouldBeNil)
-	//test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
+	test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
 	t.Logf("number of planes: %d", len(planesVox))
-	segmentsVox := make([]pc.PointCloud, 0, len(planesVox)+1)
-	segmentsVox = append(segmentsVox, nonPlaneVox)
+
+	voxSegments := make([]pc.PointCloud, 0, len(planes)+1)
+	voxSegments = append(voxSegments, nonPlaneVox)
 	for _, plane := range planesVox {
-		test.That(t, plane, test.ShouldNotBeNil)
 		planeCloud, err := plane.PointCloud()
 		test.That(t, err, test.ShouldBeNil)
-		segmentsVox = append(segmentsVox, planeCloud)
+		voxSegments = append(voxSegments, planeCloud)
 	}
-	segImageVox, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, segmentsVox)
+	voxSegImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxSegments)
 	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(segImageVox, "from-voxelgrid")
+	pCtx.GotDebugImage(voxSegImage, "from-segmented-pointcloud")
+
 	return nil
 }
 
@@ -300,11 +301,11 @@ func TestPlaneSegmentImageWithDepth(t *testing.T) {
 }
 
 // testing out gripper plane segmentation
-type gripperSegmentTestHelper struct {
+type gripperPlaneTestHelper struct {
 	cameraParams *transform.DepthColorIntrinsicsExtrinsics
 }
 
-func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (h *gripperPlaneTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
 	var err error
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
@@ -323,35 +324,26 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// voxel grid plane segmentation
-	voxelConfig := VoxelGridConfiguration{
+	voxelConfig := VoxelGridPlaneConfig{
 		weightThresh:   0.9,
 		angleThresh:    30,
 		cosineThresh:   0.1,
 		distanceThresh: 0.1,
 	}
-	planeSegVoxel := NewVoxelGridPlaneSegmentation(cloud, 0.2, 0.01, voxelConfig)
-	planesVox, nonPlaneVox, err := planeSegVoxel.FindPlanes()
+	vg := pc.NewVoxelGridFromPointCloud(cloud, 8.0, 0.1)
+	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
+	planesVox, _, err := planeSegVoxel.FindPlanes()
 	test.That(t, err, test.ShouldBeNil)
-	//test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
+	test.That(t, len(planesVox), test.ShouldBeGreaterThan, 0)
 	t.Logf("number of planes: %d", len(planesVox))
-	segmentsVox := make([]pc.PointCloud, 0, len(planesVox)+1)
-	segmentsVox = append(segmentsVox, nonPlaneVox)
-	for _, plane := range planesVox {
-		test.That(t, plane, test.ShouldNotBeNil)
-		planeCloud, err := plane.PointCloud()
-		test.That(t, err, test.ShouldBeNil)
-		segmentsVox = append(segmentsVox, planeCloud)
-	}
-	segImageVox, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, segmentsVox)
-	test.That(t, err, test.ShouldBeNil)
 
-	pCtx.GotDebugImage(segImageVox, "gripper-from-voxelgrid")
-
-	// find the planes, and only keep points above the biggest found plane
+	// point cloud plane segmentation
 	planeSeg := NewPointCloudPlaneSegmentation(cloud, 10, 15000)
 	planes, nonPlane, err := planeSeg.FindPlanes()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(planes), test.ShouldBeGreaterThan, 0)
+
+	// find the planes, and only keep points above the biggest found plane
 	above, _, err := SplitPointCloudByPlane(nonPlane, planes[0])
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(above, "gripper-above-pointcloud")
@@ -359,18 +351,11 @@ func (h *gripperSegmentTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorC
 	test.That(t, err, test.ShouldBeNil)
 
 	// color the segmentation
-	segments, err := SegmentPointCloudObjects(heightLimit, 10.0, 5)
+	segments, err := segmentPointCloudObjects(heightLimit, 10.0, 5)
 	test.That(t, err, test.ShouldBeNil)
 	coloredSegments, err := pc.MergePointCloudsWithColor(segments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
-
-	// compare to the full pipeline
-	segments2, err := CreateObjectSegmentation(cloud, 15000, 5, 10.0)
-	test.That(t, err, test.ShouldBeNil)
-	coloredSegments2, err := pc.MergePointCloudsWithColor(segments2.PointClouds())
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(coloredSegments2, "gripper-segments-pointcloud-full")
 
 	return nil
 }
@@ -380,7 +365,7 @@ func TestGripperPlaneSegmentation(t *testing.T) {
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	err = d.Process(t, &gripperSegmentTestHelper{camera})
+	err = d.Process(t, &gripperPlaneTestHelper{camera})
 	test.That(t, err, test.ShouldBeNil)
 
 }

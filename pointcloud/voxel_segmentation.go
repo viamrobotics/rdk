@@ -2,7 +2,6 @@ package pointcloud
 
 import (
 	"container/list"
-	"fmt"
 	"sort"
 )
 
@@ -75,12 +74,12 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			keysByLabel[vox.Label] = append(keysByLabel[vox.Label], vox.Key)
 			for _, pt := range vox.Points {
 				p := pt.Position()
-				if _, ok := seen[p]; !ok {
-					seen[p] = true
+				if _, ok := seen[p]; ok { // already assigned point to another label
+					continue
 				} else {
-					return nil, nil, fmt.Errorf("point (%v,%v,%v) has already been seen", p.X, p.Y, p.Z)
+					seen[p] = true
+					pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
 				}
-				pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
 			}
 		} else {
 			// voxel has points for either no plane or at least two planes
@@ -88,13 +87,13 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			if len(vox.Points) == len(vox.PointLabels) {
 				for ptIdx, pt := range vox.Points {
 					p := pt.Position()
-					if _, ok := seen[p]; !ok {
-						seen[p] = true
+					if _, ok := seen[p]; ok { // already assigned point to another label
+						continue
 					} else {
-						return nil, nil, fmt.Errorf("point (%v,%v,%v) has already been seen", p.X, p.Y, p.Z)
+						seen[p] = true
+						ptLabel := vox.PointLabels[ptIdx]
+						pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
 					}
-					ptLabel := vox.PointLabels[ptIdx]
-					pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
 				}
 			}
 		}

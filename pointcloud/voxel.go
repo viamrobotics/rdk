@@ -243,13 +243,14 @@ func ReverseVoxelSlice(s VoxelSlice) {
 
 // VoxelGrid contains the sparse grid of Voxels of a point cloud
 type VoxelGrid struct {
-	Voxels   map[VoxelCoords]*Voxel
-	maxLabel int
-	lam      float64
+	Voxels    map[VoxelCoords]*Voxel
+	maxLabel  int
+	voxelSize float64
+	lam       float64
 }
 
 // NewVoxelGrid returns a pointer to a VoxelGrid with a (0,0,0) Voxel
-func NewVoxelGrid(lam float64) *VoxelGrid {
+func NewVoxelGrid(voxelSize, lam float64) *VoxelGrid {
 	voxelMap := make(map[VoxelCoords]*Voxel)
 	coords := VoxelCoords{
 		I: 0,
@@ -259,12 +260,25 @@ func NewVoxelGrid(lam float64) *VoxelGrid {
 	voxelMap[coords] = NewVoxel(coords)
 
 	return &VoxelGrid{
-		Voxels:   voxelMap,
-		maxLabel: 0,
-		lam:      lam,
+		Voxels:    voxelMap,
+		maxLabel:  0,
+		voxelSize: voxelSize,
+		lam:       lam,
 	}
 }
 
+// VoxelSize is the side length of the voxels in the VoxelGrid
+func (vg *VoxelGrid) VoxelSize() float64 {
+	return vg.voxelSize
+}
+
+// Lambda is the clustering parameter for making voxel planes
+func (vg *VoxelGrid) Lambda() float64 {
+	return vg.lam
+}
+
+// VoxelHistogram creates useful plots for determining the parameters of the voxel grid when calibrating a new sensor.
+// Hisotgrams of the number of points in each voxel, the weights of each voxel, and the plane residuals.
 func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) {
 	var hist *hbook.H1D
 	p := hplot.New()
@@ -364,6 +378,29 @@ func (vg VoxelGrid) GetAdjacentVoxels(v *Voxel) []VoxelCoords {
 	return neighborKeys
 }
 
+// GetNNearestVoxels gets voxels around a grid coordinate that are N units away in each dimension.
+func (vg VoxelGrid) GetNNearestVoxels(v *Voxel, n uint) []VoxelCoords {
+	I, J, K := v.Key.I, v.Key.J, v.Key.K
+	N := int64(n)
+	is := []int64{I - N, I, I + N}
+	js := []int64{J - N, J, J + N}
+	ks := []int64{K - N, K, K + N}
+	neighborKeys := make([]VoxelCoords, 0)
+	for _, i := range is {
+		for _, j := range js {
+			for _, k := range ks {
+				vox := VoxelCoords{i, j, k}
+				_, ok := vg.Voxels[vox]
+				// if neighboring voxel is in VoxelGrid and is not current voxel
+				if ok && !v.Key.IsEqual(vox) {
+					neighborKeys = append(neighborKeys, vox)
+				}
+			}
+		}
+	}
+	return neighborKeys
+}
+
 // ConvertToPointCloudWithValue converts the voxel grid to a point cloud with values
 // values are containing the labels
 func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
@@ -391,7 +428,7 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 
 // NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud
 func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGrid {
-	voxelMap := NewVoxelGrid(lam)
+	voxelMap := NewVoxelGrid(voxelSize, lam)
 	ptMin := r3.Vector{
 		X: pc.MinX(),
 		Y: pc.MinY(),

@@ -1,6 +1,8 @@
 package segmentation
 
 import (
+	"fmt"
+
 	pc "go.viam.com/core/pointcloud"
 	"go.viam.com/core/utils"
 )
@@ -65,6 +67,15 @@ func (c *Segments) PointClouds() []pc.PointCloud {
 		clouds[i] = c.Objects[i]
 	}
 	return clouds
+}
+
+// SelectPointCloudFromPoint takes a 3D point as input and outputs the point cloud of the segment that the point belongs to.
+func (c *Segments) SelectPointCloudFromPoint(x, y, z float64) (pc.PointCloud, error) {
+	v := pc.Vec3{x, y, z}
+	if segIndex, ok := c.Indices[v]; ok {
+		return c.Objects[segIndex], nil
+	}
+	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
 }
 
 // AssignCluster assigns the given point to the cluster with the given index
