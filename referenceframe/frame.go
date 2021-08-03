@@ -5,40 +5,14 @@
 package referenceframe
 
 import (
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/spatialmath"
+	"fmt"
 
+	pb "go.viam.com/core/proto/api/v1"
+	spatial "go.viam.com/core/spatialmath"
+
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
 )
-
-// OffsetBy takes two offsets and computes the final position.
-func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := spatialmath.NewDualQuaternionFromArmPos(a)
-	q2 := spatialmath.NewDualQuaternionFromArmPos(b)
-	q3 := &spatialmath.DualQuaternion{q1.Transformation(q2.Quat)}
-
-	return q3.ToArmPos()
-}
-
-// Frame represents a single reference frame, e.g. an arm, a joint, etc.
-// Its Transform places the Frame's pose in the Frame of its parent.
-type Frame interface {
-	Parent() string // TODO: make this not a string
-	Transform([]Input) *spatialmath.DualQuaternion
-	Dof() int
-}
-
-// FrameSystem represents a tree of frames connected to each other, allowing for transformations between frames.
-type FrameSystem interface {
-	TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error)
-	AddFrame(name string, parentFrame Frame, poseToParent Pose) error
-}
-
-// Pose is any struct that represents a 6dof pose and has a method that can express that pose as a dual quaternion.
-// The pose is the translation and orientation of some object relative to the origin of some Frame.
-type Pose interface {
-	DualQuat() *spatialmath.DualQuaternion
-}
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
 // TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
@@ -46,6 +20,40 @@ type Input struct {
 	Value float64
 }
 
-// FrameTree implements both FrameSystem and Frame. It defines its root node a World Frame, and attaches child nodes as a linked list.
-type FrameTree struct {
+// Frame represents a single reference frame, e.g. an arm, a joint, etc.
+// Its Transform places the Frame's pose in the Frame of its parent.
+type Frame interface {
+	Name() string
+	Parent() Frame
+	Transform([]Input) *spatial.DualQuaternion
+	Dof() int
+}
+
+// a static Frame is a simple Pose that encodes a fixed translation and orientation relative to a parent Frame
+type staticFrame struct {
+	name string
+	pose Pose
+}
+
+func NewStaticFrame(name string, pose Pose) Frame {
+	&staticFrame{name, pose}
+}
+
+func (sf *staticFrame) Name() string {
+	return sf.name
+}
+
+func (sf *staticFrame) Parent() Frame {
+	return sf.pose.Frame()
+}
+
+func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
+	if len(inp) != sf.DoF() {
+		return nil
+	}
+	return sf.pose.DualQuat()
+}
+
+func (sf *staticFrame) DoF() int {
+	return 0
 }
