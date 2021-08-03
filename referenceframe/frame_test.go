@@ -30,7 +30,8 @@ world
 func TestSimpleFrameTranslation(t *testing.T) {
 	var err error
 	// build the system
-	fs := NewEmptyFrameSystem()
+	sfs := NewEmptyStaticFrameSystem("test")
+	fs := FrameSystem(sfs)
 	frame1 := r3.Vector{0., 7., 0.} // location of frame1 with respect to world frame
 	err = fs.SetFrameFromPoint("frame1", fs.World(), frame1)
 	test.That(t, err, test.ShouldBeNil)
