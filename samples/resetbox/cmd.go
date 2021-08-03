@@ -80,6 +80,18 @@ type LinearAxis struct {
 	mmPerRev float64
 }
 
+func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []string) error {
+	for _, n := range names {
+		motor, ok := board.MotorByName(n)
+		if ok {
+			a.m = append(a.m, motor)
+		}else{
+			return errors.Errorf("Cannot find motor named \"%s\"", n)
+		}
+	}
+	return nil
+}
+
 // GoTo moves to a position specified in mm and at a speed in mm/s
 func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
 	var errors error
@@ -167,33 +179,35 @@ type ResetBox struct {
 	tableUp bool
 }
 
-func NewResetBox(r robot.Robot, logger golog.Logger) (*ResetBox, error) {
-	cancelCtx, cancel := context.WithCancel(context.Background())
+func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
+	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
-	b.board = r.BoardByName("resetboard")
-	if b.board == nil {
+	resetboard, ok := r.BoardByName("resetboard")
+	if !ok {
 		return nil, errors.New("Cannot find board: resetboard")
 	}
+	b.board = resetboard
 
-	b.gate.m = append(b.gate.m, b.board.Motor("gateL"))
-	b.gate.m = append(b.gate.m, b.board.Motor("gateR"))
 	b.gate.mmPerRev = 8.0
-
-	b.squeeze.m = append(b.squeeze.m, b.board.Motor("squeezeL"))
-	b.squeeze.m = append(b.squeeze.m, b.board.Motor("squeezeR"))
 	b.squeeze.mmPerRev = 8.0
-
-	b.elevator.m = append(b.elevator.m, b.board.Motor("elevator"))
 	b.elevator.mmPerRev = 60.0
 
-	baseHammer := b.board.Motor("hammer")
-	if baseHammer != nil {
-		b.hammer = baseHammer.GetRaw(cancelCtx).(*board.TMCStepperMotor)
+
+	err := multierr.Combine(
+		b.gate.AddMotors(cancelCtx, b.board, []string{"gateL", "gateR"}),
+		b.squeeze.AddMotors(cancelCtx, b.board, []string{"squeezeL", "squeezeR"}),
+		b.elevator.AddMotors(cancelCtx, b.board, []string{"elevator"}),
+	)
+
+	if err != nil {
+		return nil, err
 	}
 
-	// TODO Check for missing motors
-
-
+	baseHammer, ok := b.board.MotorByName("hammer")
+	if !ok {
+		return nil, errors.New("Can't find motor named: hammer")
+	}
+	b.hammer = baseHammer.GetRaw(cancelCtx).(*board.TMCStepperMotor)
 
 	return b, nil
 }
@@ -238,14 +252,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close()
 
-	box, err := NewResetBox(myRobot, logger)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	box, err := NewResetBox(ctx, myRobot, logger)
 	if err != nil {
 		return err
 	}
 	defer box.Close()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
 
 	action.RegisterAction("Home", box.home)
 	action.RegisterAction("Vibrate", box.vibrateToggle)
@@ -274,14 +290,16 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.gate.GoFor(ctx, forward, 20, 20),
 		b.squeeze.GoFor(ctx, forward, 20, 20),
 		b.elevator.GoFor(ctx, forward, 20, 40),
-		b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, 0.1 * hammerRatio),
+		b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, 0.3 * hammerRatio),
 	)
 
 	if errors != nil {
 		b.logger.Error(errors)
 	}
 
-	//b.sleep(ctx, 5000)
+	b.waitFor(ctx, b.gate.PositionReached)
+	b.waitFor(ctx, b.squeeze.PositionReached)
+	b.waitFor(ctx, b.elevator.PositionReached)
 
 	errors = multierr.Combine(
 		b.gate.Home(ctx, backward, 20),
@@ -294,7 +312,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.logger.Error(errors)
 	}
 
-	// Raise the hammer
+	// Go to starting positions
 	errors = multierr.Combine(
 		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
 		b.setSqueeze(ctx, squeezeClosed),

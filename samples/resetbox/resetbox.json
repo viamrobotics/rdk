@@ -4,11 +4,11 @@
       "spis": [
         {
           "name": "main",
-          "busID": 0
+          "bus_select": "0"
         },
         {
           "name": "aux",
-          "busID": 1
+          "bus_select": "1"
         }
       ],
       "motors": [
