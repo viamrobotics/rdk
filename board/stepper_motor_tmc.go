@@ -21,13 +21,13 @@ type TMCConfig struct {
 	Index       uint    `json:"index"`       // 0th or 1st motor on driver
 	MaxVelocity float64 `json:"maxVelocity"` // RPM
 	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
-	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshhold for homing. 0-128 (64 default) -64 - +63
+	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshhold for homing. -64 to +63, 0 default.
 	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
 }
 
 // A TMCStepperMotor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
 type TMCStepperMotor struct {
-	board       SPIGPIOBoard
+	board       Board
 	bus         SPI
 	csPin       string
 	index       uint
@@ -81,9 +81,9 @@ const (
 )
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
-	bus := b.SPI(mc.TMCConfig.SPIBus)
-	if bus == nil {
+func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
+	bus, ok := b.SPIByName(mc.TMCConfig.SPIBus)
+	if !ok {
 		return nil, errors.Errorf("TMCStepperMotor can't find SPI bus named %s", mc.TMCConfig.SPIBus)
 	}
 
@@ -170,12 +170,15 @@ func (m *TMCStepperMotor) WriteReg(addr uint8, value int32) error {
 	buf[3] = 0xFF & byte(value>>8)
 	buf[4] = 0xFF & byte(value)
 
-	m.bus.Lock()
-	defer m.bus.Unlock()
+	handle, err := m.bus.Open()
+	if err != nil {
+		return err
+	}
+	defer handle.Close()
 
 	//m.logger.Debug("Write: ", buf)
 
-	_, err := m.bus.Xfer(1000000, m.csPin, 3, buf) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(1000000, m.csPin, 3, buf) // SPI Mode 3, 1mhz
 	if err != nil {
 		return err
 	}
@@ -190,18 +193,21 @@ func (m *TMCStepperMotor) ReadReg(addr uint8) (int32, error) {
 	tbuf := make([]byte, 5)
 	tbuf[0] = addr
 
-	m.bus.Lock()
-	defer m.bus.Unlock()
+	handle, err := m.bus.Open()
+	if err != nil {
+		return 0, err
+	}
+	defer handle.Close()
 
 	//m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
-	_, err := m.bus.Xfer(1000000, m.csPin, 3, tbuf) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(1000000, m.csPin, 3, tbuf) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
 	}
 
-	rbuf, err := m.bus.Xfer(1000000, m.csPin, 3, tbuf)
+	rbuf, err := handle.Xfer(1000000, m.csPin, 3, tbuf)
 	if err != nil {
 		return 0, err
 	}
