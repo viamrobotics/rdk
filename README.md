@@ -70,6 +70,7 @@ Some guidelines on using these:
 * [Go](./grpc) - See `client` and `server`.
 * [Python](./grpc/python)
 * [Java](./grpc/java)
+* [C++](./grpc/cpp)
 
 ### Testing with big data
 
