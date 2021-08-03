@@ -28,7 +28,7 @@ type staticFrameSystem struct {
 	frames map[string]Frame
 }
 
-func NewEmptyStaticFrameSystem(name string) FrameSystem {
+func NewEmptyStaticFrameSystem(name string) *staticFrameSystem {
 	worldFrame := Frame(NewStaticFrame("world", nil))
 	frames := map[string]Frame{}
 	return &staticFrameSystem{name, worldFrame, frames}
