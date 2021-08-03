@@ -3,7 +3,6 @@ package pointcloud
 import (
 	"image/color"
 
-	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 )
 
@@ -29,7 +28,10 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 }
 
 // CalculateMeanOfPointCloud returns the spatial average center of a given point cloud.
-func CalculateMeanOfPointCloud(cloud PointCloud) r3.Vector {
+func CalculateMeanOfPointCloud(cloud PointCloud) Vec3 {
+	if cloud.Size() == 0 {
+		return Vec3{}
+	}
 	x, y, z := 0.0, 0.0, 0.0
 	n := float64(cloud.Size())
 	cloud.Iterate(func(pt Point) bool {
@@ -39,7 +41,7 @@ func CalculateMeanOfPointCloud(cloud PointCloud) r3.Vector {
 		z += v.Z
 		return true
 	})
-	return r3.Vector{x / n, y / n, z / n}
+	return Vec3{x / n, y / n, z / n}
 }
 
 // PrunePointClouds removes point clouds from a slice if the point cloud has less than nMin points.

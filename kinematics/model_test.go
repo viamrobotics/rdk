@@ -42,7 +42,7 @@ func TestJoint(t *testing.T) {
 	joints := m.Joints()
 	test.That(t, len(joints), test.ShouldEqual, 6)
 	firstJquat := joints[0].Quaternion().Quat
-	firstJquatExpect := dualquat.Number{quat.Number{0, 0, 0, 1}, quat.Number{0, 0, 0, 0}}
+	firstJquatExpect := dualquat.Number{quat.Number{1, 0, 0, 0}, quat.Number{0, 0, 0, 0}}
 	test.That(t, firstJquat, test.ShouldResemble, firstJquatExpect)
 
 	firstJangle := joints[0].AngleQuaternion([]float64{1.5708}).Quat

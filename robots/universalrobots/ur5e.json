@@ -2,6 +2,7 @@
    "model": {
       "manufacturer": "Universal Robotics",
       "name": "UR5e",
+      "kinematic_param_type": "SVA",
       "links": [
          {
             "id": "base_link",
@@ -70,7 +71,7 @@
                "x": 0,
                "y": -1,
                "z": 0,
-               "th": -90
+               "th": 90
             }
          }
       ],
@@ -93,12 +94,11 @@
             "parent": "shoulder_link",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
          },
          {
             "id": "elbow_joint",
@@ -106,12 +106,11 @@
             "parent": "upper_arm_link",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 180,
-            "min": -180,
-            "direction": "cw"
+            "min": -180
          },
          {
             "id": "wrist_1_joint",
@@ -119,12 +118,11 @@
             "parent": "forearm_link",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
          },
          {
             "id": "wrist_2_joint",
@@ -133,11 +131,10 @@
             "axis": {
                "x": 0,
                "y": 0,
-               "z": 1
+               "z": -1
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
          },
          {
             "id": "wrist_3_joint",
@@ -145,12 +142,11 @@
             "parent": "wrist_2_link",
             "axis": {
                "x": 0,
-               "y": 1,
+               "y": -1,
                "z": 0
             },
             "max": 360,
-            "min": -360,
-            "direction": "cw"
+            "min": -360
          }
       ]
    }

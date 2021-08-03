@@ -36,10 +36,6 @@ func (r4 *R4AA) ToR3() R3AA {
 // ToQuat converts an R4 axis angle to a unit quaternion
 // See: https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToQuaternion/index.htm1
 func (r4 *R4AA) ToQuat() quat.Number {
-	if math.Abs(r4.Theta) < angleEpsilon {
-		// If angle is zero, we return the identity quaternion
-		return quat.Number{1, 0, 0, 0}
-	}
 	sinA := math.Sin(r4.Theta / 2)
 	// Ensure that point xyz is on the unit sphere
 	r4.Normalize()
