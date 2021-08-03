@@ -21,7 +21,7 @@
             "csPin": "36",
             "index": 0,
             "maxVelocity": 450,
-            "maxAccel": 150,
+            "maxAccel": 400,
             "sgThresh": 10,
             "calFactor": 1.058333
           }
@@ -35,7 +35,7 @@
             "csPin": "36",
             "index": 1,
             "maxVelocity": 450,
-            "maxAccel": 150,
+            "maxAccel": 400,
             "sgThresh": 10,
             "calFactor": 1.058333
           }
@@ -49,7 +49,7 @@
             "csPin": "38",
             "index": 0,
             "maxVelocity": 450,
-            "maxAccel": 150,
+            "maxAccel": 400,
             "sgThresh": 10,
             "calFactor": 1.058333
           }
@@ -63,7 +63,7 @@
             "csPin": "38",
             "index": 1,
             "maxVelocity": 450,
-            "maxAccel": 150,
+            "maxAccel": 400,
             "sgThresh": 10,
             "calFactor": 1.058333
           }
@@ -77,7 +77,7 @@
             "csPin": "40",
             "index": 0,
             "maxVelocity": 450,
-            "maxAccel": 150,
+            "maxAccel": 400,
             "sgThresh": 5,
             "calFactor": 1.058333
           }
@@ -90,9 +90,9 @@
             "spiBus": "main",
             "csPin": "40",
             "index": 1,
-            "maxVelocity": 450,
-            "maxAccel": 150,
-            "sgThresh": 5,
+            "maxVelocity": 600,
+            "maxAccel": 300,
+            "sgThresh": 0,
             "calFactor": 1.058333
           }
         }

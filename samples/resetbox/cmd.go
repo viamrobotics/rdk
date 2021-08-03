@@ -39,6 +39,40 @@ import (
 	"go.uber.org/multierr"
 )
 
+
+const (
+	forward = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	backward = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+
+	tipPinA = "29"
+	tipPinB = "31"
+	vibePin = "33"
+
+	vibeLevel = 255
+
+	gateOffset = 35
+	gateSpeed = 25
+	gateCubePass = 46
+	gateOpen = 75
+
+	squeezeMaxWidth = 183
+	squeezeClosed = 40
+	squeezeCubePass = 55
+	squeezeOpen = 80
+
+	elevatorBottom = 75
+	elevatorTop = 800
+	elevatorSpeed = 300
+
+	hammerSpeed = 10.0
+	hammerOffset = 0.9
+	hammerRatio = 60.86 // 26.85:1 motor + 68/30 teeth gears
+	cubeWhacks = 3.0
+	duckWhacks = 5.0
+)
+
+
+
 var logger = golog.NewDevelopmentLogger("resetbox")
 
 type LinearAxis struct {
@@ -129,7 +163,7 @@ type ResetBox struct {
 	cancel    func()
 	cancelCtx context.Context
 
-	vibeState bool
+	vibeState uint8
 	tableUp bool
 }
 
@@ -237,10 +271,23 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	errors := multierr.Combine(
-		b.gate.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
-		b.squeeze.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
-		b.elevator.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 100),
-		//b.hammer.Home(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 20),
+		b.gate.GoFor(ctx, forward, 20, 20),
+		b.squeeze.GoFor(ctx, forward, 20, 20),
+		b.elevator.GoFor(ctx, forward, 20, 40),
+		b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, 0.1 * hammerRatio),
+	)
+
+	if errors != nil {
+		b.logger.Error(errors)
+	}
+
+	//b.sleep(ctx, 5000)
+
+	errors = multierr.Combine(
+		b.gate.Home(ctx, backward, 20),
+		b.squeeze.Home(ctx, backward, 20),
+		b.elevator.Home(ctx, backward, 200),
+		b.hammer.Home(ctx, backward, 400),
 	)
 
 	if errors != nil {
@@ -248,59 +295,46 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	}
 
 	// Raise the hammer
-	//b.hammer.GoTo(ctx, hammerSpeed, hammerOffset * hammerRatio)
+	errors = multierr.Combine(
+		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
+		b.setSqueeze(ctx, squeezeClosed),
+		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
+		b.hammer.GoTo(ctx, hammerSpeed * hammerRatio, hammerOffset * hammerRatio),
+	)
+
+	if errors != nil {
+		b.logger.Error(errors)
+	}
 
 }
-
-const (
-	forward = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	backward = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-
-	tipPinA = "29"
-	tipPinB = "31"
-	vibePin = "33"
-
-	vibeLevel = 90
-
-	gateOffset = 35
-	gateSpeed = 25
-
-	squeezeMaxWidth = 115
-
-	elevatorBottom = 58
-	elevatorTop = 800
-	elevatorSpeed = 300
-
-	hammerSpeed = 100
-	hammerOffset = 0.8
-	hammerRatio = 10.0
-)
 
 func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 	if level < 32 {
 		b.board.PWMSet(vibePin, 0)
-		b.vibeState = false
+		//b.vibeState = false
 	}else{
 		b.board.PWMSet(vibePin, level)
-		b.vibeState = true
+		//b.vibeState = true
 	}
 }
 
 func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
-	if b.vibeState {
-		b.vibrate(ctx, 0)
+	if b.vibeState >= 255 {
+		b.vibeState = 0
 	}else{
-		b.vibrate(ctx, vibeLevel)
+		b.vibeState += 16
 	}
+	b.logger.Debug("Vibe: ", b.vibeState)
+	b.vibrate(ctx, b.vibeState)
 }
 
 
-func (b *ResetBox) setSqueeze(ctx context.Context, width float64) {
+func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	target := (squeezeMaxWidth - width) / 2
 	if target < 0 {
 		target = 0
 	}
-	b.squeeze.GoTo(ctx, gateSpeed, target)
+	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
 
@@ -359,12 +393,12 @@ func (b *ResetBox) isTableUp(ctx context.Context) bool {
 
 
 func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
-	b.gate.GoTo(ctx, gateSpeed, 46)
+	b.gate.GoTo(ctx, gateSpeed, gateCubePass)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
 
 	// Wait for elevator down
 	b.waitFor(ctx, b.elevator.PositionReached)
-	b.setSqueeze(ctx, 50)
+	b.setSqueeze(ctx, squeezeCubePass)
 
 
 	// WAIT ROBOT for tip command
@@ -377,7 +411,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.hammer.GetRaw(ctx).(*board.TMCStepperMotor).Zero(ctx)
 
 	// Three whacks for cubes-behinds-ducks
-	b.hammer.GoFor(ctx, forward, hammerSpeed, 3.0 * hammerRatio)
+	b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, cubeWhacks * hammerRatio)
 	b.waitFor(ctx, b.hammer.PositionReached)
 
 	// Wait for hammer + 4 seconds
@@ -387,7 +421,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 
 	// DuckWhack
-	b.hammer.GoFor(ctx, forward, hammerSpeed, 15.0 * hammerRatio)
+	b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, duckWhacks * hammerRatio)
 
 	// Cubes at top
 	b.waitFor(ctx, b.elevator.PositionReached)   
@@ -400,13 +434,13 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.waitFor(ctx, b.hammer.PositionReached)
 
 	// Open to load duck
-	b.gate.GoTo(ctx, gateSpeed, 80)
-	b.setSqueeze(ctx, 80)
-	b.sleep(ctx, 4000)
+	b.gate.GoTo(ctx, gateSpeed, gateOpen)
+	b.setSqueeze(ctx, squeezeOpen)
+	b.sleep(ctx, 8000)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
-	b.setSqueeze(ctx, 30)
+	b.setSqueeze(ctx, squeezeClosed)
 	b.waitFor(ctx, b.squeeze.PositionReached)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 	b.waitFor(ctx, b.elevator.PositionReached)
