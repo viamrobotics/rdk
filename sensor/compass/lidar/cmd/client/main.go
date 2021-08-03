@@ -78,7 +78,11 @@ func readCompass(ctx context.Context, lidarComponents []config.Component, logger
 	lidarNames := r.LidarNames()
 	lidars := make([]lidar.Lidar, 0, len(lidarNames))
 	for _, name := range lidarNames {
-		lidars = append(lidars, r.LidarByName(name))
+		lidar, ok := r.LidarByName(name)
+		if !ok {
+			continue
+		}
+		lidars = append(lidars, lidar)
 	}
 	for _, lidarDev := range lidars {
 		if err := lidarDev.Start(ctx); err != nil {

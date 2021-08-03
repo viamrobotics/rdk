@@ -72,6 +72,11 @@ type Plane struct {
 	equation   []float64
 }
 
+// NewEmptyPlane initializes an empty plane object
+func NewEmptyPlane() *Plane {
+	return &Plane{pc.New(), []float64{0, 0, 0, 0, 0}}
+}
+
 // PointCloud returns the underlying point cloud of the plane
 func (p *Plane) PointCloud() pc.PointCloud {
 	return p.pointcloud
@@ -94,6 +99,9 @@ func (p *Plane) Distance(point pc.Vec3) float64 {
 // This function returns a Plane struct, as well as the remaining points in a pointcloud
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0
 func SegmentPlane(cloud pc.PointCloud, nIterations int, threshold float64) (*Plane, pc.PointCloud, error) {
+	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
+		return NewEmptyPlane(), cloud, nil
+	}
 	r := rand.New(rand.NewSource(1))
 	pts := GetPointCloudPositions(cloud)
 	nPoints := cloud.Size()

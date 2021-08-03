@@ -38,6 +38,29 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 		}
 		return true
 	})
+	if err != nil {
+		return nil, err
+	}
+	return roundingPc, nil
+}
+
+// NewRoundingPointCloudFromPC creates a rounding point cloud from any kind of input point cloud.
+func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
+	var err error
+	roundingPc := NewRoundingPointCloud()
+	// Round all the points in the pointcloud
+	pc.Iterate(func(pt Point) bool {
+		err = roundingPc.Set(pt)
+		if err != nil {
+			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
+			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
 	return roundingPc, nil
 }
 

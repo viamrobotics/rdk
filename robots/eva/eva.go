@@ -87,7 +87,10 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, er
 // CurrentPosition computes and returns the current cartesian position.
 func (e *eva) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := e.CurrentJointPositions(ctx)
-	return kinematics.ComputePosition(e.ik.Mdl(), joints), err
+	if err != nil {
+		return nil, err
+	}
+	return kinematics.ComputePosition(e.ik.Mdl(), joints)
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.

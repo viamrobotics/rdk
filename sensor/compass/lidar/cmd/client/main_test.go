@@ -46,8 +46,8 @@ func TestMainMain(t *testing.T) {
 	}
 
 	injectDev := &inject.Lidar{}
-	injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {
-		return injectDev
+	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
+		return injectDev, true
 	}
 
 	go gServer.Serve(listener)

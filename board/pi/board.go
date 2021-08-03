@@ -156,10 +156,10 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	// setup SPI buses
 	piInstance.spis = map[string]board.SPI{}
 	for _, sc := range cfg.SPIs {
-		if sc.BusID > 1 {
+		if sc.BusSelect != "0" && sc.BusSelect != "1" {
 			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
 		}
-		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busID: sc.BusID}
+		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 	}
 
 	// setup analogs
@@ -170,8 +170,8 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 			return nil, errors.Errorf("bad analog pin (%s)", ac.Pin)
 		}
 
-		bus := piInstance.SPI(ac.SPIBus)
-		if bus == nil {
+		bus, have := piInstance.SPIByName(ac.SPIBus)
+		if !have {
 			return nil, errors.Errorf("AnalogReader can't find SPI bus named %s", ac.SPIBus)
 		}
 
@@ -338,10 +338,13 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	tx[1] = byte((8 + par.channel) << 4) // single-ended
 	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
 
-	par.bus.Lock()
-	defer par.bus.Unlock()
+	bus, err := par.bus.Open()
+	if err != nil {
+		return 0, err
+	}
+	defer bus.Close()
 
-	rx, err := par.bus.Xfer(1000000, par.chip, 0, tx)
+	rx, err := bus.Xfer(1000000, par.chip, 0, tx)
 	if err != nil {
 		return 0, err
 	}
@@ -353,19 +356,25 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 type piPigpioSPI struct {
 	pi    *piPigpio
 	mu    sync.Mutex
-	busID uint
+	busSelect  string
+	openHandle *piPigpioSPIHandle
 }
 
-func (s *piPigpioSPI) Xfer(baud uint, chipPin string, mode uint, tx []byte) (rx []byte, err error) {
+type piPigpioSPIHandle struct {
+	bus   *piPigpioSPI
+	isClosed bool
+}
+
+func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
 
 	var spiFlags uint
 
-	if s.busID == 1 {
+	if s.bus.busSelect == "1" {
 		spiFlags = spiFlags | 0x100 // Sets AUX SPI bus bit
 		if mode == 1 || mode == 3 {
 			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
-	} else if chipPin == "24" || chipPin == "26"{
+	} else if chipSelect == "24" || chipSelect == "26"{
 		return nil, errors.New("Due to underlying issues, use of hardware ChipSelect pins (24 and 26) is not allowed.")
 	}
 
@@ -387,19 +396,19 @@ func (s *piPigpioSPI) Xfer(baud uint, chipPin string, mode uint, tx []byte) (rx 
 	handle := C.spiOpen((C.uint)(0), (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("Error opening SPI Bus %d return code was %d, flags were %X", s.busID, handle, spiFlags)
+		return nil, errors.Errorf("Error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
 	}
 	defer C.spiClose((C.uint)(handle))
 
 	// We're going to directly control chip select (not using CE0/CE1 from SPI controller.)
 	// This allows us to use a large number of chips on a single bus.
 	// Manually set CS LOW
-	err = s.pi.GPIOSet(chipPin, false)
+	err = s.bus.pi.GPIOSet(chipSelect, false)
 	if err != nil {
 		return nil, err
 	}
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
-	err = s.pi.GPIOSet(chipPin, true)
+	err = s.bus.pi.GPIOSet(chipSelect, true)
 	if err != nil {
 		return nil, err
 	}
@@ -412,14 +421,16 @@ func (s *piPigpioSPI) Xfer(baud uint, chipPin string, mode uint, tx []byte) (rx 
 	return rx, nil
 }
 
-func (s *piPigpioSPI) Lock() {
+func (s *piPigpioSPI) Open() (board.SPIHandle, error) {
 	s.mu.Lock()
-	return
+	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
+	return s.openHandle, nil
 }
 
-func (s *piPigpioSPI) Unlock() {
-	s.mu.Unlock()
-	return
+func (h *piPigpioSPIHandle) Close() error {
+	h.isClosed = true
+	h.bus.mu.Unlock()
+	return nil
 }
 
 // MotorNames returns the name of all known motors.
@@ -467,8 +478,9 @@ func (pi *piPigpio) DigitalInterruptNames() []string {
 	return names
 }
 
-func (pi *piPigpio) AnalogReader(name string) board.AnalogReader {
-	return pi.analogs[name]
+func (pi *piPigpio) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	a, ok := pi.analogs[name]
+	return a, ok
 }
 
 // piPigpioServo implements a board.Servo using pigpio.
@@ -495,20 +507,24 @@ func (s *piPigpioServo) Current(ctx context.Context) (uint8, error) {
 	return uint8(180 * (float64(res) - 500.0) / 2000), nil
 }
 
-func (pi *piPigpio) SPI(name string) board.SPI {
-	return pi.spis[name]
+func (pi *piPigpio) SPIByName(name string) (board.SPI, bool) {
+	s, ok := pi.spis[name]
+	return s, ok
 }
 
-func (pi *piPigpio) Servo(name string) board.Servo {
-	return pi.servos[name]
+func (pi *piPigpio) ServoByName(name string) (board.Servo, bool) {
+	s, ok := pi.servos[name]
+	return s, ok
 }
 
-func (pi *piPigpio) DigitalInterrupt(name string) board.DigitalInterrupt {
-	return pi.interrupts[name]
+func (pi *piPigpio) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	d, ok := pi.interrupts[name]
+	return d, ok
 }
 
-func (pi *piPigpio) Motor(name string) board.Motor {
-	return pi.motors[name]
+func (pi *piPigpio) MotorByName(name string) (board.Motor, bool) {
+	m, ok := pi.motors[name]
+	return m, ok
 }
 
 func (pi *piPigpio) ModelAttributes() board.ModelAttributes {

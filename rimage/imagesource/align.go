@@ -29,14 +29,14 @@ func init() {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")
-		color := r.CameraByName(colorName)
-		if color == nil {
+		color, ok := r.CameraByName(colorName)
+		if !ok {
 			return nil, errors.Errorf("cannot find color camera (%s)", colorName)
 		}
 
 		depthName := attrs.String("depth")
-		depth := r.CameraByName(depthName)
-		if depth == nil {
+		depth, ok := r.CameraByName(depthName)
+		if !ok {
 			return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 		}
 

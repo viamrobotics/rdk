@@ -1,10 +1,58 @@
 package segmentation
 
 import (
+	"fmt"
+
 	pc "go.viam.com/core/pointcloud"
 
 	"github.com/golang/geo/r3"
 )
+
+// ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
+type ObjectSegmentation struct {
+	FullCloud pc.PointCloud
+	*Clusters
+}
+
+// N gives the number of found segments.
+func (objectSeg *ObjectSegmentation) N() int {
+	return len(objectSeg.PointClouds)
+}
+
+// SelectSegmentFromPoint takes a 3D point as input and outputs the point cloud of the object that the point belongs to.
+// returns the full point cloud if the point is not part of any object segment.
+func (objectSeg *ObjectSegmentation) SelectSegmentFromPoint(x, y, z float64) (pc.PointCloud, error) {
+	v := pc.Vec3{x, y, z}
+	if segIndex, ok := objectSeg.Indices[v]; ok {
+		return objectSeg.PointClouds[segIndex], nil
+	}
+	return nil, fmt.Errorf("no segment found at point (%v, %v, %v)", x, y, z)
+}
+
+// CreateObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud
+func CreateObjectSegmentation(cloud pc.PointCloud, minPtsInPlane, minPtsInSegment int, clusteringRadius float64) (*ObjectSegmentation, error) {
+	planes, nonPlane, err := FindPlanesInPointCloud(cloud, 10, minPtsInPlane)
+	if err != nil {
+		return nil, err
+	}
+	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
+	if len(planes) > 0 {
+		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
+		if err != nil {
+			return nil, err
+		}
+	}
+	objCloud, err := pc.NewRoundingPointCloudFromPC(nonPlane)
+	if err != nil {
+		return nil, err
+	}
+	segments, err := SegmentPointCloudObjects(objCloud, clusteringRadius, minPtsInSegment)
+	if err != nil {
+		return nil, err
+	}
+	clusters := NewClustersFromSlice(segments)
+	return &ObjectSegmentation{cloud, clusters}, nil
+}
 
 // SegmentPointCloudObjects uses radius based nearest neighbors to segment the images, and then prunes away
 // segments that do not pass a certain threshold of points

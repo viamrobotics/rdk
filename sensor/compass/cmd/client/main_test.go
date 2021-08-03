@@ -57,11 +57,11 @@ func TestMainMain(t *testing.T) {
 
 	injectDev1 := &inject.Compass{}
 	injectDev2 := &inject.Compass{}
-	injectRobot1.SensorByNameFunc = func(name string) sensor.Sensor {
-		return injectDev1
+	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return injectDev1, true
 	}
-	injectRobot2.SensorByNameFunc = func(name string) sensor.Sensor {
-		return injectDev2
+	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return injectDev2, true
 	}
 
 	go gServer1.Serve(listener1)

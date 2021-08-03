@@ -74,8 +74,8 @@ func TestClient(t *testing.T) {
 	injectDev.HeadingFunc = func(ctx context.Context) (float64, error) {
 		return 5.2, nil
 	}
-	injectRobot2.SensorByNameFunc = func(name string) sensor.Sensor {
-		return injectDev
+	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return injectDev, true
 	}
 
 	dev, err := client.NewClient(context.Background(), listener2.Addr().String(), logger)
@@ -101,8 +101,8 @@ func TestClient(t *testing.T) {
 	injectRelDev.MarkFunc = func(ctx context.Context) error {
 		return nil
 	}
-	injectRobot3.SensorByNameFunc = func(name string) sensor.Sensor {
-		return injectRelDev
+	injectRobot3.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return injectRelDev, true
 	}
 
 	dev, err = client.NewClient(context.Background(), listener3.Addr().String(), logger)

@@ -67,8 +67,8 @@ func (af *armFrame) Parent() string {
 }
 
 func (af *armFrame) OffsetFromParent(ctx context.Context) (*pb.ArmPosition, error) {
-	arm := af.robot.ArmByName(af.config.Name)
-	if arm == nil {
+	arm, ok := af.robot.ArmByName(af.config.Name)
+	if !ok {
 		return nil, fmt.Errorf("no arm named %s", af.config.Name)
 	}
 	return arm.CurrentPosition(ctx)
