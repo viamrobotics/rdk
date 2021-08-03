@@ -48,7 +48,7 @@ const (
 	tipPinB = "31"
 	vibePin = "33"
 
-	vibeLevel = 255
+	vibeLevel = 96
 
 	gateOffset = 35
 	gateSpeed = 25
@@ -319,10 +319,13 @@ func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 }
 
 func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
-	if b.vibeState >= 255 {
+	if b.vibeState >= 128 {
 		b.vibeState = 0
 	}else{
-		b.vibeState += 16
+		b.vibeState += 8
+		if b.vibeState < 32 {
+			b.vibeState = 32
+		}
 	}
 	b.logger.Debug("Vibe: ", b.vibeState)
 	b.vibrate(ctx, b.vibeState)
