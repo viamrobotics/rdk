@@ -159,7 +159,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 		if sc.BusSelect != "0" && sc.BusSelect != "1" {
 			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
 		}
-		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, bus: sc.BusSelect}
+		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 	}
 
 	// setup analogs
@@ -332,10 +332,13 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	tx[1] = byte((8 + par.channel) << 4) // single-ended
 	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
 
-	par.bus.Lock()
-	defer par.bus.Unlock()
+	bus, err := par.bus.Open()
+	if err != nil {
+		return 0, err
+	}
+	defer bus.Close()
 
-	rx, err := par.bus.Xfer(1000000, par.chip, 0, tx)
+	rx, err := bus.Xfer(1000000, par.chip, 0, tx)
 	if err != nil {
 		return 0, err
 	}
@@ -394,12 +397,12 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	// We're going to directly control chip select (not using CE0/CE1 from SPI controller.)
 	// This allows us to use a large number of chips on a single bus.
 	// Manually set CS LOW
-	err = s.pi.GPIOSet(chipSelect, false)
+	err = s.bus.pi.GPIOSet(chipSelect, false)
 	if err != nil {
 		return nil, err
 	}
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
-	err = s.pi.GPIOSet(chipSelect, true)
+	err = s.bus.pi.GPIOSet(chipSelect, true)
 	if err != nil {
 		return nil, err
 	}
@@ -412,9 +415,9 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	return rx, nil
 }
 
-func (s *piPigpioSPI) Open() (*piPigpioSPIHandle, error) {
+func (s *piPigpioSPI) Open() (board.SPIHandle, error) {
 	s.mu.Lock()
-	s.openHandle := &piPigpioSPIHandle{bus: &s, isClosed: false}
+	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil
 }
 
