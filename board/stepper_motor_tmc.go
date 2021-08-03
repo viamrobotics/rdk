@@ -51,6 +51,7 @@ const (
 	// add 0x10 for motor 2
 	CHOPCONF = 0x6C
 	COOLCONF = 0X6D
+	DRV_STATUS = 0X6F
 
 	// add 0x20 for motor 2
 	RAMPMODE   = 0x20
@@ -102,9 +103,17 @@ func NewTMCStepperMotor(b SPIGPIOBoard, mc MotorConfig, logger golog.Logger) (*T
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 
 
-	if mc.TMCConfig.SGThresh >= 128 {
-		mc.TMCConfig.SGThresh = 127
+	if mc.TMCConfig.SGThresh > 63 {
+		mc.TMCConfig.SGThresh = 63
+	}else if mc.TMCConfig.SGThresh < -64 {
+		mc.TMCConfig.SGThresh = -64
 	}
+
+	// The register is a 6 bit signed int
+	if mc.TMCConfig.SGThresh < 0 {
+		mc.TMCConfig.SGThresh = int32(64 + math.Abs(float64(mc.TMCConfig.SGThresh)))
+	}
+
 	var coolConfig int32
 	coolConfig = mc.TMCConfig.SGThresh << 16
 
@@ -217,6 +226,17 @@ func (m *TMCStepperMotor) GetRaw(ctx context.Context) Motor {
 	return m
 }
 
+func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
+	rawRead, err := m.ReadReg(DRV_STATUS)
+
+	if err != nil {
+		return 0, err
+	}
+
+	rawRead &= 1023
+	return rawRead, nil
+}
+
 // Position gives the current motor position
 func (m *TMCStepperMotor) Position(ctx context.Context) (float64, error) {
 	rawPos, err := m.ReadReg(XACTUAL)
@@ -325,6 +345,9 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 	// Get up to speed
 	var fails int
 	for {
+		// sg, _ := m.GetSG(ctx)
+		// m.logger.Debugf("SGValueSpeed: %d", sg)
+
 		select {
 		case <-ctx.Done():
 			return errors.New("Context cancelled during homing")
@@ -355,6 +378,9 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 	// Wait for motion to stop at endstop
 	fails = 0
 	for {
+		// sg, _ := m.GetSG(ctx)
+		// m.logger.Debugf("SGValueReady: %d", sg)
+
 		select {
 		case <-ctx.Done():
 			return errors.New("Context cancelled during homing")
