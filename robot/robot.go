@@ -24,41 +24,32 @@ import (
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 type Robot interface {
-	// RemoteByName returns a remote robot by name. If it does not exist
-	// nil is returned.
-	RemoteByName(name string) Robot
+	// RemoteByName returns a remote robot by name.
+	RemoteByName(name string) (Robot, bool)
 
-	// ArmByName returns an arm by name. If it does not exist
-	// nil is returned.
-	ArmByName(name string) arm.Arm
+	// ArmByName returns an arm by name.
+	ArmByName(name string) (arm.Arm, bool)
 
-	// BaseByName returns a base by name. If it does not exist
-	// nil is returned.
-	BaseByName(name string) base.Base
+	// BaseByName returns a base by name.
+	BaseByName(name string) (base.Base, bool)
 
-	// GripperByName returns a gripper by name. If it does not exist
-	// nil is returned.
-	GripperByName(name string) gripper.Gripper
+	// GripperByName returns a gripper by name.
+	GripperByName(name string) (gripper.Gripper, bool)
 
-	// CameraByName returns a camera by name. If it does not exist
-	// nil is returned.
-	CameraByName(name string) camera.Camera
+	// CameraByName returns a camera by name.
+	CameraByName(name string) (camera.Camera, bool)
 
-	// LidarByName returns a lidar by name. If it does not exist
-	// nil is returned.
-	LidarByName(name string) lidar.Lidar
+	// LidarByName returns a lidar by name.
+	LidarByName(name string) (lidar.Lidar, bool)
 
-	// BoardByName returns a board by name. If it does not exist
-	// nil is returned.
-	BoardByName(name string) board.Board
+	// BoardByName returns a board by name.
+	BoardByName(name string) (board.Board, bool)
 
-	// SensorByName returns a sensor by name. If it does not exist
-	// nil is returned.
-	SensorByName(name string) sensor.Sensor
+	// SensorByName returns a sensor by name.
+	SensorByName(name string) (sensor.Sensor, bool)
 
-	// ProviderByName returns a provider by name. If it does not exist
-	// nil is returned.
-	ProviderByName(name string) Provider
+	// ProviderByName returns a provider by name.
+	ProviderByName(name string) (Provider, bool)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string

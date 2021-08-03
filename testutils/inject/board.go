@@ -12,49 +12,49 @@ import (
 // Board is an injected board.
 type Board struct {
 	board.Board
-	MotorFunc                 func(name string) board.Motor
-	ServoFunc                 func(name string) board.Servo
-	AnalogReaderFunc          func(name string) board.AnalogReader
-	DigitalInterruptFunc      func(name string) board.DigitalInterrupt
-	MotorNamesFunc            func() []string
-	ServoNamesFunc            func() []string
-	AnalogReaderNamesFunc     func() []string
-	DigitalInterruptNamesFunc func() []string
-	CloseFunc                 func() error
-	ConfigFunc                func(ctx context.Context) (board.Config, error)
-	StatusFunc                func(ctx context.Context) (*pb.BoardStatus, error)
+	MotorByNameFunc            func(name string) (board.Motor, bool)
+	ServoByNameFunc            func(name string) (board.Servo, bool)
+	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
+	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
+	MotorNamesFunc             func() []string
+	ServoNamesFunc             func() []string
+	AnalogReaderNamesFunc      func() []string
+	DigitalInterruptNamesFunc  func() []string
+	CloseFunc                  func() error
+	ConfigFunc                 func(ctx context.Context) (board.Config, error)
+	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
 }
 
-// Motor calls the injected Motor or the real version.
-func (b *Board) Motor(name string) board.Motor {
-	if b.MotorFunc == nil {
-		return b.Board.Motor(name)
+// MotorByName calls the injected MotorByName or the real version.
+func (b *Board) MotorByName(name string) (board.Motor, bool) {
+	if b.MotorByNameFunc == nil {
+		return b.Board.MotorByName(name)
 	}
-	return b.MotorFunc(name)
+	return b.MotorByNameFunc(name)
 }
 
-// Servo calls the injected Servo or the real version.
-func (b *Board) Servo(name string) board.Servo {
-	if b.ServoFunc == nil {
-		return b.Board.Servo(name)
+// ServoByName calls the injected ServoByName or the real version.
+func (b *Board) ServoByName(name string) (board.Servo, bool) {
+	if b.ServoByNameFunc == nil {
+		return b.Board.ServoByName(name)
 	}
-	return b.ServoFunc(name)
+	return b.ServoByNameFunc(name)
 }
 
-// AnalogReader calls the injected AnalogReader or the real version.
-func (b *Board) AnalogReader(name string) board.AnalogReader {
-	if b.AnalogReaderFunc == nil {
-		return b.Board.AnalogReader(name)
+// AnalogReaderByName calls the injected AnalogReaderByName or the real version.
+func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	if b.AnalogReaderByNameFunc == nil {
+		return b.Board.AnalogReaderByName(name)
 	}
-	return b.AnalogReaderFunc(name)
+	return b.AnalogReaderByNameFunc(name)
 }
 
-// DigitalInterrupt calls the injected DigitalInterrupt or the real version.
-func (b *Board) DigitalInterrupt(name string) board.DigitalInterrupt {
-	if b.DigitalInterruptFunc == nil {
-		return b.Board.DigitalInterrupt(name)
+// DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
+func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	if b.DigitalInterruptByNameFunc == nil {
+		return b.Board.DigitalInterruptByName(name)
 	}
-	return b.DigitalInterruptFunc(name)
+	return b.DigitalInterruptByNameFunc(name)
 }
 
 // MotorNames calls the injected MotorNames or the real version.

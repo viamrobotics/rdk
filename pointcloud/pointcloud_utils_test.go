@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
-	"github.com/golang/geo/r3"
 )
 
 func makeClouds(t *testing.T) []PointCloud {
@@ -38,9 +36,9 @@ func makeClouds(t *testing.T) []PointCloud {
 func TestCalculateMean(t *testing.T) {
 	clouds := makeClouds(t)
 	mean0 := CalculateMeanOfPointCloud(clouds[0])
-	test.That(t, mean0, test.ShouldResemble, r3.Vector{0, 0.5, 0.5})
+	test.That(t, mean0, test.ShouldResemble, Vec3{0, 0.5, 0.5})
 	mean1 := CalculateMeanOfPointCloud(clouds[1])
-	test.That(t, mean1, test.ShouldResemble, r3.Vector{30, 0.5, 0.5})
+	test.That(t, mean1, test.ShouldResemble, Vec3{30, 0.5, 0.5})
 }
 
 func TestMergePointsWithColor(t *testing.T) {

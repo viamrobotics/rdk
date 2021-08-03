@@ -57,7 +57,10 @@ type ArmIK struct {
 // CurrentPosition returns the set position.
 func (a *ArmIK) CurrentPosition(ctx context.Context) (*pb.ArmPosition, error) {
 	joints, err := a.CurrentJointPositions(ctx)
-	return kinematics.ComputePosition(a.ik.Mdl(), joints), err
+	if err != nil {
+		return nil, err
+	}
+	return kinematics.ComputePosition(a.ik.Mdl(), joints)
 }
 
 // MoveToPosition sets the position.

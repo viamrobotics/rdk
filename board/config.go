@@ -119,8 +119,8 @@ func (config *MotorConfig) Validate(path string) error {
 
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
-	Name  string `json:"name"`
-	BusID uint   `json:"busID"`
+	Name      string `json:"name"`
+	BusSelect string `json:"bus_select"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -149,8 +149,8 @@ func (config *ServoConfig) Validate(path string) error {
 type AnalogConfig struct {
 	Name              string `json:"name"`
 	Pin               string `json:"pin"`
-	SPIBus            string `json:"spiBus"`
-	ChipSelect        string `json:"chipSelect"`
+	SPIBus            string `json:"spi_bus"`
+	ChipSelect        string `json:"chip_select"`
 	AverageOverMillis int    `json:"averageOverMillis"`
 	SamplesPerSecond  int    `json:"samplesPerSecond"`
 }

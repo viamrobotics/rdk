@@ -2,6 +2,7 @@ package board
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -17,7 +18,10 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	if names := b.MotorNames(); len(names) != 0 {
 		status.Motors = make(map[string]*pb.MotorStatus, len(names))
 		for _, name := range names {
-			x := b.Motor(name)
+			x, ok := b.MotorByName(name)
+			if !ok {
+				return nil, fmt.Errorf("motor %q not found", name)
+			}
 			isOn, err := x.IsOn(ctx)
 			if err != nil {
 				return nil, err
@@ -41,7 +45,10 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	if names := b.ServoNames(); len(names) != 0 {
 		status.Servos = make(map[string]*pb.ServoStatus, len(names))
 		for _, name := range names {
-			x := b.Servo(name)
+			x, ok := b.ServoByName(name)
+			if !ok {
+				return nil, fmt.Errorf("servo %q not found", name)
+			}
 			current, err := x.Current(ctx)
 			if err != nil {
 				return nil, err
@@ -55,7 +62,10 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	if names := b.AnalogReaderNames(); len(names) != 0 {
 		status.Analogs = make(map[string]*pb.AnalogStatus, len(names))
 		for _, name := range names {
-			x := b.AnalogReader(name)
+			x, ok := b.AnalogReaderByName(name)
+			if !ok {
+				return nil, fmt.Errorf("analog %q not found", name)
+			}
 			val, err := x.Read(ctx)
 			if err != nil {
 				return nil, errors.Errorf("couldn't read analog (%s) : %w", name, err)
@@ -67,7 +77,10 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 	if names := b.DigitalInterruptNames(); len(names) != 0 {
 		status.DigitalInterrupts = make(map[string]*pb.DigitalInterruptStatus, len(names))
 		for _, name := range names {
-			x := b.DigitalInterrupt(name)
+			x, ok := b.DigitalInterruptByName(name)
+			if !ok {
+				return nil, fmt.Errorf("digital interrupt %q not found", name)
+			}
 			status.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
 		}
 	}

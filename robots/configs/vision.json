@@ -88,6 +88,16 @@
               "width" : 448,
               "height" : 342
           }
+        },
+        { "name" : "segmentation",
+          "type" : "camera",
+          "model" : "colorSegments",
+          "attributes" : {
+              "source" : "front-composed",
+              "cluster_radius" : 10.0,
+              "segment_size" : 500,
+              "plane_size" : 50000
+          }
         }
     ],
     "processes": [

@@ -4,12 +4,12 @@ name: Go
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
       - '**/Dockerfile.fortest'
       - '**/.github/workflows/docker.yml'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"

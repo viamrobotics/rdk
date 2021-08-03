@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-errors/errors"
 
@@ -24,7 +25,11 @@ func NewClient(ctx context.Context, address string, logger golog.Logger) (*Senso
 	if len(names) == 0 {
 		return nil, multierr.Combine(errors.New("no sensor devices found"), robotClient.Close())
 	}
-	return &SensorClient{robotClient.SensorByName(names[0]), robotClient}, nil
+	sensor, ok := robotClient.SensorByName(names[0])
+	if !ok {
+		return nil, fmt.Errorf("failed to find sensor %q", names[0])
+	}
+	return &SensorClient{sensor, robotClient}, nil
 }
 
 // A SensorClient represents a sensor that is controlled via gRPC.

@@ -14,27 +14,29 @@ import (
 // A Board represents a physical general purpose board that contains various
 // components such as motors, servos, analog readers, and digital interrupts.
 type Board interface {
-	// Motor returns a motor by name. If it does not exist
-	// nil is returned.
-	Motor(name string) Motor
+	// MotorByName returns a motor by name.
+	MotorByName(name string) (Motor, bool)
 
-	// Servo returns a servo by name. If it does not exist
-	// nil is returned.
-	Servo(name string) Servo
+	// ServoByName returns a servo by name.
+	ServoByName(name string) (Servo, bool)
 
-	// AnalogReader returns an analog reader by name. If it does not exist
-	// nil is returned.
-	AnalogReader(name string) AnalogReader
+	// SPIByName returns an SPI bus by name.
+	SPIByName(name string) (SPI, bool)
 
-	// DigitalInterrupt returns a digital interrupt by name. If it does not exist
-	// nil is returned.
-	DigitalInterrupt(name string) DigitalInterrupt
+	// AnalogReaderByName returns an analog reader by name.
+	AnalogReaderByName(name string) (AnalogReader, bool)
+
+	// DigitalInterruptByName returns a digital interrupt by name.
+	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
 
 	// ServoNames returns the name of all known servos.
 	ServoNames() []string
+
+	// SPINames returns the name of all known SPI busses.
+	SPINames() []string
 
 	// AnalogReaderNames returns the name of all known analog readers.
 	AnalogReaderNames() []string
@@ -114,6 +116,18 @@ type Servo interface {
 
 	// Current returns the current set angle (degrees) of the servo.
 	Current(ctx context.Context) (uint8, error)
+}
+
+// SPI represents a shareable SPI bus on the board
+// Open() locks the shared bus and returns a handle interface that MUST be closed when done.
+type SPI interface {
+	Open() (SPIHandle, error)
+}
+
+// SPIHandle is similar to an io handle. It MUST be closed.
+type SPIHandle interface {
+	Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error)
+	Close() error
 }
 
 // An AnalogReader represents an analog pin reader that resides on a board.

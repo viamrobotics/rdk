@@ -51,16 +51,19 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1 := robot.ArmByName("arm1")
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
-		base1 := robot.BaseByName("base1")
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board1 := robot.BoardByName("board1")
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -98,16 +101,19 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1 := robot.ArmByName("arm1")
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
-		base1 := robot.BaseByName("base1")
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board1 := robot.BoardByName("board1")
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -145,22 +151,27 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1 := robot.ArmByName("arm1")
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
-		base1 := robot.BaseByName("base1")
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board1 := robot.BoardByName("board1")
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		analog1 := board1.AnalogReader("analog1")
+		analog1, ok := board1.AnalogReaderByName("analog1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, analog1.(*proxyBoardAnalogReader).actual.(*board.FakeAnalog).CloseCount, test.ShouldEqual, 0)
 
-		analog2 := board1.AnalogReader("analog2")
+		analog2, ok := board1.AnalogReaderByName("analog2")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, analog2.(*proxyBoardAnalogReader).actual.(*board.FakeAnalog).CloseCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -186,13 +197,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1 := robot.ArmByName("arm1")
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
-		base1 := robot.BaseByName("base1")
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board1 := robot.BoardByName("board1")
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
 		test.That(t, robot.Reconfigure(context.Background(), emptyConf), test.ShouldBeNil)
@@ -206,13 +220,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
-		test.That(t, robot.ArmByName("arm1"), test.ShouldBeNil)
+		_, ok = robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 1)
 
-		test.That(t, robot.BaseByName("base1"), test.ShouldBeNil)
+		_, ok = robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 1)
 
-		test.That(t, robot.BoardByName("board1"), test.ShouldBeNil)
+		_, ok = robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 1)
 	})
 
@@ -236,19 +253,27 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1Proxy := robot.ArmByName("arm1").(*proxyArm)
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
+		arm1Proxy := arm1.(*proxyArm)
 		arm1Actual := arm1Proxy.actual.(*fake.Arm)
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 0)
 
-		base1Proxy := robot.BaseByName("base1").(*proxyBase)
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
+		base1Proxy := base1.(*proxyBase)
 		base1Actual := base1Proxy.actual.(*fake.Base)
 		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 0)
 
-		board1Proxy := robot.BoardByName("board1").(*proxyBoard)
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
+		board1Proxy := board1.(*proxyBoard)
 		board1Actual := board1Proxy.actual
 		test.That(t, board1Actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		analog1Proxy := board1Proxy.AnalogReader("analog1").(*proxyBoardAnalogReader)
+		analog1, ok := board1Proxy.AnalogReaderByName("analog1")
+		test.That(t, ok, test.ShouldBeTrue)
+		analog1Proxy := analog1.(*proxyBoardAnalogReader)
 		analog1Actual := analog1Proxy.actual
 		test.That(t, analog1Actual.(*board.FakeAnalog).CloseCount, test.ShouldEqual, 0)
 
@@ -268,22 +293,26 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, board1Actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 		test.That(t, analog1Actual.(*board.FakeAnalog).CloseCount, test.ShouldEqual, 1)
 
-		newArm1 := robot.ArmByName("arm1")
+		newArm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1Proxy)
 
-		newBase1 := robot.BaseByName("base1")
+		newBase1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBase1, test.ShouldEqual, base1Proxy)
 
-		newBoard1 := robot.BoardByName("board1")
+		newBoard1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBoard1, test.ShouldEqual, board1Proxy)
 
-		newAnalog1 := newBoard1.AnalogReader("analog1")
+		newAnalog1, ok := newBoard1.AnalogReaderByName("analog1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newAnalog1, test.ShouldEqual, analog1Proxy)
 
-		newAnalog2 := newBoard1.AnalogReader("analog2")
-		test.That(t, newAnalog2, test.ShouldNotEqual, analog1Proxy)
+		_, ok = newBoard1.AnalogReaderByName("analog2")
+		test.That(t, ok, test.ShouldBeFalse)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -309,15 +338,21 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1Proxy := robot.ArmByName("arm1").(*proxyArm)
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
+		arm1Proxy := arm1.(*proxyArm)
 		arm1Actual := arm1Proxy.actual.(*fake.Arm)
 		test.That(t, arm1Actual.CloseCount, test.ShouldEqual, 0)
 
-		base1Proxy := robot.BaseByName("base1").(*proxyBase)
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
+		base1Proxy := base1.(*proxyBase)
 		base1Actual := base1Proxy.actual.(*fake.Base)
 		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 0)
 
-		board1Proxy := robot.BoardByName("board1").(*proxyBoard)
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
+		board1Proxy := board1.(*proxyBoard)
 		board1Actual := board1Proxy.actual
 		test.That(t, board1Actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
@@ -336,21 +371,26 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 1)
 		test.That(t, board1Actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		newArm1 := robot.ArmByName("arm1")
+		newArm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1Proxy)
 
-		test.That(t, robot.BaseByName("base1"), test.ShouldBeNil)
+		_, ok = robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeFalse)
 
-		newBoard1 := robot.BoardByName("board1")
+		newBoard1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBoard1, test.ShouldEqual, board1Proxy)
 
-		base2 := robot.BaseByName("base2")
+		base2, ok := robot.BaseByName("base2")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base2.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board2 := robot.BoardByName("board2")
+		board2, ok := robot.BoardByName("board2")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board2.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeFalse)
@@ -379,13 +419,16 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		arm1 := robot.ArmByName("arm1")
+		arm1, ok := robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, arm1.(*proxyArm).actual.(*fake.Arm).CloseCount, test.ShouldEqual, 0)
 
-		base1 := robot.BaseByName("base1")
+		base1, ok := robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
-		board1 := robot.BoardByName("board1")
+		board1, ok := robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
 		err = robot.Reconfigure(context.Background(), conf3)
@@ -407,11 +450,17 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 		test.That(t, board1.(*proxyBoard).actual.(*board.FakeBoard).CloseCount, test.ShouldEqual, 0)
 
-		test.That(t, robot.ArmByName("arm1"), test.ShouldEqual, arm1)
-		test.That(t, robot.BaseByName("base1"), test.ShouldEqual, base1)
-		test.That(t, robot.BoardByName("board1"), test.ShouldEqual, board1)
+		arm1, ok = robot.ArmByName("arm1")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, arm1, test.ShouldEqual, arm1)
+		base1, ok = robot.BaseByName("base1")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, base1, test.ShouldEqual, base1)
+		board1, ok = robot.BoardByName("board1")
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, board1, test.ShouldEqual, board1)
 
-		_, ok := robot.ProcessManager().ProcessByID("1")
+		_, ok = robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)

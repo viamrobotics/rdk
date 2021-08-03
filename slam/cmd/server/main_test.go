@@ -54,8 +54,8 @@ func TestMainMain(t *testing.T) {
 	injectDev.HeadingFunc = func(ctx context.Context) (float64, error) {
 		return 23.45, nil
 	}
-	injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
-		return injectDev
+	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return injectDev, true
 	}
 
 	go gServer.Serve(listener)

@@ -38,6 +38,22 @@
                "y": 0,
                "z": 0
             }
+         },
+         {
+            "id": "end",
+            "parent": "wrist",
+            "translation": {
+               "x": 0,
+               "y": 0,
+               "z": 0
+            },
+            "setorientation": true,
+            "orientation": {
+               "x": 1,
+               "y": 0,
+               "z": 0,
+               "th": 0
+            }
          }
       ],
       "joints": [
