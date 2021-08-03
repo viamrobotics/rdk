@@ -96,5 +96,13 @@ func setup(theRobot robot.Robot) (base.Base, gostream.ImageSource, error) {
 		return nil, nil, errors.New("no cameras, can't drive")
 	}
 
-	return theRobot.BaseByName(baseNames[0]), theRobot.CameraByName(cameraNames[0]), nil
+	base, ok := theRobot.BaseByName(baseNames[0])
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot find %q", baseNames[0])
+	}
+	cam, ok := theRobot.CameraByName(cameraNames[0])
+	if !ok {
+		return nil, nil, fmt.Errorf("cannot find %q", cameraNames[0])
+	}
+	return base, cam, nil
 }

@@ -30,7 +30,7 @@
 
 ## Dependencies
 
-* [go1.16](https://golang.org/dl/)
+* make
 * Run `make setup`
 
 ### libvpx linux source build
@@ -64,6 +64,13 @@ Some guidelines on using these:
 1. Follow the [Protobuf style guide](https://docs.buf.build/style-guide/).
 1. After making changes to a `.proto` file, make sure to run `make buf` to generate new files. Make sure `protoc-gen-go-grpc` and `protoc-gen-go`, usually located in `~/go/bin`, are in your `$PATH`.
 1. See [rpc/examples/echo](./rpc/examples/echo) for example usage.
+
+#### gRPC Language Samples
+
+* [Go](./grpc) - See `client` and `server`.
+* [Python](./grpc/python)
+* [Java](./grpc/java)
+* [C++](./grpc/cpp)
 
 ### Testing with big data
 

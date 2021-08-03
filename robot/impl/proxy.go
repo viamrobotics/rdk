@@ -408,6 +408,7 @@ type proxyBoard struct {
 	actual   board.Board
 	motors   map[string]*proxyBoardMotor
 	servos   map[string]*proxyBoardServo
+	spis     map[string]*proxyBoardSPI
 	analogs  map[string]*proxyBoardAnalogReader
 	digitals map[string]*proxyBoardDigitalInterrupt
 }
@@ -417,51 +418,83 @@ func newProxyBoard(actual board.Board) *proxyBoard {
 		actual:   actual,
 		motors:   map[string]*proxyBoardMotor{},
 		servos:   map[string]*proxyBoardServo{},
+		spis:     map[string]*proxyBoardSPI{},
 		analogs:  map[string]*proxyBoardAnalogReader{},
 		digitals: map[string]*proxyBoardDigitalInterrupt{},
 	}
 
 	for _, name := range actual.MotorNames() {
-		p.motors[name] = &proxyBoardMotor{actual: actual.Motor(name)}
+		actualPart, ok := actual.MotorByName(name)
+		if !ok {
+			continue
+		}
+		p.motors[name] = &proxyBoardMotor{actual: actualPart}
 	}
 	for _, name := range actual.ServoNames() {
-		p.servos[name] = &proxyBoardServo{actual: actual.Servo(name)}
+		actualPart, ok := actual.ServoByName(name)
+		if !ok {
+			continue
+		}
+		p.servos[name] = &proxyBoardServo{actual: actualPart}
+	}
+	for _, name := range actual.SPINames() {
+		actualPart, ok := actual.SPIByName(name)
+		if !ok {
+			continue
+		}
+		p.spis[name] = &proxyBoardSPI{actual: actualPart}
 	}
 	for _, name := range actual.AnalogReaderNames() {
-		p.analogs[name] = &proxyBoardAnalogReader{actual: actual.AnalogReader(name)}
+		actualPart, ok := actual.AnalogReaderByName(name)
+		if !ok {
+			continue
+		}
+		p.analogs[name] = &proxyBoardAnalogReader{actual: actualPart}
 	}
 	for _, name := range actual.DigitalInterruptNames() {
-		p.digitals[name] = &proxyBoardDigitalInterrupt{actual: actual.DigitalInterrupt(name)}
+		actualPart, ok := actual.DigitalInterruptByName(name)
+		if !ok {
+			continue
+		}
+		p.digitals[name] = &proxyBoardDigitalInterrupt{actual: actualPart}
 	}
 
 	return p
 }
 
-func (p *proxyBoard) Motor(name string) board.Motor {
+func (p *proxyBoard) MotorByName(name string) (board.Motor, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	if motor, ok := p.motors[name]; ok {
-		return motor
-	}
-	return nil
+	m, ok := p.motors[name]
+	return m, ok
 }
 
-func (p *proxyBoard) Servo(name string) board.Servo {
+func (p *proxyBoard) ServoByName(name string) (board.Servo, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.servos[name]
+	s, ok := p.servos[name]
+	return s, ok
 }
 
-func (p *proxyBoard) AnalogReader(name string) board.AnalogReader {
+func (p *proxyBoard) SPIByName(name string) (board.SPI, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.analogs[name]
+	s, ok := p.spis[name]
+	return s, ok
 }
 
-func (p *proxyBoard) DigitalInterrupt(name string) board.DigitalInterrupt {
+func (p *proxyBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.digitals[name]
+	a, ok := p.analogs[name]
+	return a, ok
+}
+
+func (p *proxyBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	d, ok := p.digitals[name]
+	return d, ok
 }
 
 func (p *proxyBoard) GPIOSet(pin string, high bool) error {
@@ -503,6 +536,16 @@ func (p *proxyBoard) ServoNames() []string {
 	defer p.mu.RUnlock()
 	names := []string{}
 	for k := range p.servos {
+		names = append(names, k)
+	}
+	return names
+}
+
+func (p *proxyBoard) SPINames() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	names := []string{}
+	for k := range p.spis {
 		names = append(names, k)
 	}
 	return names
@@ -552,6 +595,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	if p.servos == nil && len(diff.Added.Servos) != 0 {
 		p.servos = make(map[string]*proxyBoardServo, len(diff.Added.Servos))
 	}
+	if p.spis == nil && len(diff.Added.SPIs) != 0 {
+		p.spis = make(map[string]*proxyBoardSPI, len(diff.Added.SPIs))
+	}
 	if p.analogs == nil && len(diff.Added.Analogs) != 0 {
 		p.analogs = make(map[string]*proxyBoardAnalogReader, len(diff.Added.Analogs))
 	}
@@ -565,6 +611,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	for _, c := range diff.Added.Servos {
 		p.servos[c.Name] = actual.servos[c.Name]
 	}
+	for _, c := range diff.Added.SPIs {
+		p.spis[c.Name] = actual.spis[c.Name]
+	}
 	for _, c := range diff.Added.Analogs {
 		p.analogs[c.Name] = actual.analogs[c.Name]
 	}
@@ -577,6 +626,9 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 	}
 	for _, c := range diff.Modified.Servos {
 		p.servos[c.Name].replace(actual.servos[c.Name])
+	}
+	for _, c := range diff.Modified.SPIs {
+		p.spis[c.Name].replace(actual.spis[c.Name])
 	}
 	for _, c := range diff.Modified.Analogs {
 		p.analogs[c.Name].replace(actual.analogs[c.Name])
@@ -604,6 +656,16 @@ func (p *proxyBoard) merge(newBoard board.Board, diff board.ConfigDiff) {
 			rlog.Logger.Errorw("error closing servo but still reconfiguring", "error", err)
 		}
 		delete(p.servos, c.Name)
+	}
+	for _, c := range diff.Removed.SPIs {
+		toRemove, ok := p.spis[c.Name]
+		if !ok {
+			continue // should not happen
+		}
+		if err := utils.TryClose(toRemove); err != nil {
+			rlog.Logger.Errorw("error closing SPI but still reconfiguring", "error", err)
+		}
+		delete(p.spis, c.Name)
 	}
 	for _, c := range diff.Removed.Analogs {
 		toRemove, ok := p.analogs[c.Name]
@@ -646,6 +708,7 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 
 	var oldMotorNames map[string]struct{}
 	var oldServoNames map[string]struct{}
+	var oldSPINames map[string]struct{}
 	var oldAnalogReaderNames map[string]struct{}
 	var oldDigitalInterruptNames map[string]struct{}
 
@@ -659,6 +722,12 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		oldServoNames = make(map[string]struct{}, len(p.servos))
 		for name := range p.servos {
 			oldServoNames[name] = struct{}{}
+		}
+	}
+	if len(p.spis) != 0 {
+		oldSPINames = make(map[string]struct{}, len(p.spis))
+		for name := range p.spis {
+			oldSPINames[name] = struct{}{}
 		}
 	}
 	if len(p.analogs) != 0 {
@@ -692,6 +761,15 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 		}
 		p.servos[name] = newPart
 	}
+	for name, newPart := range actual.spis {
+		oldPart, ok := p.spis[name]
+		delete(oldSPINames, name)
+		if ok {
+			oldPart.replace(newPart)
+			continue
+		}
+		p.spis[name] = newPart
+	}
 	for name, newPart := range actual.analogs {
 		oldPart, ok := p.analogs[name]
 		delete(oldAnalogReaderNames, name)
@@ -716,6 +794,9 @@ func (p *proxyBoard) replace(newBoard board.Board) {
 	}
 	for name := range oldServoNames {
 		delete(p.servos, name)
+	}
+	for name := range oldSPINames {
+		delete(p.spis, name)
 	}
 	for name := range oldAnalogReaderNames {
 		delete(p.analogs, name)
@@ -840,6 +921,28 @@ func (p *proxyBoardServo) Current(ctx context.Context) (uint8, error) {
 
 func (p *proxyBoardServo) Close() error {
 	return utils.TryClose(p.actual)
+}
+
+type proxyBoardSPI struct {
+	mu     sync.RWMutex
+	actual board.SPI
+}
+
+func (p *proxyBoardSPI) replace(newSPI board.SPI) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	actual, ok := newSPI.(*proxyBoardSPI)
+	if !ok {
+		panic(fmt.Errorf("expected new SPI to be %T but got %T", actual, newSPI))
+	}
+	if err := utils.TryClose(p.actual); err != nil {
+		rlog.Logger.Errorw("error closing old", "error", err)
+	}
+	p.actual = actual.actual
+}
+
+func (p *proxyBoardSPI) Open() (board.SPIHandle, error) {
+	return p.actual.Open()
 }
 
 type proxyBoardAnalogReader struct {

@@ -52,9 +52,9 @@ func TestFindTranslationOrderOfOperations(t *testing.T) {
 	basicFrameMap.add(&basicFrame{name: "base"})
 	basicFrameMap.add(&basicFrame{name: "arm", parent: "base", offset: a})
 	basicFrameMap.add(&basicFrame{name: "camera", parent: "arm", offset: b})
-
 	trans, err := FindTranslationChildToParent(ctx, &basicFrameMap, "camera", "base")
 	test.That(t, err, test.ShouldBeNil)
+
 	test.That(t, trans.X, test.ShouldAlmostEqual, c1.X)
 }
 

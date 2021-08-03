@@ -52,55 +52,55 @@ type mutableRobot struct {
 
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) RemoteByName(name string) robot.Robot {
+func (r *mutableRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
 // BoardByName returns a board by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) BoardByName(name string) board.Board {
+func (r *mutableRobot) BoardByName(name string) (board.Board, bool) {
 	return r.parts.BoardByName(name)
 }
 
 // ArmByName returns an arm by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ArmByName(name string) arm.Arm {
+func (r *mutableRobot) ArmByName(name string) (arm.Arm, bool) {
 	return r.parts.ArmByName(name)
 }
 
 // BaseByName returns a base by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) BaseByName(name string) base.Base {
+func (r *mutableRobot) BaseByName(name string) (base.Base, bool) {
 	return r.parts.BaseByName(name)
 }
 
 // GripperByName returns a gripper by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) GripperByName(name string) gripper.Gripper {
+func (r *mutableRobot) GripperByName(name string) (gripper.Gripper, bool) {
 	return r.parts.GripperByName(name)
 }
 
 // CameraByName returns a camera by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) CameraByName(name string) camera.Camera {
+func (r *mutableRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
 // LidarByName returns a lidar by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) LidarByName(name string) lidar.Lidar {
+func (r *mutableRobot) LidarByName(name string) (lidar.Lidar, bool) {
 	return r.parts.LidarByName(name)
 }
 
 // SensorByName returns a sensor by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) SensorByName(name string) sensor.Sensor {
+func (r *mutableRobot) SensorByName(name string) (sensor.Sensor, bool) {
 	return r.parts.SensorByName(name)
 }
 
 // ProviderByName returns a provider by name. If it does not exist
 // nil is returned.
-func (r *mutableRobot) ProviderByName(name string) robot.Provider {
+func (r *mutableRobot) ProviderByName(name string) (robot.Provider, bool) {
 	return r.parts.ProviderByName(name)
 }
 

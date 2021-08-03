@@ -171,19 +171,36 @@ func (base *fourWheelBase) WidthMillis(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
-	board := r.BoardByName(config.Attributes.String("board"))
-	if board == nil {
+	board, ok := r.BoardByName(config.Attributes.String("board"))
+	if !ok {
 		return nil, errors.Errorf("need a board for four-wheel, named (%v)", config.Attributes["board"])
+	}
+
+	frontLeft, ok := board.MotorByName(config.Attributes.String("frontLeft"))
+	if !ok {
+		return nil, errors.New("frontLeft motor not found")
+	}
+	frontRight, ok := board.MotorByName(config.Attributes.String("frontRight"))
+	if !ok {
+		return nil, errors.New("frontRight motor not found")
+	}
+	backLeft, ok := board.MotorByName(config.Attributes.String("backLeft"))
+	if !ok {
+		return nil, errors.New("backLeft motor not found")
+	}
+	backRight, ok := board.MotorByName(config.Attributes.String("backRight"))
+	if !ok {
+		return nil, errors.New("backRight motor not found")
 	}
 
 	base := &fourWheelBase{
 		widthMillis:              config.Attributes.Int("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
 		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
-		frontLeft:                board.Motor(config.Attributes.String("frontLeft")),
-		frontRight:               board.Motor(config.Attributes.String("frontRight")),
-		backLeft:                 board.Motor(config.Attributes.String("backLeft")),
-		backRight:                board.Motor(config.Attributes.String("backRight")),
+		frontLeft:                frontLeft,
+		frontRight:               frontRight,
+		backLeft:                 backLeft,
+		backRight:                backRight,
 	}
 
 	if base.widthMillis == 0 {

@@ -33,7 +33,8 @@ func TestFrames1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, trans.X, test.ShouldEqual, 1)
 
-	arm := r.ArmByName("a")
+	arm, ok := r.ArmByName("a")
+	test.That(t, ok, test.ShouldBeTrue)
 	err = arm.MoveToPosition(ctx, &pb.ArmPosition{X: 1, Y: 1, Z: 1})
 	test.That(t, err, test.ShouldBeNil)
 

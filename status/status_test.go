@@ -51,26 +51,26 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return logger
 	}
 
-	injectRobot.ArmByNameFunc = func(name string) arm.Arm {
-		return &fake.Arm{Name: name}
+	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+		return &fake.Arm{Name: name}, true
 	}
-	injectRobot.BaseByNameFunc = func(name string) base.Base {
-		return &fake.Base{Name: name}
+	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
+		return &fake.Base{Name: name}, true
 	}
-	injectRobot.GripperByNameFunc = func(name string) gripper.Gripper {
-		return &fake.Gripper{Name: name}
+	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
+		return &fake.Gripper{Name: name}, true
 	}
-	injectRobot.CameraByNameFunc = func(name string) camera.Camera {
-		return &fake.Camera{Name: name}
+	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
+		return &fake.Camera{Name: name}, true
 	}
-	injectRobot.LidarByNameFunc = func(name string) lidar.Lidar {
-		return &fake.Lidar{Name: name}
+	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
+		return &fake.Lidar{Name: name}, true
 	}
-	injectRobot.BoardByNameFunc = func(name string) board.Board {
-		return &board.FakeBoard{Name: name}
+	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		return &board.FakeBoard{Name: name}, true
 	}
-	injectRobot.SensorByNameFunc = func(name string) sensor.Sensor {
-		return &fake.Compass{Name: name}
+	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		return &fake.Compass{Name: name}, true
 	}
 
 	if withRemotes {
@@ -79,14 +79,14 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		}
 		remote1 := setupInjectRobotHelper(logger, false, false, true)
 		remote2 := setupInjectRobotHelper(logger, false, refreshFail, true)
-		injectRobot.RemoteByNameFunc = func(name string) robot.Robot {
+		injectRobot.RemoteByNameFunc = func(name string) (robot.Robot, bool) {
 			switch name {
 			case "remote1":
-				return remote1
+				return remote1, true
 			case "remote2":
-				return remote2
+				return remote2, true
 			}
-			return nil
+			return nil, false
 		}
 	} else {
 		injectRobot.RemoteNamesFunc = func() []string {

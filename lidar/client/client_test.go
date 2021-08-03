@@ -63,8 +63,8 @@ func TestClient(t *testing.T) {
 	injectDev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return infoM, nil
 	}
-	injectRobot2.LidarByNameFunc = func(name string) lidar.Lidar {
-		return injectDev
+	injectRobot2.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
+		return injectDev, true
 	}
 
 	dev, err := f(context.Background(), nil, config.Component{

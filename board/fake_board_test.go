@@ -43,7 +43,9 @@ func TestFakeBoard(t *testing.T) {
 	b, err := NewFakeBoard(context.Background(), cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, b.Servo("s1").Move(context.Background(), 15), test.ShouldBeNil)
+	servo, ok := b.ServoByName("s1")
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, servo.Move(context.Background(), 15), test.ShouldBeNil)
 
 	status, err := b.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
