@@ -216,6 +216,11 @@ func (b *arduinoBoard) ServoByName(name string) (board.Servo, bool) {
 	return nil, false
 }
 
+// SPIByName returns an SPI by name.
+func (b *arduinoBoard) SPIByName(name string) (board.SPI, bool) {
+	return nil, false
+}
+
 // AnalogReaderByName returns an analog reader by name.
 func (b *arduinoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return nil, false
@@ -257,6 +262,11 @@ func (b *arduinoBoard) MotorNames() []string {
 
 // ServoNames returns the name of all known servos.
 func (b *arduinoBoard) ServoNames() []string {
+	return nil
+}
+
+// SPINames returns the name of all known SPIs.
+func (b *arduinoBoard) SPINames() []string {
 	return nil
 }
 
