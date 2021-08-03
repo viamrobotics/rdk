@@ -348,18 +348,22 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 }
 
 type piPigpioSPI struct {
-	pi    *piPigpio
-	mu    sync.Mutex
+	pi         *piPigpio
+	mu         sync.Mutex
 	busSelect  string
 	openHandle *piPigpioSPIHandle
 }
 
 type piPigpioSPIHandle struct {
-	bus   *piPigpioSPI
+	bus      *piPigpioSPI
 	isClosed bool
 }
 
 func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
+
+	if s.isClosed {
+		return nil, errors.New("Can't use Xfer() on an already closed SPIHandle")
+	}
 
 	var spiFlags uint
 
@@ -368,7 +372,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		if mode == 1 || mode == 3 {
 			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
-	} else if chipSelect == "24" || chipSelect == "26"{
+	} else if chipSelect == "24" || chipSelect == "26" {
 		return nil, errors.New("Due to underlying issues, use of hardware ChipSelect pins (24 and 26) is not allowed.")
 	}
 

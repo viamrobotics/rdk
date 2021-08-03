@@ -49,10 +49,9 @@ func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte)
 	return make([]byte, len(tx)), nil
 }
 
-func(h *fakeSPIHandle) Close() error {
+func (h *fakeSPIHandle) Close() error {
 	return nil
 }
-
 
 // A FakeAnalog reads back the same set value.
 type FakeAnalog struct {
@@ -75,7 +74,7 @@ type FakeBoard struct {
 	Name     string
 	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
-	spis     map[string]*fakeSPI	
+	spis     map[string]*fakeSPI
 	analogs  map[string]*FakeAnalog
 	digitals map[string]DigitalInterrupt
 

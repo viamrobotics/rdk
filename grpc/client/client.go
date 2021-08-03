@@ -630,11 +630,10 @@ func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
 	}, true
 }
 
-// SPIByName is unimplemented for now
+// SPIByName needs to be implemented
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
-
 
 // AnalogReaderByName needs to be implemented.
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
