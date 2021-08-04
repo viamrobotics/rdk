@@ -120,7 +120,7 @@ func (config *MotorConfig) Validate(path string) error {
 // SPIConfig enumerates a specific, shareable SPI bus.
 type SPIConfig struct {
 	Name      string `json:"name"`
-	BusSelect string `json:"bus_select"`
+	BusSelect string `json:"bus_select"` // "0" or "1" for main/aux in libpigpio
 }
 
 // Validate ensures all parts of the config are valid.
