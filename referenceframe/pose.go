@@ -11,9 +11,9 @@ import (
 
 // OffsetBy takes two offsets and computes the final position.
 func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
-	q1 := spatialmath.NewDualQuaternionFromArmPos(a)
-	q2 := spatialmath.NewDualQuaternionFromArmPos(b)
-	q3 := &spatialmath.DualQuaternion{q1.Transformation(q2.Quat)}
+	q1 := spatial.NewDualQuaternionFromArmPos(a)
+	q2 := spatial.NewDualQuaternionFromArmPos(b)
+	q3 := &spatial.DualQuaternion{q1.Transformation(q2.Quat)}
 
 	return q3.ToArmPos()
 }
@@ -23,13 +23,11 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 // FROM Frame -> TO Object ... not the other way around!
 type Pose interface {
 	DualQuat() *spatial.DualQuaternion
-	Frame() Frame
 }
 
-// Fulfills the Pose interface, and can also be used as a staticFrame
+// Fulfills the Pose interface by directly using a dual quaternion.
 type dualQuatPose struct {
 	*spatial.DualQuaternion
-	frame Frame
 }
 
 // DualQuat returns the DualQuaternion useful for transforming between frames.
@@ -37,17 +35,17 @@ func (dqp *dualQuatPose) DualQuat() *spatial.DualQuaternion {
 	return dqp.DualQuaternion
 }
 
-// Frame returns the reference frame that the pose is expressed in.
-func (dqp *dualQuatPose) Frame() Frame {
-	return dqp.frame
+// NewEmptyPose returns a pose with no Frame and an identity unit quaternion
+func NewEmptyPose() Pose {
+	return &dualQuatPose{spatial.NewDualQuaternion()}
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) point and promotes it to a dual quaternion.
 // It will have the exact orientation as the Frame it is in.
-func NewPoseFromPoint(frame Frame, point r3.Vector) Pose {
+func NewPoseFromPoint(point r3.Vector) Pose {
 	dq := &spatial.DualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
-		Dual: quat.Number{Imag: point.x, Jmag: point.y, Kmag: point.z},
+		Dual: quat.Number{Imag: point.X, Jmag: point.Y, Kmag: point.Z},
 	}}
-	&dualQuatPose{dq, frame}
+	return &dualQuatPose{dq}
 }

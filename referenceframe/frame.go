@@ -5,13 +5,7 @@
 package referenceframe
 
 import (
-	"fmt"
-
-	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
-
-	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/dualquat"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
@@ -31,12 +25,17 @@ type Frame interface {
 
 // a static Frame is a simple Pose that encodes a fixed translation and orientation relative to a parent Frame
 type staticFrame struct {
-	name string
-	pose Pose
+	name   string
+	parent Frame
+	pose   Pose
 }
 
-func NewStaticFrame(name string, pose Pose) Frame {
-	&staticFrame{name, pose}
+func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
+	if pose == nil {
+		emptyPose := NewEmptyPose()
+		return &staticFrame{name, parent, emptyPose}
+	}
+	return &staticFrame{name, parent, pose}
 }
 
 func (sf *staticFrame) Name() string {
@@ -44,16 +43,16 @@ func (sf *staticFrame) Name() string {
 }
 
 func (sf *staticFrame) Parent() Frame {
-	return sf.pose.Frame()
+	return sf.parent
 }
 
 func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
-	if len(inp) != sf.DoF() {
+	if len(inp) != sf.Dof() {
 		return nil
 	}
 	return sf.pose.DualQuat()
 }
 
-func (sf *staticFrame) DoF() int {
+func (sf *staticFrame) Dof() int {
 	return 0
 }
