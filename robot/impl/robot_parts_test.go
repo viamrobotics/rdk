@@ -321,6 +321,9 @@ func TestPartsAdd(t *testing.T) {
 	injectBoard.ServoNamesFunc = func() []string {
 		return []string{"servo1"}
 	}
+	injectBoard.SPINamesFunc = func() []string {
+		return []string{"spi1"}
+	}
 	injectBoard.AnalogReaderNamesFunc = func() []string {
 		return []string{"analog1"}
 	}
@@ -332,6 +335,9 @@ func TestPartsAdd(t *testing.T) {
 	}
 	injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
 		return &inject.Servo{}, true
+	}
+	injectBoard.SPIByNameFunc = func(name string) (board.SPI, bool) {
+		return &inject.SPI{}, true
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 		return &board.FakeAnalog{}, true
