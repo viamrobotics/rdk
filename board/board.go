@@ -123,7 +123,7 @@ type SPI interface {
 
 // SPIHandle is similar to an io handle. It MUST be closed.
 type SPIHandle interface {
-	Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error)
+	Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
 	Close() error
 }
 
