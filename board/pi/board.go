@@ -344,7 +344,7 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	val := (int(rx[1])<<8) | int(rx[2]) // reassemble 10 bit value
+	val := (int(rx[1]) << 8) | int(rx[2]) // reassemble 10 bit value
 
 	return val, nil
 }
