@@ -4,8 +4,8 @@ import (
 	"math"
 	"math/rand"
 
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 
 	"gonum.org/v1/gonum/num/dualquat"
 )
@@ -129,7 +129,17 @@ func (j *Joint) AreJointPositionsValid(posvec []float64) bool {
 	return true
 }
 
-// Parent will return the name of the next transform up the kinematics chain from this joint.
-func (j *Joint) Parent() string {
+// ParentName will return the name of the next transform up the kinematics chain from this joint.
+func (j *Joint) ParentName() string {
 	return j.parent
+}
+
+// Parent TODO to be implemented
+func (j *Joint) Parent() referenceframe.Frame {
+	return nil
+}
+
+// Name TODO to be implemented
+func (j *Joint) Name() string {
+	return ""
 }

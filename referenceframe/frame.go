@@ -18,6 +18,7 @@ type Input struct {
 // Its Transform places the Frame's pose in the Frame of its parent.
 type Frame interface {
 	Name() string
+	ParentName() string // currently needed for kinematics package, should be removed when changed
 	Parent() Frame
 	Transform([]Input) *spatial.DualQuaternion
 	Dof() int
@@ -40,6 +41,14 @@ func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
 
 func (sf *staticFrame) Name() string {
 	return sf.name
+}
+
+// This function should be removed when ParentName() is no longer necessary
+func (sf *staticFrame) ParentName() string {
+	if sf.Parent() == nil {
+		return ""
+	}
+	return sf.Parent().Name()
 }
 
 func (sf *staticFrame) Parent() Frame {

@@ -146,7 +146,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	}
 	// Now remove all parents
 	for _, trans := range transforms {
-		delete(parents, trans.Parent())
+		delete(parents, trans.ParentName())
 	}
 	if len(parents) > 1 {
 		return nil, errors.New("more than one end effector not supported")
@@ -167,7 +167,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	orderedTransforms := []referenceframe.Frame{nextTransform}
 	seen[eename] = true
 	for {
-		parent := nextTransform.Parent()
+		parent := nextTransform.ParentName()
 		if seen[parent] {
 			return nil, errors.New("infinite loop finding path from end effector to world")
 		}

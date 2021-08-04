@@ -3,8 +3,8 @@ package kinematics
 import (
 	"math/rand"
 
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 )
 
 // XYZWeights Defines a struct into which XYZ values can be parsed from JSON
@@ -110,7 +110,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *Model) Transform(inputs []referenceframe.Input) *spatialmath.DualQuaternion {
 	var pos []float64
-	for _, input := range(inputs){
+	for _, input := range inputs {
 		pos = append(pos, input.Value)
 	}
 	return m.JointRadToQuat(pos)
@@ -136,14 +136,14 @@ func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
-		
+
 		var input []referenceframe.Input
 		dof := transform.Dof()
-		for j := 0; j < dof; j++{
+		for j := 0; j < dof; j++ {
 			input = append(input, referenceframe.Input{pos[posIdx]})
 			posIdx++
 		}
-		
+
 		quat := transform.Transform(input)
 		quats = append(quats, quat)
 
