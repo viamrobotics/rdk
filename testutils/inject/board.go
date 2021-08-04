@@ -14,10 +14,12 @@ type Board struct {
 	board.Board
 	MotorByNameFunc            func(name string) (board.Motor, bool)
 	ServoByNameFunc            func(name string) (board.Servo, bool)
+	SPIByNameFunc              func(name string) (board.SPI, bool)
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
 	MotorNamesFunc             func() []string
 	ServoNamesFunc             func() []string
+	SPINamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func() error
@@ -39,6 +41,14 @@ func (b *Board) ServoByName(name string) (board.Servo, bool) {
 		return b.Board.ServoByName(name)
 	}
 	return b.ServoByNameFunc(name)
+}
+
+// SPIByName calls the injected SPIByName or the real version.
+func (b *Board) SPIByName(name string) (board.SPI, bool) {
+	if b.SPIByNameFunc == nil {
+		return b.Board.SPIByName(name)
+	}
+	return b.SPIByNameFunc(name)
 }
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
@@ -71,6 +81,14 @@ func (b *Board) ServoNames() []string {
 		return b.Board.ServoNames()
 	}
 	return b.ServoNamesFunc()
+}
+
+// SPINames calls the injected SPINames or the real version.
+func (b *Board) SPINames() []string {
+	if b.SPINamesFunc == nil {
+		return b.Board.SPINames()
+	}
+	return b.SPINamesFunc()
 }
 
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
