@@ -64,9 +64,9 @@ const (
 	elevatorTop = 800
 	elevatorSpeed = 300
 
-	hammerSpeed = 10.0
+	hammerSpeed = 25.0
 	hammerOffset = 0.9
-	hammerRatio = 60.86 // 26.85:1 motor + 68/30 teeth gears
+	hammerRatio = 11.8455 // 26.85:1 motor + 30/68 teeth gears
 	cubeWhacks = 3.0
 	duckWhacks = 5.0
 )
@@ -287,8 +287,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	errors := multierr.Combine(
-		b.gate.GoFor(ctx, forward, 20, 20),
-		b.squeeze.GoFor(ctx, forward, 20, 20),
+		b.gate.GoFor(ctx, forward, 20, 10),
+		b.squeeze.GoFor(ctx, forward, 20, 10),
 		b.elevator.GoFor(ctx, forward, 20, 40),
 		b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, 0.3 * hammerRatio),
 	)
@@ -305,7 +305,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.gate.Home(ctx, backward, 20),
 		b.squeeze.Home(ctx, backward, 20),
 		b.elevator.Home(ctx, backward, 200),
-		b.hammer.Home(ctx, backward, 400),
+		b.hammer.Home(ctx, backward, 200),
 	)
 
 	if errors != nil {

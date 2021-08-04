@@ -90,7 +90,7 @@
             "spiBus": "main",
             "csPin": "40",
             "index": 1,
-            "maxVelocity": 600,
+            "maxVelocity": 300,
             "maxAccel": 300,
             "sgThresh": 0,
             "calFactor": 1.058333
