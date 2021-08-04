@@ -335,7 +335,7 @@ type piPigpioAnalogReader struct {
 }
 
 func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
-	tx := make([]byte, 3)
+	var tx [3]byte
 	tx[0] = 1                            // start bit
 	tx[1] = byte((8 + par.channel) << 4) // single-ended
 	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
@@ -346,11 +346,11 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	}
 	defer bus.Close()
 
-	rx, err := bus.Xfer(1000000, par.chip, 0, tx)
+	rx, err := bus.Xfer(1000000, par.chip, 0, tx[:])
 	if err != nil {
 		return 0, err
 	}
-	val := int(rx[1])<<8 | int(rx[2]) // reassemble 10 bit value
+	val := (int(rx[1])<<8) | int(rx[2]) // reassemble 10 bit value
 
 	return val, nil
 }
@@ -369,7 +369,7 @@ type piPigpioSPIHandle struct {
 	isClosed bool
 }
 
-func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
+func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
 
 	if s.isClosed {
 		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
@@ -423,7 +423,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	spiFlags = spiFlags | mode
 
 	count := len(tx)
-	rx = make([]byte, count)
+	rx := make([]byte, count)
 	rxPtr := C.CBytes(rx)
 	defer C.free(rxPtr)
 	txPtr := C.CBytes(tx)
@@ -440,7 +440,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		// We're going to directly control chip select (not using CE0/CE1/CE2 from SPI controller.)
 		// This allows us to use a large number of chips on a single bus.
 		// Per "seen" checks above, cannot be mixed with the native CE0/CE1/CE2
-		err = s.bus.pi.GPIOSet(chipSelect, false)
+		err := s.bus.pi.GPIOSet(chipSelect, false)
 		if err != nil {
 			return nil, err
 		}
@@ -449,7 +449,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
 
 	if gpioCS {
-		err = s.bus.pi.GPIOSet(chipSelect, true)
+		err := s.bus.pi.GPIOSet(chipSelect, true)
 		if err != nil {
 			return nil, err
 		}
@@ -459,9 +459,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
 	}
 
-	rx = C.GoBytes(rxPtr, (C.int)(count))
-
-	return rx, nil
+	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
 func (s *piPigpioSPI) Open() (board.SPIHandle, error) {
@@ -490,7 +488,7 @@ func (pi *piPigpio) SPINames() []string {
 	if len(pi.spis) == 0 {
 		return nil
 	}
-	names := make([]string, len(pi.spis))
+	names := make([]string, 0, len(pi.spis))
 	for k := range pi.spis {
 		names = append(names, k)
 	}
