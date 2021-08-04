@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"errors"
 	"fmt"
 
 	spatial "go.viam.com/core/spatialmath"
@@ -12,7 +13,7 @@ import (
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between frames.
 type FrameSystem interface {
 	World() Frame // return the base world frame
-	GetFrame(name string) (Frame, error)
+	GetFrame(name string) Frame
 	SetFrame(frame Frame) error
 	SetFrameFromPoint(name string, parent Frame, point r3.Vector) error
 	TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error)
@@ -50,14 +51,14 @@ func (sfs *staticFrameSystem) frameExists(name string) bool {
 }
 
 // GetFrame returns the frame given the name of the frame. Returns an error if the frame is not found.
-func (sfs *staticFrameSystem) GetFrame(name string) (Frame, error) {
+func (sfs *staticFrameSystem) GetFrame(name string) Frame {
 	if !sfs.frameExists(name) {
-		return nil, fmt.Errorf("no frame with name %s in FrameSystem", name)
+		return nil
 	}
 	if name == "world" {
-		return sfs.world, nil
+		return sfs.world
 	}
-	return sfs.frames[name], nil
+	return sfs.frames[name]
 }
 
 // SetFrame adds an input staticFrame to the system. It can only be added if the parent of the input frame already exists in the system,
@@ -77,6 +78,9 @@ func (sfs *staticFrameSystem) SetFrame(frame Frame) error {
 
 // SetFrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
 func (sfs *staticFrameSystem) SetFrameFromPoint(name string, parent Frame, point r3.Vector) error {
+	if parent == nil {
+		return errors.New("parent frame is nil")
+	}
 	// check if frame with that name is already in system
 	if sfs.frameExists(name) {
 		return fmt.Errorf("frame with name %s already exists in FrameSystem", name)
@@ -91,19 +95,31 @@ func (sfs *staticFrameSystem) SetFrameFromPoint(name string, parent Frame, point
 	return nil
 }
 
-// compose the quaternions down to the world frame
+// compose the quaternions from the world frame to target frame
 func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuaternion {
-	q := spatial.NewDualQuaternion()
-	zeroInput := []Input{}      // staticFrameSystem always has empty input
+	zeroInput := []Input{} // staticFrameSystem always has empty input
+	transforms := []dualquat.Number{}
 	for frame.Parent() != nil { // stop once you reach world node
-		// Transform() gives FROM parent TO q. Want FROM q TO parent ... use conjugate dualquaternion.
-		q.Quat = q.Transformation(dualquat.Conj(frame.Transform(zeroInput).Quat))
+		// Transform() gives FROM parent TO q.
+		transforms = append(transforms, frame.Transform(zeroInput).Quat)
 		frame = frame.Parent()
+	}
+	q := spatial.NewDualQuaternion()
+	// start from world frame, last element in slice
+	for i := len(transforms) - 1; i >= 0; i-- {
+		//q.Quat = q.Transformation(transforms[i])
+		q.Quat = dualquat.Mul(q.Quat, transforms[i])
 	}
 	return q
 }
 
 func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error) {
+	if srcFrame == nil {
+		return nil, errors.New("source frame is nil")
+	}
+	if endFrame == nil {
+		return nil, errors.New("target frame is nil")
+	}
 	// check if frames are in system
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
@@ -111,13 +127,16 @@ func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame)
 	if !sfs.frameExists(endFrame.Name()) {
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
-	// get source to world transform
+	// get world to source transform
 	srcTransform := sfs.composeTransforms(srcFrame)
-	// get target to world transform
+	// get world to target transform
 	targetTransform := sfs.composeTransforms(endFrame)
-	// transform from source to world to target
-	fullQuat := srcTransform.Transformation(dualquat.Conj(targetTransform.Quat))
-	transformedQuat := dualquat.Mul(dualquat.Mul(fullQuat, pose.DualQuat().Quat), dualquat.Conj(fullQuat))
+	// transform from source to world, world to target
+	srcTransform.Quat = dualquat.Conj(srcTransform.Quat)
+	fullQuat := srcTransform.Transformation(targetTransform.Quat)
+	// apply to the pose dual quaternion
+	sourceQuat := pose.DualQuat().Quat
+	transformedQuat := dualquat.Mul(dualquat.Mul(fullQuat, sourceQuat), dualquat.Conj(fullQuat))
 	transformedPose := &spatial.DualQuaternion{transformedQuat}
 	return &dualQuatPose{transformedPose}, nil
 }

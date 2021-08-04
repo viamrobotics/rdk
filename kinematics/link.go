@@ -1,8 +1,8 @@
 package kinematics
 
 import (
-	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/spatialmath"
 )
 
 // Link defines a fixed link
@@ -22,12 +22,22 @@ func (l *Link) Transform(input []referenceframe.Input) *spatialmath.DualQuaterni
 	return l.quat
 }
 
-// Parent will return the name of the next transform up the kinematics chain from this link.
-func (l *Link) Parent() string {
+// ParentName will return the name of the next transform up the kinematics chain from this link.
+func (l *Link) ParentName() string {
 	return l.parent
 }
 
 // Dof is zero for a link
 func (l *Link) Dof() int {
 	return 0
+}
+
+// Parent TODO to be implemented
+func (l *Link) Parent() referenceframe.Frame {
+	return nil
+}
+
+// Name TODO to be implemented
+func (j *Link) Name() string {
+	return ""
 }
