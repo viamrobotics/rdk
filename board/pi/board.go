@@ -154,12 +154,14 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	}
 
 	// setup SPI buses
-	piInstance.spis = map[string]board.SPI{}
-	for _, sc := range cfg.SPIs {
-		if sc.BusSelect != "0" && sc.BusSelect != "1" {
-			return nil, errors.Errorf("Only SPI buses 0 and 1 are available on Pi boards.")
+	if len(cfg.SPIs) != 0 {
+		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
+		for _, sc := range cfg.SPIs {
+			if sc.BusSelect != "0" && sc.BusSelect != "1" {
+				return nil, errors.Errorf("only SPI buses 0 and 1 are available on Pi boards.")
+			}
+			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 		}
-		piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 	}
 
 	// setup analogs
@@ -354,18 +356,22 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 }
 
 type piPigpioSPI struct {
-	pi    *piPigpio
-	mu    sync.Mutex
+	pi         *piPigpio
+	mu         sync.Mutex
 	busSelect  string
 	openHandle *piPigpioSPIHandle
 }
 
 type piPigpioSPIHandle struct {
-	bus   *piPigpioSPI
+	bus      *piPigpioSPI
 	isClosed bool
 }
 
 func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
+
+	if s.isClosed {
+		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
+	}
 
 	var spiFlags uint
 
@@ -374,8 +380,8 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		if mode == 1 || mode == 3 {
 			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
-	} else if chipSelect == "24" || chipSelect == "26"{
-		return nil, errors.New("Due to underlying issues, use of hardware ChipSelect pins (24 and 26) is not allowed.")
+	} else if chipSelect == "24" || chipSelect == "26" {
+		return nil, errors.New("due to underlying issues, use of hardware ChipSelect pins (24 and 26) is not allowed.")
 	}
 
 	// Bitfields for mode
@@ -396,7 +402,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	handle := C.spiOpen((C.uint)(0), (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
-		return nil, errors.Errorf("Error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
+		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
 	}
 	defer C.spiClose((C.uint)(handle))
 
@@ -413,7 +419,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		return nil, err
 	}
 	if int(ret) != int(count) {
-		return nil, errors.Errorf("Error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
+		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
 	}
 
 	rx = C.GoBytes(rxPtr, (C.int)(count))
@@ -444,7 +450,10 @@ func (pi *piPigpio) MotorNames() []string {
 
 // SPINames returns the name of all known SPI buses.
 func (pi *piPigpio) SPINames() []string {
-	names := []string{}
+	if len(pi.spis) == 0 {
+		return nil
+	}
+	names := make([]string, len(pi.spis))
 	for k := range pi.spis {
 		names = append(names, k)
 	}
