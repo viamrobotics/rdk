@@ -371,6 +371,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 
 	var spiFlags uint
 	var gpioCS bool
+	var nativeCS C.uint
 
 	if s.bus.busSelect == "1" {
 		spiFlags = spiFlags | 0x100 // Sets AUX SPI bus bit
@@ -379,6 +380,11 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		}
 		if chipSelect == "11" || chipSelect == "12" || chipSelect == "36" {
 			s.bus.nativeCSSeen = true
+			if chipSelect == "11" {
+				nativeCS = 1
+			} else if chipSelect == "36" {
+				nativeCS = 2
+			}
 		} else {
 			s.bus.gpioCSSeen = true
 			gpioCS = true
@@ -386,6 +392,9 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	} else {
 		if chipSelect == "24" || chipSelect == "26" {
 			s.bus.nativeCSSeen = true
+			if chipSelect == "26" {
+				nativeCS = 1
+			}
 		} else {
 			s.bus.gpioCSSeen = true
 			gpioCS = true
@@ -414,7 +423,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	txPtr := C.CBytes(tx)
 	defer C.free(txPtr)
 
-	handle := C.spiOpen((C.uint)(0), (C.uint)(baud), (C.uint)(spiFlags))
+	handle := C.spiOpen(nativeCS, (C.uint)(baud), (C.uint)(spiFlags))
 
 	if handle < 0 {
 		return nil, errors.Errorf("error opening SPI Bus %s return code was %d, flags were %X", s.bus, handle, spiFlags)
