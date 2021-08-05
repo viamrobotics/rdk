@@ -174,7 +174,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 
 		bus, have := piInstance.SPIByName(ac.SPIBus)
 		if !have {
-			return nil, errors.Errorf("AnalogReader can't find SPI bus named %s", ac.SPIBus)
+			return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel, bus, ac.ChipSelect}

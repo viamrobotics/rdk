@@ -146,9 +146,9 @@ func (config *ServoConfig) Validate(path string) error {
 // AnalogConfig describes the configuration of an analog reader on a board.
 type AnalogConfig struct {
 	Name              string `json:"name"`
-	Pin               string `json:"pin"`
-	SPIBus            string `json:"spi_bus"`
-	ChipSelect        string `json:"chip_select"`
+	Pin               string `json:"pin"`         // analog input pin on the ADC itself
+	SPIBus            string `json:"spi_bus"`     // name of the SPI bus (which is configured elsewhere in the config file)
+	ChipSelect        string `json:"chip_select"` // the CS line for the ADC chip, typically a pin number on the board
 	AverageOverMillis int    `json:"averageOverMillis"`
 	SamplesPerSecond  int    `json:"samplesPerSecond"`
 }
