@@ -424,7 +424,17 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 
 // Zero resets the current position to zero.
 func (m *TMCStepperMotor) Zero(ctx context.Context) error {
-	return m.WriteReg(XACTUAL, 0)
+	on, err :=m.IsOn(ctx)
+	if err != nil {
+		return err
+	} else if on {
+		return errors.New("can't zero while moving")
+	}
+	return multierr.Combine(
+		m.WriteReg(RAMPMODE, MODE_HOLD),
+		m.WriteReg(XTARGET, 0),
+		m.WriteReg(XACTUAL, 0),
+	)
 }
 
 func (m *TMCStepperMotor) PositionReached(ctx context.Context) bool {
