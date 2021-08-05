@@ -117,8 +117,8 @@ type Servo interface {
 
 // SPI represents a shareable SPI bus on the board.
 type SPI interface {
-	// Open locks the shared bus and returns a handle interface that MUST be closed when done.
-	Open() (SPIHandle, error)
+	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
+	OpenHandle() (SPIHandle, error)
 }
 
 // SPIHandle is similar to an io handle. It MUST be closed to release the bus.

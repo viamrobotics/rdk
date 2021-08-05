@@ -334,7 +334,7 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	tx[1] = byte((8 + par.channel) << 4) // single-ended
 	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
 
-	bus, err := par.bus.Open()
+	bus, err := par.bus.OpenHandle()
 	if err != nil {
 		return 0, err
 	}
@@ -456,7 +456,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) Open() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil
