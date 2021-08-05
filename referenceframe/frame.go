@@ -6,6 +6,7 @@ package referenceframe
 
 import (
 	spatial "go.viam.com/core/spatialmath"
+	"gonum.org/v1/gonum/num/dualquat"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
@@ -15,7 +16,7 @@ type Input struct {
 }
 
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
-// Its Transform places the Frame's pose in the Frame of its parent.
+// Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
 	ParentName() string // currently needed for kinematics package, should be removed when changed
@@ -24,19 +25,18 @@ type Frame interface {
 	Dof() int
 }
 
-// a static Frame is a simple Pose that encodes a fixed translation and orientation relative to a parent Frame
+// a static Frame is a simple Pose that encodes a fixed translation and rotation relative to a parent Frame
 type staticFrame struct {
-	name   string
-	parent Frame
-	pose   Pose
+	name      string
+	parent    Frame
+	transform dualquat.Number
 }
 
 func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
 	if pose == nil {
-		emptyPose := NewEmptyPose()
-		return &staticFrame{name, parent, emptyPose}
+		pose = NewEmptyPose()
 	}
-	return &staticFrame{name, parent, pose}
+	return &staticFrame{name, parent, pose.Transform()}
 }
 
 func (sf *staticFrame) Name() string {
@@ -55,11 +55,12 @@ func (sf *staticFrame) Parent() Frame {
 	return sf.parent
 }
 
+// Transform application takes you FROM current frame TO Parent frame
 func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
 	if len(inp) != sf.Dof() {
 		return nil
 	}
-	return sf.pose.DualQuat()
+	return &spatial.DualQuaternion{sf.transform}
 }
 
 func (sf *staticFrame) Dof() int {

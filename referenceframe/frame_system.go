@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between frames.
@@ -95,20 +96,18 @@ func (sfs *staticFrameSystem) SetFrameFromPoint(name string, parent Frame, point
 	return nil
 }
 
-// compose the quaternions from the world frame to target frame
+// compose the quaternions from the input frame to the world frame
 func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuaternion {
-	zeroInput := []Input{} // staticFrameSystem always has empty input
-	transforms := []dualquat.Number{}
-	for frame.Parent() != nil { // stop once you reach world node
-		// Transform() gives FROM parent TO q.
-		transforms = append(transforms, frame.Transform(zeroInput).Quat)
+	zeroInput := []Input{}           // staticFrameSystem always has empty input
+	q := spatial.NewDualQuaternion() // empty initial dualquat
+	for frame.Parent() != nil {      // stop once you reach world node
+		// Transform() gives FROM q TO parent. Compose transforms to the left.
+		q.Quat = dualquat.Mul(frame.Transform(zeroInput).Quat, q.Quat)
+		// Normalize
+		magnitude := quat.Mul(q.Quat.Real, quat.Conj(q.Quat.Real)).Real
+		q.Quat = dualquat.Scale(1./magnitude, q.Quat)
+		// Move to next frame
 		frame = frame.Parent()
-	}
-	q := spatial.NewDualQuaternion()
-	// start from world frame, last element in slice
-	for i := len(transforms) - 1; i >= 0; i-- {
-		//q.Quat = q.Transformation(transforms[i])
-		q.Quat = dualquat.Mul(q.Quat, transforms[i])
 	}
 	return q
 }
@@ -127,18 +126,21 @@ func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame)
 	if !sfs.frameExists(endFrame.Name()) {
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
-	// get world to source transform
-	srcTransform := sfs.composeTransforms(srcFrame)
+	// get source to world transform
+	fromSrcTransform := sfs.composeTransforms(srcFrame) // returns source to world transform
 	// get world to target transform
-	targetTransform := sfs.composeTransforms(endFrame)
+	toTargetTransform := sfs.composeTransforms(endFrame)               // returns target to world transform
+	toTargetTransform.Quat = dualquat.ConjQuat(toTargetTransform.Quat) // ConjQuat for the inverse transform
 	// transform from source to world, world to target
-	srcTransform.Quat = dualquat.Conj(srcTransform.Quat)
-	fullQuat := srcTransform.Transformation(targetTransform.Quat)
-	// apply to the pose dual quaternion
-	sourceQuat := pose.DualQuat().Quat
-	transformedQuat := dualquat.Mul(dualquat.Mul(fullQuat, sourceQuat), dualquat.Conj(fullQuat))
-	transformedPose := &spatial.DualQuaternion{transformedQuat}
-	return &dualQuatPose{transformedPose}, nil
+	fullTransform := dualquat.Mul(toTargetTransform.Quat, fromSrcTransform.Quat)
+	// apply to the position
+	sourceQuat := pose.PointDualQuat()
+	transformedQuat := dualquat.Mul(dualquat.Mul(fullTransform, sourceQuat), dualquat.Conj(fullTransform))
+	transformedPose, err := NewPoseFromPointDualQuat(transformedQuat)
+	if err != nil {
+		return nil, err
+	}
+	return transformedPose, nil
 }
 
 // Methods to fulfill the Frame interface too
