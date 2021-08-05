@@ -38,7 +38,7 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 type fakeSPI struct {
 }
 
-func (s *fakeSPI) Open() (SPIHandle, error) {
+func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
 	return &fakeSPIHandle{}, nil
 }
 
