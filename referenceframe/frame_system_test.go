@@ -8,7 +8,71 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 )
+
+func TestDualQuatTransform(t *testing.T) {
+	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
+	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.})
+	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1})
+	tr1 := dualquat.Mul(tr.Translation(), tr.Rotation()) // rotation first, then translation
+	test.That(t, tr.Transform(), test.ShouldResemble, tr1)
+
+	transformedPoint := dualquat.Mul(dualquat.Mul(tr.Transform(), pt.PointDualQuat()), dualquat.Conj(tr.Transform()))
+	transformedPose, err := NewPoseFromPointDualQuat(transformedPoint)
+	test.That(t, err, test.ShouldBeNil)
+	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
+
+	test.That(t, transformedPose.Point(), test.ShouldResemble, expectedPose.Point())
+	test.That(t, transformedPose.PointDualQuat(), test.ShouldResemble, expectedPose.PointDualQuat())
+	test.That(t, transformedPose.Rotation(), test.ShouldResemble, expectedPose.Rotation())
+	test.That(t, transformedPose.Translation(), test.ShouldResemble, expectedPose.Translation())
+	test.That(t, transformedPose.Transform(), test.ShouldResemble, expectedPose.Transform())
+
+	// Start with point [3, 4, 5] - displace by [4, 2, 6] and then rotate by 180 around the x axis.
+	tr2 := dualquat.Mul(tr.Rotation(), tr.Translation())
+	transformedPoint2 := dualquat.Mul(dualquat.Mul(tr2, pt.PointDualQuat()), dualquat.Conj(tr2))
+	transformedPose2, err := NewPoseFromPointDualQuat(transformedPoint2)
+	test.That(t, err, test.ShouldBeNil)
+	expectedPose2 := NewPoseFromPoint(r3.Vector{7., -6., -11.})
+
+	test.That(t, transformedPose2.Point(), test.ShouldResemble, expectedPose2.Point())
+	test.That(t, transformedPose2.PointDualQuat(), test.ShouldResemble, expectedPose2.PointDualQuat())
+	test.That(t, transformedPose2.Rotation(), test.ShouldResemble, expectedPose2.Rotation())
+	test.That(t, transformedPose2.Translation(), test.ShouldResemble, expectedPose2.Translation())
+	test.That(t, transformedPose2.Transform(), test.ShouldResemble, expectedPose2.Transform())
+
+}
+
+// A simple Frame translation from the world frame to a frame right above it
+// And then back to the world frame
+// transforming a point at (1, 3, 0)
+func TestSimpleFrameTranslation(t *testing.T) {
+	// build the system
+	sfs := NewEmptyStaticFrameSystem("test")
+	fs := FrameSystem(sfs)
+	frameLocation := r3.Vector{0., 3., 0.} // location of frame with respect to world frame
+	err := fs.SetFrameFromPoint("frame", fs.World(), frameLocation)
+	test.That(t, err, test.ShouldBeNil)
+
+	// do the transformation
+	pointWorld := r3.Vector{1., 3., 0.} // the point from PoV of world
+	worldPose := NewPoseFromPoint(pointWorld)
+	pointFrame := r3.Vector{1., 0., 0.} // the point from PoV of frame
+	framePose := NewPoseFromPoint(pointFrame)
+
+	// transform point from frame to world
+	t.Logf("begin: %v", framePose)
+	transformPose2, err := fs.TransformPose(framePose, fs.GetFrame("frame"), fs.GetFrame("world"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPose2, test.ShouldResemble, worldPose)
+
+	// transform point from world to frame
+	t.Logf("begin: %v", worldPose)
+	transformPose1, err := fs.TransformPose(worldPose, fs.GetFrame("world"), fs.GetFrame("frame"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPose1, test.ShouldResemble, framePose)
+}
 
 /*
 Create a test that successfully transforms the pose of *object from *frame1 into *frame2. The Orientation of *frame1 and *frame2
@@ -54,41 +118,13 @@ func TestFrameTranslation(t *testing.T) {
 	test.That(t, transformPose, test.ShouldResemble, expectedPose)
 }
 
-// A simple Frame translation from the world frame to a frame right above it
-// And then back to the world frame
-// transforming a point at (1,3)
-func TestSimpleFrameTranslation(t *testing.T) {
-	// build the system
-	sfs := NewEmptyStaticFrameSystem("test")
-	fs := FrameSystem(sfs)
-	frame := r3.Vector{0., 3., 0.} // location of frame with respect to world frame
-	err := fs.SetFrameFromPoint("frame", fs.World(), frame)
-	test.That(t, err, test.ShouldBeNil)
-
-	// do the transformation
-	pointWorld := r3.Vector{1., 3., 0.} // the point from PoV of world
-	worldPose := NewPoseFromPoint(pointWorld)
-	pointFrame := r3.Vector{1., 0., 0.} // the point from PoV of frame
-	framePose := NewPoseFromPoint(pointFrame)
-
-	// transform point from world to frame
-	transformPose1, err := fs.TransformPose(worldPose, fs.GetFrame("world"), fs.GetFrame("frame"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose1, test.ShouldResemble, framePose)
-
-	// transform point from frame to world
-	transformPose2, err := fs.TransformPose(framePose, fs.GetFrame("frame"), fs.GetFrame("world"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose2, test.ShouldResemble, worldPose)
-}
-
 func TestIdentityUnitDQ(t *testing.T) {
 	iden := spatial.NewDualQuaternion()
 	point := r3.Vector{1., 3., 2.}
-	pose := NewPoseFromPoint(point).DualQuat()
-	idenMul1 := dualquat.Mul(iden.Quat, pose.Quat)
-	test.That(t, idenMul1, test.ShouldResemble, pose.Quat)
-	idenMul2 := dualquat.Mul(pose.Quat, iden.Quat)
-	test.That(t, idenMul2, test.ShouldResemble, pose.Quat)
+	position := NewPoseFromPoint(point).PointDualQuat()
+	idenMul1 := dualquat.Mul(iden.Quat, position)
+	test.That(t, idenMul1, test.ShouldResemble, position)
+	idenMul2 := dualquat.Mul(position, iden.Quat)
+	test.That(t, idenMul2, test.ShouldResemble, position)
 
 }
