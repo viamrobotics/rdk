@@ -121,8 +121,8 @@ func NewPoseFromPointDualQuat(point dualquat.Number) (Pose, error) {
 func NewPoseFromTransform(dq dualquat.Number) Pose {
 	rotation := dq.Real
 	t := quat.Scale(2., quat.Mul(dq.Dual, quat.Conj(dq.Real)))
-	translation := r3.Vector{t.Imag, t.Jmag, t.Kmag}
-	return &basicPose{translation, rotation}
+	position := r3.Vector{t.Imag, t.Jmag, t.Kmag}
+	return &basicPose{position, rotation}
 }
 
 func almostEqual(a, b quat.Number) bool {
