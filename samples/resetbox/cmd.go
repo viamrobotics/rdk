@@ -50,10 +50,9 @@ const (
 
 	vibeLevel = 96
 
-	gateOffset = 35
 	gateSpeed = 25
-	gateCubePass = 46
-	gateOpen = 75
+	gateCubePass = 50
+	gateOpen = 80
 
 	squeezeMaxWidth = 183
 	squeezeClosed = 40
@@ -94,35 +93,35 @@ func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []s
 
 // GoTo moves to a position specified in mm and at a speed in mm/s
 func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
-	var errors error
+	var errs error
 	for _, m := range a.m {
 		if m == nil {
 			continue
 		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errors, raw.GoTo(ctx, speed * 60 / a.mmPerRev, position / a.mmPerRev))
+		multierr.AppendInto(&errs, raw.GoTo(ctx, speed * 60 / a.mmPerRev, position / a.mmPerRev))
 	}
-	return errors
+	return errs
 }
 
 // GoFor moves for the distance specified in mm and at a speed in mm/s
 func (a *LinearAxis) GoFor(ctx context.Context, d pb.DirectionRelative, speed float64, position float64) error {
-	var errors error
+	var errs error
 	for _, m := range a.m {
 		if m == nil {
 			continue
 		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errors, raw.GoFor(ctx, d, speed * 60 / a.mmPerRev, position / a.mmPerRev))
+		multierr.AppendInto(&errs, raw.GoFor(ctx, d, speed * 60 / a.mmPerRev, position / a.mmPerRev))
 	}
-	return errors
+	return errs
 }
 
 
 // Home simultaneously homes all motors on an axis
 func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed float64) error {
 	var homeWorkers sync.WaitGroup
-	var errors error
+	var errs error
 	for _, m := range a.m {
 		if m == nil {
 			continue
@@ -130,22 +129,22 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
 	 	homeWorkers.Add(1)
 	 	utils.ManagedGo(func() {
-	 		multierr.AppendInto(&errors, raw.Home(ctx, d, speed * 60 / a.mmPerRev))
+	 		multierr.AppendInto(&errs, raw.Home(ctx, d, speed * 60 / a.mmPerRev))
 	 	}, homeWorkers.Done)
 	}
 	homeWorkers.Wait()
-	return errors
+	return errs
 }
 
 func (a *LinearAxis) Off(ctx context.Context) error {
-	var errors error
+	var errs error
 	for _, m := range a.m {
 		if m == nil {
 			continue
 		}
-		multierr.AppendInto(&errors, m.Off(ctx))
+		multierr.AppendInto(&errs, m.Off(ctx))
 	}
-	return errors
+	return errs
 }
 
 func (a *LinearAxis) PositionReached(ctx context.Context) bool {
@@ -175,7 +174,7 @@ type ResetBox struct {
 	cancel    func()
 	cancelCtx context.Context
 
-	vibeState uint8
+	vibeState bool
 	tableUp bool
 }
 
@@ -286,42 +285,41 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
-	errors := multierr.Combine(
-		b.gate.GoFor(ctx, forward, 20, 10),
-		b.squeeze.GoFor(ctx, forward, 20, 10),
-		b.elevator.GoFor(ctx, forward, 20, 40),
-		b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, 0.3 * hammerRatio),
-	)
+	// errs := multierr.Combine(
+	// 	b.gate.GoFor(ctx, forward, 20, 10),
+	// 	b.squeeze.GoFor(ctx, forward, 20, 10),
+	// 	b.elevator.GoFor(ctx, forward, 20, 40),
+	// )
 
-	if errors != nil {
-		b.logger.Error(errors)
-	}
+	// if errs != nil {
+	// 	b.logger.Error(errs)
+	// }
 
-	b.waitFor(ctx, b.gate.PositionReached)
-	b.waitFor(ctx, b.squeeze.PositionReached)
-	b.waitFor(ctx, b.elevator.PositionReached)
+	// b.waitFor(ctx, b.gate.PositionReached)
+	// b.waitFor(ctx, b.squeeze.PositionReached)
+	// b.waitFor(ctx, b.elevator.PositionReached)
 
-	errors = multierr.Combine(
+	errs := multierr.Combine(
 		b.gate.Home(ctx, backward, 20),
 		b.squeeze.Home(ctx, backward, 20),
 		b.elevator.Home(ctx, backward, 200),
 		b.hammer.Home(ctx, backward, 200),
 	)
 
-	if errors != nil {
-		b.logger.Error(errors)
+	if errs != nil {
+		b.logger.Error(errs)
 	}
 
 	// Go to starting positions
-	errors = multierr.Combine(
+	errs = multierr.Combine(
 		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
 		b.setSqueeze(ctx, squeezeClosed),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.hammer.GoTo(ctx, hammerSpeed * hammerRatio, hammerOffset * hammerRatio),
 	)
 
-	if errors != nil {
-		b.logger.Error(errors)
+	if errs != nil {
+		b.logger.Error(errs)
 	}
 
 }
@@ -329,24 +327,19 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 	if level < 32 {
 		b.board.PWMSet(vibePin, 0)
-		//b.vibeState = false
+		b.vibeState = false
 	}else{
 		b.board.PWMSet(vibePin, level)
-		//b.vibeState = true
+		b.vibeState = true
 	}
 }
 
 func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
-	if b.vibeState >= 128 {
-		b.vibeState = 0
+	if b.vibeState {
+		b.vibrate(ctx, 0)
 	}else{
-		b.vibeState += 8
-		if b.vibeState < 32 {
-			b.vibeState = 32
-		}
+		b.vibrate(ctx, vibeLevel)
 	}
-	b.logger.Debug("Vibe: ", b.vibeState)
-	b.vibrate(ctx, b.vibeState)
 }
 
 
@@ -381,9 +374,25 @@ func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) bool) er
 
 
 func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
+
+	if b.tableUp {
+		return
+	}
+
+	// Go mostly up
 	b.board.GPIOSet(tipPinA, true)
 	b.board.GPIOSet(tipPinB, false)
-	b.sleep(ctx, 10000)
+	b.sleep(ctx, 7000)
+
+	// Now shake a bit
+	for i := 0; i <= 3; i++ {
+		b.board.GPIOSet(tipPinA, true)
+		b.board.GPIOSet(tipPinB, false)
+		b.sleep(ctx, 1000)
+		b.board.GPIOSet(tipPinA, false)
+		b.board.GPIOSet(tipPinB, true)
+		b.sleep(ctx, 200)
+	}
 
 	//All off
 	b.board.GPIOSet(tipPinA, true)
@@ -428,9 +437,6 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.waitFor(ctx, b.isTableUp)
 	b.tipTableDown(ctx, r)
 
-	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	b.hammer.GetRaw(ctx).(*board.TMCStepperMotor).Zero(ctx)
-
 	// Three whacks for cubes-behinds-ducks
 	b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, cubeWhacks * hammerRatio)
 	b.waitFor(ctx, b.hammer.PositionReached)
@@ -468,5 +474,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 
 	// WAIT ROBOT
 
+	// As we go in one direction indefinitely, this is an easy fix for register overflow
+	b.hammer.GetRaw(ctx).(*board.TMCStepperMotor).Zero(ctx)
 
 }
