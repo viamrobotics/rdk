@@ -19,19 +19,21 @@ type Input struct {
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
-	ParentName() string // currently needed for kinematics package, should be removed when changed
+	ParentName() string // TODO: will be removed, currently needed for kinematics package
 	Parent() Frame
 	Transform([]Input) *spatial.DualQuaternion
 	Dof() int
 }
 
-// a static Frame is a simple Pose that encodes a fixed translation and rotation relative to a parent Frame
+// a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
 type staticFrame struct {
 	name      string
 	parent    Frame
 	transform dualquat.Number
 }
 
+// NewStaticFrame creates a frame given a parent, and a Pose relative to that parent. The Pose is fixed for all time.
+// Parent and Pose are allowed to be nil.
 func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
 	if pose == nil {
 		pose = NewEmptyPose()
@@ -39,11 +41,12 @@ func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
 	return &staticFrame{name, parent, pose.Transform()}
 }
 
+// Name is the name of the frame.
 func (sf *staticFrame) Name() string {
 	return sf.name
 }
 
-// This function should be removed when ParentName() is no longer necessary
+// TODO: Needed for kinematics tests. This function should be removed when ParentName() is no longer necessary
 func (sf *staticFrame) ParentName() string {
 	if sf.Parent() == nil {
 		return ""
@@ -51,11 +54,12 @@ func (sf *staticFrame) ParentName() string {
 	return sf.Parent().Name()
 }
 
+// Parent returns the Frame that is attached to the current frame through the transform.
 func (sf *staticFrame) Parent() Frame {
 	return sf.parent
 }
 
-// Transform application takes you FROM current frame TO Parent frame
+// Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
 func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
 	if len(inp) != sf.Dof() {
 		return nil
@@ -63,6 +67,7 @@ func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
 	return &spatial.DualQuaternion{sf.transform}
 }
 
+// Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.
 func (sf *staticFrame) Dof() int {
 	return 0
 }

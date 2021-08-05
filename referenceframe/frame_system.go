@@ -11,19 +11,20 @@ import (
 	"gonum.org/v1/gonum/num/quat"
 )
 
-// FrameSystem represents a tree of frames connected to each other, allowing for transformations between frames.
+// FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
 	World() Frame // return the base world frame
 	GetFrame(name string) Frame
-	SetFrame(frame Frame) error
+	SetFrameFromPose(name string, parent Frame, pose Pose) error
 	SetFrameFromPoint(name string, parent Frame, point r3.Vector) error
 	TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error)
 }
 
-// staticFrameSystem implements both FrameSystem and Frame. It is a simple tree graph that only takes in staticFrames
+// staticFrameSystem implements both FrameSystem and Frame. It is a simple tree graph that only takes in staticFrames.
+// The tree graph can grow, but the transforms between nodes cannot be changed once created.
 type staticFrameSystem struct {
 	name   string
-	world  Frame // separate from the map of frames so it can detached easily
+	world  Frame // separate from the map of frames so it can be detached easily
 	frames map[string]Frame
 }
 
@@ -51,7 +52,7 @@ func (sfs *staticFrameSystem) frameExists(name string) bool {
 	return false
 }
 
-// GetFrame returns the frame given the name of the frame. Returns an error if the frame is not found.
+// GetFrame returns the frame given the name of the frame. Returns nil if the frame is not found.
 func (sfs *staticFrameSystem) GetFrame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
@@ -62,17 +63,22 @@ func (sfs *staticFrameSystem) GetFrame(name string) Frame {
 	return sfs.frames[name]
 }
 
-// SetFrame adds an input staticFrame to the system. It can only be added if the parent of the input frame already exists in the system,
+// SetFrameFromPose adds an input staticFrame to the system given a parent and a pose.
+// It can only be added if the parent of the input frame already exists in the system,
 // and there is no frame with the input's name already.
-func (sfs *staticFrameSystem) SetFrame(frame Frame) error {
-	// check if frame a staticFrame
-	if _, ok := frame.(*staticFrame); !ok {
-		return fmt.Errorf("only *staticFrame types allowed for this FrameSystem, input frame of type %T", frame)
+func (sfs *staticFrameSystem) SetFrameFromPose(name string, parent Frame, pose Pose) error {
+	if parent == nil {
+		return errors.New("parent frame is nil")
+	}
+	// check to see if parent is in system
+	if !sfs.frameExists(parent.Name()) {
+		return fmt.Errorf("parent frame with name %s not in FrameSystem", parent.Name())
 	}
 	// check if frame with that name is already in system
-	if sfs.frameExists(frame.Name()) {
-		return fmt.Errorf("frame with name %s already in FrameSystem", frame.Name())
+	if sfs.frameExists(name) {
+		return fmt.Errorf("frame with name %s already in FrameSystem", name)
 	}
+	frame := NewStaticFrame(name, parent, pose)
 	sfs.frames[frame.Name()] = frame
 	return nil
 }
@@ -112,6 +118,7 @@ func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuater
 	return q
 }
 
+// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
 func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error) {
 	if srcFrame == nil {
 		return nil, errors.New("source frame is nil")
