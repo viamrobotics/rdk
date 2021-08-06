@@ -165,11 +165,11 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	sfs := NewEmptyStaticFrameSystem("test")
 	fs := FrameSystem(sfs)
 
-	// frame 1
+	// frame 1 rotate by 45 degrees around z axis and translate
 	frame1 := NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, 45.)
 	err := fs.SetFrameFromPose("frame1", fs.World(), frame1)
 	test.That(t, err, test.ShouldBeNil)
-	// frame 2
+	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
 	frame2 := NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, 45.)
 	err = fs.SetFrameFromPose("frame2", fs.GetFrame("frame1"), frame2)
 	test.That(t, err, test.ShouldBeNil)
