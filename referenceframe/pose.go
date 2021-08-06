@@ -38,12 +38,9 @@ func Compose(b, a dualquat.Number) dualquat.Number {
 // translation is the translation operation (Δx,Δy,Δz), in this case [1, 0, 0 ,0][0, Δx/2, Δy/2, Δz/2] is returned
 // orientation is often an SO(3) matrix, in this case [cos(th/2), nx*sin(th/2), ny*sin(th/2) , nz*sin(th/2)][0, 0, 0, 0] is returned
 // Be aware that transform will take you FROM ObjectFrame -> TO ParentFrame ... not the other way around!
-// You can also return the normal 3D point of the frame in space. You can either return the vector encoded as (x,y,z),
-// or for convenience for certain operations, already place it in a dual quaternion in the form of [1, 0, 0 ,0][0, x, y, z]
-// CAUTION: PointDualQuat and Translation ARE NOT the same method!! PointDualQuat simply puts a 3Vector into a DualQuat form!
+// You can also return the normal 3D point of the frame in space, as an (x,y,z) Vector.
 type Pose interface {
 	Point() r3.Vector
-	PointDualQuat() dualquat.Number
 	Translation() dualquat.Number
 	Rotation() dualquat.Number
 	Transform() dualquat.Number // ensure that it does a rotation first, then a translation
@@ -62,15 +59,6 @@ type basicPose struct {
 // Point returns the position of the object as a Vector
 func (bp *basicPose) Point() r3.Vector {
 	return bp.position
-}
-
-// PointDualQuat returns the position of the object in a dual quaternion form (DO NOT USE FOR TRANSLATIONS, IS NOT THE SAME)
-func (bp *basicPose) PointDualQuat() dualquat.Number {
-	position := dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{Imag: bp.position.X, Jmag: bp.position.Y, Kmag: bp.position.Z},
-	}
-	return position
 }
 
 // Translation returns the pure translation of the object as a dual quaternion
@@ -138,10 +126,9 @@ func NewPoseFromTransform(dq dualquat.Number) Pose {
 	return &basicPose{position, rotation}
 }
 
-// Transform point applies a rotation and translation to a 3D point
+// TransformPoint applies a rotation and translation to a 3D point using a dual quaternion
 func TransformPoint(transform dualquat.Number, p r3.Vector) (r3.Vector, error) {
-	point := NewPoseFromPoint(p)
-	transformed := dualquat.Mul(dualquat.Mul(transform, point.PointDualQuat()), dualquat.Conj(transform))
+	transformed := dualquat.Mul(dualquat.Mul(transform, pointDualQuat(p)), dualquat.Conj(transform))
 	result, err := NewPoseFromPointDualQuat(transformed)
 	if err != nil {
 		return r3.Vector{}, err
@@ -149,6 +136,16 @@ func TransformPoint(transform dualquat.Number, p r3.Vector) (r3.Vector, error) {
 	return result.Point(), nil
 }
 
+// pointDualQuat puts the position of the object in a dual quaternion form for convenience (DO NOT USE FOR TRANSLATIONS)
+func pointDualQuat(point r3.Vector) dualquat.Number {
+	position := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{Imag: point.X, Jmag: point.Y, Kmag: point.Z},
+	}
+	return position
+}
+
+// equality test for all the float components of a quaternion
 func almostEqual(a, b quat.Number) bool {
 	eps := 1e-6
 	if math.Abs(a.Real-b.Real) > eps {

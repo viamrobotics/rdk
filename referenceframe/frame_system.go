@@ -113,7 +113,7 @@ func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuater
 	return q
 }
 
-// TransformPoint takes in a point with respect to a source Frame, and outputs the coordinates with respect to the target Frame.
+// TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
 func (sfs *staticFrameSystem) TransformPoint(point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error) {
 	if srcFrame == nil {
 		return r3.Vector{}, errors.New("source frame is nil")
