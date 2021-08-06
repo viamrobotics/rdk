@@ -89,14 +89,26 @@ type Motor interface {
 	// revolutions at a given speed in revolutions per minute.
 	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
 
+	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
+	GoTo(ctx context.Context, rpm float64, position float64) error
+
 	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
 	// back into calls of GoFor.
 	Position(ctx context.Context) (float64, error)
 
+	// PositionReached returns true if the motor has now reached the requested position (as give to GoTo or GoFor)
+	PositionReached(ctx context.Context) (bool, error)
+
 	// PositionSupported returns whether or not the motor supports reporting of its position which
 	// is reliant on having an encoder.
 	PositionSupported(ctx context.Context) (bool, error)
+
+	// Home moves a motor until it's endstop is hit, then zeros the position.
+	Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error
+
+	// Set the current position to be the new zero (home) position.
+	Zero(ctx context.Context) error
 
 	// Off turns the motor off.
 	Off(ctx context.Context) error
@@ -118,15 +130,22 @@ type Servo interface {
 	Current(ctx context.Context) (uint8, error)
 }
 
-// SPI represents a shareable SPI bus on the board
-// Open() locks the shared bus and returns a handle interface that MUST be closed when done.
+// SPI represents a shareable SPI bus on the board.
 type SPI interface {
-	Open() (SPIHandle, error)
+	// OpenHandle locks the shared bus and returns a handle interface that MUST be closed when done.
+	OpenHandle() (SPIHandle, error)
 }
 
-// SPIHandle is similar to an io handle. It MUST be closed.
+// SPIHandle is similar to an io handle. It MUST be closed to release the bus.
 type SPIHandle interface {
+	// Xfer performs a single SPI transfer, that is, the complete transaction from chipselect enable to chipselect disable.
+	// SPI transfers are synchronous, number of bytes received will be equal to the number of bytes sent.
+	// Write-only transfers can usually just discard the returned bytes.
+	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
+	// Large transmissions are usually broken up into multiple transfers.
+	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
 	Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
 

@@ -174,7 +174,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 
 		bus, have := piInstance.SPIByName(ac.SPIBus)
 		if !have {
-			return nil, errors.Errorf("AnalogReader can't find SPI bus named %s", ac.SPIBus)
+			return nil, errors.Errorf("can't find SPI bus (%s) requested by AnalogReader", ac.SPIBus)
 		}
 
 		ar := &piPigpioAnalogReader{piInstance, channel, bus, ac.ChipSelect}
@@ -340,7 +340,7 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	tx[1] = byte((8 + par.channel) << 4) // single-ended
 	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
 
-	bus, err := par.bus.Open()
+	bus, err := par.bus.OpenHandle()
 	if err != nil {
 		return 0, err
 	}
@@ -350,7 +350,7 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	val := (int(rx[1])<<8) | int(rx[2]) // reassemble 10 bit value
+	val := (int(rx[1]) << 8) | int(rx[2]) // reassemble 10 bit value
 
 	return val, nil
 }
@@ -462,7 +462,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	return C.GoBytes(rxPtr, (C.int)(count)), nil
 }
 
-func (s *piPigpioSPI) Open() (board.SPIHandle, error) {
+func (s *piPigpioSPI) OpenHandle() (board.SPIHandle, error) {
 	s.mu.Lock()
 	s.openHandle = &piPigpioSPIHandle{bus: s, isClosed: false}
 	return s.openHandle, nil

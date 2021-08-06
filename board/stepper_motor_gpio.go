@@ -292,3 +292,23 @@ func (m *GPIOStepperMotor) Close() error {
 	m.activeBackgroundWorkers.Wait()
 	return m.turnOnOrOff(false)
 }
+
+// GoTo is not supported
+func (m *GPIOStepperMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	return errors.New("not supported")
+}
+
+// Home is not supported
+func (m *GPIOStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+// Zero is not supported
+func (m *GPIOStepperMotor) Zero(ctx context.Context) error {
+	return errors.New("not supported")
+}
+
+// PositionReached is not supported
+func (m *GPIOStepperMotor) PositionReached(ctx context.Context) (bool, error) {
+	return false, errors.New("not supported")
+}

@@ -725,8 +725,8 @@ type motorClient struct {
 	motorName string
 }
 
-func (m *motorClient) GetRaw(ctx context.Context) board.Motor {
-	return m
+func (mc *motorClient) GetRaw(ctx context.Context) board.Motor {
+	return mc
 }
 
 // Power needs to be implemented.
@@ -777,6 +777,26 @@ func (mc *motorClient) Off(ctx context.Context) error {
 // IsOn needs to be implemented.
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
 	debug.PrintStack()
+	return false, errUnimplemented
+}
+
+// GoTo needs to be implemented.
+func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
+	return errUnimplemented
+}
+
+// Home needs to be implemented.
+func (mc *motorClient) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errUnimplemented
+}
+
+// Zero needs to be implemented.
+func (mc *motorClient) Zero(ctx context.Context) error {
+	return errUnimplemented
+}
+
+// PositionReached needs to be implemented.
+func (mc *motorClient) PositionReached(ctx context.Context) (bool, error) {
 	return false, errUnimplemented
 }
 
