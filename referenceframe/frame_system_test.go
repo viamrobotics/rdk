@@ -57,21 +57,17 @@ func TestSimpleFrameTranslation(t *testing.T) {
 
 	// do the transformation
 	pointWorld := r3.Vector{1., 3., 0.} // the point from PoV of world
-	worldPose := NewPoseFromPoint(pointWorld)
 	pointFrame := r3.Vector{1., 0., 0.} // the point from PoV of frame
-	framePose := NewPoseFromPoint(pointFrame)
 
 	// transform point from world to frame
-	t.Logf("begin: %v", worldPose)
-	transformPose1, err := fs.TransformPose(worldPose, fs.GetFrame("world"), fs.GetFrame("frame"))
+	transformPoint1, err := fs.TransformPoint(pointWorld, fs.GetFrame("world"), fs.GetFrame("frame"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose1, test.ShouldResemble, framePose)
+	test.That(t, transformPoint1, test.ShouldResemble, pointFrame)
 
 	// transform point from frame to world
-	t.Logf("begin: %v", framePose)
-	transformPose2, err := fs.TransformPose(framePose, fs.GetFrame("frame"), fs.GetFrame("world"))
+	transformPoint2, err := fs.TransformPoint(pointFrame, fs.GetFrame("frame"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose2, test.ShouldResemble, worldPose)
+	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
 }
 
 /*
@@ -110,12 +106,10 @@ func TestFrameTranslation(t *testing.T) {
 
 	// do the transformation
 	pointFrame1 := r3.Vector{5., 0., 0.} // the point from PoV of frame 1
-	sourcePose := NewPoseFromPoint(pointFrame1)
 	pointFrame2 := r3.Vector{0., 6., 0.} // the point from PoV of frame 2
-	expectedPose := NewPoseFromPoint(pointFrame2)
-	transformPose, err := fs.TransformPose(sourcePose, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
+	transformPoint, err := fs.TransformPoint(pointFrame1, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose, test.ShouldResemble, expectedPose)
+	test.That(t, transformPoint, test.ShouldResemble, pointFrame2)
 }
 
 /*
@@ -155,13 +149,10 @@ func TestFrameTransform(t *testing.T) {
 
 	// do the transformation
 	pointFrame1 := r3.Vector{5., 0., 0.} // the point from PoV of frame 1
-	sourcePose := NewPoseFromPoint(pointFrame1)
 	pointFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
-	expectedPose := NewPoseFromPoint(pointFrame2)
-	transformPose, err := fs.TransformPose(sourcePose, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
+	transformPoint, err := fs.TransformPoint(pointFrame1, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPose.Point().X, test.ShouldAlmostEqual, expectedPose.Point().X)
-	test.That(t, transformPose.Point().Y, test.ShouldAlmostEqual, expectedPose.Point().Y)
-	test.That(t, transformPose.Point().Z, test.ShouldAlmostEqual, expectedPose.Point().Z)
-	test.That(t, transformPose.Rotation(), test.ShouldResemble, expectedPose.Rotation())
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointFrame2.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointFrame2.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointFrame2.Z)
 }

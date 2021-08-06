@@ -21,6 +21,19 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 	return q3.ToArmPos()
 }
 
+// Compose takes two dual quaternions and multiplies them together, and then normalizes the transform.
+// DualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on point p
+// BAp means (B(Ap)). First A is applied, then B. QUATERNIONS DO NOT COMMUTE! BAp =/= ABp!
+func Compose(b, a dualquat.Number) dualquat.Number {
+	result := dualquat.Mul(b, a)
+	magnitude := quat.Mul(result.Real, quat.Conj(result.Real)).Real
+	if magnitude < 1e-8 {
+		panic("magnitude of dual quaternion is zero, cannot normalize")
+	}
+	result = dualquat.Scale(1./magnitude, result)
+	return result
+}
+
 // Pose represents a 6dof pose, position and orientation. For convenience, everything is returned as a dual quaternion.
 // translation is the translation operation (Δx,Δy,Δz), in this case [1, 0, 0 ,0][0, Δx/2, Δy/2, Δz/2] is returned
 // orientation is often an SO(3) matrix, in this case [cos(th/2), nx*sin(th/2), ny*sin(th/2) , nz*sin(th/2)][0, 0, 0, 0] is returned
@@ -123,6 +136,17 @@ func NewPoseFromTransform(dq dualquat.Number) Pose {
 	t := quat.Scale(2., quat.Mul(dq.Dual, quat.Conj(dq.Real)))
 	position := r3.Vector{t.Imag, t.Jmag, t.Kmag}
 	return &basicPose{position, rotation}
+}
+
+// Transform point applies a rotation and translation to a 3D point
+func TransformPoint(transform dualquat.Number, p r3.Vector) (r3.Vector, error) {
+	point := NewPoseFromPoint(p)
+	transformed := dualquat.Mul(dualquat.Mul(transform, point.PointDualQuat()), dualquat.Conj(transform))
+	result, err := NewPoseFromPointDualQuat(transformed)
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return result.Point(), nil
 }
 
 func almostEqual(a, b quat.Number) bool {
