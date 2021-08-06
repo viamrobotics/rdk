@@ -1,7 +1,6 @@
 package referenceframe
 
 import (
-	"math"
 	"testing"
 
 	"go.viam.com/test"
@@ -143,8 +142,7 @@ func TestFrameTransform(t *testing.T) {
 	err = fs.SetFrameFromPoint("frame1", fs.GetFrame("frame3"), frame1)
 	test.That(t, err, test.ShouldBeNil)
 	// location of frame2 with respect to world frame
-	rot := math.Pi / 2.
-	frame2 := NewPose(r3.Vector{5., 1., 0.}, quat.Number{math.Cos(rot / 2), 0, 0, math.Sin(rot / 2)})
+	frame2 := NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, 90.)
 	err = fs.SetFrameFromPose("frame2", fs.World(), frame2)
 	test.That(t, err, test.ShouldBeNil)
 
