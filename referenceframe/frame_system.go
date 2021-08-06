@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 )
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
@@ -17,7 +16,7 @@ type FrameSystem interface {
 	GetFrame(name string) Frame
 	SetFrameFromPose(name string, parent Frame, pose Pose) error
 	SetFrameFromPoint(name string, parent Frame, point r3.Vector) error
-	TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error)
+	TransformPoint(point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 }
 
 // staticFrameSystem implements both FrameSystem and Frame. It is a simple tree graph that only takes in staticFrames.
@@ -107,31 +106,27 @@ func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuater
 	zeroInput := []Input{}           // staticFrameSystem always has empty input
 	q := spatial.NewDualQuaternion() // empty initial dualquat
 	for frame.Parent() != nil {      // stop once you reach world node
-		// Transform() gives FROM q TO parent. Compose transforms to the left.
-		q.Quat = dualquat.Mul(frame.Transform(zeroInput).Quat, q.Quat)
-		// Normalize
-		magnitude := quat.Mul(q.Quat.Real, quat.Conj(q.Quat.Real)).Real
-		q.Quat = dualquat.Scale(1./magnitude, q.Quat)
-		// Move to next frame
+		// Transform() gives FROM q TO parent. Add new transforms to the left.
+		q.Quat = Compose(frame.Transform(zeroInput).Quat, q.Quat)
 		frame = frame.Parent()
 	}
 	return q
 }
 
-// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
-func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame) (Pose, error) {
+// TransformPoint takes in a point with respect to a source Frame, and outputs the coordinates with respect to the target Frame.
+func (sfs *staticFrameSystem) TransformPoint(point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error) {
 	if srcFrame == nil {
-		return nil, errors.New("source frame is nil")
+		return r3.Vector{}, errors.New("source frame is nil")
 	}
 	if endFrame == nil {
-		return nil, errors.New("target frame is nil")
+		return r3.Vector{}, errors.New("target frame is nil")
 	}
 	// check if frames are in system
 	if !sfs.frameExists(srcFrame.Name()) {
-		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
+		return r3.Vector{}, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
 	if !sfs.frameExists(endFrame.Name()) {
-		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
+		return r3.Vector{}, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
 	// get source to world transform
 	fromSrcTransform := sfs.composeTransforms(srcFrame) // returns source to world transform
@@ -139,15 +134,13 @@ func (sfs *staticFrameSystem) TransformPose(pose Pose, srcFrame, endFrame Frame)
 	toTargetTransform := sfs.composeTransforms(endFrame)               // returns target to world transform
 	toTargetTransform.Quat = dualquat.ConjQuat(toTargetTransform.Quat) // ConjQuat for the inverse transform
 	// transform from source to world, world to target
-	fullTransform := dualquat.Mul(toTargetTransform.Quat, fromSrcTransform.Quat)
-	// apply to the position
-	sourceQuat := pose.PointDualQuat()
-	transformedQuat := dualquat.Mul(dualquat.Mul(fullTransform, sourceQuat), dualquat.Conj(fullTransform))
-	transformedPose, err := NewPoseFromPointDualQuat(transformedQuat)
+	fullTransform := Compose(toTargetTransform.Quat, fromSrcTransform.Quat)
+	// apply to the point position
+	transformedPoint, err := TransformPoint(fullTransform, point)
 	if err != nil {
-		return nil, err
+		return r3.Vector{}, err
 	}
-	return transformedPose, nil
+	return transformedPoint, nil
 }
 
 // Methods to fulfill the Frame interface too
