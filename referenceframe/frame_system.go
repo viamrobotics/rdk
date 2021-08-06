@@ -15,7 +15,7 @@ type FrameSystem interface {
 	TransformPoint(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 }
 
-// simpleFrameSystem implements both FrameSystem. It is a simple tree graph that only takes in staticFrames.
+// staticFrameSystem implements FrameSystem. It is a simple tree graph that only takes in staticFrames.
 // The tree graph can grow, but the transforms between nodes cannot be changed once created.
 type simpleFrameSystem struct {
 	name   string
@@ -112,16 +112,16 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, srcFr
 	if !sfs.frameExists(endFrame.Name()) {
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
-	
+
 	// get source parent to world transform
 	fromSrcTransform, err := composeTransforms(srcFrame, positions) // returns source to world transform
-	if err != nil{
-		return nil, err
+	if err != nil {
+		return &basicPose{}, err
 	}
 	// get world to target transform
-	toTargetTransform, err := composeTransforms(endFrame, positions)  // returns target to world transform
-	if err != nil{
-		return nil, err
+	toTargetTransform, err := composeTransforms(endFrame, positions) // returns target to world transform
+	if err != nil {
+		return &basicPose{}, err
 	}
 	toTargetTransform = toTargetTransform.Invert()
 	// transform from source to world, world to target
@@ -137,7 +137,7 @@ func (sfs *simpleFrameSystem) Name() string {
 // StartPositions returns a zeroed input map ensuring all frames have inputs
 func (sfs *simpleFrameSystem) StartPositions() map[string][]Input {
 	positions := make(map[string][]Input)
-	for _, frame := range(sfs.frames){
+	for _, frame := range sfs.frames {
 		positions[frame.Name()] = make([]Input, frame.Dof())
 	}
 	return positions
@@ -146,11 +146,11 @@ func (sfs *simpleFrameSystem) StartPositions() map[string][]Input {
 // compose the quaternions from the input frame to the world frame
 func composeTransforms(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
 	q := spatial.NewEmptyPose() // empty initial dualquat
-	for frame.Parent() != nil {      // stop once you reach world node
+	for frame.Parent() != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
 		// Get frame inputs if necessary
 		var input []Input
-		if frame.Dof() > 0{
+		if frame.Dof() > 0 {
 			if _, ok := positions[frame.Name()]; !ok {
 				return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
 			}
