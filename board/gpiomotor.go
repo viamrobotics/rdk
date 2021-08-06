@@ -109,3 +109,19 @@ func (m *GPIOMotor) Off(ctx context.Context) error {
 		m.Board.GPIOSet(m.B, false),
 	)
 }
+
+func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	return errors.New("not supported")
+}
+
+func (m *GPIOMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+func (m *GPIOMotor) Zero(ctx context.Context) error {
+	return errors.New("not supported")
+}
+
+func (m *GPIOMotor) PositionReached(ctx context.Context) (bool, error) {
+	return false, errors.New("not supported")
+}
