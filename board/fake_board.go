@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -33,6 +34,26 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }
 
+// A fakeSPI allows opening an SPIHandle.
+type fakeSPI struct {
+}
+
+func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
+	return &fakeSPIHandle{}, nil
+}
+
+// A fakeSPIHandle allows Xfer and Close.
+type fakeSPIHandle struct {
+}
+
+func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+	return nil, errors.New("SPI Xfer not supported on FakeBoard")
+}
+
+func (h *fakeSPIHandle) Close() error {
+	return nil
+}
+
 // A FakeAnalog reads back the same set value.
 type FakeAnalog struct {
 	Value      int
@@ -54,6 +75,7 @@ type FakeBoard struct {
 	Name     string
 	motors   map[string]*FakeMotor
 	servos   map[string]*fakeServo
+	spis     map[string]*fakeSPI
 	analogs  map[string]*FakeAnalog
 	digitals map[string]DigitalInterrupt
 
@@ -73,6 +95,12 @@ func (b *FakeBoard) MotorByName(name string) (Motor, bool) {
 // ServoByName returns the servo by the given name if it exists.
 func (b *FakeBoard) ServoByName(name string) (Servo, bool) {
 	s, ok := b.servos[name]
+	return s, ok
+}
+
+// SPIByName returns the servo by the given name if it exists.
+func (b *FakeBoard) SPIByName(name string) (SPI, bool) {
+	s, ok := b.spis[name]
 	return s, ok
 }
 
@@ -141,6 +169,15 @@ func (b *FakeBoard) ServoNames() []string {
 	return names
 }
 
+// SPINames returns the name of all known SPIs.
+func (b *FakeBoard) SPINames() []string {
+	names := []string{}
+	for k := range b.spis {
+		names = append(names, k)
+	}
+	return names
+}
+
 // AnalogReaderNames returns the name of all known analog readers.
 func (b *FakeBoard) AnalogReaderNames() []string {
 	names := []string{}
@@ -199,6 +236,7 @@ func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBo
 		Name:     cfg.Name,
 		motors:   map[string]*FakeMotor{},
 		servos:   map[string]*fakeServo{},
+		spis:     map[string]*fakeSPI{},
 		analogs:  map[string]*FakeAnalog{},
 		digitals: map[string]DigitalInterrupt{},
 	}
@@ -209,6 +247,10 @@ func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBo
 
 	for _, c := range cfg.Servos {
 		b.servos[c.Name] = &fakeServo{}
+	}
+
+	for _, c := range cfg.SPIs {
+		b.spis[c.Name] = &fakeSPI{}
 	}
 
 	for _, c := range cfg.Analogs {

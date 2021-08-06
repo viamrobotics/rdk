@@ -121,6 +121,7 @@ type boardInfo struct {
 	name                  string
 	motorNames            []string
 	servoNames            []string
+	spiNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
 }
@@ -629,6 +630,11 @@ func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
 	}, true
 }
 
+// SPIByName needs to be implemented
+func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
+	return nil, false
+}
+
 // AnalogReaderByName needs to be implemented.
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
@@ -669,6 +675,10 @@ func (bc *boardClient) MotorNames() []string {
 
 func (bc *boardClient) ServoNames() []string {
 	return copyStringSlice(bc.info.servoNames)
+}
+
+func (bc *boardClient) SPINames() []string {
+	return copyStringSlice(bc.info.spiNames)
 }
 
 func (bc *boardClient) AnalogReaderNames() []string {
