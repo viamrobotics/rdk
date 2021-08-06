@@ -16,10 +16,11 @@ type FrameSystem interface {
 	GetFrame(name string) Frame
 	SetFrameFromPose(name string, parent Frame, pose Pose) error
 	SetFrameFromPoint(name string, parent Frame, point r3.Vector) error
+	SetFrame(frame Frame) error
 	TransformPoint(point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 }
 
-// staticFrameSystem implements both FrameSystem and Frame. It is a simple tree graph that only takes in staticFrames.
+// staticFrameSystem implements both FrameSystem. It is a simple tree graph that only takes in staticFrames.
 // The tree graph can grow, but the transforms between nodes cannot be changed once created.
 type staticFrameSystem struct {
 	name   string
@@ -101,6 +102,27 @@ func (sfs *staticFrameSystem) SetFrameFromPoint(name string, parent Frame, point
 	return nil
 }
 
+// SetFrame sets an already defined Frame into the system. Will only accept it if the underlyic type is staticFrame
+func (sfs *staticFrameSystem) SetFrame(frame Frame) error {
+	if frame.Parent() == nil {
+		return errors.New("parent frame is nil")
+	}
+	// check if frame with that name is already in system
+	if sfs.frameExists(frame.Name()) {
+		return fmt.Errorf("frame with name %s already exists in FrameSystem", frame.Name())
+	}
+	// check to see if parent is in system
+	if !sfs.frameExists(frame.Parent().Name()) {
+		return fmt.Errorf("parent frame with name %s not in FrameSystem", frame.Parent().Name())
+	}
+	// check to see if underlying type is staticFrame
+	if _, ok := frame.(*staticFrame); !ok {
+		return fmt.Errorf("the underlying type must be *staticFrame, this Frame has type %T", frame)
+	}
+	sfs.frames[frame.Name()] = frame
+	return nil
+}
+
 // compose the quaternions from the input frame to the world frame
 func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuaternion {
 	zeroInput := []Input{}           // staticFrameSystem always has empty input
@@ -143,25 +165,7 @@ func (sfs *staticFrameSystem) TransformPoint(point r3.Vector, srcFrame, endFrame
 	return transformedPoint, nil
 }
 
-// Methods to fulfill the Frame interface too
-
 // Name returns the name of the staticFrameSystem
 func (sfs *staticFrameSystem) Name() string {
 	return sfs.name
-}
-
-// Parent returns the world frame, since that is the origin of the whole system
-func (sfs *staticFrameSystem) Parent() Frame {
-	return sfs.world
-}
-
-// TODO : I'm not sure how to implement the Transform method for a staticFrameSystem (especially if it has more than one end-effector)
-// any ideas?
-func (sfs *staticFrameSystem) Transform([]Input) *spatial.DualQuaternion {
-	return nil
-}
-
-// DoF is always 0 for a staticFrameSystem since it is only allowed to hold staticFrames
-func (sfs *staticFrameSystem) DoF() int {
-	return 0
 }
