@@ -22,7 +22,7 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 }
 
 // Compose takes two dual quaternions and multiplies them together, and then normalizes the transform.
-// DualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on point p
+// DualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on p
 // BAp means (B(Ap)). First A is applied, then B. QUATERNIONS DO NOT COMMUTE! BAp =/= ABp!
 func Compose(b, a dualquat.Number) dualquat.Number {
 	result := dualquat.Mul(b, a)
@@ -43,13 +43,13 @@ type Pose interface {
 	Point() r3.Vector
 	Translation() dualquat.Number
 	Rotation() dualquat.Number
-	Transform() dualquat.Number // ensure that it does a rotation first, then a translation
+	Transform() dualquat.Number // does a rotation first, then a translation
 }
 
 // basicPose stores position as a 3D vector, and orientation as a quaternion.
 // orientation in quaternion form is expressed as [cos (theta/2), n * sin (theta/2)], n is a unit orientation vector.
 // To turn the position and orientation into a transformation, can express that transform as a dual quaternion.
-// Transform() has the follow dual-quaternion form : real = [orientation], dual = [0.5*orientation*[0, position]]
+// Transform() has the following dual-quaternion form : real = [orientation], dual = [0.5*orientation*[0, position]]
 // It is equivalent to doing a rotation first, and then a translation
 type basicPose struct {
 	position    r3.Vector
@@ -100,6 +100,16 @@ func NewEmptyPose() Pose {
 // NewPose creates a pose directly from a position vector and an orientation quaternion.
 func NewPose(point r3.Vector, orientation quat.Number) Pose {
 	return &basicPose{point, orientation}
+}
+
+// NewPoseFromAxisAngle takes in a positon, rotationAxis, and angle and returns a Pose.
+// angle is input in degrees.
+func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
+	// normalize rotation axis and put in quaternion form
+	axis := rotationAxis.Normalize()
+	rot := angle * (math.Pi / 180.) / 2.
+	rotation := quat.Number{math.Cos(rot), axis.X * math.Sin(rot), axis.Y * math.Sin(rot), axis.Z * math.Sin(rot)}
+	return &basicPose{point, rotation}
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
