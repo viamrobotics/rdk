@@ -188,6 +188,10 @@ func (db *dummyBoard) ServoNames() []string {
 	return nil
 }
 
+func (db *dummyBoard) SPINames() []string {
+	return nil
+}
+
 func (db *dummyBoard) AnalogReaderNames() []string {
 	return nil
 }
