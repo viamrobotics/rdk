@@ -492,3 +492,33 @@ func (m *encodedMotor) Close() error {
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
+
+// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
+func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	curPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	target := position - curPos
+	if math.Signbit(target) {
+		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+	}
+
+	return m.GoFor(ctx, dir, rpm, target)
+}
+
+// Home is not supported
+func (m *encodedMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+// Zero resets the position to zero/home
+func (m *encodedMotor) Zero(ctx context.Context) error {
+	return m.encoder.Zero(ctx)
+}
+
+// PositionReached is not supported
+func (m *encodedMotor) PositionReached(ctx context.Context) (bool, error) {
+	return false, errors.New("not supported")
+}

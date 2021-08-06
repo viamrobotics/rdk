@@ -889,6 +889,32 @@ func (p *proxyBoardMotor) Close() error {
 	return utils.TryClose(p.actual)
 }
 
+func (p *proxyBoardMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.GoTo(ctx, rpm, position)
+}
+
+func (p *proxyBoardMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Home(ctx, d, rpm)
+}
+
+// Zero needs to be implemented.
+func (p *proxyBoardMotor) Zero(ctx context.Context) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.Zero(ctx)
+}
+
+// PositionReached needs to be implemented.
+func (p *proxyBoardMotor) PositionReached(ctx context.Context) (bool, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.actual.PositionReached(ctx)
+}
+
 type proxyBoardServo struct {
 	mu     sync.RWMutex
 	actual board.Servo
