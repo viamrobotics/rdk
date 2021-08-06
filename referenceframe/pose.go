@@ -23,7 +23,7 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 
 // Compose takes two dual quaternions and multiplies them together, and then normalizes the transform.
 // DualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on p
-// BAp means (B(Ap)). First A is applied, then B. QUATERNIONS DO NOT COMMUTE! BAp =/= ABp!
+// BAp means (B(Ap)). First A is applied, then B. QUATERNIONS DO NOT COMMUTE IN GENERAL! Cannot guarantee BAp == ABp!
 func Compose(b, a dualquat.Number) dualquat.Number {
 	result := dualquat.Mul(b, a)
 	magnitude := quat.Mul(result.Real, quat.Conj(result.Real)).Real
