@@ -3,6 +3,7 @@ package board
 import (
 	"context"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -15,22 +16,22 @@ import (
 )
 
 // TMCConfig extends the MotorConfig for this specific series of drivers
-type TMCConfig struct {
-	SPIBus      string  `json:"spiBus"`      // SPI Bus name
-	CSPin       string  `json:"csPin"`  // Motor address on serial bus
-	Index       uint    `json:"index"`       // 0th or 1st motor on driver
-	MaxVelocity float64 `json:"maxVelocity"` // RPM
-	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
-	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshhold for homing. -64 to +63, 0 default.
-	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
-}
+// type TMCConfig struct {
+// 	SPIBus      string  `json:"spiBus"`      // SPI Bus name
+// 	CSPin       string  `json:"csPin"`       // Motor address on serial bus
+// 	Index       uint    `json:"index"`       // 0th or 1st motor on driver
+// 	MaxVelocity float64 `json:"maxVelocity"` // RPM
+// 	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
+// 	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshold for homing. -64 to +63, 0 default.
+// 	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
+// }
 
 // A TMCStepperMotor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
 type TMCStepperMotor struct {
 	board       Board
 	bus         SPI
 	csPin       string
-	index       uint
+	index       int
 	enPin       string
 	stepsPerRev int
 	maxVel      float64
@@ -49,9 +50,9 @@ const (
 // TODO full register set
 const (
 	// add 0x10 for motor 2
-	CHOPCONF = 0x6C
-	COOLCONF = 0X6D
-	DRV_STATUS = 0X6F
+	CHOPCONF   = 0x6C
+	COOLCONF   = 0x6D
+	DRV_STATUS = 0x6F
 
 	// add 0x20 for motor 2
 	RAMPMODE   = 0x20
@@ -82,40 +83,52 @@ const (
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
 func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
-	bus, ok := b.SPIByName(mc.TMCConfig.SPIBus)
+	bus, ok := b.SPIByName(mc.Attributes["spi_bus"])
 	if !ok {
-		return nil, errors.Errorf("TMCStepperMotor can't find SPI bus named %s", mc.TMCConfig.SPIBus)
+		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", mc.Attributes["spi_bus"])
+	}
+
+	index, err := strconv.Atoi(mc.Attributes["index"])
+	if err != nil {
+		return nil, err
+	}
+
+	calFactor, err := strconv.ParseFloat(mc.Attributes["cal_factor"], 64)
+	if err != nil {
+		return nil, err
 	}
 
 	m := &TMCStepperMotor{
 		board:       b,
 		bus:         bus,
-		csPin:       mc.TMCConfig.CSPin,
-		index:       mc.TMCConfig.Index,
+		csPin:       mc.Attributes["chip_select"],
+		index:       index,
 		stepsPerRev: mc.TicksPerRotation * uSteps,
 		enPin:       mc.Pins["en"],
-		maxVel:      mc.TMCConfig.MaxVelocity,
-		maxAcc:      mc.TMCConfig.MaxAccel,
-		fClk:        baseClk / mc.TMCConfig.CalFactor,
+		maxVel:      mc.MaxVelocity,
+		maxAcc:      mc.MaxAccel,
+		fClk:        baseClk / calFactor,
 		logger:      logger,
 	}
 
 	rawMaxAcc := m.rpmsToA(m.maxAcc)
 
-
-	if mc.TMCConfig.SGThresh > 63 {
-		mc.TMCConfig.SGThresh = 63
-	}else if mc.TMCConfig.SGThresh < -64 {
-		mc.TMCConfig.SGThresh = -64
+	sg, err := strconv.Atoi(mc.Attributes["sg_thresh"])
+	if err != nil {
+		return nil, err
 	}
-
+	SGThresh := int32(sg)
+	if SGThresh > 63 {
+		SGThresh = 63
+	} else if SGThresh < -64 {
+		SGThresh = -64
+	}
 	// The register is a 6 bit signed int
-	if mc.TMCConfig.SGThresh < 0 {
-		mc.TMCConfig.SGThresh = int32(64 + math.Abs(float64(mc.TMCConfig.SGThresh)))
+	if SGThresh < 0 {
+		SGThresh = int32(64 + math.Abs(float64(SGThresh)))
 	}
 
-	var coolConfig int32
-	coolConfig = mc.TMCConfig.SGThresh << 16
+	coolConfig := SGThresh << 16
 
 	errors := multierr.Combine(
 		m.WriteReg(CHOPCONF, 0x000100C3),   // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
@@ -131,11 +144,11 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 		m.WriteReg(VSTART, 1),                              // Always start at min speed
 		m.WriteReg(VSTOP, 10),                              // Always count a stop as LOW speed, but where VSTOP > VSTART
 		m.WriteReg(V1, int32(float32(m.maxVel)/4)),         // Transition ramp at 25% speed (if D1 and A1 are set different)
-		m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20)), // Set minimium speed for stall detection and coolstep
+		m.WriteReg(VCOOLTHRS, int32(float32(m.maxVel)/20)), // Set minimum speed for stall detection and coolstep
 		m.WriteReg(VMAX, m.rpmToV(0)),                      // Max velocity to zero, we don't want to move
 
-		m.WriteReg(RAMPMODE, MODE_VELPOS),                  // Lastly, set velocity mode to force a stop in case chip was left in moving state
-		m.WriteReg(XACTUAL, 0),                             // Zero the position
+		m.WriteReg(RAMPMODE, MODE_VELPOS), // Lastly, set velocity mode to force a stop in case chip was left in moving state
+		m.WriteReg(XACTUAL, 0),            // Zero the position
 	)
 
 	if errors != nil {
@@ -424,17 +437,27 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 
 // Zero resets the current position to zero.
 func (m *TMCStepperMotor) Zero(ctx context.Context) error {
-	return m.WriteReg(XACTUAL, 0)
+	on, err := m.IsOn(ctx)
+	if err != nil {
+		return err
+	} else if on {
+		return errors.New("can't zero while moving")
+	}
+	return multierr.Combine(
+		m.WriteReg(RAMPMODE, MODE_HOLD),
+		m.WriteReg(XTARGET, 0),
+		m.WriteReg(XACTUAL, 0),
+	)
 }
 
-func (m *TMCStepperMotor) PositionReached(ctx context.Context) bool {
-		stat, err := m.ReadReg(RAMP_STAT)
-		if err != nil {
-			return false
-		}
-		// Look for position_reached flag
-		if stat&0x200 == 0x200 {
-			return true
-		}
-		return false
+func (m *TMCStepperMotor) PositionReached(ctx context.Context) (bool, error) {
+	stat, err := m.ReadReg(RAMP_STAT)
+	if err != nil {
+		return false, err
+	}
+	// Look for position_reached flag
+	if stat&0x200 == 0x200 {
+		return true, nil
+	}
+	return false, nil
 }
