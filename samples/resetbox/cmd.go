@@ -2,34 +2,23 @@
 package main
 
 import (
-	//"bufio"
-	//"bytes"
 	"context"
-	//"encoding/json"
 	"flag"
-	//"log"
-	//"math"
-	//"net/http"
 	"sync"
 	"time"
-	// "fmt"
-	//"reflect"
 
 	"github.com/go-errors/errors"
 
 	"go.viam.com/utils"
-	//"go.viam.com/utils/rpc/dialer"
 
 	"go.viam.com/core/action"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 
-	//"go.viam.com/core/rlog"
 	"go.viam.com/core/robot"
 	robotimpl "go.viam.com/core/robot/impl"
 
-	//"go.viam.com/core/sensor"
 	"go.viam.com/core/web"
 	webserver "go.viam.com/core/web/server"
 
@@ -39,9 +28,8 @@ import (
 	"go.uber.org/multierr"
 )
 
-
 const (
-	forward = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	forward  = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	backward = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 
 	tipPinA = "29"
@@ -50,32 +38,30 @@ const (
 
 	vibeLevel = 96
 
-	gateSpeed = 25
+	gateSpeed    = 25
 	gateCubePass = 50
-	gateOpen = 80
+	gateOpen     = 80
 
 	squeezeMaxWidth = 183
-	squeezeClosed = 40
+	squeezeClosed   = 40
 	squeezeCubePass = 55
-	squeezeOpen = 80
+	squeezeOpen     = 80
 
 	elevatorBottom = 75
-	elevatorTop = 800
-	elevatorSpeed = 300
+	elevatorTop    = 800
+	elevatorSpeed  = 300
 
-	hammerSpeed = 25.0
+	hammerSpeed  = 25.0
 	hammerOffset = 0.9
-	hammerRatio = 11.8455 // 26.85:1 motor + 30/68 teeth gears
-	cubeWhacks = 3.0
-	duckWhacks = 5.0
+	hammerRatio  = 11.8455 // 26.85:1 motor + 30/68 teeth gears
+	cubeWhacks   = 3.0
+	duckWhacks   = 5.0
 )
-
-
 
 var logger = golog.NewDevelopmentLogger("resetbox")
 
 type LinearAxis struct {
-	m       []board.Motor
+	m        []board.Motor
 	mmPerRev float64
 }
 
@@ -84,7 +70,7 @@ func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []s
 		motor, ok := board.MotorByName(n)
 		if ok {
 			a.m = append(a.m, motor)
-		}else{
+		} else {
 			return errors.Errorf("Cannot find motor named \"%s\"", n)
 		}
 	}
@@ -99,7 +85,7 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 			continue
 		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errs, raw.GoTo(ctx, speed * 60 / a.mmPerRev, position / a.mmPerRev))
+		multierr.AppendInto(&errs, raw.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev))
 	}
 	return errs
 }
@@ -112,11 +98,10 @@ func (a *LinearAxis) GoFor(ctx context.Context, d pb.DirectionRelative, speed fl
 			continue
 		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errs, raw.GoFor(ctx, d, speed * 60 / a.mmPerRev, position / a.mmPerRev))
+		multierr.AppendInto(&errs, raw.GoFor(ctx, d, speed*60/a.mmPerRev, position/a.mmPerRev))
 	}
 	return errs
 }
-
 
 // Home simultaneously homes all motors on an axis
 func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed float64) error {
@@ -127,10 +112,10 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 			continue
 		}
 		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-	 	homeWorkers.Add(1)
-	 	utils.ManagedGo(func() {
-	 		multierr.AppendInto(&errs, raw.Home(ctx, d, speed * 60 / a.mmPerRev))
-	 	}, homeWorkers.Done)
+		homeWorkers.Add(1)
+		utils.ManagedGo(func() {
+			multierr.AppendInto(&errs, raw.Home(ctx, d, speed*60/a.mmPerRev))
+		}, homeWorkers.Done)
 	}
 	homeWorkers.Wait()
 	return errs
@@ -160,11 +145,9 @@ func (a *LinearAxis) PositionReached(ctx context.Context) bool {
 	return true
 }
 
-
-
 type ResetBox struct {
 	logger        golog.Logger
-	board      board.Board
+	board         board.Board
 	gate, squeeze LinearAxis
 	elevator      LinearAxis
 	hammer        *board.TMCStepperMotor
@@ -175,7 +158,7 @@ type ResetBox struct {
 	cancelCtx context.Context
 
 	vibeState bool
-	tableUp bool
+	tableUp   bool
 }
 
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
@@ -190,7 +173,6 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	b.gate.mmPerRev = 8.0
 	b.squeeze.mmPerRev = 8.0
 	b.elevator.mmPerRev = 60.0
-
 
 	err := multierr.Combine(
 		b.gate.AddMotors(cancelCtx, b.board, []string{"gateL", "gateR"}),
@@ -251,7 +233,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close()
 
-
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -261,15 +242,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer box.Close()
 
-
 	action.RegisterAction("Home", box.home)
 	action.RegisterAction("Vibrate", box.vibrateToggle)
 	action.RegisterAction("TipUp", box.tipTableUp)
 	action.RegisterAction("TipDown", box.tipTableDown)
 
 	action.RegisterAction("FullReset", box.doReset)
-
-
 
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
@@ -285,20 +263,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
-	// errs := multierr.Combine(
-	// 	b.gate.GoFor(ctx, forward, 20, 10),
-	// 	b.squeeze.GoFor(ctx, forward, 20, 10),
-	// 	b.elevator.GoFor(ctx, forward, 20, 40),
-	// )
-
-	// if errs != nil {
-	// 	b.logger.Error(errs)
-	// }
-
-	// b.waitFor(ctx, b.gate.PositionReached)
-	// b.waitFor(ctx, b.squeeze.PositionReached)
-	// b.waitFor(ctx, b.elevator.PositionReached)
-
 	errs := multierr.Combine(
 		b.gate.Home(ctx, backward, 20),
 		b.squeeze.Home(ctx, backward, 20),
@@ -315,7 +279,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
 		b.setSqueeze(ctx, squeezeClosed),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
-		b.hammer.GoTo(ctx, hammerSpeed * hammerRatio, hammerOffset * hammerRatio),
+		b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, hammerOffset*hammerRatio),
 	)
 
 	if errs != nil {
@@ -328,7 +292,7 @@ func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 	if level < 32 {
 		b.board.PWMSet(vibePin, 0)
 		b.vibeState = false
-	}else{
+	} else {
 		b.board.PWMSet(vibePin, level)
 		b.vibeState = true
 	}
@@ -337,11 +301,10 @@ func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
 	if b.vibeState {
 		b.vibrate(ctx, 0)
-	}else{
+	} else {
 		b.vibrate(ctx, vibeLevel)
 	}
 }
-
 
 func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	target := (squeezeMaxWidth - width) / 2
@@ -351,27 +314,25 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
-
 func (b *ResetBox) sleep(ctx context.Context, millis time.Duration) {
-	select{
-		case <-ctx.Done():
-		case <-time.After(millis * time.Millisecond):
+	select {
+	case <-ctx.Done():
+	case <-time.After(millis * time.Millisecond):
 	}
 }
 
 func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) bool) error {
 	for {
-		select{
-			case <-ctx.Done():
-				return errors.New("Context cancelled while waiting")
-			case <-time.After(100 * time.Millisecond):
+		select {
+		case <-ctx.Done():
+			return errors.New("Context cancelled while waiting")
+		case <-time.After(100 * time.Millisecond):
 		}
 		if f(ctx) {
 			return nil
 		}
 	}
 }
-
 
 func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 
@@ -382,17 +343,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	// Go mostly up
 	b.board.GPIOSet(tipPinA, true)
 	b.board.GPIOSet(tipPinB, false)
-	b.sleep(ctx, 7000)
-
-	// Now shake a bit
-	for i := 0; i <= 3; i++ {
-		b.board.GPIOSet(tipPinA, true)
-		b.board.GPIOSet(tipPinB, false)
-		b.sleep(ctx, 1000)
-		b.board.GPIOSet(tipPinA, false)
-		b.board.GPIOSet(tipPinB, true)
-		b.sleep(ctx, 200)
-	}
+	b.sleep(ctx, 10000)
 
 	//All off
 	b.board.GPIOSet(tipPinA, true)
@@ -404,7 +355,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(tipPinA, false)
 	b.board.GPIOSet(tipPinB, true)
-	b.sleep(ctx, 10000);
+	b.sleep(ctx, 10000)
 
 	//All Off
 	b.board.GPIOSet(tipPinA, true)
@@ -421,7 +372,6 @@ func (b *ResetBox) isTableUp(ctx context.Context) bool {
 	return b.tableUp
 }
 
-
 func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.gate.GoTo(ctx, gateSpeed, gateCubePass)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
@@ -430,7 +380,6 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.waitFor(ctx, b.elevator.PositionReached)
 	b.setSqueeze(ctx, squeezeCubePass)
 
-
 	// WAIT ROBOT for tip command
 	b.vibrate(ctx, vibeLevel)
 	b.tipTableUp(ctx, r)
@@ -438,7 +387,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.tipTableDown(ctx, r)
 
 	// Three whacks for cubes-behinds-ducks
-	b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, cubeWhacks * hammerRatio)
+	b.hammer.GoFor(ctx, forward, hammerSpeed*hammerRatio, cubeWhacks*hammerRatio)
 	b.waitFor(ctx, b.hammer.PositionReached)
 
 	// Wait for hammer + 4 seconds
@@ -448,10 +397,10 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 
 	// DuckWhack
-	b.hammer.GoFor(ctx, forward, hammerSpeed * hammerRatio, duckWhacks * hammerRatio)
+	b.hammer.GoFor(ctx, forward, hammerSpeed*hammerRatio, duckWhacks*hammerRatio)
 
 	// Cubes at top
-	b.waitFor(ctx, b.elevator.PositionReached)   
+	b.waitFor(ctx, b.elevator.PositionReached)
 	b.waitFor(ctx, b.isTableDown)
 	// WAIT ROBOT
 
