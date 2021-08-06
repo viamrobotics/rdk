@@ -39,6 +39,7 @@ func Compose(b, a dualquat.Number) dualquat.Number {
 // orientation is often an SO(3) matrix, in this case [cos(th/2), nx*sin(th/2), ny*sin(th/2) , nz*sin(th/2)][0, 0, 0, 0] is returned
 // Be aware that transform will take you FROM ObjectFrame -> TO ParentFrame ... not the other way around!
 // You can also return the normal 3D point of the frame in space, as an (x,y,z) Vector.
+// Resource for dual quaternion math: https://cs.gmu.edu/~jmlien/teaching/cs451/uploads/Main/dual-quaternion.pdf
 type Pose interface {
 	Point() r3.Vector
 	Translation() dualquat.Number
@@ -46,7 +47,7 @@ type Pose interface {
 	Transform() dualquat.Number // does a rotation first, then a translation
 }
 
-// basicPose stores position as a 3D vector, and orientation as a quaternion.
+// basicPose stores a pose position as a 3D vector, and a pose orientation as a quaternion.
 // orientation in quaternion form is expressed as [cos (theta/2), n * sin (theta/2)], n is a unit orientation vector.
 // To turn the position and orientation into a transformation, can express that transform as a dual quaternion.
 // Transform() has the following dual-quaternion form : real = [orientation], dual = [0.5*orientation*[0, position]]
@@ -105,6 +106,10 @@ func NewPose(point r3.Vector, orientation quat.Number) Pose {
 // NewPoseFromAxisAngle takes in a positon, rotationAxis, and angle and returns a Pose.
 // angle is input in degrees.
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
+	emptyVec := r3.Vector{0, 0, 0}
+	if rotationAxis == emptyVec {
+		return &basicPose{point, quat.Number{Real: 1}}
+	}
 	// normalize rotation axis and put in quaternion form
 	axis := rotationAxis.Normalize()
 	rot := angle * (math.Pi / 180.) / 2.
@@ -122,7 +127,8 @@ func NewPoseFromPoint(point r3.Vector) Pose {
 // It will have the same orientation as the Frame it is in.
 func NewPoseFromPointDualQuat(point dualquat.Number) (Pose, error) {
 	emptyQuat := quat.Number{1, 0, 0, 0}
-	if !almostEqual(point.Real, emptyQuat) || point.Dual.Real != 0. {
+	tol := 1e-8
+	if !almostEqual(point.Real, emptyQuat, tol) || math.Abs(point.Dual.Real) > tol {
 		return nil, fmt.Errorf("input dual quaternion %v is not a point", point)
 	}
 	return &basicPose{r3.Vector{point.Dual.Imag, point.Dual.Jmag, point.Dual.Kmag}, quat.Number{Real: 1}}, nil
@@ -156,18 +162,17 @@ func pointDualQuat(point r3.Vector) dualquat.Number {
 }
 
 // equality test for all the float components of a quaternion
-func almostEqual(a, b quat.Number) bool {
-	eps := 1e-6
-	if math.Abs(a.Real-b.Real) > eps {
+func almostEqual(a, b quat.Number, tol float64) bool {
+	if math.Abs(a.Real-b.Real) > tol {
 		return false
 	}
-	if math.Abs(a.Imag-b.Imag) > eps {
+	if math.Abs(a.Imag-b.Imag) > tol {
 		return false
 	}
-	if math.Abs(a.Jmag-b.Jmag) > eps {
+	if math.Abs(a.Jmag-b.Jmag) > tol {
 		return false
 	}
-	if math.Abs(a.Kmag-b.Kmag) > eps {
+	if math.Abs(a.Kmag-b.Kmag) > tol {
 		return false
 	}
 	return true

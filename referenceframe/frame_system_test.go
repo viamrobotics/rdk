@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"math"
 	"testing"
 
 	"go.viam.com/test"
@@ -135,10 +136,12 @@ func TestFrameTransform(t *testing.T) {
 	// build the system
 	sfs := NewEmptyStaticFrameSystem("test")
 	fs := FrameSystem(sfs)
-	frame3 := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
+	// location of frame3 with respect to world frame
+	frame3 := r3.Vector{0., 4., 0.}
 	err := fs.SetFrameFromPoint("frame3", fs.World(), frame3)
 	test.That(t, err, test.ShouldBeNil)
-	frame1 := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
+	// location of frame1 with respect to frame3
+	frame1 := r3.Vector{0., 3., 0.}
 	err = fs.SetFrameFromPoint("frame1", fs.GetFrame("frame3"), frame1)
 	test.That(t, err, test.ShouldBeNil)
 	// location of frame2 with respect to world frame
@@ -154,4 +157,57 @@ func TestFrameTransform(t *testing.T) {
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointFrame2.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointFrame2.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointFrame2.Z)
+}
+
+// A more complicated frame transform with multiple branching frames and rotations
+func TestComplicatedFrameTransform(t *testing.T) {
+	// build the system
+	sfs := NewEmptyStaticFrameSystem("test")
+	fs := FrameSystem(sfs)
+
+	// frame 1
+	frame1 := NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, 45.)
+	err := fs.SetFrameFromPose("frame1", fs.World(), frame1)
+	test.That(t, err, test.ShouldBeNil)
+	// frame 2
+	frame2 := NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, 45.)
+	err = fs.SetFrameFromPose("frame2", fs.GetFrame("frame1"), frame2)
+	test.That(t, err, test.ShouldBeNil)
+
+	// test out a transform from world to frame
+	pointStart := r3.Vector{1., 7., 0.} // the point from PoV of world
+	pointEnd := r3.Vector{3., 0., 0.}   // the point from PoV of frame 2
+	transformPoint, err := fs.TransformPoint(pointStart, fs.World(), fs.GetFrame("frame2"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+
+	// test out transform between frames
+	// frame3 - pure rotation around y 90 degrees
+	frame3 := NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, 90.)
+	err = fs.SetFrameFromPose("frame3", fs.World(), frame3)
+	test.That(t, err, test.ShouldBeNil)
+
+	// frame4 - pure translation
+	frame4 := r3.Vector{-2., 7., 1.}
+	err = fs.SetFrameFromPoint("frame4", fs.GetFrame("frame3"), frame4)
+	test.That(t, err, test.ShouldBeNil)
+
+	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
+	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
+	transformPoint, err = fs.TransformPoint(pointStart, fs.GetFrame("frame2"), fs.GetFrame("frame4"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+
+	// back to world frame
+	pointStart = r3.Vector{2., 0., 0.} // the point from PoV of frame 4
+	pointEnd = r3.Vector{1., 7., 0.}   // the point from PoV of world
+	transformPoint, err = fs.TransformPoint(pointStart, fs.GetFrame("frame4"), fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
 }
