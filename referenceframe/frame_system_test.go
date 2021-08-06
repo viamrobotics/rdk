@@ -13,34 +13,22 @@ import (
 
 func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
-	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.})                       // starting point
+	pt := r3.Vector{3., 4., 5.}                                         // starting point
 	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1}) // transformation to do
 	tr1 := dualquat.Mul(tr.Translation(), tr.Rotation())                // rotation first, then translation
 	test.That(t, tr.Transform(), test.ShouldResemble, tr1)              // Transform() also does rotation, then translation
 
-	transformedPoint := dualquat.Mul(dualquat.Mul(tr.Transform(), pt.PointDualQuat()), dualquat.Conj(tr.Transform()))
-	transformedPose, err := NewPoseFromPointDualQuat(transformedPoint)
+	expectedPoint := r3.Vector{7., -2., 1.}
+	transformedPoint, err := TransformPoint(tr.Transform(), pt)
 	test.That(t, err, test.ShouldBeNil)
-	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
-
-	test.That(t, transformedPose.Point(), test.ShouldResemble, expectedPose.Point())
-	test.That(t, transformedPose.PointDualQuat(), test.ShouldResemble, expectedPose.PointDualQuat())
-	test.That(t, transformedPose.Rotation(), test.ShouldResemble, expectedPose.Rotation())
-	test.That(t, transformedPose.Translation(), test.ShouldResemble, expectedPose.Translation())
-	test.That(t, transformedPose.Transform(), test.ShouldResemble, expectedPose.Transform())
+	test.That(t, transformedPoint, test.ShouldResemble, expectedPoint)
 
 	// Start with point [3, 4, 5] - displace by [4, 2, 6] and then rotate by 180 around the x axis.
 	tr2 := dualquat.Mul(tr.Rotation(), tr.Translation()) // translation first, then rotation
-	transformedPoint2 := dualquat.Mul(dualquat.Mul(tr2, pt.PointDualQuat()), dualquat.Conj(tr2))
-	transformedPose2, err := NewPoseFromPointDualQuat(transformedPoint2)
+	expectedPoint2 := r3.Vector{7., -6., -11.}
+	transformedPoint2, err := TransformPoint(tr2, pt)
 	test.That(t, err, test.ShouldBeNil)
-	expectedPose2 := NewPoseFromPoint(r3.Vector{7., -6., -11.})
-
-	test.That(t, transformedPose2.Point(), test.ShouldResemble, expectedPose2.Point())
-	test.That(t, transformedPose2.PointDualQuat(), test.ShouldResemble, expectedPose2.PointDualQuat())
-	test.That(t, transformedPose2.Rotation(), test.ShouldResemble, expectedPose2.Rotation())
-	test.That(t, transformedPose2.Translation(), test.ShouldResemble, expectedPose2.Translation())
-	test.That(t, transformedPose2.Transform(), test.ShouldResemble, expectedPose2.Transform())
+	test.That(t, transformedPoint2, test.ShouldResemble, expectedPoint2)
 
 }
 
@@ -71,8 +59,8 @@ func TestSimpleFrameTranslation(t *testing.T) {
 }
 
 /*
-Create a test that successfully transforms the pose of *object from *frame1 into *frame2. The Orientation of *frame1 and *frame2
-are the same, so the transformation is only made up of two translations.
+Transforms the pose of *object from *frame1 into *frame2. The Orientation of *frame1 and *frame2
+are the same, so the final composed transformation is only made up of one translation.
 
 |              |
 |*frame1       |*object
@@ -84,12 +72,12 @@ are the same, so the transformation is only made up of two translations.
 |              *frame2
 |________________
 world
-*/
 
-// transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
-// frame1 has its origin at (0, 7, 0) in the world frame. and frame2 has its origin at (5, 1, 0).
-// frame3 is an intermediate frame at (0, 4, 0) in the world frame.
-// All 4 frames have the same orientation.
+transform the point that is in the world frame is at (5, 7, 0) from frame1 to frame2.
+frame1 has its origin at (0, 7, 0) in the world frame. and frame2 has its origin at (5, 1, 0).
+frame3 is an intermediate frame at (0, 4, 0) in the world frame.
+All 4 frames have the same orientation.
+*/
 func TestFrameTranslation(t *testing.T) {
 	// build the system
 	sfs := NewEmptyStaticFrameSystem("test")
