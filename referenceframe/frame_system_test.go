@@ -7,28 +7,41 @@ import (
 	"go.viam.com/test"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
 
 func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
-	pt := r3.Vector{3., 4., 5.}                                         // starting point
-	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1}) // transformation to do
-	tr1 := dualquat.Mul(tr.Translation(), tr.Rotation())                // rotation first, then translation
-	test.That(t, tr.Transform(), test.ShouldResemble, tr1)              // Transform() also does rotation, then translation
+	pt := r3.Vector{3., 4., 5.}                                                  // starting point
+	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1})          // transformation to do
+	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, 180) // same transformation from axis angle
+	// ensure transformation is the same between both defintions
+	test.That(t, tr.Transform().Real.Real, test.ShouldAlmostEqual, trAA.Transform().Real.Real)
+	test.That(t, tr.Transform().Real.Imag, test.ShouldAlmostEqual, trAA.Transform().Real.Imag)
+	test.That(t, tr.Transform().Real.Jmag, test.ShouldAlmostEqual, trAA.Transform().Real.Jmag)
+	test.That(t, tr.Transform().Real.Kmag, test.ShouldAlmostEqual, trAA.Transform().Real.Kmag)
+	test.That(t, tr.Transform().Dual.Real, test.ShouldAlmostEqual, trAA.Transform().Dual.Real)
+	test.That(t, tr.Transform().Dual.Imag, test.ShouldAlmostEqual, trAA.Transform().Dual.Imag)
+	test.That(t, tr.Transform().Dual.Jmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Jmag)
+	test.That(t, tr.Transform().Dual.Kmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Kmag)
+	tr1 := Compose(tr.Translation(), tr.Rotation())        // transform as composition of rotation first, then translation
+	test.That(t, tr.Transform(), test.ShouldResemble, tr1) // Transform() also does rotation, then translation
 
 	expectedPoint := r3.Vector{7., -2., 1.}
 	transformedPoint, err := TransformPoint(tr.Transform(), pt)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedPoint, test.ShouldResemble, expectedPoint)
+	test.That(t, transformedPoint.X, test.ShouldAlmostEqual, expectedPoint.X)
+	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
+	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
 
 	// Start with point [3, 4, 5] - displace by [4, 2, 6] and then rotate by 180 around the x axis.
-	tr2 := dualquat.Mul(tr.Rotation(), tr.Translation()) // translation first, then rotation
+	tr2 := Compose(tr.Rotation(), tr.Translation()) // translation first, then rotation
 	expectedPoint2 := r3.Vector{7., -6., -11.}
 	transformedPoint2, err := TransformPoint(tr2, pt)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedPoint2, test.ShouldResemble, expectedPoint2)
+	test.That(t, transformedPoint2.X, test.ShouldAlmostEqual, expectedPoint2.X)
+	test.That(t, transformedPoint2.Y, test.ShouldAlmostEqual, expectedPoint2.Y)
+	test.That(t, transformedPoint2.Z, test.ShouldAlmostEqual, expectedPoint2.Z)
 
 }
 
