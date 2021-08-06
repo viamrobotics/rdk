@@ -7,13 +7,13 @@ import (
 // SPI is an injected SPI.
 type SPI struct {
 	board.SPI
-	OpenFunc func() (board.SPIHandle, error)
+	OpenHandleFunc func() (board.SPIHandle, error)
 }
 
-// Open calls the injected Open or the real version.
-func (s *SPI) Open() (board.SPIHandle, error) {
-	if s.OpenFunc == nil {
-		return s.SPI.Open()
+// OpenHandle calls the injected OpenHandle or the real version.
+func (s *SPI) OpenHandle() (board.SPIHandle, error) {
+	if s.OpenHandleFunc == nil {
+		return s.SPI.OpenHandle()
 	}
-	return s.OpenFunc()
+	return s.OpenHandleFunc()
 }

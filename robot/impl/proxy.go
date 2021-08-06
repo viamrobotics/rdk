@@ -967,8 +967,8 @@ func (p *proxyBoardSPI) replace(newSPI board.SPI) {
 	p.actual = actual.actual
 }
 
-func (p *proxyBoardSPI) Open() (board.SPIHandle, error) {
-	return p.actual.Open()
+func (p *proxyBoardSPI) OpenHandle() (board.SPIHandle, error) {
+	return p.actual.OpenHandle()
 }
 
 type proxyBoardAnalogReader struct {

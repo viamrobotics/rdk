@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -37,7 +38,7 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 type fakeSPI struct {
 }
 
-func (s *fakeSPI) Open() (SPIHandle, error) {
+func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
 	return &fakeSPIHandle{}, nil
 }
 
@@ -45,8 +46,8 @@ func (s *fakeSPI) Open() (SPIHandle, error) {
 type fakeSPIHandle struct {
 }
 
-func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) (rx []byte, err error) {
-	return make([]byte, len(tx)), nil
+func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+	return nil, errors.New("SPI Xfer not supported on FakeBoard")
 }
 
 func (h *fakeSPIHandle) Close() error {
@@ -235,6 +236,7 @@ func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBo
 		Name:     cfg.Name,
 		motors:   map[string]*FakeMotor{},
 		servos:   map[string]*fakeServo{},
+		spis:     map[string]*fakeSPI{},
 		analogs:  map[string]*FakeAnalog{},
 		digitals: map[string]DigitalInterrupt{},
 	}
@@ -245,6 +247,10 @@ func NewFakeBoard(ctx context.Context, cfg Config, logger golog.Logger) (*FakeBo
 
 	for _, c := range cfg.Servos {
 		b.servos[c.Name] = &fakeServo{}
+	}
+
+	for _, c := range cfg.SPIs {
+		b.spis[c.Name] = &fakeSPI{}
 	}
 
 	for _, c := range cfg.Analogs {
