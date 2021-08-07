@@ -81,11 +81,7 @@ func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []s
 func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) error {
 	var errs error
 	for _, m := range a.m {
-		if m == nil {
-			continue
-		}
-		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errs, raw.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev))
+		multierr.AppendInto(&errs, m.GoTo(ctx, speed*60/a.mmPerRev, position/a.mmPerRev))
 	}
 	return errs
 }
@@ -94,11 +90,7 @@ func (a *LinearAxis) GoTo(ctx context.Context, speed float64, position float64) 
 func (a *LinearAxis) GoFor(ctx context.Context, d pb.DirectionRelative, speed float64, position float64) error {
 	var errs error
 	for _, m := range a.m {
-		if m == nil {
-			continue
-		}
-		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		multierr.AppendInto(&errs, raw.GoFor(ctx, d, speed*60/a.mmPerRev, position/a.mmPerRev))
+		multierr.AppendInto(&errs, m.GoFor(ctx, d, speed*60/a.mmPerRev, position/a.mmPerRev))
 	}
 	return errs
 }
@@ -108,14 +100,11 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 	var homeWorkers sync.WaitGroup
 	var errs error
 	for _, m := range a.m {
-		if m == nil {
-			continue
-		}
-		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
 		homeWorkers.Add(1)
-		utils.ManagedGo(func() {
-			multierr.AppendInto(&errs, raw.Home(ctx, d, speed*60/a.mmPerRev))
-		}, homeWorkers.Done)
+		go func(motor board.Motor) {
+			defer homeWorkers.Done()
+			multierr.AppendInto(&errs, motor.Home(ctx, d, speed*60/a.mmPerRev))
+		}(m)
 	}
 	homeWorkers.Wait()
 	return errs
@@ -124,25 +113,18 @@ func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed flo
 func (a *LinearAxis) Off(ctx context.Context) error {
 	var errs error
 	for _, m := range a.m {
-		if m == nil {
-			continue
-		}
 		multierr.AppendInto(&errs, m.Off(ctx))
 	}
 	return errs
 }
 
-func (a *LinearAxis) PositionReached(ctx context.Context) bool {
+func (a *LinearAxis) PositionReached(ctx context.Context) (bool, error) {
 	for _, m := range a.m {
-		if m == nil {
-			continue
-		}
-		raw := m.GetRaw(ctx).(*board.TMCStepperMotor)
-		if !raw.PositionReached(ctx) {
-			return false
+		if ok, _ := m.PositionReached(ctx); !ok {
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 type ResetBox struct {
@@ -150,7 +132,7 @@ type ResetBox struct {
 	board         board.Board
 	gate, squeeze LinearAxis
 	elevator      LinearAxis
-	hammer        *board.TMCStepperMotor
+	hammer        board.Motor
 
 	activeBackgroundWorkers *sync.WaitGroup
 
@@ -184,14 +166,14 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		return nil, err
 	}
 
-	baseHammer, ok := b.board.MotorByName("hammer")
+	hammer, ok := b.board.MotorByName("hammer")
 	if !ok {
 		return nil, errors.New("Can't find motor named: hammer")
 	}
-	b.hammer = baseHammer.GetRaw(cancelCtx).(*board.TMCStepperMotor)
-
+	b.hammer = hammer
 	return b, nil
 }
+
 
 // Close TODO
 func (b *ResetBox) Close() error {
@@ -314,21 +296,21 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
-func (b *ResetBox) sleep(ctx context.Context, millis time.Duration) {
+func sleep(ctx context.Context, millis time.Duration) {
 	select {
 	case <-ctx.Done():
 	case <-time.After(millis * time.Millisecond):
 	}
 }
 
-func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) bool) error {
+func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, error)) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return errors.New("Context cancelled while waiting")
 		case <-time.After(100 * time.Millisecond):
 		}
-		if f(ctx) {
+		if ok, _ := f(ctx); ok {
 			return nil
 		}
 	}
@@ -343,7 +325,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	// Go mostly up
 	b.board.GPIOSet(tipPinA, true)
 	b.board.GPIOSet(tipPinB, false)
-	b.sleep(ctx, 10000)
+	sleep(ctx, 10000)
 
 	//All off
 	b.board.GPIOSet(tipPinA, true)
@@ -355,7 +337,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(tipPinA, false)
 	b.board.GPIOSet(tipPinB, true)
-	b.sleep(ctx, 10000)
+	sleep(ctx, 10000)
 
 	//All Off
 	b.board.GPIOSet(tipPinA, true)
@@ -364,12 +346,12 @@ func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.tableUp = false
 }
 
-func (b *ResetBox) isTableDown(ctx context.Context) bool {
-	return !b.tableUp
+func (b *ResetBox) isTableDown(ctx context.Context) (bool, error) {
+	return !b.tableUp, nil
 }
 
-func (b *ResetBox) isTableUp(ctx context.Context) bool {
-	return b.tableUp
+func (b *ResetBox) isTableUp(ctx context.Context) (bool, error) {
+	return b.tableUp, nil
 }
 
 func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
@@ -384,14 +366,14 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.vibrate(ctx, vibeLevel)
 	b.tipTableUp(ctx, r)
 	b.waitFor(ctx, b.isTableUp)
-	b.tipTableDown(ctx, r)
+	go b.tipTableDown(ctx, r)
 
 	// Three whacks for cubes-behinds-ducks
 	b.hammer.GoFor(ctx, forward, hammerSpeed*hammerRatio, cubeWhacks*hammerRatio)
 	b.waitFor(ctx, b.hammer.PositionReached)
 
 	// Wait for hammer + 4 seconds
-	b.sleep(ctx, 4000)
+	sleep(ctx, 4000)
 
 	// Cubes in, going up
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
@@ -412,7 +394,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	// Open to load duck
 	b.gate.GoTo(ctx, gateSpeed, gateOpen)
 	b.setSqueeze(ctx, squeezeOpen)
-	b.sleep(ctx, 8000)
+	sleep(ctx, 8000)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
@@ -424,6 +406,6 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	// WAIT ROBOT
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	b.hammer.GetRaw(ctx).(*board.TMCStepperMotor).Zero(ctx)
+	b.hammer.Zero(ctx)
 
 }
