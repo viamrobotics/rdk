@@ -183,7 +183,7 @@ func (m *TMCStepperMotor) WriteReg(addr uint8, value int32) error {
 	buf[3] = 0xFF & byte(value>>8)
 	buf[4] = 0xFF & byte(value)
 
-	handle, err := m.bus.Open()
+	handle, err := m.bus.OpenHandle()
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (m *TMCStepperMotor) ReadReg(addr uint8) (int32, error) {
 	tbuf := make([]byte, 5)
 	tbuf[0] = addr
 
-	handle, err := m.bus.Open()
+	handle, err := m.bus.OpenHandle()
 	if err != nil {
 		return 0, err
 	}
