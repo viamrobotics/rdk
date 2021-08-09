@@ -17,10 +17,6 @@ type FakeMotor struct {
 	d        pb.DirectionRelative
 }
 
-func (m *FakeMotor) GetRaw(ctx context.Context) Motor {
-	return m
-}
-
 // Position always returns 0.
 func (m *FakeMotor) Position(ctx context.Context) (float64, error) {
 	m.mu.Lock()
