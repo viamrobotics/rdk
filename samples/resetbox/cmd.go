@@ -174,7 +174,6 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	return b, nil
 }
 
-
 // Close TODO
 func (b *ResetBox) Close() error {
 	defer b.activeBackgroundWorkers.Wait()
@@ -231,6 +230,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	action.RegisterAction("FullReset", box.doReset)
 
+	action.RegisterAction("DuckWhack", box.doWhack)
+
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
 
@@ -263,6 +264,9 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
 		b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, hammerOffset*hammerRatio),
 	)
+
+	b.waitFor(ctx, b.hammer.PositionReached)
+	errs = multierr.Append(errs, b.hammer.Zero(ctx))
 
 	if errs != nil {
 		b.logger.Error(errs)
@@ -354,6 +358,36 @@ func (b *ResetBox) isTableUp(ctx context.Context) (bool, error) {
 	return b.tableUp, nil
 }
 
+func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
+	for i := 0.0; i < float64(count); i++ {
+		err := b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, (i+0.2)*hammerRatio)
+		if err != nil {
+			return err
+		}
+		b.waitFor(ctx, b.hammer.PositionReached)
+		sleep(ctx, 500)
+	}
+
+	// Raise Hammer
+	err := b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, float64(count)*hammerRatio)
+	if err != nil {
+		return err
+	}
+	b.waitFor(ctx, b.hammer.PositionReached)
+
+	// As we go in one direction indefinitely, this is an easy fix for register overflow
+	err = b.hammer.Zero(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *ResetBox) doWhack(ctx context.Context, r robot.Robot) {
+	b.hammerTime(ctx, duckWhacks)
+}
+
 func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.gate.GoTo(ctx, gateSpeed, gateCubePass)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
@@ -369,8 +403,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	go b.tipTableDown(ctx, r)
 
 	// Three whacks for cubes-behinds-ducks
-	b.hammer.GoFor(ctx, forward, hammerSpeed*hammerRatio, cubeWhacks*hammerRatio)
-	b.waitFor(ctx, b.hammer.PositionReached)
+	b.hammerTime(ctx, cubeWhacks)
 
 	// Wait for hammer + 4 seconds
 	sleep(ctx, 4000)
@@ -379,7 +412,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 
 	// DuckWhack
-	b.hammer.GoFor(ctx, forward, hammerSpeed*hammerRatio, duckWhacks*hammerRatio)
+	b.hammerTime(ctx, duckWhacks)
 
 	// Cubes at top
 	b.waitFor(ctx, b.elevator.PositionReached)
@@ -389,7 +422,6 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	// Back down for duck
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
 	b.waitFor(ctx, b.elevator.PositionReached)
-	b.waitFor(ctx, b.hammer.PositionReached)
 
 	// Open to load duck
 	b.gate.GoTo(ctx, gateSpeed, gateOpen)
@@ -404,8 +436,5 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.waitFor(ctx, b.elevator.PositionReached)
 
 	// WAIT ROBOT
-
-	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	b.hammer.Zero(ctx)
 
 }
