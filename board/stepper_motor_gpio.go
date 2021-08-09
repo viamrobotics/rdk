@@ -97,10 +97,6 @@ type GPIOStepperMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 }
 
-func (m *GPIOStepperMotor) GetRaw(ctx context.Context) Motor {
-	return m
-}
-
 // Position TODO
 // TODO(pl): One nice feature of stepper motors is their ability to hold a stationary position and remain torqued.
 // This should eventually be a supported feature.
