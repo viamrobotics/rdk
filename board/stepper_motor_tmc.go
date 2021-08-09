@@ -15,17 +15,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-// TMCConfig extends the MotorConfig for this specific series of drivers
-// type TMCConfig struct {
-// 	SPIBus      string  `json:"spiBus"`      // SPI Bus name
-// 	CSPin       string  `json:"csPin"`       // Motor address on serial bus
-// 	Index       uint    `json:"index"`       // 0th or 1st motor on driver
-// 	MaxVelocity float64 `json:"maxVelocity"` // RPM
-// 	MaxAccel    float64 `json:"maxAccel"`    // RPM per second
-// 	SGThresh    int32   `json:"sgThresh"`    // StallGuard threshold for homing. -64 to +63, 0 default.
-// 	CalFactor   float64 `json:"calFactor"`   // Ratio of time taken/exepected for a move at a given speed
-// }
-
 // A TMCStepperMotor represents a brushless motor connected via a TMC controller chip (ex: TMC5072)
 type TMCStepperMotor struct {
 	board       Board
