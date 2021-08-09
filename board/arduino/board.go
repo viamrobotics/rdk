@@ -442,8 +442,3 @@ func (m *motor) Zero(ctx context.Context) error {
 func (m *motor) PositionReached(ctx context.Context) (bool, error) {
 	return false, errors.New("not supported")
 }
-
-// Returns raw motor if it was wrapped/overlaid
-func (m *motor) GetRaw(ctx context.Context) board.Motor {
-	return m
-}
