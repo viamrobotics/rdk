@@ -1,6 +1,11 @@
 package rimage
 
-import "math"
+import (
+	"gonum.org/v1/gonum/mat"
+	"math"
+)
+
+var NPixelNeighbors = 8
 
 // Point represents a 2D point on a Cartesian plane.
 type Point struct {
@@ -12,6 +17,71 @@ type Point struct {
 type Line struct {
 	Start Point
 	End   Point
+}
+
+// Contour is a structure that stores and represent a contour with the points in it, its ID, ParentID and a flag
+// that stores if the contour is a hole contour or not
+type Contour struct {
+	Points   []Point
+	Id       int
+	ParentId int
+	IsHole   bool
+}
+
+// NewContour create a pointer to an empty contour with ID 0
+func NewContour() *Contour {
+	return &Contour{
+		Points:   nil,
+		Id:       0,
+		ParentId: 0,
+		IsHole:   false,
+	}
+}
+
+// NewContourWithID creates a new contour with a given ID
+func NewContourWithID(idx int) *Contour {
+	return &Contour{
+		Points:   nil,
+		Id:       idx,
+		ParentId: 0,
+		IsHole:   false,
+	}
+}
+
+// neighborIDToIndex maps a neigh ID to the image coordinates
+func neighborIDToIndex(i, j, id int) (int, int) {
+	iNb := 0
+	jNb := 0
+	if id == 0 {iNb, jNb = i, j + 1}
+	if id == 1 {iNb, jNb = i - 1, j + 1}
+	if id == 2 {iNb, jNb = i - 1, j}
+	if id == 3 {iNb, jNb = i - 1, j - 1}
+	if id == 4 {iNb, jNb = i, j - 1}
+	if id == 5 {iNb, jNb = i + 1, j - 1}
+	if id == 6 {iNb, jNb = i + 1, j}
+	if id == 7 {iNb, jNb = i + 1, j + 1}
+
+	return iNb, jNb
+}
+
+// neighborIndexToID return a neighbor ID from its image coordinates
+func neighborIndexToID(i0, j0, i, j int) int{
+	di := i - i0
+	dj := j - j0
+	if di == 0 && dj == 1 {return 0}
+	if di ==-1 && dj == 1 {return 1}
+	if di ==-1 && dj == 0 {return 2}
+	if di ==-1 && dj ==-1 {return 3}
+	if di == 0 && dj ==-1 {return 4}
+	if di == 1 && dj ==-1 {return 5}
+	if di == 1 && dj == 0 {return 6}
+	if di == 1 && dj == 1 {return 7}
+	return -1
+}
+
+func FindContourHierarchy(edges *mat.Dense) []*Contour {
+	c := NewContour()
+	return []*Contour{c}
 }
 
 // DistanceToPoint returns the perpendicular distance of a point to the line.
@@ -53,6 +123,7 @@ func SimplifyPath(points []Point, ep float64) []Point {
 	return []Point{points[0], points[len(points)-1]}
 }
 
+// seekMostDistantPoint finds the point that is the most distant from the line defined by 2 points
 func seekMostDistantPoint(l Line, points []Point) (idx int, maxDist float64) {
 	for i := 0; i < len(points); i++ {
 		d := l.DistanceToPoint(points[i])
