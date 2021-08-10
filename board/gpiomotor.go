@@ -31,6 +31,7 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 		pins["en"],
 		false,
 		mc.PWMFreq,
+		pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED,
 	}
 	return m, nil
 }
@@ -43,6 +44,7 @@ type GPIOMotor struct {
 	A, B, Dir, PWM, En string
 	on                 bool
 	pwmFreq            uint
+	curDirection       pb.DirectionRelative
 }
 
 // Position always returns 0.
@@ -61,10 +63,22 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 	if powerPct > 0.0 && m.En != "" {
 		errs = m.Board.GPIOSet(m.En, false)
 	}
+
+	var realPWM string
+	if m.PWM != "" {
+		realPWM = m.PWM
+	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
+		realPWM = m.B
+	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
+		realPWM = m.A
+	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
+		return errors.New("can't set power when no direction is set")
+	}
+
 	return multierr.Combine(
 		errs,
-		m.Board.PWMSetFreq(m.PWM, m.pwmFreq),
-		m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
+		m.Board.PWMSetFreq(realPWM, m.pwmFreq),
+		m.Board.PWMSet(realPWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
 	)
 }
 
@@ -75,29 +89,31 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 		return m.Off(ctx)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
+		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		if m.Dir != "" {
 			return multierr.Combine(
-				m.Power(ctx, powerPct),
 				m.Board.GPIOSet(m.Dir, true),
+				m.Power(ctx, powerPct),
 			)
 		}
 		return multierr.Combine(
-			m.Power(ctx, powerPct),
 			m.Board.GPIOSet(m.A, true),
 			m.Board.GPIOSet(m.B, false),
+			m.Power(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.on = true
+		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		if m.Dir != "" {
 			return multierr.Combine(
-				m.Power(ctx, powerPct),
 				m.Board.GPIOSet(m.Dir, false),
+				m.Power(ctx, powerPct),
 			)
 		}
 		return multierr.Combine(
-			m.Power(ctx, powerPct),
 			m.Board.GPIOSet(m.A, false),
 			m.Board.GPIOSet(m.B, true),
+			m.Power(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}
 
@@ -117,6 +133,7 @@ func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
 // Off turns the motor off by setting the appropriate pins to low states.
 func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
+	m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
 	var errs error
 	if m.En != "" {
 		errs = m.Board.GPIOSet(m.En, true)
