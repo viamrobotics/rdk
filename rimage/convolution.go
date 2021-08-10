@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+
+	"go.viam.com/core/utils"
 )
 
 // clamp rounds and clamps float64 value to fit into uint8.
@@ -26,7 +28,6 @@ var (
 	//sobelY = [3][3]float64{{-1, -2, -1}, {0, 0, 0}, {1, 2, 1}}
 	maxProcs int64
 )
-
 
 // SetMaxProcs limits the number of concurrent processing goroutines to the given value.
 // A value <= 0 clears the limit.
@@ -203,4 +204,44 @@ func normalizeKernel(kernel []float64) {
 			kernel[i] /= sumpos
 		}
 	}
+}
+
+func applyFilter(w int, h int, m image.Image, filter [][]float64, stride int, factor float64, bias float64) *image.RGBA {
+
+	result := image.NewRGBA(image.Rect(0, 0, w, h))
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+
+			var red float64 = 0.0
+			var green float64 = 0.0
+			var blue float64 = 0.0
+
+			for filterY := 0; filterY < stride; filterY++ {
+				for filterX := 0; filterX < stride; filterX++ {
+					imageX := (x - stride/2 + filterX + w) % w
+					imageY := (y - stride/2 + filterY + h) % h
+					r, g, b, _ := m.At(imageX, imageY).RGBA()
+
+					red += (float64(r) / 257) * filter[filterY][filterX]
+					green += (float64(g) / 257) * filter[filterY][filterX]
+					blue += (float64(b) / 257) * filter[filterY][filterX]
+				}
+			}
+
+			_r := utils.MinInt(utils.MaxInt(int(factor*red+bias), 0), 255)
+			_g := utils.MinInt(utils.MaxInt(int(factor*green+bias), 0), 255)
+			_b := utils.MinInt(utils.MaxInt(int(factor*blue+bias), 0), 255)
+
+			c := color.RGBA{
+				uint8(_r),
+				uint8(_g),
+				uint8(_b),
+				255,
+			}
+			result.Set(x, y, c)
+
+		}
+
+	}
+	return result
 }
