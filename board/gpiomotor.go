@@ -26,7 +26,9 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 		b,
 		pins["a"],
 		pins["b"],
+		pins["dir"],
 		pins["pwm"],
+		pins["en"],
 		false,
 		mc.PWMFreq,
 	}
@@ -37,10 +39,10 @@ var _ = Motor(&GPIOMotor{})
 
 // A GPIOMotor is a GPIO based Motor that resides on a GPIO Board.
 type GPIOMotor struct {
-	Board     Board
-	A, B, PWM string
-	on        bool
-	pwmFreq   uint
+	Board              Board
+	A, B, Dir, PWM, En string
+	on                 bool
+	pwmFreq            uint
 }
 
 // Position always returns 0.
@@ -55,30 +57,45 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 
 // Power sets the associated pins PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
-	err := m.Board.PWMSetFreq(m.PWM, m.pwmFreq)
-	if err != nil {
-		return err
+	var errs error
+	if powerPct > 0.0 && m.En != "" {
+		errs = m.Board.GPIOSet(m.En, false)
 	}
-	return m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
+	return multierr.Combine(
+		errs,
+		m.Board.PWMSetFreq(m.PWM, m.pwmFreq),
+		m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
+	)
 }
 
 // Go instructs the motor to operate at a certain power percentage in a given direction.
 func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	power := byte(utils.ScaleByPct(255, float64(powerPct)))
 	switch d {
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
+		if m.Dir != "" {
+			return multierr.Combine(
+				m.Power(ctx, powerPct),
+				m.Board.GPIOSet(m.Dir, true),
+			)
+		}
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, power),
+			m.Power(ctx, powerPct),
 			m.Board.GPIOSet(m.A, true),
 			m.Board.GPIOSet(m.B, false),
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.on = true
+		if m.Dir != "" {
+			return multierr.Combine(
+				m.Power(ctx, powerPct),
+				m.Board.GPIOSet(m.Dir, false),
+			)
+		}
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, power),
+			m.Power(ctx, powerPct),
 			m.Board.GPIOSet(m.A, false),
 			m.Board.GPIOSet(m.B, true),
 		)
@@ -100,9 +117,20 @@ func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
 // Off turns the motor off by setting the appropriate pins to low states.
 func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
+	var errs error
+	if m.En != "" {
+		errs = m.Board.GPIOSet(m.En, true)
+	}
+	if m.Dir == "" {
+		errs = multierr.Combine(
+			errs,
+			m.Board.GPIOSet(m.A, false),
+			m.Board.GPIOSet(m.B, false),
+		)
+	}
 	return multierr.Combine(
-		m.Board.GPIOSet(m.A, false),
-		m.Board.GPIOSet(m.B, false),
+		errs,
+		m.Power(ctx, 0),
 	)
 }
 
