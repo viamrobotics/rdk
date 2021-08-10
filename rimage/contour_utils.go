@@ -137,7 +137,6 @@ func firstCounterClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int)
 	return 0, 0
 }
 
-
 //FindContourHierarchy finds contours in a binary image
 // Implements Suzuki, S. and Abe, K.
 // "Topological Structural Analysis of Digitized Binary Images by Border Following."
@@ -148,8 +147,156 @@ func firstCounterClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int)
 //                  to hold semantic information
 // @return          An array of contours found in the image.
 func FindContourHierarchy(edges *mat.Dense) []*Contour {
-	c := NewContour()
-	return []*Contour{c}
+	h, w := edges.Dims()
+	nbd := 1
+	lnbd := 1
+	contours := make([]*Contour, 0)
+	// edge cases; fill first and last row and col with 0, without loss of generality
+	for i := 1; i < h-1; i++ {
+		edges.Set(i, 0, 0)
+		edges.Set(i, w-1, 0)
+	}
+	for j := 1; j < h-1; j++ {
+		edges.Set(0, j, 0)
+		edges.Set(h-1, j, 0)
+	}
+	//Scan the picture with a TV raster and perform the following steps
+	//for each pixel such that fij # 0. Every time we begin to scan a
+	//new row of the picture, reset LNBD to 1.
+	for i := 1; i < h-1; i++ {
+		lnbd = 1
+		for j := 1; j < h-1; j++ {
+			i2, j2 := 0, 0
+			if edges.At(i, j) == 0 {
+				continue
+			}
+			//(a) If fij = 1 and fi, j-1 = 0, then decide that the pixel
+			//(i, j) is the border following starting point of an outer
+			//border, increment NBD, and (i2, j2) <- (i, j - 1).
+			if edges.At(i, j) == 1 && edges.At(i, j-1) == 0 {
+				nbd += 1
+				i2 = i
+				j2 = j - 1
+			} else if edges.At(i, j) >= 1 && edges.At(i, j+1) == 0 {
+				//(b) Else if fij >= 1 and fi,j+1 = 0, then decide that the
+				//pixel (i, j) is the border following starting point of a
+				//hole border, increment NBD, (i2, j2) <- (i, j + 1), and
+				//LNBD + fij in case fij > 1.
+				nbd += 1
+				i2 = i
+				j2 = j + 1
+				if edges.At(i, j) > 1 {
+					lnbd = int(edges.At(i, j))
+				}
+			} else {
+				//(c) Otherwise, go to (4).
+				//(4) If fij != 1, then LNBD <- |fij| and resume the raster
+				//scan from pixel (i,j+1). The algorithm terminates when the
+				//scan reaches the lower right corner of the picture
+				if edges.At(i, j) != 1 {
+					lnbd = int(math.Abs(edges.At(i, j)))
+				}
+				continue
+			}
+			//(2) Depending on the types of the newly found border and the border with the sequential number LNBD
+			//  (i.e., the last border met on the current row)
+			// decide the parent of the current border as shown in Table 1.
+			// TABLE 1
+			// Decision Rule for the Parent Border of the Newly Found Border B
+			// ----------------------------------------------------------------
+			// Type of border B with the sequential number LNBD
+			// Type of B \                Outer border         Hole border
+			// ---------------------------------------------------------------
+			// Outer border               The parent border    The border B'
+			//                            of the border B'
+			// Hole border                The border B'      The parent border
+			//                                               of the border B'
+			// ----------------------------------------------------------------
+			B := NewContour()
+			B.Points = make([]Point, 0)
+			B.Points = append(B.Points, Point{float64(j), float64(i)})
+			B.IsHole = j2 == j+1
+			B.Id = nbd
+			contours = append(contours, B)
+
+			B0 := NewContour()
+			for _, contour := range contours {
+				if contour.Id == lnbd {
+					B0 = contour
+					break
+				}
+			}
+			if B0.IsHole {
+				if B.IsHole {
+					B.ParentId = B0.ParentId
+				} else {
+					B.ParentId = lnbd
+				}
+			} else {
+				if B.IsHole {
+					B.ParentId = lnbd
+				} else {
+					B.ParentId = B0.ParentId
+				}
+			}
+			//(3) From the starting point (i, j), follow the detected border:
+			//this is done by the following sub-steps (3.1) through (3.5).
+
+			//(3.1) Starting from (i2, j2), look around clockwise the pixels
+			//in the neighborhood of (i, j) and find a nonzero pixel.
+			//Let (i1, j1) be the first found nonzero pixel. If no nonzero
+			//pixel is found, assign -NBD to fij and go to (4).
+			i1, j1 := -1, -1
+			i1, j1 = firstClockwiseNonZeroNeighbor(*edges, i, j, i2, j2, 0)
+
+			if i1 == 0 && j1 == 0 {
+				edges.Set(i, j, float64(-nbd))
+				//go to (4)
+				if edges.At(i, j) != 1 {
+					lnbd = int(math.Abs(edges.At(i, j)))
+
+				}
+				continue
+			}
+			// (3.2) (i2, j2) <- (i1, j1) ad (i3,j3) <- (i, j).
+			i2, j2 = i1, j1
+			i3, j3 := i, j
+
+			for true {
+				//(3.3) Starting from the next element of the pixel (i2, j2) in the counter-clockwise order,
+				// examine the pixels in the neighborhood of the current pixel (i3, j3)
+				//to find a nonzero pixel and let the first one be (i4, j4).
+				i4, j4 := firstCounterClockwiseNonZeroNeighbor(*edges, i3, j3, i2, j2, 1)
+				contours[len(contours)-1].Points = append(contours[len(contours)-1].Points, Point{float64(j4), float64(i4)})
+
+				//(a) If the pixel (i3, j3 + 1) is a O-pixel examined in the
+				//substep (3.3) then fi3, j3 <-  -NBD.
+				if edges.At(i3, j3+1) == 0 {
+					edges.Set(i3, j3, float64(-nbd))
+
+					//(b) If the pixel (i3, j3 + 1) is not a O-pixel examined
+					//in the sub-step (3.3) and fi3,j3 = 1, then fi3,j3 <- NBD.
+				} else if edges.At(i3, j3) == 1 {
+					edges.Set(i3, j3, float64(nbd))
+				} else {
+					//(c) Otherwise, do not change fi3, j3.
+				}
+
+				//(3.5) If (i4,j4) = (i,j) and (i3,j3) = (i1,j1) (coming back to the starting point), then go to (4)
+				if i4 == i && j4 == j && i3 == i1 && j3 == j1 {
+					if edges.At(i, j) != 1 {
+						lnbd = int(math.Abs(edges.At(i, j)))
+					}
+					break
+				} else {
+					//otherwise, (i2, j2) + (i3, j3),(i3, j3) + (i4, j4), and go back to (3.3)
+					i2, j2 = i3, j3
+					i3, j3 = i4, j4
+				}
+			}
+		}
+	}
+	return contours
 }
 
 // DistanceToPoint returns the perpendicular distance of a point to the line.
