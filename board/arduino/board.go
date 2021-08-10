@@ -81,7 +81,7 @@ type arduinoBoard struct {
 	logger     golog.Logger
 	cmdLock    sync.Mutex
 
-	motors map[string]board.Motor
+	motors  map[string]board.Motor
 	analogs map[string]board.AnalogReader
 }
 
