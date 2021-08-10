@@ -403,6 +403,42 @@ func neighborIndexToID(i0, j0, i, j int) int {
 	return -1
 }
 
+// firstClockwiseNonZeroNeighbor returns the first clockwise non-zero element in 8-neighborhood
+func firstClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int) (int, int) {
+	idNb := neighborIndexToID(i0, j0, i, j)
+	for k := 1; k < NPixelNeighbors; k++ {
+		kk := (idNb - k - offset + NPixelNeighbors*2) % NPixelNeighbors
+		i_, j_ := neighborIDToIndex(i0, j0, kk)
+		if F.At(i_, j_) != 0 {
+			return i_, j_
+		}
+	}
+	return 0, 0
+}
+
+// firstCounterClockwiseNonZeroNeighbor returns the first counter-clockwise non-zero element in 8-neighborhood
+func firstCounterClockwiseNonZeroNeighbor(F mat.Dense, i0, j0, i, j, offset int) (int, int) {
+	idNb := neighborIndexToID(i0, j0, i, j)
+	for k := 1; k < NPixelNeighbors; k++ {
+		kk := (idNb + k + offset + NPixelNeighbors*2) % NPixelNeighbors
+		i_, j_ := neighborIDToIndex(i0, j0, kk)
+		if F.At(i_, j_) != 0 {
+			return i_, j_
+		}
+	}
+	return 0, 0
+}
+
+
+//FindContourHierarchy finds contours in a binary image
+// Implements Suzuki, S. and Abe, K.
+// "Topological Structural Analysis of Digitized Binary Images by Border Following."
+// See source code for step-by-step correspondence to the paper's algorithm
+// description.
+// @param  edges    The bitmap, stored in 1-dimensional row-major form.
+//                  0=background, 1=foreground, will be modified by the function
+//                  to hold semantic information
+// @return          An array of contours found in the image.
 func FindContourHierarchy(edges *mat.Dense) []*Contour {
 	c := NewContour()
 	return []*Contour{c}
