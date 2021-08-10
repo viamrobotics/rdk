@@ -15,6 +15,8 @@ var jspb = require('google-protobuf');
 var goog = jspb;
 var global = Function('return this')();
 
+var google_api_distribution_pb = require('../../../../google/api/distribution_pb.js');
+goog.object.extend(proto, google_api_distribution_pb);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.Distribution', null, global);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.Distribution.BucketOptionCase', null, global);
 goog.exportSymbol('proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets', null, global);
@@ -110,7 +112,7 @@ if (goog.DEBUG && !COMPILED) {
  * @private {!Array<number>}
  * @const
  */
-proto.google.api.servicecontrol.v1.Distribution.repeatedFields_ = [6];
+proto.google.api.servicecontrol.v1.Distribution.repeatedFields_ = [6,10];
 
 /**
  * Oneof group definitions for this message. Each group defines the field
@@ -178,7 +180,9 @@ proto.google.api.servicecontrol.v1.Distribution.toObject = function(includeInsta
     bucketCountsList: (f = jspb.Message.getRepeatedField(msg, 6)) == null ? undefined : f,
     linearBuckets: (f = msg.getLinearBuckets()) && proto.google.api.servicecontrol.v1.Distribution.LinearBuckets.toObject(includeInstance, f),
     exponentialBuckets: (f = msg.getExponentialBuckets()) && proto.google.api.servicecontrol.v1.Distribution.ExponentialBuckets.toObject(includeInstance, f),
-    explicitBuckets: (f = msg.getExplicitBuckets()) && proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets.toObject(includeInstance, f)
+    explicitBuckets: (f = msg.getExplicitBuckets()) && proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets.toObject(includeInstance, f),
+    exemplarsList: jspb.Message.toObjectList(msg.getExemplarsList(),
+    google_api_distribution_pb.Distribution.Exemplar.toObject, includeInstance)
   };
 
   if (includeInstance) {
@@ -255,6 +259,11 @@ proto.google.api.servicecontrol.v1.Distribution.deserializeBinaryFromReader = fu
       var value = new proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets;
       reader.readMessage(value,proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets.deserializeBinaryFromReader);
       msg.setExplicitBuckets(value);
+      break;
+    case 10:
+      var value = new google_api_distribution_pb.Distribution.Exemplar;
+      reader.readMessage(value,google_api_distribution_pb.Distribution.Exemplar.deserializeBinaryFromReader);
+      msg.addExemplars(value);
       break;
     default:
       reader.skipField();
@@ -349,6 +358,14 @@ proto.google.api.servicecontrol.v1.Distribution.serializeBinaryToWriter = functi
       9,
       f,
       proto.google.api.servicecontrol.v1.Distribution.ExplicitBuckets.serializeBinaryToWriter
+    );
+  }
+  f = message.getExemplarsList();
+  if (f.length > 0) {
+    writer.writeRepeatedMessage(
+      10,
+      f,
+      google_api_distribution_pb.Distribution.Exemplar.serializeBinaryToWriter
     );
   }
 };
@@ -1127,6 +1144,44 @@ proto.google.api.servicecontrol.v1.Distribution.prototype.clearExplicitBuckets =
  */
 proto.google.api.servicecontrol.v1.Distribution.prototype.hasExplicitBuckets = function() {
   return jspb.Message.getField(this, 9) != null;
+};
+
+
+/**
+ * repeated google.api.Distribution.Exemplar exemplars = 10;
+ * @return {!Array<!proto.google.api.Distribution.Exemplar>}
+ */
+proto.google.api.servicecontrol.v1.Distribution.prototype.getExemplarsList = function() {
+  return /** @type{!Array<!proto.google.api.Distribution.Exemplar>} */ (
+    jspb.Message.getRepeatedWrapperField(this, google_api_distribution_pb.Distribution.Exemplar, 10));
+};
+
+
+/**
+ * @param {!Array<!proto.google.api.Distribution.Exemplar>} value
+ * @return {!proto.google.api.servicecontrol.v1.Distribution} returns this
+*/
+proto.google.api.servicecontrol.v1.Distribution.prototype.setExemplarsList = function(value) {
+  return jspb.Message.setRepeatedWrapperField(this, 10, value);
+};
+
+
+/**
+ * @param {!proto.google.api.Distribution.Exemplar=} opt_value
+ * @param {number=} opt_index
+ * @return {!proto.google.api.Distribution.Exemplar}
+ */
+proto.google.api.servicecontrol.v1.Distribution.prototype.addExemplars = function(opt_value, opt_index) {
+  return jspb.Message.addToRepeatedWrapperField(this, 10, opt_value, proto.google.api.Distribution.Exemplar, opt_index);
+};
+
+
+/**
+ * Clears the list making it empty but non-null.
+ * @return {!proto.google.api.servicecontrol.v1.Distribution} returns this
+ */
+proto.google.api.servicecontrol.v1.Distribution.prototype.clearExemplarsList = function() {
+  return this.setExemplarsList([]);
 };
 
 
