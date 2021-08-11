@@ -90,7 +90,7 @@ ALL_GOOD=1
 
 if ! which pkg-config > /dev/null || ! which sha256sum > /dev/null
 then
-	echo "Missing utilities, please install pkg-config and sha256sum (may be in coreutils.)"
+	echo "Missing utilities! Please install pkg-config and sha256sum (provided by coreutils.)"
 	exit 1
 fi
 
