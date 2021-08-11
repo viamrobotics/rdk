@@ -4,9 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"runtime"
-	"strings"
 
 	"github.com/go-errors/errors"
 
@@ -21,7 +18,6 @@ import (
 	pb "go.viam.com/core/proto/slam/v1"
 	robotimpl "go.viam.com/core/robot/impl"
 	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/robots/hellorobot"
 	"go.viam.com/core/sensor/compass"
 	compasslidar "go.viam.com/core/sensor/compass/lidar"
 	"go.viam.com/core/slam"
@@ -64,15 +60,7 @@ func (btf *baseTypeFlag) Set(val string) error {
 		*btf = baseTypeFlag(val)
 		return nil
 	}
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	if runtime.GOOS == "linux" && strings.Contains(hostname, "stretch") {
-		*btf = "hello"
-	} else {
-		*btf = fakeDev
-	}
+	*btf = fakeDev
 	return nil
 }
 
@@ -139,15 +127,6 @@ func runSlam(ctx context.Context, args Arguments, logger golog.Logger) (err erro
 	switch args.BaseType {
 	case fakeDev:
 		baseDevice = &fake.Base{}
-	case "hello":
-		robot, err := hellorobot.New()
-		if err != nil {
-			return err
-		}
-		baseDevice, err = robot.Base()
-		if err != nil {
-			return err
-		}
 	default:
 		return errors.Errorf("do not know how to make a %q base", args.BaseType)
 	}
