@@ -332,6 +332,10 @@ int myAnalogRead(const char* name) {
             return analogRead(A12);
         case 13:
             return analogRead(A13);
+        case 14:
+            return analogRead(A14);
+        case 15:
+            return analogRead(A15);
     }
 
     return -1;
