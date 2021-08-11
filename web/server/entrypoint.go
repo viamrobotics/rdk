@@ -26,8 +26,7 @@ import (
 	_ "go.viam.com/core/board/arduino"
 	_ "go.viam.com/core/board/detector"
 	_ "go.viam.com/core/rimage/imagesource"
-	_ "go.viam.com/core/robots/eva" // for eva
-	_ "go.viam.com/core/robots/hellorobot"
+	_ "go.viam.com/core/robots/eva"             // for eva
 	_ "go.viam.com/core/robots/robotiq"         // for a gripper
 	_ "go.viam.com/core/robots/softrobotics"    // for a gripper
 	_ "go.viam.com/core/robots/universalrobots" // for an arm

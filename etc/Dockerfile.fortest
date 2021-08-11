@@ -39,7 +39,6 @@ RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y \
     tesseract-ocr-por \
     libtesseract-dev \
     swig \
-    python2.7-dev \
     lsb-release \
     htop \
     bc
