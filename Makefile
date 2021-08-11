@@ -15,6 +15,10 @@ goformat:
 
 setup:
 	bash etc/setup.sh
+	bash etc/versioncheck.sh
+
+versioncheck:
+	bash etc/versioncheck.sh
 
 build: buf build-web build-go
 
