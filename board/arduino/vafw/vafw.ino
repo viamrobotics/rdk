@@ -217,6 +217,18 @@ void processBuffer(Buffer* b) {
         return;
     }
 
+    if (const char* name = isCommand(line, "analog-read")) {
+        int val = myAnalogRead(name);
+        if (val < 0) {
+            b->println("#couldn't find analog reader");
+            return;
+        }
+        b->print("@");
+        b->print(val);
+        b->println("");
+        return;
+    }
+
     b->println(line);
     b->println("#unknown command");
 }
@@ -282,4 +294,49 @@ bool setupInterruptForMotor(PinNumber pin) {
             return true;
     }
     return false;
+}
+
+int myAnalogRead(const char* name) {
+    if (name[0] == 'A') {
+        name++;
+    }
+
+    auto n = atoi(name);
+
+    switch (n) {
+        case 0:
+            return analogRead(A0);
+        case 1:
+            return analogRead(A1);
+        case 2:
+            return analogRead(A2);
+        case 3:
+            return analogRead(A3);
+        case 4:
+            return analogRead(A4);
+        case 5:
+            return analogRead(A5);
+        case 6:
+            return analogRead(A6);
+        case 7:
+            return analogRead(A7);
+        case 8:
+            return analogRead(A8);
+        case 9:
+            return analogRead(A9);
+        case 10:
+            return analogRead(A10);
+        case 11:
+            return analogRead(A11);
+        case 12:
+            return analogRead(A12);
+        case 13:
+            return analogRead(A13);
+        case 14:
+            return analogRead(A14);
+        case 15:
+            return analogRead(A15);
+    }
+
+    return -1;
 }

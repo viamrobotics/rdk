@@ -28,7 +28,7 @@ if [ "$(uname)" = "Linux" ]; then
   case $DISTRO in
     "Debian"|"Ubuntu")
       sudo apt update
-      sudo apt -y install python2.7-dev libvpx-dev libx264-dev pkg-config python3-pip
+      sudo apt -y install libvpx-dev libx264-dev pkg-config
       if which npm; then
         echo "node installed"
       else
@@ -38,7 +38,7 @@ if [ "$(uname)" = "Linux" ]; then
       ;;
 
     "Amazon Linux")
-      sudo yum -y install python-devel libvpx-devel git gcc cmake nasm gcc-c++
+      sudo yum -y install libvpx-devel git gcc cmake nasm gcc-c++
       if which npm; then
         echo "node installed"
       else
@@ -98,7 +98,6 @@ if [ "$(uname)" = "Darwin" ]; then
     brew "protobuf", args: ["ignore-dependencies", "go"]
     brew "buf"
 EOS
-	make python-macos
   curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
   chmod +x protoc-gen-grpc-web
   sudo mv protoc-gen-grpc-web /usr/local/bin/
