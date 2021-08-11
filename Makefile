@@ -27,7 +27,7 @@ build-web:
 buf:
 	buf lint
 	buf generate
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis
+	buf generate --template ./etc/buf.web.gen.yaml buf.build/beta/googleapis:1c473ad9220a49bca9320f4cc690eba5
 
 lint: goformat
 	go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -56,10 +56,6 @@ dockerlocal:
 
 docker: dockerlocal
 	docker push 'echolabs/robotcoretest:latest'
-
-python-macos:
-	sudo mkdir -p /usr/local/lib/pkgconfig
-	sudo cp etc/darwin/python-2.7.pc /usr/local/lib/pkgconfig/
 
 server:
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
