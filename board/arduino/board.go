@@ -81,7 +81,8 @@ type arduinoBoard struct {
 	logger     golog.Logger
 	cmdLock    sync.Mutex
 
-	motors map[string]board.Motor
+	motors  map[string]board.Motor
+	analogs map[string]board.AnalogReader
 }
 
 func (b *arduinoBoard) runCommand(cmd string) (string, error) {
@@ -165,6 +166,14 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 	return nil
 }
 
+func (b *arduinoBoard) configureAnalog(cfg board.AnalogConfig) error {
+	var reader board.AnalogReader
+	reader = &analogReader{b, cfg.Pin}
+	reader = board.SmoothAnalogReader(reader, cfg, b.logger)
+	b.analogs[cfg.Name] = reader
+	return nil
+}
+
 func (b *arduinoBoard) configure(cfg board.Config) error {
 
 	check, err := b.runCommand("!")
@@ -195,8 +204,12 @@ func (b *arduinoBoard) configure(cfg board.Config) error {
 		return fmt.Errorf("arduino doesn't support servos yet %v", c)
 	}
 
+	b.analogs = map[string]board.AnalogReader{}
 	for _, c := range cfg.Analogs {
-		return fmt.Errorf("arduino doesn't support analogs yet %v", c)
+		err = b.configureAnalog(c)
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, c := range cfg.DigitalInterrupts {
@@ -223,7 +236,8 @@ func (b *arduinoBoard) SPIByName(name string) (board.SPI, bool) {
 
 // AnalogReaderByName returns an analog reader by name.
 func (b *arduinoBoard) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return nil, false
+	a, ok := b.analogs[name]
+	return a, ok
 }
 
 // DigitalInterruptByName returns a digital interrupt by name.
@@ -272,7 +286,11 @@ func (b *arduinoBoard) SPINames() []string {
 
 // AnalogReaderNames returns the name of all known analog readers.
 func (b *arduinoBoard) AnalogReaderNames() []string {
-	return nil
+	names := []string{}
+	for n := range b.analogs {
+		names = append(names, n)
+	}
+	return names
 }
 
 // DigitalInterruptNames returns the name of all known digital interrupts.
@@ -421,4 +439,24 @@ func (m *motor) IsOn(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return res[0] == 't', nil
+}
+
+type analogReader struct {
+	b   *arduinoBoard
+	pin string
+}
+
+// Read reads off the current value.
+func (ar *analogReader) Read(ctx context.Context) (int, error) {
+	res, err := ar.b.runCommand("analog-read " + ar.pin)
+	if err != nil {
+		return 0, err
+	}
+
+	value, err := strconv.ParseInt(res, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("couldn't parse analog value (%s) : %w", res, err)
+	}
+
+	return int(value), nil
 }
