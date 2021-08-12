@@ -24,11 +24,6 @@ func (m *FakeMotor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// PositionReached always returns an error
-func (m *FakeMotor) PositionReached(ctx context.Context) (bool, error) {
-	return false, errors.New("unsupported")
-}
-
 // PositionSupported returns false.
 func (m *FakeMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
@@ -87,13 +82,13 @@ func (m *FakeMotor) GoTo(ctx context.Context, rpm float64, position float64) err
 	return nil
 }
 
-// Home always returns an error
-func (m *FakeMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+// GoTillStop always returns an error
+func (m *FakeMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	return errors.New("unsupported")
 }
 
 // Zero always returns an error
-func (m *FakeMotor) Zero(ctx context.Context) error {
+func (m *FakeMotor) Zero(ctx context.Context, offset float64) error {
 	return errors.New("unsupported")
 }
 

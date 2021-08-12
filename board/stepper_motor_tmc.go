@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-errors/errors"
 
+	"go.viam.com/utils"
+
 	pb "go.viam.com/core/proto/api/v1"
 
 	"github.com/edaniels/golog"
@@ -95,7 +97,7 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 		stepsPerRev: mc.TicksPerRotation * uSteps,
 		enPin:       mc.Pins["en"],
 		maxVel:      mc.MaxVelocity,
-		maxAcc:      mc.MaxAccel,
+		maxAcc:      mc.MaxAcceleration,
 		fClk:        baseClk / calFactor,
 		logger:      logger,
 	}
@@ -119,7 +121,7 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 
 	coolConfig := SGThresh << 16
 
-	errors := multierr.Combine(
+	err = multierr.Combine(
 		m.writeReg(chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
 		m.writeReg(coolConf, coolConfig),  // Sets just the SGThreshold (for now)
@@ -140,15 +142,15 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 		m.writeReg(xActual, 0),           // Zero the position
 	)
 
-	if errors != nil {
-		return nil, errors
+	if err != nil {
+		return nil, err
 	}
 
 	return m, nil
 }
 
 func (m *TMCStepperMotor) shiftAddr(addr uint8) uint8 {
-	//Shift register address for motor 1 instead of motor zero
+	// Shift register address for motor 1 instead of motor zero
 	if m.index == 1 {
 		if addr >= 0x10 && addr <= 0x11 {
 			addr += 0x08
@@ -165,7 +167,7 @@ func (m *TMCStepperMotor) writeReg(addr uint8, value int32) error {
 
 	addr = m.shiftAddr(addr)
 
-	buf := make([]byte, 5)
+	var buf [5]byte
 	buf[0] = addr | 0x80
 	buf[1] = 0xFF & byte(value>>24)
 	buf[2] = 0xFF & byte(value>>16)
@@ -177,15 +179,14 @@ func (m *TMCStepperMotor) writeReg(addr uint8, value int32) error {
 		return err
 	}
 	defer func() {
-		err := handle.Close()
-		if err != nil {
+		if err := handle.Close(); err != nil {
 			m.logger.Error(err)
 		}
 	}()
 
 	//m.logger.Debug("Write: ", buf)
 
-	_, err = handle.Xfer(1000000, m.csPin, 3, buf) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return err
 	}
@@ -197,7 +198,7 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 
 	addr = m.shiftAddr(addr)
 
-	tbuf := make([]byte, 5)
+	var tbuf [5]byte
 	tbuf[0] = addr
 
 	handle, err := m.bus.OpenHandle()
@@ -205,8 +206,7 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 		return 0, err
 	}
 	defer func() {
-		err := handle.Close()
-		if err != nil {
+		if err := handle.Close(); err != nil {
 			m.logger.Error(err)
 		}
 	}()
@@ -214,12 +214,12 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 	//m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
-	_, err = handle.Xfer(1000000, m.csPin, 3, tbuf) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
 	}
 
-	rbuf, err := handle.Xfer(1000000, m.csPin, 3, tbuf)
+	rbuf, err := handle.Xfer(1000000, m.csPin, 3, tbuf[:])
 	if err != nil {
 		return 0, err
 	}
@@ -243,7 +243,6 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 // GetSG returns the current StallGuard reading (effectively an indication of motor load.)
 func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
 	rawRead, err := m.readReg(drvStatus)
-
 	if err != nil {
 		return 0, err
 	}
@@ -345,21 +344,19 @@ func (m *TMCStepperMotor) Off(ctx context.Context) error {
 	return m.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 0)
 }
 
-// Home enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
+// GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
 // This is then set as the new zero/home position.
-func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	err := m.GoFor(ctx, d, rpm, 1000)
-	if err != nil {
+func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	if err := m.GoFor(ctx, d, rpm, 1000); err != nil {
 		return err
 	}
 
 	// Disable stallguard and turn off if we fail homing
 	defer func() {
-		err := multierr.Combine(
+		if err := multierr.Combine(
 			m.writeReg(swMode, 0x000),
 			m.Off(ctx),
-		)
-		if err != nil {
+		); err != nil {
 			m.logger.Error(err)
 		}
 	}()
@@ -370,11 +367,8 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueSpeed: %d", sg)
 
-		select {
-		case <-ctx.Done():
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return errors.New("context cancelled during homing")
-		case <-time.After(100 * time.Millisecond):
-			fails++
 		}
 
 		stat, err := m.readReg(rampStat)
@@ -389,11 +383,11 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		if fails >= 50 {
 			return errors.New("timed out during homing accel")
 		}
+		fails++
 	}
 
-	// Now enabled stallguard
-	err = m.writeReg(swMode, 0x400)
-	if err != nil {
+	// Now enable stallguard
+	if err := m.writeReg(swMode, 0x400); err != nil {
 		return err
 	}
 
@@ -403,11 +397,8 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueReady: %d", sg)
 
-		select {
-		case <-ctx.Done():
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return errors.New("context cancelled during homing")
-		case <-time.After(100 * time.Millisecond):
-			fails++
 		}
 
 		stat, err := m.readReg(rampStat)
@@ -422,16 +413,15 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 		if fails >= 100 {
 			return errors.New("timed out during homing")
 		}
+		fails++
 	}
 
 	// Stop
-	err = m.Off(ctx)
-	if err != nil {
+	if err := m.Off(ctx); err != nil {
 		return err
 	}
 	// Zero position
-	err = m.Zero(ctx)
-	if err != nil {
+	if err := m.Zero(ctx, 0); err != nil {
 		return err
 	}
 
@@ -439,7 +429,7 @@ func (m *TMCStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm 
 }
 
 // Zero resets the current position to zero.
-func (m *TMCStepperMotor) Zero(ctx context.Context) error {
+func (m *TMCStepperMotor) Zero(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {
 		return err
@@ -448,20 +438,7 @@ func (m *TMCStepperMotor) Zero(ctx context.Context) error {
 	}
 	return multierr.Combine(
 		m.writeReg(rampMode, modeHold),
-		m.writeReg(xTarget, 0),
-		m.writeReg(xActual, 0),
+		m.writeReg(xTarget, int32(offset*float64(m.stepsPerRev))),
+		m.writeReg(xActual, int32(offset*float64(m.stepsPerRev))),
 	)
-}
-
-// PositionReached indicates if the previous GoTo or GoFor target position has been reached.
-func (m *TMCStepperMotor) PositionReached(ctx context.Context) (bool, error) {
-	stat, err := m.readReg(rampStat)
-	if err != nil {
-		return false, err
-	}
-	// Look for position_reached flag
-	if stat&0x200 == 0x200 {
-		return true, nil
-	}
-	return false, nil
 }

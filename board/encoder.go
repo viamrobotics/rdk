@@ -16,7 +16,7 @@ type Encoder interface {
 	Position(ctx context.Context) (int64, error)
 
 	// Zero resets the position to zero/home
-	Zero(ctx context.Context) error
+	Zero(ctx context.Context, offset int64) error
 
 	// Start starts a background thread to run the encoder, if there is none needed this is a no-op
 	Start(cancelCtx context.Context, activeBackgroundWorkers *sync.WaitGroup, onStart func())
@@ -139,8 +139,8 @@ func (e *HallEncoder) Position(ctx context.Context) (int64, error) {
 }
 
 // Zero resets the position to zero/home
-func (e *HallEncoder) Zero(ctx context.Context) error {
-	atomic.StoreInt64(&e.position, 0)
+func (e *HallEncoder) Zero(ctx context.Context, offset int64) error {
+	atomic.StoreInt64(&e.position, offset)
 	return nil
 }
 
@@ -204,7 +204,7 @@ func (e *singleEncoder) Position(ctx context.Context) (int64, error) {
 }
 
 // Zero resets the position to zero/home
-func (e *singleEncoder) Zero(ctx context.Context) error {
-	atomic.StoreInt64(&e.position, 0)
+func (e *singleEncoder) Zero(ctx context.Context, offset int64) error {
+	atomic.StoreInt64(&e.position, offset)
 	return nil
 }

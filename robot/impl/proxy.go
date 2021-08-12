@@ -891,24 +891,17 @@ func (p *proxyBoardMotor) GoTo(ctx context.Context, rpm float64, position float6
 	return p.actual.GoTo(ctx, rpm, position)
 }
 
-func (p *proxyBoardMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (p *proxyBoardMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Home(ctx, d, rpm)
+	return p.actual.GoTillStop(ctx, d, rpm)
 }
 
 // Zero needs to be implemented.
-func (p *proxyBoardMotor) Zero(ctx context.Context) error {
+func (p *proxyBoardMotor) Zero(ctx context.Context, offset float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Zero(ctx)
-}
-
-// PositionReached needs to be implemented.
-func (p *proxyBoardMotor) PositionReached(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.PositionReached(ctx)
+	return p.actual.Zero(ctx, offset)
 }
 
 type proxyBoardServo struct {

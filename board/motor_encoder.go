@@ -505,16 +505,11 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, position float64) 
 }
 
 // Home is not supported
-func (m *encodedMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	return errors.New("not supported")
 }
 
 // Zero resets the position to zero/home
-func (m *encodedMotor) Zero(ctx context.Context) error {
-	return m.encoder.Zero(ctx)
-}
-
-// PositionReached is not supported
-func (m *encodedMotor) PositionReached(ctx context.Context) (bool, error) {
-	return false, errors.New("not supported")
+func (m *encodedMotor) Zero(ctx context.Context, offset float64) error {
+	return m.encoder.Zero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }
