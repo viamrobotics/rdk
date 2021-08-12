@@ -92,23 +92,20 @@ type Motor interface {
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
 	GoTo(ctx context.Context, rpm float64, position float64) error
 
+	// GoTillStop moves a motor until it's endstop is hit, then zeros the position.
+	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error
+
+	// Set the current position (+/- offset) to be the new zero (home) position.
+	Zero(ctx context.Context, offset float64) error
+
 	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
 	// back into calls of GoFor.
 	Position(ctx context.Context) (float64, error)
 
-	// PositionReached returns true if the motor has now reached the requested position (as give to GoTo or GoFor)
-	PositionReached(ctx context.Context) (bool, error)
-
 	// PositionSupported returns whether or not the motor supports reporting of its position which
 	// is reliant on having an encoder.
 	PositionSupported(ctx context.Context) (bool, error)
-
-	// Home moves a motor until it's endstop is hit, then zeros the position.
-	Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error
-
-	// Set the current position to be the new zero (home) position.
-	Zero(ctx context.Context) error
 
 	// Off turns the motor off.
 	Off(ctx context.Context) error

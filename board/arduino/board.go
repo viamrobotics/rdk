@@ -350,7 +350,7 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	onStart()
 }
 
-func (e *encoder) Zero(ctx context.Context) error {
+func (e *encoder) Zero(ctx context.Context, offset int64) error {
 	return errors.New("not supported")
 }
 
@@ -449,16 +449,13 @@ func (m *motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	return errors.New("not supported")
 }
 
-func (m *motor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	return errors.New("not supported")
 }
 
-func (m *motor) Zero(ctx context.Context) error {
+func (m *motor) Zero(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
 }
-
-func (m *motor) PositionReached(ctx context.Context) (bool, error) {
-	return false, errors.New("not supported")
 
 type analogReader struct {
 	b   *arduinoBoard

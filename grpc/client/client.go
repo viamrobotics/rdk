@@ -782,18 +782,13 @@ func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) 
 }
 
 // Home needs to be implemented.
-func (mc *motorClient) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	return errUnimplemented
 }
 
 // Zero needs to be implemented.
-func (mc *motorClient) Zero(ctx context.Context) error {
+func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
 	return errUnimplemented
-}
-
-// PositionReached needs to be implemented.
-func (mc *motorClient) PositionReached(ctx context.Context) (bool, error) {
-	return false, errUnimplemented
 }
 
 // servoClient satisfies a gRPC based board.Servo. Refer to the interface

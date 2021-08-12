@@ -294,17 +294,12 @@ func (m *GPIOStepperMotor) GoTo(ctx context.Context, rpm float64, position float
 	return errors.New("not supported")
 }
 
-// Home is not supported
-func (m *GPIOStepperMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+// GoTillStop is not supported
+func (m *GPIOStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
 	return errors.New("not supported")
 }
 
 // Zero is not supported
-func (m *GPIOStepperMotor) Zero(ctx context.Context) error {
+func (m *GPIOStepperMotor) Zero(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
-}
-
-// PositionReached is not supported
-func (m *GPIOStepperMotor) PositionReached(ctx context.Context) (bool, error) {
-	return false, errors.New("not supported")
 }
