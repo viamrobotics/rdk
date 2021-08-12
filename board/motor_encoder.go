@@ -504,9 +504,35 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, position float64) 
 	return m.GoFor(ctx, dir, rpm, target)
 }
 
-// Home is not supported
+// GoTillStop moves until physically stopped (though with a ten second timeout)
 func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	return errors.New("not supported")
+	origPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.GoFor(ctx, d, rpm, 0); err != nil { return err }
+	defer m.Off(ctx)
+
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		curPos, err := m.Position(ctx)
+		if err != nil {
+			return err
+		}
+
+		if math.Abs(origPos-curPos) < 0.1 {
+			return nil
+		}
+
+		if fails >= 100 {
+			return errors.New("timed out during GoTillStop")
+		}
+		fails++
+	}
 }
 
 // Zero resets the position to zero/home
