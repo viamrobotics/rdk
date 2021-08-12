@@ -756,25 +756,25 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 }
 
 func (mc *motorClient) Position(ctx context.Context) (float64, error) {
-	status, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
 		return 0, err
 	}
-	return status.Position, err
+	return resp.Status.Position, err
 }
 
 func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
-	status, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
 		return false, err
 	}
-	return status.PositionSupported, err
+	return resp.Status.PositionSupported, err
 }
 
 func (mc *motorClient) Off(ctx context.Context) error {
@@ -786,14 +786,14 @@ func (mc *motorClient) Off(ctx context.Context) error {
 }
 
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
-	status, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
 		return false, err
 	}
-	return status.On, err
+	return resp.Status.On, err
 }
 
 func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
