@@ -510,9 +510,14 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 	if err != nil {
 		return err
 	}
-	if err := m.GoFor(ctx, d, rpm, 0); err != nil { return err }
-	defer m.Off(ctx)
-
+	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Off(ctx); err != nil {
+			m.logger.Error("failed to turn off motor")
+		}
+	}()
 	var fails int
 	for {
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
