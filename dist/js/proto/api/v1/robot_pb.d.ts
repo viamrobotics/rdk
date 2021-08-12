@@ -1476,6 +1476,28 @@ export namespace BoardMotorStatusRequest {
   }
 }
 
+export class BoardMotorStatusResponse extends jspb.Message {
+  hasStatus(): boolean;
+  clearStatus(): void;
+  getStatus(): MotorStatus | undefined;
+  setStatus(value?: MotorStatus): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorStatusResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorStatusResponse): BoardMotorStatusResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorStatusResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorStatusResponse;
+  static deserializeBinaryFromReader(message: BoardMotorStatusResponse, reader: jspb.BinaryReader): BoardMotorStatusResponse;
+}
+
+export namespace BoardMotorStatusResponse {
+  export type AsObject = {
+    status?: MotorStatus.AsObject,
+  }
+}
+
 export class BoardMotorPowerRequest extends jspb.Message {
   getBoardName(): string;
   setBoardName(value: string): void;

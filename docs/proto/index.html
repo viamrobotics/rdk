@@ -299,6 +299,10 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BoardMotorStatusResponse"><span class="badge">M</span>BoardMotorStatusResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.BoardMotorZeroRequest"><span class="badge">M</span>BoardMotorZeroRequest</a>
                 </li>
               
@@ -1562,6 +1566,30 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
                 <tr>
                   <td>motor_name</td>
                   <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorStatusResponse">BoardMotorStatusResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#proto.api.v1.MotorStatus">MotorStatus</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3701,7 +3729,7 @@ the request.</p></td>
               <tr>
                 <td>BoardMotorStatus</td>
                 <td><a href="#proto.api.v1.BoardMotorStatusRequest">BoardMotorStatusRequest</a></td>
-                <td><a href="#proto.api.v1.MotorStatus">MotorStatus</a></td>
+                <td><a href="#proto.api.v1.BoardMotorStatusResponse">BoardMotorStatusResponse</a></td>
                 <td><p>BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.</p></td>
               </tr>
             

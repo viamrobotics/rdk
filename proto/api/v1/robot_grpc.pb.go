@@ -93,7 +93,7 @@ type RobotServiceClient interface {
 	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
 	BoardMotorOff(ctx context.Context, in *BoardMotorOffRequest, opts ...grpc.CallOption) (*BoardMotorOffResponse, error)
 	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*MotorStatus, error)
+	BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*BoardMotorStatusResponse, error)
 	// BoardServoMove requests the servo of a board of the underlying robot to move.
 	BoardServoMove(ctx context.Context, in *BoardServoMoveRequest, opts ...grpc.CallOption) (*BoardServoMoveResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
@@ -427,8 +427,8 @@ func (c *robotServiceClient) BoardMotorOff(ctx context.Context, in *BoardMotorOf
 	return out, nil
 }
 
-func (c *robotServiceClient) BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*MotorStatus, error) {
-	out := new(MotorStatus)
+func (c *robotServiceClient) BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*BoardMotorStatusResponse, error) {
+	out := new(BoardMotorStatusResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -567,7 +567,7 @@ type RobotServiceServer interface {
 	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
 	BoardMotorOff(context.Context, *BoardMotorOffRequest) (*BoardMotorOffResponse, error)
 	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*MotorStatus, error)
+	BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*BoardMotorStatusResponse, error)
 	// BoardServoMove requests the servo of a board of the underlying robot to move.
 	BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
@@ -683,7 +683,7 @@ func (UnimplementedRobotServiceServer) BoardMotorZero(context.Context, *BoardMot
 func (UnimplementedRobotServiceServer) BoardMotorOff(context.Context, *BoardMotorOffRequest) (*BoardMotorOffResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorOff not implemented")
 }
-func (UnimplementedRobotServiceServer) BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*MotorStatus, error) {
+func (UnimplementedRobotServiceServer) BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*BoardMotorStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorStatus not implemented")
 }
 func (UnimplementedRobotServiceServer) BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error) {

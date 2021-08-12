@@ -299,7 +299,7 @@ type RobotServiceBoardMotorStatus = {
   readonly requestStream: false;
   readonly responseStream: false;
   readonly requestType: typeof proto_api_v1_robot_pb.BoardMotorStatusRequest;
-  readonly responseType: typeof proto_api_v1_robot_pb.MotorStatus;
+  readonly responseType: typeof proto_api_v1_robot_pb.BoardMotorStatusResponse;
 };
 
 type RobotServiceBoardServoMove = {
@@ -714,11 +714,11 @@ export class RobotServiceClient {
   boardMotorStatus(
     requestMessage: proto_api_v1_robot_pb.BoardMotorStatusRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorStatus|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorStatusResponse|null) => void
   ): UnaryResponse;
   boardMotorStatus(
     requestMessage: proto_api_v1_robot_pb.BoardMotorStatusRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.MotorStatus|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_v1_robot_pb.BoardMotorStatusResponse|null) => void
   ): UnaryResponse;
   boardServoMove(
     requestMessage: proto_api_v1_robot_pb.BoardServoMoveRequest,

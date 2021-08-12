@@ -305,7 +305,7 @@ RobotService.BoardMotorStatus = {
   requestStream: false,
   responseStream: false,
   requestType: proto_api_v1_robot_pb.BoardMotorStatusRequest,
-  responseType: proto_api_v1_robot_pb.MotorStatus
+  responseType: proto_api_v1_robot_pb.BoardMotorStatusResponse
 };
 
 RobotService.BoardServoMove = {

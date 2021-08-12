@@ -260,12 +260,11 @@ service RobotService {
 	}
 
 	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	rpc BoardMotorStatus(BoardMotorStatusRequest) returns (MotorStatus) {
+	rpc BoardMotorStatus(BoardMotorStatusRequest) returns (BoardMotorStatusResponse) {
 		option (google.api.http) = {
 			put: "/api/v1/board/{board_name}/motor/{motor_name}/status"
 		};
 	}
-
 
 	// Servo
 
@@ -630,6 +629,10 @@ message BoardStatusResponse {
 message BoardMotorStatusRequest {
 	string board_name = 1;
 	string motor_name = 2;
+}
+
+message BoardMotorStatusResponse {
+	MotorStatus status = 1;
 }
 
 message BoardMotorPowerRequest {

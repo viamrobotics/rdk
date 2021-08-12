@@ -2639,13 +2639,13 @@ proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorOff =
  * @const
  * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.v1.BoardMotorStatusRequest,
- *   !proto.proto.api.v1.MotorStatus>}
+ *   !proto.proto.api.v1.BoardMotorStatusResponse>}
  */
 const methodDescriptor_RobotService_BoardMotorStatus = new grpc.web.MethodDescriptor(
   '/proto.api.v1.RobotService/BoardMotorStatus',
   grpc.web.MethodType.UNARY,
   proto.proto.api.v1.BoardMotorStatusRequest,
-  proto.proto.api.v1.MotorStatus,
+  proto.proto.api.v1.BoardMotorStatusResponse,
   /**
    * @param {!proto.proto.api.v1.BoardMotorStatusRequest} request
    * @return {!Uint8Array}
@@ -2653,7 +2653,7 @@ const methodDescriptor_RobotService_BoardMotorStatus = new grpc.web.MethodDescri
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MotorStatus.deserializeBinary
+  proto.proto.api.v1.BoardMotorStatusResponse.deserializeBinary
 );
 
 
@@ -2661,10 +2661,10 @@ const methodDescriptor_RobotService_BoardMotorStatus = new grpc.web.MethodDescri
  * @const
  * @type {!grpc.web.AbstractClientBase.MethodInfo<
  *   !proto.proto.api.v1.BoardMotorStatusRequest,
- *   !proto.proto.api.v1.MotorStatus>}
+ *   !proto.proto.api.v1.BoardMotorStatusResponse>}
  */
 const methodInfo_RobotService_BoardMotorStatus = new grpc.web.AbstractClientBase.MethodInfo(
-  proto.proto.api.v1.MotorStatus,
+  proto.proto.api.v1.BoardMotorStatusResponse,
   /**
    * @param {!proto.proto.api.v1.BoardMotorStatusRequest} request
    * @return {!Uint8Array}
@@ -2672,7 +2672,7 @@ const methodInfo_RobotService_BoardMotorStatus = new grpc.web.AbstractClientBase
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.v1.MotorStatus.deserializeBinary
+  proto.proto.api.v1.BoardMotorStatusResponse.deserializeBinary
 );
 
 
@@ -2681,9 +2681,9 @@ const methodInfo_RobotService_BoardMotorStatus = new grpc.web.AbstractClientBase
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.Error, ?proto.proto.api.v1.MotorStatus)}
+ * @param {function(?grpc.web.Error, ?proto.proto.api.v1.BoardMotorStatusResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.MotorStatus>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.v1.BoardMotorStatusResponse>|undefined}
  *     The XHR Node Readable Stream
  */
 proto.proto.api.v1.RobotServiceClient.prototype.boardMotorStatus =
@@ -2702,7 +2702,7 @@ proto.proto.api.v1.RobotServiceClient.prototype.boardMotorStatus =
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.v1.MotorStatus>}
+ * @return {!Promise<!proto.proto.api.v1.BoardMotorStatusResponse>}
  *     Promise that resolves to the response
  */
 proto.proto.api.v1.RobotServicePromiseClient.prototype.boardMotorStatus =
