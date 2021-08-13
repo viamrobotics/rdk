@@ -12,9 +12,9 @@ import (
 
 func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
-	pt := r3.Vector{3., 4., 5.}                                                  // starting point
-	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1})          // transformation to do
-	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, 180) // same transformation from axis angle
+	pt := r3.Vector{3., 4., 5.}                                                      // starting point
+	tr := NewPose(r3.Vector{4., 2., 6.}, quat.Number{Real: 0, Imag: 1})              // transformation to do
+	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both defintions
 	test.That(t, tr.Transform().Real.Real, test.ShouldAlmostEqual, trAA.Transform().Real.Real)
 	test.That(t, tr.Transform().Real.Imag, test.ShouldAlmostEqual, trAA.Transform().Real.Imag)
@@ -24,25 +24,12 @@ func TestDualQuatTransform(t *testing.T) {
 	test.That(t, tr.Transform().Dual.Imag, test.ShouldAlmostEqual, trAA.Transform().Dual.Imag)
 	test.That(t, tr.Transform().Dual.Jmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Jmag)
 	test.That(t, tr.Transform().Dual.Kmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Kmag)
-	tr1 := Compose(tr.Translation(), tr.Rotation())        // transform as composition of rotation first, then translation
-	test.That(t, tr.Transform(), test.ShouldResemble, tr1) // Transform() also does rotation, then translation
 
 	expectedPoint := r3.Vector{7., -2., 1.}
-	transformedPoint, err := TransformPoint(tr.Transform(), pt)
-	test.That(t, err, test.ShouldBeNil)
+	transformedPoint := TransformPoint(tr.Transform(), pt)
 	test.That(t, transformedPoint.X, test.ShouldAlmostEqual, expectedPoint.X)
 	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
 	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
-
-	// Start with point [3, 4, 5] - displace by [4, 2, 6] and then rotate by 180 around the x axis.
-	tr2 := Compose(tr.Rotation(), tr.Translation()) // translation first, then rotation
-	expectedPoint2 := r3.Vector{7., -6., -11.}
-	transformedPoint2, err := TransformPoint(tr2, pt)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformedPoint2.X, test.ShouldAlmostEqual, expectedPoint2.X)
-	test.That(t, transformedPoint2.Y, test.ShouldAlmostEqual, expectedPoint2.Y)
-	test.That(t, transformedPoint2.Z, test.ShouldAlmostEqual, expectedPoint2.Z)
-
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -64,6 +51,34 @@ func TestSimpleFrameTranslation(t *testing.T) {
 	transformPoint1, err := fs.TransformPoint(pointWorld, fs.GetFrame("world"), fs.GetFrame("frame"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1, test.ShouldResemble, pointFrame)
+
+	// transform point from frame to world
+	transformPoint2, err := fs.TransformPoint(pointFrame, fs.GetFrame("frame"), fs.GetFrame("world"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
+}
+
+// A simple Frame translation from the world frame to a frame right above it at (0, 3, 0) rotated 180 around Z
+// And then back to the world frame
+// transforming a point at (1, 3, 0)
+func TestSimpleFrameTranslationWithRotation(t *testing.T) {
+	// build the system
+	sfs := NewEmptyStaticFrameSystem("test")
+	fs := FrameSystem(sfs)
+	frame := NewPoseFromAxisAngle(r3.Vector{0., 3., 0.}, r3.Vector{0., 0., 1.}, math.Pi)
+	err := fs.SetFrameFromPose("frame", fs.World(), frame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// do the transformation
+	pointWorld := r3.Vector{1., 3., 0.}  // the point from PoV of world
+	pointFrame := r3.Vector{-1., 0., 0.} // the point from PoV of frame
+
+	// transform point from world to frame
+	transformPoint1, err := fs.TransformPoint(pointWorld, fs.GetFrame("world"), fs.GetFrame("frame"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, pointFrame.X)
+	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, pointFrame.Y)
+	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, pointFrame.Z)
 
 	// transform point from frame to world
 	transformPoint2, err := fs.TransformPoint(pointFrame, fs.GetFrame("frame"), fs.GetFrame("world"))
@@ -145,7 +160,7 @@ func TestFrameTransform(t *testing.T) {
 	err = fs.SetFrameFromPoint("frame1", fs.GetFrame("frame3"), frame1)
 	test.That(t, err, test.ShouldBeNil)
 	// location of frame2 with respect to world frame
-	frame2 := NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, 90.)
+	frame2 := NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, math.Pi/2)
 	err = fs.SetFrameFromPose("frame2", fs.World(), frame2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -166,11 +181,11 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	fs := FrameSystem(sfs)
 
 	// frame 1 rotate by 45 degrees around z axis and translate
-	frame1 := NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, 45.)
+	frame1 := NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4)
 	err := fs.SetFrameFromPose("frame1", fs.World(), frame1)
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
-	frame2 := NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, 45.)
+	frame2 := NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4)
 	err = fs.SetFrameFromPose("frame2", fs.GetFrame("frame1"), frame2)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -185,7 +200,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	// test out transform between frames
 	// frame3 - pure rotation around y 90 degrees
-	frame3 := NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, 90.)
+	frame3 := NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2)
 	err = fs.SetFrameFromPose("frame3", fs.World(), frame3)
 	test.That(t, err, test.ShouldBeNil)
 

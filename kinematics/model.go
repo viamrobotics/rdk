@@ -121,11 +121,11 @@ func (m *Model) Transform(inputs []referenceframe.Input) *spatialmath.DualQuater
 func (m *Model) JointRadToQuat(radAngles []float64) *spatialmath.DualQuaternion {
 	quats := m.GetQuaternions(radAngles)
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	startPos := spatialmath.NewDualQuaternion()
+	transformations := spatialmath.NewDualQuaternion()
 	for _, quat := range quats {
-		startPos.Quat = startPos.Transformation(quat.Quat)
+		transformations.Number = transformations.Transformation(quat.Number)
 	}
-	return startPos
+	return transformations
 }
 
 // GetQuaternions returns the list of DualQuaternions which, when multiplied together in order, will yield the

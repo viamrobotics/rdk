@@ -129,7 +129,7 @@ func (sfs *staticFrameSystem) composeTransforms(frame Frame) *spatial.DualQuater
 	q := spatial.NewDualQuaternion() // empty initial dualquat
 	for frame.Parent() != nil {      // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		q.Quat = Compose(frame.Transform(zeroInput).Quat, q.Quat)
+		q = spatial.Compose(frame.Transform(zeroInput), q)
 		frame = frame.Parent()
 	}
 	return q
@@ -153,15 +153,12 @@ func (sfs *staticFrameSystem) TransformPoint(point r3.Vector, srcFrame, endFrame
 	// get source to world transform
 	fromSrcTransform := sfs.composeTransforms(srcFrame) // returns source to world transform
 	// get world to target transform
-	toTargetTransform := sfs.composeTransforms(endFrame)               // returns target to world transform
-	toTargetTransform.Quat = dualquat.ConjQuat(toTargetTransform.Quat) // ConjQuat for the inverse transform
+	toTargetTransform := sfs.composeTransforms(endFrame)                   // returns target to world transform
+	toTargetTransform.Number = dualquat.ConjQuat(toTargetTransform.Number) // ConjQuat for the inverse transform
 	// transform from source to world, world to target
-	fullTransform := Compose(toTargetTransform.Quat, fromSrcTransform.Quat)
+	fullTransform := spatial.Compose(toTargetTransform, fromSrcTransform)
 	// apply to the point position
-	transformedPoint, err := TransformPoint(fullTransform, point)
-	if err != nil {
-		return r3.Vector{}, err
-	}
+	transformedPoint := TransformPoint(fullTransform, point)
 	return transformedPoint, nil
 }
 

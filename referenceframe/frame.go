@@ -6,7 +6,6 @@ package referenceframe
 
 import (
 	spatial "go.viam.com/core/spatialmath"
-	"gonum.org/v1/gonum/num/dualquat"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
@@ -29,7 +28,7 @@ type Frame interface {
 type staticFrame struct {
 	name      string
 	parent    Frame
-	transform dualquat.Number
+	transform *spatial.DualQuaternion
 }
 
 // NewStaticFrame creates a frame given a parent, and a Pose relative to that parent. The Pose is fixed for all time.
@@ -64,7 +63,7 @@ func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
 	if len(inp) != sf.Dof() {
 		return nil
 	}
-	return &spatial.DualQuaternion{sf.transform}
+	return sf.transform
 }
 
 // Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.

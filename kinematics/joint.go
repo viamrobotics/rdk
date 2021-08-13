@@ -82,7 +82,7 @@ func (j *Joint) Transform(input []referenceframe.Input) *spatialmath.DualQuatern
 	for i := 0; i < j.Dof(); i++ {
 		rotation := j.rotAxis
 		rotation.Theta = input[i].Value
-		jQuat.Quat = jQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
+		jQuat.Number = jQuat.Transformation(dualquat.Number{Real: rotation.ToQuat()})
 	}
 	return jQuat
 }
