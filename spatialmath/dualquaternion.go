@@ -173,6 +173,11 @@ func (q *DualQuaternion) ToDeltaR3(other *DualQuaternion) []float64 {
 	return ret
 }
 
+// Invert returns a DualQuaternion representing the opposite transformation
+func (q *DualQuaternion) Invert() *DualQuaternion{
+	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
+}
+
 // Transformation multiplies the dual quat contained in this DualQuaternion by another dual quat.
 func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
