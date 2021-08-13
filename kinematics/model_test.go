@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"go.viam.com/core/utils"
 	"go.viam.com/core/referenceframe"
+	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -42,11 +42,11 @@ func TestJoint(t *testing.T) {
 
 	joints := m.Joints()
 	test.That(t, len(joints), test.ShouldEqual, 6)
-	firstJquat := joints[0].Transform([]referenceframe.Input{referenceframe.Input{0}}).Quat
+	firstJquat := joints[0].Transform([]referenceframe.Input{{0}}).Number
 	firstJquatExpect := dualquat.Number{quat.Number{1, 0, 0, 0}, quat.Number{0, 0, 0, 0}}
 	test.That(t, firstJquat, test.ShouldResemble, firstJquatExpect)
 
-	firstJangle := joints[0].Transform([]referenceframe.Input{referenceframe.Input{1.5708}}).Quat
+	firstJangle := joints[0].Transform([]referenceframe.Input{{1.5708}}).Number
 	firstJangleExpect := dualquat.Number{quat.Number{0.7071054825112365, 0, 0, 0.7071080798594737}, quat.Number{0, 0, 0, 0}}
 	test.That(t, firstJangle, test.ShouldResemble, firstJangleExpect)
 }
