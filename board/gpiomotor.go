@@ -69,8 +69,10 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 		realPWM = m.PWM
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
 		realPWM = m.B
+		powerPct = 1.0 - powerPct
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 		realPWM = m.A
+		powerPct = 1.0 - powerPct
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return errors.New("can't set power when no direction is set")
 	}
