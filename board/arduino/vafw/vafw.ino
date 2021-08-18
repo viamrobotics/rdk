@@ -316,10 +316,15 @@ int myAnalogRead(const char* name) {
             return analogRead(A4);
         case 5:
             return analogRead(A5);
+        #if defined(A6)
         case 6:
             return analogRead(A6);
+        #endif
+        #if defined(A7)
         case 7:
             return analogRead(A7);
+        #endif
+        #if defined(A8)
         case 8:
             return analogRead(A8);
         case 9:
@@ -328,14 +333,19 @@ int myAnalogRead(const char* name) {
             return analogRead(A10);
         case 11:
             return analogRead(A11);
+        #endif
+        #if defined(A12)
         case 12:
             return analogRead(A12);
         case 13:
             return analogRead(A13);
         case 14:
             return analogRead(A14);
+        #endif
+        #if defined(A15)
         case 15:
             return analogRead(A15);
+        #endif
     }
 
     return -1;
