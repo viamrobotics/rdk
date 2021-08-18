@@ -354,3 +354,20 @@ func Norm(q quat.Number) float64 {
 func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
+
+// equality test for all the float components of a quaternion
+func AlmostEqual(a, b quat.Number, tol float64) bool {
+	if math.Abs(a.Real-b.Real) > tol {
+		return false
+	}
+	if math.Abs(a.Imag-b.Imag) > tol {
+		return false
+	}
+	if math.Abs(a.Jmag-b.Jmag) > tol {
+		return false
+	}
+	if math.Abs(a.Kmag-b.Kmag) > tol {
+		return false
+	}
+	return true
+}

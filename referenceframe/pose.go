@@ -1,15 +1,10 @@
 package referenceframe
 
 import (
-	//~ "fmt"
-	"math"
-
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 )
 
 // OffsetBy takes two offsets and computes the final position.
@@ -58,13 +53,6 @@ func NewEmptyPose() Pose {
 	return &basicPose{spatial.NewDualQuaternion()}
 }
 
-// NewPose creates a pose directly from a position vector and an orientation quaternion.
-func NewPose(point r3.Vector, orientation quat.Number) Pose {
-	quat := &spatial.DualQuaternion{dualquat.Number{Real: orientation}}
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return &basicPose{quat}
-}
-
 // NewPoseFromAxisAngle takes in a positon, rotationAxis, and angle and returns a Pose.
 // angle is input in degrees.
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
@@ -73,7 +61,11 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 		return &basicPose{spatial.NewDualQuaternion()}
 	}
 	aa := spatial.R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
-	return NewPose(point, aa.ToQuat())
+	
+	quat := spatial.NewDualQuaternion()
+	quat.Real = aa.ToQuat()
+	quat.SetTranslation(point.X, point.Y, point.Z)
+	return &basicPose{quat}
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
@@ -96,31 +88,4 @@ func TransformPoint(transform *spatial.DualQuaternion, p r3.Vector) r3.Vector {
 
 	finalPose := basicPose{spatial.Compose(transform, pointQuat)}
 	return finalPose.Point()
-
-}
-
-// pointDualQuat puts the position of the object in a dual quaternion form for convenience (DO NOT USE FOR TRANSLATIONS)
-func pointDualQuat(point r3.Vector) dualquat.Number {
-	position := dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{Imag: point.X, Jmag: point.Y, Kmag: point.Z},
-	}
-	return position
-}
-
-// equality test for all the float components of a quaternion
-func almostEqual(a, b quat.Number, tol float64) bool {
-	if math.Abs(a.Real-b.Real) > tol {
-		return false
-	}
-	if math.Abs(a.Imag-b.Imag) > tol {
-		return false
-	}
-	if math.Abs(a.Jmag-b.Jmag) > tol {
-		return false
-	}
-	if math.Abs(a.Kmag-b.Kmag) > tol {
-		return false
-	}
-	return true
 }

@@ -89,13 +89,17 @@ func float64fromByte32(bytes []byte) float64 {
 	return float64(float)
 }
 
+func XArmModel() (kinematics.Model, error){
+	return kinematics.ParseJSON(xArm6modeljson)
+}
+
 // NewxArm6 returns a new xArm6 arm wrapped in a kinematics arm
 func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, error) {
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return &xArm6{}, err
 	}
-	model, err := kinematics.ParseJSON(xArm6modeljson)
+	model, err := XArmModel()
 	if err != nil {
 		return &xArm6{}, err
 	}
