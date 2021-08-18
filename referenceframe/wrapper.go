@@ -8,13 +8,13 @@ import (
 type FrameWrapper struct {
 	Frame
 	offset *spatialmath.DualQuaternion
-	parent string
+	parent Frame
 }
 
 // WrapFrame will take a frame and wrap it to have the given parent. Offset is not part of this constructor and must be
 // set separately with SetOffset(). The reason for this is to ensure that if no offset is specified, the identity
 // dual quaternion is used ((1,0,0,0),(0,0,0,0)) rather than someone passing in a spatialmath.DualQuaternion{}
-func WrapFrame(frame Frame, parent string) *FrameWrapper {
+func WrapFrame(frame, parent Frame) *FrameWrapper {
 	return &FrameWrapper{
 		Frame:  frame,
 		offset: spatialmath.NewDualQuaternion(),
@@ -22,13 +22,13 @@ func WrapFrame(frame Frame, parent string) *FrameWrapper {
 	}
 }
 
-// Transform returns the quaternion associated with the wrapped frame, transformed by the
+// Transform returns the quaternion associated with the wrapped frame, transformed by the offset
 func (f *FrameWrapper) Transform(input []Input) *spatialmath.DualQuaternion {
 	return &spatialmath.DualQuaternion{f.offset.Transformation(f.Frame.Transform(input).Number)}
 }
 
 // Parent will return the name of the next transform up the kinematics chain from this frame
-func (f *FrameWrapper) Parent() string {
+func (f *FrameWrapper) Parent() Frame {
 	return f.parent
 }
 

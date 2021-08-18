@@ -13,8 +13,6 @@ import (
 type FrameSystem interface {
 	World() Frame // return the base world frame
 	GetFrame(name string) Frame
-	SetFrameFromPose(name string, parent Frame, pose Pose) error
-	SetFrameFromPoint(name string, parent Frame, point r3.Vector) error
 	SetFrame(frame Frame) error
 	TransformPoint(point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 }

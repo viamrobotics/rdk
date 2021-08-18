@@ -53,48 +53,6 @@ func (dfs *dynamicFrameSystem) GetFrame(name string) Frame {
 	return dfs.frames[name]
 }
 
-// SetFrameFromPose adds an input staticFrame to the system given a parent and a pose.
-// It can only be added if the parent of the input frame already exists in the system,
-// and there is no frame with the input's name already.
-func (dfs *dynamicFrameSystem) SetFrameFromPose(name string, parent Frame, pose Pose) error {
-	if parent == nil {
-		return errors.New("parent frame is nil")
-	}
-	// check to see if parent is in system
-	if !dfs.frameExists(parent.Name()) {
-		return fmt.Errorf("parent frame with name %s not in FrameSystem", parent.Name())
-	}
-	// check if frame with that name is already in system
-	if dfs.frameExists(name) {
-		return fmt.Errorf("frame with name %s already in FrameSystem", name)
-	}
-	frame := NewStaticFrame(name, parent, pose)
-	dfs.frames[frame.Name()] = frame
-	dfs.positions[frame.Name()] = []Input{}
-	
-	return nil
-}
-
-// SetFrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
-func (dfs *dynamicFrameSystem) SetFrameFromPoint(name string, parent Frame, point r3.Vector) error {
-	if parent == nil {
-		return errors.New("parent frame is nil")
-	}
-	// check if frame with that name is already in system
-	if dfs.frameExists(name) {
-		return fmt.Errorf("frame with name %s already exists in FrameSystem", name)
-	}
-	// check to see if parent is in system
-	if !dfs.frameExists(parent.Name()) {
-		return fmt.Errorf("parent frame with name %s not in FrameSystem", parent.Name())
-	}
-	pose := NewPoseFromPoint(point)
-	staticFrame := NewStaticFrame(name, parent, pose)
-	dfs.frames[name] = staticFrame
-	dfs.positions[name] = []Input{}
-	return nil
-}
-
 // SetFrame sets an already defined Frame into the system. Will only accept it if the underlyic type is staticFrame
 func (dfs *dynamicFrameSystem) SetFrame(frame Frame) error {
 	if frame.Parent() == nil {

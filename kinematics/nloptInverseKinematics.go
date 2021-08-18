@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	//~ "fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -41,8 +42,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 10000
 	ik.iterations = 0
-	ik.lowerBound = mdl.MinimumJointLimits()
-	ik.upperBound = mdl.MaximumJointLimits()
+	ik.lowerBound, ik.upperBound = mdl.Limits()
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
