@@ -127,6 +127,28 @@ void processBuffer(Buffer* b) {
         return;
     }
 
+    if (const char* rest = isCommand(line, "motor-zero")) {
+        char name[255];
+        long offset;
+        int n = sscanf(rest, "%s %ld", name, &offset);
+        if (n != 2) {
+            b->print(n);
+            b->println("");
+            b->println("#error parsing motor-zero");
+            return;
+        }
+
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        m->encoder()->zero(offset);
+        b->println("@ok");
+        return;
+    }
+
     if (const char* name = isCommand(line, "motor-ison")) {
         Motor* m = findMotor(name);
         if (!m) {
@@ -168,6 +190,28 @@ void processBuffer(Buffer* b) {
             return;
         }
         m->goFor(ticksPerSecond, numTicks);
+        b->println("@ok");
+        return;
+    }
+
+    if (const char* rest = isCommand(line, "motor-goto")) {
+        char name[255];
+        long numTicks, ticksPerSecond;
+        int n = sscanf(rest, "%s %ld %ld", name, &numTicks, &ticksPerSecond);
+        if (n != 3) {
+            b->print(n);
+            b->println("");
+            b->println("#error parsing motor-goto");
+            return;
+        }
+
+        Motor* m = findMotor(name);
+        if (!m) {
+            b->println(name);
+            b->println("#couldn't find motor");
+            return;
+        }
+        m->goTo(ticksPerSecond, numTicks);
         b->println("@ok");
         return;
     }

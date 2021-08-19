@@ -50,6 +50,10 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
     _lastRPMCheck = millis();
     _lastRPMEncoderCount = currentPosition;
 
+    goTo(ticksPerSecond, ticks + currentPosition);
+}
+
+void Motor::goTo(long ticksPerSecond, long ticks) {
     setPower(16);
 
     if (ticks > 0) {
@@ -63,9 +67,10 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
     }
 
     _ticksPerSecond = ticksPerSecond;
-    _goal = currentPosition + ticks;
+    _goal = ticks;
     _regulated = true;
 }
+
 
 void Motor::checkEncoder(long unsigned int now) {
     if (!_regulated) {
