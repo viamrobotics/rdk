@@ -25,6 +25,7 @@ func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
 // Resource for dual quaternion math: https://cs.gmu.edu/~jmlien/teaching/cs451/uploads/Main/dual-quaternion.pdf
 type Pose interface {
 	Point() r3.Vector
+	Orientation() *spatial.OrientationVec
 	Transform() *spatial.DualQuaternion // does a rotation first, then a translation
 }
 
@@ -41,6 +42,11 @@ type basicPose struct {
 func (bp *basicPose) Point() r3.Vector {
 	xyz := bp.Translation().Dual
 	return r3.Vector{xyz.Imag, xyz.Jmag, xyz.Kmag}
+}
+
+// Orientation returns the orientation of the object as an orientation vector
+func (bp *basicPose) Orientation() *spatial.OrientationVec {
+	return spatial.QuatToOV(bp.Real)
 }
 
 // Transform returns the transform of the object as a dual quaternion, which is equivalent to a rotation, then translation.
@@ -79,13 +85,4 @@ func NewPoseFromPoint(point r3.Vector) Pose {
 // NewPoseFromTransform splits a dual quaternion into a position vector and a orientation quaternion.
 func NewPoseFromTransform(dq *spatial.DualQuaternion) Pose {
 	return &basicPose{dq}
-}
-
-// TransformPoint applies a rotation and translation to a 3D point using a dual quaternion
-func TransformPoint(transform *spatial.DualQuaternion, p r3.Vector) r3.Vector {
-	pointQuat := spatial.NewDualQuaternion()
-	pointQuat.SetTranslation(p.X, p.Y, p.Z)
-
-	finalPose := basicPose{spatial.Compose(transform, pointQuat)}
-	return finalPose.Point()
 }

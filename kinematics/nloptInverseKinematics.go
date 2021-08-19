@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"math/rand"
-	//~ "fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/go-errors/errors"
@@ -228,11 +227,6 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 // SetSeed sets the random seed of this solver
 func (ik *NloptIK) SetSeed(seed int64) {
 	ik.randSeed = rand.New(rand.NewSource(seed))
-}
-
-// Mdl returns the model associated with this IK.
-func (ik *NloptIK) Mdl() *Model {
-	return ik.model
 }
 
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings

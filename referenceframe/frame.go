@@ -6,6 +6,8 @@ package referenceframe
 
 import (
 	spatial "go.viam.com/core/spatialmath"
+
+	"github.com/golang/geo/r3"
 )
 
 // Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
@@ -36,7 +38,7 @@ type Frame interface {
 type staticFrame struct {
 	name      string
 	parent    Frame
-	transform *spatial.DualQuaternion
+	transform Pose
 }
 
 // NewStaticFrame creates a frame given a parent, and a Pose relative to that parent. The Pose is fixed for all time.
@@ -45,7 +47,14 @@ func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
 	if pose == nil {
 		pose = NewEmptyPose()
 	}
-	return &staticFrame{name, parent, pose.Transform()}
+	return &staticFrame{name, parent, pose}
+}
+
+// FrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
+func FrameFromPoint(name string, parent Frame, point r3.Vector) Frame {
+	pose := NewPoseFromPoint(point)
+	frame := NewStaticFrame(name, parent, pose)
+	return frame
 }
 
 // Name is the name of the frame.
@@ -63,7 +72,7 @@ func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
 	if len(inp) != sf.Dof() {
 		return nil
 	}
-	return sf.transform
+	return sf.transform.Transform()
 }
 
 // Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.
