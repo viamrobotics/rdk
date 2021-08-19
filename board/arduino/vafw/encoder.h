@@ -9,6 +9,7 @@ class HallEncoder {
     HallEncoder();
 
     void encoderTick(bool a);
+    void zero(long offset);
 
     EncoderCount position() const { return _position; }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +16,8 @@ import (
 
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
+
+	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
 	pb "go.viam.com/core/proto/api/v1"
@@ -351,7 +354,8 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 }
 
 func (e *encoder) Zero(ctx context.Context, offset int64) error {
-	return errors.New("not supported")
+	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.cfg.Name, offset))
+	return err
 }
 
 type motor struct {
@@ -450,11 +454,44 @@ func (m *motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 }
 
 func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	return errors.New("not supported")
+	origPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Off(ctx); err != nil {
+			m.b.logger.Error("failed to turn off motor")
+		}
+	}()
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		curPos, err := m.Position(ctx)
+		if err != nil {
+			return err
+		}
+
+		if math.Abs(origPos-curPos) < 0.1 {
+			return nil
+		}
+
+		if fails >= 100 {
+			return errors.New("timed out during GoTillStop")
+		}
+		fails++
+	}
 }
 
 func (m *motor) Zero(ctx context.Context, offset float64) error {
-	return errors.New("not supported")
+	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.cfg.Name, offsetTicks))
+	return err
 }
 
 type analogReader struct {
