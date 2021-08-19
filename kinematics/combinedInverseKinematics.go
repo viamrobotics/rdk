@@ -87,8 +87,3 @@ func (ik *CombinedIK) Solve(ctx context.Context, pos *pb.ArmPosition, seed *pb.J
 	activeSolvers.Wait()
 	return myRT.Result, myRT.Err
 }
-
-// Mdl returns the model associated with this IK.
-func (ik *CombinedIK) Mdl() *Model {
-	return ik.model
-}

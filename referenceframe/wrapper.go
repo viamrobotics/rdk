@@ -4,7 +4,7 @@ import (
 	"go.viam.com/core/spatialmath"
 )
 
-// A FrameWrapper will wrap a Frame, allowing a new Parent to be set
+// A FrameWrapper will wrap a single Frame, allowing a new Parent to be set
 type FrameWrapper struct {
 	Frame
 	offset *spatialmath.DualQuaternion
@@ -32,7 +32,33 @@ func (f *FrameWrapper) Parent() Frame {
 	return f.parent
 }
 
-// Dof returns the dof of the wrapped frame
+// SetOffset sets the offset of the wrapped frame
 func (f *FrameWrapper) SetOffset(offset *spatialmath.DualQuaternion) {
 	f.offset = offset
 }
+
+//~ // A FrameSetWrapper will wrap any number of frames, allowing multiple dynamic frames to be combined into one for IK.
+//~ // The frames wrapped MUST be a single, unbranched chain.
+//~ type FrameSetWrapper struct {
+	//~ frames []Frame
+	//~ parent Frame
+	
+//~ }
+
+//~ // WrapFrameSet will wrap up the given frames with the 
+//~ func WrapFrameSet(parent Frame, frames ...Frame) (*FrameSetWrapper, error) {
+	//~ return &FrameSetWrapper{
+		//~ frames:  frames,
+		//~ parent: parent,
+	//~ }, nil
+//~ }
+
+//~ // Transform returns the quaternion associated with the wrapped frame, transformed by the offset
+//~ func (f *FrameSetWrapper) Transform(input []Input) *spatialmath.DualQuaternion {
+	//~ return &f.Frame.Transform(input)
+//~ }
+
+//~ // Parent will return the name of the next transform up the kinematics chain from this frame
+//~ func (f *FrameSetWrapper) Parent() Frame {
+	//~ return f.parent
+//~ }
