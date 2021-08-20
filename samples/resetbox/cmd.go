@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"flag"
+	"math"
 	"sync"
 	"time"
 
@@ -95,15 +96,15 @@ func (a *LinearAxis) GoFor(ctx context.Context, d pb.DirectionRelative, speed fl
 	return errs
 }
 
-// Home simultaneously homes all motors on an axis
-func (a *LinearAxis) Home(ctx context.Context, d pb.DirectionRelative, speed float64) error {
+// GoTillStop simultaneously homes all motors on an axis
+func (a *LinearAxis) GoTillStop(ctx context.Context, d pb.DirectionRelative, speed float64) error {
 	var homeWorkers sync.WaitGroup
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
 		go func(motor board.Motor) {
 			defer homeWorkers.Done()
-			multierr.AppendInto(&errs, motor.Home(ctx, d, speed*60/a.mmPerRev))
+			multierr.AppendInto(&errs, motor.GoTillStop(ctx, d, speed*60/a.mmPerRev))
 		}(m)
 	}
 	homeWorkers.Wait()
@@ -118,14 +119,42 @@ func (a *LinearAxis) Off(ctx context.Context) error {
 	return errs
 }
 
-func (a *LinearAxis) PositionReached(ctx context.Context) (bool, error) {
+func (a *LinearAxis) Zero(ctx context.Context, offset float64) error {
+	var errs error
 	for _, m := range a.m {
-		if ok, _ := m.PositionReached(ctx); !ok {
-			return false, nil
+		multierr.AppendInto(&errs, m.Zero(ctx, offset))
+	}
+	return errs
+}
+
+
+func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
+	pos, err := a.m[0].Position(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return pos*a.mmPerRev, nil
+}
+
+func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
+	var errs error
+	for _, m := range a.m {
+		on, err := m.IsOn(ctx)
+		multierr.AppendInto(&errs, err)
+		if on {
+			return true, errs
 		}
 	}
-	return true, nil
+	return false, errs
 }
+
+type Positional interface {
+	Position(ctx context.Context) (float64, error)
+	IsOn(ctx context.Context) (bool, error)
+}
+
+
+
 
 type ResetBox struct {
 	logger        golog.Logger
@@ -171,6 +200,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		return nil, errors.New("Can't find motor named: hammer")
 	}
 	b.hammer = hammer
+
 	return b, nil
 }
 
@@ -223,6 +253,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer box.Close()
 
+	box.home(ctx, myRobot)
+
 	action.RegisterAction("Home", box.home)
 	action.RegisterAction("Vibrate", box.vibrateToggle)
 	action.RegisterAction("TipUp", box.tipTableUp)
@@ -246,11 +278,19 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
+	b.logger.Info("homing")
 	errs := multierr.Combine(
-		b.gate.Home(ctx, backward, 20),
-		b.squeeze.Home(ctx, backward, 20),
-		b.elevator.Home(ctx, backward, 200),
-		b.hammer.Home(ctx, backward, 200),
+		b.gate.GoTillStop(ctx, backward, 20),
+		b.squeeze.GoTillStop(ctx, backward, 20),
+		b.elevator.GoTillStop(ctx, backward, 200),
+		b.hammer.GoTillStop(ctx, backward, 200),
+	)
+
+	errs = multierr.Combine(
+		b.gate.Zero(ctx, 0),
+		b.squeeze.Zero(ctx, 0),
+		b.elevator.Zero(ctx, 0),
+		b.hammer.Zero(ctx, 0),
 	)
 
 	if errs != nil {
@@ -265,8 +305,8 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, hammerOffset*hammerRatio),
 	)
 
-	b.waitFor(ctx, b.hammer.PositionReached)
-	errs = multierr.Append(errs, b.hammer.Zero(ctx))
+	b.waitPosReached(ctx, b.hammer, hammerOffset*hammerRatio)
+	errs = multierr.Append(errs, b.hammer.Zero(ctx, 0))
 
 	if errs != nil {
 		b.logger.Error(errs)
@@ -300,25 +340,42 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
-func sleep(ctx context.Context, millis time.Duration) {
-	select {
-	case <-ctx.Done():
-	case <-time.After(millis * time.Millisecond):
+func (b *ResetBox) waitPosReached(ctx context.Context, motor Positional, target float64) error {
+	var i int
+	for {
+		pos, err := motor.Position(ctx)
+		if err != nil {
+			return err
+		}
+		on, err := motor.IsOn(ctx)
+		if err != nil {
+			return err
+		}
+		if math.Abs(pos - target) < 1.0 && !on {
+			return nil
+		}
+		if i > 100 {
+			return errors.New("timed out waiting for position")
+		}
+		utils.SelectContextOrWait(ctx, 100 * time.Millisecond)
+		i++
 	}
 }
 
 func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, error)) error {
+	var i int
 	for {
-		select {
-		case <-ctx.Done():
-			return errors.New("Context cancelled while waiting")
-		case <-time.After(100 * time.Millisecond):
-		}
 		if ok, _ := f(ctx); ok {
 			return nil
 		}
+		if i > 100 {
+			return errors.New("timed out waiting")
+		}
+		utils.SelectContextOrWait(ctx, 100 * time.Millisecond)
+		i++
 	}
 }
+
 
 func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 
@@ -329,7 +386,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	// Go mostly up
 	b.board.GPIOSet(tipPinA, true)
 	b.board.GPIOSet(tipPinB, false)
-	sleep(ctx, 10000)
+	utils.SelectContextOrWait(ctx, 10000 * time.Millisecond)
 
 	//All off
 	b.board.GPIOSet(tipPinA, true)
@@ -341,7 +398,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(tipPinA, false)
 	b.board.GPIOSet(tipPinB, true)
-	sleep(ctx, 10000)
+	utils.SelectContextOrWait(ctx, 10000 * time.Millisecond)
 
 	//All Off
 	b.board.GPIOSet(tipPinA, true)
@@ -364,8 +421,8 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 		if err != nil {
 			return err
 		}
-		b.waitFor(ctx, b.hammer.PositionReached)
-		sleep(ctx, 500)
+		b.waitPosReached(ctx, b.hammer, (i+0.2)*hammerRatio)
+		utils.SelectContextOrWait(ctx, 500 * time.Millisecond)
 	}
 
 	// Raise Hammer
@@ -373,10 +430,10 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	if err != nil {
 		return err
 	}
-	b.waitFor(ctx, b.hammer.PositionReached)
+	b.waitPosReached(ctx, b.hammer, float64(count)*hammerRatio)
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
-	err = b.hammer.Zero(ctx)
+	err = b.hammer.Zero(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -393,7 +450,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
 
 	// Wait for elevator down
-	b.waitFor(ctx, b.elevator.PositionReached)
+	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
 	b.setSqueeze(ctx, squeezeCubePass)
 
 	// WAIT ROBOT for tip command
@@ -406,7 +463,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.hammerTime(ctx, cubeWhacks)
 
 	// Wait for hammer + 4 seconds
-	sleep(ctx, 4000)
+	utils.SelectContextOrWait(ctx, 4000 * time.Millisecond)
 
 	// Cubes in, going up
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
@@ -415,25 +472,25 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.hammerTime(ctx, duckWhacks)
 
 	// Cubes at top
-	b.waitFor(ctx, b.elevator.PositionReached)
+	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 	b.waitFor(ctx, b.isTableDown)
 	// WAIT ROBOT
 
 	// Back down for duck
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
-	b.waitFor(ctx, b.elevator.PositionReached)
+	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
 
 	// Open to load duck
 	b.gate.GoTo(ctx, gateSpeed, gateOpen)
 	b.setSqueeze(ctx, squeezeOpen)
-	sleep(ctx, 8000)
+	utils.SelectContextOrWait(ctx, 8000 * time.Millisecond)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
 	b.setSqueeze(ctx, squeezeClosed)
-	b.waitFor(ctx, b.squeeze.PositionReached)
+	b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth - squeezeClosed) / 2)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
-	b.waitFor(ctx, b.elevator.PositionReached)
+	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 
 	// WAIT ROBOT
 

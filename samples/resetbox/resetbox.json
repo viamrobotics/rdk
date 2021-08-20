@@ -17,7 +17,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 450,
-          "max_accel": 400,
+          "max_acceleration": 400,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "36",
@@ -31,7 +31,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 450,
-          "max_accel": 400,
+          "max_acceleration": 400,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "36",
@@ -45,7 +45,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 450,
-          "max_accel": 400,
+          "max_acceleration": 400,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "38",
@@ -59,7 +59,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 450,
-          "max_accel": 400,
+          "max_acceleration": 400,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "38",
@@ -73,7 +73,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 450,
-          "max_accel": 400,
+          "max_acceleration": 400,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "40",
@@ -87,7 +87,7 @@
           "model": "TMC5072",
           "ticksPerRotation": 200,
           "max_velocity": 300,
-          "max_accel": 300,
+          "max_acceleration": 300,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "40",
