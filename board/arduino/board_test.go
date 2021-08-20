@@ -62,4 +62,20 @@ func TestArduino(t *testing.T) {
 		test.That(t, pos-startPos, test.ShouldBeGreaterThan, 1)
 	})
 
+	err = m.Zero(ctx, 5.0)
+	test.That(t, err, test.ShouldBeNil)
+
+	pos, err := m.Position(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos-startPos, test.ShouldEqual, 5.0)
+
+	err = m.GoTo(ctx, 50, 0.5)
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos-startPos, test.ShouldBeLessThan, 1)
+	})
+
 }
