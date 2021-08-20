@@ -209,6 +209,13 @@ service RobotService {
 
 	// Motor
 
+	// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
+	rpc BoardMotorPower(BoardMotorPowerRequest) returns (BoardMotorPowerResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/power"
+		};
+	}
+
 	// BoardMotorGo requests the motor of a board of the underlying robot to go.
 	rpc BoardMotorGo(BoardMotorGoRequest) returns (BoardMotorGoResponse) {
 		option (google.api.http) = {
@@ -221,6 +228,41 @@ service RobotService {
 	rpc BoardMotorGoFor(BoardMotorGoForRequest) returns (BoardMotorGoForResponse) {
 		option (google.api.http) = {
 			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_for"
+		};
+	}
+
+	// BoardMotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+	rpc BoardMotorGoTo(BoardMotorGoToRequest) returns (BoardMotorGoToResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_to"
+		};
+	}
+
+	// BoardMotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+	rpc BoardMotorGoTillStop(BoardMotorGoTillStopRequest) returns (BoardMotorGoTillStopResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_till_stop"
+		};
+	}
+
+	// BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+	rpc BoardMotorZero(BoardMotorZeroRequest) returns (BoardMotorZeroResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/zero"
+		};
+	}
+
+	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
+	rpc BoardMotorOff(BoardMotorOffRequest) returns (BoardMotorOffResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/off"
+		};
+	}
+
+	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
+	rpc BoardMotorStatus(BoardMotorStatusRequest) returns (BoardMotorStatusResponse) {
+		option (google.api.http) = {
+			put: "/api/v1/board/{board_name}/motor/{motor_name}/status"
 		};
 	}
 
@@ -584,6 +626,23 @@ message BoardStatusResponse {
 
 // Motor
 
+message BoardMotorStatusRequest {
+	string board_name = 1;
+	string motor_name = 2;
+}
+
+message BoardMotorStatusResponse {
+	MotorStatus status = 1;
+}
+
+message BoardMotorPowerRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	float power_pct = 3;
+}
+
+message BoardMotorPowerResponse {}
+
 message BoardMotorGoRequest {
 	string board_name = 1;
 	string motor_name = 2;
@@ -602,6 +661,40 @@ message BoardMotorGoForRequest {
 }
 
 message BoardMotorGoForResponse {}
+
+message BoardMotorGoToRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	double rpm = 3;
+	double position = 4;
+}
+
+message BoardMotorGoToResponse {}
+
+message BoardMotorGoTillStopRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	DirectionRelative direction = 3;
+	double rpm = 4;
+}
+
+message BoardMotorGoTillStopResponse {}
+
+message BoardMotorZeroRequest {
+	string board_name = 1;
+	string motor_name = 2;
+	double offset = 3;
+}
+
+message BoardMotorZeroResponse {}
+
+message BoardMotorOffRequest {
+	string board_name = 1;
+	string motor_name = 2;
+}
+
+message BoardMotorOffResponse {}
+
 
 // Servo
 

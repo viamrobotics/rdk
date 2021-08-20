@@ -1452,6 +1452,96 @@ export namespace BoardStatusResponse {
   }
 }
 
+export class BoardMotorStatusRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorStatusRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorStatusRequest): BoardMotorStatusRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorStatusRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorStatusRequest;
+  static deserializeBinaryFromReader(message: BoardMotorStatusRequest, reader: jspb.BinaryReader): BoardMotorStatusRequest;
+}
+
+export namespace BoardMotorStatusRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+  }
+}
+
+export class BoardMotorStatusResponse extends jspb.Message {
+  hasStatus(): boolean;
+  clearStatus(): void;
+  getStatus(): MotorStatus | undefined;
+  setStatus(value?: MotorStatus): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorStatusResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorStatusResponse): BoardMotorStatusResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorStatusResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorStatusResponse;
+  static deserializeBinaryFromReader(message: BoardMotorStatusResponse, reader: jspb.BinaryReader): BoardMotorStatusResponse;
+}
+
+export namespace BoardMotorStatusResponse {
+  export type AsObject = {
+    status?: MotorStatus.AsObject,
+  }
+}
+
+export class BoardMotorPowerRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  getPowerPct(): number;
+  setPowerPct(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorPowerRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorPowerRequest): BoardMotorPowerRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorPowerRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorPowerRequest;
+  static deserializeBinaryFromReader(message: BoardMotorPowerRequest, reader: jspb.BinaryReader): BoardMotorPowerRequest;
+}
+
+export namespace BoardMotorPowerRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+    powerPct: number,
+  }
+}
+
+export class BoardMotorPowerResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorPowerResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorPowerResponse): BoardMotorPowerResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorPowerResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorPowerResponse;
+  static deserializeBinaryFromReader(message: BoardMotorPowerResponse, reader: jspb.BinaryReader): BoardMotorPowerResponse;
+}
+
+export namespace BoardMotorPowerResponse {
+  export type AsObject = {
+  }
+}
+
 export class BoardMotorGoRequest extends jspb.Message {
   getBoardName(): string;
   setBoardName(value: string): void;
@@ -1548,6 +1638,186 @@ export class BoardMotorGoForResponse extends jspb.Message {
 }
 
 export namespace BoardMotorGoForResponse {
+  export type AsObject = {
+  }
+}
+
+export class BoardMotorGoToRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  getRpm(): number;
+  setRpm(value: number): void;
+
+  getPosition(): number;
+  setPosition(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorGoToRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorGoToRequest): BoardMotorGoToRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorGoToRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorGoToRequest;
+  static deserializeBinaryFromReader(message: BoardMotorGoToRequest, reader: jspb.BinaryReader): BoardMotorGoToRequest;
+}
+
+export namespace BoardMotorGoToRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+    rpm: number,
+    position: number,
+  }
+}
+
+export class BoardMotorGoToResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorGoToResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorGoToResponse): BoardMotorGoToResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorGoToResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorGoToResponse;
+  static deserializeBinaryFromReader(message: BoardMotorGoToResponse, reader: jspb.BinaryReader): BoardMotorGoToResponse;
+}
+
+export namespace BoardMotorGoToResponse {
+  export type AsObject = {
+  }
+}
+
+export class BoardMotorGoTillStopRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  getDirection(): DirectionRelativeMap[keyof DirectionRelativeMap];
+  setDirection(value: DirectionRelativeMap[keyof DirectionRelativeMap]): void;
+
+  getRpm(): number;
+  setRpm(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorGoTillStopRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorGoTillStopRequest): BoardMotorGoTillStopRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorGoTillStopRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorGoTillStopRequest;
+  static deserializeBinaryFromReader(message: BoardMotorGoTillStopRequest, reader: jspb.BinaryReader): BoardMotorGoTillStopRequest;
+}
+
+export namespace BoardMotorGoTillStopRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+    direction: DirectionRelativeMap[keyof DirectionRelativeMap],
+    rpm: number,
+  }
+}
+
+export class BoardMotorGoTillStopResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorGoTillStopResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorGoTillStopResponse): BoardMotorGoTillStopResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorGoTillStopResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorGoTillStopResponse;
+  static deserializeBinaryFromReader(message: BoardMotorGoTillStopResponse, reader: jspb.BinaryReader): BoardMotorGoTillStopResponse;
+}
+
+export namespace BoardMotorGoTillStopResponse {
+  export type AsObject = {
+  }
+}
+
+export class BoardMotorZeroRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  getOffset(): number;
+  setOffset(value: number): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorZeroRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorZeroRequest): BoardMotorZeroRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorZeroRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorZeroRequest;
+  static deserializeBinaryFromReader(message: BoardMotorZeroRequest, reader: jspb.BinaryReader): BoardMotorZeroRequest;
+}
+
+export namespace BoardMotorZeroRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+    offset: number,
+  }
+}
+
+export class BoardMotorZeroResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorZeroResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorZeroResponse): BoardMotorZeroResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorZeroResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorZeroResponse;
+  static deserializeBinaryFromReader(message: BoardMotorZeroResponse, reader: jspb.BinaryReader): BoardMotorZeroResponse;
+}
+
+export namespace BoardMotorZeroResponse {
+  export type AsObject = {
+  }
+}
+
+export class BoardMotorOffRequest extends jspb.Message {
+  getBoardName(): string;
+  setBoardName(value: string): void;
+
+  getMotorName(): string;
+  setMotorName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorOffRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorOffRequest): BoardMotorOffRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorOffRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorOffRequest;
+  static deserializeBinaryFromReader(message: BoardMotorOffRequest, reader: jspb.BinaryReader): BoardMotorOffRequest;
+}
+
+export namespace BoardMotorOffRequest {
+  export type AsObject = {
+    boardName: string,
+    motorName: string,
+  }
+}
+
+export class BoardMotorOffResponse extends jspb.Message {
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardMotorOffResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardMotorOffResponse): BoardMotorOffResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardMotorOffResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardMotorOffResponse;
+  static deserializeBinaryFromReader(message: BoardMotorOffResponse, reader: jspb.BinaryReader): BoardMotorOffResponse;
+}
+
+export namespace BoardMotorOffResponse {
   export type AsObject = {
   }
 }

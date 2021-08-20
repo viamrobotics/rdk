@@ -263,6 +263,54 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.v1.BoardMotorGoTillStopRequest"><span class="badge">M</span>BoardMotorGoTillStopRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorGoTillStopResponse"><span class="badge">M</span>BoardMotorGoTillStopResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorGoToRequest"><span class="badge">M</span>BoardMotorGoToRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorGoToResponse"><span class="badge">M</span>BoardMotorGoToResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorOffRequest"><span class="badge">M</span>BoardMotorOffRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorOffResponse"><span class="badge">M</span>BoardMotorOffResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorPowerRequest"><span class="badge">M</span>BoardMotorPowerRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorPowerResponse"><span class="badge">M</span>BoardMotorPowerResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorStatusRequest"><span class="badge">M</span>BoardMotorStatusRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorStatusResponse"><span class="badge">M</span>BoardMotorStatusResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorZeroRequest"><span class="badge">M</span>BoardMotorZeroRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.v1.BoardMotorZeroResponse"><span class="badge">M</span>BoardMotorZeroResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.v1.BoardServoMoveRequest"><span class="badge">M</span>BoardServoMoveRequest</a>
                 </li>
               
@@ -1305,6 +1353,293 @@ Theta in pb.ArmPosition should be degrees. It will be converted to radians in th
         
       
         <h3 id="proto.api.v1.BoardMotorGoResponse">BoardMotorGoResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorGoTillStopRequest">BoardMotorGoTillStopRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>direction</td>
+                  <td><a href="#proto.api.v1.DirectionRelative">DirectionRelative</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>rpm</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorGoTillStopResponse">BoardMotorGoTillStopResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorGoToRequest">BoardMotorGoToRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>rpm</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>position</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorGoToResponse">BoardMotorGoToResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorOffRequest">BoardMotorOffRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorOffResponse">BoardMotorOffResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorPowerRequest">BoardMotorPowerRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>power_pct</td>
+                  <td><a href="#float">float</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorPowerResponse">BoardMotorPowerResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorStatusRequest">BoardMotorStatusRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorStatusResponse">BoardMotorStatusResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#proto.api.v1.MotorStatus">MotorStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorZeroRequest">BoardMotorZeroRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>motor_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>offset</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardMotorZeroResponse">BoardMotorZeroResponse</h3>
         <p></p>
 
         
@@ -3342,6 +3677,13 @@ A specific MIME type can be requested but may not necessarily be the same one re
               </tr>
             
               <tr>
+                <td>BoardMotorPower</td>
+                <td><a href="#proto.api.v1.BoardMotorPowerRequest">BoardMotorPowerRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorPowerResponse">BoardMotorPowerResponse</a></td>
+                <td><p>BoardMotorPower requests the motor of a board of the underlying robot to set its power.</p></td>
+              </tr>
+            
+              <tr>
                 <td>BoardMotorGo</td>
                 <td><a href="#proto.api.v1.BoardMotorGoRequest">BoardMotorGoRequest</a></td>
                 <td><a href="#proto.api.v1.BoardMotorGoResponse">BoardMotorGoResponse</a></td>
@@ -3354,6 +3696,41 @@ A specific MIME type can be requested but may not necessarily be the same one re
                 <td><a href="#proto.api.v1.BoardMotorGoForResponse">BoardMotorGoForResponse</a></td>
                 <td><p>BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
 the request.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardMotorGoTo</td>
+                <td><a href="#proto.api.v1.BoardMotorGoToRequest">BoardMotorGoToRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorGoToResponse">BoardMotorGoToResponse</a></td>
+                <td><p>BoardMotorGoTo requests the motor of a board of the underlying robot to move to a specific position.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardMotorGoTillStop</td>
+                <td><a href="#proto.api.v1.BoardMotorGoTillStopRequest">BoardMotorGoTillStopRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorGoTillStopResponse">BoardMotorGoTillStopResponse</a></td>
+                <td><p>BoardMotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardMotorZero</td>
+                <td><a href="#proto.api.v1.BoardMotorZeroRequest">BoardMotorZeroRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorZeroResponse">BoardMotorZeroResponse</a></td>
+                <td><p>BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardMotorOff</td>
+                <td><a href="#proto.api.v1.BoardMotorOffRequest">BoardMotorOffRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorOffResponse">BoardMotorOffResponse</a></td>
+                <td><p>BoardMotorOff requests the motor of a board of the underlying robot to to turn off.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardMotorStatus</td>
+                <td><a href="#proto.api.v1.BoardMotorStatusRequest">BoardMotorStatusRequest</a></td>
+                <td><a href="#proto.api.v1.BoardMotorStatusResponse">BoardMotorStatusResponse</a></td>
+                <td><p>BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.</p></td>
               </tr>
             
               <tr>
@@ -3669,6 +4046,16 @@ the request.</p></td>
               
               
               <tr>
+                <td>BoardMotorPower</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/power</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
                 <td>BoardMotorGo</td>
                 <td>PUT</td>
                 <td>/api/v1/board/{board_name}/motor/{motor_name}/go</td>
@@ -3682,6 +4069,56 @@ the request.</p></td>
                 <td>BoardMotorGoFor</td>
                 <td>PUT</td>
                 <td>/api/v1/board/{board_name}/motor/{motor_name}/go_for</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardMotorGoTo</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/go_to</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardMotorGoTillStop</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/go_till_stop</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardMotorZero</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/zero</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardMotorOff</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/off</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>BoardMotorStatus</td>
+                <td>PUT</td>
+                <td>/api/v1/board/{board_name}/motor/{motor_name}/status</td>
                 <td></td>
               </tr>
               

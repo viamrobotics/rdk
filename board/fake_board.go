@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -36,21 +35,28 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 
 // A fakeSPI allows opening an SPIHandle.
 type fakeSPI struct {
+	mu   sync.Mutex
+	fifo chan []byte
 }
 
 func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
-	return &fakeSPIHandle{}, nil
+	s.mu.Lock()
+	return &fakeSPIHandle{s}, nil
 }
 
 // A fakeSPIHandle allows Xfer and Close.
 type fakeSPIHandle struct {
+	bus *fakeSPI
 }
 
 func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-	return nil, errors.New("SPI Xfer not supported on FakeBoard")
+	h.bus.fifo <- tx
+	ret := <-h.bus.fifo
+	return ret[:len(tx)], nil
 }
 
 func (h *fakeSPIHandle) Close() error {
+	h.bus.mu.Unlock()
 	return nil
 }
 

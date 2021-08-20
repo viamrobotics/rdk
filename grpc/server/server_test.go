@@ -741,6 +741,45 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, 4.5})
+
+		injectMotor.GoToFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+			capArgs = []interface{}{rpm, revolutions}
+			return nil
+		}
+		_, err = server.BoardMotorGoTo(context.Background(), &pb.BoardMotorGoToRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+			Rpm:       2.3,
+			Position:  4.5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
+
+		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+			capArgs = []interface{}{d, rpm}
+			return nil
+		}
+		_, err = server.BoardMotorGoTillStop(context.Background(), &pb.BoardMotorGoTillStopRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+			Direction: pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD,
+			Rpm:       2.3,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3})
+
+		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
+			capArgs = []interface{}{offset}
+			return nil
+		}
+		_, err = server.BoardMotorZero(context.Background(), &pb.BoardMotorZeroRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+			Offset:    5.5,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{5.5})
+
 	})
 
 	t.Run("BoardServoMove", func(t *testing.T) {

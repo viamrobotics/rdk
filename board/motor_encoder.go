@@ -504,17 +504,43 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, position float64) 
 	return m.GoFor(ctx, dir, rpm, target)
 }
 
-// Home is not supported
-func (m *encodedMotor) Home(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	return errors.New("not supported")
+// GoTillStop moves until physically stopped (though with a ten second timeout)
+func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	origPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Off(ctx); err != nil {
+			m.logger.Error("failed to turn off motor")
+		}
+	}()
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		curPos, err := m.Position(ctx)
+		if err != nil {
+			return err
+		}
+
+		if math.Abs(origPos-curPos) < 0.1 {
+			return nil
+		}
+
+		if fails >= 100 {
+			return errors.New("timed out during GoTillStop")
+		}
+		fails++
+	}
 }
 
 // Zero resets the position to zero/home
-func (m *encodedMotor) Zero(ctx context.Context) error {
-	return m.encoder.Zero(ctx)
-}
-
-// PositionReached is not supported
-func (m *encodedMotor) PositionReached(ctx context.Context) (bool, error) {
-	return false, errors.New("not supported")
+func (m *encodedMotor) Zero(ctx context.Context, offset float64) error {
+	return m.encoder.Zero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
 }
