@@ -12,7 +12,7 @@ import (
 	"go.viam.com/test"
 )
 
-// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves goroutine hanging in fakeSPI)
+// check is essentially test.That with tb.Error instead of tb.Fatal (Fatal exits and leaves fakeSPI stuck waiting)
 func check(tb testing.TB, actual interface{}, assert func(actual interface{}, expected ...interface{}) string, expected ...interface{}) {
 	tb.Helper()
 	if result := assert(actual, expected...); result != "" {
@@ -119,7 +119,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{33, 0, 0, 0, 0},
 		},
 		[][]byte{
-			{0, 1, 6, 18, 3}, // Can be gibberish, only second register read counts is read
+			{0, 1, 6, 18, 3}, // Can be gibberish, only second register is valid
 			{0, 0, 3, 32, 0},
 		},
 	)
@@ -172,7 +172,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{34, 0, 0, 0, 0},
 		},
 		[][]byte{
-			{0, 0, 8, 18, 3}, // Can be gibberish, only second register read counts is read
+			{0, 0, 8, 18, 3}, // Can be gibberish
 			{0, 0, 0, 0, 0},  // Zero velocity == "off"
 		},
 	)
@@ -187,7 +187,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			{34, 0, 0, 0, 0},
 		},
 		[][]byte{
-			{0, 1, 6, 18, 3}, // Can be gibberish, only second register read counts is read
+			{0, 1, 6, 18, 3}, // Can be gibberish
 			{0, 0, 0, 50, 0}, // Non-Zero velocity == "on"
 		},
 	)
