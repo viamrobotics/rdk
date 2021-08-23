@@ -248,8 +248,8 @@ func TestMotorEncoderHall(t *testing.T) {
 	})
 
 	t.Run("GoFor-backwards", func(t *testing.T) {
-		//undo := setRPMSleepDebug(1, false)
-		//defer undo()
+		undo := setRPMSleepDebug(1, false)
+		defer undo()
 
 		err := motor.GoFor(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 100, 1)
 		test.That(t, err, test.ShouldBeNil)
@@ -267,7 +267,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		}
 
 		testutils.WaitForAssertion(t, func(t testing.TB) {
-			test.That(t, real.Direction(), test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+			test.That(t, real.Direction(), test.ShouldNotEqual, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
 		})
 
 	})
