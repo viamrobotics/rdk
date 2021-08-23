@@ -490,18 +490,19 @@ func (m *encodedMotor) Close() error {
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
-func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
 	}
 	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	target := position - curPos
-	if math.Signbit(target) {
+	moveDistance := targetPosition - curPos
+	if math.Signbit(moveDistance) {
 		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		moveDistance = math.Abs(moveDistance)
 	}
 
-	return m.GoFor(ctx, dir, rpm, target)
+	return m.GoFor(ctx, dir, rpm, moveDistance)
 }
 
 // GoTillStop moves until physically stopped (though with a ten second timeout)

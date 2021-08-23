@@ -105,7 +105,7 @@ type MotorConfig struct {
 	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
 	TicksPerRotation int               `json:"ticksPerRotation"`
 	RampRate         float32           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
-	MaxVelocity      float64           `json:"max_velocity"`     // RPM
+	MaxRPM           float64           `json:"max_rpm"`          // RPM
 	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
 	Attributes       map[string]string `json:"attributes"`

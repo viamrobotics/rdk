@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,8 +15,6 @@ import (
 
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
-
-	"go.viam.com/utils"
 
 	"go.viam.com/core/board"
 	pb "go.viam.com/core/proto/api/v1"
@@ -449,43 +446,15 @@ func (m *motor) IsOn(ctx context.Context) (bool, error) {
 	return res[0] == 't', nil
 }
 
-func (m *motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	return errors.New("not supported")
+func (m *motor) GoTo(ctx context.Context, rpm float64, target float64) error {
+	ticks := int(target * float64(m.cfg.TicksPerRotation))
+	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
+	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.cfg.Name, ticks, ticksPerSecond))
+	return err
 }
 
 func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	origPos, err := m.Position(ctx)
-	if err != nil {
-		return err
-	}
-	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
-		return err
-	}
-	defer func() {
-		if err := m.Off(ctx); err != nil {
-			m.b.logger.Error("failed to turn off motor")
-		}
-	}()
-	var fails int
-	for {
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
-		}
-
-		curPos, err := m.Position(ctx)
-		if err != nil {
-			return err
-		}
-
-		if math.Abs(origPos-curPos) < 0.1 {
-			return nil
-		}
-
-		if fails >= 100 {
-			return errors.New("timed out during GoTillStop")
-		}
-		fails++
-	}
+	return errors.New("not supported")
 }
 
 func (m *motor) Zero(ctx context.Context, offset float64) error {
