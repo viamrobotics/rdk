@@ -25,7 +25,7 @@ type TMCStepperMotor struct {
 	index       int
 	enPin       string
 	stepsPerRev int
-	maxVel      float64
+	maxRPM      float64
 	maxAcc      float64
 	fClk        float64
 	logger      golog.Logger
@@ -96,7 +96,7 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 		index:       index,
 		stepsPerRev: mc.TicksPerRotation * uSteps,
 		enPin:       mc.Pins["en"],
-		maxVel:      mc.MaxVelocity,
+		maxRPM:      mc.MaxRPM,
 		maxAcc:      mc.MaxAcceleration,
 		fClk:        baseClk / calFactor,
 		logger:      logger,
@@ -132,11 +132,11 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 		m.writeReg(d1, rawMaxAcc),
 		m.writeReg(dMax, rawMaxAcc),
 
-		m.writeReg(vStart, 1),                               // Always start at min speed
-		m.writeReg(vStop, 10),                               // Always count a stop as LOW speed, but where vStop > vStart
-		m.writeReg(v1, int32(float32(m.maxVel)/4)),          // Transition ramp at 25% speed (if d1 and a1 are set different)
-		m.writeReg(vCoolThres, int32(float32(m.maxVel)/20)), // Set minimum speed for stall detection and coolstep
-		m.writeReg(vMax, m.rpmToV(0)),                       // Max velocity to zero, we don't want to move
+		m.writeReg(vStart, 1),                         // Always start at min speed
+		m.writeReg(vStop, 10),                         // Always count a stop as LOW speed, but where vStop > vStart
+		m.writeReg(v1, m.rpmToV(m.maxRPM/4)),          // Transition ramp at 25% speed (if d1 and a1 are set different)
+		m.writeReg(vCoolThres, m.rpmToV(m.maxRPM/20)), // Set minimum speed for stall detection and coolstep
+		m.writeReg(vMax, m.rpmToV(0)),                 // Max velocity to zero, we don't want to move
 
 		m.writeReg(rampMode, modeVelPos), // Lastly, set velocity mode to force a stop in case chip was left in moving state
 		m.writeReg(xActual, 0),           // Zero the position
@@ -276,7 +276,7 @@ func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerP
 	if d == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
 		mode = modeVelNeg
 	}
-	speed := m.rpmToV(float64(powerPct) * m.maxVel)
+	speed := m.rpmToV(float64(powerPct) * m.maxRPM)
 
 	return multierr.Combine(
 		m.writeReg(rampMode, mode),
@@ -300,8 +300,8 @@ func (m *TMCStepperMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm
 
 // Convert rpm to TMC5072 steps/s
 func (m *TMCStepperMotor) rpmToV(rpm float64) int32 {
-	if rpm > m.maxVel {
-		rpm = m.maxVel
+	if rpm > m.maxRPM {
+		rpm = m.maxRPM
 	}
 	// Time constant for velocities in TMC5072
 	tConst := m.fClk / math.Pow(2, 24)
