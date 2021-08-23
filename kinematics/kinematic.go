@@ -6,6 +6,7 @@ import (
 	"math"
 
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"github.com/go-errors/errors"
@@ -27,7 +28,7 @@ func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, 
 		radAngles[i] = utils.DegToRad(angle)
 	}
 
-	return model.JointRadToQuat(radAngles).ToArmPos(), nil
+	return spatialmath.NewDualQuaternionFromPose(model.JointRadToQuat(radAngles)).ToArmPos(), nil
 }
 
 // ZeroInlineRotation will look for joint angles that are approximately complementary (e.g. 0.5 and -0.5) and check if they
@@ -51,7 +52,7 @@ func ZeroInlineRotation(m *Model, angles []float64) []float64 {
 				// These angles are complementary
 				pos1 := m.JointRadToQuat(angles)
 				pos2 := m.JointRadToQuat(tempAngles)
-				distance := SquaredNorm(pos1.ToDelta(pos2))
+				distance := SquaredNorm(spatialmath.PoseDelta(pos1, pos2))
 
 				// Check we did not move the end effector too much
 				if distance < epsilon*epsilon {

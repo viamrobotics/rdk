@@ -21,7 +21,7 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	fs.SetFrame(joint)
 	
 	// Displace (2,2,10) from the joint
-	frame := NewStaticFrame("frame", joint, NewPoseFromPoint(r3.Vector{2., 2., 10.}))
+	frame := NewStaticFrame("frame", joint, spatial.NewPoseFromPoint(r3.Vector{2., 2., 10.}))
 	fs.SetFrame(frame)
 	
 	positions := dfs.StartPositions()

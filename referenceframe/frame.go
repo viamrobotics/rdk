@@ -5,17 +5,21 @@
 package referenceframe
 
 import (
+	"go.viam.com/core/arm"
+	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
 )
 
-// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position.
+// Input wraps the input to a mutable frame, e.g. a joint angle or a gantry position. Revolute inputs should be in
+// radians. Prismatic inputs should be in mm.
 // TODO: Determine what more this needs, or eschew in favor of raw float64s if nothing needed.
 type Input struct {
 	Value float64
 }
 
+// FloatsToInputs wraps a slice of floats in Inputs
 func FloatsToInputs(floats []float64) []Input {
 	inputs := make([]Input, len(floats))
 	for i, f := range(floats){
@@ -24,12 +28,18 @@ func FloatsToInputs(floats []float64) []Input {
 	return inputs
 }
 
+// JointPosToInputs will take a pb.JointPositions which has values in Degrees, convert to Radians and wrap in Inputs
+func JointPosToInputs(jp *pb.JointPositions) []Input {
+	floats := arm.JointPositionsToRadians(jp)
+	return FloatsToInputs(floats)
+}
+
 // Frame represents a single reference frame, e.g. an arm, a joint, etc.
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
 	Parent() Frame
-	Transform([]Input) *spatial.DualQuaternion
+	Transform([]Input) spatial.Pose
 	Dof() int
 	Limits() ([]float64, []float64) // min and max limits on inputs. Should these be enforced or just informed? How?
 }
@@ -38,21 +48,21 @@ type Frame interface {
 type staticFrame struct {
 	name      string
 	parent    Frame
-	transform Pose
+	transform spatial.Pose
 }
 
 // NewStaticFrame creates a frame given a parent, and a Pose relative to that parent. The Pose is fixed for all time.
 // Parent and Pose are allowed to be nil.
-func NewStaticFrame(name string, parent Frame, pose Pose) Frame {
+func NewStaticFrame(name string, parent Frame, pose spatial.Pose) Frame {
 	if pose == nil {
-		pose = NewEmptyPose()
+		pose = spatial.NewEmptyPose()
 	}
 	return &staticFrame{name, parent, pose}
 }
 
 // FrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
 func FrameFromPoint(name string, parent Frame, point r3.Vector) Frame {
-	pose := NewPoseFromPoint(point)
+	pose := spatial.NewPoseFromPoint(point)
 	frame := NewStaticFrame(name, parent, pose)
 	return frame
 }
@@ -68,11 +78,11 @@ func (sf *staticFrame) Parent() Frame {
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
-func (sf *staticFrame) Transform(inp []Input) *spatial.DualQuaternion {
+func (sf *staticFrame) Transform(inp []Input) spatial.Pose {
 	if len(inp) != sf.Dof() {
 		return nil
 	}
-	return sf.transform.Transform()
+	return sf.transform
 }
 
 // Dof are the degrees of freedom of the transform. In the staticFrame, it is always 0.
@@ -113,7 +123,7 @@ func (pf *prismaticFrame) Parent() Frame {
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
-func (pf *prismaticFrame) Transform(input []Input) *spatial.DualQuaternion {
+func (pf *prismaticFrame) Transform(input []Input) spatial.Pose {
 	if len(input) != pf.Dof() {
 		return nil
 	}
@@ -175,7 +185,7 @@ func NewRevoluteFrame(name string, parent Frame, axis spatial.R4AA) *revoluteFra
 
 // Transform returns the quaternion representing this joint's rotation in space.
 // Important math: this is the specific location where a joint radian is converted to a quaternion.
-func (rf *revoluteFrame) Transform(input []Input) *spatial.DualQuaternion {
+func (rf *revoluteFrame) Transform(input []Input) spatial.Pose {
 	if len(input) != rf.Dof() {
 		return nil
 	}

@@ -102,7 +102,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			}
 
 			q.SetTranslation(link.Translation.X, link.Translation.Y, link.Translation.Z)
-			transforms[link.ID] = frame.NewStaticFrame(link.ID, nil, frame.NewPoseFromTransform(q))
+			transforms[link.ID] = frame.NewStaticFrame(link.ID, nil, q)
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
@@ -135,7 +135,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			linkID := dh.ID
 			linkQuat := spatialmath.NewDualQuaternionFromDH(dh.A, dh.D, dh.Alpha)
 			
-			transforms[linkID] = frame.NewStaticFrame(linkID, j, frame.NewPoseFromTransform(linkQuat))
+			transforms[linkID] = frame.NewStaticFrame(linkID, j, linkQuat)
 		}
 	} else {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.Model.KinParamType)

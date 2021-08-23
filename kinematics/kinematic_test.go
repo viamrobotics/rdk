@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/core/proto/api/v1"
 	frame "go.viam.com/core/referenceframe"
+	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
 	"go.viam.com/test"
@@ -187,9 +188,9 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	dfs := frame.NewEmptySimpleFrameSystem("test")
 	fs := frame.FrameSystem(dfs)
 	
-	urOffset := frame.NewStaticFrame("urOffset", fs.World(), frame.NewPoseFromPoint(r3.Vector{100,100,200}))
+	urOffset := frame.NewStaticFrame("urOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{100,100,200}))
 	fs.SetFrame(urOffset)
-	gantryOffset := frame.NewStaticFrame("gantryOffset", fs.World(), frame.NewPoseFromPoint(r3.Vector{-50,-50,-200}))
+	gantryOffset := frame.NewStaticFrame("gantryOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{-50,-50,-200}))
 	fs.SetFrame(gantryOffset)
 	
 	gantry := frame.NewPrismaticFrame("gantry", gantryOffset, []bool{true, true, false})
@@ -208,7 +209,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	
 	// Note that positive Z is always "forwards". If the position of the arm is such that it is pointing elsewhere,
 	// the resulting translation will be similarly oriented
-	urCamera := frame.NewStaticFrame("urCamera", modelUR5e, frame.NewPoseFromPoint(r3.Vector{0,0,30}))
+	urCamera := frame.NewStaticFrame("urCamera", modelUR5e, spatial.NewPoseFromPoint(r3.Vector{0,0,30}))
 	fs.SetFrame(urCamera)
 	
 	positions := dfs.StartPositions()
