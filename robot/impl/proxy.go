@@ -897,7 +897,6 @@ func (p *proxyBoardMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 	return p.actual.GoTillStop(ctx, d, rpm)
 }
 
-// Zero needs to be implemented.
 func (p *proxyBoardMotor) Zero(ctx context.Context, offset float64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()

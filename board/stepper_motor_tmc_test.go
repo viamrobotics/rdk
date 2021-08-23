@@ -47,7 +47,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	mc := MotorConfig{
 		Model:            "TMC5072",
 		MaxAcceleration:  500,
-		MaxVelocity:      500,
+		MaxRPM:           500,
 		TicksPerRotation: 200,
 		Attributes: map[string]string{
 			"spi_bus":     "main",

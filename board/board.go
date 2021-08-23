@@ -92,7 +92,10 @@ type Motor interface {
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
 	GoTo(ctx context.Context, rpm float64, position float64) error
 
-	// GoTillStop moves a motor until it's endstop is hit, then zeros the position.
+	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
+	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
+	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
+	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
