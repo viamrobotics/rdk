@@ -89,7 +89,7 @@ func poseToDQ(p Pose) *DualQuaternion {
 // new one.
 func NewDualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
-		return q
+		return q.Clone()
 	}
 	return poseToDQ(p)
 }
