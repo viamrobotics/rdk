@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/core/arm"
 	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/spatialmath"
+	spatial "go.viam.com/core/spatialmath"
 )
 
 // NloptIK TODO
@@ -65,7 +65,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// Update dx with the delta to the desired position
 		for _, nextGoal := range ik.getGoals() {
-			dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+			dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
 
 			dxIdx := nextGoal.EffectorID * len(dxDelta)
 			for i, delta := range dxDelta {
@@ -85,7 +85,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				eePos := ik.model.JointRadToQuat(xBak)
 				dx2 := make([]float64, ik.model.OperationalDof()*7)
 				for _, nextGoal := range ik.getGoals() {
-					dxDelta := eePos.ToDelta(nextGoal.GoalTransform)
+					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
 					dxIdx := nextGoal.EffectorID * len(dxDelta)
 					for i, delta := range dxDelta {
 						dx2[dxIdx+i] = delta
@@ -130,7 +130,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 // addGoal adds a nlopt IK goal
 func (ik *NloptIK) addGoal(newGoal *pb.ArmPosition, effectorID int) {
 
-	goalQuat := spatialmath.NewDualQuaternionFromArmPos(newGoal)
+	goalQuat := spatial.NewDualQuaternionFromArmPos(newGoal)
 	ik.goals = append(ik.goals, goal{goalQuat, effectorID})
 }
 

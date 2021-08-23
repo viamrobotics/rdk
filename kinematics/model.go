@@ -126,7 +126,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) Transform(inputs []referenceframe.Input) *spatialmath.DualQuaternion {
+func (m *Model) Transform(inputs []referenceframe.Input) spatialmath.Pose {
 	pos := make([]float64, len(inputs))
 	for i, input := range inputs {
 		pos[i] = input.Value
@@ -136,20 +136,20 @@ func (m *Model) Transform(inputs []referenceframe.Input) *spatialmath.DualQuater
 
 // JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) JointRadToQuat(radAngles []float64) *spatialmath.DualQuaternion {
-	quats := m.GetQuaternions(radAngles)
+func (m *Model) JointRadToQuat(radAngles []float64) spatialmath.Pose {
+	poses := m.GetPoses(radAngles)
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	transformations := spatialmath.NewDualQuaternion()
-	for _, quat := range quats {
-		transformations.Number = transformations.Transformation(quat.Number)
+	transformations := spatialmath.NewEmptyPose()
+	for _, pose := range poses {
+		transformations = spatialmath.Compose(transformations, pose)
 	}
 	return transformations
 }
 
-// GetQuaternions returns the list of DualQuaternions which, when multiplied together in order, will yield the
-// dual quaternion representing the 6d cartesian position of the end effector.
-func (m *Model) GetQuaternions(pos []float64) []*spatialmath.DualQuaternion {
-	var quats []*spatialmath.DualQuaternion
+// GetPoses returns the list of Poses which, when multiplied together in order, will yield the
+// Pose representing the 6d cartesian position of the end effector.
+func (m *Model) GetPoses(pos []float64) []spatialmath.Pose {
+	var quats []spatialmath.Pose
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {

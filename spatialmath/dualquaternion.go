@@ -8,6 +8,7 @@ import (
 	"go.viam.com/core/utils"
 
 	"github.com/go-gl/mathgl/mgl64"
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -76,6 +77,23 @@ func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
 	return q
 }
 
+// poseToDQ takes any pose and converts it to a DQ
+func poseToDQ(p Pose) *DualQuaternion {
+	q := NewDualQuaternionFromRotation(p.Orientation())
+	pt := p.Point()
+	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	return q
+}
+
+// NewDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
+// new one.
+func NewDualQuaternionFromPose(p Pose) *DualQuaternion {
+	if q, ok := p.(*DualQuaternion); ok {
+		return q
+	}
+	return poseToDQ(p)
+}
+
 // ToArmPos converts a DualQuaternion to an arm position
 func (q *DualQuaternion) ToArmPos() *pb.ArmPosition {
 	final := &pb.ArmPosition{}
@@ -97,15 +115,18 @@ func (q *DualQuaternion) Clone() *DualQuaternion {
 	return &DualQuaternion{q.Number}
 }
 
-// Rotation returns the rotation quaternion.
-func (q *DualQuaternion) Rotation() quat.Number {
-	return q.Real
+// Point multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
+// and the dual is representative of real world millimeters. We then return the XYZ point on its own.
+// We intentionally do not return the resulting dual quaternion, because we do not want to mix dq's representing
+// transformations and ones representing pure points.
+func (q *DualQuaternion) Point() r3.Vector {
+	tQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number)).Dual
+	return r3.Vector{tQuat.Imag, tQuat.Jmag, tQuat.Kmag}
 }
 
-// Translation multiplies the dual quaternion by its own conjugate to give a dq where the real is the identity quat,
-// and the dual is representative of 0.5 * real world millimeters.
-func (q *DualQuaternion) Translation() dualquat.Number {
-	return dualquat.Mul(q.Number, dualquat.Conj(q.Number))
+// Orientation returns the rotation quaternion as an Orientation Vector.
+func (q *DualQuaternion) Orientation() *OrientationVec {
+	return QuatToOV(q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
@@ -134,47 +155,9 @@ func (q *DualQuaternion) rotate() {
 	q.Dual = quat.Mul(q.Dual, q.Real)
 }
 
-// ToDelta returns the difference between two DualQuaternion'.
-// We use quaternion/angle axis for this because distances are well-defined.
-func (q *DualQuaternion) ToDelta(other *DualQuaternion) []float64 {
-	ret := make([]float64, 7)
-
-	quatBetween := quat.Mul(other.Real, quat.Conj(q.Real))
-
-	otherTrans := other.Translation()
-	mTrans := q.Translation()
-	aa := QuatToR4AA(quatBetween)
-	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
-	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
-	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-	ret[3] = aa.Theta
-	ret[4] = aa.RX
-	ret[5] = aa.RY
-	ret[6] = aa.RZ
-	return ret
-}
-
-// ToDeltaR3 returns the difference between two DualQuaternion' using R3 angle axis.
-// We use quaternion/angle axis for this because distances are well-defined.
-func (q *DualQuaternion) ToDeltaR3(other *DualQuaternion) []float64 {
-	ret := make([]float64, 6)
-
-	quatBetween := quat.Mul(other.Real, quat.Conj(q.Real))
-
-	otherTrans := other.Translation()
-	mTrans := q.Translation()
-	aa := QuatToR3AA(quatBetween)
-	ret[0] = otherTrans.Dual.Imag - mTrans.Dual.Imag
-	ret[1] = otherTrans.Dual.Jmag - mTrans.Dual.Jmag
-	ret[2] = otherTrans.Dual.Kmag - mTrans.Dual.Kmag
-	ret[3] = aa.RX
-	ret[4] = aa.RY
-	ret[5] = aa.RZ
-	return ret
-}
-
-// Invert returns a DualQuaternion representing the opposite transformation
-func (q *DualQuaternion) Invert() *DualQuaternion{
+// Invert returns a DualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
+// then Invert(p) will transform b -> a
+func (q *DualQuaternion) Invert() Pose{
 	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
@@ -186,21 +169,6 @@ func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	}
 
 	return dualquat.Mul(q.Number, by)
-}
-
-// Compose takes two dual quaternions and multiplies them together, and then normalizes the transform.
-// DualQuaternions apply their operation TO THE RIGHT. example: if you have an operation A and operation B on p
-// pAB means ((pA)B). First A is applied, then B. QUATERNIONS DO NOT COMMUTE IN GENERAL! Cannot guarantee BAp == ABp!
-// Note however that (pA)(B) == (p)(AB)
-func Compose(a, b *DualQuaternion) *DualQuaternion {
-	result := NewDualQuaternion()
-	result.Number = a.Transformation(b.Number)
-
-	// Normalization
-	if vecLen := quat.Abs(result.Real); vecLen != 1 {
-		result.Real = quat.Scale(1/vecLen, result.Real)
-	}
-	return result
 }
 
 // QuatToR4AA converts a quat to an R4 axis angle in the same way the C++ Eigen library does.
@@ -370,4 +338,13 @@ func AlmostEqual(a, b quat.Number, tol float64) bool {
 		return false
 	}
 	return true
+}
+
+// OffsetBy takes two offsets and computes the final position.
+func OffsetBy(a, b *pb.ArmPosition) *pb.ArmPosition {
+	q1 := NewDualQuaternionFromArmPos(a)
+	q2 := NewDualQuaternionFromArmPos(b)
+	q3 := &DualQuaternion{q1.Transformation(q2.Number)}
+
+	return q3.ToArmPos()
 }

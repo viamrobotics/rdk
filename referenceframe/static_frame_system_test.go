@@ -16,24 +16,24 @@ var blankPos map[string][]Input
 
 func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
-	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
-	tr := &basicPose{&spatial.DualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}}
+	pt := spatial.NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
+	tr := &spatial.DualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
 	tr.SetTranslation(4., 2., 6.)
 	
-	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
-	// ensure transformation is the same between both defintions
-	test.That(t, tr.Transform().Real.Real, test.ShouldAlmostEqual, trAA.Transform().Real.Real)
-	test.That(t, tr.Transform().Real.Imag, test.ShouldAlmostEqual, trAA.Transform().Real.Imag)
-	test.That(t, tr.Transform().Real.Jmag, test.ShouldAlmostEqual, trAA.Transform().Real.Jmag)
-	test.That(t, tr.Transform().Real.Kmag, test.ShouldAlmostEqual, trAA.Transform().Real.Kmag)
-	test.That(t, tr.Transform().Dual.Real, test.ShouldAlmostEqual, trAA.Transform().Dual.Real)
-	test.That(t, tr.Transform().Dual.Imag, test.ShouldAlmostEqual, trAA.Transform().Dual.Imag)
-	test.That(t, tr.Transform().Dual.Jmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Jmag)
-	test.That(t, tr.Transform().Dual.Kmag, test.ShouldAlmostEqual, trAA.Transform().Dual.Kmag)
+	trAA := spatial.NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
+	// ensure transformation is the same between both definitions
+	test.That(t, tr.Real.Real, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Real)
+	test.That(t, tr.Real.Imag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Imag)
+	test.That(t, tr.Real.Jmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Jmag)
+	test.That(t, tr.Real.Kmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Real.Kmag)
+	test.That(t, tr.Dual.Real, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Real)
+	test.That(t, tr.Dual.Imag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Imag)
+	test.That(t, tr.Dual.Jmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Jmag)
+	test.That(t, tr.Dual.Kmag, test.ShouldAlmostEqual, spatial.NewDualQuaternionFromPose(trAA).Dual.Kmag)
 
-	expectedPose := NewPoseFromPoint(r3.Vector{7., -2., 1.})
+	expectedPose := spatial.NewPoseFromPoint(r3.Vector{7., -2., 1.})
 	expectedPoint := expectedPose.Point()
-	transformedPoint := NewPoseFromTransform(spatial.Compose(tr.Transform(), pt.Transform())).Point()
+	transformedPoint := spatial.Compose(tr, pt).Point()
 	test.That(t, transformedPoint.X, test.ShouldAlmostEqual, expectedPoint.X)
 	test.That(t, transformedPoint.Y, test.ShouldAlmostEqual, expectedPoint.Y)
 	test.That(t, transformedPoint.Z, test.ShouldAlmostEqual, expectedPoint.Z)
@@ -75,7 +75,7 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	// build the system
 	sfs := NewEmptySimpleFrameSystem("test")
 	fs := FrameSystem(sfs)
-	frame := NewPoseFromAxisAngle(r3.Vector{0., 3., 0.}, r3.Vector{0., 0., 1.}, math.Pi)
+	frame := spatial.NewPoseFromAxisAngle(r3.Vector{0., 3., 0.}, r3.Vector{0., 0., 1.}, math.Pi)
 	err := sfs.SetFrameFromPose("frame", fs.World(), frame)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -172,7 +172,7 @@ func TestFrameTransform(t *testing.T) {
 	err = sfs.SetFrame(FrameFromPoint("frame1", fs.GetFrame("frame3"), frame1Pt))
 	test.That(t, err, test.ShouldBeNil)
 	// location of frame2 with respect to world frame
-	frame2Pose := NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, math.Pi/2)
+	frame2Pose := spatial.NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, math.Pi/2)
 	err = sfs.SetFrame(NewStaticFrame("frame2", fs.World(), frame2Pose))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -193,17 +193,17 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	fs := FrameSystem(dfs)
 
 	// frame 1 rotate by 45 degrees around z axis and translate
-	frame1 := NewStaticFrame("frame1", fs.World(), NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	frame1 := NewStaticFrame("frame1", fs.World(), spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
 	
 	err := fs.SetFrame(frame1)
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
-	frame2 := NewStaticFrame("frame2", fs.GetFrame("frame1"), NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	frame2 := NewStaticFrame("frame2", fs.GetFrame("frame1"), spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
 	err = fs.SetFrame(frame2)
 	test.That(t, err, test.ShouldBeNil)
 
 	// test out a transform from world to frame
-	frameStart := NewStaticFrame("", fs.World(), NewPoseFromPoint(r3.Vector{1., 7., 0.})) // the point from PoV of world
+	frameStart := NewStaticFrame("", fs.World(), spatial.NewPoseFromPoint(r3.Vector{1., 7., 0.})) // the point from PoV of world
 	pointEnd := r3.Vector{3., 0., 0.}   // the point from PoV of frame 2
 	transformPose, err := fs.TransformPoint(blankPos, frameStart, fs.GetFrame("frame2"))
 	test.That(t, err, test.ShouldBeNil)
@@ -214,16 +214,16 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	// test out transform between frames
 	// frame3 - pure rotation around y 90 degrees
-	frame3 := NewStaticFrame("frame3", fs.World(), NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
+	frame3 := NewStaticFrame("frame3", fs.World(), spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
 	err = fs.SetFrame(frame3)
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame4 - pure translation
-	frame4 := NewStaticFrame("frame4", fs.GetFrame("frame3"), NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
+	frame4 := NewStaticFrame("frame4", fs.GetFrame("frame3"), spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
 	err = fs.SetFrame(frame4)
 	test.That(t, err, test.ShouldBeNil)
 
-	frameStart = NewStaticFrame("", fs.GetFrame("frame2"), NewPoseFromPoint(r3.Vector{3., 0., 0.}))
+	frameStart = NewStaticFrame("", fs.GetFrame("frame2"), spatial.NewPoseFromPoint(r3.Vector{3., 0., 0.}))
 	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
 	transformPose, err = fs.TransformPoint(blankPos, frameStart, fs.GetFrame("frame4"))
 	test.That(t, err, test.ShouldBeNil)
@@ -233,7 +233,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
 
 	// back to world frame
-	frameStart = NewStaticFrame("", fs.GetFrame("frame4"), NewPoseFromPoint(r3.Vector{2., 0., 0.})) // the point from PoV of frame 4
+	frameStart = NewStaticFrame("", fs.GetFrame("frame4"), spatial.NewPoseFromPoint(r3.Vector{2., 0., 0.})) // the point from PoV of frame 4
 	pointEnd = r3.Vector{1., 7., 0.}   // the point from PoV of world
 	transformPose, err = fs.TransformPoint(blankPos, frameStart, fs.World())
 	test.That(t, err, test.ShouldBeNil)
