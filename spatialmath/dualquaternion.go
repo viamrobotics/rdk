@@ -135,21 +135,6 @@ func (q *DualQuaternion) SetTranslation(x, y, z float64) {
 	q.rotate()
 }
 
-// SetX sets the x translation.
-func (q *DualQuaternion) SetX(x float64) {
-	q.Dual.Imag = x
-}
-
-// SetY sets the y translation.
-func (q *DualQuaternion) SetY(y float64) {
-	q.Dual.Jmag = y
-}
-
-// SetZ sets the z translation.
-func (q *DualQuaternion) SetZ(z float64) {
-	q.Dual.Kmag = z
-}
-
 // rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
 func (q *DualQuaternion) rotate() {
 	q.Dual = quat.Mul(q.Dual, q.Real)
