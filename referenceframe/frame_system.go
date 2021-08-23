@@ -96,33 +96,32 @@ func (sfs *simpleFrameSystem) SetFrame(frame Frame) error {
 
 // TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
 func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error) {
-	emptyPose := spatial.NewEmptyPose()
 	if srcFrame == nil {
-		return emptyPose, errors.New("source frame is nil")
+		return nil, errors.New("source frame is nil")
 	}
 	if endFrame == nil {
-		return emptyPose, errors.New("target frame is nil")
+		return nil, errors.New("target frame is nil")
 	}
 	// check if frames are in system. It is allowed for the src frame to be an anonymous frame not in the system, so
 	// long as its parent IS in the system.
 	if !sfs.frameExists(srcFrame.Name()) {
 		if !sfs.frameExists(srcFrame.Parent().Name()) {
-			return emptyPose, fmt.Errorf("neither source frame %s nor its parent found in FrameSystem", srcFrame.Name())
+			return nil, fmt.Errorf("neither source frame %s nor its parent found in FrameSystem", srcFrame.Name())
 		}
 	}
 	if !sfs.frameExists(endFrame.Name()) {
-		return emptyPose, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
+		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
 	
 	// get source parent to world transform
 	fromSrcTransform, err := composeTransforms(srcFrame, positions) // returns source to world transform
 	if err != nil{
-		return emptyPose, err
+		return nil, err
 	}
 	// get world to target transform
 	toTargetTransform, err := composeTransforms(endFrame, positions)  // returns target to world transform
 	if err != nil{
-		return emptyPose, err
+		return nil, err
 	}
 	toTargetTransform = toTargetTransform.Invert()
 	// transform from source to world, world to target
