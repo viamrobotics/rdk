@@ -88,9 +88,9 @@ verminmax() {
 
 ALL_GOOD=1
 
-if ! which pkg-config > /dev/null || ! which sha256sum > /dev/null
+if ! which pkg-config > /dev/null || (! which shasum > /dev/null && ! which sha256sum )
 then
-	echo "Missing utilities! Please install pkg-config and sha256sum (provided by coreutils.)"
+	echo "Missing utilities! Please install pkg-config and openssl."
 	exit 1
 fi
 
@@ -152,7 +152,7 @@ done
 # protoc-gen-grpc-web doesn't contain it's own version number, so we check known hashes instead.
 if which protoc-gen-grpc-web > /dev/null
 then
-	HASH=`sha256sum \`which protoc-gen-grpc-web\` | awk '{print $1}'`
+	HASH=`openssl sha256 \`which protoc-gen-grpc-web\` | awk '{print $2}'`
 else
 	echo "protoc-gen-grpc-web not installed. Please run setup.sh or install version $PROTOC_GEN_GRPC_WEB_VERSION"
 	ALL_GOOD=0
