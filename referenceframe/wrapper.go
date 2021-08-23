@@ -38,15 +38,15 @@ func (f *FrameWrapper) SetOffset(offset *spatial.DualQuaternion) {
 }
 
 // A FrameInverter will wrap a single Frame, inverting the transform 
-//~ type FrameInverter struct {
-	//~ Frame
-	//~ parent Frame
-//~ }
+type FrameInverter struct {
+	Frame
+	parent Frame
+}
 
-//~ // Transform returns the ConjQuat of the quaternion associated with the wrapped frame
-//~ func (f *FrameInverter) Transform(input []Input) *spatialmath.DualQuaternion {
-	//~ return f.Transform(input).Invert()
-//~ }
+// Transform returns the ConjQuat of the quaternion associated with the wrapped frame
+func (f *FrameInverter) Transform(input []Input) spatial.Pose {
+	return f.Transform(input).Invert()
+}
 
 //~ // A FrameSetWrapper will wrap any number of frames, allowing multiple dynamic frames to be combined into one for IK.
 //~ // The frames wrapped MUST be a single, unbranched chain.
