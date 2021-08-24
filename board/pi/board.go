@@ -91,6 +91,7 @@ func init() {
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
 // accessed via pigpio.
 type piPigpio struct {
+	mu            sync.Mutex
 	cfg           board.Config
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
@@ -242,8 +243,10 @@ func (pi *piPigpio) GPIOGet(pin string) (bool, error) {
 	return pi.GPIOGetBcom(int(bcom))
 }
 
-// GPIOGetBcom gets the lovel of the given broadcom pin
+// GPIOGetBcom gets the level of the given broadcom pin
 func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if !pi.gpioConfigSet[bcom] {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
@@ -257,6 +260,29 @@ func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
 
 	// gpioRead retrns an int 1 or 0, we convert to a bool
 	return C.gpioRead(C.uint(bcom)) != 0, nil
+}
+
+// GPIOSetBcom sets the given broadcom pin to high or low.
+func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	if !pi.gpioConfigSet[bcom] {
+		if pi.gpioConfigSet == nil {
+			pi.gpioConfigSet = map[int]bool{}
+		}
+		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
+		if res != 0 {
+			return errors.Errorf("failed to set mode %d", res)
+		}
+		pi.gpioConfigSet[bcom] = true
+	}
+
+	v := 0
+	if high {
+		v = 1
+	}
+	C.gpioWrite(C.uint(bcom), C.uint(v))
+	return nil
 }
 
 // PWMSet sets the given pin to the given PWM duty cycle.
@@ -296,27 +322,6 @@ func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
 	if newRes != C.int(freq) {
 		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freq, newRes)
 	}
-	return nil
-}
-
-// GPIOSetBcom sets the given broadcom pin to high or low.
-func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
-	if !pi.gpioConfigSet[bcom] {
-		if pi.gpioConfigSet == nil {
-			pi.gpioConfigSet = map[int]bool{}
-		}
-		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
-		if res != 0 {
-			return errors.Errorf("failed to set mode %d", res)
-		}
-		pi.gpioConfigSet[bcom] = true
-	}
-
-	v := 0
-	if high {
-		v = 1
-	}
-	C.gpioWrite(C.uint(bcom), C.uint(v))
 	return nil
 }
 
