@@ -9,8 +9,8 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
-	"go.viam.com/test"
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -144,37 +144,37 @@ func TestInline(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	dfs := frame.NewEmptySimpleFrameSystem("test")
 	fs := frame.FrameSystem(dfs)
-	
+
 	model, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model.SetParent(fs.World())
 	fs.SetFrame(model)
-	
+
 	positions := dfs.StartPositions()
-	
+
 	// This will need to be updated once the gripper is removed from the xarm kinematics json file
 	// World point of xArm at 0 position
-	pointWorld1 := r3.Vector{207,0,-88}
+	pointWorld1 := r3.Vector{207, 0, -88}
 	// World point of xArm at (90,-90,90,-90,90,-90) joint positions
 	pointWorld2 := r3.Vector{297, -207, -98}
-	
+
 	// Note that because the arm is pointing in a different direction, this point is not a direct inverse of pointWorld2
 	pointXarm := r3.Vector{207, 98, -297}
-	
-	transformPoint1, err := fs.TransformPoint(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
+
+	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.Point().X, test.ShouldAlmostEqual, pointWorld1.X)
 	test.That(t, transformPoint1.Point().Y, test.ShouldAlmostEqual, pointWorld1.Y)
 	test.That(t, transformPoint1.Point().Z, test.ShouldAlmostEqual, pointWorld1.Z)
-	
-	positions["xArm6"] = frame.FloatsToInputs([]float64{math.Pi/2, -math.Pi/2, math.Pi/2, -math.Pi/2, math.Pi/2, -math.Pi/2})
-	transformPoint2, err := fs.TransformPoint(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
+
+	positions["xArm6"] = frame.FloatsToInputs([]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
+	transformPoint2, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.Point().X, test.ShouldAlmostEqual, pointWorld2.X)
 	test.That(t, transformPoint2.Point().Y, test.ShouldAlmostEqual, pointWorld2.Y)
 	test.That(t, transformPoint2.Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
-	
-	transformPoint3, err := fs.TransformPoint(positions, fs.GetFrame("world"), fs.GetFrame("xArm6"))
+
+	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame("world"), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.Point().X, test.ShouldAlmostEqual, pointXarm.X)
 	test.That(t, transformPoint3.Point().Y, test.ShouldAlmostEqual, pointXarm.Y)
@@ -187,48 +187,48 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	dfs := frame.NewEmptySimpleFrameSystem("test")
 	fs := frame.FrameSystem(dfs)
-	
-	urOffset := frame.NewStaticFrame("urOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{100,100,200}))
+
+	urOffset := frame.NewStaticFrame("urOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	fs.SetFrame(urOffset)
-	gantryOffset := frame.NewStaticFrame("gantryOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{-50,-50,-200}))
+	gantryOffset := frame.NewStaticFrame("gantryOffset", fs.World(), spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
 	fs.SetFrame(gantryOffset)
-	
+
 	gantry := frame.NewPrismaticFrame("gantry", gantryOffset, []bool{true, true, false})
-	gantry.SetLimits([]float64{-999,-999}, []float64{999,999})
+	gantry.SetLimits([]float64{-999, -999}, []float64{999, 999})
 	fs.SetFrame(gantry)
-	
+
 	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	modelXarm.SetParent(gantry)
 	fs.SetFrame(modelXarm)
-	
+
 	modelUR5e, err := ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
 	modelUR5e.SetParent(urOffset)
 	fs.SetFrame(modelUR5e)
-	
+
 	// Note that positive Z is always "forwards". If the position of the arm is such that it is pointing elsewhere,
 	// the resulting translation will be similarly oriented
-	urCamera := frame.NewStaticFrame("urCamera", modelUR5e, spatial.NewPoseFromPoint(r3.Vector{0,0,30}))
+	urCamera := frame.NewStaticFrame("urCamera", modelUR5e, spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
 	fs.SetFrame(urCamera)
-	
+
 	positions := dfs.StartPositions()
-	
+
 	pointUR5e := r3.Vector{-717.2, -132.9, 262.8}
 	// Camera translates by 30, gripper is pointed at -Y
 	pointUR5eCam := r3.Vector{-717.2, -162.9, 262.8}
-	
+
 	pointXarm := r3.Vector{157., -50, -288}
 	pointXarmFromCam := r3.Vector{874.2, -112.9, -550.8}
-	
+
 	// Check the UR5e and camera default positions
-	transformPoint1, err := fs.TransformPoint(positions, fs.GetFrame("UR5e"), fs.GetFrame("world"))
+	transformPoint1, err := fs.TransformFrame(positions, fs.GetFrame("UR5e"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint2, err := fs.TransformPoint(positions, fs.GetFrame("urCamera"), fs.GetFrame("world"))
+	transformPoint2, err := fs.TransformFrame(positions, fs.GetFrame("urCamera"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint3, err := fs.TransformPoint(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
+	transformPoint3, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
-	transformPoint4, err := fs.TransformPoint(positions, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
+	transformPoint4, err := fs.TransformFrame(positions, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.Point().X, test.ShouldAlmostEqual, pointUR5e.X)
 	test.That(t, transformPoint1.Point().Y, test.ShouldAlmostEqual, pointUR5e.Y)
@@ -242,30 +242,30 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, transformPoint4.Point().X, test.ShouldAlmostEqual, pointXarmFromCam.X)
 	test.That(t, transformPoint4.Point().Y, test.ShouldAlmostEqual, pointXarmFromCam.Y)
 	test.That(t, transformPoint4.Point().Z, test.ShouldAlmostEqual, pointXarmFromCam.Z)
-	
+
 	// Move the UR5e so its local Z axis is pointing approximately towards the xArm (at positive X)
-	positions["UR5e"] = frame.FloatsToInputs([]float64{0,0,0,0,-math.Pi/2,-math.Pi/2})
-	
+	positions["UR5e"] = frame.FloatsToInputs([]float64{0, 0, 0, 0, -math.Pi / 2, -math.Pi / 2})
+
 	// A point that is 813.6, -50, 200 from the camera
 	// This puts the point in the Z plane of the xArm6
 	targetPoint := frame.FrameFromPoint("", fs.GetFrame("urCamera"), r3.Vector{550.8, -50, 200})
 	// Target point in world
-	worldPointFrame, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("world"))
+	worldPointFrame, err := fs.TransformFrame(positions, targetPoint, fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
 	worldPointLoc := worldPointFrame.Point()
-	
+
 	// Move the XY gantry such that the xArm6 is now at the point specified
 	positions["gantry"] = frame.FloatsToInputs([]float64{worldPointLoc.X - pointXarm.X, worldPointLoc.Y - pointXarm.Y})
-	
+
 	// Confirm the xArm6 is now at the same location as the point
-	newPointXarm, err := fs.TransformPoint(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
+	newPointXarm, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newPointXarm.Point().X, test.ShouldAlmostEqual, worldPointLoc.X)
 	test.That(t, newPointXarm.Point().Y, test.ShouldAlmostEqual, worldPointLoc.Y)
 	test.That(t, newPointXarm.Point().Z, test.ShouldAlmostEqual, worldPointLoc.Z)
-	
+
 	// If the above passes, then converting one directly to the other should be (0,0,0)
-	pointCamToXarm, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("xArm6"))
+	pointCamToXarm, err := fs.TransformFrame(positions, targetPoint, fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pointCamToXarm.Point().X, test.ShouldAlmostEqual, 0)
 	test.That(t, pointCamToXarm.Point().Y, test.ShouldAlmostEqual, 0)
