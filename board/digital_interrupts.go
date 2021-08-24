@@ -1,6 +1,7 @@
 package board
 
 import (
+	"context"
 	"sync/atomic"
 
 	"github.com/erh/scheme"
@@ -19,18 +20,18 @@ const ServoRollingAverageWindow = 10
 type DigitalInterrupt interface {
 
 	// Config returns the config the interrupt was created with.
-	Config() DigitalInterruptConfig
+	Config(ctx context.Context) (DigitalInterruptConfig, error)
 
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
-	Value() int64
+	Value(ctx context.Context) (int64, error)
 
 	// Tick is to be called either manually if the interrupt is a proxy to some real
 	// hardware interrupt or for tests.
 	// nanos is from an arbitrary point in time, but always increasing and always needs
 	// to be accurate. Using time.Now().UnixNano() would be acceptable, but is
 	// not required.
-	Tick(high bool, nanos uint64)
+	Tick(ctx context.Context, high bool, nanos uint64) error
 
 	// AddCallback adds a callback to be sent a low/high value to when a tick
 	// happens.
@@ -105,28 +106,31 @@ type BasicDigitalInterrupt struct {
 }
 
 // Config returns the config used to create this interrupt.
-func (i *BasicDigitalInterrupt) Config() DigitalInterruptConfig {
-	return i.cfg
+func (i *BasicDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	return i.cfg, nil
 }
 
 // Value returns the amount of ticks that have occurred.
-func (i *BasicDigitalInterrupt) Value() int64 {
+func (i *BasicDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	count := atomic.LoadInt64(&i.count)
 	if i.pp != nil {
-		return i.pp(count)
+		return i.pp(count), nil
 	}
-	return count
+	return count, nil
 }
 
 // really just for testing
-func (i *BasicDigitalInterrupt) ticks(num int, now uint64) {
+func (i *BasicDigitalInterrupt) ticks(ctx context.Context, num int, now uint64) error {
 	for x := 0; x < num; x++ {
-		i.Tick(true, now+uint64(x))
+		if err := i.Tick(ctx, true, now+uint64(x)); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Tick records an interrupt and notifies any interested callbacks.
-func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
+func (i *BasicDigitalInterrupt) Tick(ctx context.Context, high bool, not uint64) error {
 	if high {
 		atomic.AddInt64(&i.count, 1)
 	}
@@ -134,6 +138,8 @@ func (i *BasicDigitalInterrupt) Tick(high bool, not uint64) {
 	for _, c := range i.callbacks {
 		c <- high
 	}
+
+	return nil
 }
 
 // AddCallback adds a listener for interrupts.
@@ -158,39 +164,40 @@ type ServoDigitalInterrupt struct {
 }
 
 // Config returns the config the interrupt was created with.
-func (i *ServoDigitalInterrupt) Config() DigitalInterruptConfig {
-	return i.cfg
+func (i *ServoDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
+	return i.cfg, nil
 }
 
 // Value will return the window averaged value followed by its post processed
 // result.
-func (i *ServoDigitalInterrupt) Value() int64 {
+func (i *ServoDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	v := int64(i.ra.Average())
 	if i.pp != nil {
-		return i.pp(v)
+		return i.pp(v), nil
 	}
 
-	return v
+	return v, nil
 }
 
 // Tick records the time between two successive low signals (pulse width). How it is
 // interpreted is based off the consumer of Value.
-func (i *ServoDigitalInterrupt) Tick(high bool, now uint64) {
+func (i *ServoDigitalInterrupt) Tick(ctx context.Context, high bool, now uint64) error {
 	lastValid := i.last != 0
 
 	diff := now - i.last
 	i.last = now
 
 	if !lastValid {
-		return
+		return nil
 	}
 
 	if high {
 		// this is time between signals, ignore
-		return
+		return nil
 	}
 
 	i.ra.Add(int(diff / 1000))
+	return nil
 }
 
 // AddCallback currently panics.
