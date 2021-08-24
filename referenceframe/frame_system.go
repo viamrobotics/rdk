@@ -16,6 +16,7 @@ type FrameSystem interface {
 	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
+	Frames() []Frame
 }
 
 // staticFrameSystem implements FrameSystem. It is a simple tree graph that only takes in staticFrames.
@@ -58,6 +59,15 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 		return sfs.world
 	}
 	return sfs.frames[name]
+}
+
+// Frames returns a slice containing all frames
+func (sfs *simpleFrameSystem) Frames() []Frame {
+	var frames []Frame
+	for _, frame := range sfs.frames{
+		frames = append(frames, frame)
+	}
+	return frames
 }
 
 // SetFrameFromPose adds an input staticFrame to the system given a parent and a pose.
