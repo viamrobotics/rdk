@@ -568,6 +568,56 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 	return &pb.BoardStatusResponse{Status: status}, nil
 }
 
+// BoardMotorStatus returns the status of a motor of the underlying robot.
+// @erd @edaniels Okay to remove/refactor per github discussion.
+func (s *Server) BoardMotorStatus(ctx context.Context, req *pb.BoardMotorStatusRequest) (*pb.BoardMotorStatusResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	isOn, err := theMotor.IsOn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	position, err := theMotor.Position(ctx)
+	if err != nil {
+		return nil, err
+	}
+	positionSupported, err := theMotor.PositionSupported(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	status := &pb.MotorStatus{
+		On:                isOn,
+		Position:          position,
+		PositionSupported: positionSupported,
+	}
+
+	return &pb.BoardMotorStatusResponse{Status: status}, nil
+}
+
+// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
+func (s *Server) BoardMotorPower(ctx context.Context, req *pb.BoardMotorPowerRequest) (*pb.BoardMotorPowerResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorPowerResponse{}, theMotor.Power(ctx, req.PowerPct)
+}
+
 // BoardMotorGo requests the motor of a board of the underlying robot to go.
 func (s *Server) BoardMotorGo(ctx context.Context, req *pb.BoardMotorGoRequest) (*pb.BoardMotorGoResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
@@ -604,6 +654,66 @@ func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForReq
 	}
 
 	return &pb.BoardMotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
+}
+
+// BoardMotorGoTo requests the motor of a board of the underlying robot to go a specific position.
+func (s *Server) BoardMotorGoTo(ctx context.Context, req *pb.BoardMotorGoToRequest) (*pb.BoardMotorGoToResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorGoToResponse{}, theMotor.GoTo(ctx, req.Rpm, req.Position)
+}
+
+// BoardMotorGoTillStop requests the motor of a board of the underlying robot to go until stopped either physically or by a limit switch.
+func (s *Server) BoardMotorGoTillStop(ctx context.Context, req *pb.BoardMotorGoTillStopRequest) (*pb.BoardMotorGoTillStopResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm)
+}
+
+// BoardMotorOff requests the motor of a board of the underlying robot to turn off.
+func (s *Server) BoardMotorOff(ctx context.Context, req *pb.BoardMotorOffRequest) (*pb.BoardMotorOffResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorOffResponse{}, theMotor.Off(ctx)
+}
+
+// BoardMotorZero requests the motor of a board of the underlying robot to reset it's zero/home position.
+func (s *Server) BoardMotorZero(ctx context.Context, req *pb.BoardMotorZeroRequest) (*pb.BoardMotorZeroResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
 }
 
 // BoardServoMove requests the servo of a board of the underlying robot to move.

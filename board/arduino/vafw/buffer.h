@@ -17,8 +17,9 @@ class Buffer {
     const char* getLineAndReset();
 
     void println(const char* buf) { _port->println(buf); }
+    void println(long n) { _port->println(n); }
 
-    void print(int n) { _port->print(n); }
+    void print(long n) { _port->print(n); }
     void print(const char* s) { _port->print(s); }
 
    private:

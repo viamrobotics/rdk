@@ -99,12 +99,16 @@ func (diff *ConfigDiff) ToConfig() (*Config, error) {
 // MotorConfig describes the configuration of a motor on a board.
 type MotorConfig struct {
 	Name             string            `json:"name"`
+	Model            string            `json:"model"`
 	Pins             map[string]string `json:"pins"`
 	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
 	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
 	TicksPerRotation int               `json:"ticksPerRotation"`
-	RampRate         float32           `json:"rampRate"` // how fast to ramp power to motor when using rpm control
+	RampRate         float32           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
+	MaxRPM           float64           `json:"max_rpm"`          // RPM
+	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
 	PWMFreq          uint              `json:"pwmFreq"`
+	Attributes       map[string]string `json:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
