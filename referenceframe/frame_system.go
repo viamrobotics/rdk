@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/golang/geo/r3"
 	spatial "go.viam.com/core/spatialmath"
 )
 
@@ -12,7 +13,8 @@ type FrameSystem interface {
 	World() Frame // return the base world frame
 	GetFrame(name string) Frame
 	SetFrame(frame Frame) error
-	TransformPoint(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
+	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
+	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
 }
 
 // staticFrameSystem implements FrameSystem. It is a simple tree graph that only takes in staticFrames.
@@ -95,33 +97,66 @@ func (sfs *simpleFrameSystem) SetFrame(frame Frame) error {
 }
 
 // TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
-func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error) {
+	if srcFrame == nil {
+		return r3.Vector{}, errors.New("source frame is nil")
+	}
+	if endFrame == nil {
+		return r3.Vector{}, errors.New("target frame is nil")
+	}
+	// check if frames are in system.
+	if !sfs.frameExists(srcFrame.Name()) {
+		return r3.Vector{}, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
+	}
+	if !sfs.frameExists(endFrame.Name()) {
+		return r3.Vector{}, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
+	}
+	// Turn point into an anonymous Frame
+	pointFrame := FrameFromPoint("", srcFrame, point)
+
+	// get source parent to world transform
+	fromSrcTransform, err := composeTransforms(pointFrame, positions) // returns source to world transform
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	// get world to target transform
+	toTargetTransform, err := composeTransforms(endFrame, positions) // returns target to world transform
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	toTargetTransform = toTargetTransform.Invert()
+	// transform from source to world, world to target
+	fullTransform := spatial.Compose(toTargetTransform, fromSrcTransform)
+	return fullTransform.Point(), nil
+}
+
+// TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
+func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error) {
 	if srcFrame == nil {
 		return nil, errors.New("source frame is nil")
 	}
 	if endFrame == nil {
 		return nil, errors.New("target frame is nil")
 	}
-	// check if frames are in system. It is allowed for the src frame to be an anonymous frame not in the system, so
-	// long as its parent IS in the system.
+	// check if frames are in system.
 	if !sfs.frameExists(srcFrame.Name()) {
-		if !sfs.frameExists(srcFrame.Parent().Name()) {
-			return nil, fmt.Errorf("neither source frame %s nor its parent found in FrameSystem", srcFrame.Name())
-		}
+		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
 	if !sfs.frameExists(endFrame.Name()) {
 		return nil, fmt.Errorf("target frame %s not found in FrameSystem", endFrame.Name())
 	}
+	// Turn pose into an anonymous Frame
+	poseFrame := NewStaticFrame("", srcFrame, pose)
 
 	// get source parent to world transform
-	fromSrcTransform, err := composeTransforms(srcFrame, positions) // returns source to world transform
+	fromSrcTransform, err := composeTransforms(poseFrame, positions) // returns source to world transform
 	if err != nil {
-		return &basicPose{}, err
+		return nil, err
 	}
 	// get world to target transform
 	toTargetTransform, err := composeTransforms(endFrame, positions) // returns target to world transform
 	if err != nil {
-		return &basicPose{}, err
+		return nil, err
 	}
 	toTargetTransform = toTargetTransform.Invert()
 	// transform from source to world, world to target
