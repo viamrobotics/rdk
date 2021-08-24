@@ -143,7 +143,7 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 	return fullTransform.Point(), nil
 }
 
-// TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to the target Frame.
+// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target Frame.
 func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error) {
 	poseFrame := NewStaticFrame("", srcFrame, pose)
 	return sfs.TransformFrame(positions, poseFrame, endFrame)
