@@ -350,6 +350,11 @@ func (e *encoder) Start(cancelCtx context.Context, activeBackgroundWorkers *sync
 	onStart()
 }
 
+func (e *encoder) Zero(ctx context.Context, offset int64) error {
+	_, err := e.b.runCommand(fmt.Sprintf("motor-zero %s %d", e.cfg.Name, offset))
+	return err
+}
+
 type motor struct {
 	b   *arduinoBoard
 	cfg board.MotorConfig
@@ -439,6 +444,23 @@ func (m *motor) IsOn(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return res[0] == 't', nil
+}
+
+func (m *motor) GoTo(ctx context.Context, rpm float64, target float64) error {
+	ticks := int(target * float64(m.cfg.TicksPerRotation))
+	ticksPerSecond := int(rpm * float64(m.cfg.TicksPerRotation) / 60.0)
+	_, err := m.b.runCommand(fmt.Sprintf("motor-goto %s %d %d", m.cfg.Name, ticks, ticksPerSecond))
+	return err
+}
+
+func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+func (m *motor) Zero(ctx context.Context, offset float64) error {
+	offsetTicks := int64(offset * float64(m.cfg.TicksPerRotation))
+	_, err := m.b.runCommand(fmt.Sprintf("motor-zero %s %d", m.cfg.Name, offsetTicks))
+	return err
 }
 
 type analogReader struct {

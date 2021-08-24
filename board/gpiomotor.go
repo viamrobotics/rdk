@@ -20,7 +20,7 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 
 	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
 	if _, ok := pins["c"]; ok {
-		return NewBrushlessMotor(b, pins, mc, logger)
+		return NewGPIOStepperMotor(b, pins, mc, logger)
 	}
 	m = &GPIOMotor{
 		b,
@@ -104,4 +104,19 @@ func (m *GPIOMotor) Off(ctx context.Context) error {
 		m.Board.GPIOSet(m.A, false),
 		m.Board.GPIOSet(m.B, false),
 	)
+}
+
+// GoTo is not supported
+func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	return errors.New("not supported")
+}
+
+// GoTillStop is not supported
+func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+// Zero is not supported
+func (m *GPIOMotor) Zero(ctx context.Context, offset float64) error {
+	return errors.New("not supported")
 }

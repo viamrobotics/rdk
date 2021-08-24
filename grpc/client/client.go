@@ -725,10 +725,13 @@ type motorClient struct {
 	motorName string
 }
 
-// Power needs to be implemented.
 func (mc *motorClient) Power(ctx context.Context, powerPct float32) error {
-	debug.PrintStack()
-	return errUnimplemented
+	_, err := mc.rc.client.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+		PowerPct:  powerPct,
+	})
+	return err
 }
 
 func (mc *motorClient) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
@@ -752,28 +755,74 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 	return err
 }
 
-// Position needs to be implemented.
 func (mc *motorClient) Position(ctx context.Context) (float64, error) {
-	debug.PrintStack()
-	return 0, errUnimplemented
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.Status.Position, err
 }
 
-// PositionSupported needs to be implemented.
 func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
-	debug.PrintStack()
-	return false, errUnimplemented
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Status.PositionSupported, err
 }
 
-// Off needs to be implemented.
 func (mc *motorClient) Off(ctx context.Context) error {
-	debug.PrintStack()
-	return errUnimplemented
+	_, err := mc.rc.client.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+	})
+	return err
 }
 
-// IsOn needs to be implemented.
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
-	debug.PrintStack()
-	return false, errUnimplemented
+	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.Status.On, err
+}
+
+func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
+	_, err := mc.rc.client.BoardMotorGoTo(ctx, &pb.BoardMotorGoToRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+		Rpm:       rpm,
+		Position:  position,
+	})
+	return err
+}
+
+func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	_, err := mc.rc.client.BoardMotorGoTillStop(ctx, &pb.BoardMotorGoTillStopRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+		Direction: d,
+		Rpm:       rpm,
+	})
+	return err
+}
+
+func (mc *motorClient) Zero(ctx context.Context, offset float64) error {
+	_, err := mc.rc.client.BoardMotorZero(ctx, &pb.BoardMotorZeroRequest{
+		BoardName: mc.boardName,
+		MotorName: mc.motorName,
+		Offset:    offset,
+	})
+	return err
 }
 
 // servoClient satisfies a gRPC based board.Servo. Refer to the interface

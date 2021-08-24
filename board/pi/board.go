@@ -205,16 +205,22 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	piInstance.motors = map[string]board.Motor{}
 	for _, c := range cfg.Motors {
 		var m board.Motor
-		m, err = board.NewGPIOMotor(piInstance, c, logger)
-		if err != nil {
-			return nil, err
-		}
+		if c.Model == "TMC5072" {
+			m, err = board.NewTMCStepperMotor(piInstance, c, logger)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			m, err = board.NewGPIOMotor(piInstance, c, logger)
+			if err != nil {
+				return nil, err
+			}
 
-		m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
-		if err != nil {
-			return nil, err
+			m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 		piInstance.motors[c.Name] = m
 	}
 

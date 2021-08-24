@@ -4,10 +4,12 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/edaniels/golog"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/core/board"
@@ -22,9 +24,9 @@ func TestArduino(t *testing.T) {
 			{
 				Name: "m1",
 				Pins: map[string]string{
-					"pwm": "28",
-					"a":   "29",
-					"b":   "30",
+					"pwm": "5",
+					"a":   "4",
+					"b":   "6",
 				},
 				Encoder:          "3",
 				EncoderB:         "2",
@@ -60,6 +62,27 @@ func TestArduino(t *testing.T) {
 		pos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos-startPos, test.ShouldBeGreaterThan, 1)
+	})
+
+	err = m.Off(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	utils.SelectContextOrWait(ctx, 500*time.Millisecond)
+
+	err = m.Zero(ctx, 2.0)
+	test.That(t, err, test.ShouldBeNil)
+
+	pos, err := m.Position(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 2.0)
+
+	err = m.GoTo(ctx, 50, 0.5)
+	test.That(t, err, test.ShouldBeNil)
+
+	testutils.WaitForAssertion(t, func(t testing.TB) {
+		pos, err := m.Position(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, pos, test.ShouldBeLessThan, 1)
 	})
 
 }
