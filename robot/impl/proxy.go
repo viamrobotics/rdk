@@ -497,28 +497,28 @@ func (p *proxyBoard) DigitalInterruptByName(name string) (board.DigitalInterrupt
 	return d, ok
 }
 
-func (p *proxyBoard) GPIOSet(pin string, high bool) error {
+func (p *proxyBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.GPIOSet(pin, high)
+	return p.actual.GPIOSet(ctx, pin, high)
 }
 
-func (p *proxyBoard) GPIOGet(pin string) (bool, error) {
+func (p *proxyBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.GPIOGet(pin)
+	return p.actual.GPIOGet(ctx, pin)
 }
 
-func (p *proxyBoard) PWMSet(pin string, dutyCycle byte) error {
+func (p *proxyBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.PWMSet(pin, dutyCycle)
+	return p.actual.PWMSet(ctx, pin, dutyCycle)
 }
 
-func (p *proxyBoard) PWMSetFreq(pin string, freq uint) error {
+func (p *proxyBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.PWMSetFreq(pin, freq)
+	return p.actual.PWMSetFreq(ctx, pin, freq)
 }
 
 func (p *proxyBoard) MotorNames() []string {
@@ -1005,22 +1005,22 @@ func (p *proxyBoardDigitalInterrupt) replace(newDigitalInterrupt board.DigitalIn
 	p.actual = actual.actual
 }
 
-func (p *proxyBoardDigitalInterrupt) Config() board.DigitalInterruptConfig {
+func (p *proxyBoardDigitalInterrupt) Config(ctx context.Context) (board.DigitalInterruptConfig, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Config()
+	return p.actual.Config(ctx)
 }
 
-func (p *proxyBoardDigitalInterrupt) Value() int64 {
+func (p *proxyBoardDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.actual.Value()
+	return p.actual.Value(ctx)
 }
 
-func (p *proxyBoardDigitalInterrupt) Tick(high bool, nanos uint64) {
+func (p *proxyBoardDigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	p.actual.Tick(high, nanos)
+	return p.actual.Tick(ctx, high, nanos)
 }
 
 func (p *proxyBoardDigitalInterrupt) AddCallback(c chan bool) {

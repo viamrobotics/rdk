@@ -181,10 +181,12 @@ var finalStatus = &pb.Status{
 				"servo2": {},
 			},
 			Analogs: map[string]*pb.AnalogStatus{
+				"analog1": {},
 				"analog2": {},
 			},
 			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
-				"encoder": {},
+				"encoder":  {},
+				"digital1": {},
 			},
 		},
 	},
@@ -232,17 +234,22 @@ func TestClient(t *testing.T) {
 		return emptyStatus, nil
 	}
 	var (
-		capBaseName    string
-		capArmName     string
-		capGripperName string
-		capBoardName   string
-		capMotorName   string
-		capServoName   string
-		capCameraName  string
-		capLidarName   string
-		capSensorName  string
+		capBaseName             string
+		capArmName              string
+		capGripperName          string
+		capBoardName            string
+		capMotorName            string
+		capServoName            string
+		capAnalogReaderName     string
+		capDigitalInterruptName string
+		capCameraName           string
+		capLidarName            string
+		capSensorName           string
 	)
 	injectBase := &inject.Base{}
+	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		return 15, nil
+	}
 	var baseStopCalled bool
 	injectBase.StopFunc = func(ctx context.Context) error {
 		baseStopCalled = true
@@ -277,6 +284,13 @@ func TestClient(t *testing.T) {
 	var capArmJointPos *pb.JointPositions
 	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 		capArmJointPos = jp
+		return nil
+	}
+	var capArmJoint int
+	var capArmJointAngleDeg float64
+	injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
+		capArmJoint = joint
+		capArmJointAngleDeg = amountDegs
 		return nil
 	}
 	injectRobot2.ArmByNameFunc = func(name string) (arm.Arm, bool) {
@@ -330,24 +344,18 @@ func TestClient(t *testing.T) {
 		capZeroMotorArgs = []interface{}{offset}
 		return nil
 	}
-	var capPositionMotorArgs []interface{}
 	injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
-		capPositionMotorArgs = []interface{}{}
-		return 0.0, nil
+		return 423.5, nil
 	}
-	var capPositionSupportedMotorArgs []interface{}
 	injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		capPositionSupportedMotorArgs = []interface{}{}
 		return true, nil
 	}
-	var capOffMotorArgs []interface{}
+	var motorOffCalled bool
 	injectMotor.OffFunc = func(ctx context.Context) error {
-		capOffMotorArgs = []interface{}{}
+		motorOffCalled = true
 		return nil
 	}
-	var capIsOnMotorArgs []interface{}
 	injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
-		capIsOnMotorArgs = []interface{}{}
 		return true, nil
 	}
 	injectBoard.MotorByNameFunc = func(name string) (board.Motor, bool) {
@@ -360,12 +368,78 @@ func TestClient(t *testing.T) {
 		capServoAngle = angle
 		return nil
 	}
+	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+		return 5, nil
+	}
+
+	injectAnalogReader := &inject.AnalogReader{}
+	injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+		return 6, nil
+	}
+
+	injectDigitalInterrupt := &inject.DigitalInterrupt{}
+	digitalIntConfig := board.DigitalInterruptConfig{
+		Name:    "foo",
+		Pin:     "bar",
+		Type:    "baz",
+		Formula: "baf",
+	}
+	injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
+		return digitalIntConfig, nil
+	}
+	injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+		return 287, nil
+	}
+	var capDigitalInterruptHigh bool
+	var capDigitalInterruptNanos uint64
+	injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
+		capDigitalInterruptHigh = high
+		capDigitalInterruptNanos = nanos
+		return nil
+	}
+
 	injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
 		return emptyStatus.Boards["board1"], nil
+	}
+	var (
+		capGPIOSetPin      string
+		capGPIOSetHigh     bool
+		capGPIOGetPin      string
+		capPWMSetPin       string
+		capPWMSetDutyCycle byte
+		capPWMSetFreqPin   string
+		capPWMSetFreqFreq  uint
+	)
+	injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+		capGPIOSetPin = pin
+		capGPIOSetHigh = high
+		return nil
+	}
+	injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+		capGPIOGetPin = pin
+		return true, nil
+	}
+	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+		capPWMSetPin = pin
+		capPWMSetDutyCycle = dutyCycle
+		return nil
+	}
+	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+		capPWMSetFreqPin = pin
+		capPWMSetFreqFreq = freq
+		return nil
 	}
 	injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
 		capServoName = name
 		return injectServo, true
+	}
+	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+		capAnalogReaderName = name
+		return injectAnalogReader, true
+	}
+	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+		capDigitalInterruptName = name
+		return injectDigitalInterrupt, true
 	}
 	injectRobot2.BoardByNameFunc = func(name string) (board.Board, bool) {
 		capBoardName = name
@@ -536,10 +610,9 @@ func TestClient(t *testing.T) {
 	_, err = base1.Spin(context.Background(), 5.2, 0, false)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
 	_, err = base1.WidthMillis(context.Background())
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
 	arm1, ok := client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -560,7 +633,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = arm1.JointMoveDelta(context.Background(), 0, 0)
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	gripper1, ok := client.GripperByName("gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -581,6 +655,22 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, err = board1.Status(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	err = board1.GPIOSet(context.Background(), "one", true)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	_, err = board1.GPIOGet(context.Background(), "one")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	err = board1.PWMSet(context.Background(), "one", 1)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	err = board1.PWMSetFreq(context.Background(), "one", 1)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
@@ -617,31 +707,25 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
 	_, err = servo1.Current(context.Background())
-	test.That(t, err, test.ShouldEqual, errUnimplemented)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	analog1, _ := board1.AnalogReaderByName("analog1")
+	_, err = analog1.Read(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	digital1, _ := board1.DigitalInterruptByName("digital1")
+	_, err = digital1.Config(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+	_, err = digital1.Value(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+	err = digital1.Tick(context.Background(), true, 0)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
 	test.That(t, func() {
-		part, _ := board1.AnalogReaderByName("analog1")
-		part.Read(context.Background())
+		digital1.AddCallback(nil)
 	}, test.ShouldPanic)
 	test.That(t, func() {
-		part, _ := board1.DigitalInterruptByName("digital1")
-		part.Config()
-	}, test.ShouldPanic)
-	test.That(t, func() {
-		part, _ := board1.DigitalInterruptByName("digital1")
-		part.Value()
-	}, test.ShouldPanic)
-	test.That(t, func() {
-		part, _ := board1.DigitalInterruptByName("digital1")
-		part.Tick(true, 0)
-	}, test.ShouldPanic)
-	test.That(t, func() {
-		part, _ := board1.DigitalInterruptByName("digital1")
-		part.AddCallback(nil)
-	}, test.ShouldPanic)
-	test.That(t, func() {
-		part, _ := board1.DigitalInterruptByName("digital1")
-		part.AddPostProcessor(nil)
+		digital1.AddPostProcessor(nil)
 	}, test.ShouldPanic)
 
 	camera1, ok := client.CameraByName("camera1")
@@ -669,6 +753,11 @@ func TestClient(t *testing.T) {
 
 	base1, ok = client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
+
+	widthMillis, err := base1.WidthMillis(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, widthMillis, test.ShouldEqual, 15)
+
 	err = base1.Stop(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, baseStopCalled, test.ShouldBeTrue)
@@ -716,6 +805,12 @@ func TestClient(t *testing.T) {
 	test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos.String())
 	test.That(t, capArmName, test.ShouldEqual, "arm2")
 
+	err = arm2.JointMoveDelta(context.Background(), 2, 28)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capArmJoint, test.ShouldEqual, 2)
+	test.That(t, capArmJointAngleDeg, test.ShouldEqual, 28)
+	test.That(t, capArmName, test.ShouldEqual, "arm2")
+
 	gripper1, ok = client.GripperByName("gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
@@ -740,6 +835,26 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, boardStatus.String(), test.ShouldResemble, status.Boards["board1"].String())
 
+	err = board1.GPIOSet(context.Background(), "one", true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capGPIOSetPin, test.ShouldEqual, "one")
+	test.That(t, capGPIOSetHigh, test.ShouldBeTrue)
+
+	isHigh, err := board1.GPIOGet(context.Background(), "one")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, isHigh, test.ShouldBeTrue)
+	test.That(t, capGPIOGetPin, test.ShouldEqual, "one")
+
+	err = board1.PWMSet(context.Background(), "one", 7)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPWMSetPin, test.ShouldEqual, "one")
+	test.That(t, capPWMSetDutyCycle, test.ShouldEqual, byte(7))
+
+	err = board1.PWMSetFreq(context.Background(), "one", 11233)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
+	test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
+
 	test.That(t, utils.NewStringSet(board1.MotorNames()...), test.ShouldResemble, utils.NewStringSet("g"))
 	test.That(t, utils.NewStringSet(board1.ServoNames()...), test.ShouldResemble, utils.NewStringSet("servo1"))
 	test.That(t, utils.NewStringSet(board1.AnalogReaderNames()...), test.ShouldResemble, utils.NewStringSet("analog1"))
@@ -750,6 +865,36 @@ func TestClient(t *testing.T) {
 	err = motor1.Go(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(1)})
+	test.That(t, capBoardName, test.ShouldEqual, "board1")
+	test.That(t, capMotorName, test.ShouldEqual, "motor1")
+
+	err = motor1.Power(context.Background(), 1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capPowerMotorArgs, test.ShouldResemble, []interface{}{float32(1)})
+	test.That(t, capBoardName, test.ShouldEqual, "board1")
+	test.That(t, capMotorName, test.ShouldEqual, "motor1")
+
+	motor1Pos, err := motor1.Position(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motor1Pos, test.ShouldEqual, 423.5)
+	test.That(t, capBoardName, test.ShouldEqual, "board1")
+	test.That(t, capMotorName, test.ShouldEqual, "motor1")
+
+	motor1PosSupported, err := motor1.PositionSupported(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motor1PosSupported, test.ShouldBeTrue)
+	test.That(t, capBoardName, test.ShouldEqual, "board1")
+	test.That(t, capMotorName, test.ShouldEqual, "motor1")
+
+	err = motor1.Off(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motorOffCalled, test.ShouldBeTrue)
+	test.That(t, capBoardName, test.ShouldEqual, "board1")
+	test.That(t, capMotorName, test.ShouldEqual, "motor1")
+
+	motor1IsOn, err := motor1.IsOn(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motor1IsOn, test.ShouldBeTrue)
 	test.That(t, capBoardName, test.ShouldEqual, "board1")
 	test.That(t, capMotorName, test.ShouldEqual, "motor1")
 
@@ -780,25 +925,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capZeroMotorArgs, test.ShouldResemble, []interface{}{5.1})
 
-	testPos, err := motor2.Position(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, testPos, test.ShouldEqual, 0.0)
-	test.That(t, capPositionMotorArgs, test.ShouldResemble, []interface{}{})
-
-	posSupported, err := motor2.PositionSupported(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, posSupported, test.ShouldBeTrue)
-	test.That(t, capPositionSupportedMotorArgs, test.ShouldResemble, []interface{}{})
-
-	err = motor2.Off(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capOffMotorArgs, test.ShouldResemble, []interface{}{})
-
-	isOn, err := motor2.IsOn(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, isOn, test.ShouldBeTrue)
-	test.That(t, capIsOnMotorArgs, test.ShouldResemble, []interface{}{})
-
 	board3, ok := client.BoardByName("board3")
 	test.That(t, ok, test.ShouldBeTrue)
 	servo1, ok = board3.ServoByName("servo1")
@@ -808,6 +934,41 @@ func TestClient(t *testing.T) {
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 	test.That(t, capBoardName, test.ShouldEqual, "board3")
 	test.That(t, capServoName, test.ShouldEqual, "servo1")
+
+	currentVal, err := servo1.Current(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, currentVal, test.ShouldEqual, 5)
+	test.That(t, capBoardName, test.ShouldEqual, "board3")
+	test.That(t, capServoName, test.ShouldEqual, "servo1")
+
+	analog1, ok = board3.AnalogReaderByName("analog1")
+	test.That(t, ok, test.ShouldBeTrue)
+	readVal, err := analog1.Read(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readVal, test.ShouldEqual, 6)
+	test.That(t, capBoardName, test.ShouldEqual, "board3")
+	test.That(t, capAnalogReaderName, test.ShouldEqual, "analog1")
+
+	digital1, ok = board3.DigitalInterruptByName("digital1")
+	test.That(t, ok, test.ShouldBeTrue)
+	digital1Config, err := digital1.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
+	test.That(t, capBoardName, test.ShouldEqual, "board3")
+	test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
+
+	digital1Val, err := digital1.Value(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, digital1Val, test.ShouldEqual, 287)
+	test.That(t, capBoardName, test.ShouldEqual, "board3")
+	test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
+
+	err = digital1.Tick(context.Background(), true, 44)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
+	test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
+	test.That(t, capBoardName, test.ShouldEqual, "board3")
+	test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 	camera1, ok = client.CameraByName("camera1")
 	test.That(t, ok, test.ShouldBeTrue)

@@ -38,12 +38,16 @@ type RobotServiceClient interface {
 	ArmCurrentJointPositions(ctx context.Context, in *ArmCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmCurrentJointPositionsResponse, error)
 	// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
 	ArmMoveToJointPositions(ctx context.Context, in *ArmMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmMoveToJointPositionsResponse, error)
+	// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+	ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
+	// BaseWidthMillis returns the width of a base of the underlying robot.
+	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
 	// GripperOpen opens a gripper of the underlying robot.
 	GripperOpen(ctx context.Context, in *GripperOpenRequest, opts ...grpc.CallOption) (*GripperOpenResponse, error)
 	// GripperGrab requests a gripper of the underlying robot to grab.
@@ -77,6 +81,14 @@ type RobotServiceClient interface {
 	LidarAngularResolution(ctx context.Context, in *LidarAngularResolutionRequest, opts ...grpc.CallOption) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
+	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+	BoardGPIOSet(ctx context.Context, in *BoardGPIOSetRequest, opts ...grpc.CallOption) (*BoardGPIOSetResponse, error)
+	// BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+	BoardGPIOGet(ctx context.Context, in *BoardGPIOGetRequest, opts ...grpc.CallOption) (*BoardGPIOGetResponse, error)
+	// BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+	BoardPWMSet(ctx context.Context, in *BoardPWMSetRequest, opts ...grpc.CallOption) (*BoardPWMSetResponse, error)
+	// BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	BoardPWMSetFrequency(ctx context.Context, in *BoardPWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardPWMSetFrequencyResponse, error)
 	// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
 	BoardMotorPower(ctx context.Context, in *BoardMotorPowerRequest, opts ...grpc.CallOption) (*BoardMotorPowerResponse, error)
 	// BoardMotorGo requests the motor of a board of the underlying robot to go.
@@ -90,12 +102,28 @@ type RobotServiceClient interface {
 	BoardMotorGoTillStop(ctx context.Context, in *BoardMotorGoTillStopRequest, opts ...grpc.CallOption) (*BoardMotorGoTillStopResponse, error)
 	// BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
 	BoardMotorZero(ctx context.Context, in *BoardMotorZeroRequest, opts ...grpc.CallOption) (*BoardMotorZeroResponse, error)
-	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
+	// BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
+	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+	// back into calls of BoardMotorGoFor.
+	BoardMotorPosition(ctx context.Context, in *BoardMotorPositionRequest, opts ...grpc.CallOption) (*BoardMotorPositionResponse, error)
+	// BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
+	// is reliant on having an encoder.
+	BoardMotorPositionSupported(ctx context.Context, in *BoardMotorPositionSupportedRequest, opts ...grpc.CallOption) (*BoardMotorPositionSupportedResponse, error)
+	// BoardMotorOff turns the motor of a board of the underlying robot off.
 	BoardMotorOff(ctx context.Context, in *BoardMotorOffRequest, opts ...grpc.CallOption) (*BoardMotorOffResponse, error)
-	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*BoardMotorStatusResponse, error)
+	BoardMotorIsOn(ctx context.Context, in *BoardMotorIsOnRequest, opts ...grpc.CallOption) (*BoardMotorIsOnResponse, error)
 	// BoardServoMove requests the servo of a board of the underlying robot to move.
 	BoardServoMove(ctx context.Context, in *BoardServoMoveRequest, opts ...grpc.CallOption) (*BoardServoMoveResponse, error)
+	// BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
+	BoardServoCurrent(ctx context.Context, in *BoardServoCurrentRequest, opts ...grpc.CallOption) (*BoardServoCurrentResponse, error)
+	// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+	BoardAnalogReaderRead(ctx context.Context, in *BoardAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardAnalogReaderReadResponse, error)
+	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
+	BoardDigitalInterruptConfig(ctx context.Context, in *BoardDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptConfigResponse, error)
+	// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+	BoardDigitalInterruptValue(ctx context.Context, in *BoardDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptValueResponse, error)
+	// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+	BoardDigitalInterruptTick(ctx context.Context, in *BoardDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -211,6 +239,15 @@ func (c *robotServiceClient) ArmMoveToJointPositions(ctx context.Context, in *Ar
 	return out, nil
 }
 
+func (c *robotServiceClient) ArmJointMoveDelta(ctx context.Context, in *ArmJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmJointMoveDeltaResponse, error) {
+	out := new(ArmJointMoveDeltaResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ArmJointMoveDelta", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error) {
 	out := new(BaseMoveStraightResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveStraight", in, out, opts...)
@@ -232,6 +269,15 @@ func (c *robotServiceClient) BaseSpin(ctx context.Context, in *BaseSpinRequest, 
 func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error) {
 	out := new(BaseStopResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseStop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
+	out := new(BaseWidthMillisResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -364,6 +410,42 @@ func (c *robotServiceClient) BoardStatus(ctx context.Context, in *BoardStatusReq
 	return out, nil
 }
 
+func (c *robotServiceClient) BoardGPIOSet(ctx context.Context, in *BoardGPIOSetRequest, opts ...grpc.CallOption) (*BoardGPIOSetResponse, error) {
+	out := new(BoardGPIOSetResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardGPIOSet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardGPIOGet(ctx context.Context, in *BoardGPIOGetRequest, opts ...grpc.CallOption) (*BoardGPIOGetResponse, error) {
+	out := new(BoardGPIOGetResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardGPIOGet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardPWMSet(ctx context.Context, in *BoardPWMSetRequest, opts ...grpc.CallOption) (*BoardPWMSetResponse, error) {
+	out := new(BoardPWMSetResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardPWMSet", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardPWMSetFrequency(ctx context.Context, in *BoardPWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardPWMSetFrequencyResponse, error) {
+	out := new(BoardPWMSetFrequencyResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardPWMSetFrequency", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) BoardMotorPower(ctx context.Context, in *BoardMotorPowerRequest, opts ...grpc.CallOption) (*BoardMotorPowerResponse, error) {
 	out := new(BoardMotorPowerResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorPower", in, out, opts...)
@@ -418,6 +500,24 @@ func (c *robotServiceClient) BoardMotorZero(ctx context.Context, in *BoardMotorZ
 	return out, nil
 }
 
+func (c *robotServiceClient) BoardMotorPosition(ctx context.Context, in *BoardMotorPositionRequest, opts ...grpc.CallOption) (*BoardMotorPositionResponse, error) {
+	out := new(BoardMotorPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorPosition", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardMotorPositionSupported(ctx context.Context, in *BoardMotorPositionSupportedRequest, opts ...grpc.CallOption) (*BoardMotorPositionSupportedResponse, error) {
+	out := new(BoardMotorPositionSupportedResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorPositionSupported", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *robotServiceClient) BoardMotorOff(ctx context.Context, in *BoardMotorOffRequest, opts ...grpc.CallOption) (*BoardMotorOffResponse, error) {
 	out := new(BoardMotorOffResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorOff", in, out, opts...)
@@ -427,9 +527,9 @@ func (c *robotServiceClient) BoardMotorOff(ctx context.Context, in *BoardMotorOf
 	return out, nil
 }
 
-func (c *robotServiceClient) BoardMotorStatus(ctx context.Context, in *BoardMotorStatusRequest, opts ...grpc.CallOption) (*BoardMotorStatusResponse, error) {
-	out := new(BoardMotorStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorStatus", in, out, opts...)
+func (c *robotServiceClient) BoardMotorIsOn(ctx context.Context, in *BoardMotorIsOnRequest, opts ...grpc.CallOption) (*BoardMotorIsOnResponse, error) {
+	out := new(BoardMotorIsOnResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardMotorIsOn", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -439,6 +539,51 @@ func (c *robotServiceClient) BoardMotorStatus(ctx context.Context, in *BoardMoto
 func (c *robotServiceClient) BoardServoMove(ctx context.Context, in *BoardServoMoveRequest, opts ...grpc.CallOption) (*BoardServoMoveResponse, error) {
 	out := new(BoardServoMoveResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardServoMove", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardServoCurrent(ctx context.Context, in *BoardServoCurrentRequest, opts ...grpc.CallOption) (*BoardServoCurrentResponse, error) {
+	out := new(BoardServoCurrentResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardServoCurrent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardAnalogReaderRead(ctx context.Context, in *BoardAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardAnalogReaderReadResponse, error) {
+	out := new(BoardAnalogReaderReadResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardAnalogReaderRead", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardDigitalInterruptConfig(ctx context.Context, in *BoardDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptConfigResponse, error) {
+	out := new(BoardDigitalInterruptConfigResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardDigitalInterruptValue(ctx context.Context, in *BoardDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptValueResponse, error) {
+	out := new(BoardDigitalInterruptValueResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptValue", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BoardDigitalInterruptTick(ctx context.Context, in *BoardDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptTickResponse, error) {
+	out := new(BoardDigitalInterruptTickResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptTick", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -512,12 +657,16 @@ type RobotServiceServer interface {
 	ArmCurrentJointPositions(context.Context, *ArmCurrentJointPositionsRequest) (*ArmCurrentJointPositionsResponse, error)
 	// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
 	ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error)
+	// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+	ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error)
 	// BaseMoveStraight moves a base of the underlying robot straight.
 	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
 	// BaseSpin spins a base of the underlying robot.
 	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
 	// BaseSpin stops a base of the underlying robot.
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
+	// BaseWidthMillis returns the width of a base of the underlying robot.
+	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
 	// GripperOpen opens a gripper of the underlying robot.
 	GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error)
 	// GripperGrab requests a gripper of the underlying robot to grab.
@@ -551,6 +700,14 @@ type RobotServiceServer interface {
 	LidarAngularResolution(context.Context, *LidarAngularResolutionRequest) (*LidarAngularResolutionResponse, error)
 	// BoardStatus returns the status of a board of the underlying robot.
 	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
+	// BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+	BoardGPIOSet(context.Context, *BoardGPIOSetRequest) (*BoardGPIOSetResponse, error)
+	// BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+	BoardGPIOGet(context.Context, *BoardGPIOGetRequest) (*BoardGPIOGetResponse, error)
+	// BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+	BoardPWMSet(context.Context, *BoardPWMSetRequest) (*BoardPWMSetResponse, error)
+	// BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	BoardPWMSetFrequency(context.Context, *BoardPWMSetFrequencyRequest) (*BoardPWMSetFrequencyResponse, error)
 	// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
 	BoardMotorPower(context.Context, *BoardMotorPowerRequest) (*BoardMotorPowerResponse, error)
 	// BoardMotorGo requests the motor of a board of the underlying robot to go.
@@ -564,12 +721,28 @@ type RobotServiceServer interface {
 	BoardMotorGoTillStop(context.Context, *BoardMotorGoTillStopRequest) (*BoardMotorGoTillStopResponse, error)
 	// BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
 	BoardMotorZero(context.Context, *BoardMotorZeroRequest) (*BoardMotorZeroResponse, error)
-	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
+	// BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
+	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+	// back into calls of BoardMotorGoFor.
+	BoardMotorPosition(context.Context, *BoardMotorPositionRequest) (*BoardMotorPositionResponse, error)
+	// BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
+	// is reliant on having an encoder.
+	BoardMotorPositionSupported(context.Context, *BoardMotorPositionSupportedRequest) (*BoardMotorPositionSupportedResponse, error)
+	// BoardMotorOff turns the motor of a board of the underlying robot off.
 	BoardMotorOff(context.Context, *BoardMotorOffRequest) (*BoardMotorOffResponse, error)
-	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*BoardMotorStatusResponse, error)
+	BoardMotorIsOn(context.Context, *BoardMotorIsOnRequest) (*BoardMotorIsOnResponse, error)
 	// BoardServoMove requests the servo of a board of the underlying robot to move.
 	BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error)
+	// BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
+	BoardServoCurrent(context.Context, *BoardServoCurrentRequest) (*BoardServoCurrentResponse, error)
+	// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+	BoardAnalogReaderRead(context.Context, *BoardAnalogReaderReadRequest) (*BoardAnalogReaderReadResponse, error)
+	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
+	BoardDigitalInterruptConfig(context.Context, *BoardDigitalInterruptConfigRequest) (*BoardDigitalInterruptConfigResponse, error)
+	// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+	BoardDigitalInterruptValue(context.Context, *BoardDigitalInterruptValueRequest) (*BoardDigitalInterruptValueResponse, error)
+	// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+	BoardDigitalInterruptTick(context.Context, *BoardDigitalInterruptTickRequest) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -611,6 +784,9 @@ func (UnimplementedRobotServiceServer) ArmCurrentJointPositions(context.Context,
 func (UnimplementedRobotServiceServer) ArmMoveToJointPositions(context.Context, *ArmMoveToJointPositionsRequest) (*ArmMoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ArmMoveToJointPositions not implemented")
 }
+func (UnimplementedRobotServiceServer) ArmJointMoveDelta(context.Context, *ArmJointMoveDeltaRequest) (*ArmJointMoveDeltaResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ArmJointMoveDelta not implemented")
+}
 func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
 }
@@ -619,6 +795,9 @@ func (UnimplementedRobotServiceServer) BaseSpin(context.Context, *BaseSpinReques
 }
 func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseStop not implemented")
+}
+func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
 }
 func (UnimplementedRobotServiceServer) GripperOpen(context.Context, *GripperOpenRequest) (*GripperOpenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GripperOpen not implemented")
@@ -662,6 +841,18 @@ func (UnimplementedRobotServiceServer) LidarAngularResolution(context.Context, *
 func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
 }
+func (UnimplementedRobotServiceServer) BoardGPIOSet(context.Context, *BoardGPIOSetRequest) (*BoardGPIOSetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardGPIOSet not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardGPIOGet(context.Context, *BoardGPIOGetRequest) (*BoardGPIOGetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardGPIOGet not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardPWMSet(context.Context, *BoardPWMSetRequest) (*BoardPWMSetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardPWMSet not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardPWMSetFrequency(context.Context, *BoardPWMSetFrequencyRequest) (*BoardPWMSetFrequencyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardPWMSetFrequency not implemented")
+}
 func (UnimplementedRobotServiceServer) BoardMotorPower(context.Context, *BoardMotorPowerRequest) (*BoardMotorPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorPower not implemented")
 }
@@ -680,14 +871,35 @@ func (UnimplementedRobotServiceServer) BoardMotorGoTillStop(context.Context, *Bo
 func (UnimplementedRobotServiceServer) BoardMotorZero(context.Context, *BoardMotorZeroRequest) (*BoardMotorZeroResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorZero not implemented")
 }
+func (UnimplementedRobotServiceServer) BoardMotorPosition(context.Context, *BoardMotorPositionRequest) (*BoardMotorPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorPosition not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardMotorPositionSupported(context.Context, *BoardMotorPositionSupportedRequest) (*BoardMotorPositionSupportedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorPositionSupported not implemented")
+}
 func (UnimplementedRobotServiceServer) BoardMotorOff(context.Context, *BoardMotorOffRequest) (*BoardMotorOffResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorOff not implemented")
 }
-func (UnimplementedRobotServiceServer) BoardMotorStatus(context.Context, *BoardMotorStatusRequest) (*BoardMotorStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorStatus not implemented")
+func (UnimplementedRobotServiceServer) BoardMotorIsOn(context.Context, *BoardMotorIsOnRequest) (*BoardMotorIsOnResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardMotorIsOn not implemented")
 }
 func (UnimplementedRobotServiceServer) BoardServoMove(context.Context, *BoardServoMoveRequest) (*BoardServoMoveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BoardServoMove not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardServoCurrent(context.Context, *BoardServoCurrentRequest) (*BoardServoCurrentResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardServoCurrent not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardAnalogReaderRead(context.Context, *BoardAnalogReaderReadRequest) (*BoardAnalogReaderReadResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardAnalogReaderRead not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardDigitalInterruptConfig(context.Context, *BoardDigitalInterruptConfigRequest) (*BoardDigitalInterruptConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptConfig not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardDigitalInterruptValue(context.Context, *BoardDigitalInterruptValueRequest) (*BoardDigitalInterruptValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptValue not implemented")
+}
+func (UnimplementedRobotServiceServer) BoardDigitalInterruptTick(context.Context, *BoardDigitalInterruptTickRequest) (*BoardDigitalInterruptTickResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptTick not implemented")
 }
 func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
@@ -864,6 +1076,24 @@ func _RobotService_ArmMoveToJointPositions_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_ArmJointMoveDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmJointMoveDeltaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ArmJointMoveDelta(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/ArmJointMoveDelta",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ArmJointMoveDelta(ctx, req.(*ArmJointMoveDeltaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_BaseMoveStraight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BaseMoveStraightRequest)
 	if err := dec(in); err != nil {
@@ -914,6 +1144,24 @@ func _RobotService_BaseStop_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseStop(ctx, req.(*BaseStopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BaseWidthMillisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BaseWidthMillis(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BaseWidthMillis",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1170,6 +1418,78 @@ func _RobotService_BoardStatus_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_BoardGPIOSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardGPIOSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardGPIOSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardGPIOSet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardGPIOSet(ctx, req.(*BoardGPIOSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardGPIOGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardGPIOGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardGPIOGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardGPIOGet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardGPIOGet(ctx, req.(*BoardGPIOGetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardPWMSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardPWMSetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardPWMSet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardPWMSet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardPWMSet(ctx, req.(*BoardPWMSetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardPWMSetFrequency_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardPWMSetFrequencyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardPWMSetFrequency(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardPWMSetFrequency",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardPWMSetFrequency(ctx, req.(*BoardPWMSetFrequencyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_BoardMotorPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BoardMotorPowerRequest)
 	if err := dec(in); err != nil {
@@ -1278,6 +1598,42 @@ func _RobotService_BoardMotorZero_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_BoardMotorPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardMotorPositionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardMotorPosition(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardMotorPosition",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardMotorPosition(ctx, req.(*BoardMotorPositionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardMotorPositionSupported_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardMotorPositionSupportedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardMotorPositionSupported(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardMotorPositionSupported",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardMotorPositionSupported(ctx, req.(*BoardMotorPositionSupportedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RobotService_BoardMotorOff_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BoardMotorOffRequest)
 	if err := dec(in); err != nil {
@@ -1296,20 +1652,20 @@ func _RobotService_BoardMotorOff_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_BoardMotorStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardMotorStatusRequest)
+func _RobotService_BoardMotorIsOn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardMotorIsOnRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardMotorStatus(ctx, in)
+		return srv.(RobotServiceServer).BoardMotorIsOn(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardMotorStatus",
+		FullMethod: "/proto.api.v1.RobotService/BoardMotorIsOn",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardMotorStatus(ctx, req.(*BoardMotorStatusRequest))
+		return srv.(RobotServiceServer).BoardMotorIsOn(ctx, req.(*BoardMotorIsOnRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1328,6 +1684,96 @@ func _RobotService_BoardServoMove_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BoardServoMove(ctx, req.(*BoardServoMoveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardServoCurrent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServoCurrentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardServoCurrent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardServoCurrent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardServoCurrent(ctx, req.(*BoardServoCurrentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardAnalogReaderRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardAnalogReaderReadRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardAnalogReaderRead(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardAnalogReaderRead",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardAnalogReaderRead(ctx, req.(*BoardAnalogReaderReadRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardDigitalInterruptConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardDigitalInterruptConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardDigitalInterruptConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardDigitalInterruptConfig(ctx, req.(*BoardDigitalInterruptConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardDigitalInterruptValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardDigitalInterruptValueRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardDigitalInterruptValue(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptValue",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardDigitalInterruptValue(ctx, req.(*BoardDigitalInterruptValueRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BoardDigitalInterruptTick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardDigitalInterruptTickRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BoardDigitalInterruptTick(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptTick",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BoardDigitalInterruptTick(ctx, req.(*BoardDigitalInterruptTickRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1458,6 +1904,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ArmMoveToJointPositions_Handler,
 		},
 		{
+			MethodName: "ArmJointMoveDelta",
+			Handler:    _RobotService_ArmJointMoveDelta_Handler,
+		},
+		{
 			MethodName: "BaseMoveStraight",
 			Handler:    _RobotService_BaseMoveStraight_Handler,
 		},
@@ -1468,6 +1918,10 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseStop",
 			Handler:    _RobotService_BaseStop_Handler,
+		},
+		{
+			MethodName: "BaseWidthMillis",
+			Handler:    _RobotService_BaseWidthMillis_Handler,
 		},
 		{
 			MethodName: "GripperOpen",
@@ -1526,6 +1980,22 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BoardStatus_Handler,
 		},
 		{
+			MethodName: "BoardGPIOSet",
+			Handler:    _RobotService_BoardGPIOSet_Handler,
+		},
+		{
+			MethodName: "BoardGPIOGet",
+			Handler:    _RobotService_BoardGPIOGet_Handler,
+		},
+		{
+			MethodName: "BoardPWMSet",
+			Handler:    _RobotService_BoardPWMSet_Handler,
+		},
+		{
+			MethodName: "BoardPWMSetFrequency",
+			Handler:    _RobotService_BoardPWMSetFrequency_Handler,
+		},
+		{
 			MethodName: "BoardMotorPower",
 			Handler:    _RobotService_BoardMotorPower_Handler,
 		},
@@ -1550,16 +2020,44 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BoardMotorZero_Handler,
 		},
 		{
+			MethodName: "BoardMotorPosition",
+			Handler:    _RobotService_BoardMotorPosition_Handler,
+		},
+		{
+			MethodName: "BoardMotorPositionSupported",
+			Handler:    _RobotService_BoardMotorPositionSupported_Handler,
+		},
+		{
 			MethodName: "BoardMotorOff",
 			Handler:    _RobotService_BoardMotorOff_Handler,
 		},
 		{
-			MethodName: "BoardMotorStatus",
-			Handler:    _RobotService_BoardMotorStatus_Handler,
+			MethodName: "BoardMotorIsOn",
+			Handler:    _RobotService_BoardMotorIsOn_Handler,
 		},
 		{
 			MethodName: "BoardServoMove",
 			Handler:    _RobotService_BoardServoMove_Handler,
+		},
+		{
+			MethodName: "BoardServoCurrent",
+			Handler:    _RobotService_BoardServoCurrent_Handler,
+		},
+		{
+			MethodName: "BoardAnalogReaderRead",
+			Handler:    _RobotService_BoardAnalogReaderRead_Handler,
+		},
+		{
+			MethodName: "BoardDigitalInterruptConfig",
+			Handler:    _RobotService_BoardDigitalInterruptConfig_Handler,
+		},
+		{
+			MethodName: "BoardDigitalInterruptValue",
+			Handler:    _RobotService_BoardDigitalInterruptValue_Handler,
+		},
+		{
+			MethodName: "BoardDigitalInterruptTick",
+			Handler:    _RobotService_BoardDigitalInterruptTick_Handler,
 		},
 		{
 			MethodName: "SensorReadings",
