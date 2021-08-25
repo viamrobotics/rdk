@@ -18,10 +18,10 @@ type FrameSystem interface {
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
 	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
 	Frames() map[string]Frame
+	Parents() map[Frame]Frame
 }
 
-// staticFrameSystem implements FrameSystem. It is a simple tree graph that only takes in staticFrames.
-// The tree graph can grow, but the transforms between nodes cannot be changed once created.
+// simpleFrameSystem implements FrameSystem. It is a simple tree graph.
 type simpleFrameSystem struct {
 	name   string
 	world  Frame // separate from the map of frames so it can be detached easily
@@ -64,9 +64,14 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 	return sfs.frames[name]
 }
 
-// Frames returns a slice containing all frames
+// Frames returns a map containing all frames
 func (sfs *simpleFrameSystem) Frames() map[string]Frame {
 	return sfs.frames
+}
+
+// Parents returns a map containing all frames mapped to their parents
+func (sfs *simpleFrameSystem) Parents() map[Frame]Frame {
+	return sfs.parents
 }
 
 func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error{
@@ -210,3 +215,22 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	return frame.Transform(input), nil
 }
 
+func ComposeFrameSystems(fs1, fs2 FrameSystem, offset spatial.Pose) (FrameSystem, error){
+	newFS := &simpleFrameSystem{fs1.Name() + "_" + fs2.Name(), fs1.World(), fs1.Frames(), fs1.Parents()}
+	fs2NewWorld := NewStaticFrame(fs2.Name() + "_world", offset)
+	newFS.AddFrame(fs2NewWorld, newFS.World())
+	
+	for frame, parent := range fs2.Parents(){
+		if parent.Name() == "world"{
+			parent = fs2NewWorld
+		}
+		if newFS.frameExists(frame.Name()){
+			return nil, fmt.Errorf("frame systems have conflicting frame name %s", frame.Name())
+		}
+		newFS.frames[frame.Name()] = frame
+		newFS.parents[frame] = parent
+	}
+	return newFS, nil
+}
+
+func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) 
