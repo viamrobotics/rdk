@@ -637,7 +637,7 @@ func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
 	}, true
 }
 
-// SPIByName needs to be implemented
+// SPIByName may need to be implemented
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
