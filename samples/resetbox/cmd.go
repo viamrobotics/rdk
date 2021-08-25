@@ -127,13 +127,12 @@ func (a *LinearAxis) Zero(ctx context.Context, offset float64) error {
 	return errs
 }
 
-
 func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	pos, err := a.m[0].Position(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return pos*a.mmPerRev, nil
+	return pos * a.mmPerRev, nil
 }
 
 func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
@@ -152,9 +151,6 @@ type Positional interface {
 	Position(ctx context.Context) (float64, error)
 	IsOn(ctx context.Context) (bool, error)
 }
-
-
-
 
 type ResetBox struct {
 	logger        golog.Logger
@@ -351,13 +347,13 @@ func (b *ResetBox) waitPosReached(ctx context.Context, motor Positional, target 
 		if err != nil {
 			return err
 		}
-		if math.Abs(pos - target) < 1.0 && !on {
+		if math.Abs(pos-target) < 1.0 && !on {
 			return nil
 		}
 		if i > 100 {
 			return errors.New("timed out waiting for position")
 		}
-		utils.SelectContextOrWait(ctx, 100 * time.Millisecond)
+		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 		i++
 	}
 }
@@ -371,11 +367,10 @@ func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, e
 		if i > 100 {
 			return errors.New("timed out waiting")
 		}
-		utils.SelectContextOrWait(ctx, 100 * time.Millisecond)
+		utils.SelectContextOrWait(ctx, 100*time.Millisecond)
 		i++
 	}
 }
-
 
 func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 
@@ -386,7 +381,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	// Go mostly up
 	b.board.GPIOSet(tipPinA, true)
 	b.board.GPIOSet(tipPinB, false)
-	utils.SelectContextOrWait(ctx, 10000 * time.Millisecond)
+	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
 
 	//All off
 	b.board.GPIOSet(tipPinA, true)
@@ -398,7 +393,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(tipPinA, false)
 	b.board.GPIOSet(tipPinB, true)
-	utils.SelectContextOrWait(ctx, 10000 * time.Millisecond)
+	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
 
 	//All Off
 	b.board.GPIOSet(tipPinA, true)
@@ -422,7 +417,7 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 			return err
 		}
 		b.waitPosReached(ctx, b.hammer, (i+0.2)*hammerRatio)
-		utils.SelectContextOrWait(ctx, 500 * time.Millisecond)
+		utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 	}
 
 	// Raise Hammer
@@ -463,7 +458,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.hammerTime(ctx, cubeWhacks)
 
 	// Wait for hammer + 4 seconds
-	utils.SelectContextOrWait(ctx, 4000 * time.Millisecond)
+	utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
 
 	// Cubes in, going up
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
@@ -483,12 +478,12 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	// Open to load duck
 	b.gate.GoTo(ctx, gateSpeed, gateOpen)
 	b.setSqueeze(ctx, squeezeOpen)
-	utils.SelectContextOrWait(ctx, 8000 * time.Millisecond)
+	utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
 	b.setSqueeze(ctx, squeezeClosed)
-	b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth - squeezeClosed) / 2)
+	b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 
