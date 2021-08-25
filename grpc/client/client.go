@@ -528,7 +528,6 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
-// WidthMillis needs to be implemented.
 func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
 		Name: bc.name,
@@ -582,7 +581,6 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 	return resp.Positions, nil
 }
 
-// JointMoveDelta needs to be implemented.
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	_, err := ac.rc.client.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
 		Name:       ac.name,
@@ -644,7 +642,6 @@ func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
-// AnalogReaderByName needs to be implemented.
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
 		rc:               bc.rc,
@@ -653,7 +650,6 @@ func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool
 	}, true
 }
 
-// DigitalInterruptByName needs to be implemented.
 func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		rc:                   bc.rc,
@@ -873,7 +869,6 @@ func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
 	return err
 }
 
-// Current needs to be implemented.
 func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
 	resp, err := sc.rc.client.BoardServoCurrent(ctx, &pb.BoardServoCurrentRequest{
 		BoardName: sc.boardName,
