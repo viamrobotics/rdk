@@ -58,7 +58,6 @@ public:
 	PWMChannel();
 	virtual bool setPWMFrequency(uint32_t frequency)=0;
 	virtual void setChannelDutyCycle(uint8_t channel, uint8_t duty_cycle)=0;
-	virtual void print()=0;
 protected:
 	uint8_t _prescaler;
 	uint32_t _frequency;
