@@ -25,8 +25,6 @@ buf:
 setup:
 	bash etc/setup.sh
 
-run_server:
-	
 build_client: client.cpp
 	$(CXX) $(CPPFLAGS) -o bin/client client.cpp $(SOURCES) $(IFLAGS) $(LDFLAGS) $(GRPCFLAGS) $(OTHER)
 

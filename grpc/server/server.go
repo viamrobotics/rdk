@@ -569,6 +569,7 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 }
 
 // BoardMotorStatus returns the status of a motor of the underlying robot.
+// @erd @edaniels Okay to remove/refactor per github discussion.
 func (s *Server) BoardMotorStatus(ctx context.Context, req *pb.BoardMotorStatusRequest) (*pb.BoardMotorStatusResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
