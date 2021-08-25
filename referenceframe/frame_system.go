@@ -224,6 +224,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 		return nil, fmt.Errorf("offset frame not in fs1 %s", offset.Name())
 	}
 	
+	// Go through fs2, and reset the parent of any relevant fromes from world to the new offset
 	for frame, parent := range fs2.Parents(){
 		if parent.Name() == "world"{
 			parent = offset
@@ -237,6 +238,9 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 	return newFS, nil
 }
 
+// DivideFrameSystem will take a frame system and a frame in that system, and return two frame systems- one being rooted
+// at the given frame and containing all descendents of it, the other with the original world with the frame and its
+// descendents removed.
 func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error){
 	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
 	newWorld := NewStaticFrame("world", nil)
@@ -254,6 +258,7 @@ func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem
 		delete(parentMap, frame)
 		var fs *simpleFrameSystem
 		
+		// Determine to which frame system this frame and its parent should be added
 		if parent == fs1.World() || newFS1.frameExists(parent.Name()){
 			fs = newFS1
 		}else if parent == newRoot || newFS2.frameExists(parent.Name()){
@@ -262,6 +267,7 @@ func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem
 		}else{
 			fs = traceParent(parent, parentMap[parent])
 		}
+		// TODO: Determine if this should use AddFrame, if so we will need to handle errors
 		fs.frames[frame.Name()] = frame
 		fs.parents[frame] = parent
 		return fs
