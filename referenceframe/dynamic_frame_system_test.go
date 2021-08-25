@@ -16,9 +16,9 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	fs := FrameSystem(dfs)
 
 	// Revolute joint around X axis
-	joint := NewRevoluteFrame("joint", fs.World(), spatial.R4AA{RX: 1, RY: 0, RZ: 0})
+	joint := NewRevoluteFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0})
 	joint.SetLimits(-math.Pi*2, math.Pi*2)
-	fs.SetFrame(joint)
+	fs.AddFrame(joint, fs.World())
 
 	// Displace (2,2,10) from the joint
 	point := r3.Vector{2., 2., 10.}
@@ -56,9 +56,9 @@ func TestSimplePrismaticFrame(t *testing.T) {
 	fs := FrameSystem(dfs)
 
 	// 1D gantry that slides in X
-	gantry := NewPrismaticFrame("gantry", fs.World(), []bool{true, false, false})
+	gantry := NewPrismaticFrame("gantry", []bool{true, false, false})
 	gantry.SetLimits([]float64{-999}, []float64{999})
-	fs.SetFrame(gantry)
+	fs.AddFrame(gantry, fs.World())
 
 	positions := dfs.StartPositions()
 

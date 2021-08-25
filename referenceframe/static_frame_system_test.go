@@ -46,8 +46,8 @@ func TestSimpleFrameTranslation(t *testing.T) {
 	// build the system
 	sfs := NewEmptySimpleFrameSystem("test")
 	fs := FrameSystem(sfs)
-	frame := FrameFromPoint("frame", fs.World(), r3.Vector{0., 3., 0.}) // location of frame with respect to world frame
-	err := sfs.SetFrame(frame)
+	frame := FrameFromPoint("frame", r3.Vector{0., 3., 0.}) // location of frame with respect to world frame
+	err := sfs.AddFrame(frame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// do the transformation
@@ -73,7 +73,7 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	var fs FrameSystem
 	fs = NewEmptySimpleFrameSystem("test")
 	framePose := spatial.NewPoseFromAxisAngle(r3.Vector{0., 3., 0.}, r3.Vector{0., 0., 1.}, math.Pi)
-	err := fs.SetFrame(NewStaticFrame("frame", fs.World(), framePose))
+	err := fs.AddFrame(NewStaticFrame("frame", framePose), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// define the point coordinates
@@ -118,13 +118,13 @@ func TestFrameTranslation(t *testing.T) {
 	var fs FrameSystem
 	fs = NewEmptySimpleFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	err := fs.SetFrame(FrameFromPoint("frame3", fs.World(), frame3Pt))
+	err := fs.AddFrame(FrameFromPoint("frame3", frame3Pt), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	err = fs.SetFrame(FrameFromPoint("frame1", fs.GetFrame("frame3"), frame1Pt))
+	err = fs.AddFrame(FrameFromPoint("frame1", frame1Pt), fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	frame2Pt := r3.Vector{5., 1., 0.} // location of frame2 with respect to world frame
-	err = fs.SetFrame(FrameFromPoint("frame2", fs.World(), frame2Pt))
+	err = fs.AddFrame(FrameFromPoint("frame2", frame2Pt), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// do the transformation
@@ -160,14 +160,14 @@ func TestFrameTransform(t *testing.T) {
 	fs = NewEmptySimpleFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
-	err := fs.SetFrame(FrameFromPoint("frame3", fs.World(), frame3Pt))
+	err := fs.AddFrame(FrameFromPoint("frame3", frame3Pt), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	frame1Pt := r3.Vector{0., 3., 0.} // location of frame1 with respect to frame3
-	err = fs.SetFrame(FrameFromPoint("frame1", fs.GetFrame("frame3"), frame1Pt))
+	err = fs.AddFrame(FrameFromPoint("frame1", frame1Pt), fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 	// location of frame2 with respect to world frame
 	frame2Pose := spatial.NewPoseFromAxisAngle(r3.Vector{5., 1., 0.}, r3.Vector{0., 0., 1.}, math.Pi/2)
-	err = fs.SetFrame(NewStaticFrame("frame2", fs.World(), frame2Pose))
+	err = fs.AddFrame(NewStaticFrame("frame2", frame2Pose), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// do the transformation
@@ -186,12 +186,12 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	fs = NewEmptySimpleFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
-	frame1 := NewStaticFrame("frame1", fs.World(), spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
-	err := fs.SetFrame(frame1)
+	frame1 := NewStaticFrame("frame1", spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	err := fs.AddFrame(frame1, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
-	frame2 := NewStaticFrame("frame2", fs.GetFrame("frame1"), spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
-	err = fs.SetFrame(frame2)
+	frame2 := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	err = fs.AddFrame(frame2, fs.GetFrame("frame1"), )
 	test.That(t, err, test.ShouldBeNil)
 
 	// test out a transform from world to frame
@@ -205,13 +205,13 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	// test out transform between frames
 	// frame3 - pure rotation around y 90 degrees
-	frame3 := NewStaticFrame("frame3", fs.World(), spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
-	err = fs.SetFrame(frame3)
+	frame3 := NewStaticFrame("frame3", spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
+	err = fs.AddFrame(frame3, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame4 - pure translation
-	frame4 := NewStaticFrame("frame4", fs.GetFrame("frame3"), spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
-	err = fs.SetFrame(frame4)
+	frame4 := NewStaticFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
+	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
 
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
