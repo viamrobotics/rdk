@@ -38,7 +38,6 @@ func JointPosToInputs(jp *pb.JointPositions) []Input {
 // Transform takes FROM current frame TO parent's frame!
 type Frame interface {
 	Name() string
-	Parent() Frame
 	Transform([]Input) spatial.Pose
 	Dof() int
 	Limits() ([]float64, []float64) // min and max limits on inputs. Should these be enforced or just informed? How?
@@ -47,34 +46,28 @@ type Frame interface {
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
 type staticFrame struct {
 	name      string
-	parent    Frame
 	transform spatial.Pose
 }
 
-// NewStaticFrame creates a frame given a parent, and a Pose relative to that parent. The Pose is fixed for all time.
-// Parent and Pose are allowed to be nil.
-func NewStaticFrame(name string, parent Frame, pose spatial.Pose) Frame {
+// NewStaticFrame creates a frame given a Pose relative to its parent. The Pose is fixed for all time.
+// Pose is allowed to be nil.
+func NewStaticFrame(name string, pose spatial.Pose) Frame {
 	if pose == nil {
 		pose = spatial.NewEmptyPose()
 	}
-	return &staticFrame{name, parent, pose}
+	return &staticFrame{name, pose}
 }
 
 // FrameFromPoint creates a new Frame from a 3D point. It will be given the same orientation as the parent of the frame.
-func FrameFromPoint(name string, parent Frame, point r3.Vector) Frame {
+func FrameFromPoint(name string, point r3.Vector) Frame {
 	pose := spatial.NewPoseFromPoint(point)
-	frame := NewStaticFrame(name, parent, pose)
+	frame := NewStaticFrame(name, pose)
 	return frame
 }
 
 // Name is the name of the frame.
 func (sf *staticFrame) Name() string {
 	return sf.name
-}
-
-// Parent returns the Frame that is attached to the current frame through the transform.
-func (sf *staticFrame) Parent() Frame {
-	return sf.parent
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
@@ -98,15 +91,14 @@ func (sf *staticFrame) Limits() ([]float64, []float64) {
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type prismaticFrame struct {
 	name      string
-	parent    Frame
 	axes      []bool
 	min       []float64
 	max       []float64
 }
 
-// NewPrismaticFrame creates a frame given a name, a parent, and the axes in which to translate
-func NewPrismaticFrame(name string, parent Frame, axes []bool) *prismaticFrame {
-	pf := &prismaticFrame{name: name, parent: parent, axes: axes}
+// NewPrismaticFrame creates a frame given a name and the axes in which to translate
+func NewPrismaticFrame(name string, axes []bool) *prismaticFrame {
+	pf := &prismaticFrame{name: name, axes: axes}
 	pf.min = make([]float64, pf.Dof())
 	pf.max = make([]float64, pf.Dof())
 	return pf
@@ -115,11 +107,6 @@ func NewPrismaticFrame(name string, parent Frame, axes []bool) *prismaticFrame {
 // Name is the name of the frame.
 func (pf *prismaticFrame) Name() string {
 	return pf.name
-}
-
-// Parent returns the Frame that is attached to the current frame through the transform.
-func (pf *prismaticFrame) Parent() Frame {
-	return pf.parent
 }
 
 // Transform application takes you FROM current frame TO Parent frame. Rotation+Translation expressed in the form of a dual quaternion.
@@ -163,7 +150,6 @@ func (pf *prismaticFrame) SetLimits(min, max []float64) {
 }
 
 type revoluteFrame struct {
-	parent     Frame
 	name       string
 	rotAxis    spatial.R4AA
 	max        float64
@@ -173,10 +159,9 @@ type revoluteFrame struct {
 
 // NewRevolute creates a new revoluteFrame struct.
 // A standard revolute joint will have 1 DOF
-func NewRevoluteFrame(name string, parent Frame, axis spatial.R4AA) *revoluteFrame {
+func NewRevoluteFrame(name string, axis spatial.R4AA) *revoluteFrame {
 	rf := revoluteFrame{}
 	rf.name = name
-	rf.parent = parent
 	rf.rotAxis = axis
 	rf.rotAxis.Normalize()
 
@@ -210,11 +195,6 @@ func (rf *revoluteFrame) Limits() ([]float64, []float64) {
 func (rf *revoluteFrame) SetLimits(min, max float64) {
 	rf.min = min
 	rf.max = max
-}
-
-// Parent returns the parent frame
-func (rf *revoluteFrame) Parent() Frame {
-	return rf.parent
 }
 
 // Name returns the name of the frame
