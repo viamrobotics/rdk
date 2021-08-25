@@ -128,8 +128,8 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 }
 
 func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
-	if cfg.Pins["pwm"] == "" || cfg.Pins["a"] == "" || cfg.Pins["b"] == "" {
-		return errors.New("arduino needs a, b, and pwm pins")
+	if ! ( (cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "") ){
+		return errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
 	if cfg.Encoder == "" || cfg.EncoderB == "" {
@@ -140,11 +140,19 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return errors.New("arduino motors TicksPerRotation to be set")
 	}
 
-	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s e %s %s",
+	for _, pin := range []string{"pwm", "a", "b", "dir", "en"} {
+		if _, ok := cfg.Pins[pin]; !ok {
+			cfg.Pins[pin] = "-1"
+		}
+	}
+
+	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		cfg.Name,
 		cfg.Pins["pwm"],
 		cfg.Pins["a"],
 		cfg.Pins["b"],
+		cfg.Pins["dir"],
+		cfg.Pins["en"],
 		cfg.Encoder,
 		cfg.EncoderB,
 	)
