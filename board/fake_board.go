@@ -49,7 +49,7 @@ type fakeSPIHandle struct {
 	bus *fakeSPI
 }
 
-func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+func (h *fakeSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
 	h.bus.fifo <- tx
 	ret := <-h.bus.fifo
 	return ret[:len(tx)], nil

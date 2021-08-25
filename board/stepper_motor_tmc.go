@@ -73,7 +73,7 @@ const (
 )
 
 // NewTMCStepperMotor returns a TMC5072 driven motor
-func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
+func NewTMCStepperMotor(ctx context.Context, b Board, mc MotorConfig, logger golog.Logger) (*TMCStepperMotor, error) {
 	bus, ok := b.SPIByName(mc.Attributes["spi_bus"])
 	if !ok {
 		return nil, errors.Errorf("can't find SPI bus (%s) requested by TMCStepperMotor", mc.Attributes["spi_bus"])
@@ -122,24 +122,24 @@ func NewTMCStepperMotor(b Board, mc MotorConfig, logger golog.Logger) (*TMCStepp
 	coolConfig := SGThresh << 16
 
 	err = multierr.Combine(
-		m.writeReg(chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
-		m.writeReg(iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
-		m.writeReg(coolConf, coolConfig),  // Sets just the SGThreshold (for now)
+		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
+		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
+		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)
 
 		// Set max acceleration and decceleration
-		m.writeReg(a1, rawMaxAcc),
-		m.writeReg(aMax, rawMaxAcc),
-		m.writeReg(d1, rawMaxAcc),
-		m.writeReg(dMax, rawMaxAcc),
+		m.writeReg(ctx, a1, rawMaxAcc),
+		m.writeReg(ctx, aMax, rawMaxAcc),
+		m.writeReg(ctx, d1, rawMaxAcc),
+		m.writeReg(ctx, dMax, rawMaxAcc),
 
-		m.writeReg(vStart, 1),                         // Always start at min speed
-		m.writeReg(vStop, 10),                         // Always count a stop as LOW speed, but where vStop > vStart
-		m.writeReg(v1, m.rpmToV(m.maxRPM/4)),          // Transition ramp at 25% speed (if d1 and a1 are set different)
-		m.writeReg(vCoolThres, m.rpmToV(m.maxRPM/20)), // Set minimum speed for stall detection and coolstep
-		m.writeReg(vMax, m.rpmToV(0)),                 // Max velocity to zero, we don't want to move
+		m.writeReg(ctx, vStart, 1),                         // Always start at min speed
+		m.writeReg(ctx, vStop, 10),                         // Always count a stop as LOW speed, but where vStop > vStart
+		m.writeReg(ctx, v1, m.rpmToV(m.maxRPM/4)),          // Transition ramp at 25% speed (if d1 and a1 are set different)
+		m.writeReg(ctx, vCoolThres, m.rpmToV(m.maxRPM/20)), // Set minimum speed for stall detection and coolstep
+		m.writeReg(ctx, vMax, m.rpmToV(0)),                 // Max velocity to zero, we don't want to move
 
-		m.writeReg(rampMode, modeVelPos), // Lastly, set velocity mode to force a stop in case chip was left in moving state
-		m.writeReg(xActual, 0),           // Zero the position
+		m.writeReg(ctx, rampMode, modeVelPos), // Lastly, set velocity mode to force a stop in case chip was left in moving state
+		m.writeReg(ctx, xActual, 0),           // Zero the position
 	)
 
 	if err != nil {
@@ -163,7 +163,7 @@ func (m *TMCStepperMotor) shiftAddr(addr uint8) uint8 {
 	return addr
 }
 
-func (m *TMCStepperMotor) writeReg(addr uint8, value int32) error {
+func (m *TMCStepperMotor) writeReg(ctx context.Context, addr uint8, value int32) error {
 
 	addr = m.shiftAddr(addr)
 
@@ -186,7 +186,7 @@ func (m *TMCStepperMotor) writeReg(addr uint8, value int32) error {
 
 	//m.logger.Debug("Write: ", buf)
 
-	_, err = handle.Xfer(1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, buf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (m *TMCStepperMotor) writeReg(addr uint8, value int32) error {
 	return nil
 }
 
-func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
+func (m *TMCStepperMotor) readReg(ctx context.Context, addr uint8) (int32, error) {
 
 	addr = m.shiftAddr(addr)
 
@@ -214,12 +214,12 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 	//m.logger.Debug("ReadT: ", tbuf)
 
 	// Read access returns data from the address sent in the PREVIOUS "packet," so we transmit, then read
-	_, err = handle.Xfer(1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
+	_, err = handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:]) // SPI Mode 3, 1mhz
 	if err != nil {
 		return 0, err
 	}
 
-	rbuf, err := handle.Xfer(1000000, m.csPin, 3, tbuf[:])
+	rbuf, err := handle.Xfer(ctx, 1000000, m.csPin, 3, tbuf[:])
 	if err != nil {
 		return 0, err
 	}
@@ -242,7 +242,7 @@ func (m *TMCStepperMotor) readReg(addr uint8) (int32, error) {
 
 // GetSG returns the current StallGuard reading (effectively an indication of motor load.)
 func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
-	rawRead, err := m.readReg(drvStatus)
+	rawRead, err := m.readReg(ctx, drvStatus)
 	if err != nil {
 		return 0, err
 	}
@@ -253,7 +253,7 @@ func (m *TMCStepperMotor) GetSG(ctx context.Context) (int32, error) {
 
 // Position gives the current motor position
 func (m *TMCStepperMotor) Position(ctx context.Context) (float64, error) {
-	rawPos, err := m.readReg(xActual)
+	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
 		return 0, err
 	}
@@ -279,8 +279,8 @@ func (m *TMCStepperMotor) Go(ctx context.Context, d pb.DirectionRelative, powerP
 	speed := m.rpmToV(float64(powerPct) * m.maxRPM)
 
 	return multierr.Combine(
-		m.writeReg(rampMode, mode),
-		m.writeReg(vMax, speed),
+		m.writeReg(ctx, rampMode, mode),
+		m.writeReg(ctx, vMax, speed),
 	)
 }
 
@@ -321,15 +321,15 @@ func (m *TMCStepperMotor) rpmsToA(acc float64) int32 {
 func (m *TMCStepperMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	position *= float64(m.stepsPerRev)
 	return multierr.Combine(
-		m.writeReg(rampMode, modePosition),
-		m.writeReg(vMax, m.rpmToV(rpm)),
-		m.writeReg(xTarget, int32(position)),
+		m.writeReg(ctx, rampMode, modePosition),
+		m.writeReg(ctx, vMax, m.rpmToV(rpm)),
+		m.writeReg(ctx, xTarget, int32(position)),
 	)
 }
 
 // IsOn returns true if the motor is currently moving.
 func (m *TMCStepperMotor) IsOn(ctx context.Context) (bool, error) {
-	vel, err := m.readReg(vActual)
+	vel, err := m.readReg(ctx, vActual)
 	on := vel != 0
 	return on, err
 }
@@ -354,7 +354,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 	// Disable stallguard and turn off if we fail homing
 	defer func() {
 		if err := multierr.Combine(
-			m.writeReg(swMode, 0x000),
+			m.writeReg(ctx, swMode, 0x000),
 			m.Off(ctx),
 		); err != nil {
 			m.logger.Error(err)
@@ -371,7 +371,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			return errors.New("context cancelled during GoTillStop")
 		}
 
-		stat, err := m.readReg(rampStat)
+		stat, err := m.readReg(ctx, rampStat)
 		if err != nil {
 			return err
 		}
@@ -387,7 +387,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 	}
 
 	// Now enable stallguard
-	if err := m.writeReg(swMode, 0x400); err != nil {
+	if err := m.writeReg(ctx, swMode, 0x400); err != nil {
 		return err
 	}
 
@@ -401,7 +401,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			return errors.New("context cancelled during GoTillStop")
 		}
 
-		stat, err := m.readReg(rampStat)
+		stat, err := m.readReg(ctx, rampStat)
 		if err != nil {
 			return err
 		}
@@ -433,8 +433,8 @@ func (m *TMCStepperMotor) Zero(ctx context.Context, offset float64) error {
 		return errors.New("can't zero while moving")
 	}
 	return multierr.Combine(
-		m.writeReg(rampMode, modeHold),
-		m.writeReg(xTarget, int32(offset*float64(m.stepsPerRev))),
-		m.writeReg(xActual, int32(offset*float64(m.stepsPerRev))),
+		m.writeReg(ctx, rampMode, modeHold),
+		m.writeReg(ctx, xTarget, int32(offset*float64(m.stepsPerRev))),
+		m.writeReg(ctx, xActual, int32(offset*float64(m.stepsPerRev))),
 	)
 }
