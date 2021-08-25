@@ -45,7 +45,7 @@ func TestMotor1(t *testing.T) {
 	test.That(t, b.pwm["3"], test.ShouldEqual, byte(114))
 
 	test.That(t, b.pwmFreq["3"], test.ShouldEqual, 4000)
-	test.That(t, b.PWMSetFreq("3", 8000), test.ShouldBeNil)
+	test.That(t, b.PWMSetFreq(ctx, "3", 8000), test.ShouldBeNil)
 	test.That(t, b.pwmFreq["3"], test.ShouldEqual, 8000)
 
 	test.That(t, m.Off(ctx), test.ShouldBeNil)

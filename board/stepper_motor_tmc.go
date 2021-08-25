@@ -335,8 +335,8 @@ func (m *TMCStepperMotor) IsOn(ctx context.Context) (bool, error) {
 }
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip
-func (m *TMCStepperMotor) Enable(turnOn bool) error {
-	return m.board.GPIOSet(m.enPin, !turnOn)
+func (m *TMCStepperMotor) Enable(ctx context.Context, turnOn bool) error {
+	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
 }
 
 // Off stops the motor.
