@@ -123,7 +123,7 @@ func (b *FakeBoard) DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 }
 
 // GPIOSet sets the given pin to either low or high.
-func (b *FakeBoard) GPIOSet(pin string, high bool) error {
+func (b *FakeBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
 	if b.gpio == nil {
 		b.gpio = map[string]bool{}
 	}
@@ -132,7 +132,7 @@ func (b *FakeBoard) GPIOSet(pin string, high bool) error {
 }
 
 // GPIOGet returns whether the given pin is either low or high.
-func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
+func (b *FakeBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	if b.gpio == nil {
 		b.gpio = map[string]bool{}
 	}
@@ -140,7 +140,7 @@ func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
 }
 
 // PWMSet sets the given pin to the given duty cycle.
-func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
+func (b *FakeBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	if b.pwm == nil {
 		b.pwm = map[string]byte{}
 	}
@@ -149,7 +149,7 @@ func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *FakeBoard) PWMSetFreq(pin string, freq uint) error {
+func (b *FakeBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	if b.pwmFreq == nil {
 		b.pwmFreq = map[string]uint{}
 	}
