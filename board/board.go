@@ -141,7 +141,7 @@ type SPIHandle interface {
 	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }

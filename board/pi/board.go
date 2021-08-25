@@ -207,7 +207,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	for _, c := range cfg.Motors {
 		var m board.Motor
 		if c.Model == "TMC5072" {
-			m, err = board.NewTMCStepperMotor(piInstance, c, logger)
+			m, err = board.NewTMCStepperMotor(ctx, piInstance, c, logger)
 			if err != nil {
 				return nil, err
 			}
@@ -651,6 +651,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		i.Tick(high, tick*1000)
+		// TODO(erd): use new cgo Value to pass a context?
+		i.Tick(context.TODO(), high, tick*1000)
 	}
 }
