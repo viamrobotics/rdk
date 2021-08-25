@@ -231,3 +231,67 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
 }
+
+func TestSystemSplitAndRejoin(t *testing.T) {
+	// build the system
+	var fs FrameSystem
+	fs = NewEmptySimpleFrameSystem("test")
+
+	// frame 1 rotate by 45 degrees around z axis and translate
+	frame1 := NewStaticFrame("frame1", spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	err := fs.AddFrame(frame1, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
+	frame2 := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
+	err = fs.AddFrame(frame2, fs.GetFrame("frame1"), )
+	test.That(t, err, test.ShouldBeNil)
+
+	// frame3 - pure rotation around y 90 degrees
+	frame3 := NewStaticFrame("frame3", spatial.NewPoseFromAxisAngle(r3.Vector{}, r3.Vector{0., 1., 0.}, math.Pi/2))
+	err = fs.AddFrame(frame3, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// frame4 - pure translation
+	frame4 := NewStaticFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
+	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
+	test.That(t, err, test.ShouldBeNil)
+	
+	fs1, fs2, err := DivideFrameSystem(fs, frame3)
+	test.That(t, err, test.ShouldBeNil)
+	
+	f4 := fs1.GetFrame("frame4")
+	test.That(t, f4, test.ShouldBeNil)
+	f1 := fs1.GetFrame("frame1")
+	test.That(t, f1, test.ShouldNotBeNil)
+	
+	f4 = fs2.GetFrame("frame4")
+	test.That(t, f4, test.ShouldNotBeNil)
+	f1 = fs2.GetFrame("frame1")
+	test.That(t, f1, test.ShouldBeNil)
+	
+	pointStart := r3.Vector{2., 0., 0.} // the point from PoV of frame 4
+	pointEnd := r3.Vector{0., 7., 1.}   // the point from PoV of world (frame3)
+	transformPoint, err := fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs2.World())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+	
+	transformPoint, err = fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs.GetFrame("frame2"))
+	test.That(t, err, test.ShouldNotBeNil)
+	
+	// Put frame3 back where it was
+	err = fs1.AddFrame(frame3, fs1.World())
+	test.That(t, err, test.ShouldBeNil)
+	newFS, err := ComposeFrameSystems(fs1, fs2, frame3)
+	test.That(t, err, test.ShouldBeNil)
+	
+	// Confirm new combined frame system now works as it did before
+	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
+	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
+	transformPoint, err = newFS.TransformPoint(blankPos, pointStart, newFS.GetFrame("frame2"), newFS.GetFrame("frame4"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
+	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
+	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+}

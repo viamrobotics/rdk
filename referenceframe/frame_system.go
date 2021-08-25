@@ -215,14 +215,18 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	return frame.Transform(input), nil
 }
 
-func ComposeFrameSystems(fs1, fs2 FrameSystem, offset spatial.Pose) (FrameSystem, error){
+// ComposeFrameSystems will combine two frame systems together, placing the world of fs2 at the given offset from
+func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error){
 	newFS := &simpleFrameSystem{fs1.Name() + "_" + fs2.Name(), fs1.World(), fs1.Frames(), fs1.Parents()}
-	fs2NewWorld := NewStaticFrame(fs2.Name() + "_world", offset)
-	newFS.AddFrame(fs2NewWorld, newFS.World())
+	
+	offsetFrame := fs1.GetFrame(offset.Name())
+	if offsetFrame == nil{
+		return nil, fmt.Errorf("offset frame not in fs1 %s", offset.Name())
+	}
 	
 	for frame, parent := range fs2.Parents(){
 		if parent.Name() == "world"{
-			parent = fs2NewWorld
+			parent = offset
 		}
 		if newFS.frameExists(frame.Name()){
 			return nil, fmt.Errorf("frame systems have conflicting frame name %s", frame.Name())
@@ -233,4 +237,40 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset spatial.Pose) (FrameSystem
 	return newFS, nil
 }
 
-func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) 
+func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error){
+	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
+	newWorld := NewStaticFrame("world", nil)
+	newFS2 := &simpleFrameSystem{newRoot.Name(), newWorld, map[string]Frame{}, map[Frame]Frame{}}
+	
+	rootFrame := fs1.GetFrame(newRoot.Name())
+	if rootFrame == nil{
+		return nil, nil, fmt.Errorf("newRoot frame not in fs1 %s", newRoot.Name())
+	}
+	
+	parentMap := fs1.Parents()
+	delete(parentMap, newRoot)
+	var traceParent func(Frame, Frame) *simpleFrameSystem
+	traceParent = func(frame, parent Frame) *simpleFrameSystem{
+		delete(parentMap, frame)
+		var fs *simpleFrameSystem
+		
+		if parent == fs1.World() || newFS1.frameExists(parent.Name()){
+			fs = newFS1
+		}else if parent == newRoot || newFS2.frameExists(parent.Name()){
+			fs = newFS2
+			parent = newWorld
+		}else{
+			fs = traceParent(parent, parentMap[parent])
+		}
+		fs.frames[frame.Name()] = frame
+		fs.parents[frame] = parent
+		return fs
+	}
+	
+	// Deleting from a map as we iterate through it is OK and safe to do in Go
+	for frame, parent := range parentMap{
+		traceParent(frame, parent)
+	}
+	
+	return newFS1, newFS2, nil
+}
