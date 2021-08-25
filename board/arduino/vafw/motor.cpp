@@ -3,12 +3,15 @@
 
 extern HardwareSerial* debugSerial;
 
-Motor::Motor(const char* name, int in1, int in2, int pwm)
-    : _in1(in1), _in2(in2), _pwm(pwm), _moving(0), _regulated(false) {
+Motor::Motor(const char* name, int in1, int in2, int inDir, int inEn, int pwm)
+    : _in1(in1), _in2(in2), _inDir(inDir), _inEn(inEn), _pwm(pwm), _moving(0), _regulated(false) {
     strcpy(_name, name);
-    pinMode(_in1, OUTPUT);
-    pinMode(_in2, OUTPUT);
-    pinMode(_pwm, OUTPUT);
+
+    if (_in1 >= 0) pinMode(_in1, OUTPUT);
+    if (_in2 >= 0) pinMode(_in2, OUTPUT);
+    if (_inDir >= 0) pinMode(_inDir, OUTPUT);
+    if (_inEn >= 0) pinMode(_inEn, OUTPUT);
+    if (_pwm >= 0) pinMode(_pwm, OUTPUT);
 
     _power = 0;
 }
@@ -16,8 +19,10 @@ Motor::Motor(const char* name, int in1, int in2, int pwm)
 void Motor::stop() {
     _regulated = false;
     _moving = 0;
-    digitalWrite(_in1, LOW);
-    digitalWrite(_in2, LOW);
+    if (_in1 >= 0) digitalWrite(_in1, LOW);
+    if (_in2 >= 0) digitalWrite(_in2, LOW);
+    if (_inEn >= 0) digitalWrite(_inEn, HIGH);
+    setPower(0);
 }
 
 void Motor::setPower(int power) {
@@ -27,22 +32,44 @@ void Motor::setPower(int power) {
         power = 255;
     }
     _power = power;
-    analogWrite(_pwm, power);
+    int realPWM = -1;
+    if (_pwm >= 0) {
+        realPWM = _pwm;
+    }else{
+        if (_moving == 1) {
+            realPWM = _in2;
+            power = 255 - power;
+        } else if (_moving == -1){
+            realPWM = _in1;
+            power = 255 - power;
+        }
+    }
+    if (_inEn >= 0) digitalWrite(_inEn, LOW);
+    if (realPWM >= 0) analogWrite(realPWM, power);
 }
 
 void Motor::go(bool forward, int power) {
     _regulated = false;
-    setPower(power);
 
     if (forward) {
         _moving = 1;
-        digitalWrite(_in1, HIGH);
-        digitalWrite(_in2, LOW);
+        if (_inDir >= 0) {
+            digitalWrite(_inDir, HIGH);
+        }else{
+            digitalWrite(_in1, HIGH);
+            digitalWrite(_in2, LOW);
+        }
     } else {
         _moving = -1;
-        digitalWrite(_in1, LOW);
-        digitalWrite(_in2, HIGH);
+        if (_inDir >= 0) {
+            digitalWrite(_inDir, LOW);
+        }else{
+            digitalWrite(_in1, LOW);
+            digitalWrite(_in2, HIGH);
+        }
     }
+
+    setPower(power);
 }
 
 void Motor::goFor(long ticksPerSecond, long ticks) {
@@ -54,18 +81,7 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
 }
 
 void Motor::goTo(long ticksPerSecond, long ticks) {
-    setPower(16);
-
-    if (ticks > 0) {
-        _moving = 1;
-        digitalWrite(_in1, HIGH);
-        digitalWrite(_in2, LOW);
-    } else {
-        _moving = -1;
-        digitalWrite(_in1, LOW);
-        digitalWrite(_in2, HIGH);
-    }
-
+    go(1, 16);
     _ticksPerSecond = ticksPerSecond;
     _goal = ticks;
     _regulated = true;

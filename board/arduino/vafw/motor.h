@@ -8,7 +8,7 @@
 
 class Motor {
    public:
-    Motor(const char* name, int in1, int in2, int pwm);
+    Motor(const char* name, int in1, int in2, int inDir, int inEn, int pwm);
 
     void stop();
 
@@ -32,6 +32,8 @@ class Motor {
     char _name[255];
     int _in1;
     int _in2;
+    int _inDir;
+    int _inEn;
     int _pwm;
 
     int _moving;  // 0: no, -1: backwards, 1: forwards
