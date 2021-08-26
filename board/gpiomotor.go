@@ -57,11 +57,32 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Power sets the associated pins PWM to the given power percentage.
+// Power sets the associated pins (as discovered) and sets PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 	var errs error
-	if powerPct > 0.0 && m.En != "" {
-		errs = m.Board.GPIOSet(m.En, false)
+
+	if powerPct == 0 {
+		if m.En != "" {
+			errs = m.Board.GPIOSet(m.En, true)
+		}
+
+		if m.A != "" && m.B != "" {
+			errs = multierr.Combine(
+				errs,
+				m.Board.GPIOSet(m.A, false),
+				m.Board.GPIOSet(m.B, false),
+			)
+		}
+
+		if m.PWM != "" {
+			errs = multierr.Combine(errs, m.Board.GPIOSet(m.PWM, false))
+		}
+		return errs
+	}
+
+	m.on = true
+	if m.En != "" {
+		errs = multierr.Combine(errs, m.Board.GPIOSet(m.En, false))
 	}
 
 	var realPWM string
@@ -90,7 +111,6 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 	case pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED:
 		return m.Off(ctx)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
-		m.on = true
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		if m.Dir != "" {
 			return multierr.Combine(
@@ -104,7 +124,6 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 			m.Power(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
-		m.on = true
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		if m.Dir != "" {
 			return multierr.Combine(
@@ -136,21 +155,7 @@ func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
 func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
 	m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED
-	var errs error
-	if m.En != "" {
-		errs = m.Board.GPIOSet(m.En, true)
-	}
-	if m.Dir == "" {
-		errs = multierr.Combine(
-			errs,
-			m.Board.GPIOSet(m.A, false),
-			m.Board.GPIOSet(m.B, false),
-		)
-	}
-	return multierr.Combine(
-		errs,
-		m.Power(ctx, 0),
-	)
+	return m.Power(ctx, 0)
 }
 
 // GoTo is not supported
