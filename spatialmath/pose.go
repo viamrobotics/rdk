@@ -19,6 +19,16 @@ func NewEmptyPose() Pose {
 	return NewDualQuaternion()
 }
 
+// NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
+func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVec) Pose {
+	quat := NewDualQuaternion()
+	if ov != nil {
+		quat = NewDualQuaternionFromRotation(ov)
+	}
+	quat.SetTranslation(point.X, point.Y, point.Z)
+	return quat
+}
+
 // NewPoseFromAxisAngle takes in a positon, rotationAxis, and angle and returns a Pose.
 // angle is input in radians.
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
@@ -27,7 +37,7 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 		return NewDualQuaternion()
 	}
 	aa := R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
-	
+
 	quat := NewDualQuaternion()
 	quat.Real = aa.ToQuat()
 	quat.SetTranslation(point.X, point.Y, point.Z)
