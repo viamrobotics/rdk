@@ -18,7 +18,11 @@ struct motorInfo {
 motorInfo motors[MAX_MOTORS];
 
 Buffer* buf1 = 0;
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 Buffer* buf2 = 0;
+#endif
+
+void(* resetBoard) (void) = 0; //declare reset function @ address 0
 
 int findEmptyMotor() {
     for (int i = 0; i < MAX_MOTORS; i++) {
@@ -84,8 +88,8 @@ void processBuffer(Buffer* b) {
 
     const char* line = b->getLineAndReset();
     if (line[0] == '!') {
-        b->println("!");
-        return;
+        // Reset board as we're about to be reconfigured.
+        resetBoard();
     }
 
     if (isCommand(line, "echo")) {
@@ -279,9 +283,9 @@ void processBuffer(Buffer* b) {
 
 void loop() {
     processBuffer(buf1);
-    if (buf2) {
-        processBuffer(buf2);
-    }
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    processBuffer(buf2);
+#endif
 
     for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].motor) {

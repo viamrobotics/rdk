@@ -19,9 +19,6 @@ Motor::Motor(const char* name, int in1, int in2, int inDir, int inEn, int pwm)
 void Motor::stop() {
     _regulated = false;
     _moving = 0;
-    if (_in1 >= 0) digitalWrite(_in1, LOW);
-    if (_in2 >= 0) digitalWrite(_in2, LOW);
-    if (_inEn >= 0) digitalWrite(_inEn, HIGH);
     setPower(0);
 }
 
@@ -32,17 +29,26 @@ void Motor::setPower(int power) {
         power = 255;
     }
     _power = power;
+
+    if (power == 0) {
+        if (_inEn >= 0) digitalWrite(_inEn, HIGH);
+        if (_pwm >= 0) digitalWrite(_pwm, LOW);
+        if (_in1 >= 0 && _in2 >= 0) {
+            digitalWrite(_in1, LOW);
+            digitalWrite(_in2, LOW);
+        }
+        return;
+    }
+
     int realPWM = -1;
     if (_pwm >= 0) {
         realPWM = _pwm;
-    }else{
-        if (_moving == 1) {
-            realPWM = _in2;
-            power = 255 - power;
-        } else if (_moving == -1){
-            realPWM = _in1;
-            power = 255 - power;
-        }
+    }else if (_moving == 1) {
+        realPWM = _in2;
+        power = 255 - power;
+    } else if (_moving == -1){
+        realPWM = _in1;
+        power = 255 - power;
     }
     if (_inEn >= 0) digitalWrite(_inEn, LOW);
     if (realPWM >= 0) analogWrite(realPWM, power);
@@ -68,8 +74,7 @@ void Motor::go(bool forward, int power) {
             digitalWrite(_in2, HIGH);
         }
     }
-
-    setPower(power);
+    setPower(power); // Must be last for A/B only motors (where PWM will take over one of A or B)
 }
 
 void Motor::goFor(long ticksPerSecond, long ticks) {

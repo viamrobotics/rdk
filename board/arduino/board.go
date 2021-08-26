@@ -100,8 +100,7 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("error reading from arduino: %w", err)
 		}
-
-		line = strings.TrimSpace(line)
+		line = strings.TrimSpace(strings.Trim(line, "\x00")) // TrimSpace alone doesn't remove NULs
 
 		if len(line) == 0 {
 			continue
@@ -128,7 +127,7 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 }
 
 func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
-	if ! ( (cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "") ){
+	if !((cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "")) {
 		return errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
@@ -148,11 +147,11 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		cfg.Name,
-		cfg.Pins["pwm"],
-		cfg.Pins["a"],
-		cfg.Pins["b"],
-		cfg.Pins["dir"],
-		cfg.Pins["en"],
+		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
+		cfg.Pins["a"],   // Use either A & B, or DIR inputs, never both
+		cfg.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
+		cfg.Pins["dir"], // PWM is also required when using DIR
+		cfg.Pins["en"],  // Always optional, inverting input (LOW = ENABLED)
 		cfg.Encoder,
 		cfg.EncoderB,
 	)
@@ -182,17 +181,24 @@ func (b *arduinoBoard) configureAnalog(cfg board.AnalogConfig) error {
 	return nil
 }
 
-func (b *arduinoBoard) configure(cfg board.Config) error {
-
+func (b *arduinoBoard) resetBoard() error {
 	check, err := b.runCommand("!")
 	if err != nil {
 		return err
 	}
 	if check != "!" {
-		return fmt.Errorf("! didn't get expected result, got [%s]", check)
+		return fmt.Errorf("! (reset) didn't get expected result, got [%s]", check)
+	}
+	return nil
+}
+
+func (b *arduinoBoard) configure(cfg board.Config) error {
+	err := b.resetBoard()
+	if err != nil {
+		return err
 	}
 
-	check, err = b.runCommand("echo abc")
+	check, err := b.runCommand("echo abc")
 	if err != nil {
 		return err
 	}
@@ -327,7 +333,10 @@ func (b *arduinoBoard) Close() error {
 		}
 	}
 
-	// TODO(erh): actually clean up on arduino side using reset pin
+	err := b.resetBoard()
+	if err != nil {
+		return err
+	}
 
 	return b.port.Close()
 }
