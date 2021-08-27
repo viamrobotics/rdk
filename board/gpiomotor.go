@@ -63,26 +63,26 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 
 	if powerPct == 0 {
 		if m.En != "" {
-			errs = m.Board.GPIOSet(m.En, true)
+			errs = m.Board.GPIOSet(ctx, m.En, true)
 		}
 
 		if m.A != "" && m.B != "" {
 			errs = multierr.Combine(
 				errs,
-				m.Board.GPIOSet(m.A, false),
-				m.Board.GPIOSet(m.B, false),
+				m.Board.GPIOSet(ctx, m.A, false),
+				m.Board.GPIOSet(ctx, m.B, false),
 			)
 		}
 
 		if m.PWM != "" {
-			errs = multierr.Combine(errs, m.Board.GPIOSet(m.PWM, false))
+			errs = multierr.Combine(errs, m.Board.GPIOSet(ctx, m.PWM, false))
 		}
 		return errs
 	}
 
 	m.on = true
 	if m.En != "" {
-		errs = multierr.Combine(errs, m.Board.GPIOSet(m.En, false))
+		errs = multierr.Combine(errs, m.Board.GPIOSet(ctx, m.En, false))
 	}
 
 	var realPWM string
@@ -100,8 +100,8 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 
 	return multierr.Combine(
 		errs,
-		m.Board.PWMSetFreq(realPWM, m.pwmFreq),
-		m.Board.PWMSet(realPWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
+		m.Board.PWMSetFreq(ctx, realPWM, m.pwmFreq),
+		m.Board.PWMSet(ctx, realPWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
 	)
 }
 
@@ -114,26 +114,26 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 		if m.Dir != "" {
 			return multierr.Combine(
-				m.Board.GPIOSet(m.Dir, true),
+				m.Board.GPIOSet(ctx, m.Dir, true),
 				m.Power(ctx, powerPct),
 			)
 		}
 		return multierr.Combine(
-			m.Board.GPIOSet(m.A, true),
-			m.Board.GPIOSet(m.B, false),
+			m.Board.GPIOSet(ctx, m.A, true),
+			m.Board.GPIOSet(ctx, m.B, false),
 			m.Power(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.curDirection = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 		if m.Dir != "" {
 			return multierr.Combine(
-				m.Board.GPIOSet(m.Dir, false),
+				m.Board.GPIOSet(ctx, m.Dir, false),
 				m.Power(ctx, powerPct),
 			)
 		}
 		return multierr.Combine(
-			m.Board.GPIOSet(m.A, false),
-			m.Board.GPIOSet(m.B, true),
+			m.Board.GPIOSet(ctx, m.A, false),
+			m.Board.GPIOSet(ctx, m.B, true),
 			m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
 		)
 	}

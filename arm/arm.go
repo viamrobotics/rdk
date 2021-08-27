@@ -23,7 +23,7 @@ type Arm interface {
 	// CurrentJointPositions returns the current joint positions of the arm.
 	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
-	// JointMoveDelta moves a specific join of the arm by the given amount.
+	// JointMoveDelta moves a specific joint of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
 }
 
