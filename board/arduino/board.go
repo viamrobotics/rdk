@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 
@@ -64,8 +63,6 @@ func newArduino(ctx context.Context, cfg board.Config, logger golog.Logger) (boa
 		portReader: bufio.NewReader(port),
 		logger:     logger,
 	}
-
-	time.Sleep(1000 * time.Millisecond) // wait for startup?
 
 	err = b.configure(cfg)
 	if err != nil {
