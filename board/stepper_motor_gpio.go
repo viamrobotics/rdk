@@ -115,12 +115,12 @@ func (m *GPIOStepperMotor) Power(ctx context.Context, powerPct float32) error {
 	return errors.New("power not supported for stepper motors on dual H-bridges")
 }
 
-func (m *GPIOStepperMotor) setStep(pins []bool) error {
+func (m *GPIOStepperMotor) setStep(ctx context.Context, pins []bool) error {
 	return multierr.Combine(
-		m.Board.GPIOSet(m.A, pins[0]),
-		m.Board.GPIOSet(m.B, pins[1]),
-		m.Board.GPIOSet(m.C, pins[2]),
-		m.Board.GPIOSet(m.D, pins[3]),
+		m.Board.GPIOSet(ctx, m.A, pins[0]),
+		m.Board.GPIOSet(ctx, m.B, pins[1]),
+		m.Board.GPIOSet(ctx, m.C, pins[2]),
+		m.Board.GPIOSet(ctx, m.D, pins[3]),
 	)
 }
 
@@ -132,7 +132,7 @@ func (m *GPIOStepperMotor) step(ctx context.Context, d pb.DirectionRelative, wai
 		return nil
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		for i := 0; i < len(seq); i++ {
-			if err := m.setStep(seq[i]); err != nil {
+			if err := m.setStep(ctx, seq[i]); err != nil {
 				return err
 			}
 			atomic.AddInt64(&m.steps, 1)
@@ -144,7 +144,7 @@ func (m *GPIOStepperMotor) step(ctx context.Context, d pb.DirectionRelative, wai
 		}
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		for i := len(seq) - 1; i >= 0; i-- {
-			if err := m.setStep(seq[i]); err != nil {
+			if err := m.setStep(ctx, seq[i]); err != nil {
 				return err
 			}
 			atomic.AddInt64(&m.steps, -1)
@@ -186,14 +186,14 @@ func (m *GPIOStepperMotor) IsOn(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
-func (m *GPIOStepperMotor) turnOnOrOff(turnOn bool) error {
+func (m *GPIOStepperMotor) turnOnOrOff(ctx context.Context, turnOn bool) error {
 	var err error
 
 	if turnOn != m.on {
 		for _, pwmPin := range m.PWMs {
 			err = multierr.Combine(
 				err,
-				m.Board.GPIOSet(pwmPin, turnOn),
+				m.Board.GPIOSet(ctx, pwmPin, turnOn),
 			)
 		}
 		if err == nil {
@@ -207,7 +207,7 @@ func (m *GPIOStepperMotor) turnOnOrOff(turnOn bool) error {
 // Off turns off power to the motor and stop all movement.
 func (m *GPIOStepperMotor) Off(ctx context.Context) error {
 	if m.on {
-		return m.turnOnOrOff(false)
+		return m.turnOnOrOff(ctx, false)
 	}
 	return nil
 }
@@ -253,7 +253,7 @@ func (m *GPIOStepperMotor) motorManager(ctx context.Context) {
 				m.logger.Warnf("error turning off: %s", err)
 			}
 		} else {
-			if err = m.turnOnOrOff(true); err != nil {
+			if err = m.turnOnOrOff(ctx, true); err != nil {
 				m.logger.Warnf("error turning on: %s", err)
 				// If we couldn't turn on for some reason, we'll wait a moment then try the whole thing over again
 				if !utils.SelectContextOrWait(ctx, 500*time.Millisecond) {
@@ -286,7 +286,7 @@ func (m *GPIOStepperMotor) Close() error {
 	m.cancel()
 	close(m.done)
 	m.activeBackgroundWorkers.Wait()
-	return m.turnOnOrOff(false)
+	return m.turnOnOrOff(context.Background(), false)
 }
 
 // GoTo is not supported

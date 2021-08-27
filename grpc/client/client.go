@@ -528,10 +528,14 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
-// WidthMillis needs to be implemented.
 func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
-	debug.PrintStack()
-	return 0, errUnimplemented
+	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
+		Name: bc.name,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(resp.WidthMillis), nil
 }
 
 // armClient satisfies a gRPC based arm.Arm. Refer to the interface
@@ -577,10 +581,13 @@ func (ac *armClient) CurrentJointPositions(ctx context.Context) (*pb.JointPositi
 	return resp.Positions, nil
 }
 
-// JointMoveDelta needs to be implemented.
 func (ac *armClient) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	debug.PrintStack()
-	return errUnimplemented
+	_, err := ac.rc.client.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
+		Name:       ac.name,
+		Joint:      int32(joint),
+		AmountDegs: amountDegs,
+	})
+	return err
 }
 
 // gripperClient satisfies a gRPC based gripper.Gripper. Refer to the interface
@@ -630,12 +637,11 @@ func (bc *boardClient) ServoByName(name string) (board.Servo, bool) {
 	}, true
 }
 
-// SPIByName needs to be implemented
+// SPIByName may need to be implemented
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
-// AnalogReaderByName needs to be implemented.
 func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	return &analogReaderClient{
 		rc:               bc.rc,
@@ -644,7 +650,6 @@ func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool
 	}, true
 }
 
-// DigitalInterruptByName needs to be implemented.
 func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		rc:                   bc.rc,
@@ -653,20 +658,42 @@ func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterru
 	}, true
 }
 
-func (bc *boardClient) GPIOSet(pin string, high bool) error {
-	return errUnimplemented
+func (bc *boardClient) GPIOSet(ctx context.Context, pin string, high bool) error {
+	_, err := bc.rc.client.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
+		Name: bc.info.name,
+		Pin:  pin,
+		High: high,
+	})
+	return err
 }
 
-func (bc *boardClient) GPIOGet(pin string) (bool, error) {
-	return false, errUnimplemented
+func (bc *boardClient) GPIOGet(ctx context.Context, pin string) (bool, error) {
+	resp, err := bc.rc.client.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
+		Name: bc.info.name,
+		Pin:  pin,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.High, nil
 }
 
-func (bc *boardClient) PWMSet(pin string, dutyCycle byte) error {
-	return errUnimplemented
+func (bc *boardClient) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+	_, err := bc.rc.client.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
+		Name:      bc.info.name,
+		Pin:       pin,
+		DutyCycle: uint32(dutyCycle),
+	})
+	return err
 }
 
-func (bc *boardClient) PWMSetFreq(pin string, freq uint) error {
-	return errUnimplemented
+func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+	_, err := bc.rc.client.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
+		Name:      bc.info.name,
+		Pin:       pin,
+		Frequency: uint64(freq),
+	})
+	return err
 }
 
 func (bc *boardClient) MotorNames() []string {
@@ -756,25 +783,25 @@ func (mc *motorClient) GoFor(ctx context.Context, d pb.DirectionRelative, rpm fl
 }
 
 func (mc *motorClient) Position(ctx context.Context) (float64, error) {
-	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
-		return 0, err
+		return math.NaN(), err
 	}
-	return resp.Status.Position, err
+	return resp.Position, nil
 }
 
 func (mc *motorClient) PositionSupported(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
 		return false, err
 	}
-	return resp.Status.PositionSupported, err
+	return resp.Supported, nil
 }
 
 func (mc *motorClient) Off(ctx context.Context) error {
@@ -786,14 +813,14 @@ func (mc *motorClient) Off(ctx context.Context) error {
 }
 
 func (mc *motorClient) IsOn(ctx context.Context) (bool, error) {
-	resp, err := mc.rc.client.BoardMotorStatus(ctx, &pb.BoardMotorStatusRequest{
+	resp, err := mc.rc.client.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,
 	})
 	if err != nil {
 		return false, err
 	}
-	return resp.Status.On, err
+	return resp.IsOn, nil
 }
 
 func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) error {
@@ -842,10 +869,15 @@ func (sc *servoClient) Move(ctx context.Context, angleDeg uint8) error {
 	return err
 }
 
-// Current needs to be implemented.
 func (sc *servoClient) Current(ctx context.Context) (uint8, error) {
-	debug.PrintStack()
-	return 0, errUnimplemented
+	resp, err := sc.rc.client.BoardServoCurrent(ctx, &pb.BoardServoCurrentRequest{
+		BoardName: sc.boardName,
+		ServoName: sc.servoName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return uint8(resp.AngleDeg), nil
 }
 
 // analogReaderClient satisfies a gRPC based board.Motor. Refer to the interface
@@ -857,8 +889,14 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	resp, err := arc.rc.client.BoardAnalogReaderRead(ctx, &pb.BoardAnalogReaderReadRequest{
+		BoardName:        arc.boardName,
+		AnalogReaderName: arc.analogReaderName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(resp.Value), nil
 }
 
 // digitalInterruptClient satisfies a gRPC based board.Motor. Refer to the interface
@@ -869,19 +907,47 @@ type digitalInterruptClient struct {
 	digitalInterruptName string
 }
 
-func (dic *digitalInterruptClient) Config() board.DigitalInterruptConfig {
-	debug.PrintStack()
-	panic(errUnimplemented)
+func (dic *digitalInterruptClient) Config(ctx context.Context) (board.DigitalInterruptConfig, error) {
+	resp, err := dic.rc.client.BoardDigitalInterruptConfig(ctx, &pb.BoardDigitalInterruptConfigRequest{
+		BoardName:            dic.boardName,
+		DigitalInterruptName: dic.digitalInterruptName,
+	})
+	if err != nil {
+		return board.DigitalInterruptConfig{}, err
+	}
+	return DigitalInterruptConfigFromProto(resp.Config), nil
 }
 
-func (dic *digitalInterruptClient) Value() int64 {
-	debug.PrintStack()
-	panic(errUnimplemented)
+// DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
+// codebase specific version.
+func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) board.DigitalInterruptConfig {
+	return board.DigitalInterruptConfig{
+		Name:    config.Name,
+		Pin:     config.Pin,
+		Type:    config.Type,
+		Formula: config.Formula,
+	}
 }
 
-func (dic *digitalInterruptClient) Tick(high bool, nanos uint64) {
-	debug.PrintStack()
-	panic(errUnimplemented)
+func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
+	resp, err := dic.rc.client.BoardDigitalInterruptValue(ctx, &pb.BoardDigitalInterruptValueRequest{
+		BoardName:            dic.boardName,
+		DigitalInterruptName: dic.digitalInterruptName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.Value, nil
+}
+
+func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
+	_, err := dic.rc.client.BoardDigitalInterruptTick(ctx, &pb.BoardDigitalInterruptTickRequest{
+		BoardName:            dic.boardName,
+		DigitalInterruptName: dic.digitalInterruptName,
+		High:                 high,
+		Nanos:                nanos,
+	})
+	return err
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {

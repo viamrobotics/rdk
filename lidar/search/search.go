@@ -1,3 +1,4 @@
+//go:build !linux && !darwin
 // +build !linux,!darwin
 
 // Package search provides the ability to search for LiDARs on a system.

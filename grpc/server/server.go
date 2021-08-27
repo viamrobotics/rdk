@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/board"
 	"go.viam.com/core/grpc"
 	"go.viam.com/core/lidar"
 	"go.viam.com/core/pointcloud"
@@ -190,6 +191,16 @@ func (s *Server) ArmMoveToJointPositions(ctx context.Context, req *pb.ArmMoveToJ
 	return &pb.ArmMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
 }
 
+// ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+func (s *Server) ArmJointMoveDelta(ctx context.Context, req *pb.ArmJointMoveDeltaRequest) (*pb.ArmJointMoveDeltaResponse, error) {
+	arm, ok := s.r.ArmByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no arm with name (%s)", req.Name)
+	}
+
+	return &pb.ArmJointMoveDeltaResponse{}, arm.JointMoveDelta(ctx, int(req.Joint), req.AmountDegs)
+}
+
 // BaseMoveStraight moves a base of the underlying robot straight.
 func (s *Server) BaseMoveStraight(ctx context.Context, req *pb.BaseMoveStraightRequest) (*pb.BaseMoveStraightResponse, error) {
 	base, ok := s.r.BaseByName(req.Name)
@@ -238,6 +249,19 @@ func (s *Server) BaseStop(ctx context.Context, req *pb.BaseStopRequest) (*pb.Bas
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
 	return &pb.BaseStopResponse{}, base.Stop(ctx)
+}
+
+// BaseWidthMillis returns the width of a base of the underlying robot.
+func (s *Server) BaseWidthMillis(ctx context.Context, req *pb.BaseWidthMillisRequest) (*pb.BaseWidthMillisResponse, error) {
+	base, ok := s.r.BaseByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no base with name (%s)", req.Name)
+	}
+	width, err := base.WidthMillis(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
 }
 
 // GripperOpen opens a gripper of the underlying robot.
@@ -568,42 +592,51 @@ func (s *Server) BoardStatus(ctx context.Context, req *pb.BoardStatusRequest) (*
 	return &pb.BoardStatusResponse{Status: status}, nil
 }
 
-// BoardMotorStatus returns the status of a motor of the underlying robot.
-// @erd @edaniels Okay to remove/refactor per github discussion.
-func (s *Server) BoardMotorStatus(ctx context.Context, req *pb.BoardMotorStatusRequest) (*pb.BoardMotorStatusResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
+// BoardGPIOSet sets a given pin of a board of the underlying robot to either low or high.
+func (s *Server) BoardGPIOSet(ctx context.Context, req *pb.BoardGPIOSetRequest) (*pb.BoardGPIOSetResponse, error) {
+	b, ok := s.r.BoardByName(req.Name)
 	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
 	}
 
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	isOn, err := theMotor.IsOn(ctx)
-	if err != nil {
-		return nil, err
-	}
-	position, err := theMotor.Position(ctx)
-	if err != nil {
-		return nil, err
-	}
-	positionSupported, err := theMotor.PositionSupported(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	status := &pb.MotorStatus{
-		On:                isOn,
-		Position:          position,
-		PositionSupported: positionSupported,
-	}
-
-	return &pb.BoardMotorStatusResponse{Status: status}, nil
+	return &pb.BoardGPIOSetResponse{}, b.GPIOSet(ctx, req.Pin, req.High)
 }
 
-// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
+// BoardGPIOGet gets the high/low state of a given pin of a board of the underlying robot.
+func (s *Server) BoardGPIOGet(ctx context.Context, req *pb.BoardGPIOGetRequest) (*pb.BoardGPIOGetResponse, error) {
+	b, ok := s.r.BoardByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
+	}
+
+	high, err := b.GPIOGet(ctx, req.Pin)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardGPIOGetResponse{High: high}, nil
+}
+
+// BoardPWMSet sets a given pin of the underlying robot to the given duty cycle.
+func (s *Server) BoardPWMSet(ctx context.Context, req *pb.BoardPWMSetRequest) (*pb.BoardPWMSetResponse, error) {
+	b, ok := s.r.BoardByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
+	}
+
+	return &pb.BoardPWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
+}
+
+// BoardPWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (s *Server) BoardPWMSetFrequency(ctx context.Context, req *pb.BoardPWMSetFrequencyRequest) (*pb.BoardPWMSetFrequencyResponse, error) {
+	b, ok := s.r.BoardByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
+	}
+
+	return &pb.BoardPWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
+}
+
+// BoardMotorPower sets the percentage of power the motor of a board of the underlying robot should employ between 0-1.
 func (s *Server) BoardMotorPower(ctx context.Context, req *pb.BoardMotorPowerRequest) (*pb.BoardMotorPowerResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
@@ -656,6 +689,96 @@ func (s *Server) BoardMotorGoFor(ctx context.Context, req *pb.BoardMotorGoForReq
 	return &pb.BoardMotorGoForResponse{}, theMotor.GoFor(ctx, req.Direction, req.Rpm, rVal)
 }
 
+// BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
+// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+// back into calls of BoardMotorGoFor.
+func (s *Server) BoardMotorPosition(ctx context.Context, req *pb.BoardMotorPositionRequest) (*pb.BoardMotorPositionResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	pos, err := theMotor.Position(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardMotorPositionResponse{Position: pos}, nil
+}
+
+// BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
+// is reliant on having an encoder.
+func (s *Server) BoardMotorPositionSupported(ctx context.Context, req *pb.BoardMotorPositionSupportedRequest) (*pb.BoardMotorPositionSupportedResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	supported, err := theMotor.PositionSupported(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardMotorPositionSupportedResponse{Supported: supported}, nil
+}
+
+// BoardMotorOff turns the motor of a board of the underlying robot off.
+func (s *Server) BoardMotorOff(ctx context.Context, req *pb.BoardMotorOffRequest) (*pb.BoardMotorOffResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	return &pb.BoardMotorOffResponse{}, theMotor.Off(ctx)
+}
+
+// BoardMotorIsOn returns whether or not the motor of a board of the underlying robot is currently on.
+func (s *Server) BoardMotorIsOn(ctx context.Context, req *pb.BoardMotorIsOnRequest) (*pb.BoardMotorIsOnResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theMotor, ok := b.MotorByName(req.MotorName)
+	if !ok {
+		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
+	}
+
+	isOn, err := theMotor.IsOn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardMotorIsOnResponse{IsOn: isOn}, nil
+}
+
+// BoardServoMove requests the servo of a board of the underlying robot to move.
+func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theServo, ok := b.ServoByName(req.ServoName)
+	if !ok {
+		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
+	}
+
+	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
+}
+
 // BoardMotorGoTo requests the motor of a board of the underlying robot to go a specific position.
 func (s *Server) BoardMotorGoTo(ctx context.Context, req *pb.BoardMotorGoToRequest) (*pb.BoardMotorGoToResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
@@ -686,21 +809,6 @@ func (s *Server) BoardMotorGoTillStop(ctx context.Context, req *pb.BoardMotorGoT
 	return &pb.BoardMotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm)
 }
 
-// BoardMotorOff requests the motor of a board of the underlying robot to turn off.
-func (s *Server) BoardMotorOff(ctx context.Context, req *pb.BoardMotorOffRequest) (*pb.BoardMotorOffResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theMotor, ok := b.MotorByName(req.MotorName)
-	if !ok {
-		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
-	}
-
-	return &pb.BoardMotorOffResponse{}, theMotor.Off(ctx)
-}
-
 // BoardMotorZero requests the motor of a board of the underlying robot to reset it's zero/home position.
 func (s *Server) BoardMotorZero(ctx context.Context, req *pb.BoardMotorZeroRequest) (*pb.BoardMotorZeroResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
@@ -716,8 +824,8 @@ func (s *Server) BoardMotorZero(ctx context.Context, req *pb.BoardMotorZeroReque
 	return &pb.BoardMotorZeroResponse{}, theMotor.Zero(ctx, req.Offset)
 }
 
-// BoardServoMove requests the servo of a board of the underlying robot to move.
-func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveRequest) (*pb.BoardServoMoveResponse, error) {
+// BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
+func (s *Server) BoardServoCurrent(ctx context.Context, req *pb.BoardServoCurrentRequest) (*pb.BoardServoCurrentResponse, error) {
 	b, ok := s.r.BoardByName(req.BoardName)
 	if !ok {
 		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
@@ -728,7 +836,92 @@ func (s *Server) BoardServoMove(ctx context.Context, req *pb.BoardServoMoveReque
 		return nil, errors.Errorf("unknown servo: %s", req.ServoName)
 	}
 
-	return &pb.BoardServoMoveResponse{}, theServo.Move(ctx, uint8(req.AngleDeg))
+	angleDeg, err := theServo.Current(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardServoCurrentResponse{AngleDeg: uint32(angleDeg)}, nil
+}
+
+// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+func (s *Server) BoardAnalogReaderRead(ctx context.Context, req *pb.BoardAnalogReaderReadRequest) (*pb.BoardAnalogReaderReadResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	theReader, ok := b.AnalogReaderByName(req.AnalogReaderName)
+	if !ok {
+		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
+	}
+
+	val, err := theReader.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardAnalogReaderReadResponse{Value: int32(val)}, nil
+}
+
+// BoardDigitalInterruptConfig returns the config the interrupt was created with.
+func (s *Server) BoardDigitalInterruptConfig(ctx context.Context, req *pb.BoardDigitalInterruptConfigRequest) (*pb.BoardDigitalInterruptConfigResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
+	if !ok {
+		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
+	}
+
+	config, err := interrupt.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardDigitalInterruptConfigResponse{Config: digitalInterruptConfigToProto(&config)}, nil
+}
+
+func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.DigitalInterruptConfig {
+	return &pb.DigitalInterruptConfig{
+		Name:    config.Name,
+		Pin:     config.Pin,
+		Type:    config.Type,
+		Formula: config.Formula,
+	}
+}
+
+// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+func (s *Server) BoardDigitalInterruptValue(ctx context.Context, req *pb.BoardDigitalInterruptValueRequest) (*pb.BoardDigitalInterruptValueResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
+	if !ok {
+		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
+	}
+
+	val, err := interrupt.Value(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.BoardDigitalInterruptValueResponse{Value: val}, nil
+}
+
+// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+func (s *Server) BoardDigitalInterruptTick(ctx context.Context, req *pb.BoardDigitalInterruptTickRequest) (*pb.BoardDigitalInterruptTickResponse, error) {
+	b, ok := s.r.BoardByName(req.BoardName)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
+	}
+
+	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
+	if !ok {
+		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
+	}
+
+	return &pb.BoardDigitalInterruptTickResponse{}, interrupt.Tick(ctx, req.High, req.Nanos)
 }
 
 // SensorReadings returns the readings of a sensor of the underlying robot.

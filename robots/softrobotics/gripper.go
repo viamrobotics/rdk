@@ -70,19 +70,19 @@ func NewGripper(ctx context.Context, b board.Board, config config.Component, log
 }
 
 // Stop TODO
-func (g *Gripper) Stop() error {
+func (g *Gripper) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		g.theBoard.GPIOSet(g.pinOpen, false),
-		g.theBoard.GPIOSet(g.pinClose, false),
-		g.theBoard.GPIOSet(g.pinPower, false),
+		g.theBoard.GPIOSet(ctx, g.pinOpen, false),
+		g.theBoard.GPIOSet(ctx, g.pinClose, false),
+		g.theBoard.GPIOSet(ctx, g.pinPower, false),
 	)
 }
 
 // Open TODO
 func (g *Gripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(g.pinOpen, true),
-		g.theBoard.GPIOSet(g.pinPower, true),
+		g.theBoard.GPIOSet(ctx, g.pinOpen, true),
+		g.theBoard.GPIOSet(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (g *Gripper) Open(ctx context.Context) error {
 
 		val, err := g.psi.Read(ctx)
 		if err != nil {
-			return multierr.Combine(err, g.Stop())
+			return multierr.Combine(err, g.Stop(ctx))
 		}
 
 		if val > 500 {
@@ -107,14 +107,14 @@ func (g *Gripper) Open(ctx context.Context) error {
 		}
 	}
 
-	return g.Stop()
+	return g.Stop(ctx)
 }
 
 // Grab TODO
 func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(g.pinClose, true),
-		g.theBoard.GPIOSet(g.pinPower, true),
+		g.theBoard.GPIOSet(ctx, g.pinClose, true),
+		g.theBoard.GPIOSet(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return false, err
@@ -128,7 +128,7 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 
 		val, err := g.psi.Read(ctx)
 		if err != nil {
-			return false, multierr.Combine(err, g.Stop())
+			return false, multierr.Combine(err, g.Stop(ctx))
 		}
 
 		if val <= 200 {
@@ -140,6 +140,6 @@ func (g *Gripper) Grab(ctx context.Context) (bool, error) {
 		}
 	}
 
-	return false, g.Stop()
+	return false, g.Stop(ctx)
 
 }
