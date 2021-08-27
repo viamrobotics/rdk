@@ -114,7 +114,11 @@ func (b *Boat) StartRC(ctx context.Context) {
 				return
 			}
 
-			mode := b.mode.Value()
+			mode, err := b.mode.Value(ctx)
+			if err != nil {
+				log.Print(err)
+				continue
+			}
 			if mode == 0 {
 				continue
 			}
@@ -126,17 +130,34 @@ func (b *Boat) StartRC(ctx context.Context) {
 
 			direction := 0.0
 
-			if b.aSwitch.Value() >= 1600 {
-				port = maxRPM * float64(b.rightVertical.Value()) / 100.0
+			aSwitchVal, err := b.aSwitch.Value(ctx)
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+			if aSwitchVal >= 1600 {
+				rightVerticalVal, err := b.rightVertical.Value(ctx)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+				rightHorizontalVal, err := b.rightHorizontal.Value(ctx)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+
+				port = maxRPM * float64(rightVerticalVal) / 100.0
 				starboard = port
 
 				if math.Abs(port) < 10 {
 					// either not moving or spin mode
-					port = maxRPM * float64(b.rightHorizontal.Value()) / 100.0
+
+					port = maxRPM * float64(rightHorizontalVal) / 100.0
 					starboard = -1 * port
 				} else {
 					// moving mostly forward or back, but turning a bit
-					direction = float64(b.rightHorizontal.Value())
+					direction = float64(rightHorizontalVal)
 				}
 
 				if port < 0 {
@@ -154,10 +175,21 @@ func (b *Boat) StartRC(ctx context.Context) {
 					starboardDirection = board.FlipDirection(starboardDirection)
 				}
 
-				port = maxRPM * (float64(b.throttle.Value()) / 90)
+				throttleVal, err := b.throttle.Value(ctx)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+				directionVal, err := b.direction.Value(ctx)
+				if err != nil {
+					log.Print(err)
+					continue
+				}
+
+				port = maxRPM * (float64(throttleVal) / 90)
 				starboard = port
 
-				direction = float64(b.direction.Value())
+				direction = float64(directionVal)
 
 			}
 
@@ -168,8 +200,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 			} else if direction < 0 {
 				port *= 1 - (direction / -100.0)
 			}
-
-			var err error
 
 			if port < 8 && starboard < 8 {
 				err = b.Stop(ctx)

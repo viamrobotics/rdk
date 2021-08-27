@@ -344,6 +344,27 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
 		test.That(t, spinResp.Success, test.ShouldBeTrue)
 		test.That(t, spinResp.AngleDeg, test.ShouldEqual, 4.5)
+
+		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+			capArgs = []interface{}{ctx}
+			return 0, err1
+		}
+		_, err = server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
+			Name: "base1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+			capArgs = []interface{}{ctx}
+			return 2, nil
+		}
+		widthResp, err := server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
+			Name: "base1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
 	})
 
 	t.Run("ArmCurrentPosition", func(t *testing.T) {
@@ -518,6 +539,56 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("ArmJointMoveDelta", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.ArmJointMoveDelta(context.Background(), &pb.ArmJointMoveDeltaRequest{
+			Name: "arm1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
+		test.That(t, capName, test.ShouldEqual, "arm1")
+
+		injectArm := &inject.Arm{}
+		injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
+			return injectArm, true
+		}
+
+		var capArgs []interface{}
+
+		err1 := errors.New("whoops")
+		injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amount float64) error {
+			capArgs = []interface{}{ctx, joint, amount}
+			return err1
+		}
+
+		ctx := context.Background()
+		_, err = server.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
+			Name:       "arm1",
+			Joint:      1,
+			AmountDegs: 1.23,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 1.23})
+
+		injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amount float64) error {
+			capArgs = []interface{}{ctx, joint, amount}
+			return nil
+		}
+		_, err = server.ArmJointMoveDelta(ctx, &pb.ArmJointMoveDeltaRequest{
+			Name:       "arm1",
+			Joint:      1,
+			AmountDegs: 1.23,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 1.23})
+	})
+
 	t.Run("Gripper", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -639,6 +710,201 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Status, test.ShouldResemble, status)
+	})
+
+	t.Run("BoardGPIOSet", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardGPIOSet(context.Background(), &pb.BoardGPIOSetRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+
+		var capArgs []interface{}
+		ctx := context.Background()
+
+		err1 := errors.New("whoops")
+		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+			capArgs = []interface{}{ctx, pin, high}
+			return err1
+		}
+		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
+			Name: "board1",
+			Pin:  "one",
+			High: true,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
+
+		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+			capArgs = []interface{}{ctx, pin, high}
+			return nil
+		}
+		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
+			Name: "board1",
+			Pin:  "one",
+			High: true,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
+	})
+
+	t.Run("BoardGPIOGet", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardGPIOGet(context.Background(), &pb.BoardGPIOGetRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+
+		var capArgs []interface{}
+		ctx := context.Background()
+
+		err1 := errors.New("whoops")
+		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+			capArgs = []interface{}{ctx, pin}
+			return false, err1
+		}
+		_, err = server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
+			Name: "board1",
+			Pin:  "one",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
+
+		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+			capArgs = []interface{}{ctx, pin}
+			return true, nil
+		}
+		getResp, err := server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
+			Name: "board1",
+			Pin:  "one",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
+		test.That(t, getResp.High, test.ShouldBeTrue)
+	})
+
+	t.Run("BoardPWMSet", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardPWMSet(context.Background(), &pb.BoardPWMSetRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+
+		var capArgs []interface{}
+		ctx := context.Background()
+
+		err1 := errors.New("whoops")
+		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			capArgs = []interface{}{ctx, pin, dutyCycle}
+			return err1
+		}
+		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
+			Name:      "board1",
+			Pin:       "one",
+			DutyCycle: 7,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
+
+		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			capArgs = []interface{}{ctx, pin, dutyCycle}
+			return nil
+		}
+		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
+			Name:      "board1",
+			Pin:       "one",
+			DutyCycle: 7,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
+	})
+
+	t.Run("BoardPWMSetFrequency", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardPWMSetFrequency(context.Background(), &pb.BoardPWMSetFrequencyRequest{
+			Name: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+
+		var capArgs []interface{}
+		ctx := context.Background()
+
+		err1 := errors.New("whoops")
+		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			capArgs = []interface{}{ctx, pin, freq}
+			return err1
+		}
+		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
+			Name:      "board1",
+			Pin:       "one",
+			Frequency: 123123,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
+
+		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			capArgs = []interface{}{ctx, pin, freq}
+			return nil
+		}
+		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
+			Name:      "board1",
+			Pin:       "one",
+			Frequency: 123123,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
 	})
 
 	t.Run("BoardMotor", func(t *testing.T) {
@@ -780,6 +1046,122 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{5.5})
 
+		ctx := context.Background()
+
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+			capArgs = []interface{}{ctx, powerPct}
+			return err1
+		}
+		_, err = server.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+			PowerPct:  1.23,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+
+		injectMotor.PowerFunc = func(ctx context.Context, powerPct float32) error {
+			capArgs = []interface{}{ctx, powerPct}
+			return nil
+		}
+		_, err = server.BoardMotorPower(ctx, &pb.BoardMotorPowerRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+			PowerPct:  1.23,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, float32(1.23)})
+
+		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			capArgs = []interface{}{ctx}
+			return math.NaN(), err1
+		}
+		_, err = server.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+			capArgs = []interface{}{ctx}
+			return 1.23, nil
+		}
+		posResp, err := server.BoardMotorPosition(ctx, &pb.BoardMotorPositionRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, posResp.Position, test.ShouldEqual, 1.23)
+
+		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return false, err1
+		}
+		_, err = server.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return true, nil
+		}
+		posSupportedResp, err := server.BoardMotorPositionSupported(ctx, &pb.BoardMotorPositionSupportedRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, posSupportedResp.Supported, test.ShouldBeTrue)
+
+		injectMotor.OffFunc = func(ctx context.Context) error {
+			capArgs = []interface{}{ctx}
+			return err1
+		}
+		_, err = server.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.OffFunc = func(ctx context.Context) error {
+			capArgs = []interface{}{ctx}
+			return nil
+		}
+		_, err = server.BoardMotorOff(ctx, &pb.BoardMotorOffRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return false, err1
+		}
+		_, err = server.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+
+		injectMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+			capArgs = []interface{}{ctx}
+			return true, nil
+		}
+		isOnResp, err := server.BoardMotorIsOn(ctx, &pb.BoardMotorIsOnRequest{
+			BoardName: "board1",
+			MotorName: "motor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
+		test.That(t, isOnResp.IsOn, test.ShouldBeTrue)
 	})
 
 	t.Run("BoardServoMove", func(t *testing.T) {
@@ -844,6 +1226,335 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capAngle, test.ShouldEqual, 5)
+	})
+
+	t.Run("BoardServoCurrent", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err = server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
+			BoardName: "board1",
+			ServoName: "servo1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown servo")
+		test.That(t, capName, test.ShouldEqual, "servo1")
+
+		injectServo := &inject.Servo{}
+		injectBoard.ServoByNameFunc = func(name string) (board.Servo, bool) {
+			return injectServo, true
+		}
+
+		var capCtx context.Context
+		err1 := errors.New("whoops")
+		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+			capCtx = ctx
+			return 0, err1
+		}
+		ctx := context.Background()
+		_, err = server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
+			BoardName: "board1",
+			ServoName: "servo1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+
+		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+			capCtx = ctx
+			return 8, nil
+		}
+		currentResp, err := server.BoardServoCurrent(context.Background(), &pb.BoardServoCurrentRequest{
+			BoardName: "board1",
+			ServoName: "servo1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+		test.That(t, currentResp.AngleDeg, test.ShouldEqual, 8)
+	})
+
+	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
+			BoardName:        "board1",
+			AnalogReaderName: "analog1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown analog reader")
+		test.That(t, capName, test.ShouldEqual, "analog1")
+
+		injectAnalogReader := &inject.AnalogReader{}
+		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return injectAnalogReader, true
+		}
+
+		var capCtx context.Context
+		err1 := errors.New("whoops")
+		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+			capCtx = ctx
+			return 0, err1
+		}
+		ctx := context.Background()
+		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
+			BoardName:        "board1",
+			AnalogReaderName: "analog1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+
+		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+			capCtx = ctx
+			return 8, nil
+		}
+		readResp, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
+			BoardName:        "board1",
+			AnalogReaderName: "analog1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+		test.That(t, readResp.Value, test.ShouldEqual, 8)
+	})
+
+	t.Run("BoardDigitalInterruptConfig", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
+		test.That(t, capName, test.ShouldEqual, "digital1")
+
+		injectDigitalInterrupt := &inject.DigitalInterrupt{}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			return injectDigitalInterrupt, true
+		}
+
+		var capCtx context.Context
+		err1 := errors.New("whoops")
+		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
+			capCtx = ctx
+			return board.DigitalInterruptConfig{}, err1
+		}
+		ctx := context.Background()
+		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+
+		theConfig := board.DigitalInterruptConfig{
+			Name:    "foo",
+			Pin:     "bar",
+			Type:    "baz",
+			Formula: "baf",
+		}
+		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
+			capCtx = ctx
+			return theConfig, nil
+		}
+		configResp, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+		test.That(t, client.DigitalInterruptConfigFromProto(configResp.Config), test.ShouldResemble, theConfig)
+	})
+
+	t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
+		test.That(t, capName, test.ShouldEqual, "digital1")
+
+		injectDigitalInterrupt := &inject.DigitalInterrupt{}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			return injectDigitalInterrupt, true
+		}
+
+		var capCtx context.Context
+		err1 := errors.New("whoops")
+		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+			capCtx = ctx
+			return 0, err1
+		}
+		ctx := context.Background()
+		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+
+		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+			capCtx = ctx
+			return 42, nil
+		}
+		valueResp, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capCtx, test.ShouldEqual, ctx)
+		test.That(t, valueResp.Value, test.ShouldEqual, 42)
+	})
+
+	t.Run("BoardDigitalInterruptTick", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName string
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err := server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
+			BoardName: "board1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+		test.That(t, capName, test.ShouldEqual, "board1")
+
+		injectBoard := &inject.Board{}
+		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return injectBoard, true
+		}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			capName = name
+			return nil, false
+		}
+
+		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
+		test.That(t, capName, test.ShouldEqual, "digital1")
+
+		injectDigitalInterrupt := &inject.DigitalInterrupt{}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			return injectDigitalInterrupt, true
+		}
+
+		var capArgs []interface{}
+		err1 := errors.New("whoops")
+		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
+			capArgs = []interface{}{ctx, high, nanos}
+			return err1
+		}
+		ctx := context.Background()
+		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+			High:                 true,
+			Nanos:                1028,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
+
+		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
+			capArgs = []interface{}{ctx, high, nanos}
+			return nil
+		}
+		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
+			BoardName:            "board1",
+			DigitalInterruptName: "digital1",
+			High:                 true,
+			Nanos:                1028,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
 	})
 
 	t.Run("CameraFrame", func(t *testing.T) {

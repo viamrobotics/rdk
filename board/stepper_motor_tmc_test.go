@@ -75,7 +75,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		{160, 0, 0, 0, 1},
 		{161, 0, 0, 0, 0},
 	})
-	m, err := NewTMCStepperMotor(b, mc, logger)
+	m, err := NewTMCStepperMotor(context.Background(), b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(m), test.ShouldBeNil)

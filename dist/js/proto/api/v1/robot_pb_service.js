@@ -83,6 +83,15 @@ RobotService.ArmMoveToJointPositions = {
   responseType: proto_api_v1_robot_pb.ArmMoveToJointPositionsResponse
 };
 
+RobotService.ArmJointMoveDelta = {
+  methodName: "ArmJointMoveDelta",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.ArmJointMoveDeltaRequest,
+  responseType: proto_api_v1_robot_pb.ArmJointMoveDeltaResponse
+};
+
 RobotService.BaseMoveStraight = {
   methodName: "BaseMoveStraight",
   service: RobotService,
@@ -108,6 +117,15 @@ RobotService.BaseStop = {
   responseStream: false,
   requestType: proto_api_v1_robot_pb.BaseStopRequest,
   responseType: proto_api_v1_robot_pb.BaseStopResponse
+};
+
+RobotService.BaseWidthMillis = {
+  methodName: "BaseWidthMillis",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BaseWidthMillisRequest,
+  responseType: proto_api_v1_robot_pb.BaseWidthMillisResponse
 };
 
 RobotService.GripperOpen = {
@@ -236,6 +254,42 @@ RobotService.BoardStatus = {
   responseType: proto_api_v1_robot_pb.BoardStatusResponse
 };
 
+RobotService.BoardGPIOSet = {
+  methodName: "BoardGPIOSet",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardGPIOSetRequest,
+  responseType: proto_api_v1_robot_pb.BoardGPIOSetResponse
+};
+
+RobotService.BoardGPIOGet = {
+  methodName: "BoardGPIOGet",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardGPIOGetRequest,
+  responseType: proto_api_v1_robot_pb.BoardGPIOGetResponse
+};
+
+RobotService.BoardPWMSet = {
+  methodName: "BoardPWMSet",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardPWMSetRequest,
+  responseType: proto_api_v1_robot_pb.BoardPWMSetResponse
+};
+
+RobotService.BoardPWMSetFrequency = {
+  methodName: "BoardPWMSetFrequency",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardPWMSetFrequencyRequest,
+  responseType: proto_api_v1_robot_pb.BoardPWMSetFrequencyResponse
+};
+
 RobotService.BoardMotorPower = {
   methodName: "BoardMotorPower",
   service: RobotService,
@@ -290,6 +344,24 @@ RobotService.BoardMotorZero = {
   responseType: proto_api_v1_robot_pb.BoardMotorZeroResponse
 };
 
+RobotService.BoardMotorPosition = {
+  methodName: "BoardMotorPosition",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardMotorPositionRequest,
+  responseType: proto_api_v1_robot_pb.BoardMotorPositionResponse
+};
+
+RobotService.BoardMotorPositionSupported = {
+  methodName: "BoardMotorPositionSupported",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardMotorPositionSupportedRequest,
+  responseType: proto_api_v1_robot_pb.BoardMotorPositionSupportedResponse
+};
+
 RobotService.BoardMotorOff = {
   methodName: "BoardMotorOff",
   service: RobotService,
@@ -299,13 +371,13 @@ RobotService.BoardMotorOff = {
   responseType: proto_api_v1_robot_pb.BoardMotorOffResponse
 };
 
-RobotService.BoardMotorStatus = {
-  methodName: "BoardMotorStatus",
+RobotService.BoardMotorIsOn = {
+  methodName: "BoardMotorIsOn",
   service: RobotService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_v1_robot_pb.BoardMotorStatusRequest,
-  responseType: proto_api_v1_robot_pb.BoardMotorStatusResponse
+  requestType: proto_api_v1_robot_pb.BoardMotorIsOnRequest,
+  responseType: proto_api_v1_robot_pb.BoardMotorIsOnResponse
 };
 
 RobotService.BoardServoMove = {
@@ -315,6 +387,51 @@ RobotService.BoardServoMove = {
   responseStream: false,
   requestType: proto_api_v1_robot_pb.BoardServoMoveRequest,
   responseType: proto_api_v1_robot_pb.BoardServoMoveResponse
+};
+
+RobotService.BoardServoCurrent = {
+  methodName: "BoardServoCurrent",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardServoCurrentRequest,
+  responseType: proto_api_v1_robot_pb.BoardServoCurrentResponse
+};
+
+RobotService.BoardAnalogReaderRead = {
+  methodName: "BoardAnalogReaderRead",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardAnalogReaderReadRequest,
+  responseType: proto_api_v1_robot_pb.BoardAnalogReaderReadResponse
+};
+
+RobotService.BoardDigitalInterruptConfig = {
+  methodName: "BoardDigitalInterruptConfig",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardDigitalInterruptConfigRequest,
+  responseType: proto_api_v1_robot_pb.BoardDigitalInterruptConfigResponse
+};
+
+RobotService.BoardDigitalInterruptValue = {
+  methodName: "BoardDigitalInterruptValue",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardDigitalInterruptValueRequest,
+  responseType: proto_api_v1_robot_pb.BoardDigitalInterruptValueResponse
+};
+
+RobotService.BoardDigitalInterruptTick = {
+  methodName: "BoardDigitalInterruptTick",
+  service: RobotService,
+  requestStream: false,
+  responseStream: false,
+  requestType: proto_api_v1_robot_pb.BoardDigitalInterruptTickRequest,
+  responseType: proto_api_v1_robot_pb.BoardDigitalInterruptTickResponse
 };
 
 RobotService.SensorReadings = {
@@ -625,6 +742,37 @@ RobotServiceClient.prototype.armMoveToJointPositions = function armMoveToJointPo
   };
 };
 
+RobotServiceClient.prototype.armJointMoveDelta = function armJointMoveDelta(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.ArmJointMoveDelta, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
 RobotServiceClient.prototype.baseMoveStraight = function baseMoveStraight(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -692,6 +840,37 @@ RobotServiceClient.prototype.baseStop = function baseStop(requestMessage, metada
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.BaseStop, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.baseWidthMillis = function baseWidthMillis(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BaseWidthMillis, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -1152,6 +1331,130 @@ RobotServiceClient.prototype.boardStatus = function boardStatus(requestMessage, 
   };
 };
 
+RobotServiceClient.prototype.boardGPIOSet = function boardGPIOSet(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardGPIOSet, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardGPIOGet = function boardGPIOGet(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardGPIOGet, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardPWMSet = function boardPWMSet(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardPWMSet, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardPWMSetFrequency = function boardPWMSetFrequency(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardPWMSetFrequency, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
 RobotServiceClient.prototype.boardMotorPower = function boardMotorPower(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -1338,6 +1641,68 @@ RobotServiceClient.prototype.boardMotorZero = function boardMotorZero(requestMes
   };
 };
 
+RobotServiceClient.prototype.boardMotorPosition = function boardMotorPosition(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardMotorPosition, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardMotorPositionSupported = function boardMotorPositionSupported(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardMotorPositionSupported, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
 RobotServiceClient.prototype.boardMotorOff = function boardMotorOff(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
@@ -1369,11 +1734,11 @@ RobotServiceClient.prototype.boardMotorOff = function boardMotorOff(requestMessa
   };
 };
 
-RobotServiceClient.prototype.boardMotorStatus = function boardMotorStatus(requestMessage, metadata, callback) {
+RobotServiceClient.prototype.boardMotorIsOn = function boardMotorIsOn(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(RobotService.BoardMotorStatus, {
+  var client = grpc.unary(RobotService.BoardMotorIsOn, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -1405,6 +1770,161 @@ RobotServiceClient.prototype.boardServoMove = function boardServoMove(requestMes
     callback = arguments[1];
   }
   var client = grpc.unary(RobotService.BoardServoMove, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardServoCurrent = function boardServoCurrent(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardServoCurrent, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardAnalogReaderRead = function boardAnalogReaderRead(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardAnalogReaderRead, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardDigitalInterruptConfig = function boardDigitalInterruptConfig(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardDigitalInterruptConfig, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardDigitalInterruptValue = function boardDigitalInterruptValue(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardDigitalInterruptValue, {
+    request: requestMessage,
+    host: this.serviceHost,
+    metadata: metadata,
+    transport: this.options.transport,
+    debug: this.options.debug,
+    onEnd: function (response) {
+      if (callback) {
+        if (response.status !== grpc.Code.OK) {
+          var err = new Error(response.statusMessage);
+          err.code = response.status;
+          err.metadata = response.trailers;
+          callback(err, null);
+        } else {
+          callback(null, response.message);
+        }
+      }
+    }
+  });
+  return {
+    cancel: function () {
+      callback = null;
+      client.close();
+    }
+  };
+};
+
+RobotServiceClient.prototype.boardDigitalInterruptTick = function boardDigitalInterruptTick(requestMessage, metadata, callback) {
+  if (arguments.length === 2) {
+    callback = arguments[1];
+  }
+  var client = grpc.unary(RobotService.BoardDigitalInterruptTick, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

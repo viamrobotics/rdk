@@ -12,333 +12,430 @@ import "google/api/httpbody.proto";
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
 service RobotService {
-	// Status returns the robot's underlying status.
-	rpc Status(StatusRequest) returns (StatusResponse) {
-	    option (google.api.http) = {
-			get: "/api/v1/status"
-		};
-	}
+  // Status returns the robot's underlying status.
+  rpc Status(StatusRequest) returns (StatusResponse) {
+      option (google.api.http) = {
+        get: "/api/v1/status"
+    };
+  }
 
-	// StatusStream periodically sends the robot's status.
-	rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
-	    option (google.api.http) = {
-			get: "/api/v1/status_stream"
-		};
-	}
+  // StatusStream periodically sends the robot's status.
+  rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
+      option (google.api.http) = {
+        get: "/api/v1/status_stream"
+    };
+  }
 
-    // Config gets the config from a server
-    // It is only partial a config, including the pieces relevant to remote robots,
-    // And not the pieces relevant to local configuration (pins, security keys, etc...)
-    rpc Config(ConfigRequest) returns (ConfigResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/config"
-		};	
-    }
+  // Config gets the config from a server
+  // It is only partial a config, including the pieces relevant to remote robots,
+  // And not the pieces relevant to local configuration (pins, security keys, etc...)
+  rpc Config(ConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/config"
+    };  
+  }
 
-	// DoAction runs an action on the underlying robot.
-	rpc DoAction(DoActionRequest) returns (DoActionResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/do_action"
-		};	
-	}
+  // DoAction runs an action on the underlying robot.
+  rpc DoAction(DoActionRequest) returns (DoActionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/do_action"
+    };  
+  }
 
-	// Arm
+  // Arm
 
-	// ArmCurrentPosition gets the current position of an arm of the underlying robot.
-	rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/arm/{name}/current_position"
-		};	
-	}
+  // ArmCurrentPosition gets the current position of an arm of the underlying robot.
+  rpc ArmCurrentPosition(ArmCurrentPositionRequest) returns (ArmCurrentPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/arm/{name}/current_position"
+    };  
+  }
 
-	// ArmMoveToPosition moves an arm of the underlying robot to the requested position.
-	rpc ArmMoveToPosition(ArmMoveToPositionRequest) returns (ArmMoveToPositionResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/arm/{name}/move_to_position"
-		};	
-	}
+  // ArmMoveToPosition moves an arm of the underlying robot to the requested position.
+  rpc ArmMoveToPosition(ArmMoveToPositionRequest) returns (ArmMoveToPositionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/arm/{name}/move_to_position"
+    };  
+  }
 
-	// ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
-	rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/arm/{name}/current_joint_positions"
-		};	
-	}
+  // ArmCurrentJointPositions gets the current joint position of an arm of the underlying robot.
+  rpc ArmCurrentJointPositions(ArmCurrentJointPositionsRequest) returns (ArmCurrentJointPositionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/arm/{name}/current_joint_positions"
+    };  
+  }
 
-	// ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-	rpc ArmMoveToJointPositions(ArmMoveToJointPositionsRequest) returns (ArmMoveToJointPositionsResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/arm/{name}/move_to_joint_positions"
-		};	
-	}
+  // ArmMoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
+  rpc ArmMoveToJointPositions(ArmMoveToJointPositionsRequest) returns (ArmMoveToJointPositionsResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/arm/{name}/move_to_joint_positions"
+    };  
+  }
 
-	// Base
+  // ArmJointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
+  rpc ArmJointMoveDelta(ArmJointMoveDeltaRequest) returns (ArmJointMoveDeltaResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/arm/{name}/joint_move_delta"
+    };  
+  }
 
-	// BaseMoveStraight moves a base of the underlying robot straight.
-	rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/base/{name}/move_straight"
-		};	
-	}
+  // Base
 
-	// BaseSpin spins a base of the underlying robot.
-	rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/base/{name}/spin"
-		};	
-	}
+  // BaseMoveStraight moves a base of the underlying robot straight.
+  rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/base/{name}/move_straight"
+    };  
+  }
 
-	// BaseSpin stops a base of the underlying robot.
-	rpc BaseStop(BaseStopRequest) returns (BaseStopResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/base/{name}/stop"
-		};	
-	}
+  // BaseSpin spins a base of the underlying robot.
+  rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/base/{name}/spin"
+    };  
+  }
 
-	// Gripper
+  // BaseSpin stops a base of the underlying robot.
+  rpc BaseStop(BaseStopRequest) returns (BaseStopResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/base/{name}/stop"
+    };  
+  }
 
-	// GripperOpen opens a gripper of the underlying robot.
-	rpc GripperOpen(GripperOpenRequest) returns (GripperOpenResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/gripper/{name}/open"
-		};	
-	}
+  // BaseWidthMillis returns the width of a base of the underlying robot.
+  rpc BaseWidthMillis(BaseWidthMillisRequest) returns (BaseWidthMillisResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/base/{name}/width_millis"
+    };  
+  }
 
-	// GripperGrab requests a gripper of the underlying robot to grab.
-	rpc GripperGrab(GripperGrabRequest) returns (GripperGrabResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/gripper/{name}/grab"
-		};	
-	}
+  // Gripper
 
-	// Camera
+  // GripperOpen opens a gripper of the underlying robot.
+  rpc GripperOpen(GripperOpenRequest) returns (GripperOpenResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/gripper/{name}/open"
+    };  
+  }
 
-	// CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/camera/{name}/frame"
-		};
-	}
+  // GripperGrab requests a gripper of the underlying robot to grab.
+  rpc GripperGrab(GripperGrabRequest) returns (GripperGrabResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/gripper/{name}/grab"
+    };  
+  }
 
-	// CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	rpc CameraRenderFrame(CameraRenderFrameRequest) returns (google.api.HttpBody) {
-		option (google.api.http) = {
-			get: "/api/v1/camera/{name}/render_frame"
-		};
-	}
+  // Camera
 
-	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
-	// can be requested but may not necessarily be the same one returned.
-	rpc PointCloud(PointCloudRequest) returns (PointCloudResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/camera/{name}/pointcloud"
-		};
-	}
+  // CameraFrame returns a frame from a camera of the underlying robot. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc CameraFrame(CameraFrameRequest) returns (CameraFrameResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/camera/{name}/frame"
+    };
+  }
+
+  // CameraFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc CameraRenderFrame(CameraRenderFrameRequest) returns (google.api.HttpBody) {
+    option (google.api.http) = {
+      get: "/api/v1/camera/{name}/render_frame"
+    };
+  }
+
+  // PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+  // can be requested but may not necessarily be the same one returned.
+  rpc PointCloud(PointCloudRequest) returns (PointCloudResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/camera/{name}/pointcloud"
+    };
+  }
 
     // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
     // as well as the 3-vector center of each of the found objects.
     // A specific MIME type can be requested but may not necessarily be the same one returned.
-	rpc ObjectPointClouds(ObjectPointCloudsRequest) returns (ObjectPointCloudsResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/camera/{name}/objectpointclouds"
-		};
-	}
+  rpc ObjectPointClouds(ObjectPointCloudsRequest) returns (ObjectPointCloudsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/camera/{name}/objectpointclouds"
+    };
+  }
 
 
-	// Lidar
+  // Lidar
 
-	// LidarInfo returns the info of a lidar of the underlying robot.
-	rpc LidarInfo(LidarInfoRequest) returns (LidarInfoResponse) {
-	    option (google.api.http) = {
-			get: "/api/v1/lidar/{name}/info"
-		};
-	}
+  // LidarInfo returns the info of a lidar of the underlying robot.
+  rpc LidarInfo(LidarInfoRequest) returns (LidarInfoResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/lidar/{name}/info"
+    };
+  }
 
-	// LidarStart starts a lidar of the underlying robot.
-	rpc LidarStart(LidarStartRequest) returns (LidarStartResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/lidar/{name}/start"
-		};
-	}
+  // LidarStart starts a lidar of the underlying robot.
+  rpc LidarStart(LidarStartRequest) returns (LidarStartResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/lidar/{name}/start"
+    };
+  }
 
-	// LidarStop stops a lidar of the underlying robot.
-	rpc LidarStop(LidarStopRequest) returns (LidarStopResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/lidar/{name}/stop"
-		};
-	}
+  // LidarStop stops a lidar of the underlying robot.
+  rpc LidarStop(LidarStopRequest) returns (LidarStopResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/lidar/{name}/stop"
+    };
+  }
 
-	// LidarScan returns a scan from a lidar of the underlying robot.
-	rpc LidarScan(LidarScanRequest) returns (LidarScanResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/lidar/{name}/scan"
-		};
-	}
+  // LidarScan returns a scan from a lidar of the underlying robot.
+  rpc LidarScan(LidarScanRequest) returns (LidarScanResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/lidar/{name}/scan"
+    };
+  }
 
-	// LidarRange returns the range of a lidar of the underlying robot.
-	rpc LidarRange(LidarRangeRequest) returns (LidarRangeResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/lidar/{name}/range"
-		};
-	}
+  // LidarRange returns the range of a lidar of the underlying robot.
+  rpc LidarRange(LidarRangeRequest) returns (LidarRangeResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/lidar/{name}/range"
+    };
+  }
 
-	// LidarBounds returns the scan bounds of a lidar of the underlying robot.
-	rpc LidarBounds(LidarBoundsRequest) returns (LidarBoundsResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/lidar/{name}/bounds"
-		};
-	}
+  // LidarBounds returns the scan bounds of a lidar of the underlying robot.
+  rpc LidarBounds(LidarBoundsRequest) returns (LidarBoundsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/lidar/{name}/bounds"
+    };
+  }
 
-	// LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
-	rpc LidarAngularResolution(LidarAngularResolutionRequest) returns (LidarAngularResolutionResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/lidar/{name}/angular_resolution"
-		};
-	}
+  // LidarAngularResolution returns the scan angular resolution of a lidar of the underlying robot.
+  rpc LidarAngularResolution(LidarAngularResolutionRequest) returns (LidarAngularResolutionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/lidar/{name}/angular_resolution"
+    };
+  }
 
-	// Board
+  // Board
 
-	// BoardStatus returns the status of a board of the underlying robot.
-	rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/board/{name}/status"
-		};	
-	}
+  // BoardStatus returns the status of a board of the underlying robot.
+  rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{name}/status"
+    };  
+  }
 
-	// Motor
+  // BoardGPIOSet sets the given pin of a board of the underlying robot to either low or high.
+  rpc BoardGPIOSet(BoardGPIOSetRequest) returns (BoardGPIOSetResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{name}/gpio_set"
+    };  
+  }
 
-	// BoardMotorPower requests the motor of a board of the underlying robot to set its power.
-	rpc BoardMotorPower(BoardMotorPowerRequest) returns (BoardMotorPowerResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/power"
-		};
-	}
+  // BoardGPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+  rpc BoardGPIOGet(BoardGPIOGetRequest) returns (BoardGPIOGetResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{name}/gpio_get"
+    };  
+  }
 
-	// BoardMotorGo requests the motor of a board of the underlying robot to go.
-	rpc BoardMotorGo(BoardMotorGoRequest) returns (BoardMotorGoResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/go"
-		};
-	}
+  // BoardPWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+  rpc BoardPWMSet(BoardPWMSetRequest) returns (BoardPWMSetResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{name}/pwm_set"
+    };  
+  }
 
-	// BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
-	// the request.
-	rpc BoardMotorGoFor(BoardMotorGoForRequest) returns (BoardMotorGoForResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_for"
-		};
-	}
+  // BoardPWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+  rpc BoardPWMSetFrequency(BoardPWMSetFrequencyRequest) returns (BoardPWMSetFrequencyResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{name}/pwm_set_freq"
+    };  
+  }
 
-	// BoardMotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
-	rpc BoardMotorGoTo(BoardMotorGoToRequest) returns (BoardMotorGoToResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_to"
-		};
-	}
+  // Motor
 
-	// BoardMotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
-	rpc BoardMotorGoTillStop(BoardMotorGoTillStopRequest) returns (BoardMotorGoTillStopResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/go_till_stop"
-		};
-	}
+  // BoardMotorPower requests the motor of a board of the underlying robot to set its power.
+  rpc BoardMotorPower(BoardMotorPowerRequest) returns (BoardMotorPowerResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/power"
+    };
+  }
 
-	// BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
-	rpc BoardMotorZero(BoardMotorZeroRequest) returns (BoardMotorZeroResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/zero"
-		};
-	}
+  // BoardMotorGo requests the motor of a board of the underlying robot to go.
+  rpc BoardMotorGo(BoardMotorGoRequest) returns (BoardMotorGoResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/go"
+    };
+  }
 
-	// BoardMotorOff requests the motor of a board of the underlying robot to to turn off.
-	rpc BoardMotorOff(BoardMotorOffRequest) returns (BoardMotorOffResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/off"
-		};
-	}
+  // BoardMotorGoFor requests the motor of a board of the underlying robot to go for a certain amount based off
+  // the request.
+  rpc BoardMotorGoFor(BoardMotorGoForRequest) returns (BoardMotorGoForResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_for"
+    };
+  }
 
-	// BoardMotorStatus requests the motor of a board of the underlying robot to give its current status.
-	rpc BoardMotorStatus(BoardMotorStatusRequest) returns (BoardMotorStatusResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/motor/{motor_name}/status"
-		};
-	}
+  // BoardMotorGoTo requests the motor of a board of the underlying robot to move to a specific position.
+  rpc BoardMotorGoTo(BoardMotorGoToRequest) returns (BoardMotorGoToResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_to"
+    };
+  }
 
-	// Servo
+  // BoardMotorGoTillStop requests the motor of a board of the underlying robot to move until stopped (either physically or by limit switch.)
+  rpc BoardMotorGoTillStop(BoardMotorGoTillStopRequest) returns (BoardMotorGoTillStopResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/go_till_stop"
+    };
+  }
 
-	// BoardServoMove requests the servo of a board of the underlying robot to move.
-	rpc BoardServoMove(BoardServoMoveRequest) returns (BoardServoMoveResponse) {
-		option (google.api.http) = {
-			put: "/api/v1/board/{board_name}/servo/{servo_name}/move"
-		};
-	}
+  // BoardMotorZero requests the motor of a board of the underlying robot to set a new zero/home position.
+  rpc BoardMotorZero(BoardMotorZeroRequest) returns (BoardMotorZeroResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/zero"
+    };
+  }
 
-	// Sensor
+  // BoardMotorPosition reports the position of the motor of a board of the underlying robot based on its encoder. If it's not supported, the returned
+  // data is undefined. The unit returned is the number of revolutions which is intended to be fed
+  // back into calls of BoardMotorGoFor.
+  rpc BoardMotorPosition(BoardMotorPositionRequest) returns (BoardMotorPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/motor/{motor_name}/position"
+    };
+  }
 
-	// SensorReadings returns the readings of a sensor of the underlying robot.
-	rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
-		option (google.api.http) = {
-			get: "/api/v1/sensors/sensor/{name}/readings"
-		};	
-	}
+  // BoardMotorPositionSupported returns whether or not the motor of a board of the underlying robot supports reporting of its position which
+  // is reliant on having an encoder.
+  rpc BoardMotorPositionSupported(BoardMotorPositionSupportedRequest) returns (BoardMotorPositionSupportedResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/motor/{motor_name}/position_supported"
+    };
+  }
 
-	// Compass
+  // BoardMotorOff turns the motor of a board of the underlying robot off.
+  rpc BoardMotorOff(BoardMotorOffRequest) returns (BoardMotorOffResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/motor/{motor_name}/off"
+    };
+  }
 
-	// CompassHeading returns the heading of a compass of the underlying robot.
-	rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
-	    option (google.api.http) = {
-			get: "/api/v1/sensors/compass/{name}/heading"
-		};
-	}
+  rpc BoardMotorIsOn(BoardMotorIsOnRequest) returns (BoardMotorIsOnResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/motor/{motor_name}/is_on"
+    };
+  }
 
-	// CompassStartCalibration requests the compass of the underlying robot to start calibration.
-	rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/sensors/compass/{name}/start_calibration"
-		};
-	}
+  // Servo
 
-	// CompassStopCalibration requests the compass of the underlying robot to stop calibration.
-	rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/sensors/compass/{name}/stop_calibration"
-		};
-	}
+  // BoardServoMove requests the servo of a board of the underlying robot to move.
+  rpc BoardServoMove(BoardServoMoveRequest) returns (BoardServoMoveResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/servo/{servo_name}/move"
+    };
+  }
 
-	// Relative Compass
+  // BoardServoCurrent returns the current set angle (degrees) of the servo a board of the underlying robot.
+  rpc BoardServoCurrent(BoardServoCurrentRequest) returns (BoardServoCurrentResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/servo/{servo_name}/current"
+    };
+  }
 
-	// CompassMark requests the relative compass of the underlying robot to mark its position.
-	rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
-		option (google.api.http) = {
-			post: "/api/v1/sensors/compass/{name}/mark"
-		};
-	}
+  // Analog Reader
+
+  // BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+  rpc BoardAnalogReaderRead(BoardAnalogReaderReadRequest) returns (BoardAnalogReaderReadResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/analog_reader/{analog_reader_name}/read"
+    };
+  }
+
+  // Digital Interrupt
+
+  // BoardDigitalInterruptConfig returns the config the interrupt was created with.
+  rpc BoardDigitalInterruptConfig(BoardDigitalInterruptConfigRequest) returns (BoardDigitalInterruptConfigResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/config"
+    };
+  }
+
+  // BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+  rpc BoardDigitalInterruptValue(BoardDigitalInterruptValueRequest) returns (BoardDigitalInterruptValueResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
+    };
+  }
+
+  // BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+  rpc BoardDigitalInterruptTick(BoardDigitalInterruptTickRequest) returns (BoardDigitalInterruptTickResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
+    };
+  }
+
+  // Sensor
+
+  // SensorReadings returns the readings of a sensor of the underlying robot.
+  rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/sensors/sensor/{name}/readings"
+    };  
+  }
+
+  // Compass
+
+  // CompassHeading returns the heading of a compass of the underlying robot.
+  rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/sensors/compass/{name}/heading"
+    };
+  }
+
+  // CompassStartCalibration requests the compass of the underlying robot to start calibration.
+  rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/sensors/compass/{name}/start_calibration"
+    };
+  }
+
+  // CompassStopCalibration requests the compass of the underlying robot to stop calibration.
+  rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/sensors/compass/{name}/stop_calibration"
+    };
+  }
+
+  // Relative Compass
+
+  // CompassMark requests the relative compass of the underlying robot to mark its position.
+  rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/sensors/compass/{name}/mark"
+    };
+  }
 }
 
 message StatusRequest {}
 
 message StatusStreamRequest {
-	google.protobuf.Duration every = 1; // how often to send a new status.
+  google.protobuf.Duration every = 1; // how often to send a new status.
 }
 
 message StatusResponse {
-	Status status = 1;
+  Status status = 1;
 }
 
 message StatusStreamResponse {
-	Status status = 1;
+  Status status = 1;
 }
 
 message Status {
-	map<string, ArmStatus> arms = 1;
-	map<string, bool> bases = 2;
-	map<string, bool> grippers = 3;
-	map<string, BoardStatus> boards = 4;
-	map<string, bool> cameras = 5;
-	map<string, bool> lidars = 6;
-	map<string, SensorStatus> sensors = 7;
+  map<string, ArmStatus> arms = 1;
+  map<string, bool> bases = 2;
+  map<string, bool> grippers = 3;
+  map<string, BoardStatus> boards = 4;
+  map<string, bool> cameras = 5;
+  map<string, bool> lidars = 6;
+  map<string, SensorStatus> sensors = 7;
 }
 
 message ComponentConfig {
@@ -355,7 +452,7 @@ message ConfigResponse {
 }
 
 message DoActionRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message DoActionResponse {}
@@ -363,377 +460,499 @@ message DoActionResponse {}
 // Arm
 
 message ArmStatus {
-	ArmPosition   grid_position = 1;
-	JointPositions joint_positions = 2;
+  ArmPosition   grid_position = 1;
+  JointPositions joint_positions = 2;
 }
 
 message ArmPosition {
-	// millimeters of the end effector from the base
-	double x = 1;
-	double y = 2;
-	double z = 3;
+  // millimeters of the end effector from the base
+  double x = 1;
+  double y = 2;
+  double z = 3;
 
-	// ox, oy, oz, theta represents an orientation vector
-	// Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
-	// with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
-	// such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
-	// from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
-	// theta will perform an in-line rotation of the end effector.
-	// Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
-	// point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
-	// zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
-	// Theta in pb.ArmPosition should be degrees. It will be converted to radians in the internal OrientationVec.
-	double o_x = 4;
-	double o_y = 5;
-	double o_z = 6;
-	double theta = 7;
+  // ox, oy, oz, theta represents an orientation vector
+  // Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+  // with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+  // such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+  // from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+  // theta will perform an in-line rotation of the end effector.
+  // Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+  // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+  // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+  // Theta in pb.ArmPosition should be degrees. It will be converted to radians in the internal OrientationVec.
+  double o_x = 4;
+  double o_y = 5;
+  double o_z = 6;
+  double theta = 7;
 }
 
 message JointPositions {
-	repeated double degrees = 1;
+  repeated double degrees = 1;
 }
 
 message ArmCurrentPositionRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message ArmCurrentPositionResponse {
-	ArmPosition position = 1;
+  ArmPosition position = 1;
 }
 
 message ArmCurrentJointPositionsRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message ArmCurrentJointPositionsResponse {
-	JointPositions positions = 1;
+  JointPositions positions = 1;
 }
 
 message ArmMoveToPositionRequest {
-	string name = 1;
-	ArmPosition to = 2;
+  string name = 1;
+  ArmPosition to = 2;
 }
 
 message ArmMoveToPositionResponse {}
 
 message ArmMoveToJointPositionsRequest {
-	string name = 1;
-	JointPositions to = 2;
+  string name = 1;
+  JointPositions to = 2;
 }
 
 message ArmMoveToJointPositionsResponse {}
 
+message ArmJointMoveDeltaRequest {
+  string name = 1;
+  int32 joint = 2;
+  double amount_degs = 3;
+}
+
+message ArmJointMoveDeltaResponse {}
+
 // Base
 
 message BaseMoveStraightRequest {
-	string name = 1;
-	int64 distance_millis = 2;
-	double millis_per_sec = 3;
+  string name = 1;
+  int64 distance_millis = 2;
+  double millis_per_sec = 3;
 }
 
 message BaseMoveStraightResponse {
-	bool success = 1;
-	string error = 2;
-	int64 distance_millis = 3;
+  bool success = 1;
+  string error = 2;
+  int64 distance_millis = 3;
 }
 
 message BaseSpinRequest {
-	string name = 1;
-	double angle_deg = 2;
-	double degs_per_sec = 3;
+  string name = 1;
+  double angle_deg = 2;
+  double degs_per_sec = 3;
 }
 
 message BaseSpinResponse {
-	bool success = 1;
-	string error = 2;
-	double angle_deg = 3;
+  bool success = 1;
+  string error = 2;
+  double angle_deg = 3;
 }
 
 message BaseStopRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message BaseStopResponse {}
 
+message BaseWidthMillisRequest {
+  string name = 1;
+}
+
+message BaseWidthMillisResponse {
+  int64 width_millis = 1;
+}
+
 // Gripper
 
 message GripperOpenRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message GripperOpenResponse {}
 
 message GripperGrabRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message GripperGrabResponse {
-	bool grabbed = 1;
+  bool grabbed = 1;
 }
 
 // Camera
 
 message CameraFrameRequest {
-	string name = 1;
-	string mime_type = 2;
+  string name = 1;
+  string mime_type = 2;
 }
 
 message CameraRenderFrameRequest {
-	string name = 1;
-	string mime_type = 2;
+  string name = 1;
+  string mime_type = 2;
 }
 
 message CameraFrameResponse {
-	string mime_type = 1;
-	bytes frame = 2;
-	int64 dim_x = 3;
-	int64 dim_y = 4;
+  string mime_type = 1;
+  bytes frame = 2;
+  int64 dim_x = 3;
+  int64 dim_y = 4;
 }
 
 message PointCloudRequest {
-	string name = 1;
-	string mime_type = 2;
+  string name = 1;
+  string mime_type = 2;
 }
 
 message PointCloudResponse {
-	string mime_type = 1;
-	bytes frame = 2;
+  string mime_type = 1;
+  bytes frame = 2;
 }
 
 message ObjectPointCloudsRequest {
-	string name = 1;
-	string mime_type = 2;
-   	int64 min_points_in_plane = 3;
-    	int64 min_points_in_segment = 4;
-    	double clustering_radius = 5;
+  string name = 1;
+  string mime_type = 2;
+  int64 min_points_in_plane = 3;
+  int64 min_points_in_segment = 4;
+  double clustering_radius = 5;
 }
 
 message Vector3 {
-	double x = 1;
-	double y = 2;
-	double z = 3;
+  double x = 1;
+  double y = 2;
+  double z = 3;
 }
 
 message ObjectPointCloudsResponse {
-	string mime_type = 1;
-	repeated bytes frames = 2;
-	repeated Vector3 centers = 3;
+  string mime_type = 1;
+  repeated bytes frames = 2;
+  repeated Vector3 centers = 3;
 }
 
 // Lidar
 
 message LidarMeasurement  {
-	double angle = 1;
-	double angle_deg = 2;
-	double distance = 3;
-	double x = 4;
-	double y = 5;
+  double angle = 1;
+  double angle_deg = 2;
+  double distance = 3;
+  double x = 4;
+  double y = 5;
 }
 
 message LidarInfoRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarInfoResponse {
-	google.protobuf.Struct info = 1;
+  google.protobuf.Struct info = 1;
 }
 
 message LidarStartRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarStartResponse {}
 
 message LidarStopRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarStopResponse {}
 
 message LidarScanRequest {
-	string name = 1;
-	int32 count = 2;
-	bool no_filter = 3;
+  string name = 1;
+  int32 count = 2;
+  bool no_filter = 3;
 }
 
 message LidarScanResponse {
-	repeated LidarMeasurement measurements = 1;
+  repeated LidarMeasurement measurements = 1;
 }
 
 message LidarRangeRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarRangeResponse {
-	int64 range = 1;
+  int64 range = 1;
 }
 
 message LidarBoundsRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarBoundsResponse {
-	int64 x = 1;
-	int64 y = 2;
+  int64 x = 1;
+  int64 y = 2;
 }
 
 message LidarAngularResolutionRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message LidarAngularResolutionResponse {
-	double angular_resolution = 1;
+  double angular_resolution = 1;
 }
 
 // Board
 
 message BoardStatus {
-	map<string, MotorStatus> motors = 1;
-	map<string, ServoStatus> servos = 2;
-	map<string, AnalogStatus> analogs = 3;
-	map<string, DigitalInterruptStatus> digital_interrupts = 4;
+  map<string, MotorStatus> motors = 1;
+  map<string, ServoStatus> servos = 2;
+  map<string, AnalogStatus> analogs = 3;
+  map<string, DigitalInterruptStatus> digital_interrupts = 4;
 }
 
 message MotorStatus {
-	bool on = 1;
-	bool position_supported = 2;
-	double position = 3;
+  bool on = 1;
+  bool position_supported = 2;
+  double position = 3;
 }
 
 message ServoStatus {
-	uint32 angle = 1;
+  uint32 angle = 1;
 }
 
 message AnalogStatus {
-	int32 value = 1;
+  int32 value = 1;
 }
 
 message DigitalInterruptStatus {
-	int64 value = 1;
+  int64 value = 1;
 }
 
 message SensorStatus {
-	string type = 1;
+  string type = 1;
 }
 
 message BoardStatusRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message BoardStatusResponse {
-	BoardStatus status = 1;
+  BoardStatus status = 1;
+}
+
+message BoardGPIOSetRequest {
+  string name = 1;
+  string pin = 2;
+  bool high = 3;
+}
+
+message BoardGPIOSetResponse {}
+
+message BoardGPIOGetRequest {
+  string name = 1;
+  string pin = 2;
+}
+
+message BoardGPIOGetResponse {
+  bool high = 1;
+}
+
+message BoardPWMSetRequest {
+  string name = 1;
+  string pin = 2;
+  uint32 duty_cycle = 3; // (0-255)
+}
+
+message BoardPWMSetResponse {}
+
+message BoardPWMSetFrequencyResponse {}
+
+message BoardPWMSetFrequencyRequest {
+  string name = 1;
+  string pin = 2;
+  uint64 frequency = 3;
 }
 
 // Motor
 
-message BoardMotorStatusRequest {
-	string board_name = 1;
-	string motor_name = 2;
-}
-
-message BoardMotorStatusResponse {
-	MotorStatus status = 1;
-}
-
 message BoardMotorPowerRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	float power_pct = 3;
+  string board_name = 1;
+  string motor_name = 2;
+  float power_pct = 3;
 }
 
 message BoardMotorPowerResponse {}
 
 message BoardMotorGoRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	DirectionRelative direction = 3; 
-	float power_pct = 4;
+  string board_name = 1;
+  string motor_name = 2;
+  DirectionRelative direction = 3; 
+  float power_pct = 4;
 }
 
 message BoardMotorGoResponse {}
 
 message BoardMotorGoForRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	DirectionRelative direction = 3;
-	double rpm = 4;
-	double revolutions = 5;
+  string board_name = 1;
+  string motor_name = 2;
+  DirectionRelative direction = 3;
+  double rpm = 4;
+  double revolutions = 5;
 }
 
 message BoardMotorGoForResponse {}
 
 message BoardMotorGoToRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	double rpm = 3;
-	double position = 4;
+  string board_name = 1;
+  string motor_name = 2;
+  double rpm = 3;
+  double position = 4;
 }
 
 message BoardMotorGoToResponse {}
 
 message BoardMotorGoTillStopRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	DirectionRelative direction = 3;
-	double rpm = 4;
+  string board_name = 1;
+  string motor_name = 2;
+  DirectionRelative direction = 3;
+  double rpm = 4;
 }
 
 message BoardMotorGoTillStopResponse {}
 
 message BoardMotorZeroRequest {
-	string board_name = 1;
-	string motor_name = 2;
-	double offset = 3;
+  string board_name = 1;
+  string motor_name = 2;
+  double offset = 3;
 }
 
 message BoardMotorZeroResponse {}
 
+message BoardMotorPositionRequest {
+  string board_name = 1;
+  string motor_name = 2;
+}
+
+message BoardMotorPositionResponse {
+  double position = 1;
+}
+
+message BoardMotorPositionSupportedRequest {
+  string board_name = 1;
+  string motor_name = 2;
+}
+
+message BoardMotorPositionSupportedResponse {
+  bool supported = 1;
+}
+
 message BoardMotorOffRequest {
-	string board_name = 1;
-	string motor_name = 2;
+  string board_name = 1;
+  string motor_name = 2;
 }
 
 message BoardMotorOffResponse {}
 
+message BoardMotorIsOnRequest {
+  string board_name = 1;
+  string motor_name = 2;
+}
+
+message BoardMotorIsOnResponse {
+  bool is_on = 1;
+}
 
 // Servo
 
 message BoardServoMoveRequest {
-	string board_name = 1;
-	string servo_name = 2;
-	uint32 angle_deg = 3; // (0-180)
+  string board_name = 1;
+  string servo_name = 2;
+  uint32 angle_deg = 3; // (0-180)
 }
 
 message BoardServoMoveResponse {}
 
+message BoardServoCurrentRequest {
+  string board_name = 1;
+  string servo_name = 2;
+}
+
+message BoardServoCurrentResponse {
+  uint32 angle_deg = 1; // (0-180)
+}
+
+// Analog Reader
+
+message BoardAnalogReaderReadRequest {
+  string board_name = 1;
+  string analog_reader_name = 2;
+}
+
+message BoardAnalogReaderReadResponse {
+  int32 value = 1;
+}
+
+// Digital Interrupt
+
+message DigitalInterruptConfig {
+  string name = 1;
+  string pin = 2;
+  string type = 3;
+  string formula = 4;
+}
+
+message BoardDigitalInterruptConfigRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+}
+
+message BoardDigitalInterruptConfigResponse {
+  DigitalInterruptConfig config = 1;
+}
+
+message BoardDigitalInterruptValueRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+}
+
+message BoardDigitalInterruptValueResponse {
+  int64 value = 1;
+}
+
+message BoardDigitalInterruptTickRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+  bool high = 3;
+  uint64 nanos = 4;
+}
+
+message BoardDigitalInterruptTickResponse {}
+
 // Sensor
 
 message SensorReadingsRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message SensorReadingsResponse {
-	repeated google.protobuf.Value readings = 1;
+  repeated google.protobuf.Value readings = 1;
 }
 
 // Compass
 
 message CompassHeadingRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message CompassHeadingResponse {
-	double heading = 1;
+  double heading = 1;
 }
 
 message CompassStartCalibrationRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message CompassStartCalibrationResponse {}
 
 message CompassStopCalibrationRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message CompassStopCalibrationResponse {}
@@ -741,13 +960,13 @@ message CompassStopCalibrationResponse {}
 // Relative Compass
 
 message CompassMarkRequest {
-	string name = 1;
+  string name = 1;
 }
 
 message CompassMarkResponse {}
 
 enum DirectionRelative {
-	DIRECTION_RELATIVE_UNSPECIFIED = 0;
-	DIRECTION_RELATIVE_FORWARD = 1;
-	DIRECTION_RELATIVE_BACKWARD = 2;
+  DIRECTION_RELATIVE_UNSPECIFIED = 0;
+  DIRECTION_RELATIVE_FORWARD = 1;
+  DIRECTION_RELATIVE_BACKWARD = 2;
 }

@@ -45,16 +45,16 @@ type Board interface {
 	DigitalInterruptNames() []string
 
 	// GPIOSet sets the given pin to either low or high.
-	GPIOSet(pin string, high bool) error
+	GPIOSet(ctx context.Context, pin string, high bool) error
 
 	// GPIOGet gets the high/low state of the given pin.
-	GPIOGet(pin string) (bool, error)
+	GPIOGet(ctx context.Context, pin string) (bool, error)
 
 	// PWMSet sets the given pin to the given duty cycle.
-	PWMSet(pin string, dutyCycle byte) error
+	PWMSet(ctx context.Context, pin string, dutyCycle byte) error
 
 	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFreq(pin string, freq uint) error
+	PWMSetFreq(ctx context.Context, pin string, freq uint) error
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -141,7 +141,7 @@ type SPIHandle interface {
 	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
