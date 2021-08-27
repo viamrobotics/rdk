@@ -52,9 +52,8 @@ const (
 	elevatorTop    = 800
 	elevatorSpeed  = 300
 
-	hammerSpeed  = 25.0
+	hammerSpeed  = 20 // May be capped by underlying motor MaxRPM
 	hammerOffset = 0.9
-	hammerRatio  = 11.8455 // 26.85:1 motor + 30/68 teeth gears
 	cubeWhacks   = 3.0
 	duckWhacks   = 5.0
 )
@@ -298,10 +297,10 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
 		b.setSqueeze(ctx, squeezeClosed),
 		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
-		b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, hammerOffset*hammerRatio),
+		b.hammer.GoTo(ctx, hammerSpeed, hammerOffset),
 	)
 
-	b.waitPosReached(ctx, b.hammer, hammerOffset*hammerRatio)
+	b.waitPosReached(ctx, b.hammer, hammerOffset)
 	errs = multierr.Append(errs, b.hammer.Zero(ctx, 0))
 
 	if errs != nil {
@@ -412,20 +411,20 @@ func (b *ResetBox) isTableUp(ctx context.Context) (bool, error) {
 
 func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	for i := 0.0; i < float64(count); i++ {
-		err := b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, (i+0.2)*hammerRatio)
+		err := b.hammer.GoTo(ctx, hammerSpeed, i+0.2)
 		if err != nil {
 			return err
 		}
-		b.waitPosReached(ctx, b.hammer, (i+0.2)*hammerRatio)
+		b.waitPosReached(ctx, b.hammer, i+0.2)
 		utils.SelectContextOrWait(ctx, 500*time.Millisecond)
 	}
 
 	// Raise Hammer
-	err := b.hammer.GoTo(ctx, hammerSpeed*hammerRatio, float64(count)*hammerRatio)
+	err := b.hammer.GoTo(ctx, hammerSpeed, float64(count))
 	if err != nil {
 		return err
 	}
-	b.waitPosReached(ctx, b.hammer, float64(count)*hammerRatio)
+	b.waitPosReached(ctx, b.hammer, float64(count))
 
 	// As we go in one direction indefinitely, this is an easy fix for register overflow
 	err = b.hammer.Zero(ctx, 0)

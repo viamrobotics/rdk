@@ -85,9 +85,9 @@
         {
           "name": "hammer",
           "model": "TMC5072",
-          "ticksPerRotation": 200,
-          "max_rpm": 300,
-          "max_acceleration": 300,
+          "ticksPerRotation": 5370,
+          "max_rpm": 18.5,
+          "max_acceleration": 30,
           "attributes": {
             "spi_bus": "main",
             "chip_select": "40",
