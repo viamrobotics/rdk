@@ -86,7 +86,7 @@ void Motor::goFor(long ticksPerSecond, long ticks) {
 }
 
 void Motor::goTo(long ticksPerSecond, long ticks) {
-    go(1, 16);
+    go(ticks > 0, 16);
     _ticksPerSecond = ticksPerSecond;
     _goal = ticks;
     _regulated = true;
