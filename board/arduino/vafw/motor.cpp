@@ -40,18 +40,18 @@ void Motor::setPower(int power) {
         return;
     }
 
-    int realPWM = -1;
+    int PWMPin = -1;
     if (_pwm >= 0) {
-        realPWM = _pwm;
+        PWMPin = _pwm;
     }else if (_moving == 1) {
-        realPWM = _in2;
+        PWMPin = _in2;
         power = 255 - power;
     } else if (_moving == -1){
-        realPWM = _in1;
+        PWMPin = _in1;
         power = 255 - power;
     }
     if (_inEn >= 0) digitalWrite(_inEn, LOW);
-    if (realPWM >= 0) analogWrite(realPWM, power);
+    if (PWMPin >= 0) analogWrite(PWMPin, power);
 }
 
 void Motor::go(bool forward, int power) {
