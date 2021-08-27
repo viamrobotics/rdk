@@ -167,9 +167,9 @@ func TestArduino3(t *testing.T) {
 			{
 				Name: "m1",
 				Pins: map[string]string{
-					"a": "5",
-					"b": "6",
-					"en":  "7",
+					"a":  "5",
+					"b":  "6",
+					"en": "7",
 				},
 				Encoder:          "3",
 				EncoderB:         "2",

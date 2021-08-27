@@ -294,7 +294,12 @@ void loop() {
     }
 }
 
+#if defined(FALLING)
 void setupInterruptBasic(PinNumber pin, void (*ISR)(), int what) {
+#else
+// Needed for new arduino API where PinStatus is an enum, instead of a macro
+void setupInterruptBasic(PinNumber pin, void (*ISR)(), PinStatus what) {
+#endif
     pinMode(pin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
 }
