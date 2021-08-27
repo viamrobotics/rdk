@@ -108,8 +108,8 @@ public:
 	bool setPinFrequency(uint8_t pin, uint32_t frequency);
 private:
 #if defined(__AVR_ATmega2560__)
-	PWMChannel* _channels[5];
+	PWMChannel* _channels[4];
 #elif defined(__AVR_ATmega328P__)
-	PWMChannel* _channels[3];
+	PWMChannel* _channels[2];
 #endif
 };
