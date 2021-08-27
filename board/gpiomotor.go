@@ -134,7 +134,7 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 		return multierr.Combine(
 			m.Board.GPIOSet(m.A, false),
 			m.Board.GPIOSet(m.B, true),
-			m.Power(ctx, powerPct), // Must be last for A/B only drivers
+			m.Power(ctx, powerPct), // Must be last for A/B only motors (where PWM will take over one of A or B)
 		)
 	}
 
