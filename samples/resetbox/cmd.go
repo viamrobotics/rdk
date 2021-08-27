@@ -311,10 +311,10 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 
 func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 	if level < 32 {
-		b.board.PWMSet(vibePin, 0)
+		b.board.PWMSet(ctx, vibePin, 0)
 		b.vibeState = false
 	} else {
-		b.board.PWMSet(vibePin, level)
+		b.board.PWMSet(ctx, vibePin, level)
 		b.vibeState = true
 	}
 }
@@ -378,25 +378,25 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	}
 
 	// Go mostly up
-	b.board.GPIOSet(tipPinA, true)
-	b.board.GPIOSet(tipPinB, false)
+	b.board.GPIOSet(ctx, tipPinA, true)
+	b.board.GPIOSet(ctx, tipPinB, false)
 	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
 
 	//All off
-	b.board.GPIOSet(tipPinA, true)
-	b.board.GPIOSet(tipPinB, true)
+	b.board.GPIOSet(ctx, tipPinA, true)
+	b.board.GPIOSet(ctx, tipPinB, true)
 
 	b.tableUp = true
 }
 
 func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
-	b.board.GPIOSet(tipPinA, false)
-	b.board.GPIOSet(tipPinB, true)
+	b.board.GPIOSet(ctx, tipPinA, false)
+	b.board.GPIOSet(ctx, tipPinB, true)
 	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
 
 	//All Off
-	b.board.GPIOSet(tipPinA, true)
-	b.board.GPIOSet(tipPinB, true)
+	b.board.GPIOSet(ctx, tipPinA, true)
+	b.board.GPIOSet(ctx, tipPinB, true)
 
 	b.tableUp = false
 }
