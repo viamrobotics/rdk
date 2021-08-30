@@ -2,10 +2,10 @@
 
 # Min and Max versions for each package
 BINARIES=( \
-	"go 1.16.6 1.16.99" \
+	"go 1.16.6 1.17.99" \
 	"npm 6.14.14 7.99" \
-	"buf 0.40.0 0.40.0" \
-	"protoc 3.15.6 3.15.6" \
+	"buf 0.54.1 0.54.1" \
+	"protoc 3.15.6 3.17.3" \
 	"protoc-gen-go 1.26.0 1.26.0" \
 	"protoc-gen-go-grpc 1.1.0 1.1.0" \
 	"protoc-gen-grpc-gateway dev dev" \
@@ -16,7 +16,7 @@ BINARIES=( \
 # To be checked via pkg-config --modversion (not always the package version)
 LIBRARIES=( \
 	"vpx 1.10.0 1.10.0" \
-	"x264 0.155.2917 0.161.3039" \
+	"x264 0.155.2917 0.161.3049" \
 	"nlopt 2.7.0 2.7.0" \
 )
 
@@ -103,9 +103,9 @@ do
 	then
 		if [[ ${BINARY[0]} == "go" ]]
 		then
-			VERSION=`${BINARY[0]} version 2>&1 | grep -Eo '[0-9]*\.[0-9]*\.[0-9]*'`
+			VERSION=`${BINARY[0]} version 2>&1 | grep -Eo '[0-9]*\.[0-9\.]*'`
 		else
-			VERSION=`${BINARY[0]} --version 2>&1 | grep -Eo '[0-9]*\.[0-9]*\.[0-9]*'`
+			VERSION=`${BINARY[0]} --version 2>&1 | grep -Eo '[0-9]*\.[0-9\.]*'`
 		fi
 
 		if [[ ${BINARY[1]} == "dev" || ${BINARY[2]} == "dev" ]] 
@@ -132,7 +132,7 @@ do
 	LIBRARY=($LIBRARYSTRING)
 	if pkg-config ${LIBRARY[0]} > /dev/null
 	then
-		VERSION=`pkg-config --modversion ${LIBRARY[0]} 2>&1 | grep -Eo '[0-9]*\.[0-9]*\.[0-9]*'`
+		VERSION=`pkg-config --modversion ${LIBRARY[0]} 2>&1 | grep -Eo '[0-9]*\.[0-9\.]*'`
 	else
 		echo "${LIBRARY[0]} library not installed. Please run setup.sh or install version ${LIBRARY[1]}"
 		ALL_GOOD=0
@@ -171,7 +171,7 @@ fi
 # protoc-gen-ts has to be checked via npm
 if which protoc-gen-ts > /dev/null
 then
-	PROTOC_GEN_TS_VERSION=`npm -g list ts-protoc-gen | grep -Eo '[0-9]*\.[0-9]*\.[0-9]*'`
+	PROTOC_GEN_TS_VERSION=`npm -g list ts-protoc-gen | grep -Eo '[0-9]*\.[0-9\.]*'`
 else
 	echo "protoc-gen-ts not installed. Please run setup.sh or install version ${PROTOC_GEN_TS_VERSION[0]}"
 	ALL_GOOD=0
