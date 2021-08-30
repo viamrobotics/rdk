@@ -1,3 +1,4 @@
+//go:build pi
 // +build pi
 
 // Package pi implements a Board and its related interfaces for a Raspberry Pi.
@@ -91,6 +92,7 @@ func init() {
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
 // accessed via pigpio.
 type piPigpio struct {
+	mu            sync.Mutex
 	cfg           board.Config
 	gpioConfigSet map[int]bool
 	analogs       map[string]board.AnalogReader
@@ -204,16 +206,22 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 	piInstance.motors = map[string]board.Motor{}
 	for _, c := range cfg.Motors {
 		var m board.Motor
-		m, err = board.NewGPIOMotor(piInstance, c, logger)
-		if err != nil {
-			return nil, err
-		}
+		if c.Model == "TMC5072" {
+			m, err = board.NewTMCStepperMotor(ctx, piInstance, c, logger)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			m, err = board.NewGPIOMotor(piInstance, c, logger)
+			if err != nil {
+				return nil, err
+			}
 
-		m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
-		if err != nil {
-			return nil, err
+			m, err = board.WrapMotorWithEncoder(ctx, piInstance, c, m, logger)
+			if err != nil {
+				return nil, err
+			}
 		}
-
 		piInstance.motors[c.Name] = m
 	}
 
@@ -225,7 +233,7 @@ func NewPigpio(ctx context.Context, cfg board.Config, logger golog.Logger) (boar
 }
 
 // GPIOSet sets the given pin to high or low.
-func (pi *piPigpio) GPIOSet(pin string, high bool) error {
+func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
@@ -234,7 +242,7 @@ func (pi *piPigpio) GPIOSet(pin string, high bool) error {
 }
 
 // GPIOGet reads the high/low state of the given pin.
-func (pi *piPigpio) GPIOGet(pin string) (bool, error) {
+func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
@@ -242,8 +250,10 @@ func (pi *piPigpio) GPIOGet(pin string) (bool, error) {
 	return pi.GPIOGetBcom(int(bcom))
 }
 
-// GPIOGetBcom gets the lovel of the given broadcom pin
+// GPIOGetBcom gets the level of the given broadcom pin
 func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
 	if !pi.gpioConfigSet[bcom] {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
@@ -259,8 +269,31 @@ func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
 	return C.gpioRead(C.uint(bcom)) != 0, nil
 }
 
+// GPIOSetBcom sets the given broadcom pin to high or low.
+func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	if !pi.gpioConfigSet[bcom] {
+		if pi.gpioConfigSet == nil {
+			pi.gpioConfigSet = map[int]bool{}
+		}
+		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
+		if res != 0 {
+			return errors.Errorf("failed to set mode %d", res)
+		}
+		pi.gpioConfigSet[bcom] = true
+	}
+
+	v := 0
+	if high {
+		v = 1
+	}
+	C.gpioWrite(C.uint(bcom), C.uint(v))
+	return nil
+}
+
 // PWMSet sets the given pin to the given PWM duty cycle.
-func (pi *piPigpio) PWMSet(pin string, dutyCycle byte) error {
+func (pi *piPigpio) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
@@ -278,7 +311,7 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency.
-func (pi *piPigpio) PWMSetFreq(pin string, freq uint) error {
+func (pi *piPigpio) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	bcom, have := piHWPinToBroadcom[pin]
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
@@ -296,27 +329,6 @@ func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
 	if newRes != C.int(freq) {
 		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freq, newRes)
 	}
-	return nil
-}
-
-// GPIOSetBcom sets the given broadcom pin to high or low.
-func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
-	if !pi.gpioConfigSet[bcom] {
-		if pi.gpioConfigSet == nil {
-			pi.gpioConfigSet = map[int]bool{}
-		}
-		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
-		if res != 0 {
-			return errors.Errorf("failed to set mode %d", res)
-		}
-		pi.gpioConfigSet[bcom] = true
-	}
-
-	v := 0
-	if high {
-		v = 1
-	}
-	C.gpioWrite(C.uint(bcom), C.uint(v))
 	return nil
 }
 
@@ -340,7 +352,7 @@ func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
 	}
 	defer bus.Close()
 
-	rx, err := bus.Xfer(1000000, par.chip, 0, tx[:])
+	rx, err := bus.Xfer(ctx, 1000000, par.chip, 0, tx[:])
 	if err != nil {
 		return 0, err
 	}
@@ -363,7 +375,7 @@ type piPigpioSPIHandle struct {
 	isClosed bool
 }
 
-func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
 
 	if s.isClosed {
 		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
@@ -434,7 +446,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 		// We're going to directly control chip select (not using CE0/CE1/CE2 from SPI controller.)
 		// This allows us to use a large number of chips on a single bus.
 		// Per "seen" checks above, cannot be mixed with the native CE0/CE1/CE2
-		err := s.bus.pi.GPIOSet(chipSelect, false)
+		err := s.bus.pi.GPIOSet(ctx, chipSelect, false)
 		if err != nil {
 			return nil, err
 		}
@@ -443,7 +455,7 @@ func (s *piPigpioSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []b
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
 
 	if gpioCS {
-		err := s.bus.pi.GPIOSet(chipSelect, true)
+		err := s.bus.pi.GPIOSet(ctx, chipSelect, true)
 		if err != nil {
 			return nil, err
 		}
@@ -639,6 +651,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		i.Tick(high, tick*1000)
+		// TODO(erd): use new cgo Value to pass a context?
+		i.Tick(context.TODO(), high, tick*1000)
 	}
 }

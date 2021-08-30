@@ -4,6 +4,10 @@
 
 HallEncoder::HallEncoder() : _a(0), _b(0), _position(0) {}
 
+void HallEncoder::zero(long offset) {
+    _position = offset;
+}
+
 void HallEncoder::encoderTick(bool a) {
     if (a) {
         _a = !_a;

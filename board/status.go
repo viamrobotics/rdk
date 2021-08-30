@@ -81,7 +81,11 @@ func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
 			if !ok {
 				return nil, fmt.Errorf("digital interrupt %q not found", name)
 			}
-			status.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: x.Value()}
+			intVal, err := x.Value(ctx)
+			if err != nil {
+				return nil, err
+			}
+			status.DigitalInterrupts[name] = &pb.DigitalInterruptStatus{Value: intVal}
 		}
 	}
 

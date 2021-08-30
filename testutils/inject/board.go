@@ -25,6 +25,10 @@ type Board struct {
 	CloseFunc                  func() error
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
+	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
+	GPIOGetFunc                func(ctx context.Context, pin string) (bool, error)
+	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
+	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
 }
 
 // MotorByName calls the injected MotorByName or the real version.
@@ -121,4 +125,36 @@ func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
 		return b.Board.Status(ctx)
 	}
 	return b.StatusFunc(ctx)
+}
+
+// GPIOSet calls the injected GPIOSet or the real version.
+func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
+	if b.GPIOSetFunc == nil {
+		return b.Board.GPIOSet(ctx, pin, high)
+	}
+	return b.GPIOSetFunc(ctx, pin, high)
+}
+
+// GPIOGet calls the injected GPIOGet or the real version.
+func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
+	if b.GPIOGetFunc == nil {
+		return b.Board.GPIOGet(ctx, pin)
+	}
+	return b.GPIOGetFunc(ctx, pin)
+}
+
+// PWMSet calls the injected PWMSet or the real version.
+func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+	if b.PWMSetFunc == nil {
+		return b.Board.PWMSet(ctx, pin, dutyCycle)
+	}
+	return b.PWMSetFunc(ctx, pin, dutyCycle)
+}
+
+// PWMSetFreq calls the injected PWMSetFreq or the real version.
+func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+	if b.PWMSetFreqFunc == nil {
+		return b.Board.PWMSetFreq(ctx, pin, freq)
+	}
+	return b.PWMSetFreqFunc(ctx, pin, freq)
 }

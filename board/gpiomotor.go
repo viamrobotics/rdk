@@ -20,7 +20,7 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 
 	// If pins["c"] exists, then we have at least 3 data pins, and this is likely a stepper motor
 	if _, ok := pins["c"]; ok {
-		return NewBrushlessMotor(b, pins, mc, logger)
+		return NewGPIOStepperMotor(b, pins, mc, logger)
 	}
 	m = &GPIOMotor{
 		b,
@@ -55,11 +55,11 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 
 // Power sets the associated pins PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
-	err := m.Board.PWMSetFreq(m.PWM, m.pwmFreq)
+	err := m.Board.PWMSetFreq(ctx, m.PWM, m.pwmFreq)
 	if err != nil {
 		return err
 	}
-	return m.Board.PWMSet(m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
+	return m.Board.PWMSet(ctx, m.PWM, byte(utils.ScaleByPct(255, float64(powerPct))))
 }
 
 // Go instructs the motor to operate at a certain power percentage in a given direction.
@@ -71,16 +71,16 @@ func (m *GPIOMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct flo
 	case pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD:
 		m.on = true
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, power),
-			m.Board.GPIOSet(m.A, true),
-			m.Board.GPIOSet(m.B, false),
+			m.Board.PWMSet(ctx, m.PWM, power),
+			m.Board.GPIOSet(ctx, m.A, true),
+			m.Board.GPIOSet(ctx, m.B, false),
 		)
 	case pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD:
 		m.on = true
 		return multierr.Combine(
-			m.Board.PWMSet(m.PWM, power),
-			m.Board.GPIOSet(m.A, false),
-			m.Board.GPIOSet(m.B, true),
+			m.Board.PWMSet(ctx, m.PWM, power),
+			m.Board.GPIOSet(ctx, m.A, false),
+			m.Board.GPIOSet(ctx, m.B, true),
 		)
 	}
 
@@ -101,7 +101,22 @@ func (m *GPIOMotor) IsOn(ctx context.Context) (bool, error) {
 func (m *GPIOMotor) Off(ctx context.Context) error {
 	m.on = false
 	return multierr.Combine(
-		m.Board.GPIOSet(m.A, false),
-		m.Board.GPIOSet(m.B, false),
+		m.Board.GPIOSet(ctx, m.A, false),
+		m.Board.GPIOSet(ctx, m.B, false),
 	)
+}
+
+// GoTo is not supported
+func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	return errors.New("not supported")
+}
+
+// GoTillStop is not supported
+func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("not supported")
+}
+
+// Zero is not supported
+func (m *GPIOMotor) Zero(ctx context.Context, offset float64) error {
+	return errors.New("not supported")
 }

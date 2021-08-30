@@ -488,3 +488,60 @@ func (m *encodedMotor) Close() error {
 	m.activeBackgroundWorkers.Wait()
 	return nil
 }
+
+// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
+func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
+	curPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	moveDistance := targetPosition - curPos
+	if math.Signbit(moveDistance) {
+		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
+		moveDistance = math.Abs(moveDistance)
+	}
+
+	return m.GoFor(ctx, dir, rpm, moveDistance)
+}
+
+// GoTillStop moves until physically stopped (though with a ten second timeout)
+func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	origPos, err := m.Position(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Off(ctx); err != nil {
+			m.logger.Error("failed to turn off motor")
+		}
+	}()
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		curPos, err := m.Position(ctx)
+		if err != nil {
+			return err
+		}
+
+		if math.Abs(origPos-curPos) < 0.1 {
+			return nil
+		}
+
+		if fails >= 100 {
+			return errors.New("timed out during GoTillStop")
+		}
+		fails++
+	}
+}
+
+// Zero resets the position to zero/home
+func (m *encodedMotor) Zero(ctx context.Context, offset float64) error {
+	return m.encoder.Zero(ctx, int64(offset*float64(m.cfg.TicksPerRotation)))
+}

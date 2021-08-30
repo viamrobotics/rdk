@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-errors/errors"
+
 	pb "go.viam.com/core/proto/api/v1"
 )
 
@@ -69,6 +71,25 @@ func (m *FakeMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float
 	m.d = d
 	m.setPowerPct(.01)
 	return nil
+}
+
+// GoTo sets the given direction and an arbitrary power percentage for now.
+func (m *FakeMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.d = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
+	m.setPowerPct(.01)
+	return nil
+}
+
+// GoTillStop always returns an error
+func (m *FakeMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+	return errors.New("unsupported")
+}
+
+// Zero always returns an error
+func (m *FakeMotor) Zero(ctx context.Context, offset float64) error {
+	return errors.New("unsupported")
 }
 
 // Off has the motor pretend to be off.

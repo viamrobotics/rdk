@@ -15,6 +15,7 @@ class Motor {
     // power 0 -> 255
     void go(bool forward, int power);
     void goFor(long ticksPerSecond, long ticks);
+    void goTo(long ticksPerSecond, long ticks);
     // power 0 -> 255
     void setPower(int power);
 
