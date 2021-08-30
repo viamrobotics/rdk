@@ -49,9 +49,7 @@ void PWMChannel16bits::setChannelDutyCycle(uint8_t channel, uint8_t duty_cycle)
 		return;
 	}
 	uint32_t ocrn = 0;
-	if(duty_cycle == 0) ocrn = 0; /*Corner cases*/
-	else if (duty_cycle == 255) ocrn = _top; /*Corner cases*/
-	else ocrn = (_top*((uint32_t)duty_cycle)) >> 8; /*To represent the range [0,icrn] in [0;255] we multiply by duty_cyle then divide by 256*/
+	ocrn = (_top*((uint32_t)duty_cycle)) >> 8; /*To represent the range [0,icrn] in [0;255] we multiply by duty_cyle then divide by 256*/
 	switch(channel){
 	case PWM_CHANNEL_A:
 		_dutyA = duty_cycle;
@@ -140,9 +138,7 @@ void PWMChannel8bits::setChannelDutyCycle(uint8_t channel, uint8_t duty_cycle)
 		return;
 	}
 	uint32_t ocrn = 0;
-	if(duty_cycle == 0) ocrn = 0;
-	else if (duty_cycle == 255) ocrn = _top;
-	else ocrn = (_top*((uint32_t)duty_cycle)) >> 8;
+	ocrn = (_top*((uint32_t)duty_cycle)) >> 8;
 	switch(channel){
 	case PWM_CHANNEL_B:
 		_dutyB = duty_cycle;
@@ -229,61 +225,69 @@ bool PWM::setPinFrequency(uint8_t pin, uint32_t frequency)
 }
 void PWM::analogWrite(uint8_t pin, uint8_t value)
 {
+	if(value == 0){
+		digitalWrite(pin,LOW);
+	}
+	else if(value == 255){
+		digitalWrite(pin,HIGH);
+	}
+	else{
 #if defined(__AVR_ATmega2560__)
-	switch(pin){
-	case 6:
-		_channels[0]->setChannelDutyCycle(PWM_CHANNEL_A,value);
-		break;
-	case 7:
-		_channels[0]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 8:
-		_channels[0]->setChannelDutyCycle(PWM_CHANNEL_C,value);
-		break;
-	case 5:
-		_channels[1]->setChannelDutyCycle(PWM_CHANNEL_A,value);
-		break;
-	case 3:
-		_channels[1]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 2:
-		_channels[1]->setChannelDutyCycle(PWM_CHANNEL_C,value);
-		break;
-	case 11:
-		_channels[2]->setChannelDutyCycle(PWM_CHANNEL_A,value);
-		break;
-	case 12:
-		_channels[2]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 13:
-		_channels[2]->setChannelDutyCycle(PWM_CHANNEL_C,value);
-		break;
-	case 9:
-		_channels[3]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 10:
-		break;
-	default:
-		::analogWrite(pin,value);
-		break;
-	}
+		switch(pin){
+		case 6:
+			_channels[0]->setChannelDutyCycle(PWM_CHANNEL_A,value);
+			break;
+		case 7:
+			_channels[0]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 8:
+			_channels[0]->setChannelDutyCycle(PWM_CHANNEL_C,value);
+			break;
+		case 5:
+			_channels[1]->setChannelDutyCycle(PWM_CHANNEL_A,value);
+			break;
+		case 3:
+			_channels[1]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 2:
+			_channels[1]->setChannelDutyCycle(PWM_CHANNEL_C,value);
+			break;
+		case 11:
+			_channels[2]->setChannelDutyCycle(PWM_CHANNEL_A,value);
+			break;
+		case 12:
+			_channels[2]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 13:
+			_channels[2]->setChannelDutyCycle(PWM_CHANNEL_C,value);
+			break;
+		case 9:
+			_channels[3]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 10:
+			break;
+		default:
+			::analogWrite(pin,value);
+			break;
+		}
 #elif defined(__AVR_ATmega328P__)
-	switch(pin){
-	case 9:
-		_channels[0]->setChannelDutyCycle(PWM_CHANNEL_A,value);
-		break;
-	case 10:
-		_channels[0]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 3:
-		_channels[1]->setChannelDutyCycle(PWM_CHANNEL_B,value);
-		break;
-	case 11:
-		break;
-	default:
-		::analogWrite(pin,value);
-	}
+		switch(pin){
+		case 9:
+			_channels[0]->setChannelDutyCycle(PWM_CHANNEL_A,value);
+			break;
+		case 10:
+			_channels[0]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 3:
+			_channels[1]->setChannelDutyCycle(PWM_CHANNEL_B,value);
+			break;
+		case 11:
+			break;
+		default:
+			::analogWrite(pin,value);
+		}
 #else
 	::analogWrite(pin,value); /* Default to arduino analog write when pin is unhandeled */
 #endif
+	}
 }
