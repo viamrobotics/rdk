@@ -98,10 +98,10 @@ bool PWMChannel16bits::setPWMFrequency(uint32_t frequency)
 			_tccrnA->wgmn0 = 0;
 			_top = top;
 			_frequency = frequency;
-			setChannelDutyCycle(PWM_CHANNEL_A,_dutyA);
-			setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
+			if(_dutyA && _dutyA != 255) setChannelDutyCycle(PWM_CHANNEL_A,_dutyA);
+			if(_dutyB && _dutyB != 255) setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
 #if defined(__AVR_ATmega2560__)
-			setChannelDutyCycle(PWM_CHANNEL_C,_dutyC);
+			if(_dutyC && _dutyC != 255) setChannelDutyCycle(PWM_CHANNEL_C,_dutyC);
 #endif
 			_tccrnB->csn = n + 1;
 			return true;
@@ -172,7 +172,7 @@ bool PWMChannel8bits::setPWMFrequency(uint32_t frequency)
 			_tccrnA->wgmn0 = 1;
 			_top = top;
 			_frequency = frequency;
-			setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
+			if(_dutyB && _dutyB != 255) setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
 			_tccrnB->csn = n + 1;
 			return true;
 		}
