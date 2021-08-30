@@ -84,6 +84,9 @@ private:
 	volatile uint16_t *_ocrnC;
 #endif
 	volatile uint16_t *_icrn;
+	uint8_t _dutyA;
+	uint8_t _dutyB;
+	uint8_t _dutyC;
 };
 
 class PWMChannel8bits : public PWMChannel{
@@ -99,6 +102,7 @@ private:
 	volatile union TCCRnB *_tccrnB;
 	volatile uint8_t *_ocrnA;
 	volatile uint8_t *_ocrnB;
+	uint8_t _dutyB;
 };
 #endif
 class PWM{

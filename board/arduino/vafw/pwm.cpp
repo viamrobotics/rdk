@@ -22,7 +22,10 @@ PWMChannel16bits::PWMChannel16bits(volatile uint8_t *base_addr,volatile uint16_t
 #if defined(__AVR_ATmega2560__)
 	  _ocrnC(ocrn_addr+2),
 #endif
-	  _icrn(icrn_addr)
+	  _icrn(icrn_addr),
+	  _dutyA(0),
+	  _dutyB(0),
+	  _dutyC(0)
 {
 	_frequency = 0;
 	_top = 0;
@@ -51,17 +54,20 @@ void PWMChannel16bits::setChannelDutyCycle(uint8_t channel, uint8_t duty_cycle)
 	else ocrn = (_top*((uint32_t)duty_cycle)) >> 8; /*To represent the range [0,icrn] in [0;255] we multiply by duty_cyle then divide by 256*/
 	switch(channel){
 	case PWM_CHANNEL_A:
+		_dutyA = duty_cycle;
 		_tccrnA->comn_A1 = 1;
 		_tccrnA->comn_A0 = 0;
 		*_ocrnA = ocrn & 0xFFFF;
 		break;
 	case PWM_CHANNEL_B:
+		_dutyB = duty_cycle;
 		_tccrnA->comn_B1 = 1;
 		_tccrnA->comn_B0 = 0;
 		*_ocrnB = ocrn & 0xFFFF;
 		break;
 #if defined(__AVR_ATmega2560__)
 	case PWM_CHANNEL_C:
+		_dutyC = duty_cycle;
 		_tccrnA->comn_C1 = 1;
 		_tccrnA->comn_C0 = 0;
 		*_ocrnC = ocrn & 0xFFFF;
@@ -86,17 +92,20 @@ bool PWMChannel16bits::setPWMFrequency(uint32_t frequency)
 		}while(n < ARRAY_SIZE(prescaler));
 		if((n < ARRAY_SIZE(prescaler)) && top && top < 0xFFFF)
 		{
+			_tccrnB->csn = 0; // Stop clocking PWM when changing its registers
 			*_icrn = top & 0xFFFF;
-			_tccrnB->csn = n + 1;
 			_tccrnB->wgmn3 = 1;
 			_tccrnB->wgmn2 = 0;
 			_tccrnA->wgmn1 = 0;
 			_tccrnA->wgmn0 = 0;
 			_top = top;
 			_frequency = frequency;
-			*_ocrnA = 0;
-			*_ocrnB = 0;
-			*_ocrnC = 0;
+			setChannelDutyCycle(PWM_CHANNEL_A,_dutyA);
+			setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
+#if defined(__AVR_ATmega2560__)
+			setChannelDutyCycle(PWM_CHANNEL_C,_dutyC);
+#endif
+			_tccrnB->csn = n + 1;
 			return true;
 		}
 		break;
@@ -109,7 +118,8 @@ PWMChannel8bits::PWMChannel8bits(volatile uint8_t *base_addr,volatile uint8_t *o
 	: _tccrnA((volatile union TCCRnA*)base_addr),
 	  _tccrnB((volatile union TCCRnB*)base_addr+1),
 	  _ocrnA(ocrn_addr),
-	  _ocrnB(ocrn_addr+1)
+	  _ocrnB(ocrn_addr+1),
+	  _dutyB(0)
 {
 	_tccrnA->reg = 0;
 	_tccrnB->reg = 0;
@@ -135,6 +145,7 @@ void PWMChannel8bits::setChannelDutyCycle(uint8_t channel, uint8_t duty_cycle)
 	else ocrn = (_top*((uint32_t)duty_cycle)) >> 8;
 	switch(channel){
 	case PWM_CHANNEL_B:
+		_dutyB = duty_cycle;
 		_tccrnA->comn_B1 = 1;
 		_tccrnA->comn_B0 = 0;
 		*_ocrnB = ocrn & 0xFF;
@@ -157,15 +168,16 @@ bool PWMChannel8bits::setPWMFrequency(uint32_t frequency)
 		}while(n < ARRAY_SIZE(prescaler));
 		if((n < ARRAY_SIZE(prescaler)) && top && top <= 0xFF)
 		{
+			_tccrnB->csn = 0; // stop clocking PWM when changing its register
 			*_ocrnA = top & 0xFF;
-			_tccrnB->csn = n + 1;
 			_tccrnB->wgmn3 = 0;
 			_tccrnB->wgmn2 = 1;
 			_tccrnA->wgmn1 = 0;
 			_tccrnA->wgmn0 = 1;
 			_top = top;
 			_frequency = frequency;
-			*_ocrnB = 0;
+			setChannelDutyCycle(PWM_CHANNEL_B,_dutyB);
+			_tccrnB->csn = n + 1;
 			return true;
 		}
 		break;
