@@ -45,16 +45,16 @@ type Board interface {
 	DigitalInterruptNames() []string
 
 	// GPIOSet sets the given pin to either low or high.
-	GPIOSet(pin string, high bool) error
+	GPIOSet(ctx context.Context, pin string, high bool) error
 
 	// GPIOGet gets the high/low state of the given pin.
-	GPIOGet(pin string) (bool, error)
+	GPIOGet(ctx context.Context, pin string) (bool, error)
 
 	// PWMSet sets the given pin to the given duty cycle.
-	PWMSet(pin string, dutyCycle byte) error
+	PWMSet(ctx context.Context, pin string, dutyCycle byte) error
 
 	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFreq(pin string, freq uint) error
+	PWMSetFreq(ctx context.Context, pin string, freq uint) error
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -88,6 +88,18 @@ type Motor interface {
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute.
 	GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error
+
+	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero), at a specific speed.
+	GoTo(ctx context.Context, rpm float64, position float64) error
+
+	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
+	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
+	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
+	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
+	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error
+
+	// Set the current position (+/- offset) to be the new zero (home) position.
+	Zero(ctx context.Context, offset float64) error
 
 	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
@@ -129,7 +141,7 @@ type SPIHandle interface {
 	// Read-only transfers usually transmit a request/address and continue with some number of null bytes to equal the expected size of the returning data.
 	// Large transmissions are usually broken up into multiple transfers.
 	// There are many different paradigms for most of the above, and implementation details are chip/device specific.
-	Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
+	Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error)
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }

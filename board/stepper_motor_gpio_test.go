@@ -13,7 +13,7 @@ import (
 	"go.viam.com/test"
 )
 
-func TestBrushlessMotor(t *testing.T) {
+func TestGPIOStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)

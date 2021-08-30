@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/utils"
@@ -36,21 +35,28 @@ func (s *fakeServo) Current(ctx context.Context) (uint8, error) {
 
 // A fakeSPI allows opening an SPIHandle.
 type fakeSPI struct {
+	mu   sync.Mutex
+	fifo chan []byte
 }
 
 func (s *fakeSPI) OpenHandle() (SPIHandle, error) {
-	return &fakeSPIHandle{}, nil
+	s.mu.Lock()
+	return &fakeSPIHandle{s}, nil
 }
 
 // A fakeSPIHandle allows Xfer and Close.
 type fakeSPIHandle struct {
+	bus *fakeSPI
 }
 
-func (h *fakeSPIHandle) Xfer(baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-	return nil, errors.New("SPI Xfer not supported on FakeBoard")
+func (h *fakeSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
+	h.bus.fifo <- tx
+	ret := <-h.bus.fifo
+	return ret[:len(tx)], nil
 }
 
 func (h *fakeSPIHandle) Close() error {
+	h.bus.mu.Unlock()
 	return nil
 }
 
@@ -117,7 +123,7 @@ func (b *FakeBoard) DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 }
 
 // GPIOSet sets the given pin to either low or high.
-func (b *FakeBoard) GPIOSet(pin string, high bool) error {
+func (b *FakeBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
 	if b.gpio == nil {
 		b.gpio = map[string]bool{}
 	}
@@ -126,7 +132,7 @@ func (b *FakeBoard) GPIOSet(pin string, high bool) error {
 }
 
 // GPIOGet returns whether the given pin is either low or high.
-func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
+func (b *FakeBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	if b.gpio == nil {
 		b.gpio = map[string]bool{}
 	}
@@ -134,7 +140,7 @@ func (b *FakeBoard) GPIOGet(pin string) (bool, error) {
 }
 
 // PWMSet sets the given pin to the given duty cycle.
-func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
+func (b *FakeBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	if b.pwm == nil {
 		b.pwm = map[string]byte{}
 	}
@@ -143,7 +149,7 @@ func (b *FakeBoard) PWMSet(pin string, dutyCycle byte) error {
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *FakeBoard) PWMSetFreq(pin string, freq uint) error {
+func (b *FakeBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	if b.pwmFreq == nil {
 		b.pwmFreq = map[string]uint{}
 	}
