@@ -45,10 +45,10 @@ void Motor::setPower(int power) {
         PWMPin = _pwm;
     }else if (_moving == 1) {
         PWMPin = _in2;
-        power = 255 - power;
+        power = 255 - power; // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
     } else if (_moving == -1){
         PWMPin = _in1;
-        power = 255 - power;
+        power = 255 - power; // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
     }
     if (_inEn >= 0) digitalWrite(_inEn, LOW);
     if (PWMPin >= 0) analogWrite(PWMPin, power);
