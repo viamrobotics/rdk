@@ -85,14 +85,14 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 		errs = multierr.Combine(errs, m.Board.GPIOSet(ctx, m.En, false))
 	}
 
-	var realPWM string
+	var pwmPin string
 	if m.PWM != "" {
-		realPWM = m.PWM
+		pwmPin = m.PWM
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD {
-		realPWM = m.B
+		pwmPin = m.B
 		powerPct = 1.0 - powerPct // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD {
-		realPWM = m.A
+		pwmPin = m.A
 		powerPct = 1.0 - powerPct // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	} else if m.curDirection == pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED {
 		return errors.New("can't set power when no direction is set")
@@ -100,8 +100,8 @@ func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 
 	return multierr.Combine(
 		errs,
-		m.Board.PWMSetFreq(ctx, realPWM, m.pwmFreq),
-		m.Board.PWMSet(ctx, realPWM, byte(utils.ScaleByPct(255, float64(powerPct)))),
+		m.Board.PWMSetFreq(ctx, pwmPin, m.pwmFreq),
+		m.Board.PWMSet(ctx, pwmPin, byte(utils.ScaleByPct(255, float64(powerPct)))),
 	)
 }
 
