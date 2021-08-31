@@ -128,7 +128,10 @@ func (b *FakeBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
 		b.gpio = map[string]bool{}
 	}
 	b.gpio[pin] = high
-	return nil
+	if high {
+		return b.PWMSet(ctx, pin, 255)
+	}
+	return b.PWMSet(ctx, pin, 0)
 }
 
 // GPIOGet returns whether the given pin is either low or high.
@@ -144,7 +147,14 @@ func (b *FakeBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) erro
 	if b.pwm == nil {
 		b.pwm = map[string]byte{}
 	}
-	b.pwm[pin] = dutyCycle
+	if b.pwm[pin] != dutyCycle {
+		b.pwm[pin] = dutyCycle
+		if dutyCycle == 255 {
+			return b.GPIOSet(ctx, pin, true)
+		} else if dutyCycle == 0 {
+			return b.GPIOSet(ctx, pin, false)
+		}
+	}
 	return nil
 }
 
