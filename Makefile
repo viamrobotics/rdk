@@ -15,8 +15,12 @@ goformat:
 
 setup:
 	bash etc/setup.sh
+	bash etc/versioncheck.sh
 
-build: buf build-web build-go
+versioncheck:
+	bash etc/versioncheck.sh
+
+build: versioncheck buf build-web build-go
 
 build-go:
 	go build $(TAGS) ./...
@@ -41,6 +45,7 @@ lint: goformat
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs `go env GOPATH`/bin/go-errorlint -errorf
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --config=./etc/.golangci.yaml
+	bash etc/versioncheck.sh
 
 cover:
 	./etc/test.sh cover
