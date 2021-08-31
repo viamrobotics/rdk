@@ -20,7 +20,7 @@ setup:
 versioncheck:
 	bash etc/versioncheck.sh
 
-build: buf build-web build-go
+build: versioncheck buf build-web build-go
 
 build-go:
 	go build $(TAGS) ./...
