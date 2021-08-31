@@ -18,7 +18,11 @@ struct motorInfo {
 motorInfo motors[MAX_MOTORS];
 
 Buffer* buf1 = 0;
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 Buffer* buf2 = 0;
+#endif
+
+void(* resetBoard) (void) = 0; //declare reset function @ address 0
 
 int findEmptyMotor() {
     for (int i = 0; i < MAX_MOTORS; i++) {
@@ -38,15 +42,15 @@ Motor* findMotor(const char* name) {
     return 0;
 }
 
-void configureMotorDC(Buffer* b, const char* name, int pwm, PinNumber pinA,
-                      PinNumber pinB, PinNumber encA, PinNumber encB) {
+void configureMotorDC(Buffer* b, const char* name, PinNumber pwm, PinNumber pinA,
+                      PinNumber pinB, PinNumber pinDir, PinNumber pinEn, PinNumber encA, PinNumber encB) {
     int motor = findEmptyMotor();
     if (motor < 0) {
         b->println("#not enough motor slots");
         return;
     }
 
-    motors[motor].motor = new Motor(name, pinA, pinB, pwm);
+    motors[motor].motor = new Motor(name, pinA, pinB, pinDir, pinEn, pwm);
     motors[motor].encA = encA;
     motors[motor].encB = encB;
 
@@ -84,8 +88,8 @@ void processBuffer(Buffer* b) {
 
     const char* line = b->getLineAndReset();
     if (line[0] == '!') {
-        b->println("!");
-        return;
+        // Reset board as we're about to be reconfigured.
+        resetBoard();
     }
 
     if (isCommand(line, "echo")) {
@@ -97,10 +101,10 @@ void processBuffer(Buffer* b) {
 
     if (isCommand(line, "config-motor-dc")) {
         char name[255];
-        int pwm, pinA, pinB, encA, encB;
-        int n = sscanf(line, "config-motor-dc %s %d %d %d e %d %d", name, &pwm,
-                       &pinA, &pinB, &encA, &encB);
-        if (n != 6) {
+        int pwm, pinA, pinB, pinDir, pinEn, encA, encB;
+        int n = sscanf(line, "config-motor-dc %s %d %d %d %d %d e %d %d", name, &pwm,
+                       &pinA, &pinB, &pinDir, &pinEn, &encA, &encB);
+        if (n != 8) {
             b->println("");
             b->print(n);
             b->println("");
@@ -108,7 +112,7 @@ void processBuffer(Buffer* b) {
             return;
         }
 
-        configureMotorDC(b, name, pwm, pinA, pinB, encA, encB);
+        configureMotorDC(b, name, pwm, pinA, pinB, pinDir, pinEn, encA, encB);
 
         b->println("@ok");
         return;
@@ -279,9 +283,9 @@ void processBuffer(Buffer* b) {
 
 void loop() {
     processBuffer(buf1);
-    if (buf2) {
-        processBuffer(buf2);
-    }
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+    processBuffer(buf2);
+#endif
 
     for (int i = 0; i < MAX_MOTORS; i++) {
         if (motors[i].motor) {
@@ -290,7 +294,12 @@ void loop() {
     }
 }
 
+#if defined(FALLING)
 void setupInterruptBasic(PinNumber pin, void (*ISR)(), int what) {
+#else
+// Needed for new arduino API where PinStatus is an enum, instead of a macro
+void setupInterruptBasic(PinNumber pin, void (*ISR)(), PinStatus what) {
+#endif
     pinMode(pin, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(pin), ISR, what);
 }

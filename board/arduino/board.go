@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/edaniels/golog"
 
@@ -65,8 +64,6 @@ func newArduino(ctx context.Context, cfg board.Config, logger golog.Logger) (boa
 		logger:     logger,
 	}
 
-	time.Sleep(1000 * time.Millisecond) // wait for startup?
-
 	err = b.configure(cfg)
 	if err != nil {
 		return nil, multierr.Combine(err, b.Close())
@@ -100,8 +97,7 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("error reading from arduino: %w", err)
 		}
-
-		line = strings.TrimSpace(line)
+		line = strings.TrimSpace(strings.Trim(line, "\x00")) // TrimSpace alone doesn't remove NULs
 
 		if len(line) == 0 {
 			continue
@@ -128,8 +124,8 @@ func (b *arduinoBoard) runCommand(cmd string) (string, error) {
 }
 
 func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
-	if cfg.Pins["pwm"] == "" || cfg.Pins["a"] == "" || cfg.Pins["b"] == "" {
-		return errors.New("arduino needs a, b, and pwm pins")
+	if !((cfg.Pins["pwm"] != "" && cfg.Pins["dir"] != "") || (cfg.Pins["a"] != "" || cfg.Pins["b"] != "")) {
+		return errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
 	if cfg.Encoder == "" || cfg.EncoderB == "" {
@@ -140,11 +136,19 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return errors.New("arduino motors TicksPerRotation to be set")
 	}
 
-	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s e %s %s",
+	for _, pin := range []string{"pwm", "a", "b", "dir", "en"} {
+		if _, ok := cfg.Pins[pin]; !ok {
+			cfg.Pins[pin] = "-1"
+		}
+	}
+
+	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		cfg.Name,
-		cfg.Pins["pwm"],
-		cfg.Pins["a"],
-		cfg.Pins["b"],
+		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
+		cfg.Pins["a"],   // Use either A & B, or DIR inputs, never both
+		cfg.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
+		cfg.Pins["dir"], // PWM is also required when using DIR
+		cfg.Pins["en"],  // Always optional, inverting input (LOW = ENABLED)
 		cfg.Encoder,
 		cfg.EncoderB,
 	)
@@ -174,17 +178,24 @@ func (b *arduinoBoard) configureAnalog(cfg board.AnalogConfig) error {
 	return nil
 }
 
-func (b *arduinoBoard) configure(cfg board.Config) error {
-
+func (b *arduinoBoard) resetBoard() error {
 	check, err := b.runCommand("!")
 	if err != nil {
 		return err
 	}
 	if check != "!" {
-		return fmt.Errorf("! didn't get expected result, got [%s]", check)
+		return fmt.Errorf("! (reset) didn't get expected result, got [%s]", check)
+	}
+	return nil
+}
+
+func (b *arduinoBoard) configure(cfg board.Config) error {
+	err := b.resetBoard()
+	if err != nil {
+		return err
 	}
 
-	check, err = b.runCommand("echo abc")
+	check, err := b.runCommand("echo abc")
 	if err != nil {
 		return err
 	}
@@ -319,7 +330,10 @@ func (b *arduinoBoard) Close() error {
 		}
 	}
 
-	// TODO(erh): actually clean up on arduino side using reset pin
+	err := b.resetBoard()
+	if err != nil {
+		return err
+	}
 
 	return b.port.Close()
 }
