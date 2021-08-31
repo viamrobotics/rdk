@@ -16,7 +16,7 @@ if which go; then
 else
   ENV_OK=0
   PREFIX="/usr/local" && \
-  VERSION="1.16.6" && \
+  VERSION="1.17" && \
     curl -sSL \
       "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
       sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
@@ -67,7 +67,7 @@ if [ "$(uname)" = "Linux" ]; then
         echo "buf installed"
   else
     PREFIX="/usr/local" && \
-    VERSION="0.40.0" && \
+    VERSION="0.42.1" && \
       curl -sSL \
         "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
         sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
@@ -76,8 +76,8 @@ if [ "$(uname)" = "Linux" ]; then
     sudo mv protoc-gen-grpc-web /usr/local/bin/
     TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'protoctmp')
     cd $TEMP_DIR
-    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.15.6/protoc-3.15.6-linux-x86_64.zip
-    unzip protoc-3.15.6-linux-x86_64.zip
+    curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.17.3/protoc-3.17.3-linux-x86_64.zip
+    unzip protoc-3.17.3-linux-x86_64.zip
     sudo cp bin/* /usr/local/bin
     sudo cp -R include/* /usr/local/include
     sudo chmod 755 /usr/local/bin/protoc
