@@ -67,7 +67,7 @@ if [ "$(uname)" = "Linux" ]; then
         echo "buf installed"
   else
     PREFIX="/usr/local" && \
-    VERSION="0.54.1" && \
+    VERSION="0.42.1" && \
       curl -sSL \
         "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
         sudo tar -xvzf - -C "${PREFIX}" --strip-components 1
