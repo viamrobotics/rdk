@@ -2,15 +2,15 @@
 
 # Min and Max versions for each package
 BINARIES=( \
-	"go 1.16.6 1.17.99" \
+	"go 1.16 1.17.99" \
 	"npm 6.14.14 7.99" \
-	"buf 0.54.1 0.54.1" \
+	"buf 0.40.0 0.54.1" \
 	"protoc 3.15.6 3.17.3" \
 	"protoc-gen-go 1.26.0 1.26.0" \
 	"protoc-gen-go-grpc 1.1.0 1.1.0" \
 	"protoc-gen-grpc-gateway dev dev" \
 	"protoc-gen-doc 1.3.2 1.3.2"\
-	"grpcurl dev dev" \
+	#"grpcurl dev dev" \
 )
 
 # To be checked via pkg-config --modversion (not always the package version)
