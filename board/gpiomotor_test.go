@@ -10,8 +10,8 @@ import (
 	"go.viam.com/test"
 )
 
-// A/B/PWM io drivers
-func TestMotor1(t *testing.T) {
+// Test the A/B/PWM style IO
+func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)
@@ -73,8 +73,8 @@ func TestMotor1(t *testing.T) {
 	test.That(t, supported, test.ShouldBeFalse)
 }
 
-// DIR/PWM/EN io drivers
-func TestMotor2(t *testing.T) {
+// Test the DIR/PWM style IO
+func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
 	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)
@@ -122,8 +122,8 @@ func TestMotor2(t *testing.T) {
 
 }
 
-// A/B io drivers
-func TestMotor3(t *testing.T) {
+// Test the A/B only style IO
+func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
 	b := &FakeBoard{}
 	logger := golog.NewTestLogger(t)

@@ -16,7 +16,8 @@ import (
 	pb "go.viam.com/core/proto/api/v1"
 )
 
-func TestArduino1(t *testing.T) {
+// Test the A/B/PWM style IO
+func TestArduinoMotorABPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg := board.Config{
@@ -88,7 +89,8 @@ func TestArduino1(t *testing.T) {
 
 }
 
-func TestArduino2(t *testing.T) {
+// Test the DIR/PWM style IO
+func TestArduinoMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg := board.Config{
@@ -159,7 +161,8 @@ func TestArduino2(t *testing.T) {
 
 }
 
-func TestArduino3(t *testing.T) {
+// Test the A/B only style IO
+func TestArduinoMotorAB(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	cfg := board.Config{
