@@ -89,7 +89,8 @@ func float64fromByte32(bytes []byte) float64 {
 	return float64(float)
 }
 
-func XArmModel() (kinematics.Model, error){
+// XArmModel() returns the kinematics model of the xArm, also has all Frame information.
+func XArmModel() (kinematics.Model, error) {
 	return kinematics.ParseJSON(xArm6modeljson)
 }
 
@@ -116,6 +117,10 @@ func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, e
 	}
 
 	return &xArm, nil
+}
+
+func (x *xArm6) Model() (kinematics.Model, error) {
+	return XArmModel()
 }
 
 func (x *xArm6) newCmd(reg byte) cmd {
