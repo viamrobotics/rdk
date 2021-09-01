@@ -55,7 +55,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestBenchCombinedIKinematics(t *testing.T) {
+func BenchCombinedIKinematics(t *testing.B) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"))
