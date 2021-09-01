@@ -18,7 +18,7 @@ func TestCreateNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
-	ik := CreateNloptIKSolver(m, logger)
+	ik := CreateNloptIKSolver(m, logger, 1)
 
 	pos := &pb.ArmPosition{X: 360, Z: 362}
 	seed := arm.JointPositionsFromRadians([]float64{1, 1, 1, 1, 1, 0})

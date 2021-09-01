@@ -55,7 +55,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func BenchCombinedIKinematics(t *testing.B) {
+func TestBenchCombinedIKinematics(t *testing.T) {
 	logger := golog.NewDevelopmentLogger("combinedBenchmark")
 
 	m, err := ParseJSONFile(utils.ResolveFile("robots/eva/eva_kinematics.json"))
@@ -70,6 +70,7 @@ func BenchCombinedIKinematics(t *testing.B) {
 		randPos, err := ComputePosition(m, randJointPos)
 		test.That(t, err, test.ShouldBeNil)
 		solution, err := ik.Solve(context.Background(), randPos, home)
+		test.That(t, solution, test.ShouldNotBeNil)
 		test.That(t, checkGoodJointDelta([]float64{0, 0, 0, 0, 0, 0}, arm.JointPositionsToRadians(solution)), test.ShouldBeTrue)
 		if err == nil {
 			solvedCnt++
