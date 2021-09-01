@@ -291,7 +291,10 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer box.Close()
 
-	box.home(ctx)
+	err = box.home(ctx)
+	if err != nil {
+		return err
+	}
 
 	action.RegisterAction("Run Reset", box.doRunReset)
 	action.RegisterAction("Home", box.doHome)
@@ -596,71 +599,121 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 }
 
 func (b *ResetBox) runReset(ctx context.Context) error {
-	b.gate.GoTo(ctx, gateSpeed, gateCubePass)
-	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
-	b.armHome(ctx)
 
-	// Wait for elevator down
-	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
-	b.setSqueeze(ctx, squeezeCubePass)
-
+	errs := multierr.Combine(
+		b.gate.GoTo(ctx, gateSpeed, gateCubePass),
+		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
+		b.armHome(ctx),
+		// Wait for elevator down
+		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
+		b.setSqueeze(ctx, squeezeCubePass),
+		b.tipTableUp(ctx),
+		b.waitFor(ctx, b.isTableUp),
+	)
+	if errs != nil {
+		return errs
+	}
 	b.vibrate(ctx, vibeLevel)
-	b.tipTableUp(ctx)
-	b.waitFor(ctx, b.isTableUp)
-	go func() {
-		b.tipTableDown(ctx)
-		b.gripper.Open(ctx)
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos)
-	}()
-	// Three whacks for cubes-behinds-ducks
-	b.hammerTime(ctx, cubeWhacks)
 
+	errC := make(chan error)
+	go func() {
+		errC <- multierr.Combine(
+			b.tipTableDown(ctx),
+			b.gripper.Open(ctx),
+			b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+		)
+	}()
+
+	// Three whacks for cubes-behinds-ducks
+	errs = b.hammerTime(ctx, cubeWhacks)
+	if errs != nil {
+		return errs
+	}
 	// Wait for hammer + 4 seconds
 	utils.SelectContextOrWait(ctx, 4000*time.Millisecond)
-
 	// Cubes in, going up
-	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+	errs = multierr.Combine(
+		b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
+		<-errC,
+	)
+	if errs != nil {
+		return errs
+	}
 
 	// DuckWhack
 	go func() {
-		b.hammerTime(ctx, duckWhacks)
+		errs2 := b.hammerTime(ctx, duckWhacks)
 		utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
 		b.vibrate(ctx, 0)
+		errC <- errs2
 	}()
 
 	// Cubes at top
-	b.waitPosReached(ctx, &b.elevator, elevatorTop)
-	b.waitFor(ctx, b.isTableDown)
-	b.pickCube1(ctx)
-	b.placeCube1(ctx)
-	b.pickCube2(ctx)
+	errs = multierr.Combine(
+		b.waitPosReached(ctx, &b.elevator, elevatorTop),
+		b.waitFor(ctx, b.isTableDown),
+	)
+	if errs != nil {
+		return errs
+	}
+
+	errs = b.pickCube1(ctx)
+	if errs != nil {
+		return errs
+	}
+	errs = b.placeCube1(ctx)
+	if errs != nil {
+		return errs
+	}
+	errs = b.pickCube2(ctx)
+	if errs != nil {
+		return errs
+	}
+	errs = <-errC
+	if errs != nil {
+		return errs
+	}
 
 	go func() {
-		b.placeCube2(ctx)
-		b.gripper.Open(ctx)
-		b.arm.MoveToJointPositions(ctx, duckReadyPos)
+		errC <- multierr.Combine(
+			b.placeCube2(ctx),
+			b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		)
 	}()
 
-	// Back down for duck
-	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
-	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
-
-	// Open to load duck
+	errs = multierr.Combine(
+		// Back down for duck
+		b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
+		b.waitPosReached(ctx, &b.elevator, elevatorBottom),
+		// Open to load duck
+		b.gate.GoTo(ctx, gateSpeed, gateOpen),
+		b.setSqueeze(ctx, squeezeOpen),
+	)
+	if errs != nil {
+		return errs
+	}
 	b.vibrate(ctx, vibeLevel)
-	b.gate.GoTo(ctx, gateSpeed, gateOpen)
-	b.setSqueeze(ctx, squeezeOpen)
 	utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
-	b.setSqueeze(ctx, squeezeClosed)
-	b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2)
-	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
-	b.waitPosReached(ctx, &b.elevator, elevatorTop)
+	errs = multierr.Combine(
+		b.setSqueeze(ctx, squeezeClosed),
+		b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2),
+		b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
+		b.waitPosReached(ctx, &b.elevator, elevatorTop),
+		<-errC,
+	)
+	if errs != nil {
+		return errs
+	}
 
-	b.placeDuck(ctx)
-	b.armHome(ctx)
-	return nil
+	errs = b.placeDuck(ctx)
+	if errs != nil {
+		return errs
+	}
+
+	return b.armHome(ctx)
 }
 
 func (b *ResetBox) armHome(ctx context.Context) error {
