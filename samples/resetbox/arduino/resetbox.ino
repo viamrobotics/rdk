@@ -1,5 +1,9 @@
 // This file is the original non-Core Arduino-based control for the resetbox.
 // It will be obsoleted once porting is finished.
+// This is the older prototype resetbox.
+// In this, the arm controlled by a Pi and arduino-resetbox.go
+// The arduino board (this file) controls the other motors and functions
+// Communication between the two is via two GPIO lines.
 
 
 #include <AccelStepper.h>

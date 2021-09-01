@@ -1,3 +1,8 @@
+// This is the older prototype resetbox.
+// In this, the arm controlled by a Pi and this code
+// The arduino board (restbox.ino) controls the other motors and functions
+// Communication between the two is via two GPIO lines.
+
 package main
 
 import (
