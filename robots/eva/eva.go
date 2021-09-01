@@ -76,6 +76,10 @@ type eva struct {
 	ik       kinematics.InverseKinematics
 }
 
+func (e *eva) Model() (kinematics.Model, error) {
+	return EvaModel()
+}
+
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
@@ -308,10 +312,15 @@ func (e *eva) apiUnlock(ctx context.Context) {
 	}
 }
 
+// EvaModel() returns the kinematics model of the Eva, also has all Frame information.
+func EvaModel() (kinematics.Model, error) {
+	return kinematics.ParseJSON(evamodeljson)
+}
+
 // NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 
-	model, err := kinematics.ParseJSON(evamodeljson)
+	model, err := EvaModel()
 	if err != nil {
 		return nil, err
 	}

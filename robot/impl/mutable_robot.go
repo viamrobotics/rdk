@@ -204,8 +204,8 @@ func (r *mutableRobot) Status(ctx context.Context) (*pb.Status, error) {
 	return status.Create(ctx, r)
 }
 
-func (r *mutableRobot) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
-	return CreateReferenceFrameLookup(ctx, r)
+func (r *mutableRobot) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	return CreateReferenceFrameSystem(ctx, r)
 }
 
 // Logger returns the logger the robot is using.
