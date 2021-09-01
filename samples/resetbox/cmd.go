@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -13,8 +14,10 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/core/action"
+	"go.viam.com/core/arm"
 	"go.viam.com/core/board"
 	"go.viam.com/core/config"
+	"go.viam.com/core/gripper"
 	pb "go.viam.com/core/proto/api/v1"
 
 	"go.viam.com/core/robot"
@@ -24,6 +27,7 @@ import (
 	webserver "go.viam.com/core/web/server"
 
 	_ "go.viam.com/core/board/detector"
+	_ "go.viam.com/core/robots/xarm"
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
@@ -49,13 +53,34 @@ const (
 	squeezeOpen     = 80
 
 	elevatorBottom = 75
-	elevatorTop    = 800
+	elevatorTop    = 850
 	elevatorSpeed  = 300
 
 	hammerSpeed  = 20 // May be capped by underlying motor MaxRPM
 	hammerOffset = 0.9
 	cubeWhacks   = 3.0
 	duckWhacks   = 5.0
+
+	armName     = "xArm6"
+	gripperName = "vg1"
+)
+
+var (
+	startPos     = &pb.JointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
+	safeDumpPos  = &pb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
+	cubeReadyPos = &pb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
+	cube1grab    = &pb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
+	cube2grab    = &pb.JointPositions{Degrees: []float64{-182.6, 7.3, -36.9, 0, 17.6, 0}}
+
+	cube1place = &pb.JointPositions{Degrees: []float64{49.9, 14.0, -25.3, -0.5, -1.0, 0}}
+	cube2place = &pb.JointPositions{Degrees: []float64{-116, 28.5, -25.7, -0.5, -32.2, 0}}
+
+	duckgrabFW   = &pb.JointPositions{Degrees: []float64{-180.5, 27.7, -79.7, -2.8, 76.20, 180}}
+	duckgrabREV  = &pb.JointPositions{Degrees: []float64{-180.5, 28.3, -76.8, -2.8, 65.45, 180}}
+	duckReadyPos = &pb.JointPositions{Degrees: []float64{-180.5, 0.0, -60.0, -2.8, 65.45, 180}}
+
+	duckplaceFW  = &pb.JointPositions{Degrees: []float64{-21.3, 14, -39.0, 6.3, 22.7, 50}}
+	duckplaceREV = &pb.JointPositions{Degrees: []float64{-19.2, 18, -41.0, 6.3, 22.7, -130}}
 )
 
 var logger = golog.NewDevelopmentLogger("resetbox")
@@ -157,6 +182,8 @@ type ResetBox struct {
 	gate, squeeze LinearAxis
 	elevator      LinearAxis
 	hammer        board.Motor
+	arm           arm.Arm
+	gripper       gripper.Gripper
 
 	activeBackgroundWorkers *sync.WaitGroup
 
@@ -195,6 +222,18 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		return nil, errors.New("Can't find motor named: hammer")
 	}
 	b.hammer = hammer
+
+	rArm, ok := r.ArmByName(armName)
+	if !ok {
+		return nil, fmt.Errorf("failed to find arm %s", armName)
+	}
+	b.arm = rArm
+
+	rGripper, ok := r.GripperByName(gripperName)
+	if !ok {
+		return nil, fmt.Errorf("failed to find gripper %s", gripperName)
+	}
+	b.gripper = rGripper
 
 	return b, nil
 }
@@ -248,16 +287,24 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer box.Close()
 
-	box.home(ctx, myRobot)
+	box.home(ctx)
 
-	action.RegisterAction("Home", box.home)
-	action.RegisterAction("Vibrate", box.vibrateToggle)
-	action.RegisterAction("TipUp", box.tipTableUp)
-	action.RegisterAction("TipDown", box.tipTableDown)
+	action.RegisterAction("Run Reset", box.doRunReset)
+	action.RegisterAction("Home", box.doHome)
+	action.RegisterAction("HomeArm", box.doArmHome)
+	action.RegisterAction("PlaceDuck", box.doPlaceDuck)
+	action.RegisterAction("PlaceCubes", box.doPlaceCubes)
+	action.RegisterAction("Vibrate", box.doVibrateToggle)
+	action.RegisterAction("TipUp", box.doTipTableUp)
+	action.RegisterAction("TipDown", box.doTipTableDown)
+	action.RegisterAction("ElevatorUp", box.doElevatorUp)
+	action.RegisterAction("ElevatorDown", box.doElevatorDown)
+	action.RegisterAction("DuckWhack", box.doDuckWhack)
 
-	action.RegisterAction("FullReset", box.doReset)
-
-	action.RegisterAction("DuckWhack", box.doWhack)
+	action.RegisterAction("Grab1", box.doGrab1)
+	action.RegisterAction("Grab2", box.doGrab2)
+	action.RegisterAction("Drop1", box.doDrop1)
+	action.RegisterAction("Drop2", box.doDrop2)
 
 	webOpts := web.NewOptions()
 	webOpts.Insecure = true
@@ -272,9 +319,129 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	return nil
 }
 
-func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {
+	err := multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		b.arm.MoveToJointPositions(ctx, duckgrabFW),
+	)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doGrab2(ctx context.Context, r robot.Robot) {
+	err := multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		b.arm.MoveToJointPositions(ctx, duckgrabREV),
+	)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doDrop1(ctx context.Context, r robot.Robot) {
+	err := multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		b.arm.MoveToJointPositions(ctx, duckplaceFW),
+	)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doDrop2(ctx context.Context, r robot.Robot) {
+	err := multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		b.arm.MoveToJointPositions(ctx, duckplaceREV),
+	)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doPlaceCubes(ctx context.Context, r robot.Robot) {
+	err := b.placeCubes(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doPlaceDuck(ctx context.Context, r robot.Robot) {
+	err := b.placeDuck(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doDuckWhack(ctx context.Context, r robot.Robot) {
+	err := b.hammerTime(ctx, duckWhacks)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doHome(ctx context.Context, r robot.Robot) {
+	err := b.home(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doArmHome(ctx context.Context, r robot.Robot) {
+	err := b.armHome(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doRunReset(ctx context.Context, r robot.Robot) {
+	err := b.runReset(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doVibrateToggle(ctx context.Context, r robot.Robot) {
+	if b.vibeState {
+		b.vibrate(ctx, 0)
+	} else {
+		b.vibrate(ctx, vibeLevel)
+	}
+}
+
+func (b *ResetBox) doTipTableUp(ctx context.Context, r robot.Robot) {
+	err := b.tipTableUp(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doTipTableDown(ctx context.Context, r robot.Robot) {
+	err := b.tipTableDown(ctx)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doElevatorUp(ctx context.Context, r robot.Robot) {
+	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) doElevatorDown(ctx context.Context, r robot.Robot) {
+	err := b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	if err != nil {
+		b.logger.Error(err)
+	}
+}
+
+func (b *ResetBox) home(ctx context.Context) error {
 	b.logger.Info("homing")
 	errs := multierr.Combine(
+		b.armHome(ctx),
+		b.gripper.Open(ctx),
 		b.gate.GoTillStop(ctx, backward, 20),
 		b.squeeze.GoTillStop(ctx, backward, 20),
 		b.elevator.GoTillStop(ctx, backward, 200),
@@ -282,6 +449,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	)
 
 	errs = multierr.Combine(
+		errs,
 		b.gate.Zero(ctx, 0),
 		b.squeeze.Zero(ctx, 0),
 		b.elevator.Zero(ctx, 0),
@@ -289,7 +457,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	)
 
 	if errs != nil {
-		b.logger.Error(errs)
+		return errs
 	}
 
 	// Go to starting positions
@@ -303,9 +471,7 @@ func (b *ResetBox) home(ctx context.Context, r robot.Robot) {
 	b.waitPosReached(ctx, b.hammer, hammerOffset)
 	errs = multierr.Append(errs, b.hammer.Zero(ctx, 0))
 
-	if errs != nil {
-		b.logger.Error(errs)
-	}
+	return errs
 
 }
 
@@ -316,14 +482,6 @@ func (b *ResetBox) vibrate(ctx context.Context, level uint8) {
 	} else {
 		b.board.PWMSet(ctx, vibePin, level)
 		b.vibeState = true
-	}
-}
-
-func (b *ResetBox) vibrateToggle(ctx context.Context, r robot.Robot) {
-	if b.vibeState {
-		b.vibrate(ctx, 0)
-	} else {
-		b.vibrate(ctx, vibeLevel)
 	}
 }
 
@@ -371,10 +529,14 @@ func (b *ResetBox) waitFor(ctx context.Context, f func(context.Context) (bool, e
 	}
 }
 
-func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) tipTableUp(ctx context.Context) error {
 
 	if b.tableUp {
-		return
+		return nil
+	}
+	err := b.armHome(ctx)
+	if err != nil {
+		return err
 	}
 
 	// Go mostly up
@@ -387,9 +549,10 @@ func (b *ResetBox) tipTableUp(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(ctx, tipPinB, true)
 
 	b.tableUp = true
+	return nil
 }
 
-func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) tipTableDown(ctx context.Context) error {
 	b.board.GPIOSet(ctx, tipPinA, false)
 	b.board.GPIOSet(ctx, tipPinB, true)
 	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
@@ -399,6 +562,7 @@ func (b *ResetBox) tipTableDown(ctx context.Context, r robot.Robot) {
 	b.board.GPIOSet(ctx, tipPinB, true)
 
 	b.tableUp = false
+	return nil
 }
 
 func (b *ResetBox) isTableDown(ctx context.Context) (bool, error) {
@@ -435,23 +599,19 @@ func (b *ResetBox) hammerTime(ctx context.Context, count int) error {
 	return nil
 }
 
-func (b *ResetBox) doWhack(ctx context.Context, r robot.Robot) {
-	b.hammerTime(ctx, duckWhacks)
-}
-
-func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) runReset(ctx context.Context) error {
 	b.gate.GoTo(ctx, gateSpeed, gateCubePass)
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
+	b.armHome(ctx)
 
 	// Wait for elevator down
 	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
 	b.setSqueeze(ctx, squeezeCubePass)
 
-	// WAIT ROBOT for tip command
 	b.vibrate(ctx, vibeLevel)
-	b.tipTableUp(ctx, r)
+	b.tipTableUp(ctx)
 	b.waitFor(ctx, b.isTableUp)
-	go b.tipTableDown(ctx, r)
+	go b.tipTableDown(ctx)
 
 	// Three whacks for cubes-behinds-ducks
 	b.hammerTime(ctx, cubeWhacks)
@@ -468,7 +628,7 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	// Cubes at top
 	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 	b.waitFor(ctx, b.isTableDown)
-	// WAIT ROBOT
+	b.placeCubes(ctx)
 
 	// Back down for duck
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
@@ -486,6 +646,121 @@ func (b *ResetBox) doReset(ctx context.Context, r robot.Robot) {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 
-	// WAIT ROBOT
+	b.placeDuck(ctx)
+	return nil
+}
 
+func (b *ResetBox) armHome(ctx context.Context) error {
+	return multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, safeDumpPos),
+		b.gripper.Open(ctx),
+	)
+}
+
+func (b *ResetBox) placeCubes(ctx context.Context) error {
+	// Grab cube 1 and reset it on the field
+	errs := multierr.Combine(
+		b.gripper.Open(ctx),
+		b.armHome(ctx),
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+		b.arm.MoveToJointPositions(ctx, cube1grab),
+	)
+	if errs != nil {
+		return errs
+	}
+
+	grabbed, errs := b.gripper.Grab(ctx)
+	if errs != nil {
+		return errs
+	}
+	if !grabbed {
+		return errors.New("missed first cube")
+	}
+
+	errs = multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+		b.arm.MoveToJointPositions(ctx, cube1place),
+		b.gripper.Open(ctx),
+		//b.arm.MoveToJointPositions(ctx, cube1placePost),
+	)
+
+	if errs != nil {
+		return errs
+	}
+
+	// Grab cube 2 and reset it on the field
+	errs = multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+		b.arm.MoveToJointPositions(ctx, cube2grab),
+	)
+	if errs != nil {
+		return errs
+	}
+	grabbed, errs = b.gripper.Grab(ctx)
+	if errs != nil {
+		return errs
+	}
+	if !grabbed {
+		return errors.New("missed second cube")
+	}
+
+	errs = multierr.Combine(
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+		b.arm.MoveToJointPositions(ctx, cube2place),
+		b.gripper.Open(ctx),
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+	)
+
+	return errs
+}
+
+func (b *ResetBox) placeDuck(ctx context.Context) error {
+	errs := multierr.Combine(
+		b.gripper.Open(ctx),
+		b.arm.MoveToJointPositions(ctx, duckReadyPos),
+		b.arm.MoveToJointPositions(ctx, duckgrabFW),
+	)
+	if errs != nil {
+		return errs
+	}
+
+	// Try to grab- this should succeed if the duck is facing forwards, and fail if facing backwards
+	grabbed, errs := b.gripper.Grab(ctx)
+	if grabbed {
+		multierr.Combine(
+			errs,
+			b.arm.MoveToJointPositions(ctx, duckReadyPos),
+			b.arm.MoveToJointPositions(ctx, duckplaceFW),
+			b.gripper.Open(ctx),
+		)
+		if errs != nil {
+			return errs
+		}
+
+	} else {
+		// Duck was facing backwards. Grab where the backwards-facing head should be
+		multierr.Combine(
+			b.arm.MoveToJointPositions(ctx, duckReadyPos),
+			b.gripper.Open(ctx),
+			b.arm.MoveToJointPositions(ctx, duckgrabREV),
+		)
+		if errs != nil {
+			return errs
+		}
+
+		grabbed, errs := b.gripper.Grab(ctx)
+		if errs != nil {
+			return errs
+		}
+		if !grabbed {
+			return errors.New("missed the duck twice")
+		}
+		multierr.Combine(
+			b.arm.MoveToJointPositions(ctx, duckReadyPos),
+			b.arm.MoveToJointPositions(ctx, duckplaceREV),
+			b.gripper.Open(ctx),
+			b.armHome(ctx),
+		)
+	}
+	return errs
 }

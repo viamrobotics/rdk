@@ -100,5 +100,19 @@
       "name": "resetboard",
       "model": "pi"
     }
+  ],
+  "components": [
+    {
+      "host": "10.0.0.99",
+      "model": "xArm6",
+      "name": "xArm6",
+      "type": "arm"
+    }
+  ],
+  "remotes": [
+    {
+      "address": "vg2105m04.local:8080",
+      "name": "gripper"
+    }
   ]
 }
