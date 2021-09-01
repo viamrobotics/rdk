@@ -34,7 +34,6 @@ import (
 )
 
 const (
-	forward  = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 	backward = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
 
 	tipPinA = "29"
@@ -66,7 +65,6 @@ const (
 )
 
 var (
-	startPos     = &pb.JointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
 	safeDumpPos  = &pb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
 	cubeReadyPos = &pb.JointPositions{Degrees: []float64{-182.6, -26.8, -33.0, 0, 51.0, 0}}
 	cube1grab    = &pb.JointPositions{Degrees: []float64{-182.6, 11.2, -51.8, 0, 48.6, 0}}
@@ -85,11 +83,13 @@ var (
 
 var logger = golog.NewDevelopmentLogger("resetbox")
 
+// LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
 	m        []board.Motor
 	mmPerRev float64
 }
 
+// AddMotors takes a slice of motor names and adds them to the axis.
 func (a *LinearAxis) AddMotors(ctx context.Context, board board.Board, names []string) error {
 	for _, n := range names {
 		motor, ok := board.MotorByName(n)
@@ -135,6 +135,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, d pb.DirectionRelative, spe
 	return errs
 }
 
+// Off turns the motor off
 func (a *LinearAxis) Off(ctx context.Context) error {
 	var errs error
 	for _, m := range a.m {
@@ -143,6 +144,7 @@ func (a *LinearAxis) Off(ctx context.Context) error {
 	return errs
 }
 
+// Zero resets the "home" point
 func (a *LinearAxis) Zero(ctx context.Context, offset float64) error {
 	var errs error
 	for _, m := range a.m {
@@ -151,6 +153,7 @@ func (a *LinearAxis) Zero(ctx context.Context, offset float64) error {
 	return errs
 }
 
+// Position returns the position of the first motor in the axis
 func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	pos, err := a.m[0].Position(ctx)
 	if err != nil {
@@ -159,6 +162,7 @@ func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	return pos * a.mmPerRev, nil
 }
 
+// IsOn returns true if moving
 func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
@@ -171,11 +175,12 @@ func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
 	return false, errs
 }
 
-type Positional interface {
+type positional interface {
 	Position(ctx context.Context) (float64, error)
 	IsOn(ctx context.Context) (bool, error)
 }
 
+// ResetBox is the parent structure for this project
 type ResetBox struct {
 	logger        golog.Logger
 	board         board.Board
@@ -194,12 +199,13 @@ type ResetBox struct {
 	tableUp   bool
 }
 
+// NewResetBox returns a ResetBox
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
 	resetboard, ok := r.BoardByName("resetboard")
 	if !ok {
-		return nil, errors.New("Cannot find board: resetboard")
+		return nil, errors.New("can't find board: resetboard")
 	}
 	b.board = resetboard
 
@@ -219,7 +225,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 
 	hammer, ok := b.board.MotorByName("hammer")
 	if !ok {
-		return nil, errors.New("Can't find motor named: hammer")
+		return nil, errors.New("can't find motor named: hammer")
 	}
 	b.hammer = hammer
 
@@ -238,13 +244,15 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	return b, nil
 }
 
-// Close TODO
+// Close stops motors and cancels context
 func (b *ResetBox) Close() error {
 	defer b.activeBackgroundWorkers.Wait()
+	b.Stop(b.cancelCtx)
 	b.cancel()
-	return nil // b.Stop(context.Background())
+	return nil
 }
 
+// Stop turns off all motors
 func (b *ResetBox) Stop(ctx context.Context) error {
 	return multierr.Combine(
 		b.elevator.Off(ctx),
@@ -254,10 +262,6 @@ func (b *ResetBox) Stop(ctx context.Context) error {
 		b.squeeze.Off(ctx),
 		b.hammer.Off(ctx),
 	)
-}
-
-func (b *ResetBox) Ready(r robot.Robot) error {
-	return nil
 }
 
 func main() {
@@ -293,7 +297,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("Home", box.doHome)
 	action.RegisterAction("HomeArm", box.doArmHome)
 	action.RegisterAction("PlaceDuck", box.doPlaceDuck)
-	action.RegisterAction("PlaceCubes", box.doPlaceCubes)
 	action.RegisterAction("Vibrate", box.doVibrateToggle)
 	action.RegisterAction("TipUp", box.doTipTableUp)
 	action.RegisterAction("TipDown", box.doTipTableDown)
@@ -354,13 +357,6 @@ func (b *ResetBox) doDrop2(ctx context.Context, r robot.Robot) {
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckplaceREV),
 	)
-	if err != nil {
-		b.logger.Error(err)
-	}
-}
-
-func (b *ResetBox) doPlaceCubes(ctx context.Context, r robot.Robot) {
-	err := b.placeCubes(ctx)
 	if err != nil {
 		b.logger.Error(err)
 	}
@@ -493,7 +489,7 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 	return b.squeeze.GoTo(ctx, gateSpeed, target)
 }
 
-func (b *ResetBox) waitPosReached(ctx context.Context, motor Positional, target float64) error {
+func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target float64) error {
 	var i int
 	for {
 		pos, err := motor.Position(ctx)
@@ -611,8 +607,11 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	b.vibrate(ctx, vibeLevel)
 	b.tipTableUp(ctx)
 	b.waitFor(ctx, b.isTableUp)
-	go b.tipTableDown(ctx)
-
+	go func() {
+		b.tipTableDown(ctx)
+		b.gripper.Open(ctx)
+		b.arm.MoveToJointPositions(ctx, cubeReadyPos)
+	}()
 	// Three whacks for cubes-behinds-ducks
 	b.hammerTime(ctx, cubeWhacks)
 
@@ -623,18 +622,31 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop)
 
 	// DuckWhack
-	b.hammerTime(ctx, duckWhacks)
+	go func() {
+		b.hammerTime(ctx, duckWhacks)
+		utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
+		b.vibrate(ctx, 0)
+	}()
 
 	// Cubes at top
 	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 	b.waitFor(ctx, b.isTableDown)
-	b.placeCubes(ctx)
+	b.pickCube1(ctx)
+	b.placeCube1(ctx)
+	b.pickCube2(ctx)
+
+	go func() {
+		b.placeCube2(ctx)
+		b.gripper.Open(ctx)
+		b.arm.MoveToJointPositions(ctx, duckReadyPos)
+	}()
 
 	// Back down for duck
 	b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom)
 	b.waitPosReached(ctx, &b.elevator, elevatorBottom)
 
 	// Open to load duck
+	b.vibrate(ctx, vibeLevel)
 	b.gate.GoTo(ctx, gateSpeed, gateOpen)
 	b.setSqueeze(ctx, squeezeOpen)
 	utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
@@ -647,6 +659,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	b.waitPosReached(ctx, &b.elevator, elevatorTop)
 
 	b.placeDuck(ctx)
+	b.armHome(ctx)
 	return nil
 }
 
@@ -657,11 +670,10 @@ func (b *ResetBox) armHome(ctx context.Context) error {
 	)
 }
 
-func (b *ResetBox) placeCubes(ctx context.Context) error {
+func (b *ResetBox) pickCube1(ctx context.Context) error {
 	// Grab cube 1 and reset it on the field
 	errs := multierr.Combine(
 		b.gripper.Open(ctx),
-		b.armHome(ctx),
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube1grab),
 	)
@@ -676,42 +688,40 @@ func (b *ResetBox) placeCubes(ctx context.Context) error {
 	if !grabbed {
 		return errors.New("missed first cube")
 	}
+	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
+}
 
-	errs = multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+func (b *ResetBox) placeCube1(ctx context.Context) error {
+	return multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cube1place),
 		b.gripper.Open(ctx),
-		//b.arm.MoveToJointPositions(ctx, cube1placePost),
 	)
+}
 
-	if errs != nil {
-		return errs
-	}
-
-	// Grab cube 2 and reset it on the field
-	errs = multierr.Combine(
+func (b *ResetBox) pickCube2(ctx context.Context) error {
+	errs := multierr.Combine(
+		b.gripper.Open(ctx),
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube2grab),
 	)
 	if errs != nil {
 		return errs
 	}
-	grabbed, errs = b.gripper.Grab(ctx)
+	grabbed, errs := b.gripper.Grab(ctx)
 	if errs != nil {
 		return errs
 	}
 	if !grabbed {
 		return errors.New("missed second cube")
 	}
+	return b.arm.MoveToJointPositions(ctx, cubeReadyPos)
+}
 
-	errs = multierr.Combine(
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
+func (b *ResetBox) placeCube2(ctx context.Context) error {
+	return multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cube2place),
 		b.gripper.Open(ctx),
-		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 	)
-
-	return errs
 }
 
 func (b *ResetBox) placeDuck(ctx context.Context) error {
@@ -759,7 +769,6 @@ func (b *ResetBox) placeDuck(ctx context.Context) error {
 			b.arm.MoveToJointPositions(ctx, duckReadyPos),
 			b.arm.MoveToJointPositions(ctx, duckplaceREV),
 			b.gripper.Open(ctx),
-			b.armHome(ctx),
 		)
 	}
 	return errs
