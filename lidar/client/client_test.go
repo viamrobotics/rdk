@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 
 	f := registry.LidarLookup(client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, config.Component{
+	_, err = f.Constructor(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)
@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 		return injectDev, true
 	}
 
-	dev, err := f(context.Background(), nil, config.Component{
+	dev, err := f.Constructor(context.Background(), nil, config.Component{
 		Host: listener2.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener2.Addr().(*net.TCPAddr).Port,
 	}, logger)

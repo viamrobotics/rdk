@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
 	ref "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
@@ -155,7 +154,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		}
 		modelFrame, err = registration.Frame()
 	default:
-		return nil, errors.Errorf("unknown component type: %v", comp.Type)
+		return nil, fmt.Errorf("unknown component type: %v", comp.Type)
 	}
 	if err != nil {
 		return nil, err

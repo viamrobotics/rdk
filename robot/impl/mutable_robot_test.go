@@ -217,9 +217,9 @@ func TestNewTeardown(t *testing.T) {
 	board.RegisterBoard(modelName, func(ctx context.Context, cfg board.Config, logger golog.Logger) (board.Board, error) {
 		return &dummyBoard1, nil
 	})
-	registry.RegisterGripper(modelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper(modelName, &registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return nil, errors.New("whoops")
-	})
+	}})
 
 	var failingConfig = fmt.Sprintf(`{
 	"boards": [
