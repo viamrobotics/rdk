@@ -33,6 +33,8 @@ func init() {
 
 // TODO
 const (
+	TargetRPM               = 50
+	InitRPM                 = 20
 	MaxCurrent              = 300
 	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
@@ -99,19 +101,79 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
-	// pick a direction and move till it stops
-	posA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	var hasPressureA, hasPressureB bool
+	var posA, posB float64
+
+	// Test forward motion for pressure/endpoint
+	logger.Info("Moving forward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, InitRPM, func(ctx context.Context) bool {
+		var err error
+
+		current, err := vg.readCurrent(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		err = vg.processCurrentReading(ctx, current, "init")
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		hasPressureA, _, err = vg.hasPressure(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+
+		if hasPressureA {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return nil, err
+	}
+	posA, err = vg.motor.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	posB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+	// Test backward motion for pressure/endpoint
+	logger.Info("Moving backward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, InitRPM, func(ctx context.Context) bool {
+		var err error
+
+		current, err := vg.readCurrent(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		err = vg.processCurrentReading(ctx, current, "init")
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		hasPressureB, _, err = vg.hasPressure(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+
+		if hasPressureB {
+			return true
+		}
+		return false
+	})
+	if err != nil {
+		return nil, err
+	}
+	posB, err = vg.motor.Position(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, errors.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
+		return nil, errors.Errorf("pressure same open and closed, something is wrong, positions: %f %f", posA, posB)
 	}
 
 	if hasPressureA {
@@ -140,13 +202,14 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	return vg, vg.Open(ctx)
 }
 
-// Open TODO
+// Open the jaws
 func (vg *GripperV1) Open(ctx context.Context) error {
 	err := vg.Stop(ctx)
 	if err != nil {
 		return err
 	}
-	err = vg.motor.GoFor(ctx, vg.openDirection, 30, 0)
+
+	err = vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
 	if err != nil {
 		return err
 	}
@@ -162,7 +225,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, err)
 		}
 		if vg.encoderSame(now, vg.openPos) {
-			return vg.Stop(ctx)
+			return nil
 		}
 
 		current, err := vg.readCurrent(ctx)
@@ -187,7 +250,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoFor(ctx, vg.closeDirection, 30, 0)
+	err = vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
 	if err != nil {
 		return false, err
 	}
@@ -205,7 +268,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 
 		if vg.encoderSame(now, vg.closePos) {
 			// we are fully closed
-			return false, vg.Stop(ctx)
+			return false, nil
 		}
 
 		pressure, _, current, err := vg.analogs(ctx)
@@ -289,90 +352,4 @@ func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 	}
 
 	return
-}
-
-func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb.DirectionRelative) (float64, bool, error) {
-	defer func() {
-		err := vg.Stop(ctx)
-		if err != nil {
-			vg.logger.Warnf("couldn't stop motor %s", err)
-		}
-		vg.logger.Debug("stopped")
-	}()
-
-	vg.logger.Debugf("starting to move dir: %v", dir)
-
-	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct/10)
-	if err != nil {
-		return -1, false, err
-	}
-
-	// Crude acceleration to a default power limit
-	for n := 1; n <= 10; n++ {
-		powerPct := (vg.defaultPowerPct / 10) * float32(n)
-		vg.logger.Debugf("PowerPct: %v", powerPct)
-		err := vg.motor.Power(ctx, powerPct)
-		if err != nil {
-			return -1, false, err
-		}
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return -1, false, ctx.Err()
-		}
-	}
-
-	last, err := vg.motor.Position(ctx)
-	if err != nil {
-		return -1, false, err
-	}
-
-	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
-		return -1, false, ctx.Err()
-	}
-
-	for {
-		now, err := vg.motor.Position(ctx)
-		if err != nil {
-			return -1, false, err
-		}
-
-		hasPressure, pressure, current, err := vg.analogs(ctx)
-		if err != nil {
-			return -1, false, err
-		}
-
-		vg.logger.Debugf("dir: %v last: %v now: %v hasPressure: %v pressure: %v",
-			dir, last, now, hasPressure, pressure)
-
-		if vg.encoderSame(last, now) || hasPressure {
-			// increase power temporarily
-			err := vg.motor.Power(ctx, vg.defaultPowerPct*1.1)
-			if err != nil {
-				return -1, false, err
-			}
-			if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
-				return -1, false, ctx.Err()
-			}
-
-			hasPressure, pressure, _, err := vg.analogs(ctx)
-			if err != nil {
-				return -1, false, err
-			}
-
-			vg.logger.Debugf("inner dir: %v last: %v now: %v hasPressure: %v pressure: %v",
-				dir, last, now, hasPressure, pressure)
-
-			return now, hasPressure, err
-		}
-		last = now
-
-		err = vg.processCurrentReading(ctx, current, "init")
-		if err != nil {
-			return -1, false, err
-		}
-
-		if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
-			return -1, false, ctx.Err()
-		}
-	}
-
 }
