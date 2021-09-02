@@ -41,7 +41,7 @@ type (
 	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
 
 	// A CreateFrame creates a frame from a given config.
-	CreateFrame func() (referenceframe.Frame, error)
+	CreateFrame func(name string) (referenceframe.Frame, error)
 )
 
 // all registration structs

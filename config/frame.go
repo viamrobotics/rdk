@@ -17,7 +17,7 @@ type Translation struct {
 
 // Orientation is the orientation between two objects. This is represented as an orientation vector,
 // With theta being in degrees and being the rotation around the orientation vector
-type Orientation struct { // for poses
+type Orientation struct {
 	X  float64 `json:"x"`
 	Y  float64 `json:"y"`
 	Z  float64 `json:"z"`
@@ -26,7 +26,6 @@ type Orientation struct { // for poses
 
 // FrameConfig specifies what type of Frame should be created for the component, and how.
 type FrameConfig struct {
-	Type           FrameType   `json:"type"`
 	Parent         string      `json:"parent"`
 	Translate      Translation `json:"translation"`
 	SetOrientation bool        `json:"setorientation"`
