@@ -20,6 +20,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/utils"
@@ -35,9 +36,27 @@ var ur5modeljson []byte
 var ur5DHmodeljson []byte
 
 func init() {
-	registry.RegisterArm("ur", &registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
-	}})
+	registry.RegisterArm("ur", &registry.ArmRegistration{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
+		},
+		Frame: func(name string) (referenceframe.Frame, error) { return Ur5eFrame(name) },
+	})
+}
+
+// Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
+func Ur5eModel() (*kinematics.Model, error) {
+	return kinematics.ParseJSON(ur5modeljson)
+}
+
+// Ur5eFrame() returns the reference frame of the arm with the given name.
+func Ur5eFrame(name string) (referenceframe.Frame, error) {
+	frame, err := Ur5eModel()
+	if err != nil {
+		return nil, err
+	}
+	frame.SetName(name)
+	return frame, nil
 }
 
 // URArm TODO
@@ -91,7 +110,7 @@ func URArmConnect(ctx context.Context, host string, speed float64, logger golog.
 		return nil, errors.New("speed for universalrobots has to be between .1 and 1")
 	}
 
-	model, err := kinematics.ParseJSON(ur5modeljson)
+	model, err := Ur5eModel()
 	if err != nil {
 		return nil, err
 	}
