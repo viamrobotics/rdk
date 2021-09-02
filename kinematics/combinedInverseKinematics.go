@@ -135,6 +135,7 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 	// we only care about negative xInc
 	xInc := pos.OX - seed.OX
 	yInc := math.Abs(pos.OY - seed.OY)
+	adj := 0.0
 	if pos.OX == seed.OX {
 		// no OX movement
 		if yInc != 0.1 && yInc != 0.01 {
@@ -143,19 +144,28 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 		}
 		// If wanting to point towards +Y and OZ<0, add 90 to theta, otherwise subtract 90
 		if pos.OY-seed.OY > 0 {
-			pos.Theta += 90
+			adj = 90
 		} else {
-			pos.Theta -= 90
-		}
-		if pos.OZ > 0 {
-			pos.Theta *= -1
+			adj = -90
 		}
 	} else {
 		if (xInc != -0.1 && xInc != -0.01) || pos.OY != seed.OY {
 			return pos
 		}
 		// If wanting to point towards -X, increment by 180. Values over 180 or under -180 will be automatically wrapped
-		pos.Theta += 180
+		adj = 180
 	}
-	return pos
+	if pos.OZ > 0 {
+		adj *= -1
+	}
+	
+	return &pb.ArmPosition{
+		X:  pos.X,
+		Y:  pos.Y,
+		Z:  pos.Z,
+		Theta: pos.Theta + adj,
+		OX: pos.OX,
+		OY: pos.OY,
+		OZ: pos.OZ,
+	}
 }
