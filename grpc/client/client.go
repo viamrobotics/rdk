@@ -459,8 +459,8 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-// FrameLookup not implemented for remote robots
-func (rc *RobotClient) FrameLookup(ctx context.Context) (referenceframe.FrameLookup, error) {
+// FrameSystem not implemented for remote robots
+func (rc *RobotClient) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	debug.PrintStack()
 	return nil, errUnimplemented
 }

@@ -37,6 +37,10 @@ type Component struct {
 	Model   string        `json:"model"`
 	Frame   *FrameConfig  `json:"frame,omitempty"`
 
+	Parent            string      `json:"parent"`
+	ParentTranslation Translation `json:"translation"`
+	ParentOrientation Orientation `json:"orientation"`
+
 	Attributes AttributeMap `json:"attributes"`
 }
 
