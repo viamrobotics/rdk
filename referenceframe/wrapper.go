@@ -4,11 +4,10 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-// A FrameWrapper will wrap a single Frame, allowing a new Parent to be set
+// A FrameWrapper will wrap a single Frame, allowing a static offset to be set
 type FrameWrapper struct {
 	Frame
 	offset *spatial.DualQuaternion
-	parent Frame
 }
 
 // WrapFrame will take a frame and wrap it to have the given parent. Offset is not part of this constructor and must be
@@ -18,18 +17,12 @@ func WrapFrame(frame, parent Frame) *FrameWrapper {
 	return &FrameWrapper{
 		Frame:  frame,
 		offset: spatial.NewDualQuaternion(),
-		parent: parent,
 	}
 }
 
 // Transform returns the quaternion associated with the wrapped frame, transformed by the offset
 func (f *FrameWrapper) Transform(input []Input) spatial.Pose {
 	return spatial.Compose(f.offset, f.Frame.Transform(input))
-}
-
-// Parent will return the name of the next transform up the kinematics chain from this frame
-func (f *FrameWrapper) Parent() Frame {
-	return f.parent
 }
 
 // SetOffset sets the offset of the wrapped frame
@@ -40,7 +33,6 @@ func (f *FrameWrapper) SetOffset(offset *spatial.DualQuaternion) {
 // A FrameInverter will wrap a single Frame, inverting the transform 
 type FrameInverter struct {
 	Frame
-	parent Frame
 }
 
 // Transform returns the ConjQuat of the quaternion associated with the wrapped frame
