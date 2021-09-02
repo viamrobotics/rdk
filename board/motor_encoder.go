@@ -139,6 +139,7 @@ type encodedMotor struct {
 type encodedMotorState struct {
 	regulated    bool
 	desiredRPM   float64 // <= 0 means worker should do nothing
+	currentRPM   float64
 	lastPowerPct float32
 	curDirection pb.DirectionRelative
 	setPoint     int64
@@ -355,6 +356,7 @@ func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 	if minutes == 0 {
 		currentRPM = 0
 	}
+	m.state.currentRPM = currentRPM
 
 	var newPowerPct float32
 
@@ -507,10 +509,6 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 
 // GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
 func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	origPos, err := m.Position(ctx)
-	if err != nil {
-		return err
-	}
 	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
 		return err
 	}
@@ -519,7 +517,33 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 			m.logger.Error("failed to turn off motor")
 		}
 	}()
-	var fails int
+	var tries, rpmCount uint
+
+	for {
+		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
+		}
+
+		// If we start moving OR just try for too long, good for next phase
+		m.stateMu.RLock()
+		curRPM := m.state.currentRPM
+		m.stateMu.RUnlock()
+		if curRPM >= rpm/10 {
+			rpmCount++
+		} else {
+			rpmCount = 0
+		}
+		if rpmCount >= 5 || tries > 50 {
+			tries = 0
+			rpmCount = 0
+			break
+		}
+		tries++
+	}
+
 	for {
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
@@ -529,20 +553,28 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 			return nil
 		}
 
-		curPos, err := m.Position(ctx)
-		if err != nil {
-			return err
+		m.stateMu.RLock()
+		curRPM := m.state.currentRPM
+		m.stateMu.RUnlock()
+
+		if curRPM <= rpm/10 {
+			rpmCount++
+		} else {
+			rpmCount = 0
 		}
 
-		if math.Abs(origPos-curPos) < 0.1 {
-			return nil
+		if rpmCount >= 5 {
+			m.logger.Infof("RPM at stop: %f", curRPM)
+			break
 		}
 
-		if fails >= 100 {
+		if tries >= 100 {
 			return errors.New("timed out during GoTillStop")
 		}
-		fails++
+
+		tries++
 	}
+	return nil
 }
 
 // Zero resets the position to zero/home
