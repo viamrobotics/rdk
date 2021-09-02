@@ -93,37 +93,37 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 	case config.ComponentTypeProvider:
 		registration := registry.ProviderLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeBase:
 		registration := registry.BaseLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeArm:
 		registration := registry.ArmLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeGripper:
 		registration := registry.GripperLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeCamera:
 		registration := registry.CameraLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeLidar:
 		registration := registry.LidarLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeSensor:
@@ -132,7 +132,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		}
 		registration := registry.SensorLookup(sensor.Type(comp.SubType), comp.Model)
 		if registration == nil && registration.Frame == nil {
-			return nil, errors.New("component has nil for Frame")
+			return nil, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	default:
