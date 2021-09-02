@@ -20,6 +20,5 @@ type Orientation struct {
 type FrameConfig struct {
 	Parent         string      `json:"parent"`
 	Translate      Translation `json:"translation"`
-	SetOrientation bool        `json:"setorientation"`
 	Orient         Orientation `json:"orientation"`
 }
