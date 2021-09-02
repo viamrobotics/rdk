@@ -35,9 +35,9 @@ var ur5modeljson []byte
 var ur5DHmodeljson []byte
 
 func init() {
-	registry.RegisterArm("ur", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("ur", &registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		return URArmConnect(ctx, config.Host, config.Attributes.Float64("speed", .1), logger)
-	})
+	}})
 }
 
 // URArm TODO

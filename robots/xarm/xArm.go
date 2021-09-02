@@ -16,6 +16,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -64,8 +65,11 @@ type xArm6 struct {
 var xArm6modeljson []byte
 
 func init() {
-	registry.RegisterArm("xArm6", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewxArm6(ctx, config.Host, logger)
+	registry.RegisterArm("xArm6", &registry.ArmRegistration{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return NewxArm6(ctx, config.Host, logger)
+		},
+		Frame: func() (referenceframe.Frame, error) { return XArmModel() },
 	})
 }
 
@@ -90,7 +94,7 @@ func float64fromByte32(bytes []byte) float64 {
 }
 
 // XArmModel() returns the kinematics model of the xArm, also has all Frame information.
-func XArmModel() (kinematics.Model, error) {
+func XArmModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(xArm6modeljson)
 }
 
@@ -117,10 +121,6 @@ func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, e
 	}
 
 	return &xArm, nil
-}
-
-func (x *xArm6) Model() (kinematics.Model, error) {
-	return XArmModel()
 }
 
 func (x *xArm6) newCmd(reg byte) cmd {

@@ -22,13 +22,13 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("vx300s", &registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err
 		}
 		return NewGripper(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
-	})
+	}})
 }
 
 // Gripper TODO

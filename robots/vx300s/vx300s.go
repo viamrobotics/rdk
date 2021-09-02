@@ -33,13 +33,13 @@ import (
 var vx300smodeljson []byte
 
 func init() {
-	registry.RegisterArm("vx300s", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("vx300s", &registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err
 		}
 		return NewArm(config.Attributes, getProviderOrCreate(mut).moveLock, logger)
-	})
+	}})
 }
 
 // SleepAngles are the angles we go to to prepare to turn off torque

@@ -24,6 +24,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/kinematics"
 	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
 
@@ -34,8 +35,11 @@ import (
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterArm("eva", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
-		return NewEva(ctx, config.Host, config.Attributes, logger)
+	registry.RegisterArm("eva", &registry.ArmRegistration{
+		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+			return NewEva(ctx, config.Host, config.Attributes, logger)
+		},
+		Frame: func() (referenceframe.Frame, error) { return EvaModel() },
 	})
 }
 
@@ -74,10 +78,6 @@ type eva struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	ik       kinematics.InverseKinematics
-}
-
-func (e *eva) Model() (kinematics.Model, error) {
-	return EvaModel()
 }
 
 func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
@@ -313,7 +313,7 @@ func (e *eva) apiUnlock(ctx context.Context) {
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func EvaModel() (kinematics.Model, error) {
+func EvaModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(evamodeljson)
 }
 

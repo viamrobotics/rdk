@@ -22,13 +22,13 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("viam", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("viam", &registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		b, ok := r.BoardByName("local")
 		if !ok {
 			return nil, errors.New("viam gripper requires a board called local")
 		}
 		return NewGripperV1(ctx, b, config.Attributes.Int("pressureLimit", 800), logger)
-	})
+	}})
 }
 
 // TODO

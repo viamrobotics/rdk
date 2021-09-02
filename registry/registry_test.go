@@ -9,6 +9,7 @@ import (
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
 	"go.viam.com/core/lidar"
+	"go.viam.com/core/referenceframe"
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 
@@ -40,18 +41,33 @@ func TestRegistry(t *testing.T) {
 	sf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return nil, nil
 	}
+	ff := func() (referenceframe.Frame, error) {
+		return nil, nil
+	}
 
-	RegisterProvider("x", pf)
-	RegisterCamera("x", cf)
-	RegisterArm("x", af)
-	RegisterGripper("x", gf)
-	RegisterLidar("x", lf)
-	RegisterSensor(sensor.Type("x"), "y", sf)
+	RegisterProvider("x", &ProviderRegistration{Constructor: pf})
+	RegisterCamera("x", &CameraRegistration{cf, ff})
+	RegisterArm("x", &ArmRegistration{Constructor: af, Frame: ff})
+	RegisterGripper("x", &GripperRegistration{gf, ff})
+	RegisterLidar("x", &LidarRegistration{Constructor: lf})
+	RegisterSensor(sensor.Type("x"), "y", &SensorRegistration{Constructor: sf, Frame: ff})
 
 	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ProviderLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, ProviderLookup("x").Frame, test.ShouldBeNil)
 	test.That(t, CameraLookup("x"), test.ShouldNotBeNil)
+	test.That(t, CameraLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, CameraLookup("x").Frame, test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
+	test.That(t, ArmLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, ArmLookup("x").Frame, test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
+	test.That(t, GripperLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, GripperLookup("x").Frame, test.ShouldNotBeNil)
 	test.That(t, LidarLookup("x"), test.ShouldNotBeNil)
+	test.That(t, LidarLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, LidarLookup("x").Frame, test.ShouldBeNil)
 	test.That(t, SensorLookup(sensor.Type("x"), "y"), test.ShouldNotBeNil)
+	test.That(t, SensorLookup(sensor.Type("x"), "y").Constructor, test.ShouldNotBeNil)
+	test.That(t, SensorLookup(sensor.Type("x"), "y").Frame, test.ShouldNotBeNil)
 }

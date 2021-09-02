@@ -45,7 +45,7 @@ const (
 var v1modeljson []byte
 
 func init() {
-	registry.RegisterArm("varm1", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("varm1", &registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		b, ok := r.BoardByName("local")
 		if !ok {
 			return nil, errors.New("viam arm requires a board called local")
@@ -61,7 +61,7 @@ func init() {
 		}
 
 		return raw, nil
-	})
+	}})
 }
 
 type joint struct {
