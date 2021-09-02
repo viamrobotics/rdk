@@ -11,6 +11,7 @@ import (
 	"go.viam.com/core/robot"
 	"go.viam.com/core/sensor"
 	spatial "go.viam.com/core/spatialmath"
+	"go.viam.com/core/utils"
 
 	"github.com/golang/geo/r3"
 )
@@ -37,10 +38,7 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 				return nil, err
 			}
 			// if model frame is specified, it will be named from the component. If not, the static frame will have the name.
-			staticName := c.Name
-			if modelFrame != nil {
-				staticName += "_offset"
-			}
+			staticName := c.Name + "_offset"
 			// add the static frame first-- if it is empty, a 0 offset frame will be applied.
 			staticFrame := makeStaticFrame(&c, staticName)
 			// check to see if there are no repeated names
@@ -52,14 +50,12 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			children[c.Frame.Parent] = append(children[c.Frame.Parent], staticFrame)
 
 			// if the model frame exists, add it as well
-			if modelFrame != nil {
-				if _, ok := names[modelFrame.Name()]; ok {
-					return nil, fmt.Errorf("cannot have more than one Frame with name %s", modelFrame.Name())
-				}
-				names[modelFrame.Name()] = true
-				// store the children Frames in a list to build the tree later
-				children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
+			if _, ok := names[modelFrame.Name()]; ok {
+				return nil, fmt.Errorf("cannot have more than one Frame with name %s", modelFrame.Name())
 			}
+			names[modelFrame.Name()] = true
+			// store the children Frames in a list to build the tree later
+			children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
 		}
 	}
 	return buildFrameSystem("robot", names, children)
@@ -69,15 +65,8 @@ func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{f.Translate.X, f.Translate.Y, f.Translate.Z}
 
-	var pose spatial.Pose
-	// get the orientation if there is one
-	if f.SetOrientation {
-		ov := &spatial.OrientationVec{f.Orient.TH, f.Orient.X, f.Orient.Y, f.Orient.Z}
-		pose = spatial.NewPoseFromOrientationVector(translation, ov)
-	} else {
-		pose = spatial.NewPoseFromPoint(translation)
-	}
-	return pose
+	ov := &spatial.OrientationVec{utils.DegToRad(f.Orient.TH), f.Orient.X, f.Orient.Y, f.Orient.Z}
+	return spatial.NewPoseFromOrientationVector(translation, ov)
 }
 
 func makeStaticFrame(comp *config.Component, name string) ref.Frame {
@@ -87,43 +76,44 @@ func makeStaticFrame(comp *config.Component, name string) ref.Frame {
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 	var modelFrame ref.Frame
+	identityFrame := ref.NewStaticFrame(comp.Name, nil)
 	var err error
 	// get the frame as registered in the component model
 	switch comp.Type {
 	case config.ComponentTypeProvider:
 		registration := registry.ProviderLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeBase:
 		registration := registry.BaseLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeArm:
 		registration := registry.ArmLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeGripper:
 		registration := registry.GripperLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeCamera:
 		registration := registry.CameraLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeLidar:
 		registration := registry.LidarLookup(comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeSensor:
@@ -132,7 +122,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		}
 		registration := registry.SensorLookup(sensor.Type(comp.SubType), comp.Model)
 		if registration == nil || registration.Frame == nil {
-			return nil, nil
+			return identityFrame, nil
 		}
 		modelFrame, err = registration.Frame(comp.Name)
 	default:
