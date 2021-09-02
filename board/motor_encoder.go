@@ -505,8 +505,8 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 	return m.GoFor(ctx, dir, rpm, moveDistance)
 }
 
-// GoTillStop moves until physically stopped (though with a ten second timeout)
-func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+// GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
+func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	origPos, err := m.Position(ctx)
 	if err != nil {
 		return err
@@ -523,6 +523,10 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 	for {
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
 		}
 
 		curPos, err := m.Position(ctx)

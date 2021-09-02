@@ -228,7 +228,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	})
 	test.That(t, m.Zero(ctx, 3.1), test.ShouldBeNil)
 
-	// Test GoTillStop
+	// Test GoTillStop with no extra stop func
 	go func() {
 		// GoFor
 		checkTx(t, c, [][]byte{
@@ -268,10 +268,75 @@ func TestTMCStepperMotor(t *testing.T) {
 			},
 		)
 
-		// Off
+		// Deferred off and SG disable
 		checkTx(t, c, [][]byte{
+			{180, 0, 0, 0, 0},
 			{160, 0, 0, 0, 1},
 			{167, 0, 0, 0, 0},
+		})
+
+	}()
+	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, nil), test.ShouldBeNil)
+
+	// Test GoTillStop with always-false stopFunc
+	go func() {
+		// GoFor
+		checkTx(t, c, [][]byte{
+			{33, 0, 0, 0, 0},
+			{33, 0, 0, 0, 0},
+			{160, 0, 0, 0, 0},
+			{167, 0, 0, 105, 234},
+			{173, 252, 242, 192, 0},
+		})
+
+		// RampStat (for velocity reached)
+		checkRx(t, c,
+			[][]byte{
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 1, 0},
+				{0, 0, 0, 1, 0},
+			},
+		)
+
+		// Enable SG
+		checkTx(t, c, [][]byte{
+			{180, 0, 0, 4, 0},
+		})
+
+		// RampStat (for velocity zero reached)
+		checkRx(t, c,
+			[][]byte{
+				{53, 0, 0, 0, 0},
+				{53, 0, 0, 0, 0},
+			},
+			[][]byte{
+				{0, 0, 0, 4, 0},
+				{0, 0, 0, 4, 0},
+			},
+		)
+
+		// Deferred off and SG disable
+		checkTx(t, c, [][]byte{
+			{180, 0, 0, 0, 0},
+			{160, 0, 0, 0, 1},
+			{167, 0, 0, 0, 0},
+		})
+
+	}()
+	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
+
+	// Test GoTillStop with always true stopFunc
+	go func() {
+		// GoFor
+		checkTx(t, c, [][]byte{
+			{33, 0, 0, 0, 0},
+			{33, 0, 0, 0, 0},
+			{160, 0, 0, 0, 0},
+			{167, 0, 0, 105, 234},
+			{173, 252, 242, 192, 0},
 		})
 
 		// Deferred off and SG disable
@@ -282,6 +347,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		})
 
 	}()
-	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0), test.ShouldBeNil)
+	test.That(t, m.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
 
 }
