@@ -35,6 +35,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
+	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 	"goji.io"
 	"goji.io/pat"
@@ -218,7 +219,8 @@ func (h *grabAtCameraPositionHandler) doGrab(ctx context.Context, cameraName str
 		return err
 	}
 	cameraPoint := r3.Vector{x, y, z}
-	pos, err := frameSys.TransformPoint([]referenceframe.Inputs{}, cameraPoint, frameSys.GetFrame(cameraName), frameSys.GetFrame(armName))
+	input := make(map[string][]referenceframe.Input)
+	pos, err := frameSys.TransformPoint(input, cameraPoint, frameSys.GetFrame(cameraName), frameSys.GetFrame(armName))
 	if err != nil {
 		return err
 	}
