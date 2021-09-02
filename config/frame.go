@@ -1,13 +1,5 @@
 package config
 
-// A FrameType defines how the frame should be constructed
-type FrameType string
-
-const (
-	FrameTypeStatic = FrameType("static")
-	FrameTypeModel  = FrameType("model")
-)
-
 // Translation is the translation between two objects in the grid system. It is  always in millimeters
 type Translation struct {
 	X float64 `json:"x"`
