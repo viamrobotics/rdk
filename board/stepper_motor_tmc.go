@@ -346,7 +346,7 @@ func (m *TMCStepperMotor) Off(ctx context.Context) error {
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
 // This is then set as the new zero/home position.
-func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.GoFor(ctx, d, rpm, 1000); err != nil {
 		return err
 	}
@@ -369,6 +369,10 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
 		}
 
 		stat, err := m.readReg(ctx, rampStat)
@@ -401,6 +405,10 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			return errors.New("context cancelled during GoTillStop")
 		}
 
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
+		}
+
 		stat, err := m.readReg(ctx, rampStat)
 		if err != nil {
 			return err
@@ -414,11 +422,6 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			return errors.New("timed out during GoTillStop")
 		}
 		fails++
-	}
-
-	// Stop
-	if err := m.Off(ctx); err != nil {
-		return err
 	}
 
 	return nil

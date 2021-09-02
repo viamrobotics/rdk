@@ -83,7 +83,7 @@ func (m *FakeMotor) GoTo(ctx context.Context, rpm float64, position float64) err
 }
 
 // GoTillStop always returns an error
-func (m *FakeMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *FakeMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("unsupported")
 }
 

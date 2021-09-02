@@ -1021,8 +1021,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{2.3, 4.5})
 
-		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-			capArgs = []interface{}{d, rpm}
+		injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+			capArgs = []interface{}{d, rpm, stopFunc}
 			return nil
 		}
 		_, err = server.BoardMotorGoTillStop(context.Background(), &pb.BoardMotorGoTillStopRequest{
@@ -1032,7 +1032,7 @@ func TestServer(t *testing.T) {
 			Rpm:       2.3,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3})
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 2.3, (func(context.Context) bool)(nil)})
 
 		injectMotor.ZeroFunc = func(ctx context.Context, offset float64) error {
 			capArgs = []interface{}{offset}

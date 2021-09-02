@@ -164,7 +164,7 @@ func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) err
 }
 
 // GoTillStop is not supported
-func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
