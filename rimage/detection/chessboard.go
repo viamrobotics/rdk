@@ -47,13 +47,6 @@ func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float
 	return bestPt, bestDist
 }
 
-//def prune_saddle(s):
-//thresh = 128
-//score = (s > 0).sum()
-//while score > 10000:
-//thresh = thresh * 2
-//s[s < thresh] = 0
-//score = (s > 0).sum()
 
 func SumPositive(i, j int, val float64) float64 {
 	if val > 0 {
