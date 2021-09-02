@@ -158,14 +158,14 @@ func fixOvIncrement(pos, seed *pb.ArmPosition) *pb.ArmPosition {
 	if pos.OZ > 0 {
 		adj *= -1
 	}
-	
+
 	return &pb.ArmPosition{
-		X:  pos.X,
-		Y:  pos.Y,
-		Z:  pos.Z,
+		X:     pos.X,
+		Y:     pos.Y,
+		Z:     pos.Z,
 		Theta: pos.Theta + adj,
-		OX: pos.OX,
-		OY: pos.OY,
-		OZ: pos.OZ,
+		OX:    pos.OX,
+		OY:    pos.OY,
+		OZ:    pos.OZ,
 	}
 }
