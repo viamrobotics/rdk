@@ -41,7 +41,7 @@ type SolverDistanceWeights struct {
 // Exceptions are the head of the tree where we are just starting the robot from World
 type Model struct {
 	manufacturer string
-	name         string // the name of the arm
+	name         string               // the name of the arm
 	parent       referenceframe.Frame // the parent frame of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []referenceframe.Frame
@@ -59,7 +59,7 @@ func NewModel() *Model {
 func (m *Model) GenerateRandomJointPositions(randSeed *rand.Rand) []float64 {
 	var jointPos []float64
 	min, max := m.Limits()
-	for i := 0; i < m.Dof(); i++{
+	for i := 0; i < m.Dof(); i++ {
 		jRange := math.Abs(max[i] - min[i])
 		// Note that rand is unseeded and so will produce the same sequence of floats every time
 		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
@@ -75,7 +75,7 @@ func (m *Model) Joints() []referenceframe.Frame {
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get joints from the base outwards.
 	for i := len(m.OrdTransforms) - 1; i >= 0; i-- {
 		transform := m.OrdTransforms[i]
-		if transform.Dof() > 0{
+		if transform.Dof() > 0 {
 			joints = append(joints, transform)
 		}
 	}
@@ -85,6 +85,11 @@ func (m *Model) Joints() []referenceframe.Frame {
 // Name returns the name of this model
 func (m *Model) Name() string {
 	return m.name
+}
+
+// SetName changes the name of this model
+func (m *Model) SetName(name string) {
+	m.name = name
 }
 
 // SetParent sets the parent frame
@@ -172,8 +177,8 @@ func (m *Model) GetPoses(pos []float64) []spatialmath.Pose {
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
 func (m *Model) AreJointPositionsValid(pos []float64) bool {
 	min, max := m.Limits()
-	for i := 0; i < m.Dof(); i++{
-		if pos[i] < min[i] || pos[i] > max[i]{
+	for i := 0; i < m.Dof(); i++ {
+		if pos[i] < min[i] || pos[i] > max[i] {
 			return false
 		}
 	}

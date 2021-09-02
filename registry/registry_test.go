@@ -41,7 +41,7 @@ func TestRegistry(t *testing.T) {
 	sf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return nil, nil
 	}
-	ff := func() (referenceframe.Frame, error) {
+	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
 

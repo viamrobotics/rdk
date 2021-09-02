@@ -69,7 +69,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewxArm6(ctx, config.Host, logger)
 		},
-		Frame: func() (referenceframe.Frame, error) { return XArmModel() },
+		Frame: func(name string) (referenceframe.Frame, error) { return XArmFrame(name) },
 	})
 }
 
@@ -96,6 +96,16 @@ func float64fromByte32(bytes []byte) float64 {
 // XArmModel() returns the kinematics model of the xArm, also has all Frame information.
 func XArmModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(xArm6modeljson)
+}
+
+// XArmFrame() returns the reference frame of the arm with the given name.
+func XArmFrame(name string) (referenceframe.Frame, error) {
+	frame, err := XArmModel()
+	if err != nil {
+		return nil, err
+	}
+	frame.SetName(name)
+	return frame, nil
 }
 
 // NewxArm6 returns a new xArm6 arm wrapped in a kinematics arm

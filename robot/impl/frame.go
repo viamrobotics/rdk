@@ -32,37 +32,41 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			return nil, errors.New("all components need names")
 		}
 		if c.Frame != nil {
-			var frame ref.Frame
-			var err error
-			switch c.Frame.Type {
-			case config.FrameTypeStatic:
-				frame, err = makeStaticFrame(&c)
-			case config.FrameTypeModel:
-				frame, err = makeModelFrame(&c)
-			default:
-				return nil, fmt.Errorf("do not know how to create Frame of type %s", string(c.Frame.Type))
-			}
+			modelFrame, err := makeModelFrame(&c)
 			if err != nil {
 				return nil, err
 			}
-			if frame == nil {
-				return nil, errors.New("frame is nil")
+			// if model frame is specified, it will be named from the component. If not, the static frame will have the name.
+			staticName := c.Name
+			if modelFrame != nil {
+				staticName += "_offset"
 			}
+			// add the static frame first-- if it is empty, a 0 offset frame will be applied.
+			staticFrame := makeStaticFrame(&c, staticName)
 			// check to see if there are no repeated names
-			if _, ok := names[frame.Name()]; ok {
-				return nil, fmt.Errorf("cannot have more than one Frame with name %s", frame.Name())
+			if _, ok := names[staticFrame.Name()]; ok {
+				return nil, fmt.Errorf("cannot have more than one Frame with name %s", staticFrame.Name())
 			}
-			names[frame.Name()] = true
-			// store the children Frames in a list to build the tree later
-			children[c.Frame.Parent] = append(children[c.Frame.Parent], frame)
+			names[staticFrame.Name()] = true
+			// attach the static frame to the parent
+			children[c.Frame.Parent] = append(children[c.Frame.Parent], staticFrame)
+
+			// if the model frame exists, add it as well
+			if modelFrame != nil {
+				if _, ok := names[modelFrame.Name()]; ok {
+					return nil, fmt.Errorf("cannot have more than one Frame with name %s", modelFrame.Name())
+				}
+				names[modelFrame.Name()] = true
+				// store the children Frames in a list to build the tree later
+				children[staticFrame.Name()] = append(children[staticFrame.Name()], modelFrame)
+			}
 		}
 	}
 	return buildFrameSystem("robot", names, children)
 }
 
-func makeStaticFrame(comp *config.Component) (ref.Frame, error) {
-	f := comp.Frame
-	// get the translation vector
+func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
+	// get the translation vector. If there is no translation/orientation attribute will default to 0
 	translation := r3.Vector{f.Translate.X, f.Translate.Y, f.Translate.Z}
 
 	var pose spatial.Pose
@@ -73,8 +77,12 @@ func makeStaticFrame(comp *config.Component) (ref.Frame, error) {
 	} else {
 		pose = spatial.NewPoseFromPoint(translation)
 	}
-	// create and set the frame
-	return ref.NewStaticFrame(comp.Name, pose), nil
+	return pose
+}
+
+func makeStaticFrame(comp *config.Component, name string) ref.Frame {
+	pose := makePoseFromConfig(comp.Frame)
+	return ref.NewStaticFrame(name, pose)
 }
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
@@ -87,37 +95,37 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeBase:
 		registration := registry.BaseLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeArm:
 		registration := registry.ArmLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeGripper:
 		registration := registry.GripperLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeCamera:
 		registration := registry.CameraLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeLidar:
 		registration := registry.LidarLookup(comp.Model)
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	case config.ComponentTypeSensor:
 		if comp.SubType == "" {
 			return nil, errors.New("sensor component requires subtype")
@@ -126,7 +134,7 @@ func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 		if registration == nil && registration.Frame == nil {
 			return nil, errors.New("component has nil for Frame")
 		}
-		modelFrame, err = registration.Frame()
+		modelFrame, err = registration.Frame(comp.Name)
 	default:
 		return nil, fmt.Errorf("unknown component type: %v", comp.Type)
 	}
