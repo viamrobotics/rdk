@@ -70,7 +70,8 @@ func TestClient(t *testing.T) {
 
 	f := registry.SensorLookup(compass.Type, client.ModelNameClient)
 	test.That(t, f, test.ShouldNotBeNil)
-	_, err = f(context.Background(), nil, config.Component{
+	test.That(t, f.Constructor, test.ShouldNotBeNil)
+	_, err = f.Constructor(context.Background(), nil, config.Component{
 		Host: listener1.Addr().(*net.TCPAddr).IP.String(),
 		Port: listener1.Addr().(*net.TCPAddr).Port,
 	}, logger)

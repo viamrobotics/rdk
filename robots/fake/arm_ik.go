@@ -20,12 +20,12 @@ import (
 var armModelJSON string
 
 func init() {
-	registry.RegisterArm("fake_ik", func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+	registry.RegisterArm("fake_ik", &registry.ArmRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 		if config.Attributes.Bool("fail_new", false) {
 			return nil, errors.New("whoops")
 		}
 		return NewArmIK(config.Name, logger)
-	})
+	}})
 }
 
 // NewArmIK returns a new fake arm.

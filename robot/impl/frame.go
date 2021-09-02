@@ -8,7 +8,9 @@ import (
 	"go.viam.com/core/config"
 	pb "go.viam.com/core/proto/api/v1"
 	ref "go.viam.com/core/referenceframe"
+	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
+	"go.viam.com/core/sensor"
 	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
@@ -32,17 +34,24 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 		}
 		if c.Frame != nil {
 			var frame ref.Frame
+			var err error
 			switch c.Frame.Type {
 			case config.FrameTypeStatic:
-				frame = makeStaticFrame(&c)
+				frame, err = makeStaticFrame(&c)
 			case config.FrameTypePrismatic:
-				frame = makePrismaticFrame(&c)
+				frame, err = makePrismaticFrame(&c)
 			case config.FrameTypeRevolute:
-				frame = makeRevoluteFrame(&c)
+				frame, err = makeRevoluteFrame(&c)
 			case config.FrameTypeModel:
-				frame = makeModelFrame(&c)
+				frame, err = makeModelFrame(&c)
 			default:
 				return nil, fmt.Errorf("do not know how to create Frame of type %s", string(c.Frame.Type))
+			}
+			if err != nil {
+				return nil, err
+			}
+			if frame == nil {
+				return nil, errors.New("frame is nil")
 			}
 			// check to see if there are no repeated names
 			if _, ok := names[frame.Name()]; ok {
@@ -50,30 +59,30 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			}
 			names[frame.Name()] = true
 			// store the children Frames in a list to build the tree later
-			children[f.Parent] = append(children[f.Parent], frame)
+			children[c.Frame.Parent] = append(children[c.Frame.Parent], frame)
 		}
 	}
 	return buildFrameSystem("robot", names, children)
 }
 
-func makeStaticFrame(comp *config.Component) ref.Frame {
+func makeStaticFrame(comp *config.Component) (ref.Frame, error) {
 	var pose spatial.Pose
 	f := comp.Frame
 	// get the translation vector
-	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
+	translation := r3.Vector{f.Translate.X, f.Translate.Y, f.Translate.Z}
 
 	// get the orientation if there is one
 	if f.SetOrientation {
-		ov := &spatial.OrientationVec{f.Orientation.T, f.Orientation.X, f.Orientation.Y, f.Orientation.Z}
+		ov := &spatial.OrientationVec{f.Orient.TH, f.Orient.X, f.Orient.Y, f.Orient.Z}
 		pose = spatial.NewPoseFromOrientationVector(translation, ov)
 	} else {
 		pose = spatial.NewPoseFromPoint(translation)
 	}
 	// create and set the frame
-	return ref.NewStaticFrame(comp.Name, pose)
+	return ref.NewStaticFrame(comp.Name, pose), nil
 }
 
-func makePrismaticFrame(comp *config.Component) ref.Frame {
+func makePrismaticFrame(comp *config.Component) (ref.Frame, error) {
 	// get the translation axes
 	f := comp.Frame
 	axes := []bool{f.Axes.X, f.Axes.Y, f.Axes.Z}
@@ -81,10 +90,10 @@ func makePrismaticFrame(comp *config.Component) ref.Frame {
 	// create and set the frame
 	prism := ref.NewPrismaticFrame(comp.Name, axes)
 	prism.SetLimits(f.Min, f.Max)
-	return prism
+	return prism, nil
 }
 
-func makeRevoluteFrame(comp *config.Component) ref.Frame {
+func makeRevoluteFrame(comp *config.Component) (ref.Frame, error) {
 	f := comp.Frame
 	// get the rotation axis
 	axis := spatial.R4AA{RX: f.Axis.X, RY: f.Axis.Y, RZ: f.Axis.Z}
@@ -92,14 +101,66 @@ func makeRevoluteFrame(comp *config.Component) ref.Frame {
 	// create and set the frame
 	rev := ref.NewRevoluteFrame(comp.Name, axis)
 	rev.SetLimits(f.Min[0], f.Max[0])
-	return rev
+	return rev, nil
 }
 
-func makeModelFrame(comp *config.Component) ref.Frame {
-	// get the frame model from the kinematics model
-	// if there is a static offset, add it
-	// create and set the frame
-	return mf
+func makeModelFrame(comp *config.Component) (ref.Frame, error) {
+	var modelFrame ref.Frame
+	var err error
+	// get the frame as registered in the component model
+	switch comp.Type {
+	case config.ComponentTypeProvider:
+		registration := registry.ProviderLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeBase:
+		registration := registry.BaseLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeArm:
+		registration := registry.ArmLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeGripper:
+		registration := registry.GripperLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeCamera:
+		registration := registry.CameraLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeLidar:
+		registration := registry.LidarLookup(comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	case config.ComponentTypeSensor:
+		if comp.SubType == "" {
+			return nil, errors.New("sensor component requires subtype")
+		}
+		registration := registry.SensorLookup(sensor.Type(comp.SubType), comp.Model)
+		if registration == nil && registration.Frame == nil {
+			return nil, errors.New("component has nil for Frame")
+		}
+		modelFrame, err = registration.Frame()
+	default:
+		return nil, errors.Errorf("unknown component type: %v", comp.Type)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return modelFrame, nil
 }
 
 func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame) (ref.FrameSystem, error) {
