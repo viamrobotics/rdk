@@ -135,20 +135,8 @@ func (ik *NloptIK) getGoals() []goal {
 	return ik.goals
 }
 
-// Solve attempts to solve for all goals
+// Solve runs the actual solver and returns a list of all 
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
-	solutions, err := ik.solveBest(ctx, newGoal, seedAngles)
-	if err != nil {
-		return nil, err
-	}
-	if len(solutions) < 1 {
-		// Should never happen- would hit an error above
-		return nil, errors.New("no solutions")
-	}
-	return bestSolution(seedAngles, solutions, ik.model), nil
-}
-
-func (ik *NloptIK) solveBest(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) ([]*pb.JointPositions, error) {
 	var err error
 
 	// Allow ~160 degrees of swing at most
@@ -217,7 +205,7 @@ func (ik *NloptIK) solveBest(ctx context.Context, newGoal *pb.ArmPosition, seedA
 				// Return immediately if we have a "natural" solution, i.e. one where the halfway point is on the way
 				// to the end point
 				if calcSwingPct(seedAngles, solution, ik.model) < 0.5 {
-					return []*pb.JointPositions{solution}, err
+					return solution, err
 				}
 				solutions = append(solutions, solution)
 			}
@@ -240,7 +228,7 @@ func (ik *NloptIK) solveBest(ctx context.Context, newGoal *pb.ArmPosition, seedA
 		}
 	}
 	if len(solutions) > 0 {
-		return solutions, nil
+		return bestSolution(seedAngles, solutions, ik.model), nil
 	}
 	return nil, multierr.Combine(errors.New("kinematics could not solve for position"), err)
 }
@@ -301,6 +289,9 @@ func checkExcessiveSwing(orig, solution []float64, allowableSwing float64) (bool
 	return swing, newSolution
 }
 
+// interpolateJoints will return a set of joint positions that are the specified percent between the two given sets of
+// positions. For example, setting by to 0.5 will return the joint positions halfway between the inputs, and 0.25 would
+// return one quarter of the way from "from" to "to"
 func interpolateJoints(from, to *pb.JointPositions, by float64) *pb.JointPositions {
 	var newDegrees []float64
 	for i, j1 := range from.Degrees {
