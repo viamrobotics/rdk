@@ -291,10 +291,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer box.Close()
 
-	err = box.home(ctx)
-	if err != nil {
-		return err
-	}
+	box.home(ctx)
+	// err = box.home(ctx)
+	// if err != nil {
+	// 	return err
+	// }
 
 	action.RegisterAction("Run Reset", box.doRunReset)
 	action.RegisterAction("Home", box.doHome)
@@ -643,7 +644,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	// DuckWhack
 	go func() {
 		errs2 := b.hammerTime(ctx, duckWhacks)
-		utils.SelectContextOrWait(ctx, 2000*time.Millisecond)
+		utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
 		b.vibrate(ctx, 0)
 		errC <- errs2
 	}()
@@ -693,7 +694,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 		return errs
 	}
 	b.vibrate(ctx, vibeLevel)
-	utils.SelectContextOrWait(ctx, 8000*time.Millisecond)
+	utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
 
 	// Duck in, silence and up
 	b.vibrate(ctx, 0)
@@ -709,6 +710,33 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	}
 
 	errs = b.placeDuck(ctx)
+
+	// Try again if the duck gets stuck in the squeezer
+	if errs.Error() == "missed the duck twice" {
+		errs = multierr.Combine(
+			// Back down for duck
+			b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
+			b.gripper.Open(ctx),
+			b.waitPosReached(ctx, &b.elevator, elevatorBottom),
+			// Open to load duck
+			b.gate.GoTo(ctx, gateSpeed, gateOpen),
+			b.setSqueeze(ctx, squeezeOpen),
+		)
+		if errs != nil {
+			return errs
+		}
+		b.vibrate(ctx, vibeLevel)
+		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
+		b.vibrate(ctx, 0)
+		errs = multierr.Combine(
+			b.setSqueeze(ctx, squeezeClosed),
+			b.waitPosReached(ctx, &b.squeeze, (squeezeMaxWidth-squeezeClosed)/2),
+			b.elevator.GoTo(ctx, elevatorSpeed, elevatorTop),
+			b.waitPosReached(ctx, &b.elevator, elevatorTop),
+			b.placeDuck(ctx),
+		)
+	}
+
 	if errs != nil {
 		return errs
 	}
