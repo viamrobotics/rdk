@@ -12,9 +12,9 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper(ModelName, func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper(ModelName, &registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		return &Gripper{Name: config.Name}, nil
-	})
+	}})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.
