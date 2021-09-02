@@ -37,10 +37,6 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			switch c.Frame.Type {
 			case config.FrameTypeStatic:
 				frame, err = makeStaticFrame(&c)
-			case config.FrameTypePrismatic:
-				frame, err = makePrismaticFrame(&c)
-			case config.FrameTypeRevolute:
-				frame, err = makeRevoluteFrame(&c)
 			case config.FrameTypeModel:
 				frame, err = makeModelFrame(&c)
 			default:
@@ -65,11 +61,11 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 }
 
 func makeStaticFrame(comp *config.Component) (ref.Frame, error) {
-	var pose spatial.Pose
 	f := comp.Frame
 	// get the translation vector
 	translation := r3.Vector{f.Translate.X, f.Translate.Y, f.Translate.Z}
 
+	var pose spatial.Pose
 	// get the orientation if there is one
 	if f.SetOrientation {
 		ov := &spatial.OrientationVec{f.Orient.TH, f.Orient.X, f.Orient.Y, f.Orient.Z}
@@ -79,28 +75,6 @@ func makeStaticFrame(comp *config.Component) (ref.Frame, error) {
 	}
 	// create and set the frame
 	return ref.NewStaticFrame(comp.Name, pose), nil
-}
-
-func makePrismaticFrame(comp *config.Component) (ref.Frame, error) {
-	// get the translation axes
-	f := comp.Frame
-	axes := []bool{f.Axes.X, f.Axes.Y, f.Axes.Z}
-
-	// create and set the frame
-	prism := ref.NewPrismaticFrame(comp.Name, axes)
-	prism.SetLimits(f.Min, f.Max)
-	return prism, nil
-}
-
-func makeRevoluteFrame(comp *config.Component) (ref.Frame, error) {
-	f := comp.Frame
-	// get the rotation axis
-	axis := spatial.R4AA{RX: f.Axis.X, RY: f.Axis.Y, RZ: f.Axis.Z}
-
-	// create and set the frame
-	rev := ref.NewRevoluteFrame(comp.Name, axis)
-	rev.SetLimits(f.Min[0], f.Max[0])
-	return rev, nil
 }
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
