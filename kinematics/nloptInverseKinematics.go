@@ -135,7 +135,7 @@ func (ik *NloptIK) getGoals() []goal {
 	return ik.goals
 }
 
-// Solve runs the actual solver and returns a list of all 
+// Solve runs the actual solver and returns a list of all
 func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngles *pb.JointPositions) (*pb.JointPositions, error) {
 	var err error
 

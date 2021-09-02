@@ -50,12 +50,12 @@ func TestNloptSwingReduction(t *testing.T) {
 	test.That(t, newRadians, test.ShouldResemble, expectRadians)
 }
 
-func TestInterpolateJoints(t *testing.T){
+func TestInterpolateJoints(t *testing.T) {
 	jp1 := &pb.JointPositions{Degrees: []float64{0, 4}}
 	jp2 := &pb.JointPositions{Degrees: []float64{8, -8}}
 	jpHalf := &pb.JointPositions{Degrees: []float64{4, -2}}
 	jpQuarter := &pb.JointPositions{Degrees: []float64{2, 1}}
-	
+
 	interp1 := interpolateJoints(jp1, jp2, 0.5)
 	interp2 := interpolateJoints(jp1, jp2, 0.25)
 	test.That(t, interp1, test.ShouldResemble, jpHalf)
