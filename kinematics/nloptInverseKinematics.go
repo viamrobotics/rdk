@@ -229,6 +229,11 @@ func (ik *NloptIK) SetSeed(seed int64) {
 	ik.randSeed = rand.New(rand.NewSource(seed))
 }
 
+// Mdl returns the associated model
+func (ik *NloptIK) Mdl() *Model {
+	return ik.model
+}
+
 // updateBounds will set the allowable maximum/minimum joint angles to disincentivise large swings before small swings
 // have been tried.
 func (ik *NloptIK) updateBounds(seed []float64, tries int) error {

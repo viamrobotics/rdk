@@ -20,6 +20,7 @@ type InverseKinematics interface {
 	// It will return a boolean which will be true if it solved successfully, and the joint positions which
 	// will yield that goal position.
 	Solve(context.Context, *pb.ArmPosition, *pb.JointPositions) (*pb.JointPositions, error)
+	Mdl() *Model
 }
 
 // toArray returns the SolverDistanceWeights as a slice with the components in the same order as the array returned from ToDelta
