@@ -410,14 +410,14 @@ func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 }
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
-	if newPower > m.maxPowerPct {
-		newPower = m.maxPowerPct
+	if newPower > 1.0 {
+		newPower = 1.0
 	}
 	delta := newPower - oldPower
 	if math.Abs(float64(delta)) <= 1.0/255.0 {
-		return newPower
+		return m.fixPowerPct(newPower)
 	}
-	return oldPower + (delta * m.rampRate)
+	return m.fixPowerPct(oldPower + (delta * m.rampRate))
 }
 
 func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {

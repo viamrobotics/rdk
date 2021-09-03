@@ -115,7 +115,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 			logger.Error(err)
 			return true
 		}
-		_, pressure, err := vg.hasPressure(ctx)
+		pressure, err := vg.readPressure(ctx)
 		if err != nil {
 			logger.Error(err)
 			return true
@@ -208,8 +208,8 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	if err != nil {
 		return nil, err
 	}
-	err = vg.motor.Zero(ctx, curPos - vg.closePos)
-		if err != nil {
+	err = vg.motor.Zero(ctx, curPos-vg.closePos)
+	if err != nil {
 		return nil, err
 	}
 	vg.openPos -= vg.closePos
@@ -355,10 +355,6 @@ func (vg *GripperV1) Stop(ctx context.Context) error {
 
 func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
-}
-
-func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < .1
 }
 
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
