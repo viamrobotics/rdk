@@ -22,6 +22,13 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 	if _, ok := pins["c"]; ok {
 		return NewGPIOStepperMotor(b, pins, mc, logger)
 	}
+	if mc.MaxPowerPct == 0 {
+		mc.MaxPowerPct = 1.0
+	}
+	if mc.MaxPowerPct < 0.06 || mc.MaxPowerPct > 1.0 {
+		return nil, errors.New("max_power_pct must be between 0.06 and 1.0")
+	}
+
 	m = &GPIOMotor{
 		b,
 		pins["a"],
@@ -32,6 +39,7 @@ func NewGPIOMotor(b Board, mc MotorConfig, logger golog.Logger) (Motor, error) {
 		false,
 		mc.PWMFreq,
 		pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED,
+		mc.MaxPowerPct,
 	}
 	return m, nil
 }
@@ -45,6 +53,7 @@ type GPIOMotor struct {
 	on                 bool
 	pwmFreq            uint
 	curDirection       pb.DirectionRelative
+	maxPowerPct        float32
 }
 
 // Position always returns 0.
@@ -60,6 +69,9 @@ func (m *GPIOMotor) PositionSupported(ctx context.Context) (bool, error) {
 // Power sets the associated pins (as discovered) and sets PWM to the given power percentage.
 func (m *GPIOMotor) Power(ctx context.Context, powerPct float32) error {
 	var errs error
+	if powerPct > m.maxPowerPct {
+		powerPct = m.maxPowerPct
+	}
 
 	if powerPct == 0 {
 		if m.En != "" {
@@ -164,7 +176,7 @@ func (m *GPIOMotor) GoTo(ctx context.Context, rpm float64, position float64) err
 }
 
 // GoTillStop is not supported
-func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *GPIOMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 

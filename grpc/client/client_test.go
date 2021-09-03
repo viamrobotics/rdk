@@ -335,8 +335,8 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	var capGoTillStopMotorArgs []interface{}
-	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-		capGoTillStopMotorArgs = []interface{}{d, rpm}
+	injectMotor.GoTillStopFunc = func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+		capGoTillStopMotorArgs = []interface{}{d, rpm, stopFunc}
 		return nil
 	}
 	var capZeroMotorArgs []interface{}
@@ -697,7 +697,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 	err = motor1.Zero(context.Background(), 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-	err = motor1.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0)
+	err = motor1.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_UNSPECIFIED, 0, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
 	servo1, ok := board1.ServoByName("servo1")
@@ -917,9 +917,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capGoToMotorArgs, test.ShouldResemble, []interface{}{50.1, 27.5})
 
-	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1)
+	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, func(ctx context.Context) bool { return false })
+	test.That(t, err.Error(), test.ShouldEqual, "stopFunc must be nil when using gRPC")
+
+	err = motor2.GoTillStop(context.Background(), pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1})
+	test.That(t, capGoTillStopMotorArgs, test.ShouldResemble, []interface{}{pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 41.1, (func(context.Context) bool)(nil)})
 
 	err = motor2.Zero(context.Background(), 5.1)
 	test.That(t, err, test.ShouldBeNil)

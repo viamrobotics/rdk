@@ -467,7 +467,7 @@ func (m *motor) GoTo(ctx context.Context, rpm float64, target float64) error {
 	return err
 }
 
-func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
