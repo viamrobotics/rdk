@@ -14,7 +14,7 @@ type Motor struct {
 	GoFunc                func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
 	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
-	GoTillStopFunc        func(ctx context.Context, d pb.DirectionRelative, rpm float64) error
+	GoTillStopFunc        func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error
 	ZeroFunc              func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
@@ -55,11 +55,11 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
-func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if m.GoTillStopFunc == nil {
-		return m.Motor.GoTillStop(ctx, d, rpm)
+		return m.Motor.GoTillStop(ctx, d, rpm, stopFunc)
 	}
-	return m.GoTillStopFunc(ctx, d, rpm)
+	return m.GoTillStopFunc(ctx, d, rpm, stopFunc)
 }
 
 // Zero calls the injected Zero or the real version.

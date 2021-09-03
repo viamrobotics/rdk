@@ -33,8 +33,9 @@ func init() {
 
 // TODO
 const (
+	TargetRPM               = 100
 	MaxCurrent              = 300
-	CurrentBadReadingCounts = 15
+	CurrentBadReadingCounts = 50
 	MinRotationGap          = 2.0
 	MaxRotationGap          = 3.0
 	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
@@ -48,7 +49,7 @@ type GripperV1 struct {
 
 	openPos, closePos float64
 
-	defaultPowerPct, holdingPressure float32
+	holdingPressure float32
 
 	pressureLimit int
 
@@ -78,7 +79,6 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           motor,
 		current:         current,
 		pressure:        pressure,
-		defaultPowerPct: .7,
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
@@ -99,19 +99,89 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
-	// pick a direction and move till it stops
-	posA, hasPressureA, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD)
+	var pressureSeen, nonPressureSeen, hasPressureA, hasPressureB bool
+	var posA, posB, pressurePos float64
+	var pressureCount, nonPressureCount int
+
+	// This will be passed to GoTillStop
+	stopFunc := func(ctx context.Context) bool {
+		current, err := vg.readCurrent(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		err = vg.processCurrentReading(ctx, current, "init")
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		pressure, err := vg.readPressure(ctx)
+		if err != nil {
+			logger.Error(err)
+			return true
+		}
+		if pressure < 975 {
+			if nonPressureSeen {
+				pressureCount++
+			}
+		} else {
+			nonPressureCount++
+			// Capture the last position BEFORE pressure is detected
+			pressurePos, err = vg.motor.Position(ctx)
+			if err != nil {
+				logger.Error(err)
+				return true
+			}
+		}
+		if nonPressureCount == 15 {
+			nonPressureSeen = true
+			logger.Debug("init: non-pressure range found")
+		}
+		if pressureCount >= 5 {
+			logger.Debug("init: pressure sensing (closed) direction found")
+			pressureSeen = true
+			return true
+		}
+		return false
+	}
+
+	// Test forward motion for pressure/endpoint
+	logger.Debug("init: moving forward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
-
-	posB, hasPressureB, err := vg.moveInDirectionTillWontMoveMore(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD)
+	if pressureSeen {
+		hasPressureA = true
+		posA = pressurePos
+	} else {
+		posA, err = vg.motor.Position(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Test backward motion for pressure/endpoint
+	pressureCount = 0
+	nonPressureCount = 0
+	pressureSeen = false
+	nonPressureSeen = false
+	logger.Debug("init: moving backward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
+	}
+	if pressureSeen {
+		hasPressureB = true
+		posB = pressurePos
+	} else {
+		posB, err = vg.motor.Position(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, errors.Errorf("pressure same open and closed, something is wrong encoer: %f %f", posA, posB)
+		return nil, errors.Errorf("init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t", posA, posB, hasPressureA, hasPressureB)
 	}
 
 	if hasPressureA {
@@ -132,21 +202,36 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		vg.openPos -= OpenPosOffset
 	}
 
+	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	// Zero to closed position
+	curPos, err := vg.motor.Position(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = vg.motor.Zero(ctx, curPos-vg.closePos)
+	if err != nil {
+		return nil, err
+	}
+	vg.openPos -= vg.closePos
+	vg.closePos = 0
+
+	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
+		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
 	}
 
 	return vg, vg.Open(ctx)
 }
 
-// Open TODO
+// Open the jaws
 func (vg *GripperV1) Open(ctx context.Context) error {
 	err := vg.Stop(ctx)
 	if err != nil {
 		return err
 	}
-	err = vg.motor.GoFor(ctx, vg.openDirection, 30, 0)
+
+	err = vg.motor.GoTo(ctx, TargetRPM, vg.openPos)
 	if err != nil {
 		return err
 	}
@@ -157,14 +242,14 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
-		now, err := vg.motor.Position(ctx)
+		// If motor went all the way to open
+		isOn, err := vg.motor.IsOn(ctx)
 		if err != nil {
-			return vg.stopAfterError(ctx, err)
+			return err
 		}
-		if vg.encoderSame(now, vg.openPos) {
-			return vg.Stop(ctx)
+		if !isOn {
+			return nil
 		}
-
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
@@ -176,7 +261,8 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			return vg.stopAfterError(ctx, errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now))
+			now, err := vg.motor.Position(ctx)
+			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now), err))
 		}
 	}
 }
@@ -187,7 +273,7 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = vg.motor.GoFor(ctx, vg.closeDirection, 30, 0)
+	err = vg.motor.GoTo(ctx, TargetRPM, vg.closePos)
 	if err != nil {
 		return false, err
 	}
@@ -198,14 +284,13 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
-		now, err := vg.motor.Position(ctx)
+		// If motor went all the way to closed
+		isOn, err := vg.motor.IsOn(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
-
-		if vg.encoderSame(now, vg.closePos) {
-			// we are fully closed
-			return false, vg.Stop(ctx)
+		if !isOn {
+			return false, nil
 		}
 
 		pressure, _, current, err := vg.analogs(ctx)
@@ -218,8 +303,12 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure {
+			now, err := vg.motor.Position(ctx)
+			if err != nil {
+				return false, err
+			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			err := vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
+			err = vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
 			return true, err
 		}
 
@@ -227,7 +316,11 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		if total > 5000 {
 			pressureRaw, err := vg.readPressure(ctx)
 			if err != nil {
-				return false, err
+				return false, vg.stopAfterError(ctx, err)
+			}
+			now, err := vg.motor.Position(ctx)
+			if err != nil {
+				return false, vg.stopAfterError(ctx, err)
 			}
 			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
 		}
@@ -264,10 +357,6 @@ func (vg *GripperV1) readCurrent(ctx context.Context) (int, error) {
 	return vg.current.Read(ctx)
 }
 
-func (vg *GripperV1) encoderSame(a, b float64) bool {
-	return math.Abs(b-a) < .1
-}
-
 func (vg *GripperV1) readPressure(ctx context.Context) (int, error) {
 	return vg.pressure.Read(ctx)
 }
@@ -289,90 +378,4 @@ func (vg *GripperV1) analogs(ctx context.Context) (hasPressure bool, pressure, c
 	}
 
 	return
-}
-
-func (vg *GripperV1) moveInDirectionTillWontMoveMore(ctx context.Context, dir pb.DirectionRelative) (float64, bool, error) {
-	defer func() {
-		err := vg.Stop(ctx)
-		if err != nil {
-			vg.logger.Warnf("couldn't stop motor %s", err)
-		}
-		vg.logger.Debug("stopped")
-	}()
-
-	vg.logger.Debugf("starting to move dir: %v", dir)
-
-	err := vg.motor.Go(ctx, dir, vg.defaultPowerPct/10)
-	if err != nil {
-		return -1, false, err
-	}
-
-	// Crude acceleration to a default power limit
-	for n := 1; n <= 10; n++ {
-		powerPct := (vg.defaultPowerPct / 10) * float32(n)
-		vg.logger.Debugf("PowerPct: %v", powerPct)
-		err := vg.motor.Power(ctx, powerPct)
-		if err != nil {
-			return -1, false, err
-		}
-		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return -1, false, ctx.Err()
-		}
-	}
-
-	last, err := vg.motor.Position(ctx)
-	if err != nil {
-		return -1, false, err
-	}
-
-	if !utils.SelectContextOrWait(ctx, 1000*time.Millisecond) {
-		return -1, false, ctx.Err()
-	}
-
-	for {
-		now, err := vg.motor.Position(ctx)
-		if err != nil {
-			return -1, false, err
-		}
-
-		hasPressure, pressure, current, err := vg.analogs(ctx)
-		if err != nil {
-			return -1, false, err
-		}
-
-		vg.logger.Debugf("dir: %v last: %v now: %v hasPressure: %v pressure: %v",
-			dir, last, now, hasPressure, pressure)
-
-		if vg.encoderSame(last, now) || hasPressure {
-			// increase power temporarily
-			err := vg.motor.Power(ctx, vg.defaultPowerPct*1.1)
-			if err != nil {
-				return -1, false, err
-			}
-			if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
-				return -1, false, ctx.Err()
-			}
-
-			hasPressure, pressure, _, err := vg.analogs(ctx)
-			if err != nil {
-				return -1, false, err
-			}
-
-			vg.logger.Debugf("inner dir: %v last: %v now: %v hasPressure: %v pressure: %v",
-				dir, last, now, hasPressure, pressure)
-
-			return now, hasPressure, err
-		}
-		last = now
-
-		err = vg.processCurrentReading(ctx, current, "init")
-		if err != nil {
-			return -1, false, err
-		}
-
-		if !utils.SelectContextOrWait(ctx, 200*time.Millisecond) {
-			return -1, false, ctx.Err()
-		}
-	}
-
 }

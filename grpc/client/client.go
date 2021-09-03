@@ -833,7 +833,10 @@ func (mc *motorClient) GoTo(ctx context.Context, rpm float64, position float64) 
 	return err
 }
 
-func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (mc *motorClient) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	if stopFunc != nil {
+		return errors.New("stopFunc must be nil when using gRPC")
+	}
 	_, err := mc.rc.client.BoardMotorGoTillStop(ctx, &pb.BoardMotorGoTillStopRequest{
 		BoardName: mc.boardName,
 		MotorName: mc.motorName,

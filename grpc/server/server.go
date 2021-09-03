@@ -806,7 +806,7 @@ func (s *Server) BoardMotorGoTillStop(ctx context.Context, req *pb.BoardMotorGoT
 		return nil, errors.Errorf("unknown motor: %s", req.MotorName)
 	}
 
-	return &pb.BoardMotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm)
+	return &pb.BoardMotorGoTillStopResponse{}, theMotor.GoTillStop(ctx, req.Direction, req.Rpm, nil)
 }
 
 // BoardMotorZero requests the motor of a board of the underlying robot to reset it's zero/home position.
