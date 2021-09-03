@@ -98,6 +98,7 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 		stateMu:                 &sync.RWMutex{},
 		startedRPMMonitorMu:     &sync.Mutex{},
 		rampRate:                cfg.RampRate,
+		maxPowerPct:             cfg.MaxPowerPct,
 		logger:                  logger,
 	}
 
@@ -106,6 +107,13 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 	}
 	if em.rampRate == 0 {
 		em.rampRate = 0.2 // Use a conservative value by default.
+	}
+
+	if em.rampRate < 0 || em.rampRate > 1 {
+		return nil, fmt.Errorf("max power pct needs to be [0,1) but is %v", em.maxPowerPct)
+	}
+	if em.maxPowerPct == 0 {
+		em.maxPowerPct = 1.0
 	}
 
 	return em, nil
@@ -126,7 +134,8 @@ type encodedMotor struct {
 	// how fast as we increase power do we do so
 	// valid numbers are [0, 1)
 	// .01 would ramp very slowly, 1 would ramp instantaneously
-	rampRate float32
+	rampRate    float32
+	maxPowerPct float32
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -180,9 +189,9 @@ func (m *encodedMotor) setRegulated(b bool) {
 	m.stateMu.Unlock()
 }
 
-func fixPowerPct(powerPct float32) float32 {
-	if powerPct > 1 {
-		powerPct = 1
+func (m *encodedMotor) fixPowerPct(powerPct float32) float32 {
+	if powerPct > m.maxPowerPct {
+		powerPct = m.maxPowerPct
 	} else if powerPct < 0 {
 		powerPct = 0
 	}
@@ -200,8 +209,8 @@ func (m *encodedMotor) setPower(ctx context.Context, powerPct float32, internal 
 	if !internal {
 		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
 	}
-	m.state.lastPowerPct = fixPowerPct(powerPct)
-	return m.real.Power(ctx, powerPct)
+	m.state.lastPowerPct = m.fixPowerPct(powerPct)
+	return m.real.Power(ctx, m.state.lastPowerPct)
 }
 
 func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
@@ -216,9 +225,9 @@ func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPc
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
-	m.state.lastPowerPct = fixPowerPct(powerPct)
+	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 	m.state.curDirection = d
-	return m.real.Go(ctx, d, powerPct)
+	return m.real.Go(ctx, d, m.state.lastPowerPct)
 }
 
 func (m *encodedMotor) rpmMonitorStart() {
@@ -395,8 +404,8 @@ func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 }
 
 func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
-	if newPower > 1.0 {
-		newPower = 1.0
+	if newPower > m.maxPowerPct {
+		newPower = m.maxPowerPct
 	}
 	delta := newPower - oldPower
 	if math.Abs(float64(delta)) <= 1.0/255.0 {
@@ -536,7 +545,7 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 		} else {
 			rpmCount = 0
 		}
-		if rpmCount >= 5 || tries > 50 {
+		if rpmCount >= 5 || tries > 20 {
 			tries = 0
 			rpmCount = 0
 			break
@@ -564,7 +573,6 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 		}
 
 		if rpmCount >= 5 {
-			m.logger.Infof("RPM at stop: %f", curRPM)
 			break
 		}
 
