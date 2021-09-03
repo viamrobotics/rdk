@@ -4,7 +4,9 @@
             "model": "fake",
             "name": "pieceGripper",
             "type": "gripper",
-            "parent" : ""
+            "frame": {
+                "parent" : "pieceArm"
+            }
         },
         {
             "model": "file",
