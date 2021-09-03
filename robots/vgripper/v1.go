@@ -33,8 +33,7 @@ func init() {
 
 // TODO
 const (
-	TargetRPM               = 50
-	InitRPM                 = 20
+	TargetRPM               = 100
 	MaxCurrent              = 300
 	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
@@ -50,7 +49,7 @@ type GripperV1 struct {
 
 	openPos, closePos float64
 
-	defaultPowerPct, holdingPressure float32
+	holdingPressure float32
 
 	pressureLimit int
 
@@ -80,7 +79,6 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		motor:           motor,
 		current:         current,
 		pressure:        pressure,
-		defaultPowerPct: .7,
 		holdingPressure: .5,
 		pressureLimit:   pressureLimit,
 		logger:          logger,
@@ -105,8 +103,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	var posA, posB float64
 
 	// Test forward motion for pressure/endpoint
-	logger.Info("Moving forward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, InitRPM, func(ctx context.Context) bool {
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM, func(ctx context.Context) bool {
 		var err error
 
 		current, err := vg.readCurrent(ctx)
@@ -139,8 +136,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	}
 
 	// Test backward motion for pressure/endpoint
-	logger.Info("Moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, InitRPM, func(ctx context.Context) bool {
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM, func(ctx context.Context) bool {
 		var err error
 
 		current, err := vg.readCurrent(ctx)
