@@ -564,17 +564,18 @@ func TestClient(t *testing.T) {
 			{
 				Name:   "a",
 				Type:   config.ComponentTypeArm,
-				Parent: "b",
-				ParentTranslation: config.Translation{
-					X: 1,
-					Y: 2,
-					Z: 3,
-				},
-				ParentOrientation: config.Orientation{
-					X:  4,
-					Y:  5,
-					Z:  6,
-					TH: 7,
+				Frame: &config.FrameConfig{Parent: "b",
+					Translate: config.Translation{
+						X: 1,
+						Y: 2,
+						Z: 3,
+					},
+					Orient: config.Orientation{
+						X:  4,
+						Y:  5,
+						Z:  6,
+						TH: 7,
+					},
 				},
 			},
 		},

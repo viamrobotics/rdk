@@ -228,8 +228,8 @@ func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
 
 	for idx, c := range cfgReal.Components {
 		c.Name = rr.prefixName(c.Name)
-		if c.Parent != "" {
-			c.Parent = rr.prefixName(c.Parent)
+		if c.Frame.Parent != "" {
+			c.Frame.Parent = rr.prefixName(c.Frame.Parent)
 		}
 		cfg.Components[idx] = c
 	}

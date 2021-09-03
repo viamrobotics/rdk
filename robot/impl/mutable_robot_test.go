@@ -161,12 +161,12 @@ func TestConfigRemote(t *testing.T) {
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
 
 	cfg2, err = r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, 12, test.ShouldEqual, len(cfg2.Components))
-	test.That(t, cfg2.FindComponent("foo.pieceGripper").Parent, test.ShouldEqual, "ppp")
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "ppp")
 
 	cancel()
 	<-webDone

@@ -7,15 +7,14 @@
 package v1
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	httpbody "google.golang.org/genproto/googleapis/api/httpbody"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -353,10 +352,10 @@ type ComponentConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name        string       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Type        string       `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Parent      string       `protobuf:"bytes,3,opt,name=parent,proto3" json:"parent,omitempty"`
-	Translation *ArmPosition `protobuf:"bytes,4,opt,name=translation,proto3" json:"translation,omitempty"`
+	Name   string       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type   string       `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Parent string       `protobuf:"bytes,3,opt,name=parent,proto3" json:"parent,omitempty"`
+	Pose   *ArmPosition `protobuf:"bytes,4,opt,name=pose,proto3" json:"pose,omitempty"`
 }
 
 func (x *ComponentConfig) Reset() {
@@ -412,9 +411,9 @@ func (x *ComponentConfig) GetParent() string {
 	return ""
 }
 
-func (x *ComponentConfig) GetTranslation() *ArmPosition {
+func (x *ComponentConfig) GetPose() *ArmPosition {
 	if x != nil {
-		return x.Translation
+		return x.Pose
 	}
 	return nil
 }
