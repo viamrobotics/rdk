@@ -19,7 +19,7 @@ import (
 var (
 	_rpmDebugMu sync.Mutex
 	_rpmSleep   = 50 * time.Millisecond // really just for testing
-	_rpmDebug   = true
+	_rpmDebug   = false
 )
 
 func getRPMSleepDebug() (time.Duration, bool) {
@@ -114,6 +114,12 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 	}
 	if em.maxPowerPct == 0 {
 		em.maxPowerPct = 1.0
+	}
+
+	if val, ok := cfg.Attributes["rpmDebug"]; ok {
+		if val == "true" {
+			_rpmDebug = true
+		}
 	}
 
 	return em, nil
@@ -529,7 +535,7 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 	var tries, rpmCount uint
 
 	for {
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
 		if stopFunc != nil && stopFunc(ctx) {
@@ -545,7 +551,7 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 		} else {
 			rpmCount = 0
 		}
-		if rpmCount >= 5 || tries > 20 {
+		if rpmCount >= 50 || tries > 200 {
 			tries = 0
 			rpmCount = 0
 			break
@@ -554,7 +560,7 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 	}
 
 	for {
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
 
@@ -572,11 +578,11 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 			rpmCount = 0
 		}
 
-		if rpmCount >= 5 {
+		if rpmCount >= 50 {
 			break
 		}
 
-		if tries >= 100 {
+		if tries >= 1000 {
 			return errors.New("timed out during GoTillStop")
 		}
 

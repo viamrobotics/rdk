@@ -33,9 +33,9 @@ func init() {
 
 // TODO
 const (
-	TargetRPM               = 300
+	TargetRPM               = 100
 	MaxCurrent              = 300
-	CurrentBadReadingCounts = 15
+	CurrentBadReadingCounts = 50
 	MinRotationGap          = 2.0
 	MaxRotationGap          = 3.0
 	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
@@ -101,8 +101,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 	var pressureSeen, nonPressureSeen, hasPressureA, hasPressureB bool
 	var posA, posB, pressurePos float64
-	var pressureCount int
-	pressurePos = 9001
+	var pressureCount, nonPressureCount int
 
 	// This will be passed to GoTillStop
 	stopFunc := func(ctx context.Context) bool {
@@ -116,25 +115,27 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 			logger.Error(err)
 			return true
 		}
-		pressureTest, _, err := vg.hasPressure(ctx)
+		_, pressure, err := vg.hasPressure(ctx)
 		if err != nil {
 			logger.Error(err)
 			return true
 		}
-		if pressureTest {
+		if pressure < 975 {
 			if nonPressureSeen {
 				pressureCount++
-				if pressurePos > 9000 {
-					pressurePos, err = vg.motor.Position(ctx)
-					if err != nil {
-						logger.Error(err)
-						return true
-					}
-				}
 			}
-		} else if !nonPressureSeen {
-			logger.Debug("init: non-pressure range found")
+		} else {
+			nonPressureCount++
+			// Capture the last position BEFORE pressure is detected
+			pressurePos, err = vg.motor.Position(ctx)
+			if err != nil {
+				logger.Error(err)
+				return true
+			}
+		}
+		if nonPressureCount == 15 {
 			nonPressureSeen = true
+			logger.Debug("init: non-pressure range found")
 		}
 		if pressureCount >= 5 {
 			logger.Debug("init: pressure sensing (closed) direction found")
@@ -146,7 +147,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 	// Test forward motion for pressure/endpoint
 	logger.Debug("init: moving forward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/3, stopFunc)
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -159,14 +160,13 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 			return nil, err
 		}
 	}
-
 	// Test backward motion for pressure/endpoint
-	pressurePos = 9001
 	pressureCount = 0
+	nonPressureCount = 0
 	pressureSeen = false
 	nonPressureSeen = false
 	logger.Debug("init: moving backward")
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/3, stopFunc)
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -202,11 +202,24 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		vg.openPos -= OpenPosOffset
 	}
 
+	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
+	// Zero to closed position
+	curPos, err := vg.motor.Position(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = vg.motor.Zero(ctx, curPos - vg.closePos)
+		if err != nil {
+		return nil, err
+	}
+	vg.openPos -= vg.closePos
+	vg.closePos = 0
+
+	logger.Debugf("init: final openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
 		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
 	}
-	logger.Debugf("init: openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 
 	return vg, vg.Open(ctx)
 }
@@ -229,14 +242,14 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
-		now, err := vg.motor.Position(ctx)
+		// If motor went all the way to open
+		isOn, err := vg.motor.IsOn(ctx)
 		if err != nil {
-			return vg.stopAfterError(ctx, err)
+			return err
 		}
-		if vg.encoderSame(now, vg.openPos) {
+		if !isOn {
 			return nil
 		}
-
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
@@ -248,7 +261,8 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			return vg.stopAfterError(ctx, errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now))
+			now, err := vg.motor.Position(ctx)
+			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now), err))
 		}
 	}
 }
@@ -270,13 +284,12 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		if !utils.SelectContextOrWait(ctx, time.Duration(msPer)*time.Millisecond) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
-		now, err := vg.motor.Position(ctx)
+		// If motor went all the way to closed
+		isOn, err := vg.motor.IsOn(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
-
-		if vg.encoderSame(now, vg.closePos) {
-			// we are fully closed
+		if !isOn {
 			return false, nil
 		}
 
@@ -290,8 +303,12 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure {
+			now, err := vg.motor.Position(ctx)
+			if err != nil {
+				return false, err
+			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			err := vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
+			err = vg.motor.Go(ctx, vg.closeDirection, vg.holdingPressure)
 			return true, err
 		}
 
@@ -299,7 +316,11 @@ func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 		if total > 5000 {
 			pressureRaw, err := vg.readPressure(ctx)
 			if err != nil {
-				return false, err
+				return false, vg.stopAfterError(ctx, err)
+			}
+			now, err := vg.motor.Position(ctx)
+			if err != nil {
+				return false, vg.stopAfterError(ctx, err)
 			}
 			return false, vg.stopAfterError(ctx, errors.Errorf("close timed out, wanted: %f at: %f pressure: %d", vg.closePos, now, pressureRaw))
 		}
