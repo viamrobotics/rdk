@@ -367,7 +367,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueSpeed: %d", sg)
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
 
@@ -384,7 +384,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			break
 		}
 
-		if fails >= 50 {
+		if fails >= 500 {
 			return errors.New("timed out during GoTillStop acceleration")
 		}
 		fails++
@@ -401,7 +401,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueReady: %d", sg)
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
 
@@ -418,7 +418,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			break
 		}
 
-		if fails >= 100 {
+		if fails >= 1000 {
 			return errors.New("timed out during GoTillStop")
 		}
 		fails++
