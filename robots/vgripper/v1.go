@@ -33,7 +33,7 @@ func init() {
 
 // TODO
 const (
-	TargetRPM               = 100
+	TargetRPM               = 300
 	MaxCurrent              = 300
 	CurrentBadReadingCounts = 15
 	MinRotationGap          = 2.0
@@ -99,13 +99,13 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
-	var hasPressureA, hasPressureB bool
-	var posA, posB float64
+	var pressureSeen, nonPressureSeen, hasPressureA, hasPressureB bool
+	var posA, posB, pressurePos float64
+	var pressureCount int
+	pressurePos = 9001
 
-	// Test forward motion for pressure/endpoint
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM, func(ctx context.Context) bool {
-		var err error
-
+	// This will be passed to GoTillStop
+	stopFunc := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
 		if err != nil {
 			logger.Error(err)
@@ -116,60 +116,72 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 			logger.Error(err)
 			return true
 		}
-		hasPressureA, _, err = vg.hasPressure(ctx)
+		pressureTest, _, err := vg.hasPressure(ctx)
 		if err != nil {
 			logger.Error(err)
 			return true
 		}
-
-		if hasPressureA {
+		if pressureTest {
+			if nonPressureSeen {
+				pressureCount++
+				if pressurePos > 9000 {
+					pressurePos, err = vg.motor.Position(ctx)
+					if err != nil {
+						logger.Error(err)
+						return true
+					}
+				}
+			}
+		} else if !nonPressureSeen {
+			logger.Debug("init: non-pressure range found")
+			nonPressureSeen = true
+		}
+		if pressureCount >= 5 {
+			logger.Debug("init: pressure sensing (closed) direction found")
+			pressureSeen = true
 			return true
 		}
 		return false
-	})
+	}
+
+	// Test forward motion for pressure/endpoint
+	logger.Debug("init: moving forward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/3, stopFunc)
 	if err != nil {
 		return nil, err
 	}
-	posA, err = vg.motor.Position(ctx)
-	if err != nil {
-		return nil, err
+	if pressureSeen {
+		hasPressureA = true
+		posA = pressurePos
+	} else {
+		posA, err = vg.motor.Position(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Test backward motion for pressure/endpoint
-	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM, func(ctx context.Context) bool {
-		var err error
-
-		current, err := vg.readCurrent(ctx)
-		if err != nil {
-			logger.Error(err)
-			return true
-		}
-		err = vg.processCurrentReading(ctx, current, "init")
-		if err != nil {
-			logger.Error(err)
-			return true
-		}
-		hasPressureB, _, err = vg.hasPressure(ctx)
-		if err != nil {
-			logger.Error(err)
-			return true
-		}
-
-		if hasPressureB {
-			return true
-		}
-		return false
-	})
+	pressurePos = 9001
+	pressureCount = 0
+	pressureSeen = false
+	nonPressureSeen = false
+	logger.Debug("init: moving backward")
+	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/3, stopFunc)
 	if err != nil {
 		return nil, err
 	}
-	posB, err = vg.motor.Position(ctx)
-	if err != nil {
-		return nil, err
+	if pressureSeen {
+		hasPressureB = true
+		posB = pressurePos
+	} else {
+		posB, err = vg.motor.Position(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if hasPressureA == hasPressureB {
-		return nil, errors.Errorf("pressure same open and closed, something is wrong, positions: %f %f", posA, posB)
+		return nil, errors.Errorf("init: pressure same open and closed, something is wrong, positions: %f %f, pressures: %t %t", posA, posB, hasPressureA, hasPressureB)
 	}
 
 	if hasPressureA {
@@ -192,8 +204,9 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 
 	rotationGap := math.Abs(vg.openPos - vg.closePos)
 	if rotationGap < MinRotationGap || rotationGap > MaxRotationGap {
-		return nil, errors.Errorf("rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
+		return nil, errors.Errorf("init: rotationGap not in expected range got: %v range %v -> %v", rotationGap, MinRotationGap, MaxRotationGap)
 	}
+	logger.Debugf("init: openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 
 	return vg, vg.Open(ctx)
 }
