@@ -121,14 +121,14 @@ func (a *LinearAxis) GoFor(ctx context.Context, d pb.DirectionRelative, speed fl
 }
 
 // GoTillStop simultaneously homes all motors on an axis
-func (a *LinearAxis) GoTillStop(ctx context.Context, d pb.DirectionRelative, speed float64) error {
+func (a *LinearAxis) GoTillStop(ctx context.Context, d pb.DirectionRelative, speed float64, stopFunc func(ctx context.Context) bool) error {
 	var homeWorkers sync.WaitGroup
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
 		go func(motor board.Motor) {
 			defer homeWorkers.Done()
-			multierr.AppendInto(&errs, motor.GoTillStop(ctx, d, speed*60/a.mmPerRev))
+			multierr.AppendInto(&errs, motor.GoTillStop(ctx, d, speed*60/a.mmPerRev, nil))
 		}(m)
 	}
 	homeWorkers.Wait()
@@ -442,10 +442,10 @@ func (b *ResetBox) home(ctx context.Context) error {
 	errs := multierr.Combine(
 		b.armHome(ctx),
 		b.gripper.Open(ctx),
-		b.gate.GoTillStop(ctx, backward, 20),
-		b.squeeze.GoTillStop(ctx, backward, 20),
-		b.elevator.GoTillStop(ctx, backward, 200),
-		b.hammer.GoTillStop(ctx, backward, 200),
+		b.gate.GoTillStop(ctx, backward, 20, nil),
+		b.squeeze.GoTillStop(ctx, backward, 20, nil),
+		b.elevator.GoTillStop(ctx, backward, 200, nil),
+		b.hammer.GoTillStop(ctx, backward, 200, nil),
 	)
 
 	errs = multierr.Combine(
@@ -712,7 +712,7 @@ func (b *ResetBox) runReset(ctx context.Context) error {
 	errs = b.placeDuck(ctx)
 
 	// Try again if the duck gets stuck in the squeezer
-	if errs.Error() == "missed the duck twice" {
+	if errs != nil && errs.Error() == "missed the duck twice" {
 		errs = multierr.Combine(
 			// Back down for duck
 			b.elevator.GoTo(ctx, elevatorSpeed, elevatorBottom),
