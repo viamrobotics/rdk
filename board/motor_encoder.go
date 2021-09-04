@@ -109,7 +109,7 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 		em.rampRate = 0.2 // Use a conservative value by default.
 	}
 
-	if em.rampRate < 0 || em.rampRate > 1 {
+	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
 		return nil, fmt.Errorf("max power pct needs to be [0,1) but is %v", em.maxPowerPct)
 	}
 	if em.maxPowerPct == 0 {
