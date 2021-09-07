@@ -35,6 +35,9 @@ func TestModelLoading(t *testing.T) {
 
 	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
 	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+
+	m.SetName("foo")
+	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestJoint(t *testing.T) {
