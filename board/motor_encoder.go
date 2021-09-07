@@ -19,7 +19,7 @@ import (
 var (
 	_rpmDebugMu sync.Mutex
 	_rpmSleep   = 50 * time.Millisecond // really just for testing
-	_rpmDebug   = true
+	_rpmDebug   = false
 )
 
 func getRPMSleepDebug() (time.Duration, bool) {
@@ -98,6 +98,7 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 		stateMu:                 &sync.RWMutex{},
 		startedRPMMonitorMu:     &sync.Mutex{},
 		rampRate:                cfg.RampRate,
+		maxPowerPct:             cfg.MaxPowerPct,
 		logger:                  logger,
 	}
 
@@ -106,6 +107,19 @@ func newEncodedMotor(cfg MotorConfig, real Motor, encoder Encoder, logger golog.
 	}
 	if em.rampRate == 0 {
 		em.rampRate = 0.2 // Use a conservative value by default.
+	}
+
+	if em.maxPowerPct < 0 || em.maxPowerPct > 1 {
+		return nil, fmt.Errorf("max power pct needs to be [0,1) but is %v", em.maxPowerPct)
+	}
+	if em.maxPowerPct == 0 {
+		em.maxPowerPct = 1.0
+	}
+
+	if val, ok := cfg.Attributes["rpmDebug"]; ok {
+		if val == "true" {
+			_rpmDebug = true
+		}
 	}
 
 	return em, nil
@@ -126,7 +140,8 @@ type encodedMotor struct {
 	// how fast as we increase power do we do so
 	// valid numbers are [0, 1)
 	// .01 would ramp very slowly, 1 would ramp instantaneously
-	rampRate float32
+	rampRate    float32
+	maxPowerPct float32
 
 	rpmMonitorCalls int64
 	logger          golog.Logger
@@ -139,6 +154,7 @@ type encodedMotor struct {
 type encodedMotorState struct {
 	regulated    bool
 	desiredRPM   float64 // <= 0 means worker should do nothing
+	currentRPM   float64
 	lastPowerPct float32
 	curDirection pb.DirectionRelative
 	setPoint     int64
@@ -179,9 +195,9 @@ func (m *encodedMotor) setRegulated(b bool) {
 	m.stateMu.Unlock()
 }
 
-func fixPowerPct(powerPct float32) float32 {
-	if powerPct > 1 {
-		powerPct = 1
+func (m *encodedMotor) fixPowerPct(powerPct float32) float32 {
+	if powerPct > m.maxPowerPct {
+		powerPct = m.maxPowerPct
 	} else if powerPct < 0 {
 		powerPct = 0
 	}
@@ -199,8 +215,8 @@ func (m *encodedMotor) setPower(ctx context.Context, powerPct float32, internal 
 	if !internal {
 		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
 	}
-	m.state.lastPowerPct = fixPowerPct(powerPct)
-	return m.real.Power(ctx, powerPct)
+	m.state.lastPowerPct = m.fixPowerPct(powerPct)
+	return m.real.Power(ctx, m.state.lastPowerPct)
 }
 
 func (m *encodedMotor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
@@ -215,9 +231,9 @@ func (m *encodedMotor) doGo(ctx context.Context, d pb.DirectionRelative, powerPc
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
-	m.state.lastPowerPct = fixPowerPct(powerPct)
+	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 	m.state.curDirection = d
-	return m.real.Go(ctx, d, powerPct)
+	return m.real.Go(ctx, d, m.state.lastPowerPct)
 }
 
 func (m *encodedMotor) rpmMonitorStart() {
@@ -355,6 +371,7 @@ func (m *encodedMotor) rpmMonitorPassSetRpmInLock(pos, lastPos, now, lastTime in
 	if minutes == 0 {
 		currentRPM = 0
 	}
+	m.state.currentRPM = currentRPM
 
 	var newPowerPct float32
 
@@ -398,9 +415,9 @@ func (m encodedMotor) computeRamp(oldPower, newPower float32) float32 {
 	}
 	delta := newPower - oldPower
 	if math.Abs(float64(delta)) <= 1.0/255.0 {
-		return newPower
+		return m.fixPowerPct(newPower)
 	}
-	return oldPower + (delta * m.rampRate)
+	return m.fixPowerPct(oldPower + (delta * m.rampRate))
 }
 
 func (m *encodedMotor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
@@ -505,12 +522,8 @@ func (m *encodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition flo
 	return m.GoFor(ctx, dir, rpm, moveDistance)
 }
 
-// GoTillStop moves until physically stopped (though with a ten second timeout)
-func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
-	origPos, err := m.Position(ctx)
-	if err != nil {
-		return err
-	}
+// GoTillStop moves until physically stopped (though with a ten second timeout) or stopFunc() returns true.
+func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.GoFor(ctx, d, rpm, 0); err != nil {
 		return err
 	}
@@ -519,26 +532,63 @@ func (m *encodedMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, r
 			m.logger.Error("failed to turn off motor")
 		}
 	}()
-	var fails int
+	var tries, rpmCount uint
+
 	for {
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
 		}
-
-		curPos, err := m.Position(ctx)
-		if err != nil {
-			return err
-		}
-
-		if math.Abs(origPos-curPos) < 0.1 {
+		if stopFunc != nil && stopFunc(ctx) {
 			return nil
 		}
 
-		if fails >= 100 {
+		// If we start moving OR just try for too long, good for next phase
+		m.stateMu.RLock()
+		curRPM := m.state.currentRPM
+		m.stateMu.RUnlock()
+		if curRPM >= rpm/10 {
+			rpmCount++
+		} else {
+			rpmCount = 0
+		}
+		if rpmCount >= 50 || tries > 200 {
+			tries = 0
+			rpmCount = 0
+			break
+		}
+		tries++
+	}
+
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
+		}
+
+		m.stateMu.RLock()
+		curRPM := m.state.currentRPM
+		m.stateMu.RUnlock()
+
+		if curRPM <= rpm/10 {
+			rpmCount++
+		} else {
+			rpmCount = 0
+		}
+
+		if rpmCount >= 50 {
+			break
+		}
+
+		if tries >= 1000 {
 			return errors.New("timed out during GoTillStop")
 		}
-		fails++
+
+		tries++
 	}
+	return nil
 }
 
 // Zero resets the position to zero/home
