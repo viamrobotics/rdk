@@ -319,7 +319,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 }
 
 func TestWrapMotorWithEncoderRampMath(t *testing.T) {
-	m := encodedMotor{rampRate: 0.5}
+	m := encodedMotor{rampRate: 0.5, maxPowerPct: 1.0}
 
 	test.That(t, m.computeRamp(0, 1), test.ShouldEqual, .5)
 	test.That(t, m.computeRamp(0.5, 1), test.ShouldEqual, .75)
@@ -338,5 +338,11 @@ func TestWrapMotorWithEncoderRampMath(t *testing.T) {
 	test.That(t, m.computeRamp(.8+(1.0/255.0), .8), test.ShouldEqual, .8)
 	test.That(t, m.computeRamp(.8-(2.0/255.0), .8), test.ShouldAlmostEqual, .7941176, .0000001)
 	test.That(t, m.computeRamp(.8+(2.0/255.0), .8), test.ShouldAlmostEqual, .8058823, .0000001)
+
+	m = encodedMotor{rampRate: 0.5, maxPowerPct: 0.65}
+	test.That(t, m.computeRamp(0.5, 1), test.ShouldEqual, .65)
+	test.That(t, m.computeRamp(0.65, 0.9), test.ShouldEqual, .65)
+	test.That(t, m.computeRamp(0.2, 1), test.ShouldEqual, .6)
+	test.That(t, m.computeRamp(0.7, 0.701), test.ShouldEqual, .65)
 
 }

@@ -345,8 +345,7 @@ func (m *TMCStepperMotor) Off(ctx context.Context) error {
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
-// This is then set as the new zero/home position.
-func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if err := m.GoFor(ctx, d, rpm, 1000); err != nil {
 		return err
 	}
@@ -367,8 +366,12 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueSpeed: %d", sg)
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
 		}
 
 		stat, err := m.readReg(ctx, rampStat)
@@ -380,7 +383,7 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			break
 		}
 
-		if fails >= 50 {
+		if fails >= 500 {
 			return errors.New("timed out during GoTillStop acceleration")
 		}
 		fails++
@@ -397,8 +400,12 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 		// sg, _ := m.GetSG(ctx)
 		// m.logger.Debugf("SGValueReady: %d", sg)
 
-		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
 		}
 
 		stat, err := m.readReg(ctx, rampStat)
@@ -410,21 +417,16 @@ func (m *TMCStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative
 			break
 		}
 
-		if fails >= 100 {
+		if fails >= 1000 {
 			return errors.New("timed out during GoTillStop")
 		}
 		fails++
 	}
 
-	// Stop
-	if err := m.Off(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 
-// Zero resets the current position to zero.
+// Zero resets the current position to the offset given.
 func (m *TMCStepperMotor) Zero(ctx context.Context, offset float64) error {
 	on, err := m.IsOn(ctx)
 	if err != nil {

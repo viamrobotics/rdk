@@ -96,7 +96,7 @@ type Motor interface {
 	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error
+	GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	Zero(ctx context.Context, offset float64) error
