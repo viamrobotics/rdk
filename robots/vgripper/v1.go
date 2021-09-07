@@ -41,7 +41,7 @@ const (
 	OpenPosOffset           = 0.2 // Reduce maximum opening width, keeps out of mechanical binding region
 )
 
-// GripperV1 TODO
+// GripperV1 represents a Viam gripper
 type GripperV1 struct {
 	motor    board.Motor
 	current  board.AnalogReader
@@ -59,7 +59,7 @@ type GripperV1 struct {
 	numBadCurrentReadings int
 }
 
-// NewGripperV1 TODO
+// NewGripperV1 Returns a GripperV1
 func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, logger golog.Logger) (*GripperV1, error) {
 
 	motor, ok := theBoard.MotorByName("g")
@@ -99,10 +99,18 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		return nil, errors.New("gripper needs a current and a pressure reader")
 	}
 
-	var pressureSeen, nonPressureSeen, hasPressureA, hasPressureB bool
-	var posA, posB, pressurePos float64
-	var pressureCount, nonPressureCount int
+	// Variables for the overall init process
+	var posA, posB float64
+	var hasPressureA, hasPressureB bool
 
+	// Variables to be reset between each movement/test
+	type movementTest struct {
+		pressureSeen, nonPressureSeen   bool
+		pressurePos                     float64
+		pressureCount, nonPressureCount int
+	}
+
+	localTest := &movementTest{}
 	// This will be passed to GoTillStop
 	stopFunc := func(ctx context.Context) bool {
 		current, err := vg.readCurrent(ctx)
@@ -121,25 +129,25 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 			return true
 		}
 		if pressure < 975 {
-			if nonPressureSeen {
-				pressureCount++
+			if localTest.nonPressureSeen {
+				localTest.pressureCount++
 			}
 		} else {
-			nonPressureCount++
+			localTest.nonPressureCount++
 			// Capture the last position BEFORE pressure is detected
-			pressurePos, err = vg.motor.Position(ctx)
+			localTest.pressurePos, err = vg.motor.Position(ctx)
 			if err != nil {
 				logger.Error(err)
 				return true
 			}
 		}
-		if nonPressureCount == 15 {
-			nonPressureSeen = true
+		if localTest.nonPressureCount == 15 {
+			localTest.nonPressureSeen = true
 			logger.Debug("init: non-pressure range found")
 		}
-		if pressureCount >= 5 {
+		if localTest.pressureCount >= 5 {
 			logger.Debug("init: pressure sensing (closed) direction found")
-			pressureSeen = true
+			localTest.pressureSeen = true
 			return true
 		}
 		return false
@@ -151,9 +159,9 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	if err != nil {
 		return nil, err
 	}
-	if pressureSeen {
+	if localTest.pressureSeen {
 		hasPressureA = true
-		posA = pressurePos
+		posA = localTest.pressurePos
 	} else {
 		posA, err = vg.motor.Position(ctx)
 		if err != nil {
@@ -161,22 +169,38 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 		}
 	}
 	// Test backward motion for pressure/endpoint
-	pressureCount = 0
-	nonPressureCount = 0
-	pressureSeen = false
-	nonPressureSeen = false
+	localTest = &movementTest{}
 	logger.Debug("init: moving backward")
 	err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, TargetRPM/2, stopFunc)
 	if err != nil {
 		return nil, err
 	}
-	if pressureSeen {
+	if localTest.pressureSeen {
 		hasPressureB = true
-		posB = pressurePos
+		posB = localTest.pressurePos
 	} else {
 		posB, err = vg.motor.Position(ctx)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// One final movement, in the case that we start closed AND the first movement was also toward closed (no non-pressure range seen)
+	if !hasPressureA && !hasPressureB {
+		localTest = &movementTest{}
+		logger.Debug("init: moving forward (2nd try)")
+		err = vg.motor.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, TargetRPM/2, stopFunc)
+		if err != nil {
+			return nil, err
+		}
+		if localTest.pressureSeen {
+			hasPressureA = true
+			posA = localTest.pressurePos
+		} else {
+			posA, err = vg.motor.Position(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -224,7 +248,7 @@ func NewGripperV1(ctx context.Context, theBoard board.Board, pressureLimit int, 
 	return vg, vg.Open(ctx)
 }
 
-// Open the jaws
+// Open opens the jaws
 func (vg *GripperV1) Open(ctx context.Context) error {
 	err := vg.Stop(ctx)
 	if err != nil {
@@ -267,7 +291,7 @@ func (vg *GripperV1) Open(ctx context.Context) error {
 	}
 }
 
-// Grab TODO
+// Grab closes the jaws until pressure is sensed and returns true, or until closed position is reached, and returns false
 func (vg *GripperV1) Grab(ctx context.Context) (bool, error) {
 	err := vg.Stop(ctx)
 	if err != nil {
@@ -339,7 +363,7 @@ func (vg *GripperV1) processCurrentReading(ctx context.Context, current int, whe
 	return errors.Errorf("current too high for too long, currently %d during %s", current, where)
 }
 
-// Close TODO
+// Close stops the motors
 func (vg *GripperV1) Close() error {
 	return vg.Stop(context.Background())
 }
@@ -348,7 +372,7 @@ func (vg *GripperV1) stopAfterError(ctx context.Context, other error) error {
 	return multierr.Combine(other, vg.motor.Off(ctx))
 }
 
-// Stop TODO
+// Stop stops the motors
 func (vg *GripperV1) Stop(ctx context.Context) error {
 	return vg.motor.Off(ctx)
 }
