@@ -190,7 +190,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 			toStringVal += string(memory.Data()[stringValPtrIdx])
 			stringValPtrIdx++
 		}
-		rlog.Logger.Debug("HOST -- ARG 0", toStringVal)
+		rlog.Logger.Debug("HOST -- ARG 0 ", toStringVal)
 
 		if args[2].I32() > 1 {
 			stringVal, err := exportedFuncs["JS_ToCString"](args[0].I32(), readJSValue(memory, args[3].I32()+8))
@@ -205,7 +205,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 				toStringVal += string(memory.Data()[stringValPtrIdx])
 				stringValPtrIdx++
 			}
-			rlog.Logger.Debug("HOST -- ARG 1", toStringVal)
+			rlog.Logger.Debug("HOST -- ARG 1 ", toStringVal)
 		}
 
 		return []wasmer.Value{wasmer.NewI64(44)}, nil
