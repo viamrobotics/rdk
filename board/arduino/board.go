@@ -291,7 +291,7 @@ func (b *arduinoBoard) PWSetArduino(pin string, dutyCycle byte) error {
 		return err
 	}
 	if res != "ok" {
-		return fmt.Errorf("Unexpected return from PWMSet got %s", res)
+		return fmt.Errorf("unexpected return from PWMSet got %s", res)
 	}
 	return nil
 }
@@ -307,7 +307,7 @@ func (b *arduinoBoard) PWMSetFreqArduino(pin string, freq uint) error {
 		return err
 	}
 	if res != "ok" {
-		return fmt.Errorf("Unexpected return from PWMSetFreq got %s", res)
+		return fmt.Errorf("unexpected return from PWMSetFreq got %s", res)
 	}
 	return nil
 }
