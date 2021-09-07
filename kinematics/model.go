@@ -41,8 +41,7 @@ type SolverDistanceWeights struct {
 // Exceptions are the head of the tree where we are just starting the robot from World
 type Model struct {
 	manufacturer string
-	name         string               // the name of the arm
-	parent       referenceframe.Frame // the parent frame of the arm
+	name         string // the name of the arm
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []referenceframe.Frame
 	SolveWeights  SolverDistanceWeights
@@ -90,16 +89,6 @@ func (m *Model) Name() string {
 // SetName changes the name of this model
 func (m *Model) SetName(name string) {
 	m.name = name
-}
-
-// SetParent sets the parent frame
-func (m *Model) SetParent(parent referenceframe.Frame) {
-	m.parent = parent
-}
-
-// Parent returns the parent frame
-func (m *Model) Parent() referenceframe.Frame {
-	return m.parent
 }
 
 // Limits returns an array of the minimum/maximum allowable position for each joint.
