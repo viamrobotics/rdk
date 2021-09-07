@@ -16,7 +16,7 @@ BINARIES=( \
 # To be checked via pkg-config --modversion (not always the package version)
 LIBRARIES=( \
 	"vpx 1.7.0 1.10.0" \
-	"x264 0.155.2917 0.161.3049" \
+	"x264 0.155.2917 0.163.3060" \
 	"nlopt 2.7.0 2.7.0" \
 )
 
