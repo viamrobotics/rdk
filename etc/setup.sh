@@ -95,7 +95,7 @@ if [ "$(uname)" = "Darwin" ]; then
     brew "libvpx"
     brew "x264"
     brew "pkgconfig"
-    brew "protobuf", args: ["ignore-dependencies", "go"]
+    brew "protobuf"
     brew "buf"
 EOS
   curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
