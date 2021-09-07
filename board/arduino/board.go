@@ -141,7 +141,6 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 			cfg.Pins[pin] = "-1"
 		}
 	}
-
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		cfg.Name,
 		cfg.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
@@ -167,6 +166,21 @@ func (b *arduinoBoard) configureMotor(cfg board.MotorConfig) error {
 		return err
 	}
 	b.motors[cfg.Name] = m
+	if cfg.Pins["pwm"] != "-1" && cfg.PWMFreq > 0 {
+		err = b.PWMSetFreqArduino(cfg.Pins["pwm"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+	} else if (cfg.Pins["a"] != "-1" && cfg.Pins["b"] != "-1") && cfg.PWMFreq > 0 {
+		err = b.PWMSetFreqArduino(cfg.Pins["a"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+		err = b.PWMSetFreqArduino(cfg.Pins["b"], cfg.PWMFreq)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -268,12 +282,34 @@ func (b *arduinoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 
 // PWMSet sets the given pin to the given duty cycle.
 func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	return errors.New("GPIO not supported on arduino yet")
+	return b.PWSetArduino(pin, dutyCycle)
+}
+func (b *arduinoBoard) PWSetArduino(pin string, dutyCycle byte) error {
+	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
+	res, err := b.runCommand(cmd)
+	if err != nil {
+		return err
+	}
+	if res != "ok" {
+		return fmt.Errorf("Unexpected return from PWMSet got %s", res)
+	}
+	return nil
 }
 
 // PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	return errors.New("GPIO not supported on arduino yet")
+	return b.PWMSetFreqArduino(pin, freq)
+}
+func (b *arduinoBoard) PWMSetFreqArduino(pin string, freq uint) error {
+	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
+	res, err := b.runCommand(cmd)
+	if err != nil {
+		return err
+	}
+	if res != "ok" {
+		return fmt.Errorf("Unexpected return from PWMSetFreq got %s", res)
+	}
+	return nil
 }
 
 // MotorNames returns the name of all known motors.
