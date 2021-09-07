@@ -34,25 +34,25 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.GetFrame("world"), test.ShouldNotBeNil)
 	test.That(t, fs.GetFrame("pieceArm"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("pieceArm").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{500, 0, 300})
+	pointAlmostEqual(t, fs.GetFrame("pieceArm").Transform(emptyIn).Point(), r3.Vector{500, 0, 300})
 	test.That(t, fs.GetFrame("pieceArm_offset"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("pieceArm_offset").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{500, 500, 1000})
+	pointAlmostEqual(t, fs.GetFrame("pieceArm_offset").Transform(emptyIn).Point(), r3.Vector{500, 500, 1000})
 	test.That(t, fs.GetFrame("pieceGripper"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("pieceGripper").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 200})
+	pointAlmostEqual(t, fs.GetFrame("pieceGripper").Transform(emptyIn).Point(), r3.Vector{0, 0, 200})
 	test.That(t, fs.GetFrame("pieceGripper_offset"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("pieceGripper_offset").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 0})
+	pointAlmostEqual(t, fs.GetFrame("pieceGripper_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
 	test.That(t, fs.GetFrame("compass2"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("compass2").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 0})
+	pointAlmostEqual(t, fs.GetFrame("compass2").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
 	test.That(t, fs.GetFrame("compass2_offset"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("compass2_offset").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 0})
+	pointAlmostEqual(t, fs.GetFrame("compass2_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
 	test.That(t, fs.GetFrame("cameraOver"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("cameraOver").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 0})
+	pointAlmostEqual(t, fs.GetFrame("cameraOver").Transform(emptyIn).Point(), r3.Vector{0, 0, 0})
 	test.That(t, fs.GetFrame("cameraOver_offset"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("cameraOver_offset").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{2000, 500, 1300})
+	pointAlmostEqual(t, fs.GetFrame("cameraOver_offset").Transform(emptyIn).Point(), r3.Vector{2000, 500, 1300})
 	test.That(t, fs.GetFrame("lidar1"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("lidar1").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{50, 0, 0})
+	pointAlmostEqual(t, fs.GetFrame("lidar1").Transform(emptyIn).Point(), r3.Vector{50, 0, 0})
 	test.That(t, fs.GetFrame("lidar1_offset"), test.ShouldNotBeNil)
-	test.That(t, fs.GetFrame("lidar1_offset").Transform(emptyIn).Point(), test.ShouldResemble, r3.Vector{0, 0, 200})
+	pointAlmostEqual(t, fs.GetFrame("lidar1_offset").Transform(emptyIn).Point(), r3.Vector{0, 0, 200})
 	test.That(t, fs.GetFrame("compass1"), test.ShouldBeNil) // compass1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world frame. See if it transforms correctly in each frame.
@@ -60,44 +60,32 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	armPt := r3.Vector{0, 0, 500}
 	transformPoint, err := fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, armPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, armPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, armPt.Z)
+	pointAlmostEqual(t, transformPoint, armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("compass2"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, sensorPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, sensorPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, sensorPt.Z)
+	pointAlmostEqual(t, transformPoint, sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, gripperPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, gripperPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, gripperPt.Z)
+	pointAlmostEqual(t, transformPoint, gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, cameraPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, cameraPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, cameraPt.Z)
+	pointAlmostEqual(t, transformPoint, cameraPt)
 
 	lidarPt := r3.Vector{450, 0, -200}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("lidar1"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, lidarPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, lidarPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, lidarPt.Z)
+	pointAlmostEqual(t, transformPoint, lidarPt)
 
 	// go from camera point to gripper point
 	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.X, test.ShouldAlmostEqual, gripperPt.X)
-	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, gripperPt.Y)
-	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, gripperPt.Z)
+	pointAlmostEqual(t, transformPoint, gripperPt)
 
 }
 
@@ -126,4 +114,10 @@ func TestWrongFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
+	test.That(t, from.X, test.ShouldAlmostEqual, to.X)
+	test.That(t, from.Y, test.ShouldAlmostEqual, to.Y)
+	test.That(t, from.Z, test.ShouldAlmostEqual, to.Z)
 }
