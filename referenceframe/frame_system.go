@@ -5,8 +5,11 @@ import (
 	"fmt"
 
 	"github.com/golang/geo/r3"
+
 	spatial "go.viam.com/core/spatialmath"
 )
+
+const world = "world"
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
@@ -31,7 +34,7 @@ type simpleFrameSystem struct {
 }
 
 // NewEmptySimpleFrameSystem creates a graph of Frames that have
-func NewEmptySimpleFrameSystem(name string) *simpleFrameSystem {
+func NewEmptySimpleFrameSystem(name string) FrameSystem {
 	worldFrame := NewStaticFrame("world", nil)
 	frames := map[string]Frame{}
 	parents := map[Frame]Frame{}
@@ -45,7 +48,7 @@ func (sfs *simpleFrameSystem) World() Frame {
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
 func (sfs *simpleFrameSystem) frameExists(name string) bool {
-	if name == "world" {
+	if name == world {
 		return true
 	}
 	if _, ok := sfs.frames[name]; ok {
@@ -72,7 +75,7 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
 	}
-	if name == "world" {
+	if name == world {
 		return sfs.world
 	}
 	return sfs.frames[name]
@@ -193,15 +196,6 @@ func (sfs *simpleFrameSystem) Name() string {
 	return sfs.name
 }
 
-// StartPositions returns a zeroed input map ensuring all frames have inputs
-func (sfs *simpleFrameSystem) StartPositions() map[string][]Input {
-	positions := make(map[string][]Input)
-	for _, frame := range sfs.frames {
-		positions[frame.Name()] = make([]Input, frame.Dof())
-	}
-	return positions
-}
-
 // compose the quaternions from the input frame to the world frame
 func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
 	q := spatial.NewEmptyPose()     // empty initial dualquat
@@ -240,7 +234,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 
 	// Go through fs2, and reset the parent of any relevant fromes from world to the new offset
 	for frame, parent := range fs2.Parents() {
-		if parent.Name() == "world" {
+		if parent.Name() == world {
 			parent = offset
 		}
 		if newFS.frameExists(frame.Name()) {
@@ -257,7 +251,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 // descendents removed.
 func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error) {
 	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
-	newWorld := NewStaticFrame("world", nil)
+	newWorld := NewStaticFrame(world, nil)
 	newFS2 := &simpleFrameSystem{newRoot.Name(), newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
 	rootFrame := fs1.GetFrame(newRoot.Name())
@@ -293,4 +287,13 @@ func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem
 	}
 
 	return newFS1, newFS2, nil
+}
+
+// StartPositions returns a zeroed input map ensuring all frames have inputs
+func StartPositions(fs FrameSystem) map[string][]Input {
+	positions := make(map[string][]Input)
+	for _, frame := range fs.Frames() {
+		positions[frame.Name()] = make([]Input, frame.Dof())
+	}
+	return positions
 }

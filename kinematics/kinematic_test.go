@@ -142,14 +142,13 @@ func TestInline(t *testing.T) {
 // Test dynamic frame systems
 // Since kinematics imports reference frame, this needs to be here to avoid circular dependencies
 func TestDynamicFrameSystemXArm(t *testing.T) {
-	dfs := frame.NewEmptySimpleFrameSystem("test")
-	fs := frame.FrameSystem(dfs)
+	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	model, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
-	positions := dfs.StartPositions()
+	positions := frame.StartPositions(fs)
 
 	// This will need to be updated once the gripper is removed from the xarm kinematics json file
 	// World point of xArm at 0 position
@@ -184,16 +183,14 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 // gripper on a 3cm stick. We also model a xArm6 which is placed on an XY gantry, which is zeroed at (-50,-50,-200).
 // Ensure that we are able to transform points from the camera frame into world frame, to gantry frame, and to xarm frame.
 func TestComplicatedDynamicFrameSystem(t *testing.T) {
-	dfs := frame.NewEmptySimpleFrameSystem("test")
-	fs := frame.FrameSystem(dfs)
+	fs := frame.NewEmptySimpleFrameSystem("test")
 
 	urOffset := frame.NewStaticFrame("urOffset", spatial.NewPoseFromPoint(r3.Vector{100, 100, 200}))
 	fs.AddFrame(urOffset, fs.World())
 	gantryOffset := frame.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
 	fs.AddFrame(gantryOffset, fs.World())
 
-	gantry := frame.NewPrismaticFrame("gantry", []bool{true, true, false})
-	gantry.SetLimits([]float64{-999, -999}, []float64{999, 999})
+	gantry := frame.NewPrismaticFrame("gantry", []bool{true, true, false}, []float64{math.Inf(-1), math.Inf(-1)}, []float64{math.Inf(1), math.Inf(1)})
 	fs.AddFrame(gantry, gantryOffset)
 
 	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))
@@ -209,7 +206,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	urCamera := frame.NewStaticFrame("urCamera", spatial.NewPoseFromPoint(r3.Vector{0, 0, 30}))
 	fs.AddFrame(urCamera, modelUR5e)
 
-	positions := dfs.StartPositions()
+	positions := frame.StartPositions(fs)
 
 	pointUR5e := r3.Vector{-717.2, -132.9, 262.8}
 	// Camera translates by 30, gripper is pointed at -Y

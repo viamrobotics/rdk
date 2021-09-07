@@ -29,7 +29,7 @@ func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVec) Pose {
 	return quat
 }
 
-// NewPoseFromAxisAngle takes in a positon, rotationAxis, and angle and returns a Pose.
+// NewPoseFromAxisAngle takes in a position, rotationAxis, and angle and returns a Pose.
 // angle is input in radians.
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 	emptyVec := r3.Vector{0, 0, 0}

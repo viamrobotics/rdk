@@ -142,7 +142,7 @@ func (q *DualQuaternion) rotate() {
 
 // Invert returns a DualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
 // then Invert(p) will transform b -> a
-func (q *DualQuaternion) Invert() Pose{
+func (q *DualQuaternion) Invert() Pose {
 	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
@@ -308,7 +308,7 @@ func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
 
-// equality test for all the float components of a quaternion
+// AlmostEqual is an equality test for all the float components of a quaternion
 func AlmostEqual(a, b quat.Number, tol float64) bool {
 	if math.Abs(a.Real-b.Real) > tol {
 		return false

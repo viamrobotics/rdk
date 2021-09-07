@@ -119,8 +119,8 @@ func TestServer(t *testing.T) {
 		cfg := config.Config{
 			Components: []config.Component{
 				{
-					Name:   "a",
-					Type:   config.ComponentTypeArm,
+					Name: "a",
+					Type: config.ComponentTypeArm,
 					Frame: &config.FrameConfig{
 						Parent: "b",
 					},

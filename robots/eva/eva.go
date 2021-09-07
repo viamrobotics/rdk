@@ -39,7 +39,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewEva(ctx, config.Host, config.Attributes, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return EvaFrame(name) },
+		Frame: func(name string) (referenceframe.Frame, error) { return evaFrame(name) },
 	})
 }
 
@@ -313,13 +313,13 @@ func (e *eva) apiUnlock(ctx context.Context) {
 }
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
-func EvaModel() (*kinematics.Model, error) {
+func evaModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(evamodeljson)
 }
 
 // EvaFrame() returns the reference frame of the Eva, also
-func EvaFrame(name string) (referenceframe.Frame, error) {
-	frame, err := EvaModel()
+func evaFrame(name string) (referenceframe.Frame, error) {
+	frame, err := evaModel()
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func EvaFrame(name string) (referenceframe.Frame, error) {
 // NewEva TODO
 func NewEva(ctx context.Context, host string, attrs config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 
-	model, err := EvaModel()
+	model, err := evaModel()
 	if err != nil {
 		return nil, err
 	}

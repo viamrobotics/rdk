@@ -22,7 +22,7 @@ type Input struct {
 // FloatsToInputs wraps a slice of floats in Inputs
 func FloatsToInputs(floats []float64) []Input {
 	inputs := make([]Input, len(floats))
-	for i, f := range(floats){
+	for i, f := range floats {
 		inputs[i] = Input{f}
 	}
 	return inputs
@@ -90,17 +90,15 @@ func (sf *staticFrame) Limits() ([]float64, []float64) {
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
 type prismaticFrame struct {
-	name      string
-	axes      []bool
-	min       []float64
-	max       []float64
+	name string
+	axes []bool
+	min  []float64
+	max  []float64
 }
 
 // NewPrismaticFrame creates a frame given a name and the axes in which to translate
-func NewPrismaticFrame(name string, axes []bool) *prismaticFrame {
-	pf := &prismaticFrame{name: name, axes: axes}
-	pf.min = make([]float64, pf.Dof())
-	pf.max = make([]float64, pf.Dof())
+func NewPrismaticFrame(name string, axes []bool, min, max []float64) Frame {
+	pf := &prismaticFrame{name: name, axes: axes, min: min, max: max}
 	return pf
 }
 
@@ -150,19 +148,21 @@ func (pf *prismaticFrame) SetLimits(min, max []float64) {
 }
 
 type revoluteFrame struct {
-	name       string
-	rotAxis    spatial.R4AA
-	max        float64
-	min        float64
-	wraparound []bool
+	name    string
+	rotAxis spatial.R4AA
+	max     float64
+	min     float64
 }
 
-// NewRevolute creates a new revoluteFrame struct.
+// NewRevoluteFrame creates a new revoluteFrame struct.
 // A standard revolute joint will have 1 DOF
-func NewRevoluteFrame(name string, axis spatial.R4AA) *revoluteFrame {
-	rf := revoluteFrame{}
-	rf.name = name
-	rf.rotAxis = axis
+func NewRevoluteFrame(name string, axis spatial.R4AA, min, max float64) Frame {
+	rf := revoluteFrame{
+		name:    name,
+		rotAxis: axis,
+		min:     min,
+		max:     max,
+	}
 	rf.rotAxis.Normalize()
 
 	return &rf
@@ -189,12 +189,6 @@ func (rf *revoluteFrame) Dof() int {
 // Limits returns the minimum/maximum allowable values for this frame.
 func (rf *revoluteFrame) Limits() ([]float64, []float64) {
 	return []float64{rf.min}, []float64{rf.max}
-}
-
-// SetLimits sets the lower/upper input limits of the frame.
-func (rf *revoluteFrame) SetLimits(min, max float64) {
-	rf.min = min
-	rf.max = max
 }
 
 // Name returns the name of the frame

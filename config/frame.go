@@ -18,7 +18,7 @@ type Orientation struct {
 
 // FrameConfig specifies what type of Frame should be created for the component, and how.
 type FrameConfig struct {
-	Parent         string      `json:"parent"`
-	Translate      Translation `json:"translation"`
-	Orient         Orientation `json:"orientation"`
+	Parent    string      `json:"parent"`
+	Translate Translation `json:"translation"`
+	Orient    Orientation `json:"orientation"`
 }

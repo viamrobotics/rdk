@@ -193,18 +193,18 @@ func TestRemoteRobot(t *testing.T) {
 	_, err := robot.Config(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
-	
-	confGen := func() *config.Config{
+
+	confGen := func() *config.Config {
 		return &config.Config{
 			Components: []config.Component{
 				{
-					Name:   "foo",
+					Name: "foo",
 					Frame: &config.FrameConfig{
 						Parent: "bar",
 					},
 				},
 				{
-					Name:   "bar",
+					Name: "bar",
 					Frame: &config.FrameConfig{
 						Parent: "",
 					},
@@ -212,7 +212,7 @@ func TestRemoteRobot(t *testing.T) {
 			},
 		}
 	}
-	
+
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return confGen(), nil
 	}

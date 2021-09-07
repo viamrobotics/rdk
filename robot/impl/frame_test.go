@@ -59,36 +59,42 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	worldPt := r3.Vector{1500, 500, 1300}
 	armPt := r3.Vector{0, 0, 500}
 	transformPoint, err := fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, armPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, armPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, armPt.Z)
 
 	sensorPt := r3.Vector{0, 0, 500}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("compass2"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, sensorPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, sensorPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, sensorPt.Z)
 
 	gripperPt := r3.Vector{0, 0, 300}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, gripperPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, gripperPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, gripperPt.Z)
 
 	cameraPt := r3.Vector{500, 0, 0}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, cameraPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, cameraPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, cameraPt.Z)
 
 	lidarPt := r3.Vector{450, 0, -200}
 	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("lidar1"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, lidarPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, lidarPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, lidarPt.Z)
 
 	// go from camera point to gripper point
 	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, gripperPt.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, gripperPt.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, gripperPt.Z)
@@ -100,7 +106,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (mispelled parent)
+	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (misspelled parent)
 	test.That(t, err, test.ShouldBeNil)
 	r, err := robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeNil)

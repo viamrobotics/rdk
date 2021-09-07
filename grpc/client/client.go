@@ -210,13 +210,13 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 	var cfg config.Config
 	for _, c := range remoteConfig.Components {
 		cc := config.Component{
-			Name:   c.Name,
-			Type:   config.ComponentType(c.Type),
+			Name: c.Name,
+			Type: config.ComponentType(c.Type),
 			Frame: &config.FrameConfig{
 				Parent: c.Parent,
 			},
 		}
-		if c.Pose != nil{
+		if c.Pose != nil {
 			cc.Frame.Translate = config.Translation{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
