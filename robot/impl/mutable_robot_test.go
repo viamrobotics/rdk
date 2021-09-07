@@ -62,7 +62,7 @@ func TestConfigFake(t *testing.T) {
 
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read("data/fake.json")
+	cfg, err := config.Read("data/remote_fake.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
