@@ -94,3 +94,30 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, gripperPt.Z)
 
 }
+
+// All of these config files should fail
+func TestWrongFrameSystems(t *testing.T) {
+	// use impl/data/fake_wrongconfig*.json as config input
+	logger := golog.NewTestLogger(t)
+
+	cfg, err := config.Read("data/fake_wrongconfig1.json") // has disconnected components (mispelled parent)
+	test.That(t, err, test.ShouldBeNil)
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.FrameSystem(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg, err = config.Read("data/fake_wrongconfig2.json") // no world node
+	test.That(t, err, test.ShouldBeNil)
+	r, err = robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.FrameSystem(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg, err = config.Read("data/fake_wrongconfig3.json") // there is a cycle in the graph
+	test.That(t, err, test.ShouldBeNil)
+	r, err = robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.FrameSystem(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+}
