@@ -295,7 +295,7 @@ func (m *GPIOStepperMotor) GoTo(ctx context.Context, rpm float64, position float
 }
 
 // GoTillStop is not supported
-func (m *GPIOStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64) error {
+func (m *GPIOStepperMotor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("not supported")
 }
 
