@@ -1,28 +1,33 @@
-package config
+package config_test
 
 import (
 	"testing"
 
+	"github.com/go-errors/errors"
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/core/testutils/inject"
 )
 
 func TestConfigRobot(t *testing.T) {
-	cfg, err := Read("data/robot.json")
+	cfg, err := config.Read("data/robot.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
 	test.That(t, len(cfg.Remotes), test.ShouldEqual, 2)
-	test.That(t, cfg.Remotes[0], test.ShouldResemble, Remote{Name: "one", Address: "foo", Prefix: true})
-	test.That(t, cfg.Remotes[1], test.ShouldResemble, Remote{Name: "two", Address: "bar"})
+	test.That(t, cfg.Remotes[0], test.ShouldResemble, config.Remote{Name: "one", Address: "foo", Prefix: true})
+	test.That(t, cfg.Remotes[1], test.ShouldResemble, config.Remote{Name: "two", Address: "bar"})
 }
 
 func TestConfig2(t *testing.T) {
-	cfg, err := Read("data/cfgtest2.json")
+	cfg, err := config.Read("data/cfgtest2.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Boards), test.ShouldEqual, 1)
@@ -35,14 +40,14 @@ func TestConfig3(t *testing.T) {
 		Y string
 	}
 
-	RegisterAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
+	config.RegisterAttributeConverter("foo", "eliot", "bar", func(sub interface{}) (interface{}, error) {
 		t := &temp{}
 		err := mapstructure.Decode(sub, t)
 		return t, err
 	},
 	)
 
-	cfg, err := Read("data/config3.json")
+	cfg, err := config.Read("data/config3.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 1)
@@ -66,7 +71,7 @@ func TestConfig3(t *testing.T) {
 }
 
 func TestConfigLoad1(t *testing.T) {
-	cfg, err := Read("data/cfg3.json")
+	cfg, err := config.Read("data/cfg3.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	c1 := cfg.FindComponent("c1")
@@ -83,12 +88,12 @@ func TestConfigLoad1(t *testing.T) {
 }
 
 func TestCreateCloudRequest(t *testing.T) {
-	cfg := Cloud{
+	cfg := config.Cloud{
 		ID:     "a",
 		Secret: "b",
 		Path:   "c",
 	}
-	r, err := createCloudRequest(&cfg)
+	r, err := config.CreateCloudRequest(&cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
@@ -96,11 +101,11 @@ func TestCreateCloudRequest(t *testing.T) {
 }
 
 func TestConfigEnsure(t *testing.T) {
-	var emptyConfig Config
+	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false), test.ShouldBeNil)
 
-	invalidCloud := Config{
-		Cloud: &Cloud{},
+	invalidCloud := config.Config{
+		Cloud: &config.Cloud{},
 	}
 	err := invalidCloud.Ensure(false)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -120,8 +125,8 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.Self = "wooself"
 	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
 
-	invalidRemotes := Config{
-		Remotes: []Remote{{}},
+	invalidRemotes := config.Config{
+		Remotes: []config.Remote{{}},
 	}
 	err = invalidRemotes.Ensure(false)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -134,7 +139,7 @@ func TestConfigEnsure(t *testing.T) {
 	invalidRemotes.Remotes[0].Address = "bar"
 	test.That(t, invalidRemotes.Ensure(false), test.ShouldBeNil)
 
-	invalidBoards := Config{
+	invalidBoards := config.Config{
 		Boards: []board.Config{{}},
 	}
 	err = invalidBoards.Ensure(false)
@@ -144,8 +149,8 @@ func TestConfigEnsure(t *testing.T) {
 	invalidBoards.Boards[0].Name = "foo"
 	test.That(t, invalidBoards.Ensure(false), test.ShouldBeNil)
 
-	invalidComponents := Config{
-		Components: []Component{{}},
+	invalidComponents := config.Config{
+		Components: []config.Component{{}},
 	}
 	err = invalidComponents.Ensure(false)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -154,21 +159,21 @@ func TestConfigEnsure(t *testing.T) {
 	invalidComponents.Components[0].Name = "foo"
 	test.That(t, invalidComponents.Ensure(false), test.ShouldBeNil)
 
-	c1 := Component{Name: "c1"}
-	c2 := Component{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := Component{Name: "c6"}
-	c7 := Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
-	unsortedComponents := Config{
-		Components: []Component{c7, c6, c5, c3, c4, c1, c2},
+	c1 := config.Component{Name: "c1"}
+	c2 := config.Component{Name: "c2", DependsOn: []string{"c1"}}
+	c3 := config.Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := config.Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := config.Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := config.Component{Name: "c6"}
+	c7 := config.Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	unsortedComponents := config.Config{
+		Components: []config.Component{c7, c6, c5, c3, c4, c1, c2},
 	}
 	err = unsortedComponents.Ensure(false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, unsortedComponents.Components, test.ShouldResemble, []Component{c6, c1, c2, c3, c4, c7, c5})
+	test.That(t, unsortedComponents.Components, test.ShouldResemble, []config.Component{c6, c1, c2, c3, c4, c7, c5})
 
-	invalidProcesses := Config{
+	invalidProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{}},
 	}
 	err = invalidProcesses.Ensure(false)
@@ -180,96 +185,128 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false), test.ShouldBeNil)
+
+	invalidFunctions := config.Config{
+		Functions: []functionvm.FunctionConfig{{}},
+	}
+	err = invalidFunctions.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `functions.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
+
+	engName1 := utils.RandomAlphaString(64)
+	injectEngine1 := &inject.Engine{}
+	functionvm.RegisterEngine(functionvm.EngineName(engName1), func() (functionvm.Engine, error) {
+		return injectEngine1, nil
+	})
+
+	injectEngine1.ValidateSourceFunc = func(_ string) error {
+		return errors.New("whoops")
+	}
+
+	invalidFunctions.Functions[0] = functionvm.FunctionConfig{
+		Name:   "one",
+		Engine: functionvm.EngineName(engName1),
+		Source: "three",
+	}
+	err = invalidFunctions.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `whoops`)
+
+	injectEngine1.ValidateSourceFunc = func(_ string) error {
+		return nil
+	}
+	test.That(t, invalidFunctions.Ensure(false), test.ShouldBeNil)
 }
 
 func TestConfigSortComponents(t *testing.T) {
-	c1 := Component{Name: "c1"}
-	c2 := Component{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := Component{Name: "c6"}
-	c7 := Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
-	c8 := Component{Name: "c8", DependsOn: []string{"c6"}}
+	c1 := config.Component{Name: "c1"}
+	c2 := config.Component{Name: "c2", DependsOn: []string{"c1"}}
+	c3 := config.Component{Name: "c3", DependsOn: []string{"c1", "c2"}}
+	c4 := config.Component{Name: "c4", DependsOn: []string{"c1", "c3"}}
+	c5 := config.Component{Name: "c5", DependsOn: []string{"c2", "c4"}}
+	c6 := config.Component{Name: "c6"}
+	c7 := config.Component{Name: "c7", DependsOn: []string{"c6", "c4"}}
+	c8 := config.Component{Name: "c8", DependsOn: []string{"c6"}}
 
-	circularC1 := Component{Name: "c1", DependsOn: []string{"c2"}}
-	circularC2 := Component{Name: "c2", DependsOn: []string{"c3"}}
-	circularC3 := Component{Name: "c3", DependsOn: []string{"c1"}}
+	circularC1 := config.Component{Name: "c1", DependsOn: []string{"c2"}}
+	circularC2 := config.Component{Name: "c2", DependsOn: []string{"c3"}}
+	circularC3 := config.Component{Name: "c3", DependsOn: []string{"c1"}}
 	for _, tc := range []struct {
 		Name       string
-		Components []Component
-		Expected   []Component
+		Components []config.Component
+		Expected   []config.Component
 		Err        string
 	}{
 		{
 			"empty",
-			[]Component{},
-			[]Component{},
+			[]config.Component{},
+			[]config.Component{},
 			"",
 		},
 		{
 			"no change",
-			[]Component{c1, c2},
-			[]Component{c1, c2},
+			[]config.Component{c1, c2},
+			[]config.Component{c1, c2},
 			"",
 		},
 		{
 			"simple",
-			[]Component{c2, c1},
-			[]Component{c1, c2},
+			[]config.Component{c2, c1},
+			[]config.Component{c1, c2},
 			"",
 		},
 		{
 			"another simple",
-			[]Component{c3, c2, c1},
-			[]Component{c1, c2, c3},
+			[]config.Component{c3, c2, c1},
+			[]config.Component{c1, c2, c3},
 			"",
 		},
 		{
 			"complex",
-			[]Component{c2, c3, c1},
-			[]Component{c1, c2, c3},
+			[]config.Component{c2, c3, c1},
+			[]config.Component{c1, c2, c3},
 			"",
 		},
 		{
 			"more complex",
-			[]Component{c7, c6, c5, c3, c4, c1, c2},
-			[]Component{c6, c1, c2, c3, c4, c7, c5},
+			[]config.Component{c7, c6, c5, c3, c4, c1, c2},
+			[]config.Component{c6, c1, c2, c3, c4, c7, c5},
 			"",
 		},
 		{
 			"duplicate name",
-			[]Component{c1, c1},
+			[]config.Component{c1, c1},
 			nil,
 			"not unique",
 		},
 		{
 			"dependency not found",
-			[]Component{c2},
+			[]config.Component{c2},
 			nil,
 			"does not exist",
 		},
 		{
 			"circular dependency",
-			[]Component{circularC1, c2},
+			[]config.Component{circularC1, c2},
 			nil,
 			"circular dependency detected in component list between c1, c2",
 		},
 		{
 			"circular dependency 2",
-			[]Component{circularC1, circularC2, circularC3},
+			[]config.Component{circularC1, circularC2, circularC3},
 			nil,
 			"circular dependency detected in component list between c1, c2, c3",
 		},
 		{
 			"circular dependency 3",
-			[]Component{c6, c4, circularC1, c8, circularC2, circularC3},
+			[]config.Component{c6, c4, circularC1, c8, circularC2, circularC3},
 			nil,
 			"circular dependency detected in component list between c1, c2, c3",
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			sorted, err := SortComponents(tc.Components)
+			sorted, err := config.SortComponents(tc.Components)
 			if tc.Err == "" {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, sorted, test.ShouldResemble, tc.Expected)

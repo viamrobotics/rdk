@@ -159,6 +159,11 @@ func (r *mutableRobot) SensorNames() []string {
 	return r.parts.SensorNames()
 }
 
+// FunctionNames returns the name of all known functions.
+func (r *mutableRobot) FunctionNames() []string {
+	return r.parts.FunctionNames()
+}
+
 // ProcessManager returns the process manager for the robot.
 func (r *mutableRobot) ProcessManager() pexec.ProcessManager {
 	return r.parts.processManager

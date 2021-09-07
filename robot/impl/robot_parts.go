@@ -34,6 +34,7 @@ type robotParts struct {
 	lidars         map[string]*proxyLidar
 	bases          map[string]*proxyBase
 	sensors        map[string]sensor.Sensor
+	functions      map[string]struct{}
 	providers      map[string]*proxyProvider
 	processManager pexec.ProcessManager
 }
@@ -49,6 +50,7 @@ func newRobotParts(logger golog.Logger) *robotParts {
 		lidars:         map[string]*proxyLidar{},
 		bases:          map[string]*proxyBase{},
 		sensors:        map[string]sensor.Sensor{},
+		functions:      map[string]struct{}{},
 		providers:      map[string]*proxyProvider{},
 		processManager: pexec.NewProcessManager(logger),
 	}
@@ -141,6 +143,11 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
 	}
+}
+
+// addFunction adds a function to the parts.
+func (parts *robotParts) addFunction(name string) {
+	parts.functions[name] = struct{}{}
 }
 
 // AddProvider adds a provider to the parts.
@@ -243,6 +250,15 @@ func (parts *robotParts) SensorNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.SensorNames)
 }
 
+// FunctionNames returns the names of all functions in the parts.
+func (parts *robotParts) FunctionNames() []string {
+	names := []string{}
+	for k := range parts.functions {
+		names = append(names, k)
+	}
+	return parts.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
+}
+
 // Clone provides a shallow copy of each part.
 func (parts *robotParts) Clone() *robotParts {
 	var clonedParts robotParts
@@ -292,6 +308,12 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.sensors = make(map[string]sensor.Sensor, len(parts.sensors))
 		for k, v := range parts.sensors {
 			clonedParts.sensors[k] = v
+		}
+	}
+	if len(parts.functions) != 0 {
+		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
+		for k, v := range parts.functions {
+			clonedParts.functions[k] = v
 		}
 	}
 	if len(parts.providers) != 0 {
@@ -387,6 +409,10 @@ func (parts *robotParts) processConfig(
 		return err
 	}
 
+	for _, f := range config.Functions {
+		parts.addFunction(f.Name)
+	}
+
 	return nil
 }
 
@@ -411,6 +437,10 @@ func (parts *robotParts) processModifiedConfig(
 
 	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
 		return err
+	}
+
+	for _, f := range config.Functions {
+		parts.addFunction(f.Name)
 	}
 
 	return nil
@@ -768,6 +798,15 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
+	if len(toAdd.functions) != 0 {
+		if parts.functions == nil {
+			parts.functions = make(map[string]struct{}, len(toAdd.functions))
+		}
+		for k, v := range toAdd.functions {
+			parts.functions[k] = v
+		}
+	}
+
 	if len(toAdd.providers) != 0 {
 		if parts.providers == nil {
 			parts.providers = make(map[string]*proxyProvider, len(toAdd.providers))
@@ -959,6 +998,12 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
+	if len(toRemove.functions) != 0 {
+		for k := range toRemove.functions {
+			delete(parts.functions, k)
+		}
+	}
+
 	if len(toRemove.providers) != 0 {
 		for k := range toRemove.providers {
 			delete(parts.providers, k)
@@ -1050,6 +1095,14 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 		default:
 			return nil, errors.Errorf("unknown component type: %v", compConf.Type)
 		}
+	}
+
+	for _, conf := range conf.Functions {
+		_, ok := parts.functions[conf.Name]
+		if !ok {
+			continue
+		}
+		filtered.addFunction(conf.Name)
 	}
 
 	return filtered, nil

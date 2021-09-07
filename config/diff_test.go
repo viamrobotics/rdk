@@ -1,4 +1,4 @@
-package config
+package config_test
 
 import (
 	"testing"
@@ -8,11 +8,30 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/core/board"
+	"go.viam.com/core/config"
+	functionvm "go.viam.com/core/function/vm"
+	"go.viam.com/core/testutils/inject"
 )
 
+func init() {
+	injectEngine1 := &inject.Engine{}
+	injectEngine1.ValidateSourceFunc = func(_ string) error {
+		return nil
+	}
+	functionvm.RegisterEngine(functionvm.EngineName("foo"), func() (functionvm.Engine, error) {
+		return injectEngine1, nil
+	})
+	functionvm.RegisterEngine(functionvm.EngineName("bar"), func() (functionvm.Engine, error) {
+		return injectEngine1, nil
+	})
+	functionvm.RegisterEngine(functionvm.EngineName("baz"), func() (functionvm.Engine, error) {
+		return injectEngine1, nil
+	})
+}
+
 func TestDiffConfigs(t *testing.T) {
-	config1 := Config{
-		Remotes: []Remote{
+	config1 := config.Config{
+		Remotes: []config.Remote{
 			{
 				Name:    "remote1",
 				Address: "addr1",
@@ -55,20 +74,20 @@ func TestDiffConfigs(t *testing.T) {
 				},
 			},
 		},
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  ComponentType("arm"),
+				Type:  config.ComponentType("arm"),
 				Model: "fake",
-				Attributes: AttributeMap{
+				Attributes: config.AttributeMap{
 					"one": float64(1),
 				},
 			},
 			{
 				Name:  "base1",
-				Type:  ComponentType("base"),
+				Type:  config.ComponentType("base"),
 				Model: "fake",
-				Attributes: AttributeMap{
+				Attributes: config.AttributeMap{
 					"two": float64(2),
 				},
 			},
@@ -87,10 +106,22 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name:   "func1",
+				Engine: "foo",
+				Source: "1",
+			},
+			{
+				Name:   "func2",
+				Engine: "bar",
+				Source: "2",
+			},
+		},
 	}
 
-	config2 := ModifiedConfigDiff{
-		Remotes: []Remote{
+	config2 := config.ModifiedConfigDiff{
+		Remotes: []config.Remote{
 			{
 				Name:    "remote1",
 				Address: "addr3",
@@ -143,20 +174,20 @@ func TestDiffConfigs(t *testing.T) {
 				},
 			},
 		},
-		Components: []Component{
+		Components: []config.Component{
 			{
 				Name:  "arm1",
-				Type:  ComponentType("arm"),
+				Type:  config.ComponentType("arm"),
 				Model: "fake",
-				Attributes: AttributeMap{
+				Attributes: config.AttributeMap{
 					"two": float64(2),
 				},
 			},
 			{
 				Name:  "base1",
-				Type:  ComponentType("base"),
+				Type:  config.ComponentType("base"),
 				Model: "fake",
-				Attributes: AttributeMap{
+				Attributes: config.AttributeMap{
 					"three": float64(3),
 				},
 			},
@@ -175,22 +206,34 @@ func TestDiffConfigs(t *testing.T) {
 				Log:  true,
 			},
 		},
+		Functions: []functionvm.FunctionConfig{
+			{
+				Name:   "func1",
+				Engine: "foo",
+				Source: "1+1",
+			},
+			{
+				Name:   "func2",
+				Engine: "bar",
+				Source: "2+2",
+			},
+		},
 	}
 
 	for _, tc := range []struct {
 		Name      string
 		LeftFile  string
 		RightFile string
-		Expected  Diff
+		Expected  config.Diff
 	}{
 		{
 			"empty",
 			"data/diff_config_empty.json",
 			"data/diff_config_empty.json",
-			Diff{
-				Added:    &Config{},
-				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
-				Removed:  &Config{},
+			config.Diff{
+				Added:    &config.Config{},
+				Modified: &config.ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
+				Removed:  &config.Config{},
 				Equal:    true,
 			},
 		},
@@ -198,10 +241,10 @@ func TestDiffConfigs(t *testing.T) {
 			"equal",
 			"data/diff_config_1.json",
 			"data/diff_config_1.json",
-			Diff{
-				Added:    &Config{},
-				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
-				Removed:  &Config{},
+			config.Diff{
+				Added:    &config.Config{},
+				Modified: &config.ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
+				Removed:  &config.Config{},
 				Equal:    true,
 			},
 		},
@@ -209,10 +252,10 @@ func TestDiffConfigs(t *testing.T) {
 			"only additions",
 			"data/diff_config_empty.json",
 			"data/diff_config_1.json",
-			Diff{
+			config.Diff{
 				Added:    &config1,
-				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
-				Removed:  &Config{},
+				Modified: &config.ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
+				Removed:  &config.Config{},
 				Equal:    false,
 			},
 		},
@@ -220,10 +263,10 @@ func TestDiffConfigs(t *testing.T) {
 			"only removals",
 			"data/diff_config_1.json",
 			"data/diff_config_empty.json",
-			Diff{
-				Added:    &Config{},
+			config.Diff{
+				Added:    &config.Config{},
 				Removed:  &config1,
-				Modified: &ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
+				Modified: &config.ModifiedConfigDiff{Boards: map[string]board.ConfigDiff{}},
 				Equal:    false,
 			},
 		},
@@ -231,9 +274,9 @@ func TestDiffConfigs(t *testing.T) {
 			"only modifications",
 			"data/diff_config_1.json",
 			"data/diff_config_2.json",
-			Diff{
-				Added:    &Config{},
-				Removed:  &Config{},
+			config.Diff{
+				Added:    &config.Config{},
+				Removed:  &config.Config{},
 				Modified: &config2,
 				Equal:    false,
 			},
@@ -242,18 +285,18 @@ func TestDiffConfigs(t *testing.T) {
 			"mixed",
 			"data/diff_config_1.json",
 			"data/diff_config_3.json",
-			Diff{
-				Added: &Config{
+			config.Diff{
+				Added: &config.Config{
 					Boards: []board.Config{
 						{
 							Name:   "board2",
 							Servos: []board.ServoConfig{{Name: "servo2", Pin: "14"}},
 						},
 					},
-					Components: []Component{
+					Components: []config.Component{
 						{
 							Name:  "base2",
-							Type:  ComponentType("base"),
+							Type:  config.ComponentType("base"),
 							Model: "fake",
 						},
 					},
@@ -265,9 +308,16 @@ func TestDiffConfigs(t *testing.T) {
 							Log:  true,
 						},
 					},
+					Functions: []functionvm.FunctionConfig{
+						{
+							Name:   "func3",
+							Engine: "baz",
+							Source: "3",
+						},
+					},
 				},
-				Modified: &ModifiedConfigDiff{
-					Remotes: []Remote{
+				Modified: &config.ModifiedConfigDiff{
+					Remotes: []config.Remote{
 						{
 							Name:    "remote1",
 							Address: "addr3",
@@ -298,12 +348,12 @@ func TestDiffConfigs(t *testing.T) {
 							},
 						},
 					},
-					Components: []Component{
+					Components: []config.Component{
 						{
 							Name:  "arm1",
-							Type:  ComponentType("arm"),
+							Type:  config.ComponentType("arm"),
 							Model: "fake",
-							Attributes: AttributeMap{
+							Attributes: config.AttributeMap{
 								"two": float64(2),
 							},
 						},
@@ -316,14 +366,21 @@ func TestDiffConfigs(t *testing.T) {
 							OneShot: true,
 						},
 					},
+					Functions: []functionvm.FunctionConfig{
+						{
+							Name:   "func1",
+							Engine: "foo",
+							Source: "1+1",
+						},
+					},
 				},
-				Removed: &Config{
-					Components: []Component{
+				Removed: &config.Config{
+					Components: []config.Component{
 						{
 							Name:  "base1",
-							Type:  ComponentType("base"),
+							Type:  config.ComponentType("base"),
 							Model: "fake",
-							Attributes: AttributeMap{
+							Attributes: config.AttributeMap{
 								"two": float64(2),
 							},
 						},
@@ -336,27 +393,34 @@ func TestDiffConfigs(t *testing.T) {
 							Log:  true,
 						},
 					},
+					Functions: []functionvm.FunctionConfig{
+						{
+							Name:   "func2",
+							Engine: "bar",
+							Source: "2",
+						},
+					},
 				},
 				Equal: false,
 			},
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := Read(tc.LeftFile)
+			left, err := config.Read(tc.LeftFile)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := Read(tc.RightFile)
+			right, err := config.Read(tc.RightFile)
 			test.That(t, err, test.ShouldBeNil)
 
-			diff, err := DiffConfigs(left, right)
+			diff, err := config.DiffConfigs(left, right)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.Left, test.ShouldResemble, left)
 			test.That(t, diff.Right, test.ShouldResemble, right)
 			if tc.Expected.Equal {
-				test.That(t, diff.prettyDiff, test.ShouldBeEmpty)
+				test.That(t, diff.PrettyDiff, test.ShouldBeEmpty)
 			} else {
-				test.That(t, diff.prettyDiff, test.ShouldNotBeEmpty)
+				test.That(t, diff.PrettyDiff, test.ShouldNotBeEmpty)
 			}
-			diff.prettyDiff = ""
+			diff.PrettyDiff = ""
 			tc.Expected.Left = diff.Left
 			tc.Expected.Right = diff.Right
 			for name, boardDiff := range tc.Expected.Modified.Boards {
@@ -419,12 +483,12 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := Read(tc.LeftFile)
+			left, err := config.Read(tc.LeftFile)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := Read(tc.RightFile)
+			right, err := config.Read(tc.RightFile)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = DiffConfigs(left, right)
+			_, err = config.DiffConfigs(left, right)
 			if tc.Expected == "" {
 				test.That(t, err, test.ShouldBeNil)
 				return

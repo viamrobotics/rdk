@@ -49,14 +49,15 @@ type RobotClient struct {
 	conn    dialer.ClientConn
 	client  pb.RobotServiceClient
 
-	namesMu      *sync.Mutex
-	armNames     []string
-	baseNames    []string
-	gripperNames []string
-	boardNames   []boardInfo
-	cameraNames  []string
-	lidarNames   []string
-	sensorNames  []string
+	namesMu       *sync.Mutex
+	armNames      []string
+	baseNames     []string
+	gripperNames  []string
+	boardNames    []boardInfo
+	cameraNames   []string
+	lidarNames    []string
+	sensorNames   []string
+	functionNames []string
 
 	sensorTypes map[string]sensor.Type
 
@@ -383,6 +384,13 @@ func (rc *RobotClient) Refresh(ctx context.Context) error {
 			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
 		}
 	}
+	rc.functionNames = nil
+	if len(status.Lidars) != 0 {
+		rc.functionNames = make([]string, 0, len(status.Functions))
+		for name := range status.Functions {
+			rc.functionNames = append(rc.functionNames, name)
+		}
+	}
 	return nil
 }
 
@@ -450,6 +458,13 @@ func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 	return copyStringSlice(rc.sensorNames)
+}
+
+// FunctionNames returns the names of all known functions.
+func (rc *RobotClient) FunctionNames() []string {
+	rc.namesMu.Lock()
+	defer rc.namesMu.Unlock()
+	return copyStringSlice(rc.functionNames)
 }
 
 // ProcessManager returns a useless process manager for the sake of
