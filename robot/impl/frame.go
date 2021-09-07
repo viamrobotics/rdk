@@ -37,7 +37,6 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			if err != nil {
 				return nil, err
 			}
-			// if model frame is specified, it will be named from the component. If not, the static frame will have the name.
 			staticName := c.Name + "_offset"
 			// add the static frame first-- if it is empty, a 0 offset frame will be applied.
 			staticFrame := makeStaticFrame(&c, staticName)
