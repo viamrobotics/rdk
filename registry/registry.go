@@ -45,36 +45,44 @@ type (
 )
 
 // all registration structs
+
+// ProviderRegistration struct
 type ProviderRegistration struct {
 	Constructor CreateProvider
 	Frame       CreateFrame
 }
 
+// CameraRegistration struct
 type CameraRegistration struct {
 	Constructor CreateCamera
 	Frame       CreateFrame
 }
 
+// ArmRegistration struct
 type ArmRegistration struct {
 	Constructor CreateArm
 	Frame       CreateFrame
 }
 
+// GripperRegistration struct
 type GripperRegistration struct {
 	Constructor CreateGripper
 	Frame       CreateFrame
 }
 
+// BaseRegistration struct
 type BaseRegistration struct {
 	Constructor CreateBase
 	Frame       CreateFrame
 }
 
+// LidarRegistration struct
 type LidarRegistration struct {
 	Constructor CreateLidar
 	Frame       CreateFrame
 }
 
+// SensorRegistration struct
 type SensorRegistration struct {
 	Constructor CreateSensor
 	Frame       CreateFrame

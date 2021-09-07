@@ -12,17 +12,15 @@ import (
 )
 
 func TestSimpleRevoluteFrame(t *testing.T) {
-	dfs := NewEmptySimpleFrameSystem("test")
-	fs := FrameSystem(dfs)
+	fs := NewEmptySimpleFrameSystem("test")
 
 	// Revolute joint around X axis
-	joint := NewRevoluteFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0})
-	joint.SetLimits(-math.Pi*2, math.Pi*2)
+	joint := NewRevoluteFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, -math.Pi*2, math.Pi*2)
 	fs.AddFrame(joint, fs.World())
 
 	// Displace (2,2,10) from the joint
 	point := r3.Vector{2., 2., 10.}
-	positions := dfs.StartPositions()
+	positions := StartPositions(fs)
 
 	expectP1 := r3.Vector{2., 2., 10.}
 	expectP2 := r3.Vector{2., -10., 2.}
@@ -35,7 +33,7 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, expectP1.Z)
 
 	// Rotate 90 degrees one way
-	positions["joint"] = []Input{Input{math.Pi / 2}}
+	positions["joint"] = []Input{{math.Pi / 2}}
 	transformPoint2, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, expectP2.X)
@@ -43,7 +41,7 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	test.That(t, transformPoint2.Z, test.ShouldAlmostEqual, expectP2.Z)
 
 	// Rotate 90 degrees the other way
-	positions["joint"] = []Input{Input{-math.Pi / 2}}
+	positions["joint"] = []Input{{-math.Pi / 2}}
 	transformPoint3, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.X, test.ShouldAlmostEqual, expectP3.X)
@@ -52,15 +50,13 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 }
 
 func TestSimplePrismaticFrame(t *testing.T) {
-	dfs := NewEmptySimpleFrameSystem("test")
-	fs := FrameSystem(dfs)
+	fs := NewEmptySimpleFrameSystem("test")
 
 	// 1D gantry that slides in X
-	gantry := NewPrismaticFrame("gantry", []bool{true, false, false})
-	gantry.SetLimits([]float64{-999}, []float64{999})
+	gantry := NewPrismaticFrame("gantry", []bool{true, false, false}, []float64{math.Inf(-1)}, []float64{math.Inf(1)})
 	fs.AddFrame(gantry, fs.World())
 
-	positions := dfs.StartPositions()
+	positions := StartPositions(fs)
 
 	startPoint := r3.Vector{0., 0., 0.}
 	endPoint := r3.Vector{45., 0., 0.}
@@ -73,7 +69,7 @@ func TestSimplePrismaticFrame(t *testing.T) {
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, 0)
 
 	// Slide gantry by 45
-	positions["gantry"] = []Input{Input{45.}}
+	positions["gantry"] = []Input{{45.}}
 	transformPoint2, err := fs.TransformPoint(positions, startPoint, fs.GetFrame("gantry"), fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, endPoint.X)

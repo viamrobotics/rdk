@@ -4,8 +4,9 @@ import (
 	"math"
 	"testing"
 
-	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/test"
+
+	spatial "go.viam.com/core/spatialmath"
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -44,10 +45,9 @@ func TestDualQuatTransform(t *testing.T) {
 // transforming a point at (1, 3, 0)
 func TestSimpleFrameTranslation(t *testing.T) {
 	// build the system
-	sfs := NewEmptySimpleFrameSystem("test")
-	fs := FrameSystem(sfs)
+	fs := NewEmptySimpleFrameSystem("test")
 	frame := FrameFromPoint("frame", r3.Vector{0., 3., 0.}) // location of frame with respect to world frame
-	err := sfs.AddFrame(frame, fs.World())
+	err := fs.AddFrame(frame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
 	// do the transformation
@@ -70,8 +70,7 @@ func TestSimpleFrameTranslation(t *testing.T) {
 // transforming a point at (1, 3, 0)
 func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	// build the system
-	var fs FrameSystem
-	fs = NewEmptySimpleFrameSystem("test")
+	fs := NewEmptySimpleFrameSystem("test")
 	framePose := spatial.NewPoseFromAxisAngle(r3.Vector{0., 3., 0.}, r3.Vector{0., 0., 1.}, math.Pi)
 	err := fs.AddFrame(NewStaticFrame("frame", framePose), fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -115,8 +114,7 @@ All 4 frames have the same orientation.
 */
 func TestFrameTranslation(t *testing.T) {
 	// build the system
-	var fs FrameSystem
-	fs = NewEmptySimpleFrameSystem("test")
+	fs := NewEmptySimpleFrameSystem("test")
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	err := fs.AddFrame(FrameFromPoint("frame3", frame3Pt), fs.World())
 	test.That(t, err, test.ShouldBeNil)
@@ -156,8 +154,7 @@ world
 // frame3 is an intermediate frame at (0, 4, 0) in the world frame.
 func TestFrameTransform(t *testing.T) {
 	// build the system
-	var fs FrameSystem
-	fs = NewEmptySimpleFrameSystem("test")
+	fs := NewEmptySimpleFrameSystem("test")
 	// location of frame3 with respect to world frame
 	frame3Pt := r3.Vector{0., 4., 0.} // location of frame3 with respect to world frame
 	err := fs.AddFrame(FrameFromPoint("frame3", frame3Pt), fs.World())
@@ -182,8 +179,7 @@ func TestFrameTransform(t *testing.T) {
 
 func TestComplicatedFrameTransform(t *testing.T) {
 	// build the system
-	var fs FrameSystem
-	fs = NewEmptySimpleFrameSystem("test")
+	fs := NewEmptySimpleFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
 	frame1 := NewStaticFrame("frame1", spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
@@ -191,7 +187,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
 	frame2 := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
-	err = fs.AddFrame(frame2, fs.GetFrame("frame1"), )
+	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// test out a transform from world to frame
@@ -234,8 +230,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 func TestSystemSplitAndRejoin(t *testing.T) {
 	// build the system
-	var fs FrameSystem
-	fs = NewEmptySimpleFrameSystem("test")
+	fs := NewEmptySimpleFrameSystem("test")
 
 	// frame 1 rotate by 45 degrees around z axis and translate
 	frame1 := NewStaticFrame("frame1", spatial.NewPoseFromAxisAngle(r3.Vector{-1., 2., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
@@ -243,7 +238,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// frame 2 rotate by 45 degree (relative to frame 1) around z axis and translate
 	frame2 := NewStaticFrame("frame2", spatial.NewPoseFromAxisAngle(r3.Vector{2. * math.Sqrt(2), 0., 0.}, r3.Vector{0., 0., 1.}, math.Pi/4))
-	err = fs.AddFrame(frame2, fs.GetFrame("frame1"), )
+	err = fs.AddFrame(frame2, fs.GetFrame("frame1"))
 	test.That(t, err, test.ShouldBeNil)
 
 	// frame3 - pure rotation around y 90 degrees
@@ -255,20 +250,20 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	frame4 := NewStaticFrame("frame4", spatial.NewPoseFromPoint(r3.Vector{-2., 7., 1.}))
 	err = fs.AddFrame(frame4, fs.GetFrame("frame3"))
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	fs1, fs2, err := DivideFrameSystem(fs, frame3)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	f4 := fs1.GetFrame("frame4")
 	test.That(t, f4, test.ShouldBeNil)
 	f1 := fs1.GetFrame("frame1")
 	test.That(t, f1, test.ShouldNotBeNil)
-	
+
 	f4 = fs2.GetFrame("frame4")
 	test.That(t, f4, test.ShouldNotBeNil)
 	f1 = fs2.GetFrame("frame1")
 	test.That(t, f1, test.ShouldBeNil)
-	
+
 	pointStart := r3.Vector{2., 0., 0.} // the point from PoV of frame 4
 	pointEnd := r3.Vector{0., 7., 1.}   // the point from PoV of world (frame3)
 	transformPoint, err := fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs2.World())
@@ -276,16 +271,16 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
-	
+
 	transformPoint, err = fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs.GetFrame("frame2"))
 	test.That(t, err, test.ShouldNotBeNil)
-	
+
 	// Put frame3 back where it was
 	err = fs1.AddFrame(frame3, fs1.World())
 	test.That(t, err, test.ShouldBeNil)
 	newFS, err := ComposeFrameSystems(fs1, fs2, frame3)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
 	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4

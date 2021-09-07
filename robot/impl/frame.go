@@ -139,7 +139,7 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	visited := make(map[string]bool)
 	// check to see if world exists, and start with the frames attached to world
 	if _, ok := children["world"]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'.")
+		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
 	}
 	stack = append(stack, "world")
 	// begin adding frames to the frame system
@@ -149,9 +149,8 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 		stack = stack[1:]
 		if _, ok := visited[parent]; ok {
 			return nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
-		} else {
-			visited[parent] = true
 		}
+		visited[parent] = true
 		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
 			stack = append(stack, frame.Name())
 			err := fs.AddFrame(frame, fs.GetFrame(parent))

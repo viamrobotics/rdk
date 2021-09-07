@@ -69,7 +69,7 @@ func init() {
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewxArm6(ctx, config.Host, logger)
 		},
-		Frame: func(name string) (referenceframe.Frame, error) { return XArmFrame(name) },
+		Frame: func(name string) (referenceframe.Frame, error) { return xArmFrame(name) },
 	})
 }
 
@@ -93,14 +93,14 @@ func float64fromByte32(bytes []byte) float64 {
 	return float64(float)
 }
 
-// XArmModel() returns the kinematics model of the xArm, also has all Frame information.
-func XArmModel() (*kinematics.Model, error) {
+// XArmModel returns the kinematics model of the xArm, also has all Frame information.
+func xArmModel() (*kinematics.Model, error) {
 	return kinematics.ParseJSON(xArm6modeljson)
 }
 
-// XArmFrame() returns the reference frame of the arm with the given name.
-func XArmFrame(name string) (referenceframe.Frame, error) {
-	frame, err := XArmModel()
+// xArmFrame returns the reference frame of the arm with the given name.
+func xArmFrame(name string) (referenceframe.Frame, error) {
+	frame, err := xArmModel()
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func NewxArm6(ctx context.Context, host string, logger golog.Logger) (arm.Arm, e
 	if err != nil {
 		return &xArm6{}, err
 	}
-	model, err := XArmModel()
+	model, err := xArmModel()
 	if err != nil {
 		return &xArm6{}, err
 	}

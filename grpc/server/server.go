@@ -79,10 +79,10 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	resp := &pb.ConfigResponse{}
 	for _, c := range cfg.Components {
 		cc := &pb.ComponentConfig{
-			Name:   c.Name,
-			Type:   string(c.Type),
+			Name: c.Name,
+			Type: string(c.Type),
 		}
-		if c.Frame != nil{
+		if c.Frame != nil {
 			cc.Parent = c.Frame.Parent
 			cc.Pose = &pb.ArmPosition{
 				X:     c.Frame.Translate.X,
