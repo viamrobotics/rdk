@@ -282,17 +282,18 @@ void processBuffer(Buffer* b) {
     if (const char* rest = isCommand(line, "set-pwm-freq")) {
         uint32_t pin,freq;
         int n = sscanf(rest,"%lu %lu",&pin,&freq);
-          if (n != 2) {
-            b->print(n);
-            b->println("");
-            b->println("#error parsing set-pwm-freq");
-            return;
-          }
+        if (n != 2) {
+          b->println("");
+          b->print(n);
+          b->println("");
+          b->println("#error parsing set-pwm-freq");
+          return;
+        }
         if(!pwm.setPinFrequency(pin,freq)){
             b->println("#couldn't set pwm freq for pin");
             return;
         }
-        b->print("@ok");
+        b->println("@ok");
         return;
     }
     if (const char* rest = isCommand(line, "set-pwm-duty")) {
@@ -305,7 +306,7 @@ void processBuffer(Buffer* b) {
             return;
           }
         pwm.analogWrite(pin,duty);
-        b->print("@ok");
+        b->println("@ok");
         return;
     }
 
