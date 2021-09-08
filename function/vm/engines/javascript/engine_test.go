@@ -14,8 +14,8 @@ func TestEngine(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, engine, test.ShouldNotBeNil)
 
-	results, err := engine.ExecuteCode(`console.log(libFunc1("omg"))`)
+	results, err := engine.ExecuteCode(`console.log(libFunc1("omg")); 1+1+""+" world"`)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, results, test.ShouldHaveLength, 1)
-	test.That(t, results[0].MustString(), test.ShouldEqual, "hello")
+	test.That(t, results[0].MustString(), test.ShouldEqual, "2 world")
 }
