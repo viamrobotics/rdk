@@ -18,7 +18,7 @@ struct motorInfo {
 
 motorInfo motors[MAX_MOTORS];
 
-PWM pwm;
+PWM *pwm;
 
 Buffer* buf1 = 0;
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
@@ -74,6 +74,7 @@ void setup() {
     buf2 = new Buffer(&Serial3);
     buf2->println("!");
 #endif
+	pwm = new PWM();
 }
 
 const char* isCommand(const char* line, const char* cmd) {
@@ -289,7 +290,7 @@ void processBuffer(Buffer* b) {
           b->println("#error parsing set-pwm-freq");
           return;
         }
-        if(!pwm.setPinFrequency(pin,freq)){
+        if(!pwm->setPinFrequency(pin,freq)){
             b->println("#couldn't set pwm freq for pin");
             return;
         }
@@ -305,7 +306,7 @@ void processBuffer(Buffer* b) {
             b->println("#error parsing set-pwm-duty");
             return;
           }
-        pwm.analogWrite(pin,duty);
+        pwm->analogWrite(pin,duty);
         b->println("@ok");
         return;
     }

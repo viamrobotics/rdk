@@ -40,6 +40,7 @@ PWMChannel16bits::PWMChannel16bits(volatile uint8_t *base_addr,volatile uint16_t
 	{
 		pinMode(i, OUTPUT);
 	}
+	setPWMFrequency(490);
 }
 
 
@@ -129,6 +130,7 @@ PWMChannel8bits::PWMChannel8bits(volatile uint8_t *base_addr,volatile uint8_t *o
 	{
 		pinMode(i, OUTPUT);
 	}
+	setPWMFrequency(490);
 }
 
 
