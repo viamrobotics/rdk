@@ -177,12 +177,6 @@ func (rf *revoluteFrame) Transform(input []Input) spatial.Pose {
 	rfQuat := spatial.NewDualQuaternion()
 	rotation := rf.rotAxis
 	rotation.Theta = input[0].Value
-	// respect the limits
-	if rotation.Theta > rf.max {
-		rotation.Theta = rf.max
-	} else if rotation.Theta < rf.min {
-		rotation.Theta = rf.min
-	}
 	rfQuat.Real = rotation.ToQuat()
 	return rfQuat
 }

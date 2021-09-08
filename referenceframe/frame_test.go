@@ -49,10 +49,6 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{})
 	pose = frame.Transform(input)
 	test.That(t, pose, test.ShouldBeNil)
-	// if you feed in more than the set limits, should get the limit back
-	input = FloatsToInputs([]float64{50})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldResemble, limitPose)
 	// gets the correct limits back
 	reMin, reMax := frame.Limits()
 	test.That(t, reMin, test.ShouldResemble, min)
@@ -85,10 +81,6 @@ func TestRevoluteFrame(t *testing.T) {
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
 	pose = frame.Transform(input)
 	test.That(t, pose, test.ShouldBeNil)
-	// if you feed in more than the set limits, should get the limit back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{100}})
-	pose = frame.Transform(input)
-	test.That(t, pose, test.ShouldResemble, limitPose)
 	// gets the correct limits back
 	min, max := frame.Limits()
 	test.That(t, min, test.ShouldResemble, []float64{-math.Pi / 2})
