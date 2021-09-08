@@ -186,85 +186,115 @@ func RegisterSensor(sensorType sensor.Type, model string, creator SensorRegistra
 
 // CameraLookup looks up a camera creator by the given model. nil is returned if
 // there is no creator registered.
-func CameraLookup(model string) CameraRegistration {
-	return cameraRegistry[model]
+func CameraLookup(model string) *CameraRegistration {
+	if registration, ok := cameraRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // ArmLookup looks up an arm creator by the given model. nil is returned if
 // there is no creator registered.
-func ArmLookup(model string) ArmRegistration {
-	return armRegistry[model]
+func ArmLookup(model string) *ArmRegistration {
+	if registration, ok := armRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // GripperLookup looks up a gripper creator by the given model. nil is returned if
 // there is no creator registered.
-func GripperLookup(model string) GripperRegistration {
-	return gripperRegistry[model]
+func GripperLookup(model string) *GripperRegistration {
+	if registration, ok := gripperRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // ProviderLookup looks up a provider creator by the given model. nil is returned if
 // there is no creator registered.
-func ProviderLookup(model string) ProviderRegistration {
-	return providerRegistry[model]
+func ProviderLookup(model string) *ProviderRegistration {
+	if registration, ok := providerRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
 // there is no creator registered.
-func BaseLookup(model string) BaseRegistration {
-	return baseRegistry[model]
+func BaseLookup(model string) *BaseRegistration {
+	if registration, ok := baseRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // LidarLookup looks up a lidar creator by the given model. nil is returned if
 // there is no creator registered.
-func LidarLookup(model string) LidarRegistration {
-	return lidarRegistry[model]
+func LidarLookup(model string) *LidarRegistration {
+	if registration, ok := lidarRegistry[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
 // SensorLookup looks up a sensor creator by the given model. nil is returned if
 // there is no creator registered.
-func SensorLookup(sensorType sensor.Type, model string) SensorRegistration {
+func SensorLookup(sensorType sensor.Type, model string) *SensorRegistration {
 	subTyped, ok := sensorRegistry[sensorType]
 	if !ok {
 		return nil
 	}
-	return subTyped[model]
+	if registration, ok := subTyped[model]; ok {
+		return &registration
+	} else {
+		return nil
+	}
 }
 
-func ComponentFrameFunction(compType config.ComponentType, model string) (CreateFrame, bool) {
-	switch compType {
+// ComponentFrameFunction returns the FrameCreate function and a true bool if a frame is registered for the given component.
+// Otherwise it returns nil and false.
+func ComponentFrameFunction(comp *config.Component) (CreateFrame, bool) {
+	switch comp.Type {
 	case config.ComponentTypeProvider:
-		registration := ProviderLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := ProviderLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeBase:
-		registration := BaseLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := BaseLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeArm:
-		registration := ArmLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := ArmLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeGripper:
-		registration := GripperLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := GripperLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeCamera:
-		registration := CameraLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := CameraLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
 	case config.ComponentTypeLidar:
-		registration := LidarLookup(model)
-		if registration == nil || registration.Frame == nil {
+		registration := LidarLookup(comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true
@@ -272,8 +302,8 @@ func ComponentFrameFunction(compType config.ComponentType, model string) (Create
 		if comp.SubType == "" {
 			return nil, false
 		}
-		registration := SensorLookup(sensor.Type(comp.SubType), model)
-		if registration == nil || registration.Frame == nil {
+		registration := SensorLookup(sensor.Type(comp.SubType), comp.Model)
+		if registration.Frame == nil {
 			return nil, false
 		}
 		return registration.Frame, true

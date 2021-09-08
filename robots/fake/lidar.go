@@ -24,7 +24,7 @@ import (
 const LidarType = ModelName
 
 func init() {
-	registry.RegisterLidar(LidarType, &registry.LidarRegistration{
+	registry.RegisterLidar(LidarType, registry.LidarRegistration{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 			if config.Host == "" {
 				config.Host = "0"

@@ -85,28 +85,28 @@ func TestMainMain(t *testing.T) {
 		logger = tLogger
 	}
 
-	registry.RegisterLidar("fail_info", &registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar("fail_info", registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.InfoFunc = func(ctx context.Context) (map[string]interface{}, error) {
 			return nil, errors.New("whoops")
 		}
 		return dev, nil
 	}})
-	registry.RegisterLidar("fail_ang", &registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar("fail_ang", registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.AngularResolutionFunc = func(ctx context.Context) (float64, error) {
 			return math.NaN(), errors.New("whoops")
 		}
 		return dev, nil
 	}})
-	registry.RegisterLidar("fail_stop", &registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar("fail_stop", registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		dev.StopFunc = func(ctx context.Context) error {
 			return errors.New("whoops")
 		}
 		return dev, nil
 	}})
-	registry.RegisterLidar("fail_scan", &registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
+	registry.RegisterLidar("fail_scan", registry.LidarRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error) {
 		dev := &inject.Lidar{Lidar: fake.NewLidar("")}
 		var once bool
 		dev.ScanFunc = func(ctx context.Context, options lidar.ScanOptions) (lidar.Measurements, error) {

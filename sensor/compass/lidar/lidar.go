@@ -32,7 +32,7 @@ const ModelName = "lidar"
 
 // init registers the lidar compass type.
 func init() {
-	registry.RegisterSensor(compass.Type, ModelName, &registry.SensorRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterSensor(compass.Type, ModelName, registry.SensorRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return New(ctx, config, logger)
 	}})
 }
