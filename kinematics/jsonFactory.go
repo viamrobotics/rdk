@@ -106,8 +106,9 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 			// TODO(pl): Make this a switch once we support more than one joint type
 			if joint.Type == "revolute" {
+				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
 
-				rev := frame.NewRevoluteFrame(joint.ID, spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}, joint.Min*math.Pi/180, joint.Max*math.Pi/180)
+				rev := frame.NewRevoluteFrame(joint.ID, aa, frame.Limit{joint.Min * math.Pi / 180, joint.Max * math.Pi / 180})
 				parentMap[joint.ID] = joint.Parent
 
 				transforms[joint.ID] = rev
@@ -121,7 +122,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 			// Joint part of DH param
 			jointID := dh.ID + "_j"
 			parentMap[jointID] = dh.Parent
-			j := frame.NewRevoluteFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, dh.Min*math.Pi/180, dh.Max*math.Pi/180)
+			j := frame.NewRevoluteFrame(jointID, spatialmath.R4AA{RX: 0, RY: 0, RZ: 1}, frame.Limit{dh.Min * math.Pi / 180, dh.Max * math.Pi / 180})
 			transforms[jointID] = j
 
 			// Link part of DH param

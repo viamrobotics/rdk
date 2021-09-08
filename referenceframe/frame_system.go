@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/golang/geo/r3"
+	"go.uber.org/multierr"
 
 	spatial "go.viam.com/core/spatialmath"
 )
@@ -147,23 +148,23 @@ func (sfs *simpleFrameSystem) transformFrameFromParent(positions map[string][]In
 	if srcParent != nil {
 		// get source parent to world transform
 		fromParentTransform, err = sfs.composeTransforms(srcParent, positions) // returns source to world transform
-		if err != nil {
+		if err != nil && fromParentTransform == nil {
 			return nil, err
 		}
 	}
 	// get world to target transform
 	toTargetTransform, err := sfs.composeTransforms(endFrame, positions) // returns target to world transform
-	if err != nil {
+	if err != nil && toTargetTransform == nil {
 		return nil, err
 	}
 	toTargetTransform = toTargetTransform.Invert()
 	// transform from source to world, world to target
 	srcTransform, err := poseFromPositions(srcFrame, positions)
-	if err != nil {
+	if err != nil && srcTransform == nil {
 		return nil, err
 	}
 	fullTransform := spatial.Compose(spatial.Compose(toTargetTransform, fromParentTransform), srcTransform)
-	return fullTransform, nil
+	return fullTransform, err
 }
 
 func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error) {
@@ -198,23 +199,25 @@ func (sfs *simpleFrameSystem) Name() string {
 
 // compose the quaternions from the input frame to the world frame
 func (sfs *simpleFrameSystem) composeTransforms(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
-	q := spatial.NewEmptyPose()     // empty initial dualquat
+	q := spatial.NewEmptyPose() // empty initial dualquat
+	var errAll error
 	for sfs.parents[frame] != nil { // stop once you reach world node
 		// Transform() gives FROM q TO parent. Add new transforms to the left.
 		pose, err := poseFromPositions(frame, positions)
-		if err != nil {
+		if err != nil && pose == nil {
 			return nil, err
 		}
+		multierr.AppendInto(&errAll, err)
 		q = spatial.Compose(pose, q)
 		frame = sfs.parents[frame]
 	}
-	return q, nil
+	return q, errAll
 }
 
 func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose, error) {
 	// Get frame inputs if necessary
 	var input []Input
-	if frame.Dof() > 0 {
+	if len(frame.Dof()) > 0 {
 		if _, ok := positions[frame.Name()]; !ok {
 			return nil, fmt.Errorf("no positions provided for frame with name %s", frame.Name())
 		}
@@ -293,7 +296,7 @@ func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem
 func StartPositions(fs FrameSystem) map[string][]Input {
 	positions := make(map[string][]Input)
 	for _, frame := range fs.Frames() {
-		positions[frame.Name()] = make([]Input, frame.Dof())
+		positions[frame.Name()] = make([]Input, len(frame.Dof()))
 	}
 	return positions
 }

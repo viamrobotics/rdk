@@ -18,8 +18,8 @@ import (
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
 func ComputePosition(model *Model, joints *pb.JointPositions) (*pb.ArmPosition, error) {
 
-	if len(joints.Degrees) != model.Dof() {
-		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", model.Dof(), len(joints.Degrees))
+	if len(joints.Degrees) != len(model.Dof()) {
+		return nil, errors.Errorf("incorrect number of joints passed to ComputePosition. Want: %d, got: %d", len(model.Dof()), len(joints.Degrees))
 	}
 
 	radAngles := make([]float64, len(joints.Degrees))

@@ -26,15 +26,14 @@ func TestStaticFrame(t *testing.T) {
 	_, err = frame.Transform(nonEmptyInput)
 	test.That(t, err, test.ShouldNotBeNil)
 	// check that there are no limits on the static frame
-	min, max := frame.Limits()
-	test.That(t, min, test.ShouldResemble, []float64{})
-	test.That(t, max, test.ShouldResemble, []float64{})
+	limits := frame.Dof()
+	test.That(t, limits, test.ShouldResemble, []Limit{})
 }
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	min, max := []float64{0, -30, 0}, []float64{0, 30, 0}
-	frame := &prismaticFrame{"test", []bool{false, true, false}, min, max} // can only move on y axis
+	limits := []Limit{{0, 0}, {-30, 30}, {0, 0}}
+	frame := &prismaticFrame{"test", []bool{false, true, false}, limits} // can only move on y axis
 	// expected output
 	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
 	// get expected transform back
@@ -51,15 +50,14 @@ func TestPrismaticFrame(t *testing.T) {
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
-	reMin, reMax := frame.Limits()
-	test.That(t, reMin, test.ShouldResemble, min)
-	test.That(t, reMax, test.ShouldResemble, max)
+	frameLimits := frame.Dof()
+	test.That(t, frameLimits, test.ShouldResemble, limits)
 }
 
 func TestRevoluteFrame(t *testing.T) {
 	// define a prismatic transform
-	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                        // axis of rotation is x axis
-	frame := &revoluteFrame{"test", axis, -math.Pi / 2, math.Pi / 2} // limits between -90 and 90 degrees
+	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                               // axis of rotation is x axis
+	frame := &revoluteFrame{"test", axis, Limit{-math.Pi / 2, math.Pi / 2}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
@@ -76,7 +74,6 @@ func TestRevoluteFrame(t *testing.T) {
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
-	min, max := frame.Limits()
-	test.That(t, min, test.ShouldResemble, []float64{-math.Pi / 2})
-	test.That(t, max, test.ShouldResemble, []float64{math.Pi / 2})
+	limit := frame.Dof()
+	test.That(t, limit, test.ShouldResemble, []Limit{{-math.Pi / 2, math.Pi / 2}})
 }
