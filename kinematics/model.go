@@ -120,7 +120,7 @@ func (m *Model) Normalize(pos []float64) []float64 {
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) Transform(inputs []referenceframe.Input) spatialmath.Pose {
+func (m *Model) Transform(inputs []referenceframe.Input) (spatialmath.Pose, error) {
 	pos := make([]float64, len(inputs))
 	for i, input := range inputs {
 		pos[i] = input.Value
@@ -130,19 +130,22 @@ func (m *Model) Transform(inputs []referenceframe.Input) spatialmath.Pose {
 
 // JointRadToQuat takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
-func (m *Model) JointRadToQuat(radAngles []float64) spatialmath.Pose {
-	poses := m.GetPoses(radAngles)
+func (m *Model) JointRadToQuat(radAngles []float64) (spatialmath.Pose, error) {
+	poses, err := m.GetPoses(radAngles)
+	if err != nil {
+		return nil, err
+	}
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	transformations := spatialmath.NewEmptyPose()
 	for _, pose := range poses {
 		transformations = spatialmath.Compose(transformations, pose)
 	}
-	return transformations
+	return transformations, nil
 }
 
 // GetPoses returns the list of Poses which, when multiplied together in order, will yield the
 // Pose representing the 6d cartesian position of the end effector.
-func (m *Model) GetPoses(pos []float64) []spatialmath.Pose {
+func (m *Model) GetPoses(pos []float64) ([]spatialmath.Pose, error) {
 	var quats []spatialmath.Pose
 	posIdx := 0
 	// OrdTransforms is ordered from end effector -> base, so we reverse the list to get quaternions from the base outwards.
@@ -156,11 +159,14 @@ func (m *Model) GetPoses(pos []float64) []spatialmath.Pose {
 			posIdx++
 		}
 
-		quat := transform.Transform(input)
+		quat, err := transform.Transform(input)
+		if err != nil {
+			return []spatialmath.Pose{}, err
+		}
 		quats = append(quats, quat)
 
 	}
-	return quats
+	return quats, nil
 }
 
 // AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.

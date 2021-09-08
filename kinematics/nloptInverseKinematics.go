@@ -60,7 +60,12 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 		ik.iterations++
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
-		eePos := ik.model.JointRadToQuat(x)
+		eePos, err := ik.model.JointRadToQuat(x)
+		if err != nil {
+			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+			err = ik.opt.ForceStop()
+			ik.logger.Errorf("forcestop error %q", err)
+		}
 		dx := make([]float64, ik.model.OperationalDof()*7)
 
 		// Update dx with the delta to the desired position
@@ -82,7 +87,12 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				// Deep copy of our current joint positions
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
-				eePos := ik.model.JointRadToQuat(xBak)
+				eePos, err := ik.model.JointRadToQuat(xBak)
+				if err != nil {
+					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+					err = ik.opt.ForceStop()
+					ik.logger.Errorf("forcestop error %q", err)
+				}
 				dx2 := make([]float64, ik.model.OperationalDof()*7)
 				for _, nextGoal := range ik.getGoals() {
 					dxDelta := spatial.PoseDelta(eePos, nextGoal.GoalTransform)
@@ -200,7 +210,6 @@ func (ik *NloptIK) Solve(ctx context.Context, newGoal *pb.ArmPosition, seedAngle
 				retrySeed = true
 				startingRadians = newAngles
 			} else {
-				angles = ZeroInlineRotation(ik.model, angles)
 				return arm.JointPositionsFromRadians(angles), err
 			}
 		}

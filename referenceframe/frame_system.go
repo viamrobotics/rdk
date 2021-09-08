@@ -220,7 +220,7 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 		}
 		input = positions[frame.Name()]
 	}
-	return frame.Transform(input), nil
+	return frame.Transform(input)
 }
 
 // ComposeFrameSystems will combine two frame systems together, placing the world of fs2 at the given offset from
