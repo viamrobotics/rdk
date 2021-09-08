@@ -73,7 +73,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 
 	model.manufacturer = m.Model.Manufacturer
 	model.name = m.Model.Name
-	transforms := make(map[string]frame.Frame)
+	transforms := map[string]frame.Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := make(map[string]string)
@@ -144,7 +144,7 @@ func ParseJSON(jsonData []byte) (*Model, error) {
 	}
 
 	// Determine which transforms have no children
-	parents := make(map[string]frame.Frame)
+	parents := map[string]frame.Frame{}
 	// First create a copy of the map
 	for id, trans := range transforms {
 		parents[id] = trans

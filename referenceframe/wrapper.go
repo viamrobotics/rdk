@@ -47,29 +47,3 @@ func (f *FrameInverter) Transform(input []Input) (spatial.Pose, error) {
 	}
 	return wrappedPose.Invert(), err
 }
-
-//~ // A FrameSetWrapper will wrap any number of frames, allowing multiple dynamic frames to be combined into one for IK.
-//~ // The frames wrapped MUST be a single, unbranched chain.
-//~ type FrameSetWrapper struct {
-//~ frames []Frame
-//~ parent Frame
-//~ }
-
-//~ // WrapFrameSet will wrap up the given frames into a single frame. The
-//~ func WrapFrameSet(parent Frame, frames ...Frame) (*FrameSetWrapper, error) {
-
-//~ return &FrameSetWrapper{
-//~ frames:  frames,
-//~ parent: parent,
-//~ }, nil
-//~ }
-
-//~ // Transform returns the quaternion associated with the wrapped frame, transformed by the offset
-//~ func (f *FrameSetWrapper) Transform(input []Input) *spatialmath.DualQuaternion {
-//~ return f.Transform(input)
-//~ }
-
-//~ // Parent will return the name of the next transform up the kinematics chain from this frame
-//~ func (f *FrameSetWrapper) Parent() Frame {
-//~ return f.parent
-//~ }

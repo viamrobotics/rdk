@@ -6,9 +6,8 @@ import (
 
 	spatial "go.viam.com/core/spatialmath"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 )
 
 func TestSimpleRevoluteFrame(t *testing.T) {

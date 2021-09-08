@@ -77,21 +77,16 @@ func NewDualQuaternionFromArmPos(pos *pb.ArmPosition) *DualQuaternion {
 	return q
 }
 
-// poseToDQ takes any pose and converts it to a DQ
-func poseToDQ(p Pose) *DualQuaternion {
-	q := NewDualQuaternionFromRotation(p.Orientation())
-	pt := p.Point()
-	q.SetTranslation(pt.X, pt.Y, pt.Z)
-	return q
-}
-
 // NewDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
 // new one.
 func NewDualQuaternionFromPose(p Pose) *DualQuaternion {
 	if q, ok := p.(*DualQuaternion); ok {
 		return q.Clone()
 	}
-	return poseToDQ(p)
+	q := NewDualQuaternionFromRotation(p.Orientation())
+	pt := p.Point()
+	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	return q
 }
 
 // ToArmPos converts a DualQuaternion to an arm position
