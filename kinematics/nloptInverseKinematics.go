@@ -41,13 +41,13 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 	floatEpsilon := math.Nextafter(1, 2) - 1
 	ik.maxIterations = 10000
 	ik.iterations = 0
-	ik.lowerBound, ik.upperBound = mdl.Limits()
+	ik.lowerBound, ik.upperBound = limitsToArrays(mdl.Dof())
 	// How much to adjust joints to determine slope
 	ik.jump = 0.00000001
 
 	// May eventually need to be destroyed to prevent memory leaks
 	// If we're in a situation where we're making lots of new nlopts rather than reusing this one
-	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(ik.model.Dof()))
+	opt, err := nlopt.NewNLopt(nlopt.LD_SLSQP, uint(len(ik.model.Dof())))
 	if err != nil {
 		panic(errors.Errorf("nlopt creation error: %w", err)) // TODO(biotinker): should return error or panic
 	}
@@ -61,7 +61,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos, err := ik.model.JointRadToQuat(x)
-		if err != nil {
+		if err != nil && eePos == nil {
 			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 			err = ik.opt.ForceStop()
 			ik.logger.Errorf("forcestop error %q", err)
@@ -88,7 +88,7 @@ func CreateNloptIKSolver(mdl *Model, logger golog.Logger) *NloptIK {
 				xBak := append([]float64{}, x...)
 				xBak[i] += ik.jump
 				eePos, err := ik.model.JointRadToQuat(xBak)
-				if err != nil {
+				if err != nil && eePos == nil {
 					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
 					err = ik.opt.ForceStop()
 					ik.logger.Errorf("forcestop error %q", err)

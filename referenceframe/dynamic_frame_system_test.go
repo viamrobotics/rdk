@@ -15,7 +15,7 @@ func TestSimpleRevoluteFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// Revolute joint around X axis
-	joint := NewRevoluteFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, -math.Pi*2, math.Pi*2)
+	joint := NewRevoluteFrame("joint", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-math.Pi * 2, math.Pi * 2})
 	fs.AddFrame(joint, fs.World())
 
 	// Displace (2,2,10) from the joint
@@ -53,7 +53,8 @@ func TestSimplePrismaticFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// 1D gantry that slides in X
-	gantry := NewPrismaticFrame("gantry", []bool{true, false, false}, []float64{math.Inf(-1)}, []float64{math.Inf(1)})
+	gantry, err := NewPrismaticFrame("gantry", []bool{true, false, false}, []Limit{{math.Inf(-1), math.Inf(1)}})
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, fs.World())
 
 	positions := StartPositions(fs)

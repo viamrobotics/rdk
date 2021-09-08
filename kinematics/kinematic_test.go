@@ -155,9 +155,10 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, transformPoint1.Point().Y, test.ShouldAlmostEqual, pointWorld1.Y)
 	test.That(t, transformPoint1.Point().Z, test.ShouldAlmostEqual, pointWorld1.Z)
 
+	// Test ability to calculate hypothetical out-of-bounds positions for the arm, but still return an error
 	positions["xArm6"] = frame.FloatsToInputs([]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
 	transformPoint2, err := fs.TransformFrame(positions, fs.GetFrame("xArm6"), fs.GetFrame("world"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, transformPoint2.Point().X, test.ShouldAlmostEqual, pointWorld2.X)
 	test.That(t, transformPoint2.Point().Y, test.ShouldAlmostEqual, pointWorld2.Y)
 	test.That(t, transformPoint2.Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
@@ -180,7 +181,10 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	gantryOffset := frame.NewStaticFrame("gantryOffset", spatial.NewPoseFromPoint(r3.Vector{-50, -50, -200}))
 	fs.AddFrame(gantryOffset, fs.World())
 
-	gantry := frame.NewPrismaticFrame("gantry", []bool{true, true, false}, []float64{math.Inf(-1), math.Inf(-1)}, []float64{math.Inf(1), math.Inf(1)})
+	limits := []frame.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
+
+	gantry, err := frame.NewPrismaticFrame("gantry", []bool{true, true, false}, limits)
+	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
 	modelXarm, err := ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"))

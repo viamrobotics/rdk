@@ -23,10 +23,10 @@ func WrapFrame(frame, parent Frame) *FrameWrapper {
 // Transform returns the quaternion associated with the wrapped frame, transformed by the offset
 func (f *FrameWrapper) Transform(input []Input) (spatial.Pose, error) {
 	wrappedPose, err := f.Frame.Transform(input)
-	if err != nil {
+	if err != nil && wrappedPose == nil {
 		return nil, err
 	}
-	return spatial.Compose(f.offset, wrappedPose), nil
+	return spatial.Compose(f.offset, wrappedPose), err
 }
 
 // SetOffset sets the offset of the wrapped frame
@@ -42,10 +42,10 @@ type FrameInverter struct {
 // Transform returns the ConjQuat of the quaternion associated with the wrapped frame
 func (f *FrameInverter) Transform(input []Input) (spatial.Pose, error) {
 	wrappedPose, err := f.Frame.Transform(input)
-	if err != nil {
+	if err != nil && wrappedPose == nil {
 		return nil, err
 	}
-	return wrappedPose.Invert(), nil
+	return wrappedPose.Invert(), err
 }
 
 //~ // A FrameSetWrapper will wrap any number of frames, allowing multiple dynamic frames to be combined into one for IK.
