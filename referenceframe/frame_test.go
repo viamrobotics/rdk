@@ -4,9 +4,10 @@ import (
 	"math"
 	"testing"
 
+	"go.viam.com/test"
+
 	pb "go.viam.com/core/proto/api/v1"
 	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/test"
 
 	"github.com/golang/geo/r3"
 )
