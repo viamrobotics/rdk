@@ -1,7 +1,9 @@
 package javascript
 
 import (
+	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/go-errors/errors"
 	"github.com/wasmerio/wasmer-go/wasmer"
@@ -11,7 +13,6 @@ import (
 	"go.viam.com/utils/artifact"
 
 	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/rlog"
 )
 
 func init() {
@@ -21,12 +22,14 @@ func init() {
 }
 
 type javaScriptEngine struct {
-	jsCtxPtr interface{}
-	rtPtr    interface{}
+	jsCtxPtr      interface{}
+	rtPtr         interface{}
+	hostFuncCFunc interface{}
 
 	wasiEnv       *wasmer.WasiEnvironment
 	memory        *wasmer.Memory
 	exportedFuncs map[string]exportedFunc
+	importedFuncs map[string]functionvm.Function
 }
 
 type wasmerFunc func(args []wasmer.Value) ([]wasmer.Value, error)
@@ -133,6 +136,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		"JS_IsError":           {nil, false},
 		"JS_IsFunction":        {nil, false},
 		"JS_IsArray":           {nil, false},
+		"JS_NewString":         {nil, false},
 		"getWASMHostFunction":  {nil, false},
 		"malloc":               {nil, false},
 		"free":                 {nil, false},
@@ -175,6 +179,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		wasiEnv:       wasiEnv,
 		memory:        memory,
 		exportedFuncs: exportedFuncs,
+		importedFuncs: map[string]functionvm.Function{},
 	}
 
 	// our own initialization
@@ -194,6 +199,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	if err != nil {
 		return nil, err
 	}
+	engine.hostFuncCFunc = hostFuncCFunc
 
 	// set up host function proxy
 	*hostFuncPtr = func(args []wasmer.Value) ([]wasmer.Value, error) {
@@ -205,17 +211,42 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 
 		argC := args[2].I32()
 		argVBase := args[3].I32()
+		exportedArgs := make([]functionvm.Value, 0, argC)
 		for i := int32(0); i < argC; i++ {
 			jsVal := engine.readJSValue(argVBase + (i * 8))
 			exportedVal, err := engine.exportValue(jsVal)
 			if err != nil {
 				return nil, err
 			}
-			rlog.Logger.Debugf("exp %d %s", i, exportedVal.Stringer())
+			exportedArgs = append(exportedArgs, exportedVal)
 		}
 
-		// TODO(erd): call proxied function and import values back out
-		return []wasmer.Value{wasmer.NewI64(44)}, nil
+		if len(exportedArgs) == 0 {
+			return nil, errors.New("expected to have at least 1 argument for the imported function name")
+		}
+		importedFuncName, err := exportedArgs[0].String()
+		if err != nil {
+			return nil, err
+		}
+		importedFunc, ok := engine.importedFuncs[importedFuncName]
+		if !ok {
+			return nil, fmt.Errorf("no imported function called %q", importedFuncName)
+		}
+
+		results, err := importedFunc(exportedArgs[1:]...)
+		if err != nil {
+			return nil, err
+		}
+		importedResults := make([]wasmer.Value, 0, len(results))
+		for _, result := range results {
+			importedValue, err := engine.importValue(result)
+			if err != nil {
+				return nil, err
+			}
+			importedResults = append(importedResults, importedValue)
+		}
+
+		return importedResults, nil
 	}
 
 	if err := engine.initializeHostFunctions(hostFuncCFunc); err != nil {
@@ -296,58 +327,72 @@ func (eng *javaScriptEngine) checkException(value interface{}) error {
 	return errors.New(exceptionStr)
 }
 
-func (eng *javaScriptEngine) initializeHostFunctions(hostFunc interface{}) error {
+func (eng *javaScriptEngine) ImportFunction(name string, f functionvm.Function) error {
+	eng.importedFuncs[name] = f
+
 	globalObj, err := eng.callExportedFunction("JS_GetGlobalObject", eng.jsCtxPtr)
 	if err != nil {
 		return err
 	}
 
-	libFunc1Code := `(function(hostFunc) {console.log("creating"); return function(arg1) {return hostFunc("libFunc1", arg1);}});`
-	libFunc1CodePtr, deallocLibFunc1Code, err := eng.allocateCString(libFunc1Code)
+	proxyCode := fmt.Sprintf(`(function(hostFunc) {return function() {return hostFunc.apply(null, ["%s"].concat([...arguments]));}});`, name)
+	proxyCodePtr, deallocproxyCode, err := eng.allocateCString(proxyCode)
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(deallocLibFunc1Code)
+	defer utils.UncheckedErrorFunc(deallocproxyCode)
 
-	libFunc1FileName := "func"
-	libFunc1FileNamePtr, deallocLibFunc1FileName, err := eng.allocateCString(libFunc1FileName)
+	funcNamePtr, deallocfuncName, err := eng.allocateCString(name)
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(deallocLibFunc1FileName)
+	defer utils.UncheckedErrorFunc(deallocfuncName)
 
-	libFunc1Ret, err := eng.callExportedFunction("JS_Eval",
+	evalRet, err := eng.callExportedFunction("JS_Eval",
 		eng.jsCtxPtr,
-		libFunc1CodePtr,
-		len(libFunc1Code),
-		libFunc1FileNamePtr,
+		proxyCodePtr,
+		len(proxyCode),
+		funcNamePtr,
 		0, // JS_EVAL_TYPE_GLOBAL
 	)
 	if err != nil {
 		return err
 	}
-	libFunc1CtorPtr := libFunc1Ret.(int64)
+	funcCtorPtr := evalRet.(int64)
 
 	argVarArr, deallocArgVarArr, err := eng.allocateData(8)
 	if err != nil {
 		return err
 	}
 	defer utils.UncheckedErrorFunc(deallocArgVarArr)
-	eng.writeJSValue(argVarArr.(int32), hostFunc.(int64))
+	eng.writeJSValue(argVarArr.(int32), eng.hostFuncCFunc.(int64))
 
-	libFunc1Ptr, err := eng.callExportedFunction("JS_Call", eng.jsCtxPtr, libFunc1CtorPtr, globalObj, 1, argVarArr)
+	funcPtr, err := eng.callExportedFunction("JS_Call", eng.jsCtxPtr, funcCtorPtr, globalObj, 1, argVarArr)
 	if err != nil {
 		return err
 	}
 
-	libFunc1Name := "libFunc1"
-	libFunc1NamePtr, deallocLibFunc1Name, err := eng.allocateCString(libFunc1Name)
+	funcNamePtr, deallocfuncName, err = eng.allocateCString(name)
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(deallocLibFunc1Name)
+	defer utils.UncheckedErrorFunc(deallocfuncName)
 
-	if _, err := eng.callExportedFunction("JS_SetPropertyStr", eng.jsCtxPtr, globalObj, libFunc1NamePtr, libFunc1Ptr); err != nil {
+	if _, err := eng.callExportedFunction("JS_SetPropertyStr", eng.jsCtxPtr, globalObj, funcNamePtr, funcPtr); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (eng *javaScriptEngine) initializeHostFunctions(hostFunc interface{}) error {
+	if err := eng.ImportFunction("libFunc1", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+		var strs []string
+		for _, arg := range args {
+			strs = append(strs, arg.Stringer())
+		}
+		return []functionvm.Value{functionvm.NewString(fmt.Sprintf("done => %s", strings.Join(strs, " ")))}, nil
+	}); err != nil {
 		return err
 	}
 
@@ -413,6 +458,25 @@ func (eng *javaScriptEngine) ExecuteCode(code string) ([]functionvm.Value, error
 	return []functionvm.Value{val}, nil
 }
 
+func (eng *javaScriptEngine) importValue(value functionvm.Value) (wasmer.Value, error) {
+	vt := value.Type()
+	switch vt {
+	case functionvm.ValueTypeString:
+		valuePtr, deallocValue, err := eng.allocateCString(value.MustString())
+		if err != nil {
+			return wasmer.Value{}, err
+		}
+		defer utils.UncheckedErrorFunc(deallocValue)
+		str, err := eng.callExportedFunction("JS_NewString", eng.jsCtxPtr, valuePtr)
+		if err != nil {
+			return wasmer.Value{}, err
+		}
+		return wasmer.NewI64(str.(int64)), nil
+	default:
+		return wasmer.Value{}, errors.Errorf("do not know how to import a %q", vt)
+	}
+}
+
 func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, error) {
 	vt := functionvm.ValueTypeUnknown
 	for _, cc := range []struct {
@@ -433,10 +497,10 @@ func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, e
 		{"JS_IsException", functionvm.ValueTypeUnknown, false},
 		{"JS_IsString", functionvm.ValueTypeString, false},
 		{"JS_IsSymbol", functionvm.ValueTypeUnknown, false},
-		{"JS_IsError", functionvm.ValueTypeUnknown, false},
+		{"JS_IsError", functionvm.ValueTypeUnknown, true},
 		{"JS_IsFunction", functionvm.ValueTypeUnknown, true},
 		{"JS_IsArray", functionvm.ValueTypeUnknown, true},
-		{"JS_IsObject", functionvm.ValueTypeUnknown, true},
+		{"JS_IsObject", functionvm.ValueTypeUnknown, false},
 	} {
 		var args []interface{}
 		if cc.NeedCtx {
