@@ -15,7 +15,8 @@ if which go; then
   echo "golang installed"
 else
   ENV_OK=0
-  PREFIX="/usr/local" && \
+  PREFIX="/usr/local/go"
+  sudo mkdir -p $PREFIX
   VERSION="1.17" && \
     curl -sSL \
       "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
@@ -28,7 +29,7 @@ if [ "$(uname)" = "Linux" ]; then
   case $DISTRO in
     "Debian"|"Ubuntu")
       sudo apt update
-      sudo apt -y install libvpx-dev libx264-dev pkg-config
+      sudo apt -y install libvpx-dev libx264-dev pkg-config cmake
       if which npm; then
         echo "node installed"
       else
@@ -97,6 +98,7 @@ if [ "$(uname)" = "Darwin" ]; then
     brew "pkgconfig"
     brew "protobuf"
     brew "buf"
+    brew "cmake"
 EOS
   curl -L https://github.com/grpc/grpc-web/releases/download/1.2.1/protoc-gen-grpc-web-1.2.1-darwin-x86_64 --output protoc-gen-grpc-web
   chmod +x protoc-gen-grpc-web
