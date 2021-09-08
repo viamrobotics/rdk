@@ -7,6 +7,9 @@ import (
 	"github.com/wasmerio/wasmer-go/wasmer"
 	"go.uber.org/multierr"
 
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+
 	functionvm "go.viam.com/core/function/vm"
 	"go.viam.com/core/rlog"
 )
@@ -23,7 +26,7 @@ type javaScriptEngine struct {
 
 	wasiEnv       *wasmer.WasiEnvironment
 	memory        *wasmer.Memory
-	exportedFuncs map[string]func(...interface{}) (interface{}, error)
+	exportedFuncs map[string]exportedFunc
 }
 
 type wasmerFunc func(args []wasmer.Value) ([]wasmer.Value, error)
@@ -31,8 +34,8 @@ type wasmerFunc func(args []wasmer.Value) ([]wasmer.Value, error)
 // newQuickJSInstance returns a new WASM based QuickJS instance in addition
 // to a settable host function.
 func newQuickJSInstance() (*wasmer.Instance, *wasmer.WasiEnvironment, *wasmerFunc, error) {
-	// TODO(erd): build and embed
-	wasmBytes, err := ioutil.ReadFile("/Users/eric/Downloads/quickjs/libquickjs.wasm")
+	// TODO(erd): embed later
+	wasmBytes, err := ioutil.ReadFile(artifact.MustPath("function/vm/engines/javascript/libquickjs.wasm"))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -89,40 +92,45 @@ func newQuickJSInstance() (*wasmer.Instance, *wasmer.WasiEnvironment, *wasmerFun
 	return instance, wasiEnv, &actualHostFunc, err
 }
 
-// TODO(erd): spots to check for exception
+type exportedFunc struct {
+	Func         func(...interface{}) (interface{}, error)
+	CanException bool
+}
+
 func newJavaScriptEngine() (*javaScriptEngine, error) {
 	instance, wasiEnv, hostFuncPtr, err := newQuickJSInstance()
 	if err != nil {
 		return nil, err
 	}
 
-	exportedFuncs := map[string]func(...interface{}) (interface{}, error){
-		"JS_NewRuntime":        nil,
-		"js_std_init_handlers": nil,
-		"js_std_add_helpers":   nil,
-		"JS_NewContext":        nil,
-		"JS_Eval":              nil,
-		"js_std_loop":          nil,
-		"JS_FreeContext":       nil,
-		"JS_FreeRuntime":       nil,
-		"JS_IsException":       nil,
-		"JS_GetException":      nil,
-		"JS_ToCString":         nil,
-		"JS_FreeValue":         nil,
-		"JS_GetGlobalObject":   nil,
-		"JS_NewCFunction":      nil,
-		"JS_SetPropertyStr":    nil,
-		"JS_Call":              nil,
-		"getWASMHostFunction":  nil,
-		"malloc":               nil,
-		"free":                 nil,
+	exportedFuncs := map[string]exportedFunc{
+		"JS_NewRuntime":        {nil, false},
+		"js_std_init_handlers": {nil, false},
+		"js_std_add_helpers":   {nil, false},
+		"JS_NewContext":        {nil, false},
+		"JS_Eval":              {nil, true},
+		"js_std_loop":          {nil, false},
+		"JS_FreeContext":       {nil, false},
+		"JS_FreeRuntime":       {nil, false},
+		"JS_IsException":       {nil, false},
+		"JS_GetException":      {nil, false},
+		"JS_ToCString":         {nil, true},
+		"JS_FreeValue":         {nil, false},
+		"JS_GetGlobalObject":   {nil, false},
+		"JS_NewCFunction":      {nil, true},
+		"JS_SetPropertyStr":    {nil, true},
+		"JS_Call":              {nil, true},
+		"getWASMHostFunction":  {nil, false},
+		"malloc":               {nil, false},
+		"free":                 {nil, false},
 	}
-	for name := range exportedFuncs {
+	for name, value := range exportedFuncs {
 		exportedFunc, err := instance.Exports.GetFunction(name)
 		if err != nil {
 			return nil, errors.Errorf("failed to get function %q: %w", name, err)
 		}
-		exportedFuncs[name] = exportedFunc
+		value.Func = exportedFunc
+		exportedFuncs[name] = value
 	}
 
 	memory, err := instance.Exports.GetMemory("memory")
@@ -131,54 +139,53 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	}
 
 	// basic initialization
-	rtPtr, err := exportedFuncs["JS_NewRuntime"]()
+	rtPtr, err := exportedFuncs["JS_NewRuntime"].Func()
 	if err != nil {
 		return nil, err
 	}
-	_, err = exportedFuncs["js_std_init_handlers"](rtPtr)
+	_, err = exportedFuncs["js_std_init_handlers"].Func(rtPtr)
 	if err != nil {
 		return nil, err
 	}
-	jsCtxPtr, err := exportedFuncs["JS_NewContext"](rtPtr)
+	jsCtxPtr, err := exportedFuncs["JS_NewContext"].Func(rtPtr)
 	if err != nil {
 		return nil, err
 	}
-	_, err = exportedFuncs["js_std_add_helpers"](jsCtxPtr, 0, 0)
+	_, err = exportedFuncs["js_std_add_helpers"].Func(jsCtxPtr, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 
+	engine := &javaScriptEngine{
+		jsCtxPtr:      jsCtxPtr,
+		rtPtr:         rtPtr,
+		wasiEnv:       wasiEnv,
+		memory:        memory,
+		exportedFuncs: exportedFuncs,
+	}
+
 	// our own initialization
-	wasmHostFunctionPtr, err := exportedFuncs["getWASMHostFunction"]()
+	wasmHostFunctionPtr, err := engine.callExportedFunction("getWASMHostFunction")
 	if err != nil {
 		return nil, err
 	}
 
 	hostFuncName := "hostFunc"
-	// TODO(erd): free
-	hostFuncNamePtr, err := exportedFuncs["malloc"](len(hostFuncName) + 1)
+	hostFuncNamePtr, deallocHostFuncName, err := engine.allocateCString(hostFuncName)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(memory.Data()[hostFuncNamePtr.(int32):], append([]byte(hostFuncName), 0))
+	defer utils.UncheckedErrorFunc(deallocHostFuncName)
 
-	hostFuncCFunc, err := exportedFuncs["JS_NewCFunction"](jsCtxPtr, wasmHostFunctionPtr, hostFuncNamePtr, 1)
+	hostFuncCFunc, err := engine.callExportedFunction("JS_NewCFunction", jsCtxPtr, wasmHostFunctionPtr, hostFuncNamePtr, 1)
 	if err != nil {
 		return nil, err
 	}
 
 	// set up host function proxy
 	*hostFuncPtr = func(args []wasmer.Value) ([]wasmer.Value, error) {
-		readJSValue := func(memory *wasmer.Memory, at int32) int64 {
-			var val uint64
-			for i := int32(0); i < 8; i++ {
-				val |= uint64(memory.Data()[at+i]) << (i * 8)
-			}
-			return int64(val)
-		}
 
-		stringVal, err := exportedFuncs["JS_ToCString"](args[0].I32(), readJSValue(memory, args[3].I32()))
+		stringVal, err := engine.callExportedFunction("JS_ToCString", args[0].I32(), engine.readJSValue(args[3].I32()))
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +200,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		rlog.Logger.Debug("HOST -- ARG 0 ", toStringVal)
 
 		if args[2].I32() > 1 {
-			stringVal, err := exportedFuncs["JS_ToCString"](args[0].I32(), readJSValue(memory, args[3].I32()+8))
+			stringVal, err := engine.callExportedFunction("JS_ToCString", args[0].I32(), engine.readJSValue(args[3].I32()+8))
 			if err != nil {
 				return nil, err
 			}
@@ -211,13 +218,6 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		return []wasmer.Value{wasmer.NewI64(44)}, nil
 	}
 
-	engine := &javaScriptEngine{
-		jsCtxPtr:      jsCtxPtr,
-		rtPtr:         rtPtr,
-		wasiEnv:       wasiEnv,
-		memory:        memory,
-		exportedFuncs: exportedFuncs,
-	}
 	if err := engine.initializeHostFunctions(hostFuncCFunc); err != nil {
 		return nil, err
 	}
@@ -225,30 +225,98 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	return engine, nil
 }
 
+func (eng *javaScriptEngine) callExportedFunction(name string, args ...interface{}) (interface{}, error) {
+	expFunc, ok := eng.exportedFuncs[name]
+	if !ok {
+		return nil, errors.Errorf("no exported function called %q", name)
+	}
+	ret, err := expFunc.Func(args...)
+	if err != nil {
+		return nil, err
+	}
+	if !expFunc.CanException {
+		return ret, nil
+	}
+	if err := eng.checkException(ret); err != nil {
+		return nil, err
+	}
+	return ret, err
+}
+
+func (eng *javaScriptEngine) writeJSValue(at int32, val int64) {
+	for i := int32(0); i < 8; i++ {
+		eng.memory.Data()[at+i] = byte((val >> (i * 8)) & 0xFF)
+	}
+}
+
+func (eng *javaScriptEngine) readJSValue(at int32) int64 {
+	var val uint64
+	for i := int32(0); i < 8; i++ {
+		val |= uint64(eng.memory.Data()[at+i]) << (i * 8)
+	}
+	return int64(val)
+}
+
+func (eng *javaScriptEngine) valueToString(value interface{}) (string, error) {
+	stringVal, err := eng.callExportedFunction("JS_ToCString", eng.jsCtxPtr, value)
+	if err != nil {
+		return "", err
+	}
+	if _, err = eng.callExportedFunction("JS_FreeValue", eng.jsCtxPtr, value); err != nil {
+		return "", err
+	}
+	stringValPtr := stringVal.(int32)
+	stringValPtrIdx := stringValPtr
+
+	var toStringVal string
+	for eng.memory.Data()[stringValPtrIdx] != 0 {
+		toStringVal += string(eng.memory.Data()[stringValPtrIdx])
+		stringValPtrIdx++
+	}
+	return toStringVal, nil
+}
+
+func (eng *javaScriptEngine) checkException(value interface{}) error {
+	isExcep, err := eng.callExportedFunction("JS_IsException", value)
+	if err != nil {
+		return err
+	}
+	if isExcep.(int32) != 1 {
+		return nil
+	}
+	exceptionVal, err := eng.callExportedFunction("JS_GetException", eng.jsCtxPtr)
+	if err != nil {
+		return err
+	}
+
+	exceptionStr, err := eng.valueToString(exceptionVal)
+	if err != nil {
+		return err
+	}
+	return errors.New(exceptionStr)
+}
+
 func (eng *javaScriptEngine) initializeHostFunctions(hostFunc interface{}) error {
-	globalObj, err := eng.exportedFuncs["JS_GetGlobalObject"](eng.jsCtxPtr)
+	globalObj, err := eng.callExportedFunction("JS_GetGlobalObject", eng.jsCtxPtr)
 	if err != nil {
 		return err
 	}
 
 	libFunc1Code := `(function(hostFunc) {console.log("creating"); return function(arg1) {return hostFunc("libFunc1", arg1);}});`
-	libFunc1CodePtr, err := eng.exportedFuncs["malloc"](len(libFunc1Code) + 1)
+	libFunc1CodePtr, deallocLibFunc1Code, err := eng.allocateCString(libFunc1Code)
 	if err != nil {
 		return err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(eng.memory.Data()[libFunc1CodePtr.(int32):], append([]byte(libFunc1Code), 0))
+	defer utils.UncheckedErrorFunc(deallocLibFunc1Code)
 
 	libFunc1FileName := "func"
-	// TODO(erd): free
-	libFunc1FileNamePtr, err := eng.exportedFuncs["malloc"](len(libFunc1FileName) + 1)
+	libFunc1FileNamePtr, deallocLibFunc1FileName, err := eng.allocateCString(libFunc1FileName)
 	if err != nil {
 		return err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(eng.memory.Data()[libFunc1FileNamePtr.(int32):], append([]byte(libFunc1FileName), 0))
+	defer utils.UncheckedErrorFunc(deallocLibFunc1FileName)
 
-	libFunc1Ret, err := eng.exportedFuncs["JS_Eval"](
+	libFunc1Ret, err := eng.callExportedFunction("JS_Eval",
 		eng.jsCtxPtr,
 		libFunc1CodePtr,
 		len(libFunc1Code),
@@ -258,117 +326,74 @@ func (eng *javaScriptEngine) initializeHostFunctions(hostFunc interface{}) error
 	if err != nil {
 		return err
 	}
-
-	// TODO(erd): refactor
-	if retIsExcep, err := eng.exportedFuncs["JS_IsException"](libFunc1Ret); err == nil && retIsExcep.(int32) == 1 {
-		exceptionVal, err := eng.exportedFuncs["JS_GetException"](eng.jsCtxPtr)
-		if err != nil {
-			return err
-		}
-		stringVal, err := eng.exportedFuncs["JS_ToCString"](eng.jsCtxPtr, exceptionVal)
-		if err != nil {
-			return err
-		}
-		// TODO(erd): always need to free exceptions since they get orphaned after JS_GetException?
-		if _, err = eng.exportedFuncs["JS_FreeValue"](eng.jsCtxPtr, exceptionVal); err != nil {
-			return err
-		}
-		stringValPtr := stringVal.(int32)
-		stringValPtrIdx := stringValPtr
-
-		var toStringVal string
-		for eng.memory.Data()[stringValPtrIdx] != 0 {
-			toStringVal += string(eng.memory.Data()[stringValPtrIdx])
-			stringValPtrIdx++
-		}
-		return errors.New(toStringVal)
-	} else if err != nil {
-		return err
-	}
 	libFunc1CtorPtr := libFunc1Ret.(int64)
 
-	// can do this on stack?
-	// TODO(erd): free
-	argVarArr, err := eng.exportedFuncs["malloc"](8)
+	argVarArr, deallocArgVarArr, err := eng.allocateData(8)
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(deallocArgVarArr)
+	eng.writeJSValue(argVarArr.(int32), hostFunc.(int64))
 
-	writeJSValue := func(memory *wasmer.Memory, at int32, val int64) {
-		for i := int32(0); i < 8; i++ {
-			memory.Data()[at+i] = byte((val >> (i * 8)) & 0xFF)
-		}
-	}
-	writeJSValue(eng.memory, argVarArr.(int32), hostFunc.(int64))
-	libFunc1Ptr, err := eng.exportedFuncs["JS_Call"](eng.jsCtxPtr, libFunc1CtorPtr, globalObj, 1, argVarArr)
+	libFunc1Ptr, err := eng.callExportedFunction("JS_Call", eng.jsCtxPtr, libFunc1CtorPtr, globalObj, 1, argVarArr)
 	if err != nil {
-		return err
-	}
-
-	// TODO(erd): refactor
-	if retIsExcep, err := eng.exportedFuncs["JS_IsException"](libFunc1Ptr); err == nil && retIsExcep.(int32) == 1 {
-		exceptionVal, err := eng.exportedFuncs["JS_GetException"](eng.jsCtxPtr)
-		if err != nil {
-			return err
-		}
-		stringVal, err := eng.exportedFuncs["JS_ToCString"](eng.jsCtxPtr, exceptionVal)
-		if err != nil {
-			return err
-		}
-		// TODO(erd): always need to free exceptions since they get orphaned after JS_GetException?
-		if _, err = eng.exportedFuncs["JS_FreeValue"](eng.jsCtxPtr, exceptionVal); err != nil {
-			return err
-		}
-		stringValPtr := stringVal.(int32)
-		stringValPtrIdx := stringValPtr
-
-		var toStringVal string
-		for eng.memory.Data()[stringValPtrIdx] != 0 {
-			toStringVal += string(eng.memory.Data()[stringValPtrIdx])
-			stringValPtrIdx++
-		}
-	} else if err != nil {
 		return err
 	}
 
 	libFunc1Name := "libFunc1"
-	// TODO(erd): free
-	libFunc1NamePtr, err := eng.exportedFuncs["malloc"](len(libFunc1Name) + 1)
+	libFunc1NamePtr, deallocLibFunc1Name, err := eng.allocateCString(libFunc1Name)
 	if err != nil {
 		return err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(eng.memory.Data()[libFunc1NamePtr.(int32):], append([]byte(libFunc1Name), 0))
+	defer utils.UncheckedErrorFunc(deallocLibFunc1Name)
 
-	if _, err := eng.exportedFuncs["JS_SetPropertyStr"](eng.jsCtxPtr, globalObj, libFunc1NamePtr, libFunc1Ptr); err != nil {
+	if _, err := eng.callExportedFunction("JS_SetPropertyStr", eng.jsCtxPtr, globalObj, libFunc1NamePtr, libFunc1Ptr); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (eng *javaScriptEngine) allocateData(size int) (interface{}, func() error, error) {
+	dataPtr, err := eng.callExportedFunction("malloc", size)
+	if err != nil {
+		return nil, nil, err
+	}
+	return dataPtr, func() error {
+		_, err := eng.callExportedFunction("free", dataPtr)
+		return err
+	}, nil
+}
+
+func (eng *javaScriptEngine) allocateCString(value string) (interface{}, func() error, error) {
+	valuePtr, deallocateValue, err := eng.allocateData(len(value) + 1)
+	if err != nil {
+		return nil, nil, err
+	}
+	copy(eng.memory.Data()[valuePtr.(int32):], append([]byte(value), 0))
+	return valuePtr, deallocateValue, nil
+}
+
+// ExecuteCode evaluates the given code, followed by running the event loop. It returns
+// the value returned from the function (promises not yet handled), unless an error occurs.
 func (eng *javaScriptEngine) ExecuteCode(code string) ([]functionvm.Value, error) {
 
-	// TODO(erd): free
-	funcCodePtr, err := eng.exportedFuncs["malloc"](len(code) + 1)
+	codePtr, deallocCode, err := eng.allocateCString(code)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(eng.memory.Data()[funcCodePtr.(int32):], append([]byte(code), 0))
+	defer utils.UncheckedErrorFunc(deallocCode)
 
 	filename := "func"
-	// TODO(erd): free
-	filenamePtr, err := eng.exportedFuncs["malloc"](len(filename) + 1)
+	filenamePtr, deallocFilename, err := eng.allocateCString(filename)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(erd): refactor to cstring helper
-	copy(eng.memory.Data()[filenamePtr.(int32):], append([]byte(filename), 0))
+	defer utils.UncheckedErrorFunc(deallocFilename)
 
-	ret, err := eng.exportedFuncs["JS_Eval"](
+	ret, err := eng.callExportedFunction("JS_Eval",
 		eng.jsCtxPtr,
-		funcCodePtr,
+		codePtr,
 		len(code),
 		filenamePtr,
 		0, // JS_EVAL_TYPE_GLOBAL
@@ -377,41 +402,15 @@ func (eng *javaScriptEngine) ExecuteCode(code string) ([]functionvm.Value, error
 		return nil, err
 	}
 
-	if retIsExcep, err := eng.exportedFuncs["JS_IsException"](ret); err == nil && retIsExcep.(int32) == 1 {
-		exceptionVal, err := eng.exportedFuncs["JS_GetException"](eng.jsCtxPtr)
-		if err != nil {
-			return nil, err
-		}
-		stringVal, err := eng.exportedFuncs["JS_ToCString"](eng.jsCtxPtr, exceptionVal)
-		if err != nil {
-			return nil, err
-		}
-		// TODO(erd): always need to free exceptions since they get orphaned after JS_GetException?
-		if _, err = eng.exportedFuncs["JS_FreeValue"](eng.jsCtxPtr, exceptionVal); err != nil {
-			return nil, err
-		}
-		stringValPtr := stringVal.(int32)
-		stringValPtrIdx := stringValPtr
-
-		var toStringVal string
-		for eng.memory.Data()[stringValPtrIdx] != 0 {
-			toStringVal += string(eng.memory.Data()[stringValPtrIdx])
-			stringValPtrIdx++
-		}
-		return nil, errors.New(toStringVal)
-
-	} else if err != nil {
+	if _, err := eng.callExportedFunction("js_std_loop", eng.jsCtxPtr); err != nil {
 		return nil, err
 	}
 
-	// TODO(erd): put this in other execute blocks
-	if _, err := eng.exportedFuncs["js_std_loop"](eng.jsCtxPtr); err != nil {
-		return nil, err
-	}
-
+	rlog.Logger.Debug("RET:\n", ret)
 	rlog.Logger.Debug("STDOUT:\n", string(eng.wasiEnv.ReadStdout()))
 	rlog.Logger.Debug("STDERR:\n", string(eng.wasiEnv.ReadStderr()))
 
+	// TODO(erd): make this work
 	// val, err := eng.exportValue(ret)
 	// if err != nil {
 	// 	return nil, err
@@ -422,10 +421,10 @@ func (eng *javaScriptEngine) ExecuteCode(code string) ([]functionvm.Value, error
 
 func (eng *javaScriptEngine) Close() error {
 	var err error
-	if _, freeErr := eng.exportedFuncs["JS_FreeContext"](eng.jsCtxPtr); freeErr != nil {
+	if _, freeErr := eng.callExportedFunction("JS_FreeContext", eng.jsCtxPtr); freeErr != nil {
 		err = multierr.Combine(err, freeErr)
 	}
-	if _, freeErr := eng.exportedFuncs["JS_FreeRuntime"](eng.rtPtr); freeErr != nil {
+	if _, freeErr := eng.callExportedFunction("JS_FreeRuntime", eng.rtPtr); freeErr != nil {
 		err = multierr.Combine(err, freeErr)
 	}
 	return err
