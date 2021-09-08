@@ -73,7 +73,7 @@ func makeStaticFrame(comp *config.Component, name string) ref.Frame {
 }
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
-	if frameFunc, ok := registry.ComponentFrameFunction(comp); ok {
+	if frameFunc, ok := registry.FrameLookup(comp); ok {
 		return frameFunc(comp.Name)
 	}
 	// return identity frame if no frame function
