@@ -17,7 +17,6 @@ func TestArmPosition(t *testing.T) {
 	test.That(t, p.OZ, test.ShouldEqual, 0.7071)
 
 	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
-	test.That(t, p.Theta, test.ShouldEqual, math.Pi/2)
 }
 
 func TestJointPositions(t *testing.T) {
