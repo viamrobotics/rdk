@@ -75,9 +75,9 @@ func makeStaticFrame(comp *config.Component, name string) ref.Frame {
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
 	if frameFunc, ok := registry.ComponentFrameFunction(comp); ok {
 		return frameFunc(comp.Name)
-	} else { // return identity frame
-		return ref.NewStaticFrame(comp.Name, nil), nil
 	}
+	// return identity frame if no frame function
+	return ref.NewStaticFrame(comp.Name, nil), nil
 }
 
 func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame) (ref.FrameSystem, error) {
