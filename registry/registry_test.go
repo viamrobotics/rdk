@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/core/arm"
+	"go.viam.com/core/base"
 	"go.viam.com/core/camera"
 	"go.viam.com/core/config"
 	"go.viam.com/core/gripper"
@@ -41,6 +42,10 @@ func TestRegistry(t *testing.T) {
 	sf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 		return nil, nil
 	}
+
+	bf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+		return nil, nil
+	}
 	ff := func(name string) (referenceframe.Frame, error) {
 		return nil, nil
 	}
@@ -49,12 +54,14 @@ func TestRegistry(t *testing.T) {
 	test.That(t, func() { RegisterProvider("x", ProviderRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterCamera("x", CameraRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterArm("x", ArmRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterBase("x", BaseRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterGripper("x", GripperRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterLidar("x", LidarRegistration{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", SensorRegistration{}) }, test.ShouldPanic)
 
 	RegisterProvider("x", ProviderRegistration{Constructor: pf})
 	RegisterCamera("x", CameraRegistration{cf, ff})
+	RegisterBase("x", BaseRegistration{Constructor: bf, Frame: ff})
 	RegisterArm("x", ArmRegistration{Constructor: af, Frame: ff})
 	RegisterGripper("x", GripperRegistration{gf, ff})
 	RegisterLidar("x", LidarRegistration{Constructor: lf})
@@ -69,6 +76,9 @@ func TestRegistry(t *testing.T) {
 	test.That(t, ArmLookup("x"), test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, ArmLookup("x").Frame, test.ShouldNotBeNil)
+	test.That(t, BaseLookup("x"), test.ShouldNotBeNil)
+	test.That(t, BaseLookup("x").Constructor, test.ShouldNotBeNil)
+	test.That(t, BaseLookup("x").Frame, test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x"), test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x").Constructor, test.ShouldNotBeNil)
 	test.That(t, GripperLookup("x").Frame, test.ShouldNotBeNil)
