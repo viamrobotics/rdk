@@ -44,43 +44,43 @@ type (
 	CreateFrame func(name string) (referenceframe.Frame, error)
 )
 
-// ProviderRegistration
+// ProviderRegistration stores a Provider constructor (mandatory) and a Frame building function (optional)
 type ProviderRegistration struct {
 	Constructor CreateProvider
 	Frame       CreateFrame
 }
 
-// CameraRegistration struct
+// CameraRegistration stores a Camera constructor (mandatory) and a Frame building function (optional)
 type CameraRegistration struct {
 	Constructor CreateCamera
 	Frame       CreateFrame
 }
 
-// ArmRegistration struct
+// ArmRegistration stores an Arm constructor (mandatory) and a Frame building function (optional)
 type ArmRegistration struct {
 	Constructor CreateArm
 	Frame       CreateFrame
 }
 
-// GripperRegistration struct
+// GripperRegistration stores a Gripper constructor (mandatory) and a Frame building function (optional)
 type GripperRegistration struct {
 	Constructor CreateGripper
 	Frame       CreateFrame
 }
 
-// BaseRegistration struct
+// BaseRegistration stores a Base constructor (mandatory) and a Frame building function (optional)
 type BaseRegistration struct {
 	Constructor CreateBase
 	Frame       CreateFrame
 }
 
-// LidarRegistration struct
+// LidarRegistration stores a Lidar constructor (mandatory) and a Frame building function (optional)
 type LidarRegistration struct {
 	Constructor CreateLidar
 	Frame       CreateFrame
 }
 
-// SensorRegistration struct
+// SensorRegistration stores a Sensor constructor (mandatory) and a Frame building function (optional)
 type SensorRegistration struct {
 	Constructor CreateSensor
 	Frame       CreateFrame
@@ -189,9 +189,8 @@ func RegisterSensor(sensorType sensor.Type, model string, creator SensorRegistra
 func CameraLookup(model string) *CameraRegistration {
 	if registration, ok := cameraRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // ArmLookup looks up an arm creator by the given model. nil is returned if
@@ -199,9 +198,8 @@ func CameraLookup(model string) *CameraRegistration {
 func ArmLookup(model string) *ArmRegistration {
 	if registration, ok := armRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // GripperLookup looks up a gripper creator by the given model. nil is returned if
@@ -209,9 +207,8 @@ func ArmLookup(model string) *ArmRegistration {
 func GripperLookup(model string) *GripperRegistration {
 	if registration, ok := gripperRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // ProviderLookup looks up a provider creator by the given model. nil is returned if
@@ -219,9 +216,8 @@ func GripperLookup(model string) *GripperRegistration {
 func ProviderLookup(model string) *ProviderRegistration {
 	if registration, ok := providerRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
@@ -229,9 +225,8 @@ func ProviderLookup(model string) *ProviderRegistration {
 func BaseLookup(model string) *BaseRegistration {
 	if registration, ok := baseRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // LidarLookup looks up a lidar creator by the given model. nil is returned if
@@ -239,9 +234,8 @@ func BaseLookup(model string) *BaseRegistration {
 func LidarLookup(model string) *LidarRegistration {
 	if registration, ok := lidarRegistry[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // SensorLookup looks up a sensor creator by the given model. nil is returned if
@@ -253,9 +247,8 @@ func SensorLookup(sensorType sensor.Type, model string) *SensorRegistration {
 	}
 	if registration, ok := subTyped[model]; ok {
 		return &registration
-	} else {
-		return nil
 	}
+	return nil
 }
 
 // ComponentFrameFunction returns the FrameCreate function and a true bool if a frame is registered for the given component.
