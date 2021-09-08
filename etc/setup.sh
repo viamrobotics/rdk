@@ -66,7 +66,7 @@ if [ "$(uname)" = "Linux" ]; then
   if which buf; then
         echo "buf installed"
   else
-    PREFIX="/usr/local/buf" && \
+    PREFIX="/usr/local" && \
     VERSION="0.42.1" && \
       curl -sSL \
         "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
