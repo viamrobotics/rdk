@@ -15,7 +15,7 @@ if which go; then
   echo "golang installed"
 else
   ENV_OK=0
-  PREFIX="/usr/local" && \
+  PREFIX="/usr/local/go" && \
   VERSION="1.17" && \
     curl -sSL \
       "https://golang.org/dl/go${VERSION}.${PLATFORM}-${ARCH}.tar.gz" | \
@@ -66,7 +66,7 @@ if [ "$(uname)" = "Linux" ]; then
   if which buf; then
         echo "buf installed"
   else
-    PREFIX="/usr/local" && \
+    PREFIX="/usr/local/buf" && \
     VERSION="0.42.1" && \
       curl -sSL \
         "https://github.com/bufbuild/buf/releases/download/v${VERSION}/buf-$(uname -s)-$(uname -m).tar.gz" | \
@@ -147,7 +147,7 @@ case $(basename $SHELL) in
     if [ "$(uname)" = "Linux" ]; then
       echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.bashrc'
     fi
-    echo 'echo export PATH=$PATH:/usr/local/go/bin:~/go/bin  >> ~/.bashrc'
+    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.bashrc'
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.bashrc'
     ;;
 
@@ -156,7 +156,7 @@ case $(basename $SHELL) in
     if [ "$(uname)" = "Linux" ]; then
       echo 'echo export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH >> ~/.zshrc'
     fi
-    echo 'echo export PATH=$PATH:/usr/local/go/bin:~/go/bin  >> ~/.zshrc'
+    echo 'echo export PATH=$PATH:/usr/local/go/bin  >> ~/.zshrc'
     echo 'echo export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*  >> ~/.zshrc'
     ;;
   *)
