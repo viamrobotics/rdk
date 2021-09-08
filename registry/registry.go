@@ -44,9 +44,7 @@ type (
 	CreateFrame func(name string) (referenceframe.Frame, error)
 )
 
-// all registration structs
-
-// ProviderRegistration struct
+// ProviderRegistration
 type ProviderRegistration struct {
 	Constructor CreateProvider
 	Frame       CreateFrame
@@ -90,13 +88,13 @@ type SensorRegistration struct {
 
 // all registries
 var (
-	cameraRegistry   = make(map[string]CameraRegistration)
-	armRegistry      = make(map[string]ArmRegistration)
-	gripperRegistry  = make(map[string]GripperRegistration)
-	providerRegistry = make(map[string]ProviderRegistration)
-	baseRegistry     = make(map[string]BaseRegistration)
-	lidarRegistry    = make(map[string]LidarRegistration)
-	sensorRegistry   = make(map[sensor.Type]map[string]SensorRegistration)
+	cameraRegistry   = map[string]CameraRegistration{}
+	armRegistry      = map[string]ArmRegistration{}
+	gripperRegistry  = map[string]GripperRegistration{}
+	providerRegistry = map[string]ProviderRegistration{}
+	baseRegistry     = map[string]BaseRegistration{}
+	lidarRegistry    = map[string]LidarRegistration{}
+	sensorRegistry   = map[sensor.Type]map[string]SensorRegistration{}
 )
 
 // RegisterCamera register a camera model to a creator.
@@ -230,4 +228,56 @@ func SensorLookup(sensorType sensor.Type, model string) SensorRegistration {
 		return nil
 	}
 	return subTyped[model]
+}
+
+func ComponentFrameFunction(compType config.ComponentType, model string) (CreateFrame, bool) {
+	switch compType {
+	case config.ComponentTypeProvider:
+		registration := ProviderLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeBase:
+		registration := BaseLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeArm:
+		registration := ArmLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeGripper:
+		registration := GripperLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeCamera:
+		registration := CameraLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeLidar:
+		registration := LidarLookup(model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	case config.ComponentTypeSensor:
+		if comp.SubType == "" {
+			return nil, false
+		}
+		registration := SensorLookup(sensor.Type(comp.SubType), model)
+		if registration == nil || registration.Frame == nil {
+			return nil, false
+		}
+		return registration.Frame, true
+	default:
+		return nil, false
+	}
 }
