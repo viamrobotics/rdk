@@ -25,7 +25,7 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 	// build each frame in the config file
 	children := map[string][]ref.Frame{}
 	names := map[string]bool{}
-	names["world"] = true
+	names[ref.World] = true
 	// loop through components and grab the components that have frame info
 	for _, c := range cfg.Components {
 		if c.Name == "" {
@@ -61,9 +61,9 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 
 func makePoseFromConfig(f *config.FrameConfig) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
-	translation := r3.Vector{f.Translate.X, f.Translate.Y, f.Translate.Z}
+	translation := r3.Vector{f.Translation.X, f.Translation.Y, f.Translation.Z}
 
-	ov := &spatial.OrientationVec{utils.DegToRad(f.Orient.TH), f.Orient.X, f.Orient.Y, f.Orient.Z}
+	ov := &spatial.OrientationVec{utils.DegToRad(f.Orientation.TH), f.Orientation.X, f.Orientation.Y, f.Orientation.Z}
 	return spatial.NewPoseFromOrientationVector(translation, ov)
 }
 
@@ -85,10 +85,10 @@ func buildFrameSystem(name string, frameNames map[string]bool, children map[stri
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
 	// check to see if world exists, and start with the frames attached to world
-	if _, ok := children["world"]; !ok {
+	if _, ok := children[ref.World]; !ok {
 		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
 	}
-	stack = append(stack, "world")
+	stack = append(stack, ref.World)
 	// begin adding frames to the frame system
 	fs := ref.NewEmptySimpleFrameSystem(name)
 	for len(stack) != 0 {

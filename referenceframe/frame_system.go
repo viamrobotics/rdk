@@ -10,7 +10,8 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 )
 
-const world = "world"
+// World is the string "world", but made into an exported constant
+const World = "world"
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem interface {
@@ -49,7 +50,7 @@ func (sfs *simpleFrameSystem) World() Frame {
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
 func (sfs *simpleFrameSystem) frameExists(name string) bool {
-	if name == world {
+	if name == World {
 		return true
 	}
 	if _, ok := sfs.frames[name]; ok {
@@ -76,7 +77,7 @@ func (sfs *simpleFrameSystem) GetFrame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
 	}
-	if name == world {
+	if name == World {
 		return sfs.world
 	}
 	return sfs.frames[name]
@@ -237,7 +238,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 
 	// Go through fs2, and reset the parent of any relevant fromes from world to the new offset
 	for frame, parent := range fs2.Parents() {
-		if parent.Name() == world {
+		if parent.Name() == World {
 			parent = offset
 		}
 		if newFS.frameExists(frame.Name()) {
@@ -254,7 +255,7 @@ func ComposeFrameSystems(fs1, fs2 FrameSystem, offset Frame) (FrameSystem, error
 // descendents removed.
 func DivideFrameSystem(fs1 FrameSystem, newRoot Frame) (FrameSystem, FrameSystem, error) {
 	newFS1 := &simpleFrameSystem{fs1.Name() + "_r_" + newRoot.Name(), fs1.World(), map[string]Frame{}, map[Frame]Frame{}}
-	newWorld := NewStaticFrame(world, nil)
+	newWorld := NewStaticFrame(World, nil)
 	newFS2 := &simpleFrameSystem{newRoot.Name(), newWorld, map[string]Frame{}, map[Frame]Frame{}}
 
 	rootFrame := fs1.GetFrame(newRoot.Name())
