@@ -24,8 +24,8 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 	}
 
 	// build each frame in the config file
-	children := make(map[string][]ref.Frame)
-	names := make(map[string]bool)
+	children := map[string][]ref.Frame{}
+	names := map[string]bool{}
 	names["world"] = true
 	// loop through components and grab the components that have frame info
 	for _, c := range cfg.Components {
@@ -42,7 +42,7 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 			staticFrame := makeStaticFrame(&c, staticName)
 			// check to see if there are no repeated names
 			if _, ok := names[staticFrame.Name()]; ok {
-				return nil, fmt.Errorf("cannot have more than one Frame with name %s", staticFrame.Name())
+				return nil, fmt.Errorf("cannot have more than one frame with name %s", staticFrame.Name())
 			}
 			names[staticFrame.Name()] = true
 			// attach the static frame to the parent
@@ -50,7 +50,7 @@ func CreateReferenceFrameSystem(ctx context.Context, r robot.Robot) (ref.FrameSy
 
 			// if the model frame exists, add it as well
 			if _, ok := names[modelFrame.Name()]; ok {
-				return nil, fmt.Errorf("cannot have more than one Frame with name %s", modelFrame.Name())
+				return nil, fmt.Errorf("cannot have more than one frame with name %s", modelFrame.Name())
 			}
 			names[modelFrame.Name()] = true
 			// store the children Frames in a list to build the tree later
@@ -74,63 +74,11 @@ func makeStaticFrame(comp *config.Component, name string) ref.Frame {
 }
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
-	var modelFrame ref.Frame
-	identityFrame := ref.NewStaticFrame(comp.Name, nil)
-	var err error
-	// get the frame as registered in the component model
-	switch comp.Type {
-	case config.ComponentTypeProvider:
-		registration := registry.ProviderLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeBase:
-		registration := registry.BaseLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeArm:
-		registration := registry.ArmLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeGripper:
-		registration := registry.GripperLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeCamera:
-		registration := registry.CameraLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeLidar:
-		registration := registry.LidarLookup(comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	case config.ComponentTypeSensor:
-		if comp.SubType == "" {
-			return nil, errors.New("sensor component requires subtype")
-		}
-		registration := registry.SensorLookup(sensor.Type(comp.SubType), comp.Model)
-		if registration == nil || registration.Frame == nil {
-			return identityFrame, nil
-		}
-		modelFrame, err = registration.Frame(comp.Name)
-	default:
-		return nil, fmt.Errorf("unknown component type: %v", comp.Type)
+	if frameFunc, ok := registry.ComponentFrameFunction(comp.Type, comp.Model); ok {
+		return frameFunc(comp.Name)
+	} else { // return identity frame
+		return ref.NewStaticFrame(comp.Name, nil), nil
 	}
-	if err != nil {
-		return nil, err
-	}
-	return modelFrame, nil
 }
 
 func buildFrameSystem(name string, frameNames map[string]bool, children map[string][]ref.Frame) (ref.FrameSystem, error) {
