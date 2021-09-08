@@ -1,24 +1,32 @@
 package functionvm
 
-import "github.com/go-errors/errors"
+import (
+	"fmt"
+
+	"github.com/go-errors/errors"
+)
 
 // A Value represents some scalar/array/map type.
 type Value interface {
+	String() (string, error)
 	MustString() string
+	Stringer() string
 }
 
-type valueType int
+// A ValueType denotes the type of value this is.
+type ValueType int
 
+// The set of ValueTypes.s
 const (
-	valueTypeString = valueType(iota)
-	valueTypeUnknown
+	ValueTypeString = ValueType(iota)
+	ValueTypeUnknown
 )
 
-func (vt valueType) String() string {
+func (vt ValueType) String() string {
 	switch vt {
-	case valueTypeString:
+	case ValueTypeString:
 		return "string"
-	case valueTypeUnknown:
+	case ValueTypeUnknown:
 		fallthrough
 	default:
 		return "unknown"
@@ -26,7 +34,7 @@ func (vt valueType) String() string {
 }
 
 type primitiveValue struct {
-	valType valueType
+	valType ValueType
 	val     interface{}
 }
 
@@ -39,16 +47,20 @@ func (pv *primitiveValue) MustString() string {
 }
 
 func (pv *primitiveValue) String() (string, error) {
-	if pv.valType != valueTypeString {
-		return "", errors.Errorf("expected type %q but got %q", valueTypeString, pv.valType)
+	if pv.valType != ValueTypeString {
+		return "", errors.Errorf("expected type %q but got %q", ValueTypeString, pv.valType)
 	}
 	return pv.val.(string), nil
+}
+
+func (pv *primitiveValue) Stringer() string {
+	return fmt.Sprintf("%v", pv.val)
 }
 
 // NewString returns a new string based value.
 func NewString(val string) Value {
 	return &primitiveValue{
-		valType: valueTypeString,
+		valType: ValueTypeString,
 		val:     val,
 	}
 }

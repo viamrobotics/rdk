@@ -120,6 +120,19 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		"JS_NewCFunction":      {nil, true},
 		"JS_SetPropertyStr":    {nil, true},
 		"JS_Call":              {nil, true},
+		"JS_IsNumber":          {nil, false},
+		"JS_IsBigInt":          {nil, false},
+		"JS_IsBigFloat":        {nil, false},
+		"JS_IsBigDecimal":      {nil, false},
+		"JS_IsBool":            {nil, false},
+		"JS_IsNull":            {nil, false},
+		"JS_IsUndefined":       {nil, false},
+		"JS_IsString":          {nil, false},
+		"JS_IsSymbol":          {nil, false},
+		"JS_IsObject":          {nil, false},
+		"JS_IsError":           {nil, false},
+		"JS_IsFunction":        {nil, false},
+		"JS_IsArray":           {nil, false},
 		"getWASMHostFunction":  {nil, false},
 		"malloc":               {nil, false},
 		"free":                 {nil, false},
@@ -184,37 +197,24 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 
 	// set up host function proxy
 	*hostFuncPtr = func(args []wasmer.Value) ([]wasmer.Value, error) {
+		// Arguments
+		// JSContext *ctx 			I32 - Unused, since it's constant
+		// JSValueConst this_val 	I64 - Unused for now
+		// int argc 				I32 - Loop over this
+		// JSValueConst *argv 		I32 - Export each value
 
-		stringVal, err := engine.callExportedFunction("JS_ToCString", args[0].I32(), engine.readJSValue(args[3].I32()))
-		if err != nil {
-			return nil, err
-		}
-		stringValPtr := stringVal.(int32)
-		stringValPtrIdx := stringValPtr
-
-		var toStringVal string
-		for memory.Data()[stringValPtrIdx] != 0 {
-			toStringVal += string(memory.Data()[stringValPtrIdx])
-			stringValPtrIdx++
-		}
-		rlog.Logger.Debug("HOST -- ARG 0 ", toStringVal)
-
-		if args[2].I32() > 1 {
-			stringVal, err := engine.callExportedFunction("JS_ToCString", args[0].I32(), engine.readJSValue(args[3].I32()+8))
+		argC := args[2].I32()
+		argVBase := args[3].I32()
+		for i := int32(0); i < argC; i++ {
+			jsVal := engine.readJSValue(argVBase + (i * 8))
+			exportedVal, err := engine.exportValue(jsVal)
 			if err != nil {
 				return nil, err
 			}
-			stringValPtr := stringVal.(int32)
-			stringValPtrIdx := stringValPtr
-
-			var toStringVal string
-			for memory.Data()[stringValPtrIdx] != 0 {
-				toStringVal += string(memory.Data()[stringValPtrIdx])
-				stringValPtrIdx++
-			}
-			rlog.Logger.Debug("HOST -- ARG 1 ", toStringVal)
+			rlog.Logger.Debugf("exp %d %s", i, exportedVal.Stringer())
 		}
 
+		// TODO(erd): call proxied function and import values back out
 		return []wasmer.Value{wasmer.NewI64(44)}, nil
 	}
 
@@ -406,17 +406,63 @@ func (eng *javaScriptEngine) ExecuteCode(code string) ([]functionvm.Value, error
 		return nil, err
 	}
 
-	rlog.Logger.Debug("RET:\n", ret)
-	rlog.Logger.Debug("STDOUT:\n", string(eng.wasiEnv.ReadStdout()))
-	rlog.Logger.Debug("STDERR:\n", string(eng.wasiEnv.ReadStderr()))
+	val, err := eng.exportValue(ret)
+	if err != nil {
+		return nil, err
+	}
+	return []functionvm.Value{val}, nil
+}
 
-	// TODO(erd): make this work
-	// val, err := eng.exportValue(ret)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return []functionvm.Value{val}, nil
-	return []functionvm.Value{functionvm.NewString("hello")}, nil
+func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, error) {
+	vt := functionvm.ValueTypeUnknown
+	for _, cc := range []struct {
+		FuncName  string
+		ValueType functionvm.ValueType
+		NeedCtx   bool
+	}{
+		// TODO(erd): need to implement all of these and possibly
+		// remove/reorder some. May need to find a faster way to do this
+		// and return a API consistent type descriptor from QuickJS.
+		{"JS_IsNumber", functionvm.ValueTypeUnknown, false},
+		{"JS_IsBigInt", functionvm.ValueTypeUnknown, true},
+		{"JS_IsBigFloat", functionvm.ValueTypeUnknown, false},
+		{"JS_IsBigDecimal", functionvm.ValueTypeUnknown, false},
+		{"JS_IsBool", functionvm.ValueTypeUnknown, false},
+		{"JS_IsNull", functionvm.ValueTypeUnknown, false},
+		{"JS_IsUndefined", functionvm.ValueTypeUnknown, false},
+		{"JS_IsException", functionvm.ValueTypeUnknown, false},
+		{"JS_IsString", functionvm.ValueTypeString, false},
+		{"JS_IsSymbol", functionvm.ValueTypeUnknown, false},
+		{"JS_IsError", functionvm.ValueTypeUnknown, false},
+		{"JS_IsFunction", functionvm.ValueTypeUnknown, true},
+		{"JS_IsArray", functionvm.ValueTypeUnknown, true},
+		{"JS_IsObject", functionvm.ValueTypeUnknown, true},
+	} {
+		var args []interface{}
+		if cc.NeedCtx {
+			args = append(args, eng.jsCtxPtr)
+		}
+		args = append(args, value)
+		ret, err := eng.callExportedFunction(cc.FuncName, args...)
+		if err != nil {
+			return nil, err
+		}
+		if ret.(int32) == 1 {
+			vt = cc.ValueType
+			break
+		}
+	}
+	switch vt {
+	case functionvm.ValueTypeString:
+		str, err := eng.valueToString(value)
+		if err != nil {
+			return nil, err
+		}
+		return functionvm.NewString(str), nil
+	default:
+		return nil, errors.Errorf("do not know how to export a %q", vt)
+	}
+
 }
 
 func (eng *javaScriptEngine) Close() error {
