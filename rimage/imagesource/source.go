@@ -33,16 +33,16 @@ import (
 var intel515json []byte
 
 func init() {
-	registry.RegisterCamera("intel", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("intel", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		source, err := NewIntelServerSource(config.Host, config.Port, config.Attributes)
 		if err != nil {
 			return nil, err
 		}
 		return &camera.ImageSource{source}, nil
 	}})
-	registry.RegisterCamera("eliot", registry.CameraLookup("intel"))
+	registry.RegisterCamera("eliot", *registry.CameraLookup("intel"))
 
-	registry.RegisterCamera("url", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("url", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		if len(config.Attributes) == 0 {
 			return nil, errors.New("camera 'url' needs a color attribute (and a depth if you have it)")
 		}
@@ -61,7 +61,7 @@ func init() {
 		}}, nil
 	}})
 
-	registry.RegisterCamera("file", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("file", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		x, has := config.Attributes["aligned"]
 		if !has {
 			return nil, errors.New("config for file needs bool attribute 'aligned'")

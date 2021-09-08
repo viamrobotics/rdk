@@ -65,7 +65,7 @@ type xArm6 struct {
 var xArm6modeljson []byte
 
 func init() {
-	registry.RegisterArm("xArm6", &registry.ArmRegistration{
+	registry.RegisterArm("xArm6", registry.ArmRegistration{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			return NewxArm6(ctx, config.Host, logger)
 		},

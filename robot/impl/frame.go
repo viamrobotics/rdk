@@ -9,7 +9,6 @@ import (
 	ref "go.viam.com/core/referenceframe"
 	"go.viam.com/core/registry"
 	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
@@ -74,7 +73,7 @@ func makeStaticFrame(comp *config.Component, name string) ref.Frame {
 }
 
 func makeModelFrame(comp *config.Component) (ref.Frame, error) {
-	if frameFunc, ok := registry.ComponentFrameFunction(comp.Type, comp.Model); ok {
+	if frameFunc, ok := registry.ComponentFrameFunction(comp); ok {
 		return frameFunc(comp.Name)
 	} else { // return identity frame
 		return ref.NewStaticFrame(comp.Name, nil), nil

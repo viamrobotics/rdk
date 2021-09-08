@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("preprocessDepth", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("preprocessDepth", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		return newPreprocessDepth(r, config)
 	}})
 }

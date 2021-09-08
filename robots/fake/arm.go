@@ -19,7 +19,7 @@ import (
 )
 
 func init() {
-	registry.RegisterArm("fake", &registry.ArmRegistration{
+	registry.RegisterArm("fake", registry.ArmRegistration{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")

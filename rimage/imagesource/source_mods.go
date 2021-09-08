@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("rotate", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("rotate", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
 		source, ok := r.CameraByName(sourceName)
 		if !ok {
@@ -28,7 +28,7 @@ func init() {
 		return &camera.ImageSource{&RotateImageDepthSource{source}}, nil
 	}})
 
-	registry.RegisterCamera("resize", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("resize", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		sourceName := config.Attributes.String("source")
 		source, ok := r.CameraByName(sourceName)
 		if !ok {

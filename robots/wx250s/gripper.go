@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	registry.RegisterGripper("wx250s", &registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
+	registry.RegisterGripper("wx250s", registry.GripperRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error) {
 		mut, err := robot.AsMutable(r)
 		if err != nil {
 			return nil, err

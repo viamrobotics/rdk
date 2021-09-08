@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	registry.RegisterCamera("depthComposed", &registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
+	registry.RegisterCamera("depthComposed", registry.CameraRegistration{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error) {
 		attrs := config.Attributes
 
 		colorName := attrs.String("color")

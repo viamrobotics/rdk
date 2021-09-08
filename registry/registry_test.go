@@ -45,12 +45,20 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
-	RegisterProvider("x", &ProviderRegistration{Constructor: pf})
-	RegisterCamera("x", &CameraRegistration{cf, ff})
-	RegisterArm("x", &ArmRegistration{Constructor: af, Frame: ff})
-	RegisterGripper("x", &GripperRegistration{gf, ff})
-	RegisterLidar("x", &LidarRegistration{Constructor: lf})
-	RegisterSensor(sensor.Type("x"), "y", &SensorRegistration{Constructor: sf, Frame: ff})
+	// test panics
+	test.That(t, func() { RegisterProvider("x", ProviderRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterCamera("x", CameraRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterArm("x", ArmRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterGripper("x", GripperRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterLidar("x", LidarRegistration{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", SensorRegistration{}) }, test.ShouldPanic)
+
+	RegisterProvider("x", ProviderRegistration{Constructor: pf})
+	RegisterCamera("x", CameraRegistration{cf, ff})
+	RegisterArm("x", ArmRegistration{Constructor: af, Frame: ff})
+	RegisterGripper("x", GripperRegistration{gf, ff})
+	RegisterLidar("x", LidarRegistration{Constructor: lf})
+	RegisterSensor(sensor.Type("x"), "y", SensorRegistration{Constructor: sf, Frame: ff})
 
 	test.That(t, ProviderLookup("x"), test.ShouldNotBeNil)
 	test.That(t, ProviderLookup("x").Constructor, test.ShouldNotBeNil)
